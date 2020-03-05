@@ -107,8 +107,6 @@
     <None Remove="TestFiles\R5\ValidCompartmentDefinition.json" />
     <None Remove="TestFiles\R5\Weight.json" />
     <None Remove="TestFiles\R5\WeightInGrams.json" />
-    <None Remove="TestFiles\R4\AuthConfigWithInvalidEntries.json" />
-    <None Remove="TestFiles\R4\AuthConfigWithValidRoles.json" />
     <None Remove="TestFiles\R4\BasicExampleNarrative.json" />
     <None Remove="TestFiles\R4\BasicExampleNarrative.xml" />
     <None Remove="TestFiles\R4\BloodGlucose.json" />
@@ -258,8 +256,6 @@
     <EmbeddedResource Include="TestFiles\R5\ValidCompartmentDefinition.json" />
     <EmbeddedResource Include="TestFiles\R5\Weight.json" />
     <EmbeddedResource Include="TestFiles\R5\WeightInGrams.json" />
-    <EmbeddedResource Include="TestFiles\R4\AuthConfigWithInvalidEntries.json" />
-    <EmbeddedResource Include="TestFiles\R4\AuthConfigWithValidRoles.json" />
     <EmbeddedResource Include="TestFiles\R4\BasicExampleNarrative.json" />
     <EmbeddedResource Include="TestFiles\R4\BasicExampleNarrative.xml" />
     <EmbeddedResource Include="TestFiles\R4\BloodGlucose.json" />
@@ -357,8 +353,6 @@
     <EmbeddedResource Include="TestFiles\Stu3\Patient.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Patient.xml" />
     <EmbeddedResource Include="TestFiles\Stu3\ResourceWrapperNoVersion.json" />
-    <EmbeddedResource Include="TestFiles\Stu3\AuthConfigWithInvalidEntries.json" />
-    <EmbeddedResource Include="TestFiles\Stu3\AuthConfigWithValidRoles.json" />
     <EmbeddedResource Include="TestFiles\Stu3\ValidCompartmentDefinition.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Weight.json" />
     <EmbeddedResource Include="TestFiles\Stu3\WeightInGrams.json" />

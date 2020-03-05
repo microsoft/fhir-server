@@ -14,6 +14,7 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Models;
 using static Hl7.Fhir.Model.Bundle;
 
@@ -26,8 +27,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             Lazy<IConformanceProvider> conformanceProvider,
             IResourceWrapperFactory resourceWrapperFactory,
             ISearchService searchService,
-            ResourceIdProvider resourceIdProvider)
-            : base(fhirDataStore, searchService, conformanceProvider, resourceWrapperFactory, resourceIdProvider)
+            ResourceIdProvider resourceIdProvider,
+            IFhirAuthorizationService authorizationService)
+            : base(fhirDataStore, searchService, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
         }
 

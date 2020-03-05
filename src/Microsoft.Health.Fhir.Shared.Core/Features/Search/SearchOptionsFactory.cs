@@ -31,18 +31,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
         public SearchOptionsFactory(
             IExpressionParser expressionParser,
-            ISearchParameterDefinitionManager searchParameterDefinitionManager,
+            SearchableSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
             ILogger<SearchOptionsFactory> logger)
         {
             EnsureArg.IsNotNull(expressionParser, nameof(expressionParser));
-            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
+            EnsureArg.IsNotNull(searchParameterDefinitionManagerResolver, nameof(searchParameterDefinitionManagerResolver));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _expressionParser = expressionParser;
-            _searchParameterDefinitionManager = searchParameterDefinitionManager;
+            _searchParameterDefinitionManager = searchParameterDefinitionManagerResolver();
             _logger = logger;
 
-            _resourceTypeSearchParameter = searchParameterDefinitionManager.GetSearchParameter(ResourceType.Resource.ToString(), SearchParameterNames.ResourceType);
+            _resourceTypeSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(ResourceType.Resource.ToString(), SearchParameterNames.ResourceType);
         }
 
         public SearchOptions Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters)
@@ -221,7 +221,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     }
                     catch (SearchParameterNotSupportedException)
                     {
-                        (unsupportedSortings ?? (unsupportedSortings = new List<(string parameterName, string reason)>())).Add((sorting.Item1, string.Format(Core.Resources.SearchParameterNotSupported, sorting.Item1, resourceType)));
+                        (unsupportedSortings ??= new List<(string parameterName, string reason)>()).Add((sorting.Item1, string.Format(Core.Resources.SearchParameterNotSupported, sorting.Item1, resourceType)));
                     }
                 }
 

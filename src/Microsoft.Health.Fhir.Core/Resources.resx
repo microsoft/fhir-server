@@ -120,9 +120,6 @@
   <data name="AtCannotBeSpecifiedWithBeforeOrSince" xml:space="preserve">
     <value>{0} and {1} cannot both be specified.</value>
   </data>
-  <data name="AuthorizationPermissionDefinitionInvalid" xml:space="preserve">
-    <value>The authorization permission definition contains one or more invalid entries.</value>
-  </data>
   <data name="BundleRequiredForBatchOrTransaction" xml:space="preserve">
     <value>Only a bundle can be submitted for batch or transaction processing.</value>
     <comment>Bundle is a FHIR resource type.</comment>
@@ -181,8 +178,26 @@
   <data name="CustomHeaderPrefixCannotBeEmpty" xml:space="preserve">
     <value>The prefix used to identify custom audit headers cannot be empty.</value>
   </data>
+  <data name="DateTimeStringIsIncorrectlyFormatted" xml:space="preserve">
+    <value>The date time string '{0}' is not in a correct format.</value>
+    <comment>{0} is the incorrect date time string.</comment>
+  </data>
+  <data name="DateTimeStringIsOutOfRange" xml:space="preserve">
+    <value>At least one portion of the date time string '{0}' is out of range.</value>
+    <comment>{0} is the date time string that is out of range.</comment>
+  </data>
   <data name="DeleteVersionNotAllowed" xml:space="preserve">
     <value>Deleting a specific record version is not supported.</value>
+  </data>
+  <data name="DuplicateRoleNames" xml:space="preserve">
+    <value>There are {0} roles with the name '{1}'</value>
+  </data>
+  <data name="ErrorValidatingRoles" xml:space="preserve">
+    <value>Error validating roles:
+{0}</value>
+  </data>
+  <data name="Forbidden" xml:space="preserve">
+    <value>Authorization failed.</value>
   </data>
   <data name="HistoryParameterBeforeCannotBeFuture" xml:space="preserve">
     <value>Parameter {0} cannot a be a value in the future.</value>
@@ -300,9 +315,6 @@
   <data name="ResourceNotSupported" xml:space="preserve">
     <value>Resource type '{0}' is not supported.</value>
   </data>
-  <data name="ResourcePermissionEmpty" xml:space="preserve">
-    <value>Role must have one or more resource permissions.</value>
-  </data>
   <data name="ResourceTooLarge" xml:space="preserve">
     <value>The requested resource exceeded the backing database's size limit.</value>
   </data>
@@ -315,12 +327,6 @@
   </data>
   <data name="ReverseChainMissingType" xml:space="preserve">
     <value>The reverse chain search is missing the type to search.</value>
-  </data>
-  <data name="RoleNameEmpty" xml:space="preserve">
-    <value>Role name cannot be null or empty.</value>
-  </data>
-  <data name="RoleResourcePermissionWithNoAction" xml:space="preserve">
-    <value>Role contains a resource permissions with no actions.</value>
   </data>
   <data name="SearchComparatorNotSupported" xml:space="preserve">
     <value>Comparator is not supported when multiple values are specified using OR search parameter.</value>
@@ -387,10 +393,6 @@
   </data>
   <data name="UnsupportedConfigurationMessage" xml:space="preserve">
     <value>Unsupported configuration found.</value>
-  </data>
-  <data name="UnsupportedDestinationTypeMessage" xml:space="preserve">
-    <value>The destination type '{0}' is not supported.</value>
-    <comment>{0} is the destination type (E.g., azure-blob).</comment>
   </data>
   <data name="UnsupportedTotalParameter" xml:space="preserve">
     <value>The requested "_total" parameter is not supported.</value>

@@ -60,6 +60,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton(xmlParser);
             services.AddSingleton(xmlSerializer);
 
+            FhirPathCompiler.DefaultSymbolTable.AddFhirExtensions();
+
             ResourceElement SetMetadata(Resource resource, string versionId, DateTimeOffset lastModified)
             {
                 resource.VersionId = versionId;
@@ -99,6 +101,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton<OperationOutcomeExceptionFilterAttribute>();
             services.AddSingleton<ValidateContentTypeFilterAttribute>();
             services.AddSingleton<ValidateExportRequestFilterAttribute>();
+
+            FhirPathCompiler.DefaultSymbolTable.AddFhirExtensions();
 
             services.Add<FhirJsonInputFormatter>()
                 .Singleton()

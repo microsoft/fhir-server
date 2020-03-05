@@ -11,10 +11,13 @@ using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using MediatR;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 
@@ -29,8 +32,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
             Lazy<IConformanceProvider> conformanceProvider,
             IResourceWrapperFactory resourceWrapperFactory,
             ISearchService searchService,
-            ResourceIdProvider resourceIdProvider)
-            : base(fhirDataStore, searchService, conformanceProvider, resourceWrapperFactory, resourceIdProvider)
+            ResourceIdProvider resourceIdProvider,
+            IFhirAuthorizationService authorizationService)
+            : base(fhirDataStore, searchService, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
             _referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
         }
@@ -38,6 +42,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
         public async Task<UpsertResourceResponse> Handle(CreateResourceRequest message, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(message, nameof(message));
+
+            if (await AuthorizationService.CheckAccess(DataActions.Write) != DataActions.Write)
+            {
+                throw new UnauthorizedFhirActionException();
+            }
 
             var resource = message.Resource.Instance.ToPoco<Resource>();
 

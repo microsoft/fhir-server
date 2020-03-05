@@ -11,7 +11,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
-    internal class CompartmentAssignmentRowGenerator : ITableValuedParameterRowGenerator<ResourceMetadata, V1.CompartmentAssignmentTableTypeRow>
+    internal class CompartmentAssignmentRowGenerator : ITableValuedParameterRowGenerator<ResourceMetadata, VLatest.CompartmentAssignmentTableTypeRow>
     {
         private readonly SqlServerFhirModel _model;
         private bool _initialized;
@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             _model = model;
         }
 
-        public IEnumerable<V1.CompartmentAssignmentTableTypeRow> GenerateRows(ResourceMetadata resourceMetadata)
+        public IEnumerable<VLatest.CompartmentAssignmentTableTypeRow> GenerateRows(ResourceMetadata resourceMetadata)
         {
             EnsureInitialized();
 
@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             {
                 foreach (var entry in compartments.PatientCompartmentEntry)
                 {
-                    yield return new V1.CompartmentAssignmentTableTypeRow(_patientCompartmentId, entry);
+                    yield return new VLatest.CompartmentAssignmentTableTypeRow(_patientCompartmentId, entry);
                 }
             }
 
@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             {
                 foreach (var entry in compartments.EncounterCompartmentEntry)
                 {
-                    yield return new V1.CompartmentAssignmentTableTypeRow(_encounterCompartmentId, entry);
+                    yield return new VLatest.CompartmentAssignmentTableTypeRow(_encounterCompartmentId, entry);
                 }
             }
 
@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             {
                 foreach (var entry in compartments.RelatedPersonCompartmentEntry)
                 {
-                    yield return new V1.CompartmentAssignmentTableTypeRow(_relatedPersonCompartmentId, entry);
+                    yield return new VLatest.CompartmentAssignmentTableTypeRow(_relatedPersonCompartmentId, entry);
                 }
             }
 
@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             {
                 foreach (var entry in compartments.PractitionerCompartmentEntry)
                 {
-                    yield return new V1.CompartmentAssignmentTableTypeRow(_practitionerCompartmentId, entry);
+                    yield return new VLatest.CompartmentAssignmentTableTypeRow(_practitionerCompartmentId, entry);
                 }
             }
 
@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             {
                 foreach (var entry in compartments.DeviceCompartmentEntry)
                 {
-                    yield return new V1.CompartmentAssignmentTableTypeRow(_deviceCompartmentId, entry);
+                    yield return new VLatest.CompartmentAssignmentTableTypeRow(_deviceCompartmentId, entry);
                 }
             }
         }

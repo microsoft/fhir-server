@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 return context;
             }
 
-            return VisitSimpleBinary(BinaryOperator.Equal, context, V1.Resource.ResourceTypeId, expression.ComponentIndex, resourceTypeId);
+            return VisitSimpleBinary(BinaryOperator.Equal, context, VLatest.Resource.ResourceTypeId, expression.ComponentIndex, resourceTypeId);
         }
     }
 }

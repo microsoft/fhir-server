@@ -10,6 +10,7 @@ using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
@@ -34,6 +35,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     [ServiceFilter(typeof(AadSmartOnFhirProxyAuditLoggingFilterAttribute))]
     [TypeFilter(typeof(AadSmartOnFhirProxyExceptionFilterAttribute))]
     [Route("AadSmartOnFhirProxy")]
+    [AllowAnonymous]
     public class AadSmartOnFhirProxyController : Controller
     {
         private readonly bool _isAadV2;

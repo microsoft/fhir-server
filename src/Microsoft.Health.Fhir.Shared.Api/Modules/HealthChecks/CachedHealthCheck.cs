@@ -44,7 +44,16 @@ namespace Microsoft.Health.Fhir.Api.Modules.HealthChecks
                 return _lastResult;
             }
 
-            await _semaphore.WaitAsync(cancellationToken);
+            try
+            {
+                await _semaphore.WaitAsync(cancellationToken);
+            }
+            catch (OperationCanceledException oce) when (cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogInformation(oce, $"Cancellation was requested for {nameof(CheckHealthAsync)}");
+                return _lastResult;
+            }
+
             try
             {
                 if (_lastChecked >= ExpirationWindow)

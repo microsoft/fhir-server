@@ -24,7 +24,6 @@ using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Routing;
-using Microsoft.Health.Fhir.Api.Features.Security;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
@@ -48,7 +47,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     [ServiceFilter(typeof(ValidateContentTypeFilterAttribute))]
     [ValidateResourceTypeFilter]
     [ValidateModelState]
-    [Authorize(PolicyNames.FhirPolicy)]
     public class FhirController : Controller
     {
         private readonly IMediator _mediator;
@@ -147,7 +145,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpPost]
         [Route(KnownRoutes.ResourceType)]
         [AuditEventType(AuditEventSubType.Create)]
-        [Authorize(PolicyNames.WritePolicy)]
         public async Task<IActionResult> Create([FromBody] Resource resource)
         {
             ResourceElement response = await _mediator.CreateResourceAsync(resource.ToResourceElement(), HttpContext.RequestAborted);
@@ -166,8 +163,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [ConditionalConstraint]
         [Route(KnownRoutes.ResourceType)]
         [AuditEventType(AuditEventSubType.Create)]
-        [Authorize(PolicyNames.ReadPolicy)]
-        [Authorize(PolicyNames.WritePolicy)]
         public async Task<IActionResult> ConditionalCreate([FromBody] Resource resource)
         {
             StringValues conditionalCreateHeader = HttpContext.Request.Headers[KnownFhirHeaders.IfNoneExist];
@@ -199,7 +194,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [ValidateResourceIdFilter]
         [Route(KnownRoutes.ResourceTypeById)]
         [AuditEventType(AuditEventSubType.Update)]
-        [Authorize(PolicyNames.WritePolicy)]
         public async Task<IActionResult> Update([FromBody] Resource resource, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
         {
             SaveOutcome response = await _mediator.UpsertResourceAsync(resource.ToResourceElement(), ifMatchHeader, HttpContext.RequestAborted);
@@ -214,8 +208,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpPut]
         [Route(KnownRoutes.ResourceType)]
         [AuditEventType(AuditEventSubType.Update)]
-        [Authorize(PolicyNames.ReadPolicy)]
-        [Authorize(PolicyNames.WritePolicy)]
         public async Task<IActionResult> ConditionalUpdate([FromBody] Resource resource)
         {
             IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
@@ -255,7 +247,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpGet]
         [Route(KnownRoutes.ResourceTypeById, Name = RouteNames.ReadResource)]
         [AuditEventType(AuditEventSubType.Read)]
-        [Authorize(PolicyNames.ReadPolicy)]
         public async Task<IActionResult> Read(string typeParameter, string idParameter)
         {
             ResourceElement response = await _mediator.GetResourceAsync(new ResourceKey(typeParameter, idParameter), HttpContext.RequestAborted);
@@ -276,7 +267,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpGet]
         [Route(KnownRoutes.History, Name = RouteNames.History)]
         [AuditEventType(AuditEventSubType.HistorySystem)]
-        [Authorize(PolicyNames.ReadPolicy)]
         public async Task<IActionResult> SystemHistory(
             [FromQuery(Name = KnownQueryParameterNames.At)] PartialDateTime at,
             [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
@@ -301,7 +291,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpGet]
         [Route(KnownRoutes.ResourceTypeHistory, Name = RouteNames.HistoryType)]
         [AuditEventType(AuditEventSubType.HistoryType)]
-        [Authorize(PolicyNames.ReadPolicy)]
         public async Task<IActionResult> TypeHistory(
             string typeParameter,
             [FromQuery(Name = KnownQueryParameterNames.At)] PartialDateTime at,
@@ -328,7 +317,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpGet]
         [Route(KnownRoutes.ResourceTypeByIdHistory, Name = RouteNames.HistoryTypeId)]
         [AuditEventType(AuditEventSubType.HistoryInstance)]
-        [Authorize(PolicyNames.ReadPolicy)]
         public async Task<IActionResult> History(
             string typeParameter,
             string idParameter,
@@ -352,7 +340,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpGet]
         [Route(KnownRoutes.ResourceTypeByIdAndVid, Name = RouteNames.ReadResourceWithVersionRoute)]
         [AuditEventType(AuditEventSubType.VRead)]
-        [Authorize(PolicyNames.ReadPolicy)]
         public async Task<IActionResult> VRead(string typeParameter, string idParameter, string vidParameter)
         {
             ResourceElement response = await _mediator.GetResourceAsync(new ResourceKey(typeParameter, idParameter, vidParameter), HttpContext.RequestAborted);
@@ -373,18 +360,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.Delete)]
         public async Task<IActionResult> Delete(string typeParameter, string idParameter, [FromQuery]bool hardDelete)
         {
-            string policy = PolicyNames.WritePolicy;
-            if (hardDelete)
-            {
-                policy = PolicyNames.HardDeletePolicy;
-            }
-
-            AuthorizationResult authorizationResult = await _authorizationService.AuthorizeAsync(User, policy);
-            if (!authorizationResult.Succeeded)
-            {
-                return Forbid();
-            }
-
             DeleteResourceResponse response = await _mediator.DeleteResourceAsync(new ResourceKey(typeParameter, idParameter), hardDelete, HttpContext.RequestAborted);
 
             return FhirResult.NoContent().SetETagHeader(response.WeakETag);
@@ -398,7 +373,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpPatch]
         [Route(KnownRoutes.ResourceTypeById)]
         [AuditEventType(AuditEventSubType.Patch)]
-        [Authorize(PolicyNames.WritePolicy)]
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Controller methods won't be called if static.")]
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA1801:Review unused parameters", Justification = "Need the parameters for routing to work.")]
         public Task<IActionResult> Patch(string typeParameter, string idParameter)
@@ -412,7 +386,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpGet]
         [Route("", Name = RouteNames.SearchAllResources)]
         [AuditEventType(AuditEventSubType.SearchSystem)]
-        [Authorize(PolicyNames.ReadPolicy)]
         public async Task<IActionResult> Search()
         {
             return await SearchByResourceType(typeParameter: null);
@@ -424,7 +397,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpPost]
         [Route(KnownRoutes.Search, Name = RouteNames.SearchAllResourcesPost)]
         [AuditEventType(AuditEventSubType.SearchSystem)]
-        [Authorize(PolicyNames.ReadPolicy)]
         public async Task<IActionResult> SearchPost()
         {
             return await SearchByResourceTypePost(typeParameter: null);
@@ -437,7 +409,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpGet]
         [Route(KnownRoutes.ResourceType, Name = RouteNames.SearchResources)]
         [AuditEventType(AuditEventSubType.SearchType)]
-        [Authorize(PolicyNames.ReadPolicy)]
         public async Task<IActionResult> SearchByResourceType(string typeParameter)
         {
             return await PerformSearch(typeParameter, GetQueriesForSearch());
@@ -463,7 +434,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpPost]
         [Route(KnownRoutes.ResourceTypeSearch, Name = RouteNames.SearchResourcesPost)]
         [AuditEventType(AuditEventSubType.SearchType)]
-        [Authorize(PolicyNames.ReadPolicy)]
         public async Task<IActionResult> SearchByResourceTypePost(string typeParameter)
         {
             var queries = new List<Tuple<string, string>>();

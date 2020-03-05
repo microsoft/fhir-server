@@ -46,8 +46,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
 
                 // Since authorization filters runs first before any other filters, if the authorization fails,
                 // the AuditLoggingFilterAttribute, which is where the audit logging would normally happen, will not be executed.
-                // This middleware will log any Unauthorized or Forbidden request if it hasn't been logged yet.
-                if (statusCode == HttpStatusCode.Unauthorized || statusCode == HttpStatusCode.Forbidden)
+                // This middleware will log any Unauthorized request if it hasn't been logged yet.
+                if (statusCode == HttpStatusCode.Unauthorized)
                 {
                     _auditHelper.LogExecuted(context, _claimsExtractor);
                 }

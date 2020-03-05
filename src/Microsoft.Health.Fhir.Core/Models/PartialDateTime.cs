@@ -244,7 +244,7 @@ namespace Microsoft.Health.Fhir.Core.Models
             if (!match.Success)
             {
                 // The input value cannot be parsed correctly.
-                throw new FormatException("Input string was not in a correct format.");
+                throw new FormatException(string.Format(Resources.DateTimeStringIsIncorrectlyFormatted, s));
             }
 
             int year = int.Parse(match.Groups[YearCapture].Value);
@@ -291,8 +291,8 @@ namespace Microsoft.Health.Fhir.Core.Models
             }
             catch (Exception ex) when (ex is ArgumentException)
             {
-                // The input value was parsed correctly but one of the value provided were out of range.
-                throw new FormatException("Input string was not in a correct format. At least one portion of a date was invalid or out of range.", ex);
+                // The input value was parsed correctly, but one of the values provided was out of range.
+                throw new FormatException(string.Format(Resources.DateTimeStringIsOutOfRange, s), ex);
             }
 
             int? ParseDateTimePart(string name)

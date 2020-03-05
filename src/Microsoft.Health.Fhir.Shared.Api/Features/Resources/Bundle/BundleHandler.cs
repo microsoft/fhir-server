@@ -35,6 +35,8 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using static Hl7.Fhir.Model.Bundle;
 using Task = System.Threading.Tasks.Task;
@@ -64,6 +66,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private BundleType? _bundleType;
         private readonly TransactionBundleValidator _transactionBundleValidator;
         private readonly IAuditEventTypeMapping _auditEventTypeMapping;
+        private readonly IFhirAuthorizationService _authorizationService;
         private readonly BundleConfiguration _bundleConfiguration;
 
         public BundleHandler(
@@ -77,6 +80,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             TransactionBundleValidator transactionBundleValidator,
             IAuditEventTypeMapping auditEventTypeMapping,
             IOptions<BundleConfiguration> bundleConfiguration,
+            IFhirAuthorizationService authorizationService,
             ILogger<BundleHandler> logger)
             : this()
         {
@@ -90,6 +94,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             EnsureArg.IsNotNull(transactionBundleValidator, nameof(transactionBundleValidator));
             EnsureArg.IsNotNull(auditEventTypeMapping, nameof(auditEventTypeMapping));
             EnsureArg.IsNotNull(bundleConfiguration?.Value, nameof(bundleConfiguration));
+            EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
@@ -100,6 +105,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _resourceIdProvider = resourceIdProvider;
             _transactionBundleValidator = transactionBundleValidator;
             _auditEventTypeMapping = auditEventTypeMapping;
+            _authorizationService = authorizationService;
             _bundleConfiguration = bundleConfiguration.Value;
             _logger = logger;
 
@@ -125,9 +131,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 {
                     Status = ((int)HttpStatusCode.BadRequest).ToString(),
                     Outcome = CreateOperationOutcome(
-                            OperationOutcome.IssueSeverity.Error,
-                            OperationOutcome.IssueType.Invalid,
-                            "Request is empty"),
+                        OperationOutcome.IssueSeverity.Error,
+                        OperationOutcome.IssueType.Invalid,
+                        "Request is empty"),
                 };
                 responseBundle.Entry[emptyRequestOrder] = entryComponent;
             }
@@ -140,6 +146,23 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         public async Task<BundleResponse> Handle(BundleRequest bundleRequest, CancellationToken cancellationToken)
         {
+            EnsureArg.IsNotNull(bundleRequest, nameof(bundleRequest));
+
+            // In scenarios where access checks involve a remote service call, it is advantageous
+            // to perform one single access check for all necessary permissions rather than one per operation.
+            // Two potential TODOs:
+            // (1) it would also be better to know what the operations are in the bundle as opposed to checking
+            //      for all possible actions. Trouble is, the exact mapping from method + URI is embedded in MVC logic
+            //      and attributes.
+            // (2) One we have the full set of permitted actions, it would be more efficient for the individual
+            //     operations to use an IFhirAuthorizationService that implements CheckAccess based on these known permitted
+            //     actions.
+
+            if (await _authorizationService.CheckAccess(DataActions.All) == DataActions.None)
+            {
+                throw new UnauthorizedFhirActionException();
+            }
+
             var bundleResource = bundleRequest.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
             _bundleType = bundleResource.Type;
 
@@ -254,7 +277,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 AddHeaderIfNeeded(KnownFhirHeaders.IfNoneExist, entry.Request.IfNoneExist, httpContext);
 
                 if (entry.Request.Method == HTTPVerb.POST ||
-                   entry.Request.Method == HTTPVerb.PUT)
+                    entry.Request.Method == HTTPVerb.PUT)
                 {
                     httpContext.Request.Headers.Add(HeaderNames.ContentType, new StringValues(KnownContentTypes.JsonContentType));
 

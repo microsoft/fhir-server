@@ -8,7 +8,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
-    internal class TokenDateTimeCompositeSearchParameterRowGenerator : CompositeSearchParameterRowGenerator<(TokenSearchValue component1, DateTimeSearchValue component2), V1.TokenDateTimeCompositeSearchParamTableTypeRow>
+    internal class TokenDateTimeCompositeSearchParameterRowGenerator : CompositeSearchParameterRowGenerator<(TokenSearchValue component1, DateTimeSearchValue component2), VLatest.TokenDateTimeCompositeSearchParamTableTypeRow>
     {
         private readonly TokenSearchParameterRowGenerator _tokenRowGenerator;
         private readonly DateTimeSearchParameterRowGenerator _dateTimeRowGenerator;
@@ -20,12 +20,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             _dateTimeRowGenerator = dateTimeRowGenerator;
         }
 
-        internal override bool TryGenerateRow(short searchParamId, (TokenSearchValue component1, DateTimeSearchValue component2) searchValue, out V1.TokenDateTimeCompositeSearchParamTableTypeRow row)
+        internal override bool TryGenerateRow(short searchParamId, (TokenSearchValue component1, DateTimeSearchValue component2) searchValue, out VLatest.TokenDateTimeCompositeSearchParamTableTypeRow row)
         {
             if (_tokenRowGenerator.TryGenerateRow(default, searchValue.component1, out var token1Row) &&
                 _dateTimeRowGenerator.TryGenerateRow(default, searchValue.component2, out var token2Row))
             {
-                row = new V1.TokenDateTimeCompositeSearchParamTableTypeRow(
+                row = new VLatest.TokenDateTimeCompositeSearchParamTableTypeRow(
                     searchParamId,
                     token1Row.SystemId,
                     token1Row.Code,

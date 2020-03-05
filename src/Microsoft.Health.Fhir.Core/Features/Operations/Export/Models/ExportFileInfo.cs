@@ -53,5 +53,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             Count++;
             CommittedBytes += numberOfBytes;
         }
+
+        public ExportOutputResponse ToExportOutputResponse()
+        {
+            return new ExportOutputResponse(Type, FileUri, Count);
+        }
     }
 }

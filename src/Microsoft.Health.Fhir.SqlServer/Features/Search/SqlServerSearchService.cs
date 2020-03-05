@@ -21,7 +21,6 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.Fhir.SqlServer.Configs;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
@@ -181,14 +180,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     while (await reader.ReadAsync(cancellationToken))
                     {
                         (short resourceTypeId, string resourceId, int version, bool isDeleted, long resourceSurrogateId, string requestMethod, bool isMatch, Stream rawResourceStream) = reader.ReadRow(
-                            V1.Resource.ResourceTypeId,
-                            V1.Resource.ResourceId,
-                            V1.Resource.Version,
-                            V1.Resource.IsDeleted,
-                            V1.Resource.ResourceSurrogateId,
-                            V1.Resource.RequestMethod,
+                            VLatest.Resource.ResourceTypeId,
+                            VLatest.Resource.ResourceId,
+                            VLatest.Resource.Version,
+                            VLatest.Resource.IsDeleted,
+                            VLatest.Resource.ResourceSurrogateId,
+                            VLatest.Resource.RequestMethod,
                             _isMatch,
-                            V1.Resource.RawResource);
+                            VLatest.Resource.RawResource);
 
                         // If we get to this point, we know there are more results so we need a continuation token
                         // Additionally, this resource shouldn't be included in the results

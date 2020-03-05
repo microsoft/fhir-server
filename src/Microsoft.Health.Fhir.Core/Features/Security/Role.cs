@@ -3,41 +3,26 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Globalization;
+using EnsureThat;
 
 namespace Microsoft.Health.Fhir.Core.Features.Security
 {
-    public class Role : IValidatableObject
+    public class Role
     {
-        public virtual string Name { get; set; }
-
-        public virtual string Version { get; set; }
-
-        public virtual IList<ResourcePermission> ResourcePermissions { get; internal set; } = new List<ResourcePermission>();
-
-        public virtual IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+        public Role(string name, DataActions allowedDataActions, string scope)
         {
-            if (string.IsNullOrWhiteSpace(Name))
-            {
-                yield return new ValidationResult(Core.Resources.RoleNameEmpty);
-            }
+            EnsureArg.IsNotNullOrWhiteSpace(name, nameof(name));
+            EnsureArg.Is(scope, "/", nameof(scope)); // until we support data slices
 
-            if (ResourcePermissions.Count == 0)
-            {
-                yield return new ValidationResult(string.Format(CultureInfo.InvariantCulture, Core.Resources.ResourcePermissionEmpty, Name));
-            }
-            else
-            {
-                foreach (ResourcePermission permission in ResourcePermissions)
-                {
-                    if (permission.Actions.Count == 0)
-                    {
-                        yield return new ValidationResult(string.Format(CultureInfo.InvariantCulture, Core.Resources.RoleResourcePermissionWithNoAction, Name));
-                    }
-                }
-            }
+            Name = name;
+            AllowedDataActions = allowedDataActions;
+            Scope = scope;
         }
+
+        public string Name { get; }
+
+        public DataActions AllowedDataActions { get; }
+
+        public string Scope { get; }
     }
 }

@@ -17,14 +17,11 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
-    [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json)]
+    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class ExportTests : IClassFixture<HttpIntegrationTestFixture>
     {
         private readonly HttpClient _client;
         private const string PreferHeaderName = "Prefer";
-        private const string DestinationTypeQueryParamName = "_destinationType";
-        private const string DestinationConnectionQueryParamName = "_destinationConnectionSettings";
-        private const string SupportedDestinationType = "in-memory";
 
         public ExportTests(HttpIntegrationTestFixture fixture)
         {
@@ -34,7 +31,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Theory]
         [InlineData("Patient/$export")]
         [InlineData("Group/id/$export")]
-        public async Task GivenExportIsEnabled_WhenRequestingExportWithCorrectHeadersAndParams_ThenServerShouldReturnNotImplemented(string path)
+        public async Task GivenExportIsEnabled_WhenRequestingExportForResourceWithCorrectHeaders_ThenServerShouldReturnNotImplemented(string path)
         {
             HttpRequestMessage request = GenerateExportRequest(path);
 
@@ -44,7 +41,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
-        public async Task GivenExportIsEnabled_WhenRequestingExportWithCorrectHeadersAndParams_ThenServerShouldReturnAcceptedAndNonEmptyContentLocationHeader()
+        public async Task GivenExportIsEnabled_WhenRequestingExportWithCorrectHeaders_ThenServerShouldReturnAcceptedAndNonEmptyContentLocationHeader()
         {
             HttpRequestMessage request = GenerateExportRequest();
 
@@ -57,40 +54,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
-        public async Task GivenExportIsEnabled_WhenRequestingExportWithMissingDestinationConnectionParam_ThenServerShouldReturnBadRequest()
+        public async Task GivenExportIsEnabled_WhenRequestingExportWithQueryParam_ThenServerShouldReturnBadRequest()
         {
             var queryParam = new Dictionary<string, string>()
             {
-                { DestinationTypeQueryParamName, SupportedDestinationType },
-            };
-            HttpRequestMessage request = GenerateExportRequest(queryParams: queryParam);
-
-            HttpResponseMessage response = await _client.SendAsync(request);
-
-            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        }
-
-        [Fact]
-        public async Task GivenExportIsEnabled_WhenRequestingExportWithMissingDestinationTypeParam_ThenServerShouldReturnBadRequest()
-        {
-            var queryParam = new Dictionary<string, string>()
-            {
-                { DestinationConnectionQueryParamName, "destinationConnection" },
-            };
-            HttpRequestMessage request = GenerateExportRequest(queryParams: queryParam);
-
-            HttpResponseMessage response = await _client.SendAsync(request);
-
-            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        }
-
-        [Fact]
-        public async Task GivenExportIsEnabled_WhenRequestingExportWithUnsupportedDestinationTypeParam_ThenServerShouldReturnBadRequest()
-        {
-            var queryParam = new Dictionary<string, string>()
-            {
-                { DestinationTypeQueryParamName, "unsupportedDestinationType" },
-                { DestinationConnectionQueryParamName, "destinationConnection" },
+                { "anyQueryParam", "anyValue" },
             };
             HttpRequestMessage request = GenerateExportRequest(queryParams: queryParam);
 
@@ -178,16 +146,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             request.Headers.Add(HeaderNames.Accept, acceptHeader);
             request.Headers.Add(PreferHeaderName, preferHeader);
 
-            if (queryParams == null)
+            if (queryParams != null)
             {
-                queryParams = new Dictionary<string, string>()
-                {
-                    { DestinationTypeQueryParamName, SupportedDestinationType },
-                    { DestinationConnectionQueryParamName, "connectionString" },
-                };
+                path = QueryHelpers.AddQueryString(path, queryParams);
             }
 
-            path = QueryHelpers.AddQueryString(path, queryParams);
             request.RequestUri = new Uri(_client.BaseAddress, path);
 
             return request;

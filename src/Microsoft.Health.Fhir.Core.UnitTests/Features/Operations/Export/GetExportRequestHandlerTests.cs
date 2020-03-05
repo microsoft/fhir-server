@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,6 +16,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Export;
 using NSubstitute;
 using Xunit;
@@ -33,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         public GetExportRequestHandlerTests()
         {
             var collection = new ServiceCollection();
-            collection.Add(x => new GetExportRequestHandler(_fhirOperationDataStore)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(x => new GetExportRequestHandler(_fhirOperationDataStore, DisabledFhirAuthorizationService.Instance)).Singleton().AsSelf().AsImplementedInterfaces();
 
             ServiceProvider provider = collection.BuildServiceProvider();
             _mediator = new Mediator(type => provider.GetService(type));
@@ -52,6 +54,23 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.NotEqual(default, result.JobResult.TransactionTime);
             Assert.NotNull(result.JobResult.RequestUri);
             Assert.NotNull(result.JobResult.Error);
+        }
+
+        [Fact]
+        public async Task GivenAFhirMediator_WhenGettingAnExistingExportJobWithCompletedStatus_ThenOutputShouldContainRequiredFields()
+        {
+            GetExportResponse result = await SetupAndExecuteGetExportJobByIdAsync(OperationStatus.Completed);
+
+            Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+            Assert.NotNull(result.JobResult);
+
+            var output = result.JobResult.Output.FirstOrDefault();
+
+            // Check whether required fields are present for Output.
+            Assert.NotNull(output);
+            Assert.False(string.IsNullOrWhiteSpace(output.Type));
+            Assert.NotNull(output.FileUri);
+            Assert.True(output.Count >= 0);
         }
 
         [Theory]
@@ -105,6 +124,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             if ((jobStatus == OperationStatus.Canceled || jobStatus == OperationStatus.Failed) && addFailureDetails)
             {
                 jobRecord.FailureDetails = new ExportJobFailureDetails(_failureReason, _failureStatusCode);
+            }
+            else if (jobStatus == OperationStatus.Completed)
+            {
+                var exportFileInfo = new ExportFileInfo("patient", new Uri("https://exportlocation/fileUri"), sequence: 0);
+                exportFileInfo.IncrementCount(100);
+                jobRecord.Output.Add("patient", exportFileInfo);
             }
 
             var jobOutcome = new ExportJobOutcome(jobRecord, WeakETag.FromVersionId("eTag"));
