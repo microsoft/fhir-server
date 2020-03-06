@@ -22,9 +22,9 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Api")]
 
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Api.UnitTests")]
+[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Stu3.Api.UnitTests")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R4.Api.UnitTests")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R5.Api.UnitTests")]
-[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Stu3.Api.UnitTests")]
 
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Stu3.Tests.Integration")]
 [assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R4.Tests.Integration")]

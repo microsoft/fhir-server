@@ -10,7 +10,7 @@ using Xunit;
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 {
     /// <summary>
-    /// FHIR R4 specific conformance tests.
+    /// FHIR R5 specific conformance tests.
     /// </summary>
     public partial class ConformanceBuilderTests
     {

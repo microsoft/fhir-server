@@ -10,7 +10,7 @@ using Xunit;
 namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Operations.Versions
 {
     /// <summary>
-    /// Provides R4 specific tests.
+    /// Provides R5 specific tests.
     /// </summary>
     public class VersionSpecificTests
     {
