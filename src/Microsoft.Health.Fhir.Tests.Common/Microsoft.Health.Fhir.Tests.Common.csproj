@@ -204,8 +204,6 @@
     <EmbeddedResource Include="DefinitionFiles\Stu3\SearchParametersWithInvalidBase.json" />
     <EmbeddedResource Include="DefinitionFiles\Stu3\SearchParametersWithNullEntry.json" />
     <EmbeddedResource Include="DefinitionFiles\Stu3\SearchParametersWithInvalidEntries.json" />
-    <EmbeddedResource Include="TestFiles\R5\AuthConfigWithInvalidEntries.json" />
-    <EmbeddedResource Include="TestFiles\R5\AuthConfigWithValidRoles.json" />
     <EmbeddedResource Include="TestFiles\R5\BasicExampleNarrative.json" />
     <EmbeddedResource Include="TestFiles\R5\BasicExampleNarrative.xml" />
     <EmbeddedResource Include="TestFiles\R5\BloodGlucose.json" />

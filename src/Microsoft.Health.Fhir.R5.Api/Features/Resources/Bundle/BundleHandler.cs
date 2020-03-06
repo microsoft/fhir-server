@@ -6,7 +6,7 @@
 namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 {
     /// <summary>
-    /// FHIR R4 specific portions of the bundle handler.
+    /// FHIR R5 specific portions of the bundle handler.
     /// </summary>
     public partial class BundleHandler
     {

@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     public partial class VersionSpecificTests : IClassFixture<HttpIntegrationTestFixture>
     {
         [Fact]
-        public async Task GivenR4Server_WhenCapabilityStatementIsRetrieved_ThenCorrectVersionShouldBeReturned()
+        public async Task GivenR5Server_WhenCapabilityStatementIsRetrieved_ThenCorrectVersionShouldBeReturned()
         {
             await TestCapabilityStatementFhirVersion("4.2.0");
         }
