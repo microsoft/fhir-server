@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
-        public void GivenAnEncounterWithWrongTypeInResolve_WhenResolvingAPatientInAFhirPathExpression_ThenTheResultIsValid()
+        public void GivenAnEncounterWithWrongTypeInResolve_WhenResolvingAPatientInAFhirPathExpression_ThenTheResultIsNull()
         {
             var result = _encounter
                 .Select("Encounter.participant.individual.where(resolve() is Organization)", _context)
