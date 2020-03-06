@@ -86,6 +86,24 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
         }
 
         [Theory]
+        [InlineData("2013-05-18T23:09+1:00")]
+        [InlineData("2013-05-18T23:09-4:30")]
+        [InlineData("2013-05-18T23:09+01:300")]
+        [InlineData("2013-05-18T23:09+01:77")]
+        [InlineData("2013-05-18T23:09+1")]
+        [InlineData("2013-05-18T23:09-7")]
+        [InlineData("2013-05-18T23:09-07")]
+        [InlineData("2013-05-18T23:09+Z")]
+        [InlineData("2013-05-18T23:09-Z")]
+        [InlineData("2013-05-18T23:09ZZ")]
+        [InlineData("2013-05-18T23:09-99:00")]
+        [InlineData("2013-05-18T23:09-789")]
+        public void GivenInvalidUtcOffset_WhenParsingPartialDateTime_ThenExceptionShouldBeThrown(string inputString)
+        {
+            Assert.Throws<FormatException>(() => PartialDateTime.Parse(inputString));
+        }
+
+        [Theory]
         [InlineData("0000-05-18T23:57:09.931094+01:00")] // Year cannot be less than 1.
         [InlineData("10000-05-18T23:57:09.931094+01:00")] // Year cannot be greater than 9999.
         [InlineData("2013-00-18T23:57:09.931094+01:00")] // Month cannot be less than 1.
@@ -111,6 +129,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
             yield return new object[] { "1999", 1999, null, null, null, null, null, null, null };
             yield return new object[] { "1999-10", 1999, 10, null, null, null, null, null, null };
             yield return new object[] { "1999-10-01", 1999, 10, 1, null, null, null, null, null };
+            yield return new object[] { "1999-10-18T12:35", 1999, 10, 18, 12, 35, null, null, 0 };
             yield return new object[] { "1999-10-18T12:35+01:00", 1999, 10, 18, 12, 35, null, null, 60 };
             yield return new object[] { "1999-10-18T12:35:55-02:30", 1999, 10, 18, 12, 35, 55, null, -150 };
             yield return new object[] { "1999-10-18T12:35:55Z", 1999, 10, 18, 12, 35, 55, null, 0 };
