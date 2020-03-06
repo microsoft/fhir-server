@@ -147,8 +147,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.AddLazy();
             services.AddScoped();
-
-            FhirPathCompiler.DefaultSymbolTable.AddFhirExtensions();
         }
     }
 }

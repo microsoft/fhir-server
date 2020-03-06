@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Operations.Versions
         }
 
         [Fact]
-        public void GivenR4Server_WhenSupportedVersionIsRequested_ThenCorrectVersionShouldBeReturned()
+        public void GivenR5Server_WhenSupportedVersionIsRequested_ThenCorrectVersionShouldBeReturned()
         {
             var version = _provider.SupportedVersion.ToString();
 

@@ -38,6 +38,9 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
+    /// <summary>
+    /// Tests for storage layer.
+    /// </summary>
     [FhirStorageTestsFixtureArgumentSets(DataStore.All)]
     public partial class FhirStorageTests : IClassFixture<FhirStorageTestsFixture>
     {
