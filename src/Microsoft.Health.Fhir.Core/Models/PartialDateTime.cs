@@ -28,14 +28,53 @@ namespace Microsoft.Health.Fhir.Core.Models
         private const string FractionCapture = "fraction";
         private const string TimeZoneCapture = "timeZone";
 
+        // The formats array outlines how to parse the input string into a DateTimeOffset object, which is then converted to a PartialDateTime object.
+        // The parser serves two different purposes: storing and searching.
         // There is a difference between how the date should be parsed for storing and how the date should be parsed for searching.
         // For date that should be stored, the time zone information must be present if time is specified.
-        // From spec: http://hl7.org/fhir/STU3/datatypes.html#datetime, "If hours and minutes are specified, a time zone SHALL be populated."
+        // From spec: http://hl7.org/fhir/datatypes.html#datetime, "If hours and minutes are specified, a time zone SHALL be populated."
         // However, if the date is being parsed for searching, then the time zone information is optional.
-        // From spec: http://hl7.org/fhir/STU3/search.html#date, "the minutes SHALL be present if an hour is present, and you SHOULD provide a time zone if the time part is present."
-        // This regular expression allows the time zone to be optional.
+        // From spec: http://hl7.org/fhir/search.html#date, "the minutes SHALL be present if an hour is present, and you SHOULD provide a time zone if the time part is present."
+        // As a result, this parser allows the time zone to be optional.
+        private static readonly string[] _formats =
+        {
+            "yyyy",
+            "yyyy-MM",
+            "yyyy-MM-dd",
+            "yyyy-MM-ddTHH:mm",
+            "yyyy-MM-ddTHH:mmzzz",
+            "yyyy-MM-ddTHH:mmZ",
+            "yyyy-MM-ddTHH:mm:ss",
+            "yyyy-MM-ddTHH:mm:sszzz",
+            "yyyy-MM-ddTHH:mm:ssZ",
+            "yyyy-MM-ddTHH:mm:ss.f",
+            "yyyy-MM-ddTHH:mm:ss.fzzz",
+            "yyyy-MM-ddTHH:mm:ss.fZ",
+            "yyyy-MM-ddTHH:mm:ss.ff",
+            "yyyy-MM-ddTHH:mm:ss.ffzzz",
+            "yyyy-MM-ddTHH:mm:ss.ffZ",
+            "yyyy-MM-ddTHH:mm:ss.fff",
+            "yyyy-MM-ddTHH:mm:ss.fffzzz",
+            "yyyy-MM-ddTHH:mm:ss.fffZ",
+            "yyyy-MM-ddTHH:mm:ss.ffff",
+            "yyyy-MM-ddTHH:mm:ss.ffffzzz",
+            "yyyy-MM-ddTHH:mm:ss.ffffZ",
+            "yyyy-MM-ddTHH:mm:ss.fffff",
+            "yyyy-MM-ddTHH:mm:ss.fffffzzz",
+            "yyyy-MM-ddTHH:mm:ss.fffffZ",
+            "yyyy-MM-ddTHH:mm:ss.ffffff",
+            "yyyy-MM-ddTHH:mm:ss.ffffffzzz",
+            "yyyy-MM-ddTHH:mm:ss.ffffffZ",
+            "yyyy-MM-ddTHH:mm:ss.fffffff",
+            "yyyy-MM-ddTHH:mm:ss.fffffffzzz",
+            "yyyy-MM-ddTHH:mm:ss.fffffffZ",
+        };
+
+        // This regular expression is used to capture which date time parts are specified by the user and which parts are not.
+        // This is required because date time parts left blank are used to indicate a time period.
+        // For example, 2000 is equivalent to an interval of [2000-01-01T00:00, 2000-12-31T23:59].
         private static readonly Regex DateTimeRegex = new Regex(
-            $@"-?(?<{YearCapture}>[0-9]{{4}})(-(?<{MonthCapture}>0[1-9]|1[0-2])(-(?<{DayCapture}>0[0-9]|[1-2][0-9]|3[0-1])(T(?<{HourCapture}>[01][0-9]|2[0-3]):(?<{MinuteCapture}>[0-5][0-9])(:((?<{SecondCapture}>[0-5][0-9])(?<{FractionCapture}>\.[0-9]+)?))?(?<{TimeZoneCapture}>Z|(\+|-)((0[0-9]|1[0-3]):[0-5][0-9]|14:00))?)?)?)?",
+            $@"-?(?<{YearCapture}>[0-9]{{4}})(-(?<{MonthCapture}>[0-9]{{2}}))?(-(?<{DayCapture}>[0-9]{{2}}))?(T(?<{HourCapture}>[0-9]{{2}}))?(:(?<{MinuteCapture}>[0-9]{{2}}))?(:(?<{SecondCapture}>[0-9]{{2}}))?((?<{FractionCapture}>\.[0-9]+))?(?<{TimeZoneCapture}>Z|(\+|-)(([0-9]{{2}}):[0-9]{{2}}))?",
             RegexOptions.Singleline | RegexOptions.Compiled | RegexOptions.ExplicitCapture);
 
         /// <summary>
@@ -59,19 +98,6 @@ namespace Microsoft.Health.Fhir.Core.Models
             decimal? fraction = null,
             TimeSpan? utcOffset = null)
         {
-            if (month.HasValue)
-            {
-                if (day != null)
-                {
-                    EnsureArg.IsInRange(day.Value, 1, DateTime.DaysInMonth(year, month.Value), nameof(day));
-                }
-            }
-
-            if (fraction != null)
-            {
-                EnsureArg.IsInRange(fraction.Value, 0, 0.9999999m, nameof(fraction));
-            }
-
             Year = year;
             Month = month;
             Day = day;
@@ -88,16 +114,7 @@ namespace Microsoft.Health.Fhir.Core.Models
         /// <param name="dateTimeOffset">The date time offset to populate the <see cref="PartialDateTime"/> from.</param>
         public PartialDateTime(DateTimeOffset dateTimeOffset)
         {
-            var offsetWithFraction = new DateTimeOffset(
-                dateTimeOffset.Year,
-                dateTimeOffset.Month,
-                dateTimeOffset.Day,
-                dateTimeOffset.Hour,
-                dateTimeOffset.Minute,
-                dateTimeOffset.Second,
-                dateTimeOffset.Offset);
-
-            decimal fraction = (decimal)dateTimeOffset.Subtract(offsetWithFraction).Ticks / TimeSpan.TicksPerSecond;
+            decimal fraction = GetFractionFromDateTimeOffset(dateTimeOffset);
 
             Year = dateTimeOffset.Year;
             Month = dateTimeOffset.Month;
@@ -160,74 +177,66 @@ namespace Microsoft.Health.Fhir.Core.Models
         /// <summary>
         /// Parses the string value to an instance of <see cref="PartialDateTime"/>.
         /// </summary>
-        /// <param name="s">The string to be parsed.</param>
+        /// <param name="inputString">The string to be parsed.</param>
         /// <returns>An instance of <see cref="PartialDateTime"/>.</returns>
-        public static PartialDateTime Parse(string s)
+        public static PartialDateTime Parse(string inputString)
         {
-            EnsureArg.IsNotNullOrWhiteSpace(s, nameof(s));
+            EnsureArg.IsNotNullOrWhiteSpace(inputString, nameof(inputString));
 
-            Match match = DateTimeRegex.Match(s);
+            IFormatProvider provider = CultureInfo.InvariantCulture.DateTimeFormat;
 
-            if (!match.Success)
+            if (!DateTimeOffset.TryParseExact(inputString, _formats, provider, DateTimeStyles.AssumeUniversal, out DateTimeOffset parsedDateTimeOffset))
             {
                 // The input value cannot be parsed correctly.
-                throw new FormatException(string.Format(Resources.DateTimeStringIsIncorrectlyFormatted, s));
+                throw new FormatException(string.Format(Resources.DateTimeStringIsIncorrectlyFormatted, inputString));
             }
 
-            int year = int.Parse(match.Groups[YearCapture].Value);
-            int? month = ParseDateTimePart(MonthCapture);
-            int? day = ParseDateTimePart(DayCapture);
-            int? hour = ParseDateTimePart(HourCapture);
-            int? minute = ParseDateTimePart(MinuteCapture);
-            int? second = ParseDateTimePart(SecondCapture);
+            Match match = DateTimeRegex.Match(inputString);
 
-            string fractionInString = match.Groups[FractionCapture]?.Value;
+            int year = int.Parse(match.Groups[YearCapture].Value);
+            int? month = GetIsDateTimePartSpecified(MonthCapture) ? parsedDateTimeOffset.Month : (int?)null;
+            int? day = GetIsDateTimePartSpecified(DayCapture) ? parsedDateTimeOffset.Day : (int?)null;
+            int? hour = GetIsDateTimePartSpecified(HourCapture) ? parsedDateTimeOffset.Hour : (int?)null;
+            int? minute = GetIsDateTimePartSpecified(MinuteCapture) ? parsedDateTimeOffset.Minute : (int?)null;
+            int? second = GetIsDateTimePartSpecified(SecondCapture) ? parsedDateTimeOffset.Second : (int?)null;
 
             decimal? fraction = null;
 
-            if (!string.IsNullOrEmpty(fractionInString))
+            if (GetIsDateTimePartSpecified(FractionCapture))
             {
-                fraction = decimal.Parse(fractionInString, CultureInfo.InvariantCulture);
+                fraction = GetFractionFromDateTimeOffset(parsedDateTimeOffset);
             }
 
-            TimeSpan? utcOffset = null;
+            TimeSpan? utcOffset = GetIsDateTimePartSpecified(TimeZoneCapture) ? parsedDateTimeOffset.Offset : (TimeSpan?)null;
 
-            string timeZone = match.Groups[TimeZoneCapture]?.Value;
-
-            if (timeZone == "Z")
-            {
-                utcOffset = TimeSpan.FromMinutes(0);
-            }
-            else if (!string.IsNullOrEmpty(timeZone))
-            {
-                utcOffset = DateTimeOffset.ParseExact(timeZone, "zzz", CultureInfo.InvariantCulture).Offset;
-            }
-
-            // In search queries, the time zone information is optional (http://hl7.org/fhir/search.html#date).
-            // The regular expression will not capture the time zone information unless hour and minutes are present.
             // If hour and minutes are specified but time zone information is not, then we will default to UTC
-            // since all dates without time zone is stored in UTC timestamp on the server.
+            // because all dates without time zone information are stored with a UTC timestamp on the server.
             if (hour != null && utcOffset == null)
             {
                 utcOffset = TimeSpan.FromMinutes(0);
             }
 
-            try
-            {
-                return new PartialDateTime(year, month, day, hour, minute, second, fraction, utcOffset);
-            }
-            catch (Exception ex) when (ex is ArgumentException)
-            {
-                // The input value was parsed correctly, but one of the values provided was out of range.
-                throw new FormatException(string.Format(Resources.DateTimeStringIsOutOfRange, s), ex);
-            }
+            return new PartialDateTime(year, month, day, hour, minute, second, fraction, utcOffset);
 
-            int? ParseDateTimePart(string name)
+            bool GetIsDateTimePartSpecified(string name)
             {
-                return (match.Groups[name]?.Value is var stringValue && string.IsNullOrEmpty(stringValue)) ?
-                    (int?)null :
-                    int.Parse(stringValue);
+                var stringValue = match.Groups[name]?.Value;
+                return !string.IsNullOrEmpty(stringValue);
             }
+        }
+
+        private static decimal GetFractionFromDateTimeOffset(DateTimeOffset parsedDateTimeOffset)
+        {
+            var offsetWithoutFraction = new DateTimeOffset(
+                parsedDateTimeOffset.Year,
+                parsedDateTimeOffset.Month,
+                parsedDateTimeOffset.Day,
+                parsedDateTimeOffset.Hour,
+                parsedDateTimeOffset.Minute,
+                parsedDateTimeOffset.Second,
+                parsedDateTimeOffset.Offset);
+
+            return (decimal)parsedDateTimeOffset.Subtract(offsetWithoutFraction).Ticks / TimeSpan.TicksPerSecond;
         }
 
         /// <summary>
@@ -252,7 +261,7 @@ namespace Microsoft.Health.Fhir.Core.Models
         {
             int month = Month ?? defaultMonth;
 
-            DateTimeOffset offset = new DateTimeOffset(
+            var offset = new DateTimeOffset(
                 Year,
                 month,
                 Day ?? defaultDaySelector(Year, month),
@@ -272,7 +281,7 @@ namespace Microsoft.Health.Fhir.Core.Models
         /// <inheritdoc />
         public override string ToString()
         {
-            StringBuilder sb = new StringBuilder();
+            var sb = new StringBuilder();
 
             sb.Append(Year);
 
