@@ -4,11 +4,13 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -19,8 +21,9 @@ using Microsoft.Health.Fhir.Core.Messages.Upsert;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
 {
-    public class ConditionalCreateResourceHandler : BaseConditionalHandler, IRequestHandler<ConditionalCreateResourceRequest, UpsertResourceResponse>
+    public class ConditionalCreateResourceHandler : BaseResourceHandler, IRequestHandler<ConditionalCreateResourceRequest, UpsertResourceResponse>
     {
+        private readonly ISearchService _searchService;
         private readonly IMediator _mediator;
 
         public ConditionalCreateResourceHandler(
@@ -31,10 +34,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
             IMediator mediator,
             ResourceIdProvider resourceIdProvider,
             IFhirAuthorizationService authorizationService)
-            : base(fhirDataStore, searchService, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
+            : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
+            EnsureArg.IsNotNull(searchService, nameof(searchService));
 
+            _searchService = searchService;
             _mediator = mediator;
         }
 
@@ -47,9 +52,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
                 throw new UnauthorizedFhirActionException();
             }
 
-            SearchResultEntry[] matchedResults = await Search(message.Resource.InstanceType, message.ConditionalParameters, cancellationToken);
+            IReadOnlyCollection<SearchResultEntry> matchedResults = await _searchService.ConditionalSearchAsync(message.Resource.InstanceType, message.ConditionalParameters, cancellationToken);
 
-            int count = matchedResults.Length;
+            int count = matchedResults.Count;
             if (count == 0)
             {
                 // No matches: The server creates the resource
