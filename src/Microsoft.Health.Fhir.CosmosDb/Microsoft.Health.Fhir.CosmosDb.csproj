@@ -2,7 +2,6 @@
 
   <PropertyGroup>
     <TargetFramework>netcoreapp3.1</TargetFramework>
-    <GeneratorProjectPath>..\..\tools\Microsoft.Health.Extensions.BuildTimeCodeGenerator\Microsoft.Health.Extensions.BuildTimeCodeGenerator.csproj</GeneratorProjectPath>
   </PropertyGroup>
 
   <ItemGroup>
@@ -12,7 +11,7 @@
   </ItemGroup>
   
   <ItemGroup>
-    <PackageReference Include="BuildTimeCodeGenerator" Version="1.0.0-alpha3" />
+    <PackageReference Include="Microsoft.Health.Extensions.BuildTimeCodeGenerator" Version="1.0.0-beta3" />
     <PackageReference Include="MediatR.Extensions.Microsoft.DependencyInjection" Version="8.0.0" />
     <PackageReference Include="Microsoft.Azure.DocumentDB.Core" Version="2.6.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="3.1.0" />
