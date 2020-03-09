@@ -4,6 +4,8 @@
 name: pr$(system.pullRequest.pullRequestNumber)-$(Date:yyyyMMdd)$(Rev:-r)
 variables:
   buildConfiguration: 'Release'
+  azureSubscriptionEndpoint: 'docker-test'
+  azureContainerRegistry: 'ossdockertest.azurecr.io'
 jobs:
 - job: Windows
   pool:
@@ -24,10 +26,32 @@ jobs:
     vmImage: 'ubuntu-16.04'
   steps:
   - task: DockerCompose@0
+    displayName: Container registry login
+    inputs:
+      containerregistrytype: Azure Container Registry
+      azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
+      azureContainerRegistry: $(azureContainerRegistry)
+
+  - task: DockerCompose@0
     displayName: Build FHIR Server Image
     inputs:
       action: Build services
       dockerComposeFile: samples/docker/docker-compose.yaml 
       projectName: fhirserverforazure
       qualifyImageNames: true
-      additionalImageTags: pr$(system.pullRequest.pullRequestNumber)
+      additionalImageTags: |
+        pr$(system.pullRequest.pullRequestNumber)
+        $(Build.BuildId)
+
+  - task: DockerCompose@0
+    displayName: Push FHIR Server Image
+    inputs:
+      action: Push services
+      azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
+      azureContainerRegistry: $(azureContainerRegistry)
+      dockerComposeFile: docker-compose.yml
+      projectName: fhirserverforazure
+      qualifyImageNames: true
+      additionalImageTags: |
+        pr$(system.pullRequest.pullRequestNumber)
+        $(Build.BuildId)
