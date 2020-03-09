@@ -15,6 +15,8 @@ CREATE UNIQUE CLUSTERED INDEX IXC_InstanceSchema ON dbo.InstanceSchema
     Name
 )
 
+GO
+
 /*************************************************************
     Stored procedures for InstanceSchema
 **************************************************************/
