@@ -44,7 +44,7 @@ jobs:
       action: Push services
       azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
       azureContainerRegistry: $(azureContainerRegistry)
-      dockerComposeFile: docker-compose.yml
+      dockerComposeFile: samples/docker/docker-compose.yaml 
       projectName: fhirserverforazure
       qualifyImageNames: true
       additionalImageTags: |
