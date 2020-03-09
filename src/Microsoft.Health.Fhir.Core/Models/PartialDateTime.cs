@@ -27,6 +27,7 @@ namespace Microsoft.Health.Fhir.Core.Models
         private const string SecondCapture = "second";
         private const string FractionCapture = "fraction";
         private const string TimeZoneCapture = "timeZone";
+        private const string InvalidTimeZoneCapture = "invalidTimeZone";
 
         // The formats array outlines how to parse the input string into a DateTimeOffset object, which is then converted to a PartialDateTime object.
         // The parser serves two different purposes: storing and searching.
@@ -74,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.Models
         // This is required because date time parts left blank are used to indicate a time period.
         // For example, 2000 is equivalent to an interval of [2000-01-01T00:00, 2000-12-31T23:59].
         private static readonly Regex DateTimeRegex = new Regex(
-            $@"-?(?<{YearCapture}>[0-9]{{4}})(-(?<{MonthCapture}>[0-9]{{2}}))?(-(?<{DayCapture}>[0-9]{{2}}))?(T(?<{HourCapture}>[0-9]{{2}}))?(:(?<{MinuteCapture}>[0-9]{{2}}))?(:(?<{SecondCapture}>[0-9]{{2}}))?((?<{FractionCapture}>\.[0-9]+))?(?<{TimeZoneCapture}>Z|(\+|-)(([0-9]{{2}}):[0-9]{{2}}))?",
+            $@"-?(?<{YearCapture}>[0-9]{{4}})(-(?<{MonthCapture}>[0-9]{{2}}))?(-(?<{DayCapture}>[0-9]{{2}}))?(T(?<{HourCapture}>[0-9]{{2}}))?(:(?<{MinuteCapture}>[0-9]{{2}}))?(:(?<{SecondCapture}>[0-9]{{2}}))?((?<{FractionCapture}>\.[0-9]+))?((?<{TimeZoneCapture}>Z|(\+|-)(([0-9]{{2}}):[0-9]{{2}}))|(?<{InvalidTimeZoneCapture}>Z|(\+|-)(([0-9]{{1}}):[0-9]{{2}})))?",
             RegexOptions.Singleline | RegexOptions.Compiled | RegexOptions.ExplicitCapture);
 
         /// <summary>
@@ -205,6 +206,14 @@ namespace Microsoft.Health.Fhir.Core.Models
             if (GetIsDateTimePartSpecified(FractionCapture))
             {
                 fraction = GetFractionFromDateTimeOffset(parsedDateTimeOffset);
+            }
+
+            // The DateTimeOffset parser allows the time zone hour to be formatted with only one digit.
+            // The spec specifies that the time zone hour must have two digits: yyyy-mm-ddThh:mm:ss[Z|(+|-)hh:mm]
+            // Use the RegEx to determine if the time zone is correctly formatted or not.
+            if (GetIsDateTimePartSpecified(InvalidTimeZoneCapture))
+            {
+                throw new FormatException(string.Format(Resources.DateTimeStringIsIncorrectlyFormatted, inputString));
             }
 
             TimeSpan? utcOffset = GetIsDateTimePartSpecified(TimeZoneCapture) ? parsedDateTimeOffset.Offset : (TimeSpan?)null;
