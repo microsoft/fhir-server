@@ -26,16 +26,11 @@ jobs:
     vmImage: 'ubuntu-16.04'
   steps:
   - task: DockerCompose@0
-    displayName: Container registry login
-    inputs:
-      containerregistrytype: Azure Container Registry
-      azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
-      azureContainerRegistry: $(azureContainerRegistry)
-
-  - task: DockerCompose@0
     displayName: Build FHIR Server Image
     inputs:
       action: Build services
+      azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
+      azureContainerRegistry: $(azureContainerRegistry)
       dockerComposeFile: samples/docker/docker-compose.yaml 
       projectName: fhirserverforazure
       qualifyImageNames: true
