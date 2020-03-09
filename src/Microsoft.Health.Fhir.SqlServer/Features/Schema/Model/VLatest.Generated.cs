@@ -15,6 +15,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         internal readonly static CompartmentTypeTable CompartmentType = new CompartmentTypeTable();
         internal readonly static DateTimeSearchParamTable DateTimeSearchParam = new DateTimeSearchParamTable();
         internal readonly static ExportJobTable ExportJob = new ExportJobTable();
+        internal readonly static InstanceSchemaTable InstanceSchema = new InstanceSchemaTable();
         internal readonly static NumberSearchParamTable NumberSearchParam = new NumberSearchParamTable();
         internal readonly static QuantityCodeTable QuantityCode = new QuantityCodeTable();
         internal readonly static QuantitySearchParamTable QuantitySearchParam = new QuantitySearchParamTable();
@@ -109,6 +110,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly NullableDateTime2Column HeartbeatDateTime = new NullableDateTime2Column("HeartbeatDateTime", 7);
             internal readonly VarCharColumn RawJobRecord = new VarCharColumn("RawJobRecord", -1);
             internal readonly TimestampColumn JobVersion = new TimestampColumn("JobVersion");
+        }
+
+        internal class InstanceSchemaTable : Table
+        {
+            internal InstanceSchemaTable(): base("dbo.InstanceSchema")
+            {
+            }
+
+            internal readonly VarCharColumn Name = new VarCharColumn("Name", 64, "Latin1_General_100_CS_AS");
+            internal readonly IntColumn CurrentVersion = new IntColumn("CurrentVersion");
+            internal readonly IntColumn MaxVersion = new IntColumn("MaxVersion");
+            internal readonly IntColumn MinVersion = new IntColumn("MinVersion");
+            internal readonly DateTime2Column Timeout = new DateTime2Column("Timeout", 7);
         }
 
         internal class NumberSearchParamTable : Table
@@ -593,13 +607,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
 
             private readonly ParameterDefinition<System.String> _name = new ParameterDefinition<System.String>("@name", global::System.Data.SqlDbType.VarChar, false, 64);
-            private readonly ParameterDefinition<System.Int32> _currentVersion = new ParameterDefinition<System.Int32>("@currentVersion", global::System.Data.SqlDbType.Int, false);
-            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.String name, System.Int32 currentVersion)
+            private readonly ParameterDefinition<System.Int32> _maxVersion = new ParameterDefinition<System.Int32>("@maxVersion", global::System.Data.SqlDbType.Int, false);
+            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.String name, System.Int32 maxVersion)
             {
                 command.CommandType = global::System.Data.CommandType.StoredProcedure;
                 command.CommandText = "dbo.UpdateInstanceSchema";
                 _name.AddParameter(command.Parameters, name);
-                _currentVersion.AddParameter(command.Parameters, currentVersion);
+                _maxVersion.AddParameter(command.Parameters, maxVersion);
             }
         }
 

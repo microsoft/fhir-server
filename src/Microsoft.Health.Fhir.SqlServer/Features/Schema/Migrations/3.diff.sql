@@ -1,4 +1,21 @@
 /*************************************************************
+    Instance Schema
+**************************************************************/
+CREATE TABLE dbo.InstanceSchema
+(
+    Name varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    CurrentVersion int NOT NULL,
+    MaxVersion int NOT NULL,
+    MinVersion int NOT NULL,
+    Timeout datetime2(7) NOT NULL
+)
+
+CREATE UNIQUE CLUSTERED INDEX IXC_InstanceSchema ON dbo.InstanceSchema
+(
+    Name
+)
+
+/*************************************************************
     Stored procedures for InstanceSchema
 **************************************************************/
 --
@@ -32,7 +49,7 @@ AS
     SET XACT_ABORT ON
     BEGIN TRANSACTION
 
-    DECLARE @timeout datetime2(7) = SYSUTCDATETIME()
+    DECLARE @timeout datetime2(7) = DATEADD(minute, 2, SYSUTCDATETIME())
 
     INSERT INTO dbo.InstanceSchema
         (Name, CurrentVersion, MaxVersion, MinVersion, Timeout)
@@ -78,15 +95,15 @@ GO
 -- PARAMETERS
 --     @name
 --         * The unique name for a particular instance
---     @currentVersion
---         * The current version of the schema that the given instance is using
+--     @maxVersion
+--         * The maxium supported schema version for the given instance
 --
 -- RETURN VALUE
 --     The row version of the updated instance schema.
 --
 CREATE PROCEDURE dbo.UpdateInstanceSchema
     @name varchar(64),
-    @currentVersion int
+    @maxVersion int
     
 AS
     SET NOCOUNT ON
@@ -95,10 +112,10 @@ AS
         FROM dbo.InstanceSchema
         WHERE Name = @name)
     BEGIN
-        DECLARE @timeout datetime2(7) = SYSUTCDATETIME()
+        DECLARE @timeout datetime2(7) = DATEADD(minute, 2, SYSUTCDATETIME())
 
         UPDATE dbo.InstanceSchema
-        SET CurrentVersion = @currentVersion, Timeout = @timeout
+        SET MaxVersion = @maxVersion, Timeout = @timeout
         WHERE Name = @name
     END
     ELSE
