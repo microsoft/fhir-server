@@ -17,16 +17,12 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         public static async Task<CreateExportResponse> ExportAsync(
             this IMediator mediator,
             Uri requestUri,
-            string destinationType,
-            string destinationConnectionString,
             CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
-            EnsureArg.IsNotNullOrWhiteSpace(destinationType, nameof(destinationType));
-            EnsureArg.IsNotNullOrWhiteSpace(destinationConnectionString, nameof(destinationConnectionString));
 
-            var request = new CreateExportRequest(requestUri, destinationType, destinationConnectionString);
+            CreateExportRequest request = new CreateExportRequest(requestUri);
 
             var response = await mediator.Send(request, cancellationToken);
             return response;

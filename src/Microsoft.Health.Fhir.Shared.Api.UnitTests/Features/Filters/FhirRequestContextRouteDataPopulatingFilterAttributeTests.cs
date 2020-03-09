@@ -12,7 +12,6 @@ using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Routing;
@@ -104,22 +103,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             _actionExecutingContext.ActionArguments.Add(KnownActionParameterNames.Bundle, Samples.GetDefaultObservation().ToPoco<Observation>());
 
             ExecuteAndValidateFilter(AuditEventSubType.BundlePost, AuditEventSubType.BundlePost);
-        }
-
-        [Fact]
-        public void GivenAResourceActionResult_WhenExecutedAnAction_ThenResourceTypeShouldBeSet()
-        {
-            const string resourceTypeName = "Patient";
-
-            var result = Substitute.For<IResourceActionResult, IActionResult>();
-
-            result.GetResultTypeName().Returns(resourceTypeName);
-
-            _actionExecutedContext.Result = (IActionResult)result;
-
-            _filterAttribute.OnActionExecuted(_actionExecutedContext);
-
-            Assert.Equal(resourceTypeName, _fhirRequestContext.ResourceType);
         }
 
         [Fact]

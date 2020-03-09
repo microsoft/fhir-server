@@ -7,6 +7,7 @@ using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
@@ -34,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 
-            var poco = resource.Instance.ToPoco<Resource>();
+            var poco = resource.ToPoco<Resource>();
 
             var versionId = poco.Meta?.VersionId;
             var lastUpdated = poco.Meta?.LastUpdated;

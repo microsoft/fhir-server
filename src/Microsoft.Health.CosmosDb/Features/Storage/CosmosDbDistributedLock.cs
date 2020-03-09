@@ -206,13 +206,16 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-                try
-                {
-                    await Task.Delay(TimeSpan.FromSeconds(_lockDocumentTimeToLive.TotalSeconds / 3), cancellationToken);
-                }
-                catch (OperationCanceledException)
-                {
-                }
+                // Create a task that completes when the cancellationToken is canceled.
+                // We do this to avoid and exception that occurs on every startup
+                // and can cause the debugger to break.
+
+                var cancellationCompletionSource = new TaskCompletionSource<object>();
+                cancellationToken.Register(() => cancellationCompletionSource.SetResult(null));
+
+                await Task.WhenAny(
+                    Task.Delay(TimeSpan.FromSeconds(_lockDocumentTimeToLive.TotalSeconds / 3), CancellationToken.None),
+                    cancellationCompletionSource.Task);
 
                 while (!cancellationToken.IsCancellationRequested)
                 {

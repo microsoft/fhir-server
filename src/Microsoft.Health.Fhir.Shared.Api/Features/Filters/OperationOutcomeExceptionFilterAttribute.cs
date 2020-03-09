@@ -10,6 +10,7 @@ using System.Linq;
 using System.Net;
 using EnsureThat;
 using Hl7.Fhir.Model;
+using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
@@ -30,6 +31,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
     internal class OperationOutcomeExceptionFilterAttribute : ActionFilterAttribute
     {
         private const string RetryAfterHeaderName = "x-ms-retry-after-ms";
+        private const string ValidateController = "Validate";
 
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
 
@@ -60,6 +62,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
                 switch (fhirException)
                 {
+                    case UnauthorizedFhirActionException _:
+                        operationOutcomeResult.StatusCode = HttpStatusCode.Forbidden;
+                        break;
+
                     case ResourceGoneException resourceGoneException:
                         operationOutcomeResult.StatusCode = HttpStatusCode.Gone;
                         if (!string.IsNullOrEmpty(resourceGoneException.DeletedResource?.VersionId))
@@ -80,6 +86,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         operationOutcomeResult.StatusCode = HttpStatusCode.ServiceUnavailable;
                         break;
                     case ResourceNotValidException _:
+                        if (context.ActionDescriptor is ControllerActionDescriptor controllerDescriptor)
+                        {
+                            if (controllerDescriptor.ControllerName.Equals(ValidateController, StringComparison.OrdinalIgnoreCase))
+                            {
+                                operationOutcomeResult.StatusCode = HttpStatusCode.OK;
+                                break;
+                            }
+                        }
+
+                        operationOutcomeResult.StatusCode = HttpStatusCode.BadRequest;
+                        break;
                     case BadRequestException _:
                     case RequestNotValidException _:
                     case BundleEntryLimitExceededException _:
@@ -132,21 +149,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 switch (microsoftHealthException)
                 {
                     case RequestRateExceededException ex:
-                        healthExceptionResult = new OperationOutcomeResult(
-                            new OperationOutcome
-                            {
-                                Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,
-                                Issue = new List<OperationOutcome.IssueComponent>
-                                {
-                                    new OperationOutcome.IssueComponent
-                                    {
-                                        Severity = OperationOutcome.IssueSeverity.Error,
-                                        Code = OperationOutcome.IssueType.Throttled,
-                                        Diagnostics = ex.Message,
-                                    },
-                                },
-                            }, HttpStatusCode.BadRequest);
-                        healthExceptionResult.StatusCode = HttpStatusCode.TooManyRequests;
+                        healthExceptionResult = CreateOperationOutcomeResult(ex.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Throttled, HttpStatusCode.TooManyRequests);
 
                         if (ex.RetryAfter != null)
                         {
@@ -162,13 +165,46 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                             {
                                 Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,
                             }, HttpStatusCode.InternalServerError);
-                        healthExceptionResult.StatusCode = HttpStatusCode.InternalServerError;
                         break;
                 }
 
                 context.Result = healthExceptionResult;
                 context.ExceptionHandled = true;
             }
+            else
+            {
+                switch (context.Exception)
+                {
+                    case FormatException ex:
+                        context.Result = CreateOperationOutcomeResult(ex.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Structure, HttpStatusCode.BadRequest);
+                        context.ExceptionHandled = true;
+
+                        break;
+                    case ArgumentException ex:
+                        context.Result = CreateOperationOutcomeResult(ex.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Invalid, HttpStatusCode.BadRequest);
+                        context.ExceptionHandled = true;
+
+                        break;
+                }
+            }
+        }
+
+        private OperationOutcomeResult CreateOperationOutcomeResult(string message, OperationOutcome.IssueSeverity issueSeverity, OperationOutcome.IssueType issueType, HttpStatusCode httpStatusCode)
+        {
+            return new OperationOutcomeResult(
+                new OperationOutcome
+                {
+                    Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,
+                    Issue = new List<OperationOutcome.IssueComponent>
+                    {
+                        new OperationOutcome.IssueComponent
+                        {
+                            Severity = issueSeverity,
+                            Code = issueType,
+                            Diagnostics = message,
+                        },
+                    },
+                }, httpStatusCode);
         }
     }
 }

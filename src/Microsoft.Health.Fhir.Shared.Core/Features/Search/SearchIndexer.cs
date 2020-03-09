@@ -28,27 +28,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     {
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly IFhirElementToSearchValueTypeConverterManager _fhirElementTypeConverterManager;
+        private readonly IReferenceToElementResolver _referenceToElementResolver;
         private readonly ILogger<SearchIndexer> _logger;
-
         private readonly ConcurrentDictionary<string, List<string>> _targetTypesLookup = new ConcurrentDictionary<string, List<string>>();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SearchIndexer"/> class.
         /// </summary>
-        /// <param name="searchParameterDefinitionManager">The search parameter definition manager.</param>
+        /// <param name="searchParameterDefinitionManagerResolver">The search parameter definition manager.</param>
         /// <param name="fhirElementTypeConverterManager">The FHIR element type converter manager.</param>
+        /// <param name="referenceToElementResolver">Used for parsing reference strings</param>
         /// <param name="logger">The logger.</param>
         public SearchIndexer(
-            ISearchParameterDefinitionManager searchParameterDefinitionManager,
+            SupportedSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
             IFhirElementToSearchValueTypeConverterManager fhirElementTypeConverterManager,
+            IReferenceToElementResolver referenceToElementResolver,
             ILogger<SearchIndexer> logger)
         {
-            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
+            EnsureArg.IsNotNull(searchParameterDefinitionManagerResolver, nameof(searchParameterDefinitionManagerResolver));
             EnsureArg.IsNotNull(fhirElementTypeConverterManager, nameof(fhirElementTypeConverterManager));
+            EnsureArg.IsNotNull(referenceToElementResolver, nameof(referenceToElementResolver));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _searchParameterDefinitionManager = searchParameterDefinitionManager;
+            _searchParameterDefinitionManager = searchParameterDefinitionManagerResolver();
             _fhirElementTypeConverterManager = fhirElementTypeConverterManager;
+            _referenceToElementResolver = referenceToElementResolver;
             _logger = logger;
         }
 
@@ -57,11 +61,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 
-            var poco = resource.ToPoco();
+            Resource poco = resource.ToPoco();
 
             var entries = new List<SearchIndexEntry>();
 
-            var context = new FhirEvaluationContext(poco);
+            var context = new FhirEvaluationContext(poco)
+            {
+                // Allows the indexer to parse the 'resolve' function i.e. CarePlan.subject.where(resolve() is Patient)
+                ElementResolver = _referenceToElementResolver.Resolve,
+            };
 
             IEnumerable<SearchParameterInfo> searchParameters = _searchParameterDefinitionManager.GetSearchParameters(resource.InstanceType);
 
@@ -237,7 +245,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             return results;
         }
 
-        private static Type GetSearchValueTypeForSearchParamType(SearchParamType? searchParamType)
+        internal static Type GetSearchValueTypeForSearchParamType(SearchParamType? searchParamType)
         {
             switch (searchParamType)
             {
@@ -257,6 +265,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     return typeof(QuantitySearchValue);
                 case SearchParamType.Uri:
                     return typeof(UriSearchValue);
+                case SearchParamType.Special:
+                    return typeof(StringSearchValue);
                 default:
                     throw new ArgumentOutOfRangeException(nameof(searchParamType), searchParamType, null);
             }

@@ -13,29 +13,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
     {
         public static readonly StringSearchParameterQueryGenerator Instance = new StringSearchParameterQueryGenerator();
 
-        public override Table Table => V1.StringSearchParam;
+        public override Table Table => VLatest.StringSearchParam;
 
         public override SearchParameterQueryGeneratorContext VisitString(StringExpression expression, SearchParameterQueryGeneratorContext context)
         {
-            AppendColumnName(context, V1.StringSearchParam.TextOverflow, expression);
+            AppendColumnName(context, VLatest.StringSearchParam.TextOverflow, expression);
 
             StringColumn column;
             switch (expression.FieldName)
             {
                 case FieldName.String:
-                    column = V1.StringSearchParam.Text;
+                    column = VLatest.StringSearchParam.Text;
                     context.StringBuilder.Append(" IS NULL AND ");
                     break;
                 case SqlFieldName.TextOverflow:
-                    column = V1.StringSearchParam.TextOverflow;
+                    column = VLatest.StringSearchParam.TextOverflow;
                     switch (expression.StringOperator)
                     {
                         case StringOperator.StartsWith:
                         case StringOperator.NotStartsWith:
                         case StringOperator.Equals:
-                            if (expression.Value.Length <= V1.StringSearchParam.Text.Metadata.MaxLength)
+                            if (expression.Value.Length <= VLatest.StringSearchParam.Text.Metadata.MaxLength)
                             {
-                                column = V1.StringSearchParam.Text;
+                                column = VLatest.StringSearchParam.Text;
                             }
 
                             break;

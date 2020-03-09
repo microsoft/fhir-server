@@ -23,6 +23,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ConditionalCreateTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ConditionalUpdateTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\CorsTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\ObservationResolveReferenceTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\CreateTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\DeleteTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ExportTests.cs" />
@@ -69,6 +70,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\TestHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\TransactionTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\UpdateTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\ValidateTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\VersionSpecificTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\VReadTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)StartupBaseForCustomProviders.cs" />

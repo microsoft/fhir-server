@@ -7,12 +7,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 {
     public static class TestApplications
     {
-        public static TestApplication ServiceClient { get; } = new TestApplication("serviceclient");
+        public static TestApplication GlobalAdminServicePrincipal { get; } = new TestApplication("globalAdminServicePrincipal");
 
-        public static TestApplication NativeClient { get; } = new TestApplication("nativeclient");
+        public static TestApplication NativeClient { get; } = new TestApplication("nativeClient");
 
         public static TestApplication InvalidClient { get; } = new TestApplication("invalidclient");
 
-        public static TestApplication WrongAudienceClient { get; } = new TestApplication("wrongaudienceclient");
+        public static TestApplication WrongAudienceClient { get; } = new TestApplication("wrongAudienceClient");
     }
 }

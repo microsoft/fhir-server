@@ -8,7 +8,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
-    internal class TokenQuantityCompositeSearchParameterRowGenerator : CompositeSearchParameterRowGenerator<(TokenSearchValue component1, QuantitySearchValue component2), V1.TokenQuantityCompositeSearchParamTableTypeRow>
+    internal class TokenQuantityCompositeSearchParameterRowGenerator : CompositeSearchParameterRowGenerator<(TokenSearchValue component1, QuantitySearchValue component2), VLatest.TokenQuantityCompositeSearchParamTableTypeRow>
     {
         private readonly TokenSearchParameterRowGenerator _tokenRowGenerator;
         private readonly QuantitySearchParameterRowGenerator _quantityRowGenerator;
@@ -20,12 +20,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             _quantityRowGenerator = quantityRowGenerator;
         }
 
-        internal override bool TryGenerateRow(short searchParamId, (TokenSearchValue component1, QuantitySearchValue component2) searchValue, out V1.TokenQuantityCompositeSearchParamTableTypeRow row)
+        internal override bool TryGenerateRow(short searchParamId, (TokenSearchValue component1, QuantitySearchValue component2) searchValue, out VLatest.TokenQuantityCompositeSearchParamTableTypeRow row)
         {
             if (_tokenRowGenerator.TryGenerateRow(default, searchValue.component1, out var token1Row) &&
                 _quantityRowGenerator.TryGenerateRow(default, searchValue.component2, out var token2Row))
             {
-                row = new V1.TokenQuantityCompositeSearchParamTableTypeRow(
+                row = new VLatest.TokenQuantityCompositeSearchParamTableTypeRow(
                     searchParamId,
                     token1Row.SystemId,
                     token1Row.Code,

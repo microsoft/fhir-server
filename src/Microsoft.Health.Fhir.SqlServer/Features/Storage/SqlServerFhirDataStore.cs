@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly SqlServerDataStoreConfiguration _configuration;
         private readonly SqlServerFhirModel _model;
         private readonly SearchParameterToSearchValueTypeMap _searchParameterTypeMap;
-        private readonly V1.UpsertResourceTvpGenerator<ResourceMetadata> _upsertResourceTvpGenerator;
+        private readonly VLatest.UpsertResourceTvpGenerator<ResourceMetadata> _upsertResourceTvpGenerator;
         private readonly RecyclableMemoryStreamManager _memoryStreamManager;
         private readonly CoreFeatureConfiguration _coreFeatures;
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             SqlServerDataStoreConfiguration configuration,
             SqlServerFhirModel model,
             SearchParameterToSearchValueTypeMap searchParameterTypeMap,
-            V1.UpsertResourceTvpGenerator<ResourceMetadata> upsertResourceTvpGenerator,
+            VLatest.UpsertResourceTvpGenerator<ResourceMetadata> upsertResourceTvpGenerator,
             IOptions<CoreFeatureConfiguration> coreFeatures,
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             ILogger<SqlServerFhirDataStore> logger)
@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     stream.Seek(0, 0);
 
-                    V1.UpsertResource.PopulateCommand(
+                    VLatest.UpsertResource.PopulateCommand(
                         command,
                         baseResourceSurrogateId: ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.UtcDateTime),
                         resourceTypeId: _model.GetResourceTypeId(resource.ResourceTypeName),
@@ -170,7 +170,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 using (SqlCommand command = sqlConnectionWrapper.CreateSqlCommand())
                 {
-                    V1.ReadResource.PopulateCommand(
+                    VLatest.ReadResource.PopulateCommand(
                         command,
                         resourceTypeId: _model.GetResourceTypeId(key.ResourceType),
                         resourceId: key.Id,
@@ -183,7 +183,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             return null;
                         }
 
-                        var resourceTable = V1.Resource;
+                        var resourceTable = VLatest.Resource;
 
                         (long resourceSurrogateId, int version, bool isDeleted, bool isHistory, Stream rawResourceStream) = sqlDataReader.ReadRow(
                             resourceTable.ResourceSurrogateId,
@@ -228,7 +228,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 using (var command = sqlConnectionWrapper.CreateSqlCommand())
                 {
-                    V1.HardDeleteResource.PopulateCommand(command, resourceTypeId: _model.GetResourceTypeId(key.ResourceType), resourceId: key.Id);
+                    VLatest.HardDeleteResource.PopulateCommand(command, resourceTypeId: _model.GetResourceTypeId(key.ResourceType), resourceId: key.Id);
 
                     await command.ExecuteNonQueryAsync(cancellationToken);
                 }

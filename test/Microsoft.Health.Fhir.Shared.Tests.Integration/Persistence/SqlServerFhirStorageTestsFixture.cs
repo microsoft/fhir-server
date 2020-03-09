@@ -6,6 +6,7 @@
 using System;
 using System.Data.SqlClient;
 using System.Numerics;
+using System.Threading;
 using Hl7.Fhir.Model;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -13,6 +14,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Configs;
@@ -20,7 +22,6 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using NSubstitute;
-using Polly;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -30,9 +31,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     {
         private const string LocalConnectionString = "server=(local);Integrated Security=true";
 
-        private readonly string _masterConnectionString;
         private readonly string _databaseName;
         private readonly IFhirDataStore _fhirDataStore;
+        private readonly IFhirOperationDataStore _fhirOperationDataStore;
         private readonly SqlServerFhirStorageTestHelper _testHelper;
         private readonly SchemaInitializer _schemaInitializer;
 
@@ -41,10 +42,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var initialConnectionString = Environment.GetEnvironmentVariable("SqlServer:ConnectionString") ?? LocalConnectionString;
 
             _databaseName = $"FHIRINTEGRATIONTEST_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
-            _masterConnectionString = new SqlConnectionStringBuilder(initialConnectionString) { InitialCatalog = "master" }.ToString();
+            string masterConnectionString = new SqlConnectionStringBuilder(initialConnectionString) { InitialCatalog = "master" }.ToString();
             TestConnectionString = new SqlConnectionStringBuilder(initialConnectionString) { InitialCatalog = _databaseName }.ToString();
 
             var config = new SqlServerDataStoreConfiguration { ConnectionString = TestConnectionString, Initialize = true };
+            var sqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(config, new SqlTransactionHandler());
 
             var schemaUpgradeRunner = new SchemaUpgradeRunner(config, NullLogger<SchemaUpgradeRunner>.Instance);
 
@@ -61,7 +63,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var securityConfiguration = new SecurityConfiguration { PrincipalClaims = { "oid" } };
 
-            var sqlServerFhirModel = new SqlServerFhirModel(config, schemaInformation, searchParameterDefinitionManager, Options.Create(securityConfiguration), NullLogger<SqlServerFhirModel>.Instance);
+            var sqlServerFhirModel = new SqlServerFhirModel(config, schemaInformation, () => searchParameterDefinitionManager, Options.Create(securityConfiguration), NullLogger<SqlServerFhirModel>.Instance);
 
             var serviceCollection = new ServiceCollection();
             serviceCollection.AddSqlServerTableRowParameterGenerators();
@@ -69,14 +71,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             ServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
 
-            var upsertResourceTvpGenerator = serviceProvider.GetRequiredService<V1.UpsertResourceTvpGenerator<ResourceMetadata>>();
-            var searchParameterToSearchValueTypeMap = new SearchParameterToSearchValueTypeMap(searchParameterDefinitionManager);
+            var upsertResourceTvpGenerator = serviceProvider.GetRequiredService<VLatest.UpsertResourceTvpGenerator<ResourceMetadata>>();
+            var searchParameterToSearchValueTypeMap = new SearchParameterToSearchValueTypeMap(() => searchParameterDefinitionManager);
 
             SqlTransactionHandler = new SqlTransactionHandler();
             SqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(config, SqlTransactionHandler);
 
             _fhirDataStore = new SqlServerFhirDataStore(config, sqlServerFhirModel, searchParameterToSearchValueTypeMap, upsertResourceTvpGenerator, Options.Create(new CoreFeatureConfiguration()), SqlConnectionWrapperFactory, NullLogger<SqlServerFhirDataStore>.Instance);
-            _testHelper = new SqlServerFhirStorageTestHelper(TestConnectionString);
+
+            _fhirOperationDataStore = new SqlServerFhirOperationDataStore(sqlConnectionWrapperFactory, NullLogger<SqlServerFhirOperationDataStore>.Instance);
+
+            _testHelper = new SqlServerFhirStorageTestHelper(TestConnectionString, initialConnectionString, masterConnectionString);
         }
 
         public string TestConnectionString { get; }
@@ -87,55 +92,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public async Task InitializeAsync()
         {
-            // Create the database
-            using (var connection = new SqlConnection(_masterConnectionString))
-            {
-                await connection.OpenAsync();
-
-                using (SqlCommand command = connection.CreateCommand())
-                {
-                    command.CommandTimeout = 600;
-                    command.CommandText = $"CREATE DATABASE {_databaseName}";
-                    await command.ExecuteNonQueryAsync();
-                }
-            }
-
-            // verify that we can connect to the new database. This sometimes does not work right away with Azure SQL.
-            await Policy
-                .Handle<SqlException>()
-                .WaitAndRetryAsync(
-                    retryCount: 7,
-                    sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)))
-                .ExecuteAsync(async () =>
-                {
-                    using (var connection = new SqlConnection(TestConnectionString))
-                    {
-                        await connection.OpenAsync();
-                        using (SqlCommand sqlCommand = connection.CreateCommand())
-                        {
-                            sqlCommand.CommandText = "SELECT 1";
-                            await sqlCommand.ExecuteScalarAsync();
-                        }
-                    }
-                });
-
-            _schemaInitializer.Start();
+            await _testHelper.CreateAndInitializeDatabase(_databaseName, forceIncrementalSchemaUpgrade: false, _schemaInitializer, CancellationToken.None);
         }
 
         public async Task DisposeAsync()
         {
-            using (var connection = new SqlConnection(_masterConnectionString))
-            {
-                await connection.OpenAsync();
-                SqlConnection.ClearAllPools();
-
-                using (SqlCommand command = connection.CreateCommand())
-                {
-                    command.CommandTimeout = 600;
-                    command.CommandText = $"DROP DATABASE IF EXISTS {_databaseName}";
-                    await command.ExecuteNonQueryAsync();
-                }
-            }
+            await _testHelper.DeleteDatabase(_databaseName, CancellationToken.None);
         }
 
         object IServiceProvider.GetService(Type serviceType)
@@ -143,6 +105,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             if (serviceType == typeof(IFhirDataStore))
             {
                 return _fhirDataStore;
+            }
+
+            if (serviceType == typeof(IFhirOperationDataStore))
+            {
+                return _fhirOperationDataStore;
             }
 
             if (serviceType == typeof(IFhirStorageTestHelper))

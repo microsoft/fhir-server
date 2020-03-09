@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             _factory = new SearchOptionsFactory(
                 _expressionParser,
-                searchParameterDefinitionManager,
+                () => searchParameterDefinitionManager,
                 NullLogger<SearchOptionsFactory>.Instance);
         }
 

@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
     {
         public static readonly NumberSearchParameterQueryGenerator Instance = new NumberSearchParameterQueryGenerator();
 
-        public override Table Table => V1.NumberSearchParam;
+        public override Table Table => VLatest.NumberSearchParam;
 
         public override SearchParameterQueryGeneratorContext VisitBinary(BinaryExpression expression, SearchParameterQueryGeneratorContext context)
         {
@@ -22,14 +22,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             switch (expression.FieldName)
             {
                 case FieldName.Number:
-                    valueColumn = nullCheckColumn = V1.NumberSearchParam.SingleValue;
+                    valueColumn = nullCheckColumn = VLatest.NumberSearchParam.SingleValue;
                     break;
                 case SqlFieldName.NumberLow:
-                    valueColumn = nullCheckColumn = V1.NumberSearchParam.LowValue;
+                    valueColumn = nullCheckColumn = VLatest.NumberSearchParam.LowValue;
                     break;
                 case SqlFieldName.NumberHigh:
-                    valueColumn = V1.NumberSearchParam.HighValue;
-                    nullCheckColumn = V1.NumberSearchParam.LowValue;
+                    valueColumn = VLatest.NumberSearchParam.HighValue;
+                    nullCheckColumn = VLatest.NumberSearchParam.LowValue;
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(expression.FieldName.ToString());

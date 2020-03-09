@@ -5,18 +5,16 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Search;
-using Microsoft.Health.Fhir.Core.Messages.Search;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Models;
 using static Hl7.Fhir.Model.Bundle;
 
@@ -29,8 +27,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             Lazy<IConformanceProvider> conformanceProvider,
             IResourceWrapperFactory resourceWrapperFactory,
             ISearchService searchService,
-            ResourceIdProvider resourceIdProvider)
-            : base(fhirDataStore, searchService, conformanceProvider, resourceWrapperFactory, resourceIdProvider)
+            ResourceIdProvider resourceIdProvider,
+            IFhirAuthorizationService authorizationService)
+            : base(fhirDataStore, searchService, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
         }
 
@@ -120,21 +119,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
 
             return string.Empty;
-        }
-
-        public async Task<SearchResultEntry[]> GetExistingResourceId(string requestUrl, string resourceType, StringValues conditionalQueries, CancellationToken cancellationToken)
-        {
-            if (string.IsNullOrEmpty(resourceType) || string.IsNullOrEmpty(conditionalQueries))
-            {
-                throw new RequestNotValidException(string.Format(Api.Resources.InvalidConditionalReferenceParameters, requestUrl));
-            }
-
-            Tuple<string, string>[] conditionalParameters = QueryHelpers.ParseQuery(conditionalQueries)
-                              .SelectMany(query => query.Value, (query, value) => Tuple.Create(query.Key, value)).ToArray();
-
-            var searchResourceRequest = new SearchResourceRequest(resourceType, conditionalParameters);
-
-            return await Search(searchResourceRequest.ResourceType, searchResourceRequest.Queries, cancellationToken);
         }
 
         private static bool ShouldValidateBundleEntry(EntryComponent entry)

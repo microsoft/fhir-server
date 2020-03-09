@@ -7,13 +7,13 @@ using System.IdentityModel.Tokens.Jwt;
 using EnsureThat;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
-using Microsoft.Health.Fhir.Api.Features.Security;
-using Microsoft.Health.Fhir.Api.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 
 namespace Microsoft.Health.Fhir.Api.Modules
@@ -33,7 +33,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
         {
             EnsureArg.IsNotNull(services, nameof(services));
 
-            services.AddSingleton<IAuthorizationPolicyProvider, AuthorizationPolicyProvider>();
             services.AddSingleton<IBundleHttpContextAccessor, BundleHttpContextAccessor>();
 
             // Set the token handler to not do auto inbound mapping. (e.g. "roles" -> "http://schemas.microsoft.com/ws/2008/06/identity/claims/role")
@@ -47,44 +46,38 @@ namespace Microsoft.Health.Fhir.Api.Modules
                         options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
                         options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
                     })
-                    .AddBundleAwareCustomJwtBearer(options =>
+                    .AddJwtBearer(options =>
                     {
                         options.Authority = _securityConfiguration.Authentication.Authority;
                         options.Audience = _securityConfiguration.Authentication.Audience;
                         options.RequireHttpsMetadata = true;
+                        options.Challenge = $"Bearer authorization_uri=\"{_securityConfiguration.Authentication.Authority}\", resource_id=\"{_securityConfiguration.Authentication.Audience}\", realm=\"{_securityConfiguration.Authentication.Audience}\"";
                     });
 
-                services.AddAuthorization(options => options.AddPolicy(PolicyNames.FhirPolicy, builder =>
+                services.AddControllers(mvcOptions =>
                 {
-                    builder.RequireAuthenticatedUser();
-                    builder.Requirements.Add(new FhirAccessRequirement());
-                }));
+                    var policy = new AuthorizationPolicyBuilder()
+                        .RequireAuthenticatedUser()
+                        .Build();
 
-                services.AddSingleton<IAuthorizationHandler, DefaultFhirAccessRequirementHandler>();
+                    mvcOptions.Filters.Add(new AuthorizeFilter(policy));
+                });
 
                 if (_securityConfiguration.Authorization.Enabled)
                 {
-                    _securityConfiguration.Authorization.ValidateRoles();
+                    services.Add<RoleLoader>().Transient().AsImplementedInterfaces();
                     services.AddSingleton(_securityConfiguration.Authorization);
-                    services.AddSingleton<IAuthorizationPolicy, RoleBasedAuthorizationPolicy>();
-                    services.AddSingleton<IAuthorizationHandler, ResourceActionHandler>();
+
+                    services.AddSingleton<IFhirAuthorizationService, RoleBasedFhirAuthorizationService>();
                 }
                 else
                 {
-                    services.AddAuthorization(options => ConfigureDefaultPolicy(options, PolicyNames.HardDeletePolicy, PolicyNames.ReadPolicy, PolicyNames.WritePolicy, PolicyNames.ExportPolicy));
+                    services.AddSingleton<IFhirAuthorizationService>(DisabledFhirAuthorizationService.Instance);
                 }
             }
             else
             {
-                services.AddAuthorization(options => ConfigureDefaultPolicy(options, PolicyNames.FhirPolicy, PolicyNames.HardDeletePolicy, PolicyNames.ReadPolicy, PolicyNames.WritePolicy, PolicyNames.ExportPolicy));
-            }
-        }
-
-        private static void ConfigureDefaultPolicy(AuthorizationOptions options, params string[] policyNames)
-        {
-            foreach (var policyName in policyNames)
-            {
-                options.AddPolicy(policyName, builder => builder.RequireAssertion(x => true));
+                services.AddSingleton<IFhirAuthorizationService>(DisabledFhirAuthorizationService.Instance);
             }
         }
     }

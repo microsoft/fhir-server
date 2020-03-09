@@ -9,7 +9,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
-    internal class TokenSearchParameterRowGenerator : SearchParameterRowGenerator<TokenSearchValue, V1.TokenSearchParamTableTypeRow>
+    internal class TokenSearchParameterRowGenerator : SearchParameterRowGenerator<TokenSearchValue, VLatest.TokenSearchParamTableTypeRow>
     {
         private short _resourceIdSearchParamId;
 
@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
         {
         }
 
-        internal override bool TryGenerateRow(short searchParamId, TokenSearchValue searchValue, out V1.TokenSearchParamTableTypeRow row)
+        internal override bool TryGenerateRow(short searchParamId, TokenSearchValue searchValue, out VLatest.TokenSearchParamTableTypeRow row)
         {
             // don't store if the code is empty or if this is the Resource _id parameter. The id is already maintained on the Resource table.
             if (string.IsNullOrWhiteSpace(searchValue.Code) ||
@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 return false;
             }
 
-            row = new V1.TokenSearchParamTableTypeRow(
+            row = new VLatest.TokenSearchParamTableTypeRow(
                 searchParamId,
                 searchValue.System == null ? (int?)null : Model.GetSystemId(searchValue.System),
                 searchValue.Code);

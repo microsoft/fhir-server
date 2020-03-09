@@ -54,7 +54,7 @@ This file is based on or incorporates material from the projects listed below (T
   > OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
   > SOFTWARE.
 
-## FluentValidation 8.5.1
+## FluentValidation 8.6.1
 * Component Source:   https://github.com/JeremySkinner/fluentvalidation/
 * Component Copyright and License:
   >                                  Apache License
@@ -234,7 +234,7 @@ This file is based on or incorporates material from the projects listed below (T
   > 
   >    END OF TERMS AND CONDITIONS
 
-## Hl7.Fhir.STU3 1.3.0
+## Hl7.Fhir.STU3 1.5.0
 * Component Source:   https://github.com/FirelyTeam/fhir-net-api
 * Component Copyright and License:  
   > Copyright (c) 2013-2019, HL7, Firely (info@fire.ly), Microsoft Open Technologies
@@ -267,7 +267,7 @@ This file is based on or incorporates material from the projects listed below (T
   > (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
   > SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-## Hl7.Fhir.R4 1.3.0
+## Hl7.Fhir.R4 1.5.0
 * Component Source:   https://github.com/FirelyTeam/fhir-net-api
 * Component Copyright and License:  
   > Copyright (c) 2013-2019, HL7, Firely (info@fire.ly), Microsoft Open Technologies
@@ -506,7 +506,7 @@ This file is based on or incorporates material from the projects listed below (T
   >    limitations under the License.
   > 
 
-## MediatR 7.0.0
+## MediatR 8.0.0
 * Component Source:   https://github.com/jbogard/MediatR
 * Component Copyright and License:
   > Apache License
@@ -742,7 +742,7 @@ This file is based on or incorporates material from the projects listed below (T
   > 
   > [ http://www.opensource.org/licenses/bsd-license.php ]> 
 
-## Polly 7.1.1
+## Polly 7.2.0
 * Component Source:   https://github.com/App-vNext/Polly
 * Component Copyright and License:
   > New BSD License

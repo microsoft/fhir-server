@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Web
 {
     public static class DevelopmentIdentityProviderRegistrationExtensions
     {
-        private const string WrongAudienceClient = "wrongaudienceclient";
+        private const string WrongAudienceClient = "wrongAudienceClient";
 
         /// <summary>
         /// Adds an in-process identity provider if enabled in configuration.
@@ -50,14 +50,14 @@ namespace Microsoft.Health.Fhir.Web
                     .AddInMemoryApiResources(new[]
                     {
                         new ApiResource(
-                        DevelopmentIdentityProviderConfiguration.Audience,
-                        claimTypes: new List<string>() { authorizationConfiguration.RolesClaim, ClaimTypes.Name, ClaimTypes.NameIdentifier })
+                            DevelopmentIdentityProviderConfiguration.Audience,
+                            claimTypes: new List<string>() { authorizationConfiguration.RolesClaim, ClaimTypes.Name, ClaimTypes.NameIdentifier })
                         {
                             UserClaims = { authorizationConfiguration.RolesClaim },
                         },
                         new ApiResource(
-                        WrongAudienceClient,
-                        claimTypes: new List<string>() { authorizationConfiguration.RolesClaim, ClaimTypes.Name, ClaimTypes.NameIdentifier })
+                            WrongAudienceClient,
+                            claimTypes: new List<string>() { authorizationConfiguration.RolesClaim, ClaimTypes.Name, ClaimTypes.NameIdentifier })
                         {
                             UserClaims = { authorizationConfiguration.RolesClaim },
                         },
@@ -102,7 +102,7 @@ namespace Microsoft.Health.Fhir.Web
         /// </summary>
         /// <param name="app">The application builder</param>
         /// <returns>The application builder.</returns>
-        public static IApplicationBuilder UseDevelopmentIdentityProvider(this IApplicationBuilder app)
+        public static IApplicationBuilder UseDevelopmentIdentityProviderIfConfigured(this IApplicationBuilder app)
         {
             EnsureArg.IsNotNull(app, nameof(app));
             if (app.ApplicationServices.GetService<IOptions<DevelopmentIdentityProviderConfiguration>>()?.Value?.Enabled == true)
@@ -114,16 +114,20 @@ namespace Microsoft.Health.Fhir.Web
         }
 
         /// <summary>
-        /// If <paramref name="testEnvironmentFilePath"/> exists, adds an <see cref="IConfigurationBuilder"/> that
+        /// If <paramref name="existingConfiguration"/> contains a value for TestAuthEnvironment:FilePath and the file exists, this method adds an <see cref="IConfigurationBuilder"/> that
         /// reads a testauthenvironment.json file and reshapes it to fit into the expected schema of the FHIR server
         /// configuration. Also sets the security audience and sets the development identity server as enabled.
         /// This is an optional configuration source and is only intended to be used for local development.
         /// </summary>
         /// <param name="configurationBuilder">The configuration builder.</param>
-        /// <param name="testEnvironmentFilePath">The path to the config file. Can null, empty, or non-existent.</param>
+        /// <param name="existingConfiguration">abc</param>
         /// <returns>The same configuration builder.</returns>
-        public static IConfigurationBuilder AddDevelopmentAuthEnvironment(this IConfigurationBuilder configurationBuilder, string testEnvironmentFilePath)
+        public static IConfigurationBuilder AddDevelopmentAuthEnvironmentIfConfigured(this IConfigurationBuilder configurationBuilder, IConfigurationRoot existingConfiguration)
         {
+            EnsureArg.IsNotNull(existingConfiguration, nameof(existingConfiguration));
+
+            string testEnvironmentFilePath = existingConfiguration["TestAuthEnvironment:FilePath"];
+
             if (string.IsNullOrWhiteSpace(testEnvironmentFilePath))
             {
                 return configurationBuilder;
@@ -135,17 +139,19 @@ namespace Microsoft.Health.Fhir.Web
                 return configurationBuilder;
             }
 
-            return configurationBuilder.Add(new DevelopmentAuthEnvironmentConfigurationSource(testEnvironmentFilePath));
+            return configurationBuilder.Add(new DevelopmentAuthEnvironmentConfigurationSource(testEnvironmentFilePath, existingConfiguration));
         }
 
         private class DevelopmentAuthEnvironmentConfigurationSource : IConfigurationSource
         {
             private readonly string _filePath;
+            private readonly IConfigurationRoot _existingConfiguration;
 
-            public DevelopmentAuthEnvironmentConfigurationSource(string filePath)
+            public DevelopmentAuthEnvironmentConfigurationSource(string filePath, IConfigurationRoot existingConfiguration)
             {
                 EnsureArg.IsNotNullOrWhiteSpace(filePath, nameof(filePath));
                 _filePath = filePath;
+                _existingConfiguration = existingConfiguration;
             }
 
             public IConfigurationProvider Build(IConfigurationBuilder builder)
@@ -157,21 +163,28 @@ namespace Microsoft.Health.Fhir.Web
                 };
 
                 jsonConfigurationSource.ResolveFileProvider();
-                return new Provider(jsonConfigurationSource);
+                return new Provider(jsonConfigurationSource, _existingConfiguration);
             }
 
             private class Provider : JsonConfigurationProvider
             {
+                private const string AuthorityKey = "FhirServer:Security:Authentication:Authority";
+                private const string AudienceKey = "FhirServer:Security:Authentication:Audience";
+                private const string DevelopmentIdpEnabledKey = "DevelopmentIdentityProvider:Enabled";
+                private const string PrincipalClaimsKey = "FhirServer:Security:PrincipalClaims";
+
+                private readonly IConfigurationRoot _existingConfiguration;
+
                 private static readonly Dictionary<string, string> Mappings = new Dictionary<string, string>
                 {
-                    { "^roles:", "FhirServer:Security:Authorization:Roles:" },
                     { "^users:", "DevelopmentIdentityProvider:Users:" },
                     { "^clientApplications:", "DevelopmentIdentityProvider:ClientApplications:" },
                 };
 
-                public Provider(JsonConfigurationSource source)
+                public Provider(JsonConfigurationSource source, IConfigurationRoot existingConfiguration)
                     : base(source)
                 {
+                    _existingConfiguration = existingConfiguration;
                 }
 
                 public override void Load()
@@ -185,10 +198,38 @@ namespace Microsoft.Health.Fhir.Web
                         StringComparer.OrdinalIgnoreCase);
 
                     // add properties related to the development identity provider.
-                    Data["DevelopmentIdentityProvider:Enabled"] = bool.TrueString;
-                    Data["FhirServer:Security:Authentication:Audience"] = DevelopmentIdentityProviderConfiguration.Audience;
-                    Data["FhirServer:Security:PrincipalClaims:0"] = DevelopmentIdentityProviderConfiguration.LastModifiedClaim;
-                    Data["FhirServer:Security:PrincipalClaims:1"] = DevelopmentIdentityProviderConfiguration.ClientIdClaim;
+                    Data[DevelopmentIdpEnabledKey] = bool.TrueString;
+
+                    if (string.IsNullOrWhiteSpace(_existingConfiguration[AudienceKey]))
+                    {
+                        Data[AudienceKey] = DevelopmentIdentityProviderConfiguration.Audience;
+                    }
+
+                    if (string.IsNullOrWhiteSpace(_existingConfiguration[AuthorityKey]))
+                    {
+                        Data[AuthorityKey] = GetAuthority();
+                    }
+
+                    Data[$"{PrincipalClaimsKey}:0"] = DevelopmentIdentityProviderConfiguration.LastModifiedClaim;
+                    Data[$"{PrincipalClaimsKey}:1"] = DevelopmentIdentityProviderConfiguration.ClientIdClaim;
+                }
+
+                private string GetAuthority()
+                {
+                    return _existingConfiguration["ASPNETCORE_URLS"]
+                        ?.Split(';', StringSplitOptions.RemoveEmptyEntries)
+                        .Where(u =>
+                        {
+                            if (Uri.TryCreate(u, UriKind.Absolute, out Uri uri))
+                            {
+                                if (uri.Scheme == "https")
+                                {
+                                    return true;
+                                }
+                            }
+
+                            return false;
+                        }).FirstOrDefault()?.TrimEnd('/');
                 }
             }
         }

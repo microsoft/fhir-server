@@ -1,96 +1,39 @@
 # Roles in Microsoft FHIR Server for Azure
 
-The FHIR server uses a role based access control system. The privileges (Read, Write, etc.) assigned to specific roles are defined with an array structure:
+The FHIR server uses a role-based access control system. The access control model is based on the following concepts:
 
-```json
-[
-    {
-        "name": "clinician",
-        "resourcePermissions": [
-            {
-                "actions": [
-                    "Read",
-                    "Write"
-                ]
-            }
-        ]
-    },
-    {
-        "name": "researcher",
-        "resourcePermissions": [
-            {
-                "actions": [
-                    "Read"
-                ]
-            }
-        ]
-    },
-    {
-        "name": "admin",
-        "resourcePermissions": [
-            {
-                "actions": [
-                    "Read",
-                    "Write",
-                    "HardDelete"
-                ]
-            }
-        ]
-    }
-]
-```
+- **Data Actions** refer to specific allowed or disallowed operations that can be performed on a FHIR server's data. Examples include `read`, `write`, and `delete`.
+- **Role definitions** or simply **roles**, are named collections of actions that are allowed be performed. They apply to a set of **scopes**.
+- **Scopes** define the subset of data to which a role definition applies. Currently, only the root scope (`/`) is supported, which means that role definitions apply to all the data in the FHIR server.
+- **Role assignments** grants a role definition to an identity (user, group, or service principal).
 
-This structure is passed to the FHIR server at startup and enforced using the `roles` claim in the JWT access token presented when consuming the FHIR server API. 
+The set of data actions that can be part of a role definition are:
 
-When deploying the FHIR server into Azure using the provided [resource manager template](../samples/templates/default-azuredeploy.json) the array of roles can be passed in the `additionalFhirServerConfigProperties` parameter, which will add the roles to the [App Settings](https://docs.microsoft.com/en-us/azure/app-service/web-sites-configure) of the front end [Web App](https://azure.microsoft.com/en-us/services/app-service/web/) running the server. 
+- `*` allows all data actions
+- `read` is required for reading and searching resources.
+- `write`is required for creating or updating resources.
+- `delete` is required for deleting resources. Hard-deleting requires this in addition to `hardDelete`
+- `hardDelete` is required, in addition to `delete`, for hard-deleting data.
+- `export` is required for exporting data, in addition to `read`
+- `resourceValidate` is required for invoking the [validate resource operation](https://www.hl7.org/fhir/operation-resource-validate.html).
 
-In the app settings the nested array structure must be flattened and added to the `FhirServer:Security:Authorization:Roles` section of the configuration. Specifically, a roles array like:
+Roles are defined in the [roles.json](../src/Microsoft.Health.Fhir.Shared.Web/roles.json) file. Administrators can customize them if desired. A role definition looks like this:
 
-```json
-[
-    {
-        "name": "admin",
-        "resourcePermissions": [
-            {
-                "actions": [
-                    "Read",
-                    "Write",
-                    "HardDelete"
-                ]
-            }
-        ]
-    }
-]
-```
-
-would become:
-
-```json
+``` json
 {
-    "FhirServer:Security:Authorization:Roles:0:name": "admin",
-    "FhirServer:Security:Authorization:Roles:0:resourcePermissions:0:actions:0": "Read",
-    "FhirServer:Security:Authorization:Roles:0:resourcePermissions:0:actions:1": "Write",
-    "FhirServer:Security:Authorization:Roles:0:resourcePermissions:0:actions:2": "HardDelete"
+    "name": "globalWriter",
+    "dataActions": [
+        "*"
+    ],
+    "notDataActions": [
+        "hardDelete"
+    ],
+    "scopes": [
+        "/"
+    ]
 }
 ```
 
-To avoid having to maintain the role definitions in the less readable flattened form, you can use a script to convert the JSON form to the flattened table. There is a an example in the  [ConvertTo-FlattenedConfigurationHashtable.ps1 script](../release/ConvertTo-FlattenedConfigurationHashtable.ps1). To use it:
+This role allows all data actions except `hardDelete`. Note that if a user is part of this role and another role that allows `hardDelete`, they will be allowed to perform the action.
 
-```PowerShell
-$roles = ConvertFrom-Json (Get-Content -Raw .\roles.json)
-$flattenedRoles = .\release\scripts\PowerShell\ConvertTo-FlattenedConfigurationHashtable.ps1 -InputObject $roles -PathPrefix "FhirServer:Security:Authorization:Roles"
-```
-
-To pass the array of roles in when deploying the FHIR server (see [Deployment Instructions](DefaultDeployment.md) for details):
-
-```PowerShell
-$rg = New-AzResourceGroup -Name "RG-NAME" -Location westus2
-
-New-AzResourceGroupDeployment `
--TemplateUri "https://raw.githubusercontent.com/Microsoft/fhir-server/master/samples/templates/default-azuredeploy.json" `
--ResourceGroupName $rg.ResourceGroupName ` 
--serviceName $fhirServiceName ` 
--securityAuthenticationAuthority $apiAppReg.Authority ` 
--securityAuthenticationAudience $apiAppReg.Audience `
--additionalFhirServerConfigProperties $flattenedRoles
-```
+Role assignments are done in the identity provider. In Azure Active Directory, you define app roles on the FHIR server's app registration. The app role names must correspond to the names of the roles defined in `roles.json`. Then you assign identities (users, groups, or service principals) to the app roles.

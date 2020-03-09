@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
     {
         public static readonly QuantitySearchParameterQueryGenerator Instance = new QuantitySearchParameterQueryGenerator();
 
-        public override Table Table => V1.QuantitySearchParam;
+        public override Table Table => VLatest.QuantitySearchParam;
 
         public override SearchParameterQueryGeneratorContext VisitBinary(BinaryExpression expression, SearchParameterQueryGeneratorContext context)
         {
@@ -22,14 +22,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             switch (expression.FieldName)
             {
                 case FieldName.Quantity:
-                    valueColumn = nullCheckColumn = V1.QuantitySearchParam.SingleValue;
+                    valueColumn = nullCheckColumn = VLatest.QuantitySearchParam.SingleValue;
                     break;
                 case SqlFieldName.QuantityLow:
-                    valueColumn = nullCheckColumn = V1.QuantitySearchParam.LowValue;
+                    valueColumn = nullCheckColumn = VLatest.QuantitySearchParam.LowValue;
                     break;
                 case SqlFieldName.QuantityHigh:
-                    valueColumn = V1.QuantitySearchParam.HighValue;
-                    nullCheckColumn = V1.QuantitySearchParam.LowValue;
+                    valueColumn = VLatest.QuantitySearchParam.HighValue;
+                    nullCheckColumn = VLatest.QuantitySearchParam.LowValue;
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(expression.FieldName.ToString());
@@ -46,17 +46,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 case FieldName.QuantityCode:
                     if (context.Model.TryGetQuantityCodeId(expression.Value, out var quantityCodeId))
                     {
-                        return VisitSimpleBinary(BinaryOperator.Equal, context, V1.QuantitySearchParam.QuantityCodeId, expression.ComponentIndex, quantityCodeId);
+                        return VisitSimpleBinary(BinaryOperator.Equal, context, VLatest.QuantitySearchParam.QuantityCodeId, expression.ComponentIndex, quantityCodeId);
                     }
 
-                    AppendColumnName(context, V1.QuantitySearchParam.QuantityCodeId, expression)
+                    AppendColumnName(context, VLatest.QuantitySearchParam.QuantityCodeId, expression)
                         .Append(" IN (SELECT ")
-                        .Append(V1.QuantityCode.QuantityCodeId, null)
-                        .Append(" FROM ").Append(V1.QuantityCode)
+                        .Append(VLatest.QuantityCode.QuantityCodeId, null)
+                        .Append(" FROM ").Append(VLatest.QuantityCode)
                         .Append(" WHERE ")
-                        .Append(V1.QuantityCode.Value, null)
+                        .Append(VLatest.QuantityCode.Value, null)
                         .Append(" = ")
-                        .Append(context.Parameters.AddParameter(V1.QuantityCode.Value, expression.Value))
+                        .Append(context.Parameters.AddParameter(VLatest.QuantityCode.Value, expression.Value))
                         .Append(")");
 
                     return context;
@@ -64,17 +64,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 case FieldName.QuantitySystem:
                     if (context.Model.TryGetSystemId(expression.Value, out var systemId))
                     {
-                        return VisitSimpleBinary(BinaryOperator.Equal, context, V1.QuantitySearchParam.SystemId, expression.ComponentIndex, systemId);
+                        return VisitSimpleBinary(BinaryOperator.Equal, context, VLatest.QuantitySearchParam.SystemId, expression.ComponentIndex, systemId);
                     }
 
-                    AppendColumnName(context, V1.QuantitySearchParam.SystemId, expression)
+                    AppendColumnName(context, VLatest.QuantitySearchParam.SystemId, expression)
                         .Append(" IN (SELECT ")
-                        .Append(V1.System.SystemId, null)
-                        .Append(" FROM ").Append(V1.System)
+                        .Append(VLatest.System.SystemId, null)
+                        .Append(" FROM ").Append(VLatest.System)
                         .Append(" WHERE ")
-                        .Append(V1.System.Value, null)
+                        .Append(VLatest.System.Value, null)
                         .Append(" = ")
-                        .Append(context.Parameters.AddParameter(V1.System.Value, expression.Value))
+                        .Append(context.Parameters.AddParameter(VLatest.System.Value, expression.Value))
                         .Append(")");
 
                     return context;
