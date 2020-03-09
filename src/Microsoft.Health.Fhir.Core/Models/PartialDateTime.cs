@@ -4,7 +4,9 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using EnsureThat;
@@ -29,47 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Models
         private const string TimeZoneCapture = "timeZone";
         private const string InvalidTimeZoneCapture = "invalidTimeZone";
 
-        // The formats array outlines how to parse the input string into a DateTimeOffset object, which is then converted to a PartialDateTime object.
-        // The parser serves two different purposes: storing and searching.
-        // There is a difference between how the date should be parsed for storing and how the date should be parsed for searching.
-        // For date that should be stored, the time zone information must be present if time is specified.
-        // From spec: http://hl7.org/fhir/datatypes.html#datetime, "If hours and minutes are specified, a time zone SHALL be populated."
-        // However, if the date is being parsed for searching, then the time zone information is optional.
-        // From spec: http://hl7.org/fhir/search.html#date, "the minutes SHALL be present if an hour is present, and you SHOULD provide a time zone if the time part is present."
-        // As a result, this parser allows the time zone to be optional.
-        private static readonly string[] _formats =
-        {
-            "yyyy",
-            "yyyy-MM",
-            "yyyy-MM-dd",
-            "yyyy-MM-ddTHH:mm",
-            "yyyy-MM-ddTHH:mmzzz",
-            "yyyy-MM-ddTHH:mmZ",
-            "yyyy-MM-ddTHH:mm:ss",
-            "yyyy-MM-ddTHH:mm:sszzz",
-            "yyyy-MM-ddTHH:mm:ssZ",
-            "yyyy-MM-ddTHH:mm:ss.f",
-            "yyyy-MM-ddTHH:mm:ss.fzzz",
-            "yyyy-MM-ddTHH:mm:ss.fZ",
-            "yyyy-MM-ddTHH:mm:ss.ff",
-            "yyyy-MM-ddTHH:mm:ss.ffzzz",
-            "yyyy-MM-ddTHH:mm:ss.ffZ",
-            "yyyy-MM-ddTHH:mm:ss.fff",
-            "yyyy-MM-ddTHH:mm:ss.fffzzz",
-            "yyyy-MM-ddTHH:mm:ss.fffZ",
-            "yyyy-MM-ddTHH:mm:ss.ffff",
-            "yyyy-MM-ddTHH:mm:ss.ffffzzz",
-            "yyyy-MM-ddTHH:mm:ss.ffffZ",
-            "yyyy-MM-ddTHH:mm:ss.fffff",
-            "yyyy-MM-ddTHH:mm:ss.fffffzzz",
-            "yyyy-MM-ddTHH:mm:ss.fffffZ",
-            "yyyy-MM-ddTHH:mm:ss.ffffff",
-            "yyyy-MM-ddTHH:mm:ss.ffffffzzz",
-            "yyyy-MM-ddTHH:mm:ss.ffffffZ",
-            "yyyy-MM-ddTHH:mm:ss.fffffff",
-            "yyyy-MM-ddTHH:mm:ss.fffffffzzz",
-            "yyyy-MM-ddTHH:mm:ss.fffffffZ",
-        };
+        private static readonly string[] _formats = GenerateDateTimeOffsetFormats();
 
         // This regular expression is used to capture which date time parts are specified by the user and which parts are not.
         // This is required because date time parts left blank are used to indicate a time period.
@@ -232,6 +194,69 @@ namespace Microsoft.Health.Fhir.Core.Models
                 var stringValue = match.Groups[name]?.Value;
                 return !string.IsNullOrEmpty(stringValue);
             }
+        }
+
+        /// <summary>
+        /// Creates the formats array, which outlines how to parse the input string into a DateTimeOffset object.
+        /// </summary>
+        /// <returns>An array of acceptable DateTimeOffset formats.</returns>
+        /// <remarks>
+        /// The parser serves two different purposes: storing and searching.
+        /// There is a difference between how the date should be parsed for storing and how the date should be parsed for searching.
+        /// For date that should be stored, the time zone information must be present if time is specified.
+        /// From spec: http://hl7.org/fhir/datatypes.html#datetime, "If hours and minutes are specified, a time zone SHALL be populated."
+        /// However, if the date is being parsed for searching, then the time zone information is optional.
+        /// From spec: http://hl7.org/fhir/search.html#date, "you SHOULD provide a time zone if the time part is present."
+        /// As a result, the formats array allows the time zone to be optional.
+        /// </remarks>
+        private static string[] GenerateDateTimeOffsetFormats()
+        {
+            var formats = new List<string>();
+
+            var dateFormats = new List<string> { "yyyy", "yyyy-MM", "yyyy-MM-dd" };
+
+            formats.AddRange(dateFormats);
+
+            // From spec: "the minutes SHALL be present if an hour is present".
+            var dateTimeFormats = new List<string>
+            {
+                "yyyy-MM-ddTHH:mm",
+                "yyyy-MM-ddTHH:mm:ss",
+                "yyyy-MM-ddTHH:mm:ss.f",
+                "yyyy-MM-ddTHH:mm:ss.ff",
+                "yyyy-MM-ddTHH:mm:ss.fff",
+                "yyyy-MM-ddTHH:mm:ss.ffff",
+                "yyyy-MM-ddTHH:mm:ss.fffff",
+                "yyyy-MM-ddTHH:mm:ss.ffffff",
+                "yyyy-MM-ddTHH:mm:ss.fffffff",
+            };
+
+            formats.AddRange(dateTimeFormats);
+
+            var timeZoneFormats = new List<string> { "Z", "zzz" };
+
+            foreach (var dateTime in dateTimeFormats)
+            {
+                foreach (var timeZoneFormat in timeZoneFormats)
+                {
+                    formats.Add(dateTime + timeZoneFormat);
+                }
+            }
+
+            // TODO: Any prefixes missing? Can I get this list from somewhere?
+            var formatPrefixes = new List<string> { "ab", "ap", "eb", "eq", "\\ge", "\\g\\t", "l\\t", "le", "ne", "\\sa" };
+
+            var formatsWithPrefixes = new List<string>(formats);
+
+            foreach (var format in formats)
+            {
+                foreach (var prefix in formatPrefixes)
+                {
+                    formatsWithPrefixes.Add(prefix + format);
+                }
+            }
+
+            return formatsWithPrefixes.ToArray();
         }
 
         private static decimal GetFractionFromDateTimeOffset(DateTimeOffset parsedDateTimeOffset)
