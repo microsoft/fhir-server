@@ -13,95 +13,92 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 {
     public class ResourceExtensionsTests
     {
-        private readonly CodeableConcept _codeableConcept1 = new CodeableConcept("system1", "code1");
-        private readonly CodeableConcept _codeableConcept2 = new CodeableConcept("system2", "code2");
-        private readonly CodeableConcept _codeableConcept3 = new CodeableConcept("system3", "code3");
-        private readonly CodeableConcept _codeableConcept4 = new CodeableConcept("system4", "code4");
-        private readonly CodeableConcept _codeableConcept5 = new CodeableConcept("system5", "code5");
-        private readonly ResourceReference _carePlan1 = new ResourceReference("CarePlan/1");
-        private readonly ResourceReference _carePlan2 = new ResourceReference("CarePlan/2");
-        private readonly ResourceReference _patient1 = new ResourceReference("Patient/1");
-        private readonly ResourceReference _deviceRequest1 = new ResourceReference("DeviceRequest/1");
-        private readonly ResourceReference _encounter1 = new ResourceReference("Encounter/1");
-        private readonly ResourceReference _encounter2 = new ResourceReference("Encounter/2");
-        private readonly ResourceReference _condition1 = new ResourceReference("Condition/2");
-        private readonly ResourceReference _product1 = new ResourceReference("Product/2");
+        private readonly ResourceReference _organization1 = new ResourceReference("Organization/1");
+        private readonly ResourceReference _organization2 = new ResourceReference("Organization/2");
+        private readonly ResourceReference _practitioner1 = new ResourceReference("Practitioner/1");
+        private readonly ResourceReference _practitioner2 = new ResourceReference("Practitioner/2");
+        private readonly ResourceReference _practitioner3 = new ResourceReference("Practitioner/3");
+        private readonly ResourceReference _practitionerRole1 = new ResourceReference("PractitionerRole/1");
+        private readonly ResourceReference _practitionerRole2 = new ResourceReference("PractitionerRole/2");
 
-        private CarePlan _carePlan;
+        private readonly CodeableConcept _maritalStatus = new CodeableConcept("maritalstatus", "code");
+        private readonly CodeableConcept _contactRelationship1 = new CodeableConcept("relationship1", "code1");
+        private readonly CodeableConcept _contactRelationship2 = new CodeableConcept("relationship2", "code2");
+        private readonly CodeableConcept _contactRelationship3 = new CodeableConcept("relationship3", "code3");
+        private readonly CodeableConcept _language1 = new CodeableConcept("language1", "code1");
+        private readonly CodeableConcept _language2 = new CodeableConcept("language2", "code2");
+
+        private Patient _patient;
 
         public ResourceExtensionsTests()
         {
-            _carePlan = new CarePlan
+            _patient = new Patient
             {
-                BasedOn = new List<ResourceReference>
+                ManagingOrganization = _organization1,
+                GeneralPractitioner = new List<ResourceReference>
                 {
-                    _carePlan1,
-                    _carePlan2,
+                    _organization2,
+                    _practitioner1,
+                    _practitioner2,
+                    _practitioner3,
+                    _practitionerRole1,
+                    _practitionerRole2,
                 },
-                Subject = _patient1,
-                Category = new List<CodeableConcept> { _codeableConcept1, _codeableConcept2 },
-                Activity = new List<CarePlan.ActivityComponent>
+                MaritalStatus = _maritalStatus,
+                Contact = new List<Patient.ContactComponent>
                 {
-                    new CarePlan.ActivityComponent { Reference = _deviceRequest1 },
-                    new CarePlan.ActivityComponent
+                    new Patient.ContactComponent
                     {
-                        OutcomeReference = new List<ResourceReference>
+                        Relationship = new List<CodeableConcept>
                         {
-                            _encounter1,
-                            _encounter2,
-                        },
-                        Detail = new CarePlan.DetailComponent
-                        {
-                            ReasonReference = new List<ResourceReference>
-                            {
-                                _condition1,
-                            },
-                            Product = _product1,
-                        },
-                    },
-                    new CarePlan.ActivityComponent
-                    {
-                        OutcomeCodeableConcept = new List<CodeableConcept> { _codeableConcept3, _codeableConcept4 },
-                        Detail = new CarePlan.DetailComponent
-                        {
-                            Product = _codeableConcept5,
+                            _contactRelationship1,
+                            _contactRelationship2,
+                            _contactRelationship3,
                         },
                     },
                 },
-                Intent = CarePlan.CarePlanIntent.Proposal,
-                Description = "test care plan",
+                Communication = new List<Patient.CommunicationComponent>
+                {
+                    new Patient.CommunicationComponent
+                    {
+                        Language = _language1,
+                    },
+                    new Patient.CommunicationComponent
+                    {
+                        Language = _language2,
+                    },
+                },
             };
         }
 
         [Fact]
         public void GivenAResourceWithVariousReferences_WhenGettingAllChildren_CorrectChildrenAreReturned()
         {
-            var resourceReferences = _carePlan.GetAllChildren<ResourceReference>().ToList();
+            var resourceReferences = _patient.GetAllChildren<ResourceReference>().ToList();
 
-            Assert.Equal(8, resourceReferences.Count);
-
-            Assert.Contains(_carePlan1, resourceReferences);
-            Assert.Contains(_carePlan2, resourceReferences);
-            Assert.Contains(_patient1, resourceReferences);
-            Assert.Contains(_deviceRequest1, resourceReferences);
-            Assert.Contains(_encounter1, resourceReferences);
-            Assert.Contains(_encounter2, resourceReferences);
-            Assert.Contains(_condition1, resourceReferences);
-            Assert.Contains(_product1, resourceReferences);
+            Assert.Equal(7, resourceReferences.Count);
+            Assert.Contains(_organization1, resourceReferences);
+            Assert.Contains(_organization2, resourceReferences);
+            Assert.Contains(_practitioner1, resourceReferences);
+            Assert.Contains(_practitioner2, resourceReferences);
+            Assert.Contains(_practitioner3, resourceReferences);
+            Assert.Contains(_practitionerRole1, resourceReferences);
+            Assert.Contains(_practitionerRole2, resourceReferences);
         }
 
         [Fact]
         public void GivenAResourceWithVariousCodeableConcepts_WhenGettingAllChildren_CorrectChildrenAreReturned()
         {
-            var codeableConcepts = _carePlan.GetAllChildren<CodeableConcept>().ToList();
+            var codeableConcepts = _patient.GetAllChildren<CodeableConcept>().ToList();
 
-            Assert.Equal(5, codeableConcepts.Count);
+            Assert.Equal(6, codeableConcepts.Count);
 
-            Assert.Contains(_codeableConcept1, codeableConcepts);
-            Assert.Contains(_codeableConcept2, codeableConcepts);
-            Assert.Contains(_codeableConcept3, codeableConcepts);
-            Assert.Contains(_codeableConcept4, codeableConcepts);
-            Assert.Contains(_codeableConcept5, codeableConcepts);
+            Assert.Contains(_maritalStatus, codeableConcepts);
+            Assert.Contains(_contactRelationship1, codeableConcepts);
+            Assert.Contains(_contactRelationship2, codeableConcepts);
+            Assert.Contains(_contactRelationship3, codeableConcepts);
+            Assert.Contains(_language1, codeableConcepts);
+            Assert.Contains(_language2, codeableConcepts);
         }
     }
 }
