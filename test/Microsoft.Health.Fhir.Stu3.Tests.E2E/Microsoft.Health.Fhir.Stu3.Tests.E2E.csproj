@@ -3,6 +3,7 @@
   <PropertyGroup>
     <TargetFramework>netcoreapp3.1</TargetFramework>
     <IsPackable>true</IsPackable>
+    <DefineConstants>Stu3</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>

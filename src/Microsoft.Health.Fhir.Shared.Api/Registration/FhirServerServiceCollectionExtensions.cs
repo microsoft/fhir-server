@@ -48,7 +48,8 @@ namespace Microsoft.Extensions.DependencyInjection
                 options.EnableEndpointRouting = false;
                 options.RespectBrowserAcceptHeader = true;
             })
-            .AddNewtonsoftJson();
+            .AddNewtonsoftJson()
+            .AddRazorRuntimeCompilation();
 
             var fhirServerConfiguration = new FhirServerConfiguration();
 
