@@ -10,7 +10,7 @@
   <ItemGroup>
     <None Remove="Features\Definition\unsupported-search-parameters.json" />
   </ItemGroup>
-  
+
   <ItemGroup>
     <EmbeddedResource Include="Features\Definition\search-parameters.json" />
     <EmbeddedResource Include="Features\Definition\compartment.json" />
@@ -22,7 +22,6 @@
     <PackageReference Include="Ensure.That" Version="8.1.2" />
     <PackageReference Include="FluentValidation" Version="8.6.1" />
     <PackageReference Include="MediatR" Version="8.0.0" />
-    <PackageReference Include="Microsoft.AspNetCore.WebUtilities" Version="2.2.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="3.1.0" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="3.1.0" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="3.1.0" />

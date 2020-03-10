@@ -10,13 +10,11 @@ using System.Threading;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources;
+using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search;
-using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Resources;
 using Microsoft.Health.Fhir.Tests.Common;
 using NSubstitute;
 using Xunit;
@@ -25,18 +23,14 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 {
-    public class BaseConditionalHandlerTests
+    public class ResourceReferenceResolverTests
     {
-        private readonly TestBaseConditionalHandler _testBaseConditionalHandler;
         private readonly ISearchService _searchService = Substitute.For<ISearchService>();
+        private readonly ResourceReferenceResolver _referenceResolver;
 
-        public BaseConditionalHandlerTests()
+        public ResourceReferenceResolverTests()
         {
-            IFhirDataStore fhirDataStore = Substitute.For<IFhirDataStore>();
-            Lazy<IConformanceProvider> conformanceProvider = Substitute.For<Lazy<IConformanceProvider>>();
-            IResourceWrapperFactory resourceWrapperFactory = Substitute.For<IResourceWrapperFactory>();
-            ResourceIdProvider resourceIdProvider = Substitute.For<ResourceIdProvider>();
-            _testBaseConditionalHandler = new TestBaseConditionalHandler(fhirDataStore, _searchService, conformanceProvider, resourceWrapperFactory, resourceIdProvider, DisabledFhirAuthorizationService.Instance);
+            _referenceResolver = new ResourceReferenceResolver(_searchService, new TestQueryStringParser());
         }
 
         [Fact]
@@ -70,7 +64,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 // Asserting the conditional reference value before resolution
                 Assert.Null(references.First().Reference);
                 var requestUrl = (entry.Request != null) ? entry.Request.Url : null;
-                await _testBaseConditionalHandler.ResolveReferencesAsync(entry.Resource, referenceIdDictionary, requestUrl, CancellationToken.None);
+                await _referenceResolver.ResolveReferencesAsync(entry.Resource, referenceIdDictionary, requestUrl, CancellationToken.None);
 
                 // Asserting the resolved reference value after resolution
                 Assert.Null(references.First().Reference);
@@ -98,7 +92,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 Assert.Equal("Patient?identifier=12345", references.First().Reference);
 
                 var requestUrl = (entry.Request != null) ? entry.Request.Url : null;
-                await _testBaseConditionalHandler.ResolveReferencesAsync(entry.Resource, referenceIdDictionary, requestUrl, CancellationToken.None);
+                await _referenceResolver.ResolveReferencesAsync(entry.Resource, referenceIdDictionary, requestUrl, CancellationToken.None);
 
                 // Asserting the resolved reference value after resolution
                 Assert.Equal("Patient/123", references.First().Reference);
@@ -123,7 +117,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             foreach (var entry in bundle.Entry)
             {
                 var requestUrl = (entry.Request != null) ? entry.Request.Url : null;
-                var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => _testBaseConditionalHandler.ResolveReferencesAsync(entry.Resource, referenceIdDictionary, requestUrl, CancellationToken.None));
+                var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => _referenceResolver.ResolveReferencesAsync(entry.Resource, referenceIdDictionary, requestUrl, CancellationToken.None));
                 Assert.Equal(exception.Message, expectedMessage);
             }
         }
@@ -140,7 +134,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             foreach (var entry in bundle.Entry)
             {
                 var requestUrl = (entry.Request != null) ? entry.Request.Url : null;
-                var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => _testBaseConditionalHandler.ResolveReferencesAsync(entry.Resource, referenceIdDictionary, requestUrl, CancellationToken.None));
+                var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => _referenceResolver.ResolveReferencesAsync(entry.Resource, referenceIdDictionary, requestUrl, CancellationToken.None));
                 Assert.Equal(exception.Message, expectedMessage);
             }
         }
