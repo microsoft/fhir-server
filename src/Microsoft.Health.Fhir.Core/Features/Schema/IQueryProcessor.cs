@@ -11,7 +11,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Schema
         /// Get compatible version.
         /// </summary>
         /// <param name="maxVersion">The maximum schema version specified by code</param>
-        /// <returns>Maximum supported latest version from server.</returns>
+        /// <returns>The latest supported schema version from server.</returns>
         int GetLatestCompatibleVersion(int maxVersion);
     }
 }

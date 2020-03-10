@@ -261,10 +261,5 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
                 throw;
             }
         }
-
-        public int GetLatestCompatibleVersion(int maxVersion)
-        {
-            throw new NotSupportedException(Resources.NotSupportedForCosmos);
-        }
     }
 }
