@@ -17,8 +17,7 @@ namespace Microsoft.Health.Fhir.Core.Models
     /// </summary>
     public class PartialDateTime
     {
-        public static readonly PartialDateTime MinValue = new PartialDateTime(DateTimeOffset.MinValue);
-        public static readonly PartialDateTime MaxValue = new PartialDateTime(DateTimeOffset.MaxValue);
+        private static readonly string[] _formats = GenerateDateTimeOffsetFormats();
 
         private const string YearCapture = "year";
         private const string MonthCapture = "month";
@@ -30,14 +29,15 @@ namespace Microsoft.Health.Fhir.Core.Models
         private const string TimeZoneCapture = "timeZone";
         private const string InvalidTimeZoneCapture = "invalidTimeZone";
 
-        private static readonly string[] _formats = GenerateDateTimeOffsetFormats();
-
         // This regular expression is used to capture which date time parts are specified by the user and which parts are not.
         // This is required because date time parts left blank are used to indicate a time period.
         // For example, 2000 is equivalent to an interval of [2000-01-01T00:00, 2000-12-31T23:59].
         private static readonly Regex DateTimeRegex = new Regex(
             $@"-?(?<{YearCapture}>[0-9]{{4}})(-(?<{MonthCapture}>[0-9]{{2}}))?(-(?<{DayCapture}>[0-9]{{2}}))?(T(?<{HourCapture}>[0-9]{{2}}))?(:(?<{MinuteCapture}>[0-9]{{2}}))?(:(?<{SecondCapture}>[0-9]{{2}}))?((?<{FractionCapture}>\.[0-9]+))?((?<{TimeZoneCapture}>Z|(\+|-)(([0-9]{{2}}):[0-9]{{2}}))|(?<{InvalidTimeZoneCapture}>Z|(\+|-)(([0-9]{{1}}):[0-9]{{2}})))?",
             RegexOptions.Singleline | RegexOptions.Compiled | RegexOptions.ExplicitCapture);
+
+        public static readonly PartialDateTime MinValue = new PartialDateTime(DateTimeOffset.MinValue);
+        public static readonly PartialDateTime MaxValue = new PartialDateTime(DateTimeOffset.MaxValue);
 
         /// <summary>
         /// Initializes a new instance of the <see cref="PartialDateTime"/> class.
@@ -242,20 +242,7 @@ namespace Microsoft.Health.Fhir.Core.Models
                 }
             }
 
-            // TODO: Any prefixes missing? Can I get this list from somewhere?
-            var formatPrefixes = new List<string> { "ab", "ap", "eb", "eq", "\\ge", "\\g\\t", "l\\t", "le", "ne", "\\sa" };
-
-            var formatsWithPrefixes = new List<string>(formats);
-
-            foreach (var format in formats)
-            {
-                foreach (var prefix in formatPrefixes)
-                {
-                    formatsWithPrefixes.Add(prefix + format);
-                }
-            }
-
-            return formatsWithPrefixes.ToArray();
+            return formats.ToArray();
         }
 
         private static decimal GetFractionFromDateTimeOffset(DateTimeOffset parsedDateTimeOffset)
