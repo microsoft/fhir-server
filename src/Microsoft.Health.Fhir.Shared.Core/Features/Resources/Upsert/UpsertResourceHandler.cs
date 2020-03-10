@@ -17,6 +17,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
 {
@@ -25,14 +26,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
     /// </summary>
     public partial class UpsertResourceHandler : BaseResourceHandler, IRequestHandler<UpsertResourceRequest, UpsertResourceResponse>
     {
+        private readonly IModelInfoProvider _modelInfoProvider;
+
         public UpsertResourceHandler(
             IFhirDataStore fhirDataStore,
             Lazy<IConformanceProvider> conformanceProvider,
             IResourceWrapperFactory resourceWrapperFactory,
             ResourceIdProvider resourceIdProvider,
-            IFhirAuthorizationService authorizationService)
+            IFhirAuthorizationService authorizationService,
+            IModelInfoProvider modelInfoProvider)
             : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
+            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
+
+            _modelInfoProvider = modelInfoProvider;
         }
 
         public async Task<UpsertResourceResponse> Handle(UpsertResourceRequest message, CancellationToken cancellationToken)
@@ -61,6 +68,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             resource.VersionId = result.Wrapper.Version;
 
             return new UpsertResourceResponse(new SaveOutcome(resource.ToResourceElement(), result.OutcomeType));
+        }
+
+        private async Task<UpsertOutcome> UpsertAsync(UpsertResourceRequest message, ResourceWrapper resourceWrapper, bool allowCreate, bool keepHistory, CancellationToken cancellationToken)
+        {
+            UpsertOutcome result;
+
+            try
+            {
+                result = await FhirDataStore.UpsertAsync(resourceWrapper, message.WeakETag, allowCreate, keepHistory, cancellationToken);
+            }
+            catch (PreconditionFailedException) when (_modelInfoProvider.Version == FhirSpecification.Stu3)
+            {
+                // The backwards compatibility behavior of Stu3 is to return a Conflict instead of Precondition fail
+                throw new ResourceConflictException(message.WeakETag);
+            }
+
+            return result;
         }
     }
 }

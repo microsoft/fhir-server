@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var resourceIdProvider = new ResourceIdProvider();
 
             collection.AddSingleton(typeof(IRequestHandler<CreateResourceRequest, UpsertResourceResponse>), new CreateResourceHandler(dataStore, new Lazy<IConformanceProvider>(() => provider), resourceWrapperFactory, resourceIdProvider, new ResourceReferenceResolver(_searchService, new TestQueryStringParser()), DisabledFhirAuthorizationService.Instance));
-            collection.AddSingleton(typeof(IRequestHandler<UpsertResourceRequest, UpsertResourceResponse>), new UpsertResourceHandler(dataStore, new Lazy<IConformanceProvider>(() => provider), resourceWrapperFactory, resourceIdProvider, DisabledFhirAuthorizationService.Instance));
+            collection.AddSingleton(typeof(IRequestHandler<UpsertResourceRequest, UpsertResourceResponse>), new UpsertResourceHandler(dataStore, new Lazy<IConformanceProvider>(() => provider), resourceWrapperFactory, resourceIdProvider, DisabledFhirAuthorizationService.Instance, ModelInfoProvider.Instance));
             collection.AddSingleton(typeof(IRequestHandler<GetResourceRequest, GetResourceResponse>), new GetResourceHandler(dataStore, new Lazy<IConformanceProvider>(() => provider), resourceWrapperFactory, Deserializers.ResourceDeserializer, resourceIdProvider, DisabledFhirAuthorizationService.Instance));
             collection.AddSingleton(typeof(IRequestHandler<DeleteResourceRequest, DeleteResourceResponse>), new DeleteResourceHandler(dataStore, new Lazy<IConformanceProvider>(() => provider), resourceWrapperFactory, resourceIdProvider, DisabledFhirAuthorizationService.Instance));
 
