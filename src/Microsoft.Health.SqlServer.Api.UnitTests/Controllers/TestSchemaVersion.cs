@@ -3,9 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Resources;
-using System.Runtime.CompilerServices;
-
-[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.Stu3.Tests.Integration")]
-[assembly: InternalsVisibleTo("Microsoft.Health.Fhir.R4.Tests.Integration")]
-[assembly: NeutralResourcesLanguage("en-us")]
+namespace Microsoft.Health.SqlServer.Api.UnitTests.Controllers
+{
+    public enum TestSchemaVersion
+    {
+        Version1 = 1,
+        Version2 = 2,
+        Version3 = 3,
+    }
+}

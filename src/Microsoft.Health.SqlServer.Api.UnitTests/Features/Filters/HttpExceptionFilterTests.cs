@@ -13,13 +13,14 @@ using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Health.Fhir.SqlServer.Api.Controllers;
-using Microsoft.Health.Fhir.SqlServer.Api.Features.Filters;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.SqlServer.Api.Controllers;
+using Microsoft.Health.SqlServer.Api.Features.Filters;
+using Microsoft.Health.SqlServer.Api.UnitTests.Controllers;
 using NSubstitute;
 using Xunit;
 
-namespace Microsoft.Health.Fhir.SqlServer.Api.UnitTests.Features.Filters
+namespace Microsoft.Health.SqlServer.Api.UnitTests.Features.Filters
 {
     public class HttpExceptionFilterTests
     {
@@ -30,7 +31,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.UnitTests.Features.Filters
             _context = new ActionExecutedContext(
                 new ActionContext(new DefaultHttpContext(), new RouteData(), new ActionDescriptor()),
                 new List<IFilterMetadata>(),
-                Mock.TypeWithArguments<SchemaController>(NullLogger<SchemaController>.Instance));
+                Mock.TypeWithArguments<SchemaController<TestSchemaVersion>>(NullLogger<SchemaController<TestSchemaVersion>>.Instance));
         }
 
         [Fact]

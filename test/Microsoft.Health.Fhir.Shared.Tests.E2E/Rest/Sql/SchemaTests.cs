@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Sql
             Assert.NotEmpty(jArrayResponse);
 
             JToken firstResult = jArrayResponse.First;
-            string scriptUrl = $"{_client.BaseAddress}_schema/versions/{firstResult["id"]}/script";
+            string scriptUrl = $"/_schema/versions/{firstResult["id"]}/script";
             Assert.Equal(scriptUrl, firstResult["script"]);
         }
 

@@ -9,11 +9,11 @@ using EnsureThat;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Registration;
-using Microsoft.Health.Fhir.SqlServer.Api.Controllers;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.SqlServer.Api.Controllers;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Health;
 using Microsoft.Health.SqlServer.Features.Schema;
@@ -43,7 +43,8 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf();
 
-            services.Add<SchemaInformation>()
+            var schemaInformation = new SchemaInformation();
+            services.Add<SchemaInformation>(provider => schemaInformation)
                 .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();
@@ -91,7 +92,9 @@ namespace Microsoft.Extensions.DependencyInjection
 
             // This is only needed while adding in the ConfigureServices call in the E2E TestServer scenario
             // During normal usage, the controller should be automatically discovered.
-            services.AddMvc().AddApplicationPart(typeof(SchemaController).Assembly);
+            services.AddMvc()
+                .ConfigureApplicationPartManager(p =>
+                    p.FeatureProviders.Add(new SchemaControllerFeatureProvider(schemaInformation)));
 
             AddSqlServerTableRowParameterGenerators(services);
 

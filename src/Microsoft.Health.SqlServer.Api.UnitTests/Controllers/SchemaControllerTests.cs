@@ -4,29 +4,27 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Health.Fhir.Core.Features.Routing;
-using Microsoft.Health.Fhir.SqlServer.Api.Controllers;
-using Microsoft.Health.Fhir.SqlServer.Api.Features.Routing;
-using Microsoft.Health.Fhir.SqlServer.Features.Schema;
+using Microsoft.Health.SqlServer.Api.Controllers;
+using Microsoft.Health.SqlServer.Features.Schema;
 using Newtonsoft.Json.Linq;
 using NSubstitute;
 using Xunit;
 
-namespace Microsoft.Health.Fhir.SqlServer.Api.UnitTests.Controllers
+namespace Microsoft.Health.SqlServer.Api.UnitTests.Controllers
 {
     public class SchemaControllerTests
     {
-        private readonly SchemaController _schemaController;
+        private readonly SchemaController<TestSchemaVersion> _schemaController;
 
         public SchemaControllerTests()
         {
-            var schemaInformation = new SchemaInformation();
-            var urlResolver = Substitute.For<IUrlResolver>();
-            urlResolver.ResolveRouteNameUrl(RouteNames.Script, Arg.Any<IDictionary<string, object>>()).Returns(new Uri("https://localhost/script"));
-            _schemaController = new SchemaController(schemaInformation, urlResolver, NullLogger<SchemaController>.Instance);
+            var schemaInformation = Substitute.For<ISchemaInformation>();
+            var urlHelper = Substitute.For<IUrlHelper>();
+            urlHelper.RouteUrl(Arg.Any<UrlRouteContext>()).Returns("https://localhost/script");
+            _schemaController = new SchemaController<TestSchemaVersion>(schemaInformation, urlHelper, NullLogger<SchemaController<TestSchemaVersion>>.Instance);
         }
 
         [Fact]
@@ -46,7 +44,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.UnitTests.Controllers
             Assert.NotNull(jsonResult);
 
             var jArrayResult = JArray.FromObject(jsonResult.Value);
-            Assert.Equal(Enum.GetNames(typeof(SchemaVersion)).Length, jArrayResult.Count);
+            Assert.Equal(Enum.GetNames(typeof(TestSchemaVersion)).Length, jArrayResult.Count);
 
             JToken firstResult = jArrayResult.First;
             Assert.Equal(1, firstResult["id"]);
@@ -54,7 +52,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public void GivenACurrentVersiontRequest_WhenNotImplemented_ThenNotImplementedShouldBeThrown()
+        public void GivenACurrentVersionRequest_WhenNotImplemented_ThenNotImplementedShouldBeThrown()
         {
             Assert.Throws<NotImplementedException>(() => _schemaController.CurrentVersion());
         }
