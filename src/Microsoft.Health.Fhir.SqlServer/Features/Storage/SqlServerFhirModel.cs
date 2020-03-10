@@ -23,6 +23,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
+using Microsoft.Health.SqlServer.Features.Storage;
 using Newtonsoft.Json;
 using Task = System.Threading.Tasks.Task;
 

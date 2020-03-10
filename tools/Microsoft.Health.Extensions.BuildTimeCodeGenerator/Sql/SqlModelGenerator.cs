@@ -46,7 +46,9 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator.Sql
                     .OrderBy(m => m, MemberSorting.Comparer)
                     .ToArray());
 
-            return (classDeclaration, System.Array.Empty<UsingDirectiveSyntax>());
+            var usings = SyntaxFactory.UsingDirective(SyntaxFactory.ParseName("Microsoft.Health.SqlServer.Features.Schema.Model"));
+
+            return (classDeclaration, new[] { usings });
         }
 
         private TSqlFragment ParseSqlFile()

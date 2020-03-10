@@ -6,7 +6,7 @@
 using System;
 using System.Data.SqlClient;
 using System.Linq;
-using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.SqlServer.Features.Storage;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence

@@ -8,7 +8,7 @@ using System.Reflection;
 using System.Threading;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Search;
-using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
+using Microsoft.Health.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {

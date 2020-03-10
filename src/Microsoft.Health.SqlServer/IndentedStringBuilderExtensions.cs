@@ -7,7 +7,7 @@ using Microsoft.Health.SqlServer;
 
 namespace Microsoft.Health.Fhir.SqlServer
 {
-    internal static class IndentedStringBuilderExtensions
+    public static class IndentedStringBuilderExtensions
     {
         /// <summary>
         /// Helps with building a WHERE clause with 0 to many predicates ANDed together.

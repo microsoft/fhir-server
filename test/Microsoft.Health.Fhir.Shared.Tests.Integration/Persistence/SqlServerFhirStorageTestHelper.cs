@@ -9,8 +9,9 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Health.Fhir.SqlServer.Configs;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
+using Microsoft.Health.SqlServer.Configs;
+using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.SqlServer.Dac.Compare;
 using Polly;
 using Xunit;
@@ -32,7 +33,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _masterConnectionString = masterConnectionString;
         }
 
-        public async Task CreateAndInitializeDatabase(string databaseName, bool forceIncrementalSchemaUpgrade, SchemaInitializer schemaInitializer = null, CancellationToken cancellationToken = default)
+        public async Task CreateAndInitializeDatabase(string databaseName, bool forceIncrementalSchemaUpgrade, SchemaInitializer<SchemaVersion> schemaInitializer = null, CancellationToken cancellationToken = default)
         {
             var testConnectionString = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = databaseName }.ToString();
             schemaInitializer = schemaInitializer ?? CreateSchemaInitializer(testConnectionString);
@@ -182,13 +183,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        private SchemaInitializer CreateSchemaInitializer(string testConnectionString)
+        private SchemaInitializer<SchemaVersion> CreateSchemaInitializer(string testConnectionString)
         {
             var config = new SqlServerDataStoreConfiguration { ConnectionString = testConnectionString, Initialize = true };
-            var schemaUpgradeRunner = new SchemaUpgradeRunner(config, NullLogger<SchemaUpgradeRunner>.Instance);
+            var schemaUpgradeRunner = new SchemaUpgradeRunner<SchemaVersion>(config, NullLogger<SchemaUpgradeRunner<SchemaVersion>>.Instance);
             var schemaInformation = new SchemaInformation();
 
-            return new SchemaInitializer(config, schemaUpgradeRunner, schemaInformation, NullLogger<SchemaInitializer>.Instance);
+            return new SchemaInitializer<SchemaVersion>(config, schemaUpgradeRunner, schemaInformation, NullLogger<SchemaInitializer<SchemaVersion>>.Instance);
         }
     }
 }

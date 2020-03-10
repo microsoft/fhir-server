@@ -5,6 +5,7 @@
 
 using System.Data;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
+using Microsoft.Health.SqlServer.Features.Schema.Model;
 using Microsoft.SqlServer.Server;
 using Xunit;
 

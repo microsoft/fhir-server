@@ -10,7 +10,7 @@ namespace Microsoft.Health.SqlServer.Features.Schema.Model
     /// </summary>
     /// <typeparam name="TInput">The type of the input</typeparam>
     /// <typeparam name="TOutput">The type of the output. Intended to be a struct with properties for each TVP</typeparam>
-    internal interface IStoredProcedureTableValuedParametersGenerator<in TInput, out TOutput>
+    public interface IStoredProcedureTableValuedParametersGenerator<in TInput, out TOutput>
     {
         TOutput Generate(TInput input);
     }

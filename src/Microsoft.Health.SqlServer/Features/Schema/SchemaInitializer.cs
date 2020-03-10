@@ -21,11 +21,11 @@ namespace Microsoft.Health.SqlServer.Features.Schema
     public class SchemaInitializer<T> : IStartable
     {
         private readonly SqlServerDataStoreConfiguration _sqlServerDataStoreConfiguration;
-        private readonly SchemaUpgradeRunner _schemaUpgradeRunner;
+        private readonly SchemaUpgradeRunner<T> _schemaUpgradeRunner;
         private readonly ISchemaInformation _schemaInformation;
         private readonly ILogger<SchemaInitializer<T>> _logger;
 
-        public SchemaInitializer(SqlServerDataStoreConfiguration sqlServerDataStoreConfiguration, SchemaUpgradeRunner schemaUpgradeRunner, ISchemaInformation schemaInformation, ILogger<SchemaInitializer<T>> logger)
+        public SchemaInitializer(SqlServerDataStoreConfiguration sqlServerDataStoreConfiguration, SchemaUpgradeRunner<T> schemaUpgradeRunner, ISchemaInformation schemaInformation, ILogger<SchemaInitializer<T>> logger)
         {
             EnsureArg.IsNotNull(sqlServerDataStoreConfiguration, nameof(sqlServerDataStoreConfiguration));
             EnsureArg.IsNotNull(schemaUpgradeRunner, nameof(schemaUpgradeRunner));

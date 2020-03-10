@@ -8,6 +8,8 @@
 //------------------------------------------------------------------------------
 namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
 {
+    using Microsoft.Health.SqlServer.Features.Schema.Model;
+
     internal class VLatest
     {
         internal readonly static ClaimTypeTable ClaimType = new ClaimTypeTable();

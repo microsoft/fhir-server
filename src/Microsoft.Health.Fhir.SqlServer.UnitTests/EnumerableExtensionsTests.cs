@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using Microsoft.Health.SqlServer;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests

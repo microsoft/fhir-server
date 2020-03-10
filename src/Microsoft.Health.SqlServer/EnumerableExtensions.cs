@@ -8,7 +8,7 @@ using System.Collections.Generic;
 
 namespace Microsoft.Health.SqlServer
 {
-    internal static class EnumerableExtensions
+    public static class EnumerableExtensions
     {
         /// <summary>
         /// If the given sequence is null or empty, returns null. Otherwise returns
@@ -17,7 +17,7 @@ namespace Microsoft.Health.SqlServer
         /// <typeparam name="T">The element type</typeparam>
         /// <param name="enumerable">The input sequence</param>
         /// <returns>An equivalent sequence, or null if given one is empty or null.</returns>
-        internal static IEnumerable<T> NullIfEmpty<T>(this IEnumerable<T> enumerable)
+        public static IEnumerable<T> NullIfEmpty<T>(this IEnumerable<T> enumerable)
         {
             if (enumerable == null)
             {

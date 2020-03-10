@@ -10,12 +10,12 @@ namespace Microsoft.Health.SqlServer.Features.Schema
 {
     public static class ScriptProvider
     {
-        public static string GetMigrationScript(int version, bool applyFullSchemaSnapshot)
+        public static string GetMigrationScript<T>(int version, bool applyFullSchemaSnapshot)
         {
-            string folder = $"{typeof(ScriptProvider).Namespace}.Migrations";
+            string folder = $"{typeof(T).Namespace}.Migrations";
             string resourceName = applyFullSchemaSnapshot ? $"{folder}.{version}.sql" : $"{folder}.{version}.diff.sql";
 
-            using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName))
+            using (Stream stream = Assembly.GetAssembly(typeof(T)).GetManifestResourceStream(resourceName))
             {
                 if (stream == null)
                 {
@@ -29,10 +29,10 @@ namespace Microsoft.Health.SqlServer.Features.Schema
             }
         }
 
-        public static byte[] GetMigrationScriptAsBytes(int version)
+        public static byte[] GetMigrationScriptAsBytes<T>(int version)
         {
-            string resourceName = $"{typeof(ScriptProvider).Namespace}.Migrations.{version}.sql";
-            using (Stream filestream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName))
+            string resourceName = $"{typeof(T).Namespace}.Migrations.{version}.sql";
+            using (Stream filestream = Assembly.GetAssembly(typeof(T)).GetManifestResourceStream(resourceName))
             {
                 if (filestream == null)
                 {

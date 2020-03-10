@@ -29,7 +29,7 @@ namespace Microsoft.Health.Extensions.BuildTimeCodeGenerator
             // We'll patch things up after.
 
             var delegatingGenerator = new DelegatingInterfaceImplementationGenerator(
-                typeModifiers: TokenList(Token(SyntaxKind.InternalKeyword), Token(SyntaxKind.PartialKeyword)),
+                typeModifiers: TokenList(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.PartialKeyword)),
                 constructorModifiers: TokenList(Token(SyntaxKind.PublicKeyword)),
                 typeof(StringBuilder));
 

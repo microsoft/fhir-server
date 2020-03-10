@@ -14,6 +14,7 @@ using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.SqlServer.Api.Features.Filters;
 using Microsoft.Health.Fhir.SqlServer.Api.Features.Routing;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
+using Microsoft.Health.SqlServer.Features.Schema;
 
 namespace Microsoft.Health.Fhir.SqlServer.Api.Controllers
 {
@@ -45,7 +46,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.Controllers
 
             var availableSchemas = new List<object>();
             var currentVersion = _schemaInformation.Current ?? 0;
-            foreach (var version in Enum.GetValues(typeof(SchemaVersion)).Cast<SchemaVersion>().Where(sv => sv >= currentVersion))
+            foreach (var version in Enum.GetValues(typeof(SchemaVersion)).Cast<int>().Where(sv => sv >= currentVersion))
             {
                 var routeValues = new Dictionary<string, object> { { "id", (int)version } };
                 Uri scriptUri = _urlResolver.ResolveRouteNameUrl(RouteNames.Script, routeValues);
@@ -72,7 +73,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.Controllers
         {
             _logger.LogInformation($"Attempting to get script for schema version: {id}");
             string fileName = $"{id}.sql";
-            return File(ScriptProvider.GetMigrationScriptAsBytes(id), "application/json", fileName);
+            return File(ScriptProvider.GetMigrationScriptAsBytes<SchemaVersion>(id), "application/json", fileName);
         }
 
         [HttpGet]

@@ -12,7 +12,7 @@ namespace Microsoft.Health.SqlServer.Features.Schema.Model
     /// </summary>
     /// <typeparam name="TInput">The input type</typeparam>
     /// <typeparam name="TRow">The row struct type</typeparam>
-    internal interface ITableValuedParameterRowGenerator<in TInput,  out TRow>
+    public interface ITableValuedParameterRowGenerator<in TInput,  out TRow>
         where TRow : struct
     {
         IEnumerable<TRow> GenerateRows(TInput input);

@@ -10,13 +10,14 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.SqlServer.Api.Controllers;
-using Microsoft.Health.Fhir.SqlServer.Configs;
-using Microsoft.Health.Fhir.SqlServer.Features.Health;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
-using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.SqlServer.Configs;
+using Microsoft.Health.SqlServer.Features.Health;
+using Microsoft.Health.SqlServer.Features.Schema;
+using Microsoft.Health.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Extensions.DependencyInjection
 {
@@ -38,15 +39,16 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf();
 
-            services.Add<SchemaUpgradeRunner>()
+            services.Add<SchemaUpgradeRunner<SchemaVersion>>()
                 .Singleton()
                 .AsSelf();
 
             services.Add<SchemaInformation>()
                 .Singleton()
-                .AsSelf();
+                .AsSelf()
+                .AsImplementedInterfaces();
 
-            services.Add<SchemaInitializer>()
+            services.Add<SchemaInitializer<SchemaVersion>>()
                 .Singleton()
                 .AsService<IStartable>();
 

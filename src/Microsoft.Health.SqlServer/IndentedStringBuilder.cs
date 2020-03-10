@@ -6,6 +6,8 @@
 using System;
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using EnsureThat;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
@@ -16,7 +18,7 @@ namespace Microsoft.Health.SqlServer
     /// A wrapper around <see cref="StringBuilder"/> that provides methods that insert a indent string and track the current indentation level.
     /// Inspired by <see cref="IndentedTextWriter"/>
     /// </summary>
-    internal partial class IndentedStringBuilder
+    public partial class IndentedStringBuilder
     {
         private const char IndentChar = ' ';
         private const int CharCountPerIndent = 4;
@@ -35,7 +37,7 @@ namespace Microsoft.Health.SqlServer
         /// Increments the indent level until the returned object is disposed.
         /// </summary>
         /// <returns>A scope to be disposed when the indentation level is to be restored</returns>
-        internal IndentedScope Indent() => new IndentedScope(this);
+        public IndentedScope Indent() => new IndentedScope(this);
 
         /// <summary>
         /// Appends a column name to this instance.
@@ -99,7 +101,7 @@ namespace Microsoft.Health.SqlServer
         /// <param name="items">The input enumerable</param>
         /// <param name="writer">A function that is invoked for each element in <paramref name="items"/></param>
         /// <returns>This instance</returns>
-        internal IndentedStringBuilder AppendDelimited<T>(string delimiter, IEnumerable<T> items, Action<IndentedStringBuilder, T> writer)
+        public IndentedStringBuilder AppendDelimited<T>(string delimiter, IEnumerable<T> items, Action<IndentedStringBuilder, T> writer)
         {
             bool first = true;
             foreach (T item in items)
@@ -127,7 +129,7 @@ namespace Microsoft.Health.SqlServer
         /// <param name="items">The input enumerable</param>
         /// <param name="writer">A function that is invoked for each element in <paramref name="items"/></param>
         /// <returns>This instance</returns>
-        internal IndentedStringBuilder AppendDelimited<T>(Action<IndentedStringBuilder> applyDelimiter, IEnumerable<T> items, Action<IndentedStringBuilder, T> writer)
+        public IndentedStringBuilder AppendDelimited<T>(Action<IndentedStringBuilder> applyDelimiter, IEnumerable<T> items, Action<IndentedStringBuilder, T> writer)
         {
             bool first = true;
             foreach (T item in items)
@@ -155,7 +157,7 @@ namespace Microsoft.Health.SqlServer
         /// <param name="applyDelimiter">A function that is called the every subsequent time <see cref="DelimitedScope.BeginDelimitedElement"/> is called</param>
         /// <param name="applyPostfix">A function that is called one the <see cref="DelimitedScope"/> is disposed.</param>
         /// <returns>A disposable scope on which to call <see cref="DelimitedScope.BeginDelimitedElement"/></returns>
-        internal DelimitedScope BeginDelimitedScope(Action<IndentedStringBuilder> applyPrefix, Action<IndentedStringBuilder> applyDelimiter, Action<IndentedStringBuilder> applyPostfix)
+        public DelimitedScope BeginDelimitedScope(Action<IndentedStringBuilder> applyPrefix, Action<IndentedStringBuilder> applyDelimiter, Action<IndentedStringBuilder> applyPostfix)
         {
             return new DelimitedScope(this, applyPrefix, applyDelimiter, applyPostfix);
         }
@@ -169,7 +171,9 @@ namespace Microsoft.Health.SqlServer
             }
         }
 
-        internal struct IndentedScope : IDisposable
+        [SuppressMessage("ReSharper", "CA1034", Justification = "Type is only useful in context of IndentedStringBuilder.")]
+        [SuppressMessage("ReSharper", "CA1815", Justification = "Instances are not compared.")]
+        public struct IndentedScope : IDisposable
         {
             private readonly IndentedStringBuilder _sb;
 
@@ -185,7 +189,9 @@ namespace Microsoft.Health.SqlServer
             }
         }
 
-        internal readonly struct DelimitedScope : IDisposable
+        [SuppressMessage("ReSharper", "CA1034", Justification = "Type is only useful in context of IndentedStringBuilder.")]
+        [SuppressMessage("ReSharper", "CA1815", Justification = "Instances are not compared.")]
+        public readonly struct DelimitedScope : IDisposable
         {
             private readonly IndentedStringBuilder _sb;
             private readonly Action<IndentedStringBuilder> _applyPrefix;
@@ -231,10 +237,7 @@ namespace Microsoft.Health.SqlServer
                     _applyPostfix?.Invoke(_sb);
                 }
 
-                if (_sb._delimitedScopes.Count != (_index + 1))
-                {
-                    throw new InvalidOperationException("Delimited scope being disposed is not at the top of the stack.");
-                }
+                Debug.Assert(_sb._delimitedScopes.Count == (_index + 1), "Delimited scope being disposed is not at the top of the stack.");
 
                 _sb._delimitedScopes.RemoveAt(_index);
             }

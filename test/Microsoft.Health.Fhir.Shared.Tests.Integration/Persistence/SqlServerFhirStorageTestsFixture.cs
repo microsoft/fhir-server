@@ -17,10 +17,11 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
-using Microsoft.Health.Fhir.SqlServer.Configs;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.SqlServer.Configs;
+using Microsoft.Health.SqlServer.Features.Schema;
 using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
@@ -35,7 +36,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly IFhirDataStore _fhirDataStore;
         private readonly IFhirOperationDataStore _fhirOperationDataStore;
         private readonly SqlServerFhirStorageTestHelper _testHelper;
-        private readonly SchemaInitializer _schemaInitializer;
+        private readonly SchemaInitializer<SchemaVersion> _schemaInitializer;
 
         public SqlServerFhirStorageTestsFixture()
         {
@@ -48,11 +49,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var config = new SqlServerDataStoreConfiguration { ConnectionString = TestConnectionString, Initialize = true };
             var sqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(config, new SqlTransactionHandler());
 
-            var schemaUpgradeRunner = new SchemaUpgradeRunner(config, NullLogger<SchemaUpgradeRunner>.Instance);
+            var schemaUpgradeRunner = new SchemaUpgradeRunner<SchemaVersion>(config, NullLogger<SchemaUpgradeRunner<SchemaVersion>>.Instance);
 
             var schemaInformation = new SchemaInformation();
 
-            _schemaInitializer = new SchemaInitializer(config, schemaUpgradeRunner, schemaInformation, NullLogger<SchemaInitializer>.Instance);
+            _schemaInitializer = new SchemaInitializer<SchemaVersion>(config, schemaUpgradeRunner, schemaInformation, NullLogger<SchemaInitializer<SchemaVersion>>.Instance);
 
             var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
             searchParameterDefinitionManager.AllSearchParameters.Returns(new[]

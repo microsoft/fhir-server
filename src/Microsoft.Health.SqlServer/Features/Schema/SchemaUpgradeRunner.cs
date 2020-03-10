@@ -13,12 +13,12 @@ using Microsoft.SqlServer.Management.Smo;
 
 namespace Microsoft.Health.SqlServer.Features.Schema
 {
-    public class SchemaUpgradeRunner
+    public class SchemaUpgradeRunner<T>
     {
         private readonly SqlServerDataStoreConfiguration _sqlServerDataStoreConfiguration;
-        private readonly ILogger<SchemaUpgradeRunner> _logger;
+        private readonly ILogger<SchemaUpgradeRunner<T>> _logger;
 
-        public SchemaUpgradeRunner(SqlServerDataStoreConfiguration sqlServerDataStoreConfiguration, ILogger<SchemaUpgradeRunner> logger)
+        public SchemaUpgradeRunner(SqlServerDataStoreConfiguration sqlServerDataStoreConfiguration, ILogger<SchemaUpgradeRunner<T>> logger)
         {
             EnsureArg.IsNotNull(sqlServerDataStoreConfiguration, nameof(sqlServerDataStoreConfiguration));
             EnsureArg.IsNotNull(logger, nameof(logger));
@@ -41,7 +41,7 @@ namespace Microsoft.Health.SqlServer.Features.Schema
                 connection.Open();
                 var server = new Server(new ServerConnection(connection));
 
-                server.ConnectionContext.ExecuteNonQuery(ScriptProvider.GetMigrationScript(version, applyFullSchemaSnapshot));
+                server.ConnectionContext.ExecuteNonQuery(ScriptProvider.GetMigrationScript<T>(version, applyFullSchemaSnapshot));
             }
 
             CompleteSchemaVersion(version);
