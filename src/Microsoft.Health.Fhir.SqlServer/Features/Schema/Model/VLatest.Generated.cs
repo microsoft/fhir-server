@@ -42,6 +42,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         internal readonly static HardDeleteResourceProcedure HardDeleteResource = new HardDeleteResourceProcedure();
         internal readonly static ReadResourceProcedure ReadResource = new ReadResourceProcedure();
         internal readonly static SelectCurrentSchemaVersionProcedure SelectCurrentSchemaVersion = new SelectCurrentSchemaVersionProcedure();
+        internal readonly static SelectMaxSupportedSchemaVersionProcedure SelectMaxSupportedSchemaVersion = new SelectMaxSupportedSchemaVersionProcedure();
         internal readonly static UpdateExportJobProcedure UpdateExportJob = new UpdateExportJobProcedure();
         internal readonly static UpsertResourceProcedure UpsertResource = new UpsertResourceProcedure();
         internal readonly static UpsertSchemaVersionProcedure UpsertSchemaVersion = new UpsertSchemaVersionProcedure();
@@ -507,6 +508,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             {
                 command.CommandType = global::System.Data.CommandType.StoredProcedure;
                 command.CommandText = "dbo.SelectCurrentSchemaVersion";
+            }
+        }
+
+        internal class SelectMaxSupportedSchemaVersionProcedure : StoredProcedure
+        {
+            internal SelectMaxSupportedSchemaVersionProcedure(): base("dbo.SelectMaxSupportedSchemaVersion")
+            {
+            }
+
+            private readonly ParameterDefinition<System.Int32> _version = new ParameterDefinition<System.Int32>("@version", global::System.Data.SqlDbType.Int, false);
+            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.Int32 version)
+            {
+                command.CommandType = global::System.Data.CommandType.StoredProcedure;
+                command.CommandText = "dbo.SelectMaxSupportedSchemaVersion";
+                _version.AddParameter(command.Parameters, version);
             }
         }
 

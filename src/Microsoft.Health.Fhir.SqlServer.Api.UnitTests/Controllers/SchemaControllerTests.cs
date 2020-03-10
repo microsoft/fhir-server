@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.SqlServer.Api.Controllers;
 using Microsoft.Health.Fhir.SqlServer.Api.Features.Routing;
@@ -20,13 +21,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.UnitTests.Controllers
     public class SchemaControllerTests
     {
         private readonly SchemaController _schemaController;
+        private readonly IFhirOperationDataStore _fhirOperationDataStore;
 
         public SchemaControllerTests()
         {
             var schemaInformation = new SchemaInformation();
             var urlResolver = Substitute.For<IUrlResolver>();
+            _fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
             urlResolver.ResolveRouteNameUrl(RouteNames.Script, Arg.Any<IDictionary<string, object>>()).Returns(new Uri("https://localhost/script"));
-            _schemaController = new SchemaController(schemaInformation, urlResolver, NullLogger<SchemaController>.Instance);
+            _schemaController = new SchemaController(schemaInformation, urlResolver, NullLogger<SchemaController>.Instance, _fhirOperationDataStore);
         }
 
         [Fact]
@@ -60,9 +63,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public void GivenACompatibilityRequest_WhenNotImplemented_ThenNotImplementedShouldBeThrown()
+        public void GivenACompatibilityRequest_WhenImplemented_ThenCompatibleVersionsAreReturned()
         {
-            Assert.Throws<NotImplementedException>(() => _schemaController.Compatibility());
+            _fhirOperationDataStore.GetLatestCompatibleVersion(Arg.Any<int>()).Returns(2);
+            ActionResult result = _schemaController.Compatibility();
+
+            var jsonResult = result as JsonResult;
+            Assert.NotNull(jsonResult);
+
+            var jobject = JObject.FromObject(jsonResult.Value);
+            Assert.Equal(1, jobject["min"]);
+            Assert.Equal(2, jobject["max"]);
         }
     }
 }

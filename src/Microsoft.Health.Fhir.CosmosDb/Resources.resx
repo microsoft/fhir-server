@@ -126,6 +126,9 @@
   <data name="InvalidConsistencyLevel" xml:space="preserve">
     <value>Consistency level '{0}' specified in the request is invalid when service is configured with consistency level '{1}'. Ensure the request consistency level is not stronger than the service consistency level.</value>
   </data>
+  <data name="NotSupportedForCosmos" xml:space="preserve">
+    <value>Compatibility not supported for cosmos.</value>
+  </data>
   <data name="UnhandledEnumValue" xml:space="preserve">
     <value>Unhandled {0} '{1}'.</value>
   </data>

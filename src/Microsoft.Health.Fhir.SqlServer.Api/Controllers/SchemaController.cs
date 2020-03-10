@@ -10,6 +10,7 @@ using EnsureThat;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.SqlServer.Api.Features.Filters;
 using Microsoft.Health.Fhir.SqlServer.Api.Features.Routing;
@@ -24,16 +25,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.Controllers
         private readonly SchemaInformation _schemaInformation;
         private readonly IUrlResolver _urlResolver;
         private readonly ILogger<SchemaController> _logger;
+        private readonly IFhirOperationDataStore _fhirOperationDataStore;
 
-        public SchemaController(SchemaInformation schemaInformation, IUrlResolver urlResolver, ILogger<SchemaController> logger)
+        public SchemaController(SchemaInformation schemaInformation, IUrlResolver urlResolver, ILogger<SchemaController> logger, IFhirOperationDataStore fhirOperationDataStore)
         {
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
             EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsNotNull(fhirOperationDataStore, nameof(fhirOperationDataStore));
 
             _schemaInformation = schemaInformation;
             _urlResolver = urlResolver;
             _logger = logger;
+            _fhirOperationDataStore = fhirOperationDataStore;
         }
 
         [HttpGet]
@@ -82,7 +86,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.Controllers
         {
             _logger.LogInformation("Attempting to get compatibility");
 
-            throw new NotImplementedException(Resources.CompatibilityNotImplemented);
+            var minVersion = (int)_schemaInformation.MinimumSupportedVersion;
+            var maxVersion = _fhirOperationDataStore.GetLatestCompatibleVersion((int)_schemaInformation.MaximumSupportedVersion);
+            var compatibilityVersions = new Dictionary<string, object> { { "min", minVersion } };
+            compatibilityVersions.Add("max", maxVersion);
+
+            return new JsonResult(compatibilityVersions);
         }
     }
 }
