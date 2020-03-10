@@ -11,13 +11,13 @@
   </ItemGroup>
   
   <ItemGroup>
-    <PackageReference Include="Microsoft.Health.Extensions.BuildTimeCodeGenerator" Version="1.0.0-beta3" />
     <PackageReference Include="MediatR.Extensions.Microsoft.DependencyInjection" Version="8.0.0" />
     <PackageReference Include="Microsoft.Azure.DocumentDB.Core" Version="2.6.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="3.1.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="3.1.0" />
-    <PackageReference Include="Microsoft.Health.Abstractions" Version="1.0.0-master-20200306-1" />
-    <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection" Version="1.0.0-master-20200306-1" />
+    <PackageReference Include="Microsoft.Health.Abstractions" Version="1.0.0-master-20200310-1" />
+    <PackageReference Include="Microsoft.Health.Extensions.BuildTimeCodeGenerator" Version="1.0.0-master-20200310-1" />
+    <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection" Version="1.0.0-master-20200310-1" />
   </ItemGroup>
 
   <ItemGroup>
