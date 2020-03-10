@@ -31,13 +31,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Theory]
         [InlineData("Patient/$export")]
         [InlineData("Group/id/$export")]
-        public async Task GivenExportIsEnabled_WhenRequestingExportForResourceWithCorrectHeaders_ThenServerShouldReturnNotImplemented(string path)
+        public async Task GivenExportIsEnabled_WhenRequestingExportForResourceWithCorrectHeaders_ThenServerShouldReturnMethodNotAllowed(string path)
         {
             HttpRequestMessage request = GenerateExportRequest(path);
 
             HttpResponseMessage response = await _client.SendAsync(request);
 
-            Assert.Equal(HttpStatusCode.NotImplemented, response.StatusCode);
+            Assert.Equal(HttpStatusCode.MethodNotAllowed, response.StatusCode);
         }
 
         [Fact]
