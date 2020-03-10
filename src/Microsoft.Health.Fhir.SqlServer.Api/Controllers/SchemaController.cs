@@ -10,8 +10,9 @@ using EnsureThat;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Api.Features.Filters;
 using Microsoft.Health.Fhir.SqlServer.Api.Features.Routing;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
@@ -25,19 +26,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.Controllers
         private readonly SchemaInformation _schemaInformation;
         private readonly IUrlResolver _urlResolver;
         private readonly ILogger<SchemaController> _logger;
-        private readonly IFhirOperationDataStore _fhirOperationDataStore;
+        private readonly Func<IScoped<IQueryProcessor>> _queryProcessor;
 
-        public SchemaController(SchemaInformation schemaInformation, IUrlResolver urlResolver, ILogger<SchemaController> logger, IFhirOperationDataStore fhirOperationDataStore)
+        public SchemaController(SchemaInformation schemaInformation, IUrlResolver urlResolver, ILogger<SchemaController> logger, Func<IScoped<IQueryProcessor>> queryProcessor)
         {
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
             EnsureArg.IsNotNull(logger, nameof(logger));
-            EnsureArg.IsNotNull(fhirOperationDataStore, nameof(fhirOperationDataStore));
+            EnsureArg.IsNotNull(queryProcessor, nameof(queryProcessor));
 
             _schemaInformation = schemaInformation;
             _urlResolver = urlResolver;
             _logger = logger;
-            _fhirOperationDataStore = fhirOperationDataStore;
+            _queryProcessor = queryProcessor;
         }
 
         [HttpGet]
@@ -87,9 +88,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.Controllers
             _logger.LogInformation("Attempting to get compatibility");
 
             var minVersion = (int)_schemaInformation.MinimumSupportedVersion;
-            var maxVersion = _fhirOperationDataStore.GetLatestCompatibleVersion((int)_schemaInformation.MaximumSupportedVersion);
             var compatibilityVersions = new Dictionary<string, object> { { "min", minVersion } };
-            compatibilityVersions.Add("max", maxVersion);
+            using (IScoped<IQueryProcessor> query = _queryProcessor())
+            {
+                var maxVersion = query.Value.GetLatestCompatibleVersion((int)_schemaInformation.MaximumSupportedVersion);
+                compatibilityVersions.Add("max", maxVersion);
+            }
 
             return new JsonResult(compatibilityVersions);
         }

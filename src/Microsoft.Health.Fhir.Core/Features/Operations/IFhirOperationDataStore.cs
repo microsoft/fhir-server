@@ -56,12 +56,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>A list of acquired export job.</returns>
         Task<IReadOnlyCollection<ExportJobOutcome>> AcquireExportJobsAsync(ushort maximumNumberOfConcurrentJobsAllowed, TimeSpan jobHeartbeatTimeoutThreshold, CancellationToken cancellationToken);
-
-        /// <summary>
-        /// Get compatible version.
-        /// </summary>
-        /// <param name="maxVersion">The job record.</param>
-        /// <returns>Maximum supported latest version from server.</returns>
-        int GetLatestCompatibleVersion(int maxVersion);
     }
 }

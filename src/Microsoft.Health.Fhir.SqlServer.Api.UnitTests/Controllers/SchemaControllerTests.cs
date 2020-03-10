@@ -7,8 +7,9 @@ using System;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Api.Controllers;
 using Microsoft.Health.Fhir.SqlServer.Api.Features.Routing;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
@@ -21,15 +22,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.UnitTests.Controllers
     public class SchemaControllerTests
     {
         private readonly SchemaController _schemaController;
-        private readonly IFhirOperationDataStore _fhirOperationDataStore;
+        private readonly Func<IScoped<IQueryProcessor>> _queryProcessor;
 
         public SchemaControllerTests()
         {
             var schemaInformation = new SchemaInformation();
             var urlResolver = Substitute.For<IUrlResolver>();
-            _fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
+            _queryProcessor = Substitute.For<Func<IScoped<IQueryProcessor>>>();
             urlResolver.ResolveRouteNameUrl(RouteNames.Script, Arg.Any<IDictionary<string, object>>()).Returns(new Uri("https://localhost/script"));
-            _schemaController = new SchemaController(schemaInformation, urlResolver, NullLogger<SchemaController>.Instance, _fhirOperationDataStore);
+            _schemaController = new SchemaController(schemaInformation, urlResolver, NullLogger<SchemaController>.Instance, _queryProcessor);
         }
 
         [Fact]
@@ -65,7 +66,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.UnitTests.Controllers
         [Fact]
         public void GivenACompatibilityRequest_WhenImplemented_ThenCompatibleVersionsAreReturned()
         {
-            _fhirOperationDataStore.GetLatestCompatibleVersion(Arg.Any<int>()).Returns(2);
+            using (IScoped<IQueryProcessor> query = _queryProcessor())
+            {
+                query.Value.GetLatestCompatibleVersion(Arg.Any<int>()).Returns(2);
+            }
+
             ActionResult result = _schemaController.Compatibility();
 
             var jsonResult = result as JsonResult;

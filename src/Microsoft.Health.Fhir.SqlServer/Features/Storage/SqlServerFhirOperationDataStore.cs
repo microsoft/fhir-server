@@ -226,17 +226,5 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             return versionAsBytes;
         }
-
-        public int GetLatestCompatibleVersion(int oldCompatibleVersion)
-        {
-            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
-            using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
-            {
-                VLatest.SelectMaxSupportedSchemaVersion.PopulateCommand(sqlCommand, oldCompatibleVersion);
-
-                object newCompatbileVersion = sqlCommand.ExecuteScalar();
-                return (newCompatbileVersion == null || Convert.IsDBNull(newCompatbileVersion)) ? oldCompatibleVersion : (int)newCompatbileVersion;
-            }
-        }
     }
 }
