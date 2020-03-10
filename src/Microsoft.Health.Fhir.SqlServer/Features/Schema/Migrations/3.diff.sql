@@ -7,7 +7,7 @@ CREATE TABLE dbo.InstanceSchema
     CurrentVersion int NOT NULL,
     MaxVersion int NOT NULL,
     MinVersion int NOT NULL,
-    Timeout datetime2(7) NOT NULL
+    Timeout datetime2(0) NOT NULL
 )
 
 CREATE UNIQUE CLUSTERED INDEX IXC_InstanceSchema ON dbo.InstanceSchema
@@ -37,9 +37,6 @@ GO
 --     @minVersion
 --         * The minimum supported schema version for the given instance
 --
--- RETURN VALUE
---     The row version of the created instance record.
---
 CREATE PROCEDURE dbo.CreateInstanceSchema
     @name varchar(64),
     @currentVersion int,
@@ -48,19 +45,16 @@ CREATE PROCEDURE dbo.CreateInstanceSchema
 AS
     SET NOCOUNT ON
 
-    SET XACT_ABORT ON
-    BEGIN TRANSACTION
+    BEGIN
 
-    DECLARE @timeout datetime2(7) = DATEADD(minute, 2, SYSUTCDATETIME())
+    DECLARE @timeout datetime2(0) = DATEADD(minute, 2, SYSUTCDATETIME())
 
     INSERT INTO dbo.InstanceSchema
         (Name, CurrentVersion, MaxVersion, MinVersion, Timeout)
     VALUES
         (@name, @currentVersion, @maxVersion, @minVersion, @timeout)
-  
-    SELECT CAST(MIN_ACTIVE_ROWVERSION() AS INT)
 
-    COMMIT TRANSACTION
+    END
 GO
 
 --
@@ -95,39 +89,41 @@ GO
 --     Modifies an existing record in the InstanceSchema table.
 --
 -- PARAMETERS
---     @name
+--    @name
 --         * The unique name for a particular instance
+--     @currentVersion
+--         * The current version of the schema that the given instance is using
 --     @maxVersion
---         * The maxium supported schema version for the given instance
+--         * The maximum supported schema version for the given instance
+--     @minVersion
+--         * The minimum supported schema version for the given instance
 --
--- RETURN VALUE
---     The row version of the updated instance schema.
---
-CREATE PROCEDURE dbo.UpdateInstanceSchema
+CREATE PROCEDURE dbo.UpsertInstanceSchema
     @name varchar(64),
-    @maxVersion int
+    @currentVersion int,
+    @maxVersion int,
+    @minVersion int
     
 AS
     SET NOCOUNT ON
+
+    DECLARE @timeout datetime2(0) = DATEADD(minute, 2, SYSUTCDATETIME())
 
     IF EXISTS(SELECT *
         FROM dbo.InstanceSchema
         WHERE Name = @name)
     BEGIN
-        DECLARE @timeout datetime2(7) = DATEADD(minute, 2, SYSUTCDATETIME())
-
         UPDATE dbo.InstanceSchema
-        SET MaxVersion = @maxVersion, Timeout = @timeout
+        SET CurrentVersion = @currentVersion, MaxVersion = @maxVersion, Timeout = @timeout
         WHERE Name = @name
     END
     ELSE
     BEGIN
-        THROW 50404, 'Instance record not found', 1;
+        INSERT INTO dbo.InstanceSchema
+            (Name, CurrentVersion, MaxVersion, MinVersion, Timeout)
+        VALUES
+            (@name, @currentVersion, @maxVersion, @minVersion, @timeout)
     END
-  
-    SELECT MIN_ACTIVE_ROWVERSION()
-
-    COMMIT TRANSACTION
 GO
 
 --
