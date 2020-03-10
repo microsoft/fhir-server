@@ -347,7 +347,8 @@
             ],
             "properties": {
                 "roleDefinitionId": "[variables('storageBlobDataContributerRoleId')]",
-                "principalId": "[reference(concat('Microsoft.Web/sites/', variables('serviceName')), '2018-11-01', 'full').identity.principalId]"
+                "principalId": "[reference(concat('Microsoft.Web/sites/', variables('serviceName')), '2018-11-01', 'full').identity.principalId]",
+                "principalType": "ServicePrincipal"
             }
         }
     ]
