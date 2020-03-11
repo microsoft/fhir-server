@@ -191,6 +191,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
+        public async Task<int> GetLatestCompatibleVersionAsync(int maxCodeVersion, CancellationToken cancellationToken)
+        {
+            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
+            using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
+            {
+                VLatest.SelectMaxSupportedSchemaVersion.PopulateCommand(sqlCommand, maxCodeVersion);
+
+                object maxCompatbileVersion = await sqlCommand.ExecuteScalarAsync();
+                return (int)maxCompatbileVersion;
+            }
+        }
+
         private ExportJobOutcome CreateExportJobOutcome(string rawJobRecord, byte[] rowVersionAsBytes)
         {
             var exportJobRecord = JsonConvert.DeserializeObject<ExportJobRecord>(rawJobRecord, _jsonSerializerSettings);

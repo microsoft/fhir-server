@@ -83,11 +83,6 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            services.Add<QueryProcessor>()
-                .Scoped()
-                .AsSelf()
-                .AsImplementedInterfaces();
-
             services
                 .AddHealthChecks()
                 .AddCheck<SqlServerHealthCheck>(nameof(SqlServerHealthCheck));

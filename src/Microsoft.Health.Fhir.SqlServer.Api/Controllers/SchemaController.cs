@@ -6,13 +6,14 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using EnsureThat;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Routing;
-using Microsoft.Health.Fhir.Core.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Api.Features.Filters;
 using Microsoft.Health.Fhir.SqlServer.Api.Features.Routing;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
@@ -26,19 +27,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.Controllers
         private readonly SchemaInformation _schemaInformation;
         private readonly IUrlResolver _urlResolver;
         private readonly ILogger<SchemaController> _logger;
-        private readonly Func<IScoped<IQueryProcessor>> _queryProcessor;
+        private readonly IMediator _mediator;
 
-        public SchemaController(SchemaInformation schemaInformation, IUrlResolver urlResolver, ILogger<SchemaController> logger, Func<IScoped<IQueryProcessor>> queryProcessor)
+        public SchemaController(SchemaInformation schemaInformation, IUrlResolver urlResolver, ILogger<SchemaController> logger, IMediator mediator)
         {
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
             EnsureArg.IsNotNull(logger, nameof(logger));
-            EnsureArg.IsNotNull(queryProcessor, nameof(queryProcessor));
 
             _schemaInformation = schemaInformation;
             _urlResolver = urlResolver;
             _logger = logger;
-            _queryProcessor = queryProcessor;
+            _mediator = mediator;
         }
 
         [HttpGet]
@@ -83,19 +83,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.Controllers
         [HttpGet]
         [AllowAnonymous]
         [Route(KnownRoutes.Compatibility)]
-        public ActionResult Compatibility()
+        public async Task<IActionResult> Compatibility()
         {
             _logger.LogInformation("Attempting to get compatibility");
 
-            var minVersion = (int)_schemaInformation.MinimumSupportedVersion;
-            var compatibilityVersions = new Dictionary<string, object> { { "min", minVersion } };
-            using (IScoped<IQueryProcessor> query = _queryProcessor())
-            {
-                var maxVersion = query.Value.GetLatestCompatibleVersion((int)_schemaInformation.MaximumSupportedVersion);
-                compatibilityVersions.Add("max", maxVersion);
-            }
+            int maxVersion = (int)_schemaInformation.MaximumSupportedVersion;
+            int minVersion = (int)_schemaInformation.MinimumSupportedVersion;
+            var compatibleResponse = await _mediator.GetCompatibleVersionAsync(minVersion, maxVersion, HttpContext.RequestAborted);
 
-            return new JsonResult(compatibilityVersions);
+            return new JsonResult(compatibleResponse);
         }
     }
 }

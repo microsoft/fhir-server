@@ -147,3 +147,29 @@ AS
     WHERE Name = @name
 
 GO
+
+--
+--  STORED PROCEDURE
+--      SelectMaxSupportedSchemaVersion
+--
+--  DESCRIPTION
+--      Selects the highest supported completed schema version
+--  PARAMETERS
+--      @version
+--          * The version number
+--
+--  RETURNS
+--      The highest version
+--
+CREATE PROCEDURE dbo.SelectMaxSupportedSchemaVersion
+    @version int
+AS
+BEGIN
+    SET NOCOUNT ON
+
+    SELECT MAX(Version)
+    FROM SchemaVersion
+    WHERE Status = 'complete' AND Version <= @version
+END
+GO
+
