@@ -6,18 +6,16 @@
 using System;
 using System.Linq;
 using EnsureThat;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
-using Microsoft.Health.SqlServer.Api.Controllers;
+using Microsoft.Health.SqlServer.Api.Registration;
 using Microsoft.Health.SqlServer.Configs;
-using Microsoft.Health.SqlServer.Features.Health;
-using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
+using Microsoft.Health.SqlServer.Registration;
 
 namespace Microsoft.Extensions.DependencyInjection
 {
@@ -28,30 +26,14 @@ namespace Microsoft.Extensions.DependencyInjection
             EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
             IServiceCollection services = fhirServerBuilder.Services;
 
-            services.Add(provider =>
-                {
-                    var config = new SqlServerDataStoreConfiguration();
-                    provider.GetService<IConfiguration>().GetSection("SqlServer").Bind(config);
-                    configureAction?.Invoke(config);
-
-                    return config;
-                })
-                .Singleton()
-                .AsSelf();
-
-            services.Add<SchemaUpgradeRunner<SchemaVersion>>()
-                .Singleton()
-                .AsSelf();
+            services.AddSqlServerBase<SchemaVersion>(configureAction);
+            services.AddSqlServerApi<SchemaVersion>();
 
             var schemaInformation = new SchemaInformation();
             services.Add<SchemaInformation>(provider => schemaInformation)
                 .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();
-
-            services.Add<SchemaInitializer<SchemaVersion>>()
-                .Singleton()
-                .AsService<IStartable>();
 
             services.Add<SqlServerFhirModel>()
                 .Singleton()
@@ -85,16 +67,6 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Scoped()
                 .AsSelf()
                 .AsImplementedInterfaces();
-
-            services
-                .AddHealthChecks()
-                .AddCheck<SqlServerHealthCheck>(nameof(SqlServerHealthCheck));
-
-            // This is only needed while adding in the ConfigureServices call in the E2E TestServer scenario
-            // During normal usage, the controller should be automatically discovered.
-            services.AddMvc()
-                .ConfigureApplicationPartManager(p =>
-                    p.FeatureProviders.Add(new SchemaControllerFeatureProvider(schemaInformation)));
 
             AddSqlServerTableRowParameterGenerators(services);
 

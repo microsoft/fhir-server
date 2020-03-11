@@ -8,8 +8,6 @@ namespace Microsoft.Health.SqlServer.Features.Schema
 {
     public interface ISchemaInformation
     {
-        public Type SchemaVersionEnumType { get; }
-
         public int MinimumSupportedVersion { get; }
 
         public int MaximumSupportedVersion { get; }

@@ -10,12 +10,12 @@ namespace Microsoft.Health.SqlServer.Features.Schema
 {
     public static class ScriptProvider
     {
-        public static string GetMigrationScript<T>(int version, bool applyFullSchemaSnapshot)
+        public static string GetMigrationScript<TSchemaVersionEnum>(int version, bool applyFullSchemaSnapshot)
         {
-            string folder = $"{typeof(T).Namespace}.Migrations";
+            string folder = $"{typeof(TSchemaVersionEnum).Namespace}.Migrations";
             string resourceName = applyFullSchemaSnapshot ? $"{folder}.{version}.sql" : $"{folder}.{version}.diff.sql";
 
-            using (Stream stream = Assembly.GetAssembly(typeof(T)).GetManifestResourceStream(resourceName))
+            using (Stream stream = Assembly.GetAssembly(typeof(TSchemaVersionEnum)).GetManifestResourceStream(resourceName))
             {
                 if (stream == null)
                 {
@@ -29,18 +29,18 @@ namespace Microsoft.Health.SqlServer.Features.Schema
             }
         }
 
-        public static byte[] GetMigrationScriptAsBytes<T>(int version)
+        public static byte[] GetMigrationScriptAsBytes<TSchemaVersionEnum>(int version)
         {
-            string resourceName = $"{typeof(T).Namespace}.Migrations.{version}.sql";
-            using (Stream filestream = Assembly.GetAssembly(typeof(T)).GetManifestResourceStream(resourceName))
+            string resourceName = $"{typeof(TSchemaVersionEnum).Namespace}.Migrations.{version}.sql";
+            using (Stream fileStream = Assembly.GetAssembly(typeof(TSchemaVersionEnum)).GetManifestResourceStream(resourceName))
             {
-                if (filestream == null)
+                if (fileStream == null)
                 {
                     throw new FileNotFoundException(Resources.ScriptNotFound);
                 }
 
-                byte[] scriptBytes = new byte[filestream.Length];
-                filestream.Read(scriptBytes, 0, scriptBytes.Length);
+                var scriptBytes = new byte[fileStream.Length];
+                fileStream.Read(scriptBytes, 0, scriptBytes.Length);
                 return scriptBytes;
             }
         }

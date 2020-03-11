@@ -5,6 +5,7 @@
 
 using System;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.SqlServer.Api.Controllers;
@@ -22,9 +23,16 @@ namespace Microsoft.Health.SqlServer.Api.UnitTests.Controllers
         public SchemaControllerTests()
         {
             var schemaInformation = Substitute.For<ISchemaInformation>();
+
+            var urlHelperFactory = Substitute.For<IUrlHelperFactory>();
             var urlHelper = Substitute.For<IUrlHelper>();
             urlHelper.RouteUrl(Arg.Any<UrlRouteContext>()).Returns("https://localhost/script");
-            _schemaController = new SchemaController<TestSchemaVersion>(schemaInformation, urlHelper, NullLogger<SchemaController<TestSchemaVersion>>.Instance);
+            urlHelperFactory.GetUrlHelper(Arg.Any<ActionContext>()).Returns(urlHelper);
+
+            var actionContextAccessor = Substitute.For<IActionContextAccessor>();
+            actionContextAccessor.ActionContext.Returns(new ActionContext());
+
+            _schemaController = new SchemaController<TestSchemaVersion>(schemaInformation, urlHelperFactory, actionContextAccessor, NullLogger<SchemaController<TestSchemaVersion>>.Instance);
         }
 
         [Fact]

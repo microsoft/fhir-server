@@ -16,8 +16,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
             MaximumSupportedVersion = (int)SchemaVersion.V2;
         }
 
-        public Type SchemaVersionEnumType => typeof(SchemaVersion);
-
         public int MinimumSupportedVersion { get; }
 
         public int MaximumSupportedVersion { get; }

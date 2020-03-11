@@ -5,12 +5,10 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using EnsureThat;
 using Microsoft.AspNetCore.Mvc.ApplicationParts;
 using Microsoft.AspNetCore.Mvc.Controllers;
-using Microsoft.Health.SqlServer.Features.Schema;
 
 namespace Microsoft.Health.SqlServer.Api.Controllers
 {
@@ -18,11 +16,11 @@ namespace Microsoft.Health.SqlServer.Api.Controllers
     {
         private readonly Type _schemaVersionType;
 
-        public SchemaControllerFeatureProvider(ISchemaInformation schemaInformation)
+        public SchemaControllerFeatureProvider(Type schemaVersionType)
         {
-            EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
+            EnsureArg.IsNotNull(schemaVersionType, nameof(schemaVersionType));
 
-            _schemaVersionType = schemaInformation.SchemaVersionEnumType;
+            _schemaVersionType = schemaVersionType;
         }
 
         public void PopulateFeature(IEnumerable<ApplicationPart> parts, ControllerFeature feature)
