@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
         [InlineData("2013-05-18T09.931094+01:00")]
         [InlineData("2013-05-18T.931094")] // Hour, minute and second need to be specified.
         [InlineData("2013-05-18T.931094+01:00")]
-        public void GivenPreviousParamIsNotSpecified_WhenParsingPartialDateTime_ThenExceptionShouldBeThrown(string inputString)
+        public void GivenPreviousParamIsNotSpecified_WhenParsingPartialDateTime_ThenFormatExceptionShouldBeThrown(string inputString)
         {
             Exception ex = Assert.Throws<FormatException>(() => PartialDateTime.Parse(inputString));
 
@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
         [InlineData("2013+01:00")] // Time needs to be specified if UTC offset is specified.
         [InlineData("2013-05+01:00")]
         [InlineData("2013-05-18+01:00")]
-        public void GivenUtcOffsetButNoTime_WhenParsingPartialDateTime_ThenExceptionShouldBeThrown(string inputString)
+        public void GivenUtcOffsetButNoTime_WhenParsingPartialDateTime_ThenFormatExceptionShouldBeThrown(string inputString)
         {
             Exception ex = Assert.Throws<FormatException>(() => PartialDateTime.Parse(inputString));
 
@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
         [Theory]
         [InlineData("2013-05-18T23")] // Minutes need to be specified if hour is specified.
         [InlineData("2013-05-18T23+01:00")]
-        public void GivenHourIsSpecifiedWithoutMinutes_WhenParsingPartialDateTime_ThenExceptionShouldBeThrown(string inputString)
+        public void GivenHourIsSpecifiedWithoutMinutes_WhenParsingPartialDateTime_ThenFormatExceptionShouldBeThrown(string inputString)
         {
             Exception ex = Assert.Throws<FormatException>(() => PartialDateTime.Parse(inputString));
 
@@ -98,9 +98,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
         [InlineData("2013-05-18T23:09ZZ")]
         [InlineData("2013-05-18T23:09-99:00")]
         [InlineData("2013-05-18T23:09-789")]
-        public void GivenInvalidUtcOffset_WhenParsingPartialDateTime_ThenExceptionShouldBeThrown(string inputString)
+        public void GivenInvalidUtcOffset_WhenParsingPartialDateTime_ThenFormatExceptionShouldBeThrown(string inputString)
         {
-            Assert.Throws<FormatException>(() => PartialDateTime.Parse(inputString));
+            Exception ex = Assert.Throws<FormatException>(() => PartialDateTime.Parse(inputString));
+
+            string expectedMessage = string.Format(Resources.DateTimeStringIsIncorrectlyFormatted, inputString);
+            Assert.Equal(expectedMessage, ex.Message);
         }
 
         [Theory]
@@ -119,9 +122,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
         [InlineData("2013-05-18T23:57:-01.931094+01:00")] // Second cannot be less than 0.
         [InlineData("2013-05-18T23:57:60Z")] // Second cannot be greater than 59.
         [InlineData("2013-05-18T23:57:09.999999999999999999999999+01:00")] // Fraction cannot be rounded up to 1 minute.
-        public void GivenAOutOfRangeParameter_WhenInitializing_ThenExceptionShouldBeThrown(string inputString)
+        public void GivenAOutOfRangeParameter_WhenInitializing_ThenFormatExceptionShouldBeThrown(string inputString)
         {
-            Assert.Throws<FormatException>(() => PartialDateTime.Parse(inputString));
+            Exception ex = Assert.Throws<FormatException>(() => PartialDateTime.Parse(inputString));
+
+            string expectedMessage = string.Format(Resources.DateTimeStringIsIncorrectlyFormatted, inputString);
+            Assert.Equal(expectedMessage, ex.Message);
         }
 
         public static IEnumerable<object[]> GetParameterNullData()
@@ -200,7 +206,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
         }
 
         [Fact]
-        public void GivenANullString_WhenParsing_ThenArgumentExceptionShouldBeThrown()
+        public void GivenANullString_WhenParsing_ThenArgumentNullExceptionShouldBeThrown()
         {
             Assert.Throws<ArgumentNullException>(() => PartialDateTime.Parse(null));
         }
@@ -211,7 +217,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
         [InlineData("abc")]
         public void GivenAnInvalidString_WhenParsing_ThenFormatExceptionShouldBeThrown(string inputString)
         {
-            Assert.Throws<FormatException>(() => PartialDateTime.Parse(inputString));
+            Exception ex = Assert.Throws<FormatException>(() => PartialDateTime.Parse(inputString));
+
+            string expectedMessage = string.Format(Resources.DateTimeStringIsIncorrectlyFormatted, inputString);
+            Assert.Equal(expectedMessage, ex.Message);
         }
 
         public static IEnumerable<object[]> GetParseData()
