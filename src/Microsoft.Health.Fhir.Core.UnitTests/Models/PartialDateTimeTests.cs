@@ -182,7 +182,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
             const int fraction = 1234;
             var utcOffset = TimeSpan.FromMinutes(240);
 
-            DateTimeOffset dateTimeOffset = new DateTimeOffset(year, month, day, hour, minute, second, millisecond, utcOffset).AddTicks(fraction);
+            var dateTimeOffset = new DateTimeOffset(year, month, day, hour, minute, second, millisecond, utcOffset).AddTicks(fraction);
 
             var partialDateTime = new PartialDateTime(dateTimeOffset);
 
