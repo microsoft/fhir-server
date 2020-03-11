@@ -1,5 +1,4 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <Import Project="..\..\tools\Microsoft.Health.Extensions.BuildTimeCodeGenerator\BuildTimeCodeGenerator.targets" />
 
   <PropertyGroup>
     <TargetFramework>netcoreapp3.1</TargetFramework>
@@ -21,7 +20,7 @@
     </Generated>
   </ItemGroup>
 
-    <ItemGroup>
+  <ItemGroup>
     <Generated Include="IndentedStringBuilder.Generated.cs">
       <Generator>IndentedStringBuilderGenerator</Generator>
       <Namespace>Microsoft.Health.Fhir.SqlServer</Namespace>
@@ -29,6 +28,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.Health.Extensions.BuildTimeCodeGenerator" Version="1.0.0-master-20200310-1" />
     <PackageReference Include="Ensure.That" Version="8.1.2" />
     <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" Version="1.3.2" />
     <PackageReference Include="Microsoft.SqlServer.SqlManagementObjects" Version="150.18208.0" />
