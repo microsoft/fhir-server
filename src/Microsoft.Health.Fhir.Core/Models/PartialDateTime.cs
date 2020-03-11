@@ -210,14 +210,10 @@ namespace Microsoft.Health.Fhir.Core.Models
         /// </remarks>
         private static string[] GenerateDateTimeOffsetFormats()
         {
-            var formats = new List<string>();
-
-            var dateFormats = new List<string> { "yyyy", "yyyy-MM", "yyyy-MM-dd" };
-
-            formats.AddRange(dateFormats);
+            var formats = new List<string> { "yyyy", "yyyy-MM", "yyyy-MM-dd" };
 
             // From spec: "the minutes SHALL be present if an hour is present".
-            var dateTimeFormats = new List<string>
+            var timeFormats = new List<string>
             {
                 "yyyy-MM-ddTHH:mm",
                 "yyyy-MM-ddTHH:mm:ss",
@@ -230,15 +226,16 @@ namespace Microsoft.Health.Fhir.Core.Models
                 "yyyy-MM-ddTHH:mm:ss.fffffff",
             };
 
-            formats.AddRange(dateTimeFormats);
+            formats.AddRange(timeFormats);
 
             var timeZoneFormats = new List<string> { "Z", "zzz" };
 
-            foreach (var dateTime in dateTimeFormats)
+            // If the time is specified, the time zone could be specified.
+            foreach (var timeFormat in timeFormats)
             {
                 foreach (var timeZoneFormat in timeZoneFormats)
                 {
-                    formats.Add(dateTime + timeZoneFormat);
+                    formats.Add(timeFormat + timeZoneFormat);
                 }
             }
 
