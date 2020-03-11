@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Models
         // This is required because date time parts left blank are used to indicate a time period.
         // For example, 2000 is equivalent to an interval of [2000-01-01T00:00, 2000-12-31T23:59].
         private static readonly Regex DateTimeRegex = new Regex(
-            $@"-?(?<{YearCapture}>[0-9]{{4}})(-(?<{MonthCapture}>[0-9]{{2}}))?(-(?<{DayCapture}>[0-9]{{2}}))?(T(?<{HourCapture}>[0-9]{{2}}))?(:(?<{MinuteCapture}>[0-9]{{2}}))?(:(?<{SecondCapture}>[0-9]{{2}}))?((?<{FractionCapture}>\.[0-9]+))?((?<{TimeZoneCapture}>Z|(\+|-)(([0-9]{{2}}):[0-9]{{2}}))|(?<{InvalidTimeZoneCapture}>Z|(\+|-)(([0-9]{{1}}):[0-9]{{2}})))?",
+            $@"(?<{YearCapture}>\d{{4}})(-(?<{MonthCapture}>\d{{2}}))?(-(?<{DayCapture}>\d{{2}}))?(T(?<{HourCapture}>\d{{2}}))?(:(?<{MinuteCapture}>\d{{2}}))?(:(?<{SecondCapture}>\d{{2}}))?((?<{FractionCapture}>\.\d+))?((?<{TimeZoneCapture}>Z|(\+|-)((\d{{2}}):\d{{2}}))|(?<{InvalidTimeZoneCapture}>Z|(\+|-)((\d):\d{{2}})))?",
             RegexOptions.Singleline | RegexOptions.Compiled | RegexOptions.ExplicitCapture);
 
         public static readonly PartialDateTime MinValue = new PartialDateTime(DateTimeOffset.MinValue);
