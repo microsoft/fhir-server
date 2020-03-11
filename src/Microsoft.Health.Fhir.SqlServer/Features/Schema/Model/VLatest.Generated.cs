@@ -15,6 +15,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         internal readonly static CompartmentTypeTable CompartmentType = new CompartmentTypeTable();
         internal readonly static DateTimeSearchParamTable DateTimeSearchParam = new DateTimeSearchParamTable();
         internal readonly static ExportJobTable ExportJob = new ExportJobTable();
+        internal readonly static InstanceSchemaTable InstanceSchema = new InstanceSchemaTable();
         internal readonly static NumberSearchParamTable NumberSearchParam = new NumberSearchParamTable();
         internal readonly static QuantityCodeTable QuantityCode = new QuantityCodeTable();
         internal readonly static QuantitySearchParamTable QuantitySearchParam = new QuantitySearchParamTable();
@@ -37,13 +38,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         internal readonly static UriSearchParamTable UriSearchParam = new UriSearchParamTable();
         internal readonly static AcquireExportJobsProcedure AcquireExportJobs = new AcquireExportJobsProcedure();
         internal readonly static CreateExportJobProcedure CreateExportJob = new CreateExportJobProcedure();
+        internal readonly static CreateInstanceSchemaProcedure CreateInstanceSchema = new CreateInstanceSchemaProcedure();
+        internal readonly static DeleteInstanceSchemaByNameProcedure DeleteInstanceSchemaByName = new DeleteInstanceSchemaByNameProcedure();
         internal readonly static GetExportJobByHashProcedure GetExportJobByHash = new GetExportJobByHashProcedure();
         internal readonly static GetExportJobByIdProcedure GetExportJobById = new GetExportJobByIdProcedure();
+        internal readonly static GetInstanceSchemaByNameProcedure GetInstanceSchemaByName = new GetInstanceSchemaByNameProcedure();
         internal readonly static HardDeleteResourceProcedure HardDeleteResource = new HardDeleteResourceProcedure();
         internal readonly static ReadResourceProcedure ReadResource = new ReadResourceProcedure();
         internal readonly static SelectCurrentSchemaVersionProcedure SelectCurrentSchemaVersion = new SelectCurrentSchemaVersionProcedure();
         internal readonly static SelectMaxSupportedSchemaVersionProcedure SelectMaxSupportedSchemaVersion = new SelectMaxSupportedSchemaVersionProcedure();
         internal readonly static UpdateExportJobProcedure UpdateExportJob = new UpdateExportJobProcedure();
+        internal readonly static UpsertInstanceSchemaProcedure UpsertInstanceSchema = new UpsertInstanceSchemaProcedure();
         internal readonly static UpsertResourceProcedure UpsertResource = new UpsertResourceProcedure();
         internal readonly static UpsertSchemaVersionProcedure UpsertSchemaVersion = new UpsertSchemaVersionProcedure();
         internal class ClaimTypeTable : Table
@@ -106,6 +111,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly NullableDateTime2Column HeartbeatDateTime = new NullableDateTime2Column("HeartbeatDateTime", 7);
             internal readonly VarCharColumn RawJobRecord = new VarCharColumn("RawJobRecord", -1);
             internal readonly TimestampColumn JobVersion = new TimestampColumn("JobVersion");
+        }
+
+        internal class InstanceSchemaTable : Table
+        {
+            internal InstanceSchemaTable(): base("dbo.InstanceSchema")
+            {
+            }
+
+            internal readonly VarCharColumn Name = new VarCharColumn("Name", 64, "Latin1_General_100_CS_AS");
+            internal readonly IntColumn CurrentVersion = new IntColumn("CurrentVersion");
+            internal readonly IntColumn MaxVersion = new IntColumn("MaxVersion");
+            internal readonly IntColumn MinVersion = new IntColumn("MinVersion");
+            internal readonly DateTime2Column Timeout = new DateTime2Column("Timeout", 0);
         }
 
         internal class NumberSearchParamTable : Table
@@ -432,6 +450,42 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
         }
 
+        internal class CreateInstanceSchemaProcedure : StoredProcedure
+        {
+            internal CreateInstanceSchemaProcedure(): base("dbo.CreateInstanceSchema")
+            {
+            }
+
+            private readonly ParameterDefinition<System.String> _name = new ParameterDefinition<System.String>("@name", global::System.Data.SqlDbType.VarChar, false, 64);
+            private readonly ParameterDefinition<System.Int32> _currentVersion = new ParameterDefinition<System.Int32>("@currentVersion", global::System.Data.SqlDbType.Int, false);
+            private readonly ParameterDefinition<System.Int32> _maxVersion = new ParameterDefinition<System.Int32>("@maxVersion", global::System.Data.SqlDbType.Int, false);
+            private readonly ParameterDefinition<System.Int32> _minVersion = new ParameterDefinition<System.Int32>("@minVersion", global::System.Data.SqlDbType.Int, false);
+            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.String name, System.Int32 currentVersion, System.Int32 maxVersion, System.Int32 minVersion)
+            {
+                command.CommandType = global::System.Data.CommandType.StoredProcedure;
+                command.CommandText = "dbo.CreateInstanceSchema";
+                _name.AddParameter(command.Parameters, name);
+                _currentVersion.AddParameter(command.Parameters, currentVersion);
+                _maxVersion.AddParameter(command.Parameters, maxVersion);
+                _minVersion.AddParameter(command.Parameters, minVersion);
+            }
+        }
+
+        internal class DeleteInstanceSchemaByNameProcedure : StoredProcedure
+        {
+            internal DeleteInstanceSchemaByNameProcedure(): base("dbo.DeleteInstanceSchemaByName")
+            {
+            }
+
+            private readonly ParameterDefinition<System.String> _name = new ParameterDefinition<System.String>("@name", global::System.Data.SqlDbType.VarChar, false, 64);
+            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.String name)
+            {
+                command.CommandType = global::System.Data.CommandType.StoredProcedure;
+                command.CommandText = "dbo.DeleteInstanceSchemaByName";
+                _name.AddParameter(command.Parameters, name);
+            }
+        }
+
         internal class GetExportJobByHashProcedure : StoredProcedure
         {
             internal GetExportJobByHashProcedure(): base("dbo.GetExportJobByHash")
@@ -459,6 +513,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
                 command.CommandType = global::System.Data.CommandType.StoredProcedure;
                 command.CommandText = "dbo.GetExportJobById";
                 _id.AddParameter(command.Parameters, id);
+            }
+        }
+
+        internal class GetInstanceSchemaByNameProcedure : StoredProcedure
+        {
+            internal GetInstanceSchemaByNameProcedure(): base("dbo.GetInstanceSchemaByName")
+            {
+            }
+
+            private readonly ParameterDefinition<System.String> _name = new ParameterDefinition<System.String>("@name", global::System.Data.SqlDbType.VarChar, false, 64);
+            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.String name)
+            {
+                command.CommandType = global::System.Data.CommandType.StoredProcedure;
+                command.CommandText = "dbo.GetInstanceSchemaByName";
+                _name.AddParameter(command.Parameters, name);
             }
         }
 
@@ -544,6 +613,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
                 _status.AddParameter(command.Parameters, status);
                 _rawJobRecord.AddParameter(command.Parameters, rawJobRecord);
                 _jobVersion.AddParameter(command.Parameters, jobVersion);
+            }
+        }
+
+        internal class UpsertInstanceSchemaProcedure : StoredProcedure
+        {
+            internal UpsertInstanceSchemaProcedure(): base("dbo.UpsertInstanceSchema")
+            {
+            }
+
+            private readonly ParameterDefinition<System.String> _name = new ParameterDefinition<System.String>("@name", global::System.Data.SqlDbType.VarChar, false, 64);
+            private readonly ParameterDefinition<System.Int32> _currentVersion = new ParameterDefinition<System.Int32>("@currentVersion", global::System.Data.SqlDbType.Int, false);
+            private readonly ParameterDefinition<System.Int32> _maxVersion = new ParameterDefinition<System.Int32>("@maxVersion", global::System.Data.SqlDbType.Int, false);
+            private readonly ParameterDefinition<System.Int32> _minVersion = new ParameterDefinition<System.Int32>("@minVersion", global::System.Data.SqlDbType.Int, false);
+            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.String name, System.Int32 currentVersion, System.Int32 maxVersion, System.Int32 minVersion)
+            {
+                command.CommandType = global::System.Data.CommandType.StoredProcedure;
+                command.CommandText = "dbo.UpsertInstanceSchema";
+                _name.AddParameter(command.Parameters, name);
+                _currentVersion.AddParameter(command.Parameters, currentVersion);
+                _maxVersion.AddParameter(command.Parameters, maxVersion);
+                _minVersion.AddParameter(command.Parameters, minVersion);
             }
         }
 
