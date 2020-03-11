@@ -29,8 +29,7 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddSqlServerBase<SchemaVersion>(configureAction);
             services.AddSqlServerApi<SchemaVersion>();
 
-            var schemaInformation = new SchemaInformation();
-            services.Add<SchemaInformation>(provider => schemaInformation)
+            services.Add<SchemaInformation>()
                 .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();

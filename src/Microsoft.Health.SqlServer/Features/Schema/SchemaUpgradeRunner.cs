@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Data;
 using System.Data.SqlClient;
 using EnsureThat;
@@ -14,6 +15,7 @@ using Microsoft.SqlServer.Management.Smo;
 namespace Microsoft.Health.SqlServer.Features.Schema
 {
     public class SchemaUpgradeRunner<TSchemaVersionEnum>
+        where TSchemaVersionEnum : Enum
     {
         private readonly SqlServerDataStoreConfiguration _sqlServerDataStoreConfiguration;
         private readonly ILogger<SchemaUpgradeRunner<TSchemaVersionEnum>> _logger;

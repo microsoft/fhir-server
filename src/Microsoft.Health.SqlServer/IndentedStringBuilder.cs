@@ -171,8 +171,8 @@ namespace Microsoft.Health.SqlServer
             }
         }
 
-        [SuppressMessage("ReSharper", "CA1034", Justification = "Type is only useful in context of IndentedStringBuilder.")]
-        [SuppressMessage("ReSharper", "CA1815", Justification = "Instances are not compared.")]
+        [SuppressMessage("Microsoft.Design", "CA1034: Nested types should not be visible", Justification = "Type is only useful in context of IndentedStringBuilder.")]
+        [SuppressMessage("Microsoft.Performance", "CA1815: Override equals and operator equals on value types", Justification = "Instances are not compared.")]
         public struct IndentedScope : IDisposable
         {
             private readonly IndentedStringBuilder _sb;
@@ -189,8 +189,8 @@ namespace Microsoft.Health.SqlServer
             }
         }
 
-        [SuppressMessage("ReSharper", "CA1034", Justification = "Type is only useful in context of IndentedStringBuilder.")]
-        [SuppressMessage("ReSharper", "CA1815", Justification = "Instances are not compared.")]
+        [SuppressMessage("Microsoft.Design", "CA1034: Nested types should not be visible", Justification = "Type is only useful in context of IndentedStringBuilder.")]
+        [SuppressMessage("Microsoft.Performance", "CA1815: Override equals and operator equals on value types", Justification = "Instances are not compared.")]
         public readonly struct DelimitedScope : IDisposable
         {
             private readonly IndentedStringBuilder _sb;

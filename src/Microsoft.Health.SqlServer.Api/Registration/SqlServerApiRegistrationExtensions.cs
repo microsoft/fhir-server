@@ -19,8 +19,6 @@ namespace Microsoft.Health.SqlServer.Api.Registration
         {
             EnsureArg.IsNotNull(services);
 
-            // This is only needed while adding in the ConfigureServices call in the E2E TestServer scenario
-            // During normal usage, the controller should be automatically discovered.
             services.AddMvc()
                 .ConfigureApplicationPartManager(p =>
                     p.FeatureProviders.Add(new SchemaControllerFeatureProvider(typeof(TSchemaVersionEnum))));
