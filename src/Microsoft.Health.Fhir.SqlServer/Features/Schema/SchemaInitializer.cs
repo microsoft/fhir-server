@@ -113,7 +113,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
                         command.CommandText = $"{procedureSchema}.{procedureName}";
                         command.CommandType = CommandType.StoredProcedure;
 
-                        _schemaInformation.Current = (SchemaVersion?)(int?)command.ExecuteScalar();
+                        object current = command.ExecuteScalar();
+                        _schemaInformation.Current = (current == null || Convert.IsDBNull(current)) ? null : (SchemaVersion?)(int?)current;
                     }
                 }
             }
