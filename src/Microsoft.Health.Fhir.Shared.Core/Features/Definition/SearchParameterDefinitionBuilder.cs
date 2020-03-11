@@ -322,7 +322,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             Type type = _modelInfoProvider.GetTypeForFhirType(resourceType);
 
-            Debug.Assert(type != null, "The type should not be null.");
+            Debug.Assert(type != null, $"The type for {resourceType} should not be null.");
 
             string baseType = _modelInfoProvider.GetFhirTypeNameForType(type.BaseType);
 

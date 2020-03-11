@@ -102,6 +102,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton<ValidateContentTypeFilterAttribute>();
             services.AddSingleton<ValidateExportRequestFilterAttribute>();
 
+            FhirPathCompiler.DefaultSymbolTable.AddFhirExtensions();
+
             services.Add<FhirJsonInputFormatter>()
                 .Singleton()
                 .AsSelf()

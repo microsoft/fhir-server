@@ -126,7 +126,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         operationOutcomeResult.StatusCode = ofe.ResponseStatusCode;
                         break;
                     case OperationNotImplementedException _:
-                        operationOutcomeResult.StatusCode = HttpStatusCode.NotImplemented;
+                        operationOutcomeResult.StatusCode = HttpStatusCode.MethodNotAllowed;
                         break;
                     case NotAcceptableException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.NotAcceptable;

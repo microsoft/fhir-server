@@ -20,11 +20,12 @@ using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
+using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Api.UnitTests.Features.Context;
 using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
@@ -40,15 +41,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
     public class BundleHandlerTests
     {
         private readonly BundleHandler _bundleHandler;
-        private readonly IHttpContextAccessor _httpContextAccessor;
-        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
-        private readonly FhirJsonParser _fhirJsonParser;
-        private readonly FhirJsonSerializer _fhirJsonSerializer;
-        private readonly BundleHttpContextAccessor _bundleHttpContextAccessor;
         private readonly IRouter _router;
-        private readonly ResourceIdProvider _resourceIdProvider;
-        private readonly ISearchService _searchService;
-        private readonly IAuditEventTypeMapping _auditEventTypeMapping;
         private readonly BundleConfiguration _bundleConfiguration;
 
         public BundleHandlerTests()
@@ -61,23 +54,19 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 CorrelationId = Guid.NewGuid().ToString(),
             };
 
-            _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
-            _fhirRequestContextAccessor.FhirRequestContext.Returns(fhirRequestContext);
+            IFhirRequestContextAccessor fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
+            fhirRequestContextAccessor.FhirRequestContext.Returns(fhirRequestContext);
 
-            _httpContextAccessor = Substitute.For<IHttpContextAccessor>();
+            IHttpContextAccessor httpContextAccessor = Substitute.For<IHttpContextAccessor>();
 
-            _fhirJsonSerializer = new FhirJsonSerializer();
-            _fhirJsonParser = new FhirJsonParser();
+            var fhirJsonSerializer = new FhirJsonSerializer();
+            var fhirJsonParser = new FhirJsonParser();
 
-            _searchService = Substitute.For<ISearchService>();
+            ISearchService searchService = Substitute.For<ISearchService>();
+            var resourceReferenceResolver = new ResourceReferenceResolver(searchService, new QueryStringParser());
+            var transactionBundleValidator = new TransactionBundleValidator(resourceReferenceResolver);
 
-            var fhirDataStore = Substitute.For<IFhirDataStore>();
-            var conformanceProvider = Substitute.For<Lazy<IConformanceProvider>>();
-            var resourceWrapperFactory = Substitute.For<IResourceWrapperFactory>();
-            var resourceIdProvider = Substitute.For<ResourceIdProvider>();
-            var transactionBundleValidator = new TransactionBundleValidator(fhirDataStore, conformanceProvider, resourceWrapperFactory, _searchService, resourceIdProvider, DisabledFhirAuthorizationService.Instance);
-
-            _bundleHttpContextAccessor = new BundleHttpContextAccessor();
+            var bundleHttpContextAccessor = new BundleHttpContextAccessor();
 
             IFeatureCollection featureCollection = CreateFeatureCollection();
             var httpContext = new DefaultHttpContext(featureCollection)
@@ -89,28 +78,29 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                     PathBase = new PathString("/"),
                 },
             };
-            _httpContextAccessor.HttpContext.Returns(httpContext);
+            httpContextAccessor.HttpContext.Returns(httpContext);
 
             var transactionHandler = Substitute.For<ITransactionHandler>();
 
-            _resourceIdProvider = new ResourceIdProvider();
+            var resourceIdProvider = new ResourceIdProvider();
 
-            _auditEventTypeMapping = Substitute.For<IAuditEventTypeMapping>();
+            IAuditEventTypeMapping auditEventTypeMapping = Substitute.For<IAuditEventTypeMapping>();
 
             _bundleConfiguration = new BundleConfiguration();
             var bundleOptions = Substitute.For<IOptions<BundleConfiguration>>();
             bundleOptions.Value.Returns(_bundleConfiguration);
 
             _bundleHandler = new BundleHandler(
-                _httpContextAccessor,
-                _fhirRequestContextAccessor,
-                _fhirJsonSerializer,
-                _fhirJsonParser,
+                httpContextAccessor,
+                fhirRequestContextAccessor,
+                fhirJsonSerializer,
+                fhirJsonParser,
                 transactionHandler,
-                _bundleHttpContextAccessor,
-                _resourceIdProvider,
+                bundleHttpContextAccessor,
+                resourceIdProvider,
                 transactionBundleValidator,
-                _auditEventTypeMapping,
+                resourceReferenceResolver,
+                auditEventTypeMapping,
                 bundleOptions,
                 DisabledFhirAuthorizationService.Instance,
                 NullLogger<BundleHandler>.Instance);

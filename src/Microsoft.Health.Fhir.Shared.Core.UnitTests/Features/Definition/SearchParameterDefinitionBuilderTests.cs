@@ -104,7 +104,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         [Theory]
         [InlineData(ResourceType.MedicationRequest)]
         [InlineData(ResourceType.MedicationAdministration)]
-        [InlineData(ResourceType.MedicationStatement)]
+        [InlineData(ResourceType.Medication)]
         [InlineData(ResourceType.MedicationDispense)]
         public void GivenAValidSearchParameterDefinitionFile_WhenBuilt_ThenCorrectListOfSearchParametersIsBuiltForEntriesWithMultipleBase(ResourceType resourceType)
         {
@@ -116,7 +116,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
                 searchParametersDictionary,
                 ("_type", SearchParamType.Token, "Resource.type().name"),
                 ("_id", SearchParamType.Token, "Resource.id"),
-                ("identifier", SearchParamType.Token, "MedicationRequest.identifier | MedicationAdministration.identifier | MedicationStatement.identifier | MedicationDispense.identifier"));
+                ("identifier", SearchParamType.Token, "MedicationRequest.identifier | MedicationAdministration.identifier | Medication.identifier | MedicationDispense.identifier"));
         }
 
         private SearchParameterDefinitionBuilder CreateBuilder(string fileName)

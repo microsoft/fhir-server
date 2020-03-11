@@ -10,57 +10,29 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
-using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Features.Conformance;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search;
-using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources
 {
-    public abstract class BaseConditionalHandler : BaseResourceHandler
+    public class ResourceReferenceResolver
     {
         private readonly ISearchService _searchService;
+        private readonly IQueryStringParser _queryStringParser;
 
-        protected BaseConditionalHandler(
-            IFhirDataStore fhirDataStore,
-            ISearchService searchService,
-            Lazy<IConformanceProvider> conformanceProvider,
-            IResourceWrapperFactory resourceWrapperFactory,
-            ResourceIdProvider resourceIdProvider,
-            IFhirAuthorizationService authorizationService)
-            : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
+        public ResourceReferenceResolver(ISearchService searchService, IQueryStringParser queryStringParser)
         {
             EnsureArg.IsNotNull(searchService, nameof(searchService));
+            EnsureArg.IsNotNull(queryStringParser, nameof(queryStringParser));
 
             _searchService = searchService;
-        }
-
-        protected async Task<SearchResultEntry[]> Search(string instanceType, IReadOnlyList<Tuple<string, string>> conditionalParameters, CancellationToken cancellationToken)
-        {
-            // Filters search parameters that can limit the number of results (e.g. _count=1)
-            IReadOnlyList<Tuple<string, string>> filteredParameters = conditionalParameters
-                .Where(x => !string.Equals(x.Item1, KnownQueryParameterNames.Count, StringComparison.OrdinalIgnoreCase)
-                            && !string.Equals(x.Item1, KnownQueryParameterNames.Summary, StringComparison.OrdinalIgnoreCase))
-                .ToArray();
-
-            SearchResult results = await _searchService.SearchAsync(instanceType, filteredParameters, cancellationToken);
-
-            // Check if all parameters passed in were unused, this would result in no search parameters being applied to search results
-            int? totalUnusedParameters = results?.UnsupportedSearchParameters.Count + results?.UnsupportedSortingParameters.Count;
-            if (totalUnusedParameters == filteredParameters.Count)
-            {
-                throw new PreconditionFailedException(Core.Resources.ConditionalOperationNotSelectiveEnough);
-            }
-
-            SearchResultEntry[] matchedResults = results?.Results.Where(x => x.SearchEntryMode == ValueSets.SearchEntryMode.Match).ToArray();
-
-            return matchedResults;
+            _queryStringParser = queryStringParser;
         }
 
         public async Task ResolveReferencesAsync(Resource resource, Dictionary<string, (string resourceId, string resourceType)> referenceIdDictionary, string requestUrl, CancellationToken cancellationToken)
@@ -92,14 +64,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
                             throw new RequestNotValidException(string.Format(Core.Resources.ReferenceResourceTypeNotSupported, resourceType, reference.Reference));
                         }
 
-                        SearchResultEntry[] results = await GetExistingResourceId(requestUrl, resourceType, conditionalQueries, cancellationToken);
+                        var results = await GetExistingResourceId(requestUrl, resourceType, conditionalQueries, cancellationToken);
 
-                        if (results == null || results.Length != 1)
+                        if (results == null || results.Count != 1)
                         {
                             throw new RequestNotValidException(string.Format(Core.Resources.InvalidConditionalReference, reference.Reference));
                         }
 
-                        string resourceId = results[0].Resource.ResourceId;
+                        string resourceId = results.First().Resource.ResourceId;
 
                         referenceIdDictionary.Add(reference.Reference, (resourceId, resourceType));
 
@@ -109,19 +81,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
             }
         }
 
-        protected async Task<SearchResultEntry[]> GetExistingResourceId(string requestUrl, string resourceType, StringValues conditionalQueries, CancellationToken cancellationToken)
+        public async Task<IReadOnlyCollection<SearchResultEntry>> GetExistingResourceId(string requestUrl, string resourceType, StringValues conditionalQueries, CancellationToken cancellationToken)
         {
             if (string.IsNullOrEmpty(resourceType) || string.IsNullOrEmpty(conditionalQueries))
             {
                 throw new RequestNotValidException(string.Format(Core.Resources.InvalidConditionalReferenceParameters, requestUrl));
             }
 
-            Tuple<string, string>[] conditionalParameters = QueryHelpers.ParseQuery(conditionalQueries)
-                              .SelectMany(query => query.Value, (query, value) => Tuple.Create(query.Key, value)).ToArray();
+            IReadOnlyList<Tuple<string, string>> conditionalParameters = _queryStringParser.Parse(conditionalQueries).AsTuples();
 
             var searchResourceRequest = new SearchResourceRequest(resourceType, conditionalParameters);
 
-            return await Search(searchResourceRequest.ResourceType, searchResourceRequest.Queries, cancellationToken);
+            return await _searchService.ConditionalSearchAsync(searchResourceRequest.ResourceType, searchResourceRequest.Queries, cancellationToken);
         }
     }
 }
