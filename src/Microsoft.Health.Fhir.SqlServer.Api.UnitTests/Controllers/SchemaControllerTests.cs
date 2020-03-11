@@ -61,6 +61,5 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.UnitTests.Controllers
         {
             Assert.Throws<NotImplementedException>(() => _schemaController.CurrentVersion());
         }
-
     }
 }
