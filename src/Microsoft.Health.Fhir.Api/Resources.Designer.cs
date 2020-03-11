@@ -277,7 +277,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The requested &quot;{0}&quot; operation is not implemented..
+        ///   Looks up a localized string similar to The requested &quot;{0}&quot; operation is not supported..
         /// </summary>
         public static string OperationNotImplemented {
             get {
