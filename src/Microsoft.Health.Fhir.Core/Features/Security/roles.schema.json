@@ -10,8 +10,7 @@
                 "delete",
                 "hardDelete",
                 "export",
-                "resourceValidate",
-                "schemaMigration"
+                "resourceValidate"
             ]
         }
     },
