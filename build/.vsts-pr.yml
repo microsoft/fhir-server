@@ -29,7 +29,7 @@ jobs:
     displayName: Build FHIR Server Image
     inputs:
       action: Build services
-      dockerComposeFile: build/docker/docker-compose
+      dockerComposeFile: build/docker/docker-compose.yaml
       projectName: fhirserverforazure
       qualifyImageNames: true
       additionalImageTags: pr$(system.pullRequest.pullRequestNumber) 
@@ -40,7 +40,7 @@ jobs:
       action: Push services
       azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
       azureContainerRegistry: $(azureContainerRegistry)
-      dockerComposeFile: build/docker/docker-compose
+      dockerComposeFile: build/docker/docker-compose.yaml
       projectName: fhirserverforazure
       qualifyImageNames: true
       additionalImageTags: pr$(system.pullRequest.pullRequestNumber)
