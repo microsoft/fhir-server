@@ -25,7 +25,7 @@ jobs:
   pool:
     vmImage: 'ubuntu-16.04'
   steps:
-   - task: DockerCompose@0
+  - task: DockerCompose@0
     displayName: Build FHIR Server Image
     inputs:
       action: Build services
