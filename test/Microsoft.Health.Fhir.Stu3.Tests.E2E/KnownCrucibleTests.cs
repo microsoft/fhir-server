@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Crucible

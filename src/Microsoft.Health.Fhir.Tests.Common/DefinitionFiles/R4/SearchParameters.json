@@ -235,13 +235,13 @@
                 "base": [
                     "MedicationRequest",
                     "MedicationAdministration",
-                    "MedicationStatement",
+                    "Medication",
                     "MedicationDispense"
                 ],
                 "type": "token",
-                "description": "Multiple Resources: \r\n\r\n* [MedicationRequest](medicationrequest.html): Return prescriptions with this external identifier\r\n* [MedicationAdministration](medicationadministration.html): Return administrations with this external identifier\r\n* [MedicationStatement](medicationstatement.html): Return statements with this external identifier\r\n* [MedicationDispense](medicationdispense.html): Return dispenses with this external identifier\r\n",
-                "expression": "MedicationRequest.identifier | MedicationAdministration.identifier | MedicationStatement.identifier | MedicationDispense.identifier",
-                "xpath": "f:MedicationRequest/f:identifier | f:MedicationAdministration/f:identifier | f:MedicationStatement/f:identifier | f:MedicationDispense/f:identifier",
+                "description": "Multiple Resources: \r\n\r\n* [MedicationRequest](medicationrequest.html): Return prescriptions with this external identifier\r\n* [MedicationAdministration](medicationadministration.html): Return administrations with this external identifier\r\n* [Medication](medication.html): Return medications with this external identifier\r\n* [MedicationDispense](medicationdispense.html): Return dispenses with this external identifier\r\n",
+                "expression": "MedicationRequest.identifier | MedicationAdministration.identifier | Medication.identifier | MedicationDispense.identifier",
+                "xpath": "f:MedicationRequest/f:identifier | f:MedicationAdministration/f:identifier | f:Medication/f:identifier | f:MedicationDispense/f:identifier",
                 "xpathUsage": "normal"
             }
         }

@@ -160,7 +160,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         [Fact]
         public void GivenAnOperationNotImplementedException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
-            ValidateOperationOutcome(new OperationNotImplementedException("Not implemented."), HttpStatusCode.NotImplemented);
+            ValidateOperationOutcome(new OperationNotImplementedException("Not implemented."), HttpStatusCode.MethodNotAllowed);
         }
 
         [Fact]

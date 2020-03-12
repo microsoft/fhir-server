@@ -35,6 +35,7 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Bundle;
@@ -65,6 +66,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly Dictionary<string, (string resourceId, string resourceType)> _referenceIdDictionary;
         private BundleType? _bundleType;
         private readonly TransactionBundleValidator _transactionBundleValidator;
+        private readonly ResourceReferenceResolver _referenceResolver;
         private readonly IAuditEventTypeMapping _auditEventTypeMapping;
         private readonly IFhirAuthorizationService _authorizationService;
         private readonly BundleConfiguration _bundleConfiguration;
@@ -78,6 +80,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             IBundleHttpContextAccessor bundleHttpContextAccessor,
             ResourceIdProvider resourceIdProvider,
             TransactionBundleValidator transactionBundleValidator,
+            ResourceReferenceResolver referenceResolver,
             IAuditEventTypeMapping auditEventTypeMapping,
             IOptions<BundleConfiguration> bundleConfiguration,
             IFhirAuthorizationService authorizationService,
@@ -92,6 +95,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             EnsureArg.IsNotNull(bundleHttpContextAccessor, nameof(bundleHttpContextAccessor));
             EnsureArg.IsNotNull(resourceIdProvider, nameof(resourceIdProvider));
             EnsureArg.IsNotNull(transactionBundleValidator, nameof(transactionBundleValidator));
+            EnsureArg.IsNotNull(referenceResolver, nameof(referenceResolver));
             EnsureArg.IsNotNull(auditEventTypeMapping, nameof(auditEventTypeMapping));
             EnsureArg.IsNotNull(bundleConfiguration?.Value, nameof(bundleConfiguration));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
@@ -104,6 +108,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _bundleHttpContextAccessor = bundleHttpContextAccessor;
             _resourceIdProvider = resourceIdProvider;
             _transactionBundleValidator = transactionBundleValidator;
+            _referenceResolver = referenceResolver;
             _auditEventTypeMapping = auditEventTypeMapping;
             _authorizationService = authorizationService;
             _bundleConfiguration = bundleConfiguration.Value;
@@ -250,7 +255,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 if (_bundleType == BundleType.Transaction && entry.Resource != null)
                 {
                     var requestUrl = (entry.Request != null) ? entry.Request.Url : null;
-                    await _transactionBundleValidator.ResolveReferencesAsync(entry.Resource, _referenceIdDictionary, requestUrl, cancellationToken);
+                    await _referenceResolver.ResolveReferencesAsync(entry.Resource, _referenceIdDictionary, requestUrl, cancellationToken);
 
                     if (entry.Request.Method == HTTPVerb.POST && !string.IsNullOrWhiteSpace(entry.FullUrl))
                     {

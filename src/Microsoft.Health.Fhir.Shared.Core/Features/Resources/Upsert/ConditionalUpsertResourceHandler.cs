@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -26,8 +27,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
     /// Handles Conditional Update logic as defined in the spec https://www.hl7.org/fhir/http.html#cond-update
     /// </summary>
     public class ConditionalUpsertResourceHandler
-        : BaseConditionalHandler, IRequestHandler<ConditionalUpsertResourceRequest, UpsertResourceResponse>
+        : BaseResourceHandler, IRequestHandler<ConditionalUpsertResourceRequest, UpsertResourceResponse>
     {
+        private readonly ISearchService _searchService;
         private readonly IMediator _mediator;
 
         public ConditionalUpsertResourceHandler(
@@ -38,10 +40,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             IMediator mediator,
             ResourceIdProvider resourceIdProvider,
             IFhirAuthorizationService authorizationService)
-            : base(fhirDataStore, searchService, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
+            : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
+            EnsureArg.IsNotNull(searchService, nameof(searchService));
 
+            _searchService = searchService;
             _mediator = mediator;
         }
 
@@ -54,9 +58,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
                 throw new UnauthorizedFhirActionException();
             }
 
-            SearchResultEntry[] matchedResults = await Search(message.Resource.InstanceType, message.ConditionalParameters, cancellationToken);
+            IReadOnlyCollection<SearchResultEntry> matchedResults = await _searchService.ConditionalSearchAsync(message.Resource.InstanceType, message.ConditionalParameters, cancellationToken);
 
-            int count = matchedResults.Length;
+            int count = matchedResults.Count;
             if (count == 0)
             {
                 if (string.IsNullOrEmpty(message.Resource.Id))
@@ -76,7 +80,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             {
                 ResourceWrapper resourceWrapper = matchedResults.First().Resource;
                 Resource resource = message.Resource.ToPoco();
-                WeakETag version = WeakETag.FromVersionId(resourceWrapper.Version);
+                var version = WeakETag.FromVersionId(resourceWrapper.Version);
 
                 // One Match, no resource id provided OR (resource id provided and it matches the found resource): The server performs the update against the matching resource
                 if (string.IsNullOrEmpty(resource.Id) || string.Equals(resource.Id, resourceWrapper.ResourceId, StringComparison.Ordinal))
