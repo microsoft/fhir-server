@@ -21,7 +21,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
         HardDelete = 1 << 3,
         Export = 1 << 4,
         ResourceValidate = 1 << 5,
-        SchemaMigration = 1 << 6,
 
         [EnumMember(Value = "*")]
         All = (ResourceValidate << 1) - 1,
