@@ -29,6 +29,8 @@ jobs:
     displayName: Build FHIR Server Image
     inputs:
       action: Build services
+      azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
+      azureContainerRegistry: $(azureContainerRegistry)
       dockerComposeFile: build/docker/docker-compose.yaml
       projectName: fhirserverforazure
       qualifyImageNames: true
