@@ -458,7 +458,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             "searchtest_subscription/SE01P_Subscription",
             "searchtest_substance/SE01G_Substance",
             "searchtest_substance/SE01P_Substance",
-            "searchtest_substancespecification/S000_SubstanceSpecification",
             "searchtest_supplydelivery/SE01G_SupplyDelivery",
             "searchtest_supplydelivery/SE01P_SupplyDelivery",
             "searchtest_supplyrequest/SE01G_SupplyRequest",

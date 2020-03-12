@@ -43,7 +43,7 @@
   </ItemGroup>
 
   <Choose>
-    <When Condition="$(MSBuildProjectName)!='SmartLauncher' AND $(MSBuildProjectName)!='Microsoft.Health.Extensions.BuildTimeCodeGenerator' AND !$(MSBuildProjectName.Contains('Test'))">
+    <When Condition="$(MSBuildProjectName)!='SmartLauncher' AND !$(MSBuildProjectName.Contains('Test'))">
       <ItemGroup>
         <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.6.3" />
       </ItemGroup>
