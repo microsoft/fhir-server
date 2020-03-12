@@ -4,7 +4,7 @@
 name: pr$(system.pullRequest.pullRequestNumber)-$(Date:yyyyMMdd)$(Rev:-r)
 variables:
   buildConfiguration: 'Release'
-  azureContainerRegistry: 'ossdockertest.azurecr.io'
+  azureContainerRegistry: 'docker-test2'
 jobs:
 - job: Windows
   pool:
