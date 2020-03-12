@@ -4,7 +4,6 @@
 name: pr$(system.pullRequest.pullRequestNumber)-$(Date:yyyyMMdd)$(Rev:-r)
 variables:
   buildConfiguration: 'Release'
-  azureSubscriptionEndpoint: 'docker-test'
   azureContainerRegistry: 'ossdockertest.azurecr.io'
 jobs:
 - job: Windows
@@ -25,28 +24,22 @@ jobs:
   pool:
     vmImage: 'ubuntu-16.04'
   steps:
-  - task: DockerCompose@0
-    displayName: Build FHIR Server Image
+  - task: Docker@2
+    displayName: Login to ACR
     inputs:
-      action: Build services
-      azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
-      azureContainerRegistry: $(azureContainerRegistry)
-      dockerComposeFile: samples/docker/docker-compose.yaml 
-      projectName: fhirserverforazure
-      qualifyImageNames: true
-      additionalImageTags: |
-        pr$(system.pullRequest.pullRequestNumber)
-        $(Build.BuildId)
+      command: login
+      containerRegistry: $(azureContainerRegistry)
 
-  - task: DockerCompose@0
-    displayName: Push FHIR Server Image
+  - task: Docker@2
+    displayName: Build and Push
     inputs:
-      action: Push services
-      azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
-      azureContainerRegistry: $(azureContainerRegistry)
-      dockerComposeFile: samples/docker/docker-compose.yaml 
-      projectName: fhirserverforazure
-      qualifyImageNames: true
-      additionalImageTags: |
-        pr$(system.pullRequest.pullRequestNumber)
-        $(Build.BuildId)
+      command: buildAndPush
+      Dockerfile: build/docker/Dockerfile
+      repository: fhirserverforazure
+      tags: pr$(system.pullRequest.pullRequestNumber)
+
+  - task: Docker@2
+    displayName: Logout
+    inputs:
+      command: logout
+      containerRegistry: $(azureContainerRegistry)
