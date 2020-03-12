@@ -54,11 +54,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Sql
             Assert.Equal(scriptUrl, firstResult["script"]);
         }
 
-        [Theory]
-        [MemberData(nameof(Data))]
-        public async Task WhenRequestingSchema_GivenGetMethod_TheServerShouldReturnNotImplemented(string path)
+        [Fact]
+        public async Task WhenRequestingSchema_GivenGetMethodAndCompatibilityPath_TheServerShouldReturnSuccess()
         {
-            await SendAndVerifyStatusCode(HttpMethod.Get, path, HttpStatusCode.NotImplemented);
+            await SendAndVerifyStatusCode(HttpMethod.Get, "_schema/compatibility", HttpStatusCode.OK);
+        }
+
+        [Fact]
+        public async Task WhenRequestingSchema_GivenGetMethodAndCurrentVersionPath_TheServerShouldReturnNotImplemented()
+        {
+            await SendAndVerifyStatusCode(HttpMethod.Get, "_schema/versions/current", HttpStatusCode.NotImplemented);
         }
 
         [Theory]

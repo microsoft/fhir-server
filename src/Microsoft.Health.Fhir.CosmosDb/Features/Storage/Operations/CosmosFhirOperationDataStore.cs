@@ -261,11 +261,5 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
                 throw;
             }
         }
-
-        public async Task<int> GetLatestCompatibleVersionAsync(int maxCodeVersion, CancellationToken cancellationToken)
-        {
-            await Task.Delay(1);
-            throw new NotSupportedException("Exception Not Supported for Cosmos");
-        }
     }
 }

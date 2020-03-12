@@ -7,26 +7,26 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
-using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Schema;
 using Microsoft.Health.Fhir.Core.Messages.Schema;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
 {
     internal class LatestSchemaVersionHandler : IRequestHandler<GetCompatibilityVersionRequest, GetCompatibilityVersionResponse>
     {
-        private readonly IFhirOperationDataStore _fhirOperationDataStore;
+        private readonly ISchemaMigrationDataStore _schemaMigrationDataStore;
 
-        public LatestSchemaVersionHandler(IFhirOperationDataStore fhirOperationDataStore)
+        public LatestSchemaVersionHandler(ISchemaMigrationDataStore schemaMigrationDataStore)
         {
-            EnsureArg.IsNotNull(fhirOperationDataStore, nameof(fhirOperationDataStore));
-            _fhirOperationDataStore = fhirOperationDataStore;
+            EnsureArg.IsNotNull(schemaMigrationDataStore, nameof(schemaMigrationDataStore));
+            _schemaMigrationDataStore = schemaMigrationDataStore;
         }
 
         public async Task<GetCompatibilityVersionResponse> Handle(GetCompatibilityVersionRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            int maxCompatibleVersion = await _fhirOperationDataStore.GetLatestCompatibleVersionAsync(request.MaxVersion, cancellationToken);
+            int maxCompatibleVersion = await _schemaMigrationDataStore.GetLatestCompatibleVersionAsync(request.MaxVersion, cancellationToken);
 
             return new GetCompatibilityVersionResponse(request.MinVersion, maxCompatibleVersion);
         }
