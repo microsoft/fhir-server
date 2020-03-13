@@ -4,8 +4,8 @@
 name: pr$(system.pullRequest.pullRequestNumber)-$(Date:yyyyMMdd)$(Rev:-r)
 variables:
   buildConfiguration: 'Release'  
-  azureSubscriptionEndpoint: 'docker-test'
-  azureContainerRegistry: 'ossdockertest.azurecr.io'
+  azureSubscriptionEndpoint: 'fhirserverR4'
+  azureContainerRegistry: 'healthplatformregistry.azurecr.io'
 jobs:
 - job: Windows
   pool:
@@ -20,7 +20,7 @@ jobs:
   - template: build.yml
     parameters:
       packageArtifacts: false
-
+            
 - job: Docker
   pool:
     vmImage: 'ubuntu-16.04'
@@ -32,9 +32,9 @@ jobs:
       azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
       azureContainerRegistry: $(azureContainerRegistry)
       dockerComposeFile: build/docker/docker-compose.yaml
-      projectName: fhirserverforazure
+      projectName: microsoftfhirserverR4
       qualifyImageNames: true
-      additionalImageTags: pr$(system.pullRequest.pullRequestNumber) 
+      additionalImageTags: $(SourceBranchName) 
 
   - task: DockerCompose@0
     displayName: Push FHIR Server Image
@@ -43,6 +43,6 @@ jobs:
       azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
       azureContainerRegistry: $(azureContainerRegistry)
       dockerComposeFile: build/docker/docker-compose.yaml
-      projectName: fhirserverforazure
+      projectName: microsoftfhirserverR4
       qualifyImageNames: true
-      additionalImageTags: pr$(system.pullRequest.pullRequestNumber)
+      additionalImageTags: $(SourceBranchName) 
