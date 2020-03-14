@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly IFhirDataStore _fhirDataStore;
         private readonly IFhirOperationDataStore _fhirOperationDataStore;
         private readonly SqlServerFhirStorageTestHelper _testHelper;
-        private readonly SchemaInitializer<SchemaVersion> _schemaInitializer;
+        private readonly SchemaInitializer _schemaInitializer;
 
         public SqlServerFhirStorageTestsFixture()
         {
@@ -49,11 +49,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var config = new SqlServerDataStoreConfiguration { ConnectionString = TestConnectionString, Initialize = true };
             var sqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(config, new SqlTransactionHandler());
 
-            var schemaUpgradeRunner = new SchemaUpgradeRunner<SchemaVersion>(config, NullLogger<SchemaUpgradeRunner<SchemaVersion>>.Instance);
-
             var schemaInformation = new SchemaInformation();
+            var scriptProvider = new ScriptProvider(schemaInformation);
+            var schemaUpgradeRunner = new SchemaUpgradeRunner(scriptProvider, config, NullLogger<SchemaUpgradeRunner>.Instance);
 
-            _schemaInitializer = new SchemaInitializer<SchemaVersion>(config, schemaUpgradeRunner, schemaInformation, NullLogger<SchemaInitializer<SchemaVersion>>.Instance);
+            _schemaInitializer = new SchemaInitializer(config, schemaUpgradeRunner, schemaInformation, NullLogger<SchemaInitializer>.Instance);
 
             var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
             searchParameterDefinitionManager.AllSearchParameters.Returns(new[]

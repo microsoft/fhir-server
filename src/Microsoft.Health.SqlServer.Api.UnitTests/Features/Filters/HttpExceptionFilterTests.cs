@@ -31,7 +31,7 @@ namespace Microsoft.Health.SqlServer.Api.UnitTests.Features.Filters
             _context = new ActionExecutedContext(
                 new ActionContext(new DefaultHttpContext(), new RouteData(), new ActionDescriptor()),
                 new List<IFilterMetadata>(),
-                Mock.TypeWithArguments<SchemaController<TestSchemaVersion>>(NullLogger<SchemaController<TestSchemaVersion>>.Instance));
+                Mock.TypeWithArguments<SchemaController>(NullLogger<SchemaController>.Instance));
         }
 
         [Fact]

@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Linq;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Routing;
@@ -18,11 +19,13 @@ namespace Microsoft.Health.SqlServer.Api.UnitTests.Controllers
 {
     public class SchemaControllerTests
     {
-        private readonly SchemaController<TestSchemaVersion> _schemaController;
+        private readonly SchemaController _schemaController;
+        private readonly ISchemaInformation _schemaInformation;
 
         public SchemaControllerTests()
         {
-            var schemaInformation = Substitute.For<ISchemaInformation>();
+            _schemaInformation = Substitute.For<ISchemaInformation>();
+            _schemaInformation.MaximumSupportedVersion.Returns((int)TestSchemaVersion.Version3);
 
             var urlHelperFactory = Substitute.For<IUrlHelperFactory>();
             var urlHelper = Substitute.For<IUrlHelper>();
@@ -32,7 +35,9 @@ namespace Microsoft.Health.SqlServer.Api.UnitTests.Controllers
             var actionContextAccessor = Substitute.For<IActionContextAccessor>();
             actionContextAccessor.ActionContext.Returns(new ActionContext());
 
-            _schemaController = new SchemaController<TestSchemaVersion>(schemaInformation, urlHelperFactory, actionContextAccessor, NullLogger<SchemaController<TestSchemaVersion>>.Instance);
+            var scriptProvider = Substitute.For<IScriptProvider>();
+
+            _schemaController = new SchemaController(_schemaInformation, scriptProvider, urlHelperFactory, actionContextAccessor, NullLogger<SchemaController>.Instance);
         }
 
         [Fact]
@@ -56,6 +61,23 @@ namespace Microsoft.Health.SqlServer.Api.UnitTests.Controllers
 
             JToken firstResult = jArrayResult.First;
             Assert.Equal(1, firstResult["id"]);
+            Assert.Equal("https://localhost/script", firstResult["script"]);
+        }
+
+        [Fact]
+        public void GivenAnAvailableVersionsRequest_WhenCurrentVersionNotNull_ThenCorrectVersionsReturned()
+        {
+            _schemaInformation.Current.Returns((int)TestSchemaVersion.Version2);
+            ActionResult result = _schemaController.AvailableVersions();
+
+            var jsonResult = result as JsonResult;
+            Assert.NotNull(jsonResult);
+
+            var jArrayResult = JArray.FromObject(jsonResult.Value);
+            Assert.Equal(Enum.GetNames(typeof(TestSchemaVersion)).Length - 1, jArrayResult.Count);
+
+            JToken firstResult = jArrayResult.First;
+            Assert.Equal(2, firstResult["id"]);
             Assert.Equal("https://localhost/script", firstResult["script"]);
         }
 

@@ -20,21 +20,23 @@ namespace Microsoft.Health.SqlServer.Api.Controllers
 {
     [HttpExceptionFilter]
     [Route(KnownRoutes.SchemaRoot)]
-    public class SchemaController<TSchemaVersionEnum> : Controller
-        where TSchemaVersionEnum : Enum
+    public class SchemaController : Controller
     {
         private readonly ISchemaInformation _schemaInformation;
+        private readonly IScriptProvider _scriptProvider;
         private readonly IUrlHelper _urlHelper;
-        private readonly ILogger<SchemaController<TSchemaVersionEnum>> _logger;
+        private readonly ILogger<SchemaController> _logger;
 
-        public SchemaController(ISchemaInformation schemaInformation, IUrlHelperFactory urlHelperFactory, IActionContextAccessor actionContextAccessor, ILogger<SchemaController<TSchemaVersionEnum>> logger)
+        public SchemaController(ISchemaInformation schemaInformation, IScriptProvider scriptProvider, IUrlHelperFactory urlHelperFactory, IActionContextAccessor actionContextAccessor, ILogger<SchemaController> logger)
         {
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
+            EnsureArg.IsNotNull(scriptProvider, nameof(scriptProvider));
             EnsureArg.IsNotNull(urlHelperFactory, nameof(urlHelperFactory));
             EnsureArg.IsNotNull(actionContextAccessor, nameof(actionContextAccessor));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _schemaInformation = schemaInformation;
+            _scriptProvider = scriptProvider;
             _urlHelper = urlHelperFactory.GetUrlHelper(actionContextAccessor.ActionContext);
             _logger = logger;
         }
@@ -47,8 +49,8 @@ namespace Microsoft.Health.SqlServer.Api.Controllers
             _logger.LogInformation("Attempting to get available schemas");
 
             var availableSchemas = new List<object>();
-            var currentVersion = _schemaInformation.Current ?? 0;
-            foreach (var version in Enum.GetValues(typeof(TSchemaVersionEnum)).Cast<int>().Where(sv => sv >= currentVersion))
+            var currentVersion = _schemaInformation.Current ?? 1;
+            for (var version = currentVersion; version <= _schemaInformation.MaximumSupportedVersion; version++)
             {
                 var routeValues = new Dictionary<string, object> { { "id", version } };
                 string scriptUri = _urlHelper.RouteUrl(RouteNames.Script, routeValues);
@@ -75,7 +77,7 @@ namespace Microsoft.Health.SqlServer.Api.Controllers
         {
             _logger.LogInformation($"Attempting to get script for schema version: {id}");
             string fileName = $"{id}.sql";
-            return File(ScriptProvider.GetMigrationScriptAsBytes<TSchemaVersionEnum>(id), "application/sql", fileName);
+            return File(_scriptProvider.GetMigrationScriptAsBytes(id), "application/sql", fileName);
         }
 
         [HttpGet]

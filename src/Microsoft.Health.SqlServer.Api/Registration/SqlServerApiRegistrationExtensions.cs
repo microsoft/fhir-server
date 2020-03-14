@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using EnsureThat;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.SqlServer.Api.Controllers;
@@ -13,15 +12,12 @@ namespace Microsoft.Health.SqlServer.Api.Registration
 {
     public static class SqlServerApiRegistrationExtensions
     {
-        public static IServiceCollection AddSqlServerApi<TSchemaVersionEnum>(
-            this IServiceCollection services)
-            where TSchemaVersionEnum : Enum
+        public static IServiceCollection AddSqlServerApi(this IServiceCollection services)
         {
             EnsureArg.IsNotNull(services);
 
             services.AddMvc()
-                .ConfigureApplicationPartManager(p =>
-                    p.FeatureProviders.Add(new SchemaControllerFeatureProvider(typeof(TSchemaVersionEnum))));
+                .AddApplicationPart(typeof(SchemaController).Assembly);
 
             services
                 .AddHealthChecks()

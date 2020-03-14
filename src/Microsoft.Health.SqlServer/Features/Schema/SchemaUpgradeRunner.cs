@@ -14,17 +14,19 @@ using Microsoft.SqlServer.Management.Smo;
 
 namespace Microsoft.Health.SqlServer.Features.Schema
 {
-    public class SchemaUpgradeRunner<TSchemaVersionEnum>
-        where TSchemaVersionEnum : Enum
+    public class SchemaUpgradeRunner
     {
+        private readonly IScriptProvider _scriptProvider;
         private readonly SqlServerDataStoreConfiguration _sqlServerDataStoreConfiguration;
-        private readonly ILogger<SchemaUpgradeRunner<TSchemaVersionEnum>> _logger;
+        private readonly ILogger<SchemaUpgradeRunner> _logger;
 
-        public SchemaUpgradeRunner(SqlServerDataStoreConfiguration sqlServerDataStoreConfiguration, ILogger<SchemaUpgradeRunner<TSchemaVersionEnum>> logger)
+        public SchemaUpgradeRunner(IScriptProvider scriptProvider, SqlServerDataStoreConfiguration sqlServerDataStoreConfiguration, ILogger<SchemaUpgradeRunner> logger)
         {
+            EnsureArg.IsNotNull(scriptProvider, nameof(scriptProvider));
             EnsureArg.IsNotNull(sqlServerDataStoreConfiguration, nameof(sqlServerDataStoreConfiguration));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
+            _scriptProvider = scriptProvider;
             _sqlServerDataStoreConfiguration = sqlServerDataStoreConfiguration;
             _logger = logger;
         }
@@ -43,7 +45,7 @@ namespace Microsoft.Health.SqlServer.Features.Schema
                 connection.Open();
                 var server = new Server(new ServerConnection(connection));
 
-                server.ConnectionContext.ExecuteNonQuery(ScriptProvider.GetMigrationScript<TSchemaVersionEnum>(version, applyFullSchemaSnapshot));
+                server.ConnectionContext.ExecuteNonQuery(_scriptProvider.GetMigrationScript(version, applyFullSchemaSnapshot));
             }
 
             CompleteSchemaVersion(version);

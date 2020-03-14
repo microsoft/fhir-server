@@ -3,21 +3,29 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.IO;
 using System.Reflection;
+using EnsureThat;
 
 namespace Microsoft.Health.SqlServer.Features.Schema
 {
-    public static class ScriptProvider
+    public class ScriptProvider : IScriptProvider
     {
-        public static string GetMigrationScript<TSchemaVersionEnum>(int version, bool applyFullSchemaSnapshot)
-            where TSchemaVersionEnum : Enum
+        private readonly ISchemaInformation _schemaInformation;
+
+        public ScriptProvider(ISchemaInformation schemaInformation)
         {
-            string folder = $"{typeof(TSchemaVersionEnum).Namespace}.Migrations";
+            EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
+
+            _schemaInformation = schemaInformation;
+        }
+
+        public string GetMigrationScript(int version, bool applyFullSchemaSnapshot)
+        {
+            string folder = $"{_schemaInformation.GetType().Namespace}.Migrations";
             string resourceName = applyFullSchemaSnapshot ? $"{folder}.{version}.sql" : $"{folder}.{version}.diff.sql";
 
-            using (Stream stream = Assembly.GetAssembly(typeof(TSchemaVersionEnum)).GetManifestResourceStream(resourceName))
+            using (Stream stream = Assembly.GetAssembly(_schemaInformation.GetType()).GetManifestResourceStream(resourceName))
             {
                 if (stream == null)
                 {
@@ -31,11 +39,10 @@ namespace Microsoft.Health.SqlServer.Features.Schema
             }
         }
 
-        public static byte[] GetMigrationScriptAsBytes<TSchemaVersionEnum>(int version)
-            where TSchemaVersionEnum : Enum
+        public byte[] GetMigrationScriptAsBytes(int version)
         {
-            string resourceName = $"{typeof(TSchemaVersionEnum).Namespace}.Migrations.{version}.sql";
-            using (Stream fileStream = Assembly.GetAssembly(typeof(TSchemaVersionEnum)).GetManifestResourceStream(resourceName))
+            string resourceName = $"{_schemaInformation.GetType().Namespace}.Migrations.{version}.sql";
+            using (Stream fileStream = Assembly.GetAssembly(_schemaInformation.GetType()).GetManifestResourceStream(resourceName))
             {
                 if (fileStream == null)
                 {

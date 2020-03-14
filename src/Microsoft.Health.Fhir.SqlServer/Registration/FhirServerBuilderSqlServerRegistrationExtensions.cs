@@ -26,8 +26,8 @@ namespace Microsoft.Extensions.DependencyInjection
             EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
             IServiceCollection services = fhirServerBuilder.Services;
 
-            services.AddSqlServerBase<SchemaVersion>(configureAction);
-            services.AddSqlServerApi<SchemaVersion>();
+            services.AddSqlServerBase(configureAction);
+            services.AddSqlServerApi();
 
             services.Add<SchemaInformation>()
                 .Singleton()

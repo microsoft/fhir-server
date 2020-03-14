@@ -18,15 +18,14 @@ namespace Microsoft.Health.SqlServer.Features.Schema
     /// EXPERIMENTAL - Initializes the sql schema and brings the schema up to the min supported version.
     /// The purpose of this it to enable easy scenarios during development and will likely be removed later.
     /// </summary>
-    public class SchemaInitializer<TSchemaVersionEnum> : IStartable
-        where TSchemaVersionEnum : Enum
+    public class SchemaInitializer : IStartable
     {
         private readonly SqlServerDataStoreConfiguration _sqlServerDataStoreConfiguration;
-        private readonly SchemaUpgradeRunner<TSchemaVersionEnum> _schemaUpgradeRunner;
+        private readonly SchemaUpgradeRunner _schemaUpgradeRunner;
         private readonly ISchemaInformation _schemaInformation;
-        private readonly ILogger<SchemaInitializer<TSchemaVersionEnum>> _logger;
+        private readonly ILogger<SchemaInitializer> _logger;
 
-        public SchemaInitializer(SqlServerDataStoreConfiguration sqlServerDataStoreConfiguration, SchemaUpgradeRunner<TSchemaVersionEnum> schemaUpgradeRunner, ISchemaInformation schemaInformation, ILogger<SchemaInitializer<TSchemaVersionEnum>> logger)
+        public SchemaInitializer(SqlServerDataStoreConfiguration sqlServerDataStoreConfiguration, SchemaUpgradeRunner schemaUpgradeRunner, ISchemaInformation schemaInformation, ILogger<SchemaInitializer> logger)
         {
             EnsureArg.IsNotNull(sqlServerDataStoreConfiguration, nameof(sqlServerDataStoreConfiguration));
             EnsureArg.IsNotNull(schemaUpgradeRunner, nameof(schemaUpgradeRunner));
