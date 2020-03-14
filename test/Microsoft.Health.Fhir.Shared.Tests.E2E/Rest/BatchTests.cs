@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenSubmittingABatch_GivenAValidBundle_ThenSuccessIsReturnedForBatchAndExpectedStatusCodesPerRequests()
+        public async Task GivenAValidBundle_WhenSubmittingABatch_ThenSuccessIsReturnedForBatchAndExpectedStatusCodesPerRequests()
         {
             var requestBundle = Samples.GetDefaultBatch().ToPoco<Bundle>();
 
@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
         [Trait(Traits.Category, Categories.Authorization)]
-        public async Task WhenSubmittingABatch_GivenAValidBundleWithReadonlyUser_ThenForbiddenAndOutcomeIsReturned()
+        public async Task GivenAValidBundleWithReadonlyUser_WhenSubmittingABatch_ThenForbiddenAndOutcomeIsReturned()
         {
             FhirClient tempClient = Client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
             Bundle requestBundle = Samples.GetDefaultBatch().ToPoco<Bundle>();
@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenSubmittingABatch_GivenANonBundleResource_ThenBadRequestIsReturned()
+        public async Task GivenANonBundleResource_WhenSubmittingABatch_ThenBadRequestIsReturned()
         {
             FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.PostBundleAsync(Samples.GetDefaultObservation().ToPoco<Observation>()));
 
@@ -106,7 +106,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenSubmittingABundle_GivenBundleTypeIsMissing_ThenMethodNotAllowedExceptionIsReturned()
+        public async Task GivenBundleTypeIsMissing_WhenSubmittingABundle_ThenMethodNotAllowedExceptionIsReturned()
         {
             FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.PostBundleAsync(Samples.GetJsonSample("Bundle-TypeMissing").ToPoco<Bundle>()));
             ValidateOperationOutcome(ex.StatusCode.ToString(), ex.OperationOutcome, "MethodNotAllowed", "Bundle type is not present. Possible values are: transaction or batch", IssueType.Forbidden);

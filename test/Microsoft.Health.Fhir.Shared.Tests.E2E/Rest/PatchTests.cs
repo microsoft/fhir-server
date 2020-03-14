@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenSubmittingAPatch_GivenAServerThatDoesNotSupportIt_ThenMethodNotAllowedIsReturned()
+        public async Task GivenAServerThatDoesNotSupportIt_WhenSubmittingAPatch_ThenMethodNotAllowedIsReturned()
         {
             FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.PatchAsync("Patient/1234", "patch content"));
 
