@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenUpdatingAnExistingResource_GivenTheResource_TheServerShouldReturnTheUpdatedResourceSuccessfully()
+        public async Task GivenTheResource_WhenUpdatingAnExistingResource_TheServerShouldReturnTheUpdatedResourceSuccessfully()
         {
             Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenUpdatingANewResource_GivenTheResource_TheServerShouldReturnTheNewResourceSuccessfully()
+        public async Task GivenTheResource_WhenUpdatingANewResource_TheServerShouldReturnTheNewResourceSuccessfully()
         {
             var resourceToCreate = Samples.GetDefaultObservation().ToPoco<Observation>();
             resourceToCreate.Id = Guid.NewGuid().ToString();
@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenUpdatingANewResource_GivenTheResourceWithMetaSet_TheServerShouldReturnTheNewResourceSuccessfully()
+        public async Task GivenTheResourceWithMetaSet_WhenUpdatingANewResource_TheServerShouldReturnTheNewResourceSuccessfully()
         {
             var resourceToCreate = Samples.GetDefaultObservation().ToPoco<Observation>();
             resourceToCreate.Id = Guid.NewGuid().ToString();
@@ -105,7 +105,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenUpdatingAResource_GivenAMismatchedId_TheServerShouldReturnABadRequestResponse()
+        public async Task GivenAMismatchedId_WhenUpdatingAResource_TheServerShouldReturnABadRequestResponse()
         {
             Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
@@ -117,7 +117,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenUpdatingAResource_GivenAResourceWithNoId_TheServerShouldReturnABadRequestResponse()
+        public async Task GivenAResourceWithNoId_WhenUpdatingAResource_TheServerShouldReturnABadRequestResponse()
         {
             var resourceToCreate = Samples.GetDefaultObservation().ToPoco<Observation>();
 
@@ -129,7 +129,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenUpdatingAResource_GivenAnETagHeader_TheServerShouldReturnTheUpdatedResourceSuccessfully()
+        public async Task GivenAnETagHeader_WhenUpdatingAResource_TheServerShouldReturnTheUpdatedResourceSuccessfully()
         {
             Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 

@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenSearchingForAResourceWithProfile_GivenAnR4Server_TheServerShouldDropTheParamFromTheSelfLink()
+        public async Task GivenR4Server_WhenSearchingForAResourceWithProfile_TheServerShouldDropTheParamFromTheSelfLink()
         {
             string profile = $"https://e2e-test-profile|{Guid.NewGuid()}";
 

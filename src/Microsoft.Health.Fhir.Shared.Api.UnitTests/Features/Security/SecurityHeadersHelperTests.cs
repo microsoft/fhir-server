@@ -14,13 +14,13 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
     public class SecurityHeadersHelperTests
     {
         [Fact]
-        public async void WhenSettingSecurityHeaders_WhenGivenANullContext_ThenExceptionIsThrown()
+        public async void GivenANullContext_WhenSettingSecurityHeaders_ThenExceptionIsThrown()
         {
             await Assert.ThrowsAsync<ArgumentNullException>(async () => await SecurityHeadersHelper.SetSecurityHeaders(null));
         }
 
         [Fact]
-        public async void WhenSettingSecurityHeaders_WhenGivenAnIncorrectType_ThenExceptionIsThrown()
+        public async void GivenAnIncorrectType_WhenSettingSecurityHeaders_ThenExceptionIsThrown()
         {
             int notAContext = 1;
 
@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
         }
 
         [Fact]
-        public async void WhenSettingSecurityHeaders_WhenGivenAcontext_TheXContentTypeOptionsHeaderIsSet()
+        public async void GivenAContext_WhenSettingSecurityHeaders_TheXContentTypeOptionsHeaderIsSet()
         {
             var defaultHttpContext = new DefaultHttpContext();
             await SecurityHeadersHelper.SetSecurityHeaders(defaultHttpContext);

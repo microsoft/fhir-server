@@ -158,7 +158,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [InlineData("-1")]
         [InlineData("0")]
         [InlineData("InvalidVersion")]
-        public async Task WhenUpsertingWithCreateEnabledAndIntegerETagHeader_GivenANonexistentResource_TheServerShouldReturnResourceNotFoundResponse(string versionId)
+        public async Task GivenANonexistentResource_WhenUpsertingWithCreateEnabledAndIntegerETagHeader_TheServerShouldReturnResourceNotFoundResponse(string versionId)
         {
             SetAllowCreate(true);
 
@@ -171,7 +171,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [InlineData("-1")]
         [InlineData("0")]
         [InlineData("InvalidVersion")]
-        public async Task WhenUpsertingWithCreateDisabledAndIntegerETagHeader_GivenANonexistentResource_TheServerShouldReturnResourceNotFoundResponse(string versionId)
+        public async Task GivenANonexistentResource_WhenUpsertingWithCreateDisabledAndIntegerETagHeader_TheServerShouldReturnResourceNotFoundResponse(string versionId)
         {
             SetAllowCreate(false);
 
@@ -204,7 +204,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task WhenUpsertingWithCreateDisabled_GivenANonexistentResource_ThenAMethodNotAllowedExceptionIsThrown()
+        public async Task GivenANonexistentResource_WhenUpsertingWithCreateDisabled_ThenAMethodNotAllowedExceptionIsThrown()
         {
             SetAllowCreate(false);
             var ex = await Assert.ThrowsAsync<MethodNotAllowedException>(() => Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight")));
@@ -214,7 +214,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         [Fact]
         [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
-        public async Task WhenUpsertingWithCreateDisabledAndInvalidETagHeader_GivenANonexistentResourceAndCosmosDb_ThenAResourceNotFoundIsThrown()
+        public async Task GivenANonexistentResourceAndCosmosDb_WhenUpsertingWithCreateDisabledAndInvalidETagHeader_ThenAResourceNotFoundIsThrown()
         {
             SetAllowCreate(false);
 
@@ -223,7 +223,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         [Fact]
         [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
-        public async Task WhenUpsertingWithCreateEnabledAndInvalidETagHeader_GivenANonexistentResourceAndCosmosDb_ThenResourceNotFoundIsThrown()
+        public async Task GivenANonexistentResourceAndCosmosDb_WhenUpsertingWithCreateEnabledAndInvalidETagHeader_ThenResourceNotFoundIsThrown()
         {
             SetAllowCreate(true);
 
@@ -451,7 +451,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task WhenUpsertingWithValidETagHeader_GivenADeletedResource_ThenTheDeletedResourceIsRevived()
+        public async Task GivenADeletedResource_WhenUpsertingWithValidETagHeader_ThenTheDeletedResourceIsRevived()
         {
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
             var deletedResourceKey = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", saveResult.Resource.Id), false);
