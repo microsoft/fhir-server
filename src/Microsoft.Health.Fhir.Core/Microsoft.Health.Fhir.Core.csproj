@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <None Remove="Features\Conformance\R4\BaseCapabilities.json" />
+    <None Remove="Features\Conformance\R5\BaseCapabilities.json" />
     <None Remove="Features\Conformance\Stu3\BaseCapabilities.json" />
     <None Remove="Features\Security\roles.schema.json" />
   </ItemGroup>
@@ -31,6 +32,8 @@
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="3.1.0" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="3.1.0" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="3.1.0" />
+    <PackageReference Include="Microsoft.Health.Abstractions" Version="1.0.0-master-20200310-1" />
+    <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection" Version="1.0.0-master-20200310-1" />
     <PackageReference Include="Hl7.Fhir.Serialization" Version="1.5.0" />
     <PackageReference Include="Hl7.FhirPath" Version="1.5.0" />
     <PackageReference Include="Newtonsoft.Json.Schema" Version="3.0.11" />
@@ -40,8 +43,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Microsoft.Health.Extensions.DependencyInjection\Microsoft.Health.Extensions.DependencyInjection.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.ValueSets\Microsoft.Health.Fhir.ValueSets.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Features\Conformance\R5\BaseCapabilities.json" />
   </ItemGroup>
 
   <ItemGroup>

@@ -179,7 +179,7 @@
     <comment>{0} is operation name, {1} is failure reason.</comment>
   </data>
   <data name="OperationNotImplemented" xml:space="preserve">
-    <value>The requested "{0}" operation is not implemented.</value>
+    <value>The requested "{0}" operation is not supported.</value>
     <comment>{0} is the operation name</comment>
   </data>
   <data name="PageTitle" xml:space="preserve">

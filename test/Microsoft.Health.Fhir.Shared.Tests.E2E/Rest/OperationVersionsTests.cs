@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("application/json")]
         [InlineData("application/fhir+json")]
         [HttpIntegrationFixtureArgumentSets(formats: Format.Json)]
-        public async Task WhenVersionsEndpointIsCalled_GivenAValidJsonAcceptHeaderIsProvided_ThenServerShouldReturnOK(string acceptHeaderValue)
+        public async Task GivenAValidJsonAcceptHeaderIsProvided_WhenVersionsEndpointIsCalled_ThenServerShouldReturnOK(string acceptHeaderValue)
         {
             await CheckContentType(acceptHeaderValue);
         }
@@ -38,13 +38,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("application/xml")]
         [InlineData("application/fhir+xml")]
         [HttpIntegrationFixtureArgumentSets(formats: Format.Xml)]
-        public async Task WhenVersionsEndpointIsCalledWithXml_GivenAValidXmlAcceptHeaderIsProvided_ThenServerShouldReturnOK(string acceptHeaderValue)
+        public async Task GivenAValidXmlAcceptHeaderIsProvided_WhenVersionsEndpointIsCalledWithXml_ThenServerShouldReturnOK(string acceptHeaderValue)
         {
             await CheckContentType(acceptHeaderValue);
         }
 
         [Fact]
-        public async Task WhenVersionsEndpointIsCalled_GivenNoAcceptHeaderIsProvided_ThenServerShouldReturnOK()
+        public async Task GivenNoAcceptHeaderIsProvided_WhenVersionsEndpointIsCalled_ThenServerShouldReturnOK()
         {
             HttpRequestMessage request = GenerateOperationVersionsRequest(string.Empty);
             HttpResponseMessage response = await _client.SendAsync(request);
@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Theory]
         [InlineData("application/json1")]
         [InlineData("applicaiton/xml")]
-        public async Task WhenVersionsEndpointIsCalled_GivenInvalidAcceptHeaderIsProvided_ThenServerShouldReturnNotAcceptable(string acceptHeaderValue)
+        public async Task GivenInvalidAcceptHeaderIsProvided_WhenVersionsEndpointIsCalled_ThenServerShouldReturnNotAcceptable(string acceptHeaderValue)
         {
             HttpRequestMessage request = GenerateOperationVersionsRequest(acceptHeaderValue);
             HttpResponseMessage response = await _client.SendAsync(request);

@@ -15,7 +15,6 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Create;
@@ -23,19 +22,23 @@ using Microsoft.Health.Fhir.Core.Messages.Upsert;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
 {
-    public class CreateResourceHandler : BaseConditionalHandler, IRequestHandler<CreateResourceRequest, UpsertResourceResponse>
+    public class CreateResourceHandler : BaseResourceHandler, IRequestHandler<CreateResourceRequest, UpsertResourceResponse>
     {
+        private readonly ResourceReferenceResolver _referenceResolver;
         private readonly Dictionary<string, (string resourceId, string resourceType)> _referenceIdDictionary;
 
         public CreateResourceHandler(
             IFhirDataStore fhirDataStore,
             Lazy<IConformanceProvider> conformanceProvider,
             IResourceWrapperFactory resourceWrapperFactory,
-            ISearchService searchService,
             ResourceIdProvider resourceIdProvider,
+            ResourceReferenceResolver referenceResolver,
             IFhirAuthorizationService authorizationService)
-            : base(fhirDataStore, searchService, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
+            : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
+            EnsureArg.IsNotNull(referenceResolver, nameof(referenceResolver));
+
+            _referenceResolver = referenceResolver;
             _referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
         }
 
@@ -53,7 +56,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
             // If an Id is supplied on create it should be removed/ignored
             resource.Id = null;
 
-            await ResolveReferencesAsync(resource, _referenceIdDictionary, resource.ResourceType.ToString(), cancellationToken);
+            await _referenceResolver.ResolveReferencesAsync(resource, _referenceIdDictionary, resource.ResourceType.ToString(), cancellationToken);
 
             ResourceWrapper resourceWrapper = CreateResourceWrapper(resource, deleted: false);
 

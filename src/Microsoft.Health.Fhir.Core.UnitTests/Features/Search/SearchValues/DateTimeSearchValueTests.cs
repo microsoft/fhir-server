@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
         public void GivenAPartialStartDateTime_WhenInitialized_ThenCorrectStartDateTimeShouldBeAssigned(string input, string start)
         {
             PartialDateTime inputDateTime = PartialDateTime.Parse(input);
-            PartialDateTime endDateTime = new PartialDateTime(2018);
+            PartialDateTime endDateTime = PartialDateTime.Parse("2018");
 
             DateTimeOffset expectedStartDateTime = DateTimeOffset.Parse(start);
 
@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
         public void GivenAPartialEndDateTime_WhenInitialized_ThenCorrectEndDateTimeShouldBeAssigned(string input, string start)
         {
             PartialDateTime inputDateTime = PartialDateTime.Parse(input);
-            PartialDateTime startDateTime = new PartialDateTime(2000);
+            PartialDateTime startDateTime = PartialDateTime.Parse("2000");
 
             DateTimeOffset expectedEndDateTime = DateTimeOffset.Parse(start);
 

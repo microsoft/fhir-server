@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenGettingAResource_GivenAnIdAndVersionId_TheServerShouldReturnTheAppropriateResourceSuccessfully()
+        public async Task GivenAnIdAndVersionId_WhenGettingAResource_TheServerShouldReturnTheAppropriateResourceSuccessfully()
         {
             Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenGettingAResource_GivenANonExistingIdAndVersionId_TheServerShouldReturnANotFoundStatus()
+        public async Task GivenANonExistingIdAndVersionId_WhenGettingAResource_TheServerShouldReturnANotFoundStatus()
         {
             FhirException ex = await Assert.ThrowsAsync<FhirException>(
                 () => Client.VReadAsync<Observation>(ResourceType.Observation, Guid.NewGuid().ToString(), Guid.NewGuid().ToString()));
@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenGettingAResource_GivenAIdAndNonExistingVersionId_TheServerShouldReturnANotFoundStatus()
+        public async Task GivenAIdAndNonExistingVersionId_WhenGettingAResource_TheServerShouldReturnANotFoundStatus()
         {
             Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenGettingAResource_GivenADeletedIdAndVersionId_TheServerShouldReturnAGoneStatus()
+        public async Task GivenADeletedIdAndVersionId_WhenGettingAResource_TheServerShouldReturnAGoneStatus()
         {
             Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
