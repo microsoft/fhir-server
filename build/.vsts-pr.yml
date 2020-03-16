@@ -4,7 +4,7 @@
 name: pr$(system.pullRequest.pullRequestNumber)-$(Date:yyyyMMdd)$(Rev:-r)
 variables:
   buildConfiguration: 'Release'  
-  azureSubscriptionEndpoint: 'fhirserverR4'
+  azureSubscriptionEndpoint: 'docker-build'
   azureContainerRegistry: 'healthplatformregistry.azurecr.io'
 jobs:
 - job: Windows
@@ -32,7 +32,7 @@ jobs:
       azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
       azureContainerRegistry: $(azureContainerRegistry)
       dockerComposeFile: build/docker/docker-compose.yaml
-      projectName: microsoftfhirserverR4
+      projectName: fhirserverR4
       qualifyImageNames: true
       additionalImageTags: $(SourceBranchName) 
 
@@ -43,6 +43,6 @@ jobs:
       azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
       azureContainerRegistry: $(azureContainerRegistry)
       dockerComposeFile: build/docker/docker-compose.yaml
-      projectName: microsoftfhirserverR4
+      projectName: fhirserverR4
       qualifyImageNames: true
       additionalImageTags: $(SourceBranchName) 
