@@ -121,7 +121,7 @@
                 "description": "Only applies when MsdeployPackageUrl is not specified."
             }
         },
-        "enableExport" : {
+        "enableExport": {
             "type": "bool",
             "defaultValue": false,
             "metadata": {
@@ -142,7 +142,7 @@
         "deployAppInsights": "[and(parameters('deployApplicationInsights'),not(variables('isMAG')))]",
         "appInsightsName": "[concat('AppInsights-', variables('serviceName'))]",
         "storageBlobDataContributerRoleId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]",
-        "blobStorageUri" : "[if(variables('isMAG'), '.blob.core.usgovcloudapi.net', '.blob.core.windows.net')]",
+        "blobStorageUri": "[if(variables('isMAG'), '.blob.core.usgovcloudapi.net', '.blob.core.windows.net')]",
         "staticFhirServerConfigProperties": {
             "APPINSIGHTS_PORTALINFO": "ASP.NETCORE",
             "APPINSIGHTS_PROFILERFEATURE_VERSION": "1.0.0",
@@ -181,19 +181,44 @@
             }
         },
         {
-            "apiVersion": "2015-08-01",
+            "apiVersion": "2018-11-01",
+            "name": "[parameters('serviceName')]",
             "type": "Microsoft.Web/sites",
-            "name": "[variables('serviceName')]",
+            "location": "[resourceGroup().location]",
             "tags": {
                 "FhirServerSolution": "[parameters('solutionType')]"
             },
-            "location": "[resourceGroup().location]",
             "identity": {
                 "type": "SystemAssigned"
             },
             "properties": {
-                "clientAffinityEnabled": false,
-                "serverFarmId": "[resourceId(variables('appServicePlanResourceGroup'), 'Microsoft.Web/serverfarms/', variables('appServicePlanName'))]"
+                "name": "[parameters('serviceName')]",
+                "siteConfig": {
+                    "appSettings": [
+                        {
+                            "name": "DOCKER_REGISTRY_SERVER_URL",
+                            "value": "https://healthplatformregistry.azurecr.io"
+                        },
+                        {
+                            "name": "DOCKER_REGISTRY_SERVER_USERNAME",
+                            "value": "HealthPlatformRegistry"
+                        },
+                        {
+                            "name": "DOCKER_REGISTRY_SERVER_PASSWORD",
+                            "value": null
+                        },
+                        {
+                            "name": "WEBSITES_ENABLE_APP_SERVICE_STORAGE",
+                            "value": "false"
+                        }
+                    ],
+                    "linuxFxVersion": "DOCKER|healthplatformregistry.azurecr.io/fhirserverr4_fhir-api:latest",
+                    "appCommandLine": "azure-fhir-api",
+                    "alwaysOn": false
+                },
+                "serverFarmId": "[resourceId(variables('appServicePlanResourceGroup'), 'Microsoft.Web/serverfarms/', variables('appServicePlanName'))]",
+                "hostingEnvironment": "",
+                "clientAffinityEnabled": false
             },
             "dependsOn": [
                 "[if(empty(parameters('appServicePlanResourceGroup')), resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName')), resourceId('Microsoft.Sql/servers', variables('serviceName')))]"
@@ -271,7 +296,7 @@
                         "name": "Standard",
                         "tier": "Standard",
                         "capacity": 20
-                      },
+                    },
                     "type": "databases"
                 },
                 {
@@ -328,7 +353,7 @@
             "apiVersion": "2015-06-01",
             "properties": {
                 "contentType": "text/plain",
-                "value":  "[concat('Server=tcp:', reference(variables('computedSqlServerReference'), '2015-05-01-preview').fullyQualifiedDomainName,',1433;Initial Catalog=FHIR;Persist Security Info=False;User ID=', reference(variables('computedSqlServerReference'), '2015-05-01-preview').administratorLogin,';Password=',parameters('sqlAdminPassword'),';MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;')]"
+                "value": "[concat('Server=tcp:', reference(variables('computedSqlServerReference'), '2015-05-01-preview').fullyQualifiedDomainName,',1433;Initial Catalog=FHIR;Persist Security Info=False;User ID=', reference(variables('computedSqlServerReference'), '2015-05-01-preview').administratorLogin,';Password=',parameters('sqlAdminPassword'),';MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;')]"
             },
             "dependsOn": [
                 "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]",
