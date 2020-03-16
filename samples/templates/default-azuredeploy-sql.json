@@ -161,7 +161,8 @@
         },
         "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'))]",
         "computedSqlServerReference": "[concat('Microsoft.Sql/servers/', variables('serviceName'))]",
-        "storageAccountName": "[concat(substring(replace(variables('serviceName'), '-', ''), 0, min(11, length(variables('serviceName')))), uniquestring(resourceGroup().id, variables('serviceName')))]"
+        "storageAccountName": "[concat(substring(replace(variables('serviceName'), '-', ''), 0, min(11, length(variables('serviceName')))), uniquestring(resourceGroup().id, variables('serviceName')))]",
+        "registryName": "healthplatformregistry.azurecr.io"
     },
     "resources": [
         {
@@ -197,27 +198,26 @@
                     "appSettings": [
                         {
                             "name": "DOCKER_REGISTRY_SERVER_URL",
-                            "value": "https://healthplatformregistry.azurecr.io"
+                            "value": "[concat('https://', variables('registryName'))]"
                         },
                         {
                             "name": "DOCKER_REGISTRY_SERVER_USERNAME",
-                            "value": "HealthPlatformRegistry"
+                            "value": ""
                         },
                         {
                             "name": "DOCKER_REGISTRY_SERVER_PASSWORD",
-                            "value": null
+                            "value": ""
                         },
                         {
                             "name": "WEBSITES_ENABLE_APP_SERVICE_STORAGE",
                             "value": "false"
                         }
                     ],
-                    "linuxFxVersion": "DOCKER|healthplatformregistry.azurecr.io/fhirserverr4_fhir-api:latest",
+                    "linuxFxVersion": "[concat('DOCKER|', variables('registryName'), '/fhirserverr4_fhir-api:latest')]",
                     "appCommandLine": "azure-fhir-api",
-                    "alwaysOn": false
+                    "alwaysOn": true
                 },
                 "serverFarmId": "[resourceId(variables('appServicePlanResourceGroup'), 'Microsoft.Web/serverfarms/', variables('appServicePlanName'))]",
-                "hostingEnvironment": "",
                 "clientAffinityEnabled": false
             },
             "dependsOn": [
