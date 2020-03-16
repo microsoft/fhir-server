@@ -1,6 +1,6 @@
 # Running Azure FHIR Server with Docker
 
-*IMPORTANT:* This sample has been created to enable Dev/Test scenarios and is not suitable for production scenarios. Passwords are contained in deployment files, the SQL server connection is not encrypted and authentication on the FHIR Server has been disabled.
+*IMPORTANT:* This sample has been created to enable Dev/Test scenarios and is not suitable for production scenarios. Passwords are contained in deployment files, the SQL server connection is not encrypted, authentication on the FHIR Server has been disabled, and data is not persisted between container restarts.
 
 The following instructions detail how to build and run the FHIR Server in Docker on Linux.
 
