@@ -213,7 +213,7 @@
                             "value": "false"
                         }
                     ],
-                    "linuxFxVersion": "[concat('DOCKER|', variables('registryName'), '/fhirserverr4_fhir-api:latest')]",
+                    "linuxFxVersion": "[concat('DOCKER|', variables('registryName'), '/fhirconverter:latest')]",
                     "appCommandLine": "azure-fhir-api",
                     "alwaysOn": true
                 },
