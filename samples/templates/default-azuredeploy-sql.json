@@ -202,15 +202,15 @@
                         },
                         {
                             "name": "DOCKER_REGISTRY_SERVER_USERNAME",
-                            "value": "dummy"
+                            "value": ""
                         },
                         {
                             "name": "DOCKER_REGISTRY_SERVER_PASSWORD",
-                            "value": "dummy"
+                            "value": ""
                         },
                         {
                             "name": "WEBSITES_ENABLE_APP_SERVICE_STORAGE",
-                            "value": "false"
+                            "value": "true"
                         }
                     ],
                     "linuxFxVersion": "[concat('DOCKER|', variables('registryName'), '/fhirserverr4_fhir-api:latest')]",
