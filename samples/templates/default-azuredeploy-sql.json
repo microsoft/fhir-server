@@ -202,11 +202,11 @@
                         },
                         {
                             "name": "DOCKER_REGISTRY_SERVER_USERNAME",
-                            "value": ""
+                            "value": "dummy"
                         },
                         {
                             "name": "DOCKER_REGISTRY_SERVER_PASSWORD",
-                            "value": ""
+                            "value": "dummy"
                         },
                         {
                             "name": "WEBSITES_ENABLE_APP_SERVICE_STORAGE",
