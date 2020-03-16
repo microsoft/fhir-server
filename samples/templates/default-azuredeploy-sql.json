@@ -168,6 +168,7 @@
             "apiVersion": "2015-08-01",
             "name": "[variables('appServicePlanName')]",
             "type": "Microsoft.Web/serverfarms",
+            "kind": "linux",
             "tags": {
                 "FhirServerSolution": "[parameters('solutionType')]"
             },
@@ -176,7 +177,8 @@
                 "name": "[parameters('appServicePlanSku')]"
             },
             "properties": {
-                "name": "[variables('appServicePlanName')]"
+                "name": "[variables('appServicePlanName')]",
+                "reserved": true
             }
         },
         {
