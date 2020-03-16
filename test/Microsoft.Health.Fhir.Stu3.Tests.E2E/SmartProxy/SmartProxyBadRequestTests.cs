@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
         }
 
         [Fact]
-        public async Task WhenRequestingAToken_GivenMissingParams_ThenBadRequestResonseReturned()
+        public async Task GivenMissingParams_WhenRequestingAToken_ThenBadRequestResonseReturned()
         {
             var content = new StringContent(string.Empty);
             HttpResponseMessage response = await _client.HttpClient.PostAsync(_client.SecuritySettings.TokenUrl, content);
