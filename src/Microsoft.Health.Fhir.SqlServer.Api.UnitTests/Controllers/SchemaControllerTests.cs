@@ -55,5 +55,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.UnitTests.Controllers
             Assert.Equal(1, firstResult["id"]);
             Assert.Equal("https://localhost/script", firstResult["script"]);
         }
+
+        [Fact]
+        public void GivenACurrentVersiontRequest_WhenNotImplemented_ThenNotImplementedShouldBeThrown()
+        {
+            Assert.Throws<NotImplementedException>(() => _schemaController.CurrentVersion());
+        }
     }
 }
