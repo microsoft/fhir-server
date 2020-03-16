@@ -6,11 +6,13 @@
 using System;
 using System.Linq;
 using EnsureThat;
+using MediatR;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Core.Features.Storage;
 using Microsoft.Health.Fhir.Core.Registration;
+using Microsoft.Health.Fhir.SqlServer;
 using Microsoft.Health.Fhir.SqlServer.Api.Controllers;
+using Microsoft.Health.Fhir.SqlServer.Api.Features;
 using Microsoft.Health.Fhir.SqlServer.Configs;
 using Microsoft.Health.Fhir.SqlServer.Features.Health;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
@@ -38,6 +40,8 @@ namespace Microsoft.Extensions.DependencyInjection
                 })
                 .Singleton()
                 .AsSelf();
+
+            services.AddMediatR(typeof(LatestSchemaVersionHandler).Assembly, typeof(IndentedStringBuilder).Assembly);
 
             services.Add<SchemaUpgradeRunner>()
                 .Singleton()
@@ -92,6 +96,8 @@ namespace Microsoft.Extensions.DependencyInjection
             services
                 .AddHealthChecks()
                 .AddCheck<SqlServerHealthCheck>(nameof(SqlServerHealthCheck));
+
+            services.AddFactory<IScoped<ISchemaMigrationDataStore>>();
 
             // This is only needed while adding in the ConfigureServices call in the E2E TestServer scenario
             // During normal usage, the controller should be automatically discovered.

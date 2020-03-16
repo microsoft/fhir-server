@@ -46,6 +46,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         internal readonly static HardDeleteResourceProcedure HardDeleteResource = new HardDeleteResourceProcedure();
         internal readonly static ReadResourceProcedure ReadResource = new ReadResourceProcedure();
         internal readonly static SelectCurrentSchemaVersionProcedure SelectCurrentSchemaVersion = new SelectCurrentSchemaVersionProcedure();
+        internal readonly static SelectCurrentVersionsInformationProcedure SelectCurrentVersionsInformation = new SelectCurrentVersionsInformationProcedure();
         internal readonly static SelectMaxSupportedSchemaVersionProcedure SelectMaxSupportedSchemaVersion = new SelectMaxSupportedSchemaVersionProcedure();
         internal readonly static UpdateExportJobProcedure UpdateExportJob = new UpdateExportJobProcedure();
         internal readonly static UpsertInstanceSchemaProcedure UpsertInstanceSchema = new UpsertInstanceSchemaProcedure();
@@ -580,18 +581,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
         }
 
+        internal class SelectCurrentVersionsInformationProcedure : StoredProcedure
+        {
+            internal SelectCurrentVersionsInformationProcedure(): base("dbo.SelectCurrentVersionsInformation")
+            {
+            }
+
+            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command)
+            {
+                command.CommandType = global::System.Data.CommandType.StoredProcedure;
+                command.CommandText = "dbo.SelectCurrentVersionsInformation";
+            }
+        }
+
         internal class SelectMaxSupportedSchemaVersionProcedure : StoredProcedure
         {
             internal SelectMaxSupportedSchemaVersionProcedure(): base("dbo.SelectMaxSupportedSchemaVersion")
             {
             }
 
-            private readonly ParameterDefinition<System.Int32> _version = new ParameterDefinition<System.Int32>("@version", global::System.Data.SqlDbType.Int, false);
-            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.Int32 version)
+            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command)
             {
                 command.CommandType = global::System.Data.CommandType.StoredProcedure;
                 command.CommandText = "dbo.SelectMaxSupportedSchemaVersion";
-                _version.AddParameter(command.Parameters, version);
             }
         }
 

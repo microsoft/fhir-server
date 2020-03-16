@@ -16,7 +16,6 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.CosmosDb;
 using Microsoft.Health.Fhir.CosmosDb.Features.Health;
-using Microsoft.Health.Fhir.CosmosDb.Features.Schema;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
@@ -65,11 +64,6 @@ namespace Microsoft.Extensions.DependencyInjection
                     }));
 
             services.Add<CosmosFhirDataStore>()
-                .Scoped()
-                .AsSelf()
-                .AsImplementedInterfaces();
-
-            services.Add<CosmosSchemaMigrationDataStore>()
                 .Scoped()
                 .AsSelf()
                 .AsImplementedInterfaces();

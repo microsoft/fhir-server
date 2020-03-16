@@ -10,7 +10,6 @@ using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources;
-using Microsoft.Health.Fhir.Core.Features.Schema;
 using Microsoft.Health.Fhir.Core.Features.Search;
 
 namespace Microsoft.Health.Fhir.Api.Modules
@@ -34,7 +33,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddFactory<IScoped<ISearchService>>();
             services.AddFactory<IScoped<IFhirDataStore>>();
             services.AddFactory<IScoped<IFhirOperationDataStore>>();
-            services.AddFactory<IScoped<ISchemaMigrationDataStore>>();
 
             services.AddScoped<TransactionBundleValidator>();
             services.AddScoped<ResourceReferenceResolver>();

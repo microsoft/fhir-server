@@ -6,16 +6,15 @@
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Microsoft.Health.Fhir.Core.Features.Schema
+namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
 {
     public interface ISchemaMigrationDataStore
     {
         /// <summary>
         /// Get compatible version.
         /// </summary>
-        /// <param name="maxVersion">The maximum schema version specified by code</param>
         /// /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>The latest supported schema version from server.</returns>
-        Task<int> GetLatestCompatibleVersionAsync(int maxVersion, CancellationToken cancellationToken);
+        Task<int> GetLatestCompatibleVersionAsync(CancellationToken cancellationToken);
     }
 }

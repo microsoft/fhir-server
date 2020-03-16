@@ -1,3 +1,4 @@
+
 /*************************************************************
     Instance Schema
 **************************************************************/
@@ -153,23 +154,53 @@ GO
 --      SelectMaxSupportedSchemaVersion
 --
 --  DESCRIPTION
---      Selects the highest supported completed schema version
---  PARAMETERS
---      @version
---          * The version number
+--      Selects the maximum compatible schema version
 --
 --  RETURNS
---      The highest version
+--      The maximum compatible version
 --
 CREATE PROCEDURE dbo.SelectMaxSupportedSchemaVersion
-    @version int
+
 AS
 BEGIN
     SET NOCOUNT ON
 
+    DECLARE @maxSchemaVersion int,
+            @currentSchemaVersion int
+
+    Select @maxSchemaVersion = min(MaxVersion), @currentSchemaVersion = CurrentVersion
+    FROM dbo.InstanceSchema
+    WHERE Timeout > SYSUTCDATETIME() GROUP BY CurrentVersion
+
     SELECT MAX(Version)
-    FROM SchemaVersion
-    WHERE Status = 'complete' AND Version <= @version
+    FROM dbo.SchemaVersion
+    WHERE Status = 'complete' AND Version BETWEEN @currentSchemaVersion AND @maxSchemaVersion
+
+END
+GO
+
+--
+--  STORED PROCEDURE
+--      SelectCurrentVersionsInformation
+--
+--  DESCRIPTION
+--      Selects the current schema versions information
+--
+--  RETURNS
+--      The record
+--
+CREATE PROCEDURE dbo.SelectCurrentVersionsInformation
+
+AS
+BEGIN
+    SET NOCOUNT ON
+
+    SELECT SV.Version, SV.Status, STRING_AGG(SCH.NAME, ',')
+    FROM
+    dbo.SchemaVersion AS SV LEFT OUTER JOIN dbo.InstanceSchema as SCH
+    ON SV.Version = SCH.CurrentVersion
+    GROUP BY Version, Status
+
 END
 GO
 

@@ -12,11 +12,11 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.SqlServer.Api.Features.Filters;
 using Microsoft.Health.Fhir.SqlServer.Api.Features.Routing;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema.Extensions;
 
 namespace Microsoft.Health.Fhir.SqlServer.Api.Controllers
 {
@@ -87,9 +87,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.Controllers
         {
             _logger.LogInformation("Attempting to get compatibility");
 
-            int maxVersion = (int)_schemaInformation.MaximumSupportedVersion;
             int minVersion = (int)_schemaInformation.MinimumSupportedVersion;
-            var compatibleResponse = await _mediator.GetCompatibleVersionAsync(minVersion, maxVersion, HttpContext.RequestAborted);
+            var compatibleResponse = await _mediator.GetCompatibleVersionAsync(minVersion, HttpContext.RequestAborted);
 
             return new JsonResult(compatibleResponse);
         }

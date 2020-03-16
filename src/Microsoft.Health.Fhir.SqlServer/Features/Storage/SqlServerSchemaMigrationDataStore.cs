@@ -8,11 +8,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Fhir.Core.Features.Schema;
+using Microsoft.Health.Fhir.SqlServer.Features.Exceptions;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
-using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 
-namespace Microsoft.Health.Fhir.Core.Features.Storage
+namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
     internal class SqlServerSchemaMigrationDataStore : ISchemaMigrationDataStore
     {
@@ -30,14 +30,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Storage
             _logger = logger;
         }
 
-        public async Task<int> GetLatestCompatibleVersionAsync(int maxCodeVersion, CancellationToken cancellationToken)
+        public async Task<int> GetLatestCompatibleVersionAsync(CancellationToken cancellationToken)
         {
             using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
             using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
             {
-                VLatest.SelectMaxSupportedSchemaVersion.PopulateCommand(sqlCommand, maxCodeVersion);
+                VLatest.SelectMaxSupportedSchemaVersion.PopulateCommand(sqlCommand);
 
                 object maxCompatbileVersion = await sqlCommand.ExecuteScalarAsync();
+
+                if (maxCompatbileVersion is System.DBNull)
+                {
+                    throw new RecordNotFoundException(Resources.CompatibilityRecordNotFound);
+                }
+
                 return (int)maxCompatbileVersion;
             }
         }

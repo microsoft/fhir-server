@@ -55,9 +55,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Sql
         }
 
         [Fact]
-        public async Task WhenRequestingSchema_GivenGetMethodAndCompatibilityPath_TheServerShouldReturnSuccess()
+        public async Task WhenRequestingSchema_GivenGetMethodAndCompatibilityPathAndInstanceSchemaTableIsEmpty_TheServerShouldReturnsNotFound()
         {
-            await SendAndVerifyStatusCode(HttpMethod.Get, "_schema/compatibility", HttpStatusCode.OK);
+            // Since Instance Schema information table is empty,
+            await SendAndVerifyStatusCode(HttpMethod.Get, "_schema/compatibility", HttpStatusCode.NotFound);
         }
 
         [Fact]
