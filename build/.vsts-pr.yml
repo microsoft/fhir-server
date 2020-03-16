@@ -34,7 +34,7 @@ jobs:
       dockerComposeFile: build/docker/docker-compose.yaml
       projectName: fhirserverR4
       qualifyImageNames: true
-      additionalImageTags: $(SourceBranchName) 
+      additionalImageTags: pr$(system.pullRequest.pullRequestNumber)  
 
   - task: DockerCompose@0
     displayName: Push FHIR Server Image
@@ -45,4 +45,4 @@ jobs:
       dockerComposeFile: build/docker/docker-compose.yaml
       projectName: fhirserverR4
       qualifyImageNames: true
-      additionalImageTags: $(SourceBranchName) 
+      additionalImageTags: pr$(system.pullRequest.pullRequestNumber) 
