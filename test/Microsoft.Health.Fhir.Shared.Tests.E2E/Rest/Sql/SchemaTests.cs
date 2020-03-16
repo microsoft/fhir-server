@@ -62,9 +62,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Sql
         }
 
         [Fact]
-        public async Task WhenRequestingSchema_GivenGetMethodAndCurrentVersionPath_TheServerShouldReturnNotImplemented()
+        public async Task WhenRequestingSchema_GivenGetMethodAndCurrentVersionPath_TheServerShouldReturnSuccess()
         {
-            await SendAndVerifyStatusCode(HttpMethod.Get, "_schema/versions/current", HttpStatusCode.NotImplemented);
+            await SendAndVerifyStatusCode(HttpMethod.Get, "_schema/versions/current", HttpStatusCode.OK);
         }
 
         [Theory]

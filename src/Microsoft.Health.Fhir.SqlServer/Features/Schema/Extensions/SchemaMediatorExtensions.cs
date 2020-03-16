@@ -22,5 +22,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Extensions
             GetCompatibilityVersionResponse response = await mediator.Send(request, cancellationToken);
             return response;
         }
+
+        public static async Task<GetCurrentVersionResponse> GetCurrentVersionAsync(this IMediator mediator, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(mediator, nameof(mediator));
+
+            var request = new GetCurrentVersionRequest();
+
+            GetCurrentVersionResponse response = await mediator.Send(request, cancellationToken);
+            return response;
+        }
     }
 }

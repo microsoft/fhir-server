@@ -5,6 +5,7 @@
 
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema.Messages.Get;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
 {
@@ -16,5 +17,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
         /// /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>The latest supported schema version from server.</returns>
         Task<int> GetLatestCompatibleVersionAsync(CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Get current version information.
+        /// </summary>
+        /// /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>The current schema versions information</returns>
+        Task<GetCurrentVersionResponse> GetCurrentVersionAsync(CancellationToken cancellationToken);
     }
 }

@@ -63,11 +63,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.Controllers
         [HttpGet]
         [AllowAnonymous]
         [Route(KnownRoutes.Current)]
-        public ActionResult CurrentVersion()
+        public async Task<IActionResult> CurrentVersion()
         {
             _logger.LogInformation("Attempting to get current schemas");
 
-            throw new NotImplementedException(Resources.CurrentVersionNotImplemented);
+            var compatibleResponse = await _mediator.GetCurrentVersionAsync(HttpContext.RequestAborted);
+
+            return new JsonResult(compatibleResponse.CurrentVersions);
         }
 
         [HttpGet]
@@ -75,7 +77,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.Controllers
         [Route(KnownRoutes.Script, Name = RouteNames.Script)]
         public FileContentResult SqlScript(int id)
         {
-            _logger.LogInformation($"Attempting to get script for schema version: {id}");
+            _logger.LogInformation($"Attem" +
+                $"pting to get script for schema version: {id}");
             string fileName = $"{id}.sql";
             return File(ScriptProvider.GetMigrationScriptAsBytes(id), "application/json", fileName);
         }
