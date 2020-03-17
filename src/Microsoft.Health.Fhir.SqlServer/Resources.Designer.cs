@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.SqlServer {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Compatibility information is not found.
+        ///   Looks up a localized string similar to The compatibility information is not found..
         /// </summary>
         internal static string CompatibilityRecordNotFound {
             get {
@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.SqlServer {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Current version information is not found.
+        ///   Looks up a localized string similar to The current version information is not found.
         /// </summary>
         internal static string CurrentRecordNotFound {
             get {

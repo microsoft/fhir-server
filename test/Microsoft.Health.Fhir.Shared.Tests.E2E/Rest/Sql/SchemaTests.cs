@@ -58,7 +58,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Sql
         public async Task WhenRequestingSchema_GivenGetMethodAndCompatibilityPathAndInstanceSchemaTableIsEmpty_TheServerShouldReturnsNotFound()
         {
             // Since Instance Schema information table is empty,
-            await SendAndVerifyStatusCode(HttpMethod.Get, "_schema/compatibility", HttpStatusCode.NotFound);
+            HttpResponseMessage response = await SendAndVerifyStatusCode(HttpMethod.Get, "_schema/compatibility", HttpStatusCode.NotFound);
+
+            string responseBodyAsText = await response.Content.ReadAsStringAsync();
+            Assert.Contains("The compatibility information is not found.", responseBodyAsText);
         }
 
         [Fact]
@@ -135,21 +138,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Sql
             await SendAndVerifyStatusCode(HttpMethod.Get, "_schema/versions/0/script", HttpStatusCode.NotFound);
         }
 
-        private async Task SendAndVerifyStatusCode(HttpMethod httpMethod, string path, HttpStatusCode httpStatusCode)
+        private async Task<HttpResponseMessage> SendAndVerifyStatusCode(HttpMethod httpMethod, string path, HttpStatusCode httpStatusCode)
         {
             var request = new HttpRequestMessage
             {
                 Method = httpMethod,
                 RequestUri = new Uri(_client.BaseAddress, path),
             };
+            HttpResponseMessage response = null;
 
             // Setting the contentType explicitly because POST/PUT/PATCH throws UnsupportedMediaType
             using (var content = new StringContent(" ", Encoding.UTF8, "application/json"))
             {
                 request.Content = content;
-                HttpResponseMessage response = await _client.SendAsync(request);
+                response = await _client.SendAsync(request);
                 Assert.Equal(httpStatusCode, response.StatusCode);
             }
+
+            return response;
         }
     }
 }
