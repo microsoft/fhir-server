@@ -9,7 +9,9 @@ using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Xunit;
 
@@ -58,13 +60,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Sql
         public async Task WhenRequestingSchema_GivenGetMethodAndCompatibilityPathAndInstanceSchemaTableIsEmpty_TheServerShouldReturnsNotFound()
         {
             // Since Instance Schema information table is empty,
-            await SendAndVerifyStatusCode(HttpMethod.Get, "_schema/compatibility", HttpStatusCode.NotFound);
+            HttpResponseMessage response = await SendAndVerifyStatusCode(HttpMethod.Get, "_schema/compatibility", HttpStatusCode.NotFound);
+
+            string responseBodyAsText = await response.Content.ReadAsStringAsync();
+            Assert.Contains("The compatibility information is not found.", responseBodyAsText);
         }
 
         [Fact]
         public async Task WhenRequestingSchema_GivenGetMethodAndCurrentVersionPath_TheServerShouldReturnSuccess()
         {
-            await SendAndVerifyStatusCode(HttpMethod.Get, "_schema/versions/current", HttpStatusCode.OK);
+            HttpResponseMessage response = await SendAndVerifyStatusCode(HttpMethod.Get, "_schema/versions/current", HttpStatusCode.OK);
+
+            string responseBodyAsString = await response.Content.ReadAsStringAsync();
+            var jsonList = JsonConvert.DeserializeObject<IList<CurrentVersionInformation>>(responseBodyAsString);
+            Assert.Equal(3, jsonList[0].Id);
+            Assert.Equal(0, jsonList[0].Servers.Count);
+            Assert.Equal("complete", jsonList[0].Status);
         }
 
         [Theory]
@@ -135,21 +146,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Sql
             await SendAndVerifyStatusCode(HttpMethod.Get, "_schema/versions/0/script", HttpStatusCode.NotFound);
         }
 
-        private async Task SendAndVerifyStatusCode(HttpMethod httpMethod, string path, HttpStatusCode httpStatusCode)
+        private async Task<HttpResponseMessage> SendAndVerifyStatusCode(HttpMethod httpMethod, string path, HttpStatusCode httpStatusCode)
         {
             var request = new HttpRequestMessage
             {
                 Method = httpMethod,
                 RequestUri = new Uri(_client.BaseAddress, path),
             };
+            HttpResponseMessage response = null;
 
             // Setting the contentType explicitly because POST/PUT/PATCH throws UnsupportedMediaType
             using (var content = new StringContent(" ", Encoding.UTF8, "application/json"))
             {
                 request.Content = content;
-                HttpResponseMessage response = await _client.SendAsync(request);
+                response = await _client.SendAsync(request);
                 Assert.Equal(httpStatusCode, response.StatusCode);
             }
+
+            return response;
         }
     }
 }

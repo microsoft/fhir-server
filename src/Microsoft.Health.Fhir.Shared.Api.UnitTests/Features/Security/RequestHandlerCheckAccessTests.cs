@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
             Dfs(typeof(SecurityProvider).Assembly);
 
             return assemblies.SelectMany(a => a.GetTypes())
-                .Where(t => !t.IsAbstract && t.GetInterfaces().Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IRequestHandler<,>)))
+                .Where(t => t.IsClass && !t.IsAbstract && t.GetInterfaces().Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IRequestHandler<,>)))
                 .Where(t => !_exceptions.Contains(t))
                 .Select(t => new object[] { t });
         }
