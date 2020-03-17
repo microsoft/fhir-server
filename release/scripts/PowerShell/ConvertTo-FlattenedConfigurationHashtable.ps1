@@ -25,7 +25,7 @@ function Flatten ($Prefix, $Object) {
 
     if ($Object -is [System.Management.Automation.PSCustomObject]) {
         $Object.psobject.properties | ForEach-Object {
-            Flatten -Prefix "$Prefix$(if ($Prefix) { ":" })$($_.Name)" -Object $_.Value
+            Flatten -Prefix "$Prefix$(if ($Prefix) { "__" })$($_.Name)" -Object $_.Value
         }
 
         return
@@ -33,7 +33,7 @@ function Flatten ($Prefix, $Object) {
 
     if ($Object -is [object[]]) {
         for ($i = 0; $i -lt $Object.Length; $i++) {
-            Flatten -Prefix "$Prefix$(if ($Prefix) { ":" })$i" -Object $Object[$i]
+            Flatten -Prefix "$Prefix$(if ($Prefix) { "__" })$i" -Object $Object[$i]
         }
 
         return
