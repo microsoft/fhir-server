@@ -3,11 +3,18 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using MediatR;
-
-namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Messages.Get
+namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
 {
-    public class GetCompatibilityVersionRequest : IRequest<GetCompatibilityVersionResponse>
+    public class CompatibleVersions
     {
+        public CompatibleVersions(int min, int max)
+        {
+            Min = min;
+            Max = max;
+        }
+
+        public int Min { get; }
+
+        public int Max { get; }
     }
 }

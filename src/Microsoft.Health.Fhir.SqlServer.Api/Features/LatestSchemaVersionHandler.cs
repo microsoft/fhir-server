@@ -14,9 +14,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.Features
 {
     public class LatestSchemaVersionHandler : IRequestHandler<GetCompatibilityVersionRequest, GetCompatibilityVersionResponse>
     {
-        private readonly ISchemaMigrationDataStore _schemaMigrationDataStore;
+        private readonly ISchemaDataStore _schemaMigrationDataStore;
 
-        public LatestSchemaVersionHandler(ISchemaMigrationDataStore schemaMigrationDataStore)
+        public LatestSchemaVersionHandler(ISchemaDataStore schemaMigrationDataStore)
         {
             EnsureArg.IsNotNull(schemaMigrationDataStore, nameof(schemaMigrationDataStore));
             _schemaMigrationDataStore = schemaMigrationDataStore;
@@ -26,9 +26,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.Features
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            int maxCompatibleVersion = await _schemaMigrationDataStore.GetLatestCompatibleVersionAsync(cancellationToken);
-
-            return new GetCompatibilityVersionResponse(request.MinVersion, maxCompatibleVersion);
+            return await _schemaMigrationDataStore.GetLatestCompatibleVersionAsync(cancellationToken);
         }
     }
 }

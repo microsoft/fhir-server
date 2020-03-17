@@ -13,6 +13,7 @@ using Microsoft.Health.Fhir.SqlServer.Api.Features;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Messages.Get;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using NSubstitute;
 using Xunit;
 
@@ -20,13 +21,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.UnitTests.Features
 {
     public class LatestSchemaVersionHandlerTests
     {
-        private readonly ISchemaMigrationDataStore _schemaMigrationDataStore;
+        private readonly ISchemaDataStore _schemaMigrationDataStore;
         private readonly IMediator _mediator;
         private readonly CancellationToken _cancellationToken;
 
         public LatestSchemaVersionHandlerTests()
         {
-            _schemaMigrationDataStore = Substitute.For<ISchemaMigrationDataStore>();
+            _schemaMigrationDataStore = Substitute.For<ISchemaDataStore>();
             var collection = new ServiceCollection();
             collection.Add(sp => new LatestSchemaVersionHandler(_schemaMigrationDataStore)).Singleton().AsSelf().AsImplementedInterfaces();
 
@@ -38,14 +39,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.UnitTests.Features
         [Fact]
         public async Task GivenAMediator_WhenCompatibleRequest_ThenReturnsCompatibleVersions()
         {
-            int mockMinVersion = 1;
-            int mockMaxVersion = 3;
             _schemaMigrationDataStore.GetLatestCompatibleVersionAsync(Arg.Any<CancellationToken>())
-                    .Returns(mockMaxVersion);
-            GetCompatibilityVersionResponse response = await _mediator.GetCompatibleVersionAsync(mockMinVersion, _cancellationToken);
+                    .Returns(new GetCompatibilityVersionResponse(new CompatibleVersions(1, 3)));
+            GetCompatibilityVersionResponse response = await _mediator.GetCompatibleVersionAsync(_cancellationToken);
 
-            Assert.Equal(response.Min, mockMinVersion);
-            Assert.Equal(response.Max, mockMaxVersion);
+            Assert.Equal(1, response.Versions.Min);
+            Assert.Equal(3, response.Versions.Max);
         }
     }
 }

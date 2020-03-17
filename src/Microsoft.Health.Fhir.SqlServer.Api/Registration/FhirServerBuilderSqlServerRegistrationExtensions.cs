@@ -83,7 +83,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            services.Add<SqlServerSchemaMigrationDataStore>()
+            services.Add<SqlServerSchemaDataStore>()
                 .Scoped()
                 .AsSelf()
                 .AsImplementedInterfaces();
@@ -97,7 +97,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AddHealthChecks()
                 .AddCheck<SqlServerHealthCheck>(nameof(SqlServerHealthCheck));
 
-            services.AddFactory<IScoped<ISchemaMigrationDataStore>>();
+            services.AddFactory<IScoped<ISchemaDataStore>>();
 
             // This is only needed while adding in the ConfigureServices call in the E2E TestServer scenario
             // During normal usage, the controller should be automatically discovered.
