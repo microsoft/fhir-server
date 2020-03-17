@@ -133,8 +133,8 @@
         "isMAG": "[or(contains(resourceGroup().location,'usgov'),contains(resourceGroup().location,'usdod'))]",
         "serviceName": "[toLower(parameters('serviceName'))]",
         "keyvaultEndpoint": "[if(variables('isMAG'), concat('https://', variables('serviceName'), '.vault.usgovcloudapi.net/'), concat('https://', variables('serviceName'), '.vault.azure.net/'))]",
-        "appServicePlanResourceGroup": "[if(empty(parameters('appServicePlanResourceGroup')), resourceGroup().name, parameters('appServicePlanResourceGroup'))]",
-        "appServicePlanName": "[if(empty(parameters('appServicePlanName')),concat(variables('serviceName'),'-asp'),parameters('appServicePlanName'))]",
+        "appServicePlanResourceGroup": "[resourceGroup().name]",
+        "appServicePlanName": "[concat(variables('serviceName'),'-asp')]",
         "appServiceResourceId": "[resourceId('Microsoft.Web/sites', variables('serviceName'))]",
         "securityAuthenticationEnabled": "[and(not(empty(parameters('securityAuthenticationAuthority'))),not(empty(parameters('securityAuthenticationAudience'))))]",
         "deployAppInsights": "[and(parameters('deployApplicationInsights'),not(variables('isMAG')))]",
@@ -164,7 +164,6 @@
     },
     "resources": [
         {
-            "condition": "[empty(parameters('appServicePlanResourceGroup'))]",
             "apiVersion": "2019-08-01",
             "name": "[variables('appServicePlanName')]",
             "type": "Microsoft.Web/serverfarms",
@@ -221,7 +220,7 @@
                 "clientAffinityEnabled": false
             },
             "dependsOn": [
-                "[if(empty(parameters('appServicePlanResourceGroup')), resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName')), resourceId('Microsoft.Sql/servers', variables('serviceName')))]"
+                "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]"
             ],
             "resources": [
                 {
