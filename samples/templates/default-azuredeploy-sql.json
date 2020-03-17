@@ -110,12 +110,20 @@
                 "description": "The password for the sql admin user if using SQL server."
             }
         },
+        "sqlLocation": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().location]",
+            "metadata": {
+                "description": "An override location for the sql server database."
+            }
+        },
         "fhirVersion": {
             "type": "string",
             "defaultValue": "R4",
             "allowedValues": [
                 "Stu3",
-                "R4"
+                "R4",
+                "R5"
             ],
             "metadata": {
                 "description": "Only applies when MsdeployPackageUrl is not specified."
@@ -244,7 +252,7 @@
             "name": "[variables('serviceName')]",
             "type": "Microsoft.Sql/servers",
             "apiVersion": "2015-05-01-preview",
-            "location": "[resourceGroup().location]",
+            "location": "[parameters('sqlLocation')]",
             "tags": {
                 "FhirServerSolution": "[parameters('solutionType')]"
             },
@@ -259,7 +267,7 @@
                     "dependsOn": [
                         "[variables('serviceName')]"
                     ],
-                    "location": "[resourceGroup().location]",
+                    "location": "[parameters('sqlLocation')]",
                     "tags": {
                         "FhirServerSolution": "[parameters('solutionType')]"
                     },
