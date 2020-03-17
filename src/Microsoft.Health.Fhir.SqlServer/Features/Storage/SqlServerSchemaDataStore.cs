@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public async Task<GetCompatibilityVersionResponse> GetLatestCompatibleVersionAsync(CancellationToken cancellationToken)
         {
             CompatibleVersions compatibleVersions;
-            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
+            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper())
             using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
             {
                 VLatest.SelectCompatibleSchemaVersions.PopulateCommand(sqlCommand);
