@@ -120,9 +120,6 @@
   <data name="CompatibilityRecordNotFound" xml:space="preserve">
     <value>The compatibility information is not found.</value>
   </data>
-  <data name="CurrentRecordNotFound" xml:space="preserve">
-    <value>The current version information is not found</value>
-  </data>
   <data name="InvalidContinuationToken" xml:space="preserve">
     <value>The provided continuation token is not valid.</value>
   </data>

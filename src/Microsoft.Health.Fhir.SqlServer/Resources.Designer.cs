@@ -70,15 +70,6 @@ namespace Microsoft.Health.Fhir.SqlServer {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The current version information is not found.
-        /// </summary>
-        internal static string CurrentRecordNotFound {
-            get {
-                return ResourceManager.GetString("CurrentRecordNotFound", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to The provided continuation token is not valid..
         /// </summary>
         internal static string InvalidContinuationToken {

@@ -2176,7 +2176,7 @@ GO
 --      Selects the current schema versions information
 --
 --  RETURNS
---      The record
+--      The current versions, status and server names using that version
 --
 CREATE PROCEDURE dbo.SelectCurrentVersionsInformation
 

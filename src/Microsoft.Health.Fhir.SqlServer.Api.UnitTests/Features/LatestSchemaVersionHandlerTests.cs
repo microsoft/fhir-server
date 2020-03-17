@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.UnitTests.Features
         }
 
         [Fact]
-        public async Task GivenACurrentMediator_WhenCurrentRequest_ThenReturnsCurrentVersionInformation()
+        public async Task GivenAMediator_WhenCompatibleRequest_ThenReturnsCompatibleVersions()
         {
             int mockMinVersion = 1;
             int mockMaxVersion = 3;
