@@ -9,14 +9,14 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema.Messages.Get;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
 {
-    public interface ISchemaMigrationDataStore
+    public interface ISchemaDataStore
     {
         /// <summary>
         /// Get compatible version.
         /// </summary>
         /// /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>The latest supported schema version from server.</returns>
-        Task<int> GetLatestCompatibleVersionAsync(CancellationToken cancellationToken);
+        Task<GetCompatibilityVersionResponse> GetLatestCompatibleVersionAsync(CancellationToken cancellationToken);
 
         /// <summary>
         /// Get current version information.

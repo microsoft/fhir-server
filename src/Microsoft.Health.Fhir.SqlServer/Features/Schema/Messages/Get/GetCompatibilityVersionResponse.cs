@@ -3,18 +3,20 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using EnsureThat;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
+
 namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Messages.Get
 {
     public class GetCompatibilityVersionResponse
     {
-        public GetCompatibilityVersionResponse(int min, int max)
+        public GetCompatibilityVersionResponse(CompatibleVersions versions)
         {
-            Min = min;
-            Max = max;
+            EnsureArg.IsNotNull(versions, nameof(versions));
+
+            Versions = versions;
         }
 
-        public int Min { get; }
-
-        public int Max { get; }
+        public CompatibleVersions Versions { get; }
     }
 }

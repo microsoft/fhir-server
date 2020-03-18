@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.UnitTests.Controllers
             var urlResolver = Substitute.For<IUrlResolver>();
             _mediator = Substitute.For<IMediator>();
             urlResolver.ResolveRouteNameUrl(RouteNames.Script, Arg.Any<IDictionary<string, object>>()).Returns(new Uri("https://localhost/script"));
-            _schemaController = new SchemaController(schemaInformation, urlResolver, NullLogger<SchemaController>.Instance, _mediator);
+            _schemaController = new SchemaController(schemaInformation, urlResolver, _mediator, NullLogger<SchemaController>.Instance);
         }
 
         [Fact]

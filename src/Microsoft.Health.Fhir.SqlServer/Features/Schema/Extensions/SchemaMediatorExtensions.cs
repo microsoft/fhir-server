@@ -13,14 +13,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Extensions
 {
     public static class SchemaMediatorExtensions
     {
-        public static async Task<GetCompatibilityVersionResponse> GetCompatibleVersionAsync(this IMediator mediator, int minVersion, CancellationToken cancellationToken)
+        public static async Task<GetCompatibilityVersionResponse> GetCompatibleVersionAsync(this IMediator mediator, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
 
-            var request = new GetCompatibilityVersionRequest(minVersion);
+            var request = new GetCompatibilityVersionRequest();
 
-            GetCompatibilityVersionResponse response = await mediator.Send(request, cancellationToken);
-            return response;
+            return await mediator.Send(request, cancellationToken);
         }
 
         public static async Task<GetCurrentVersionResponse> GetCurrentVersionAsync(this IMediator mediator, CancellationToken cancellationToken)

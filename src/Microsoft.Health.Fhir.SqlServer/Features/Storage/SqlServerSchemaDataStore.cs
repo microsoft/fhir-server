@@ -19,14 +19,14 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
-    internal class SqlServerSchemaMigrationDataStore : ISchemaMigrationDataStore
+    internal class SqlServerSchemaDataStore : ISchemaDataStore
     {
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
-        private readonly ILogger<SqlServerSchemaMigrationDataStore> _logger;
+        private readonly ILogger<SqlServerSchemaDataStore> _logger;
 
-        public SqlServerSchemaMigrationDataStore(
+        public SqlServerSchemaDataStore(
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
-            ILogger<SqlServerSchemaMigrationDataStore> logger)
+            ILogger<SqlServerSchemaDataStore> logger)
         {
             EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
@@ -35,28 +35,34 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _logger = logger;
         }
 
-        public async Task<int> GetLatestCompatibleVersionAsync(CancellationToken cancellationToken)
+        public async Task<GetCompatibilityVersionResponse> GetLatestCompatibleVersionAsync(CancellationToken cancellationToken)
         {
-            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
+            CompatibleVersions compatibleVersions;
+            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper())
             using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
             {
-                VLatest.SelectMaxSupportedSchemaVersion.PopulateCommand(sqlCommand);
+                VLatest.SelectCompatibleSchemaVersions.PopulateCommand(sqlCommand);
 
-                object maxCompatbileVersion = await sqlCommand.ExecuteScalarAsync();
-
-                if (maxCompatbileVersion is System.DBNull)
+                using (var dataReader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess))
                 {
-                    throw new RecordNotFoundException(Resources.CompatibilityRecordNotFound);
+                    if (dataReader.Read())
+                    {
+                        compatibleVersions = new CompatibleVersions(ConvertToInt(dataReader.GetValue(0)), ConvertToInt(dataReader.GetValue(1)));
+                    }
+                    else
+                    {
+                        throw new RecordNotFoundException(Resources.CompatibilityRecordNotFound);
+                    }
                 }
 
-                return (int)maxCompatbileVersion;
+                return new GetCompatibilityVersionResponse(compatibleVersions);
             }
         }
 
         public async Task<GetCurrentVersionResponse> GetCurrentVersionAsync(CancellationToken cancellationToken)
         {
             var currentVersions = new List<CurrentVersionInformation>();
-            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
+            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper())
             using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
             {
                 VLatest.SelectCurrentVersionsInformation.PopulateCommand(sqlCommand);
@@ -100,6 +106,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             return new GetCurrentVersionResponse(currentVersions);
+        }
+
+        private int ConvertToInt(object o)
+        {
+            if (o == DBNull.Value)
+            {
+                throw new RecordNotFoundException(Resources.CompatibilityRecordNotFound);
+            }
+            else
+            {
+               return Convert.ToInt32(o);
+            }
         }
     }
 }

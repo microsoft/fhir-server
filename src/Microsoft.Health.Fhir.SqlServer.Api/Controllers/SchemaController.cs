@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.Controllers
         private readonly ILogger<SchemaController> _logger;
         private readonly IMediator _mediator;
 
-        public SchemaController(SchemaInformation schemaInformation, IUrlResolver urlResolver, ILogger<SchemaController> logger, IMediator mediator)
+        public SchemaController(SchemaInformation schemaInformation, IUrlResolver urlResolver, IMediator mediator, ILogger<SchemaController> logger)
         {
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
@@ -90,10 +90,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.Controllers
         {
             _logger.LogInformation("Attempting to get compatibility");
 
-            int minVersion = (int)_schemaInformation.MinimumSupportedVersion;
-            var compatibleResponse = await _mediator.GetCompatibleVersionAsync(minVersion, HttpContext.RequestAborted);
+            var compatibleResponse = await _mediator.GetCompatibleVersionAsync(HttpContext.RequestAborted);
 
-            return new JsonResult(compatibleResponse);
+            return new JsonResult(compatibleResponse.Versions);
         }
     }
 }

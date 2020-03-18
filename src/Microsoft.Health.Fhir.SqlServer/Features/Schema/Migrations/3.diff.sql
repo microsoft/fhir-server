@@ -151,28 +151,29 @@ GO
 
 --
 --  STORED PROCEDURE
---      SelectMaxSupportedSchemaVersion
+--      SelectCompatibleSchemaVersions
 --
 --  DESCRIPTION
---      Selects the maximum compatible schema version
+--      Selects the compatible schema versions
 --
 --  RETURNS
---      The maximum compatible version
+--      The maximum and minimum compatible versions
 --
-CREATE PROCEDURE dbo.SelectMaxSupportedSchemaVersion
+CREATE PROCEDURE dbo.SelectCompatibleSchemaVersions
 
 AS
 BEGIN
     SET NOCOUNT ON
 
     DECLARE @maxSchemaVersion int,
-            @currentSchemaVersion int
+            @currentSchemaVersion int,
+            @minSchemaVersion int
 
-    Select @maxSchemaVersion = min(MaxVersion), @currentSchemaVersion = CurrentVersion
+    Select @maxSchemaVersion = min(MaxVersion), @currentSchemaVersion = CurrentVersion, @@minSchemaVersion = min(MinVersion)
     FROM dbo.InstanceSchema
     WHERE Timeout > SYSUTCDATETIME() GROUP BY CurrentVersion
 
-    SELECT MAX(Version)
+    SELECT @minSchemaVersion, MAX(Version)
     FROM dbo.SchemaVersion
     WHERE Status = 'complete' AND Version BETWEEN @currentSchemaVersion AND @maxSchemaVersion
 
@@ -187,7 +188,7 @@ GO
 --      Selects the current schema versions information
 --
 --  RETURNS
---      The record
+--      The current versions, status and server names using that version
 --
 CREATE PROCEDURE dbo.SelectCurrentVersionsInformation
 

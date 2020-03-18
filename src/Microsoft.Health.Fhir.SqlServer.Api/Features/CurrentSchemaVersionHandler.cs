@@ -14,9 +14,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.Features
 {
     public class CurrentSchemaVersionHandler : IRequestHandler<GetCurrentVersionRequest, GetCurrentVersionResponse>
     {
-        private readonly ISchemaMigrationDataStore _schemaMigrationDataStore;
+        private readonly ISchemaDataStore _schemaMigrationDataStore;
 
-        public CurrentSchemaVersionHandler(ISchemaMigrationDataStore schemaMigrationDataStore)
+        public CurrentSchemaVersionHandler(ISchemaDataStore schemaMigrationDataStore)
         {
             EnsureArg.IsNotNull(schemaMigrationDataStore, nameof(schemaMigrationDataStore));
             _schemaMigrationDataStore = schemaMigrationDataStore;

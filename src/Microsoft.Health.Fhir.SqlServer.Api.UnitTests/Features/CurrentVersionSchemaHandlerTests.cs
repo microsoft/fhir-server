@@ -23,15 +23,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.UnitTests.Features
 {
     public class CurrentVersionSchemaHandlerTests
     {
-        private readonly ISchemaMigrationDataStore _schemaMigrationDataStore;
+        private readonly ISchemaDataStore _schemaDataStore;
         private readonly IMediator _mediator;
         private readonly CancellationToken _cancellationToken;
 
         public CurrentVersionSchemaHandlerTests()
         {
-            _schemaMigrationDataStore = Substitute.For<ISchemaMigrationDataStore>();
+            _schemaDataStore = Substitute.For<ISchemaDataStore>();
             var collection = new ServiceCollection();
-            collection.Add(sp => new CurrentSchemaVersionHandler(_schemaMigrationDataStore)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(sp => new CurrentSchemaVersionHandler(_schemaDataStore)).Singleton().AsSelf().AsImplementedInterfaces();
 
             ServiceProvider provider = collection.BuildServiceProvider();
             _mediator = new Mediator(type => provider.GetService(type));
@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.UnitTests.Features
 
             void SetupDataStore(Func<NSubstitute.Core.CallInfo, GetCurrentVersionResponse> returnThis)
             {
-                _schemaMigrationDataStore.GetCurrentVersionAsync(Arg.Any<CancellationToken>())
+                _schemaDataStore.GetCurrentVersionAsync(Arg.Any<CancellationToken>())
                     .Returns(returnThis);
             }
         }

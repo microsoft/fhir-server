@@ -88,15 +88,6 @@ namespace Microsoft.Health.Fhir.CosmosDb {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Not Supported for Cosmos.
-        /// </summary>
-        internal static string NotSupportedException {
-            get {
-                return ResourceManager.GetString("NotSupportedException", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Unhandled {0} &apos;{1}&apos;..
         /// </summary>
         internal static string UnhandledEnumValue {
