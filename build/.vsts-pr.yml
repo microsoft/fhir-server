@@ -33,8 +33,7 @@ jobs:
       azureContainerRegistry: $(azureContainerRegistry)
       dockerComposeFile: build/docker/docker-compose.yaml
       dockerComposeFileArgs: FHIR_VERSION = R4
-      projectName: fhirserver-r4
-      qualifyImageNames: true
+      projectName: fhirserver_r4
       additionalImageTags: pr$(system.pullRequest.pullRequestNumber)  
 
   - task: DockerCompose@0
@@ -44,8 +43,7 @@ jobs:
       azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
       azureContainerRegistry: $(azureContainerRegistry)
       dockerComposeFile: build/docker/docker-compose.yaml
-      projectName: fhirserver-r4
-      qualifyImageNames: true
+      projectName: fhirserver_r4
       additionalImageTags: pr$(system.pullRequest.pullRequestNumber) 
 
   - task: DockerCompose@0
@@ -56,8 +54,7 @@ jobs:
       azureContainerRegistry: $(azureContainerRegistry)
       dockerComposeFile: build/docker/docker-compose.yaml
       dockerComposeFileArgs: FHIR_VERSION = Stu3
-      projectName: fhirserver-stu3
-      qualifyImageNames: true
+      projectName: fhirserver_stu3
       additionalImageTags: pr$(system.pullRequest.pullRequestNumber)  
 
   - task: DockerCompose@0
@@ -67,8 +64,7 @@ jobs:
       azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
       azureContainerRegistry: $(azureContainerRegistry)
       dockerComposeFile: build/docker/docker-compose.yaml
-      projectName: fhirserver-stu3
-      qualifyImageNames: true
+      projectName: fhirserver_stu3
       additionalImageTags: pr$(system.pullRequest.pullRequestNumber) 
 
   - task: DockerCompose@0
@@ -79,8 +75,7 @@ jobs:
       azureContainerRegistry: $(azureContainerRegistry)
       dockerComposeFile: build/docker/docker-compose.yaml
       dockerComposeFileArgs: FHIR_VERSION = R5
-      projectName: fhirserver-r5
-      qualifyImageNames: true
+      projectName: fhirserver_r5
       additionalImageTags: pr$(system.pullRequest.pullRequestNumber)  
 
   - task: DockerCompose@0
@@ -90,6 +85,5 @@ jobs:
       azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
       azureContainerRegistry: $(azureContainerRegistry)
       dockerComposeFile: build/docker/docker-compose.yaml
-      projectName: fhirserver-r5
-      qualifyImageNames: true
+      projectName: fhirserver_r5
       additionalImageTags: pr$(system.pullRequest.pullRequestNumber) 
