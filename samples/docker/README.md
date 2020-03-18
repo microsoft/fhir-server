@@ -10,45 +10,43 @@ If it is not desirable to clone this repository and build locally an image of th
 
 Using docker-compose this image can be started with the following steps:
 1. Open a terminal window.
-2. Login to the Azure Container Registry 'healthplatformregistry' (https://docs.microsoft.com/en-us/azure/container-registry/container-registry-get-started-docker-cli)
-3. Set the enviornment variable SAPASSWORD to what you want the SQL access password to be. Be sure to follow the SQL password complexity rules: https://docs.microsoft.com/en-us/sql/relational-databases/security/password-policy?view=sql-server-ver15#password-complexity.
-4. Copy & save a local version of the docker-compose file from the release directory of the fhir-server project.
-5. Run the command: 
+2. Set the enviornment variable SAPASSWORD to what you want the SQL access password to be. Be sure to follow the [SQL server password complexity requirements](https://docs.microsoft.com/en-us/sql/relational-databases/security/password-policy?view=sql-server-ver15#password-complexity).
+3. Copy & save a local version of the docker-compose file from the release directory of the fhir-server project.
+4. Run the command: 
 
 ```bash
 docker-compose up -d .
 ```
 
-6. After giving the container a minute to start up it should be accessable at http://localhost/metadata.
+5. After giving the container a minute to start up it should be accessable at http://localhost/metadata.
 
 
 Using just docker this image can be started with the following steps. Replace the `<SA_PASSWORD>` below with your chosen SQL connection password, following the complexity rules linked above.
 1. Open a terminal window.
-2. Login to the Azure Container Registry 'healthplatformregistry' (https://docs.microsoft.com/en-us/azure/container-registry/container-registry-get-started-docker-cli).
-3. Run the command: 
+2. Run the command: 
 
 ```bash
 docker network create fhir_network
 ```
 
-4. Run the command: 
+3. Run the command: 
 
 ```bash
 docker run --net fhir_network --name fhir_sql -e SA_PASSWORD=<SA_PASSWORD> -e ACCEPT_EULA="Y" -d mcr.microsoft.com/mssql/server
 ```
 
-5. Give the SQL server a minute to start up.
-6. Run the command: 
+4. Give the SQL server a minute to start up.
+5. Run the command: 
 
 ```bash
 docker run --net fhir_network -e FhirServer__Security__Enabled="false" -e SqlServer__ConnectionString="Server=tcp:fhir_sql,1433;Initial Catalog=FHIR;Persist Security Info=False;User ID=sa;Password=<SA_PASSWORD>;MultipleActiveResultSets=False;Connection Timeout=30;" -e SqlServer__AllowDatabaseCreation="true" -e SqlServer__Initialize="true" -e DataStore="SqlServer" -p 80:80 -d healthplatformregistry.azurecr.io/fhirserverR4_fhir-api azure-fhir-api
 ```
 
-7. After giving the container a minute to start up it should be accessible at http://localhost/metadata.
+6. After giving the container a minute to start up it should be accessible at http://localhost/metadata.
 
 ## Build and run with SQL Server using Docker Compose
 
-The quickest way to get the Azure FHIR Server up and running on Docker is to build and run the Azure FHIR Server with a SQL server container using docker compose. Run the following command, replacing `<SA_PASSWORD>` with your chosen password (be sure to follow the [SQL server password complexity requirements](https://docs.microsoft.com/en-us/sql/relational-databases/security/password-policy?view=sql-server-ver15#password-complexity)), from the root of the `microsoft/fhir-server` repository:
+Another way to get the Azure FHIR Server up and running on Docker is to build and run the Azure FHIR Server with a SQL server container using docker compose. Run the following command, replacing `<SA_PASSWORD>` with your chosen password (be sure to follow the [SQL server password complexity requirements](https://docs.microsoft.com/en-us/sql/relational-databases/security/password-policy?view=sql-server-ver15#password-complexity)), from the root of the `microsoft/fhir-server` repository:
 
 ```bash
 env SAPASSWORD='<SA_PASSWORD>' docker-compose -f samples/docker/docker-compose.yaml up -d
