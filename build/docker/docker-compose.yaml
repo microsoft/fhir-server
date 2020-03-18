@@ -4,5 +4,3 @@ services:
     build: 
       context: ./../../
       dockerfile: ./build/docker/Dockerfile
-      args:
-        FHIR_VERSION: R4

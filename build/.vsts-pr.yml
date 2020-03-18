@@ -26,23 +26,70 @@ jobs:
     vmImage: 'ubuntu-16.04'
   steps:
   - task: DockerCompose@0
-    displayName: Build FHIR Server Image
+    displayName: Build FHIR R4 Server Image
     inputs:
       action: Build services
       azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
       azureContainerRegistry: $(azureContainerRegistry)
       dockerComposeFile: build/docker/docker-compose.yaml
-      projectName: fhirserverR4
+      dockerComposeFileArgs: FHIR_VERSION = R4
+      projectName: fhirserver-r4
       qualifyImageNames: true
       additionalImageTags: pr$(system.pullRequest.pullRequestNumber)  
 
   - task: DockerCompose@0
-    displayName: Push FHIR Server Image
+    displayName: Push FHIR R4 Server Image
     inputs:
       action: Push services
       azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
       azureContainerRegistry: $(azureContainerRegistry)
       dockerComposeFile: build/docker/docker-compose.yaml
-      projectName: fhirserverR4
+      projectName: fhirserver-r4
+      qualifyImageNames: true
+      additionalImageTags: pr$(system.pullRequest.pullRequestNumber) 
+
+  - task: DockerCompose@0
+    displayName: Build FHIR Stu3 Server Image
+    inputs:
+      action: Build services
+      azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
+      azureContainerRegistry: $(azureContainerRegistry)
+      dockerComposeFile: build/docker/docker-compose.yaml
+      dockerComposeFileArgs: FHIR_VERSION = Stu3
+      projectName: fhirserver-stu3
+      qualifyImageNames: true
+      additionalImageTags: pr$(system.pullRequest.pullRequestNumber)  
+
+  - task: DockerCompose@0
+    displayName: Push FHIR Stu3 Server Image
+    inputs:
+      action: Push services
+      azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
+      azureContainerRegistry: $(azureContainerRegistry)
+      dockerComposeFile: build/docker/docker-compose.yaml
+      projectName: fhirserver-stu3
+      qualifyImageNames: true
+      additionalImageTags: pr$(system.pullRequest.pullRequestNumber) 
+
+  - task: DockerCompose@0
+    displayName: Build FHIR R5 Server Image
+    inputs:
+      action: Build services
+      azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
+      azureContainerRegistry: $(azureContainerRegistry)
+      dockerComposeFile: build/docker/docker-compose.yaml
+      dockerComposeFileArgs: FHIR_VERSION = R5
+      projectName: fhirserver-r5
+      qualifyImageNames: true
+      additionalImageTags: pr$(system.pullRequest.pullRequestNumber)  
+
+  - task: DockerCompose@0
+    displayName: Push FHIR R5 Server Image
+    inputs:
+      action: Push services
+      azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
+      azureContainerRegistry: $(azureContainerRegistry)
+      dockerComposeFile: build/docker/docker-compose.yaml
+      projectName: fhirserver-r5
       qualifyImageNames: true
       additionalImageTags: pr$(system.pullRequest.pullRequestNumber) 
