@@ -12,11 +12,11 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema.Messages.Get;
 
 namespace Microsoft.Health.Fhir.SqlServer.Api.Features
 {
-    public class CurrentSchemaVersionHandler : IRequestHandler<GetCurrentVersionRequest, GetCurrentVersionResponse>
+    public class CurrentVersionSchemaHandler : IRequestHandler<GetCurrentVersionRequest, GetCurrentVersionResponse>
     {
         private readonly ISchemaDataStore _schemaMigrationDataStore;
 
-        public CurrentSchemaVersionHandler(ISchemaDataStore schemaMigrationDataStore)
+        public CurrentVersionSchemaHandler(ISchemaDataStore schemaMigrationDataStore)
         {
             EnsureArg.IsNotNull(schemaMigrationDataStore, nameof(schemaMigrationDataStore));
             _schemaMigrationDataStore = schemaMigrationDataStore;

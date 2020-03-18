@@ -88,7 +88,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         }
                         else
                         {
-                            throw new RecordNotFoundException(Resources.CurrentRecordNotFound);
+                            return new GetCurrentVersionResponse(currentVersions);
                         }
                     }
                 }
