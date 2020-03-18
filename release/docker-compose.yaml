@@ -1,7 +1,7 @@
 version: "3"
 services:
   fhir-api:
-    image: "healthplatformregistry.azurecr.io/fhirserverR4_fhir-api"
+    image: "healthplatformregistry.azurecr.io/r4_fhir-server"
     restart: on-failure
     environment:
       FHIRServer__Security__Enabled: "false"
