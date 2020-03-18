@@ -1,6 +1,6 @@
 version: "3"
 services:
-  fhir-api:
+  fhir-server:
     build: 
       context: ./../../
       dockerfile: ./build/docker/Dockerfile

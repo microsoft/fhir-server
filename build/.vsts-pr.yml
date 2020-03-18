@@ -33,7 +33,7 @@ jobs:
       azureContainerRegistry: $(azureContainerRegistry)
       dockerComposeFile: build/docker/docker-compose.yaml
       dockerComposeFileArgs: FHIR_VERSION = R4
-      projectName: fhirserver_r4
+      projectName: r4
       additionalImageTags: pr$(system.pullRequest.pullRequestNumber)  
 
   - task: DockerCompose@0
@@ -43,7 +43,7 @@ jobs:
       azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
       azureContainerRegistry: $(azureContainerRegistry)
       dockerComposeFile: build/docker/docker-compose.yaml
-      projectName: fhirserver_r4
+      projectName: r4
       additionalImageTags: pr$(system.pullRequest.pullRequestNumber) 
 
   - task: DockerCompose@0
@@ -54,7 +54,7 @@ jobs:
       azureContainerRegistry: $(azureContainerRegistry)
       dockerComposeFile: build/docker/docker-compose.yaml
       dockerComposeFileArgs: FHIR_VERSION = Stu3
-      projectName: fhirserver_stu3
+      projectName: stu3
       additionalImageTags: pr$(system.pullRequest.pullRequestNumber)  
 
   - task: DockerCompose@0
@@ -64,7 +64,7 @@ jobs:
       azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
       azureContainerRegistry: $(azureContainerRegistry)
       dockerComposeFile: build/docker/docker-compose.yaml
-      projectName: fhirserver_stu3
+      projectName: stu3
       additionalImageTags: pr$(system.pullRequest.pullRequestNumber) 
 
   - task: DockerCompose@0
@@ -75,7 +75,7 @@ jobs:
       azureContainerRegistry: $(azureContainerRegistry)
       dockerComposeFile: build/docker/docker-compose.yaml
       dockerComposeFileArgs: FHIR_VERSION = R5
-      projectName: fhirserver_r5
+      projectName: r5
       additionalImageTags: pr$(system.pullRequest.pullRequestNumber)  
 
   - task: DockerCompose@0
@@ -85,5 +85,5 @@ jobs:
       azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
       azureContainerRegistry: $(azureContainerRegistry)
       dockerComposeFile: build/docker/docker-compose.yaml
-      projectName: fhirserver_r5
+      projectName: r5
       additionalImageTags: pr$(system.pullRequest.pullRequestNumber) 
