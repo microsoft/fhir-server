@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     public partial class FhirStorageTests : IClassFixture<FhirStorageTestsFixture>
     {
         [Fact]
-        public async Task WhenUpsertingASavedResourceWithInvalidETagHeader_GivenR5Server_ThenPreconditionFailedIsThrown()
+        public async Task GivenR5Server_WhenUpsertingASavedResourceWithInvalidETagHeader_ThenPreconditionFailedIsThrown()
         {
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
 

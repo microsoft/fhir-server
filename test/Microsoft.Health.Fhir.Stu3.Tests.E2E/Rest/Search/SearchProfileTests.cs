@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenSearchingForAResourceWithProfile_GivenAStu3Server_TheServerShouldReturnCorrectResults()
+        public async Task GivenAStu3Server_WhenSearchingForAResourceWithProfile_TheServerShouldReturnCorrectResults()
         {
             string profile = $"https://e2e-test-profile|{Guid.NewGuid()}";
 

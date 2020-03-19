@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenGettingResourceHistory_GivenAType_TheServerShouldReturnTheAppropriateBundleSuccessfully()
+        public async Task GivenAType_WhenGettingResourceHistory_TheServerShouldReturnTheAppropriateBundleSuccessfully()
         {
             FhirResponse<Bundle> readResponse = await Client.SearchAsync("Observation/_history");
             Assert.NotEmpty(readResponse.Resource.Entry);
@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenGettingResourceHistory_GivenATypeAndId_TheServerShouldReturnTheAppropriateBundleSuccessfully()
+        public async Task GivenATypeAndId_WhenGettingResourceHistory_TheServerShouldReturnTheAppropriateBundleSuccessfully()
         {
             FhirResponse<Bundle> readResponse = await Client.SearchAsync($"Observation/{_createdResource.Resource.Id}/_history");
 
@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenGettingSystemHistory_GivenNoType_TheServerShouldReturnTheAppropriateBundleSuccessfully()
+        public async Task GivenNoType_WhenGettingSystemHistory_TheServerShouldReturnTheAppropriateBundleSuccessfully()
         {
             FhirResponse<Bundle> readResponse = await Client.SearchAsync("_history");
 
@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
-        public async Task WhenGettingSystemHistory_GivenAValueForSince_TheServerShouldReturnOnlyRecordsModifiedAfterSinceValue()
+        public async Task GivenAValueForSince_WhenGettingSystemHistory_TheServerShouldReturnOnlyRecordsModifiedAfterSinceValue()
         {
             var since = await GetStartTimeForHistoryTest();
             var sinceUriString = HttpUtility.UrlEncode(since.ToString("o"));
@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)] // History tests are unstable at the moment due to Cosmos DB issue with continuation tokens
         [Fact]
-        public async Task WhenGettingSystemHistory_GivenAValueForSinceAndBeforeWithModifications_TheServerShouldOnlyCorrectResources()
+        public async Task GivenAValueForSinceAndBeforeWithModifications_WhenGettingSystemHistory_TheServerShouldOnlyCorrectResources()
         {
             var since = await GetStartTimeForHistoryTest();
 
@@ -140,7 +140,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)] // History tests are unstable at the moment due to Cosmos DB issue with continuation tokens
         [Fact]
-        public async Task WhenGettingSystemHistory_GivenAValueForSinceAndBeforeCloseToLastModifiedTime_TheServerShouldNotMissRecords()
+        public async Task GivenAValueForSinceAndBeforeCloseToLastModifiedTime_WhenGettingSystemHistory_TheServerShouldNotMissRecords()
         {
             var since = await GetStartTimeForHistoryTest();
 
@@ -190,7 +190,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)] // History tests are unstable at the moment due to Cosmos DB issue with continuation tokens
         [Fact]
-        public async Task WhenGettingSystemHistory_GivenAQueryThatReturnsMoreThan10Results_TheServerShouldBatchTheResponse()
+        public async Task GivenAQueryThatReturnsMoreThan10Results_WhenGettingSystemHistory_TheServerShouldBatchTheResponse()
         {
             var since = await GetStartTimeForHistoryTest();
 
@@ -242,7 +242,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
-        public async Task WhenGettingSystemHistory_GivenAValueForSinceAfterAllModificatons_TheServerShouldReturnAnEmptyResult()
+        public async Task GivenAValueForSinceAfterAllModificatons_WhenGettingSystemHistory_TheServerShouldReturnAnEmptyResult()
         {
             _createdResource.Resource.Text = new Narrative { Div = "<div>Changed by E2E test</div>" };
             var updatedResource = await Client.UpdateAsync<Observation>(_createdResource);
@@ -258,7 +258,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
-        public async Task WhenGettingSystemHistory_GivenAValueForSinceAndBeforeWithNoModifications_TheServerShouldReturnAnEmptyResult()
+        public async Task GivenAValueForSinceAndBeforeWithNoModifications_WhenGettingSystemHistory_TheServerShouldReturnAnEmptyResult()
         {
             _createdResource.Resource.Text = new Narrative { Div = "<div>Changed by E2E test</div>" };
             var updatedResource = await Client.UpdateAsync<Observation>(_createdResource);
@@ -287,7 +287,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
-        public async Task WhenGettingSystemHistory_GivenAValueForBeforeInTheFuture_AnErrorIsReturned()
+        public async Task GivenAValueForBeforeInTheFuture_WhenGettingSystemHistory_AnErrorIsReturned()
         {
             var before = DateTime.UtcNow.AddSeconds(300);
             var beforeUriString = HttpUtility.UrlEncode(before.ToString("o"));

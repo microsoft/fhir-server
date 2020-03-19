@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenGettingOptions_GivenAppropriateHeaders_TheServerShouldReturnTheAppropriateCorsHeaders()
+        public async Task GivenAppropriateHeaders_WhenGettingOptions_TheServerShouldReturnTheAppropriateCorsHeaders()
         {
             var message = new HttpRequestMessage(HttpMethod.Options, "patient");
 
