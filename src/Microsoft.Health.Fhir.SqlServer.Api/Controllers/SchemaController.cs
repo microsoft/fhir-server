@@ -33,12 +33,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.Controllers
         {
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
+            EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _schemaInformation = schemaInformation;
             _urlResolver = urlResolver;
-            _logger = logger;
             _mediator = mediator;
+            _logger = logger;
         }
 
         [HttpGet]
