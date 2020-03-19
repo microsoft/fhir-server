@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenPostingToHttp_GivenAnInternalThrowQuerystring_TheServerShouldReturnAnOperationOutcome()
+        public async Task GivenAnInternalThrowQuerystring_WhenPostingToHttp_TheServerShouldReturnAnOperationOutcome()
         {
             if (!_fixture.IsUsingInProcTestServer)
             {
@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenPostingToHttp_GivenAMiddlewareThrowQuerystring_TheServerShouldReturnAnOperationOutcome()
+        public async Task GivenAMiddlewareThrowQuerystring_WhenPostingToHttp_TheServerShouldReturnAnOperationOutcome()
         {
             if (!_fixture.IsUsingInProcTestServer)
             {
@@ -84,7 +84,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenPostingToHttp_GivenAnUnknownRoute_TheServerShouldReturnAnOperationOutcome()
+        public async Task GivenAnUnknownRoute_WhenPostingToHttp_TheServerShouldReturnAnOperationOutcome()
         {
             var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.ReadAsync<OperationOutcome>("unknownRoute"));
 

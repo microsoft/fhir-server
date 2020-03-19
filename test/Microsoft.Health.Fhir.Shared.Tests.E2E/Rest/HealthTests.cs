@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
-        public async Task WhenStartingTheFhirServer_GivenAHealthEndpoint_ThenTheHealthCheckIsOK()
+        public async Task GivenAHealthEndpoint_WhenStartingTheFhirServer_ThenTheHealthCheckIsOK()
         {
             var response = await _client.GetAsync("health/check");
 
@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
-        public async Task WhenStartingTheFhirServer_GivenAHealthEndpoint_ThenResponseContainsDescription()
+        public async Task GivenAHealthEndpoint_WhenStartingTheFhirServer_ThenResponseContainsDescription()
         {
             var response = await _client.GetAsync("health/check");
             string responseContent = await response.Content.ReadAsStringAsync();

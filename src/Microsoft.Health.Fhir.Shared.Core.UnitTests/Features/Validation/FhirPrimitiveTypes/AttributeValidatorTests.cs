@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Validation.FhirPr
         }
 
         [Fact]
-        public void WhenProcessingAResource_GivenAMissingAttribute_ThenAValidationMessageWithAFhirPathIsCreated()
+        public void GivenAMissingAttribute_WhenProcessingAResource_ThenAValidationMessageWithAFhirPathIsCreated()
         {
             var defaultObservation = Samples.GetDefaultObservation().ToPoco<Observation>();
             defaultObservation.StatusElement = null;
