@@ -41,7 +41,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf();
 
-            services.AddMediatR(typeof(LatestSchemaVersionHandler).Assembly, typeof(IndentedStringBuilder).Assembly);
+            services.AddMediatR(typeof(CompatibilityVersionHandler).Assembly, typeof(IndentedStringBuilder).Assembly);
 
             services.Add<SchemaUpgradeRunner>()
                 .Singleton()

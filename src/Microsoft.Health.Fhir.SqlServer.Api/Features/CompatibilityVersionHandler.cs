@@ -12,21 +12,21 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema.Messages.Get;
 
 namespace Microsoft.Health.Fhir.SqlServer.Api.Features
 {
-    public class LatestSchemaVersionHandler : IRequestHandler<GetCompatibilityVersionRequest, GetCompatibilityVersionResponse>
+    public class CompatibilityVersionHandler : IRequestHandler<GetCompatibilityVersionRequest, GetCompatibilityVersionResponse>
     {
-        private readonly ISchemaDataStore _schemaMigrationDataStore;
+        private readonly ISchemaDataStore _schemaDataStore;
 
-        public LatestSchemaVersionHandler(ISchemaDataStore schemaMigrationDataStore)
+        public CompatibilityVersionHandler(ISchemaDataStore schemaDataStore)
         {
-            EnsureArg.IsNotNull(schemaMigrationDataStore, nameof(schemaMigrationDataStore));
-            _schemaMigrationDataStore = schemaMigrationDataStore;
+            EnsureArg.IsNotNull(schemaDataStore, nameof(schemaDataStore));
+            _schemaDataStore = schemaDataStore;
         }
 
         public async Task<GetCompatibilityVersionResponse> Handle(GetCompatibilityVersionRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            return await _schemaMigrationDataStore.GetLatestCompatibleVersionAsync(cancellationToken);
+            return await _schemaDataStore.GetLatestCompatibleVersionAsync(cancellationToken);
         }
     }
 }

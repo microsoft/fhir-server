@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -41,40 +40,30 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.UnitTests.Features
         [Fact]
         public async Task GivenACurrentMediator_WhenCurrentRequest_ThenReturnsCurrentVersionInformation()
         {
-            IList<CurrentVersionInformation> mockCurrentVersions = CurrentVersions();
-            SetupDataStore(_ => new GetCurrentVersionResponse(mockCurrentVersions));
+            IList<CurrentVersionInformation> mockCurrentVersions = new List<CurrentVersionInformation>()
+            {
+                new CurrentVersionInformation(1, "complete", new List<string>() { "server1", "server2" }),
+                new CurrentVersionInformation(1, "complete", new List<string>()),
+            };
+
+            _schemaDataStore.GetCurrentVersionAsync(Arg.Any<CancellationToken>())
+                    .Returns(new GetCurrentVersionResponse(mockCurrentVersions));
             GetCurrentVersionResponse response = await _mediator.GetCurrentVersionAsync(_cancellationToken);
 
             Assert.Equal(mockCurrentVersions.Count, response.CurrentVersions.Count);
-
-            void SetupDataStore(Func<NSubstitute.Core.CallInfo, GetCurrentVersionResponse> returnThis)
-            {
-                _schemaDataStore.GetCurrentVersionAsync(Arg.Any<CancellationToken>())
-                    .Returns(returnThis);
-            }
         }
 
         [Fact]
         public async Task GivenACurrentMediator_WhenCurrentRequestAndEmptySchemaVersionTable_ThenReturnsEmptyArray()
         {
-            IList<CurrentVersionInformation> mockCurrentVersions = CurrentVersions();
-            SetupDataStore(_ => new GetCurrentVersionResponse(mockCurrentVersions));
+            IList<CurrentVersionInformation> mockCurrentVersions = new List<CurrentVersionInformation>();
+
+            _schemaDataStore.GetCurrentVersionAsync(Arg.Any<CancellationToken>())
+                    .Returns(new GetCurrentVersionResponse(mockCurrentVersions));
+
             GetCurrentVersionResponse response = await _mediator.GetCurrentVersionAsync(_cancellationToken);
 
-            Assert.Equal(mockCurrentVersions.Count, response.CurrentVersions.Count);
-
-            void SetupDataStore(Func<NSubstitute.Core.CallInfo, GetCurrentVersionResponse> returnThis)
-            {
-                _schemaDataStore.GetCurrentVersionAsync(Arg.Any<CancellationToken>())
-                    .Returns(returnThis);
-            }
-        }
-
-        private IList<CurrentVersionInformation> CurrentVersions()
-        {
-            IList<CurrentVersionInformation> currentVersions = new List<CurrentVersionInformation>();
-
-            return currentVersions;
+            Assert.Equal(0, response.CurrentVersions.Count);
         }
     }
 }

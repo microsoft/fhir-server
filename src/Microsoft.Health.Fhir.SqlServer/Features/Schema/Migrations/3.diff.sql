@@ -169,7 +169,7 @@ BEGIN
             @currentSchemaVersion int,
             @minSchemaVersion int
 
-    Select @maxSchemaVersion = min(MaxVersion), @currentSchemaVersion = CurrentVersion, @@minSchemaVersion = min(MinVersion)
+    Select @maxSchemaVersion = min(MaxVersion), @currentSchemaVersion = CurrentVersion, @minSchemaVersion = min(MinVersion)
     FROM dbo.InstanceSchema
     WHERE Timeout > SYSUTCDATETIME() GROUP BY CurrentVersion
 

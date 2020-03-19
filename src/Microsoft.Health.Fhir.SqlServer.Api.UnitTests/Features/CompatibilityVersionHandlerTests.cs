@@ -19,17 +19,17 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.SqlServer.Api.UnitTests.Features
 {
-    public class LatestSchemaVersionHandlerTests
+    public class CompatibilityVersionHandlerTests
     {
         private readonly ISchemaDataStore _schemaMigrationDataStore;
         private readonly IMediator _mediator;
         private readonly CancellationToken _cancellationToken;
 
-        public LatestSchemaVersionHandlerTests()
+        public CompatibilityVersionHandlerTests()
         {
             _schemaMigrationDataStore = Substitute.For<ISchemaDataStore>();
             var collection = new ServiceCollection();
-            collection.Add(sp => new LatestSchemaVersionHandler(_schemaMigrationDataStore)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(sp => new CompatibilityVersionHandler(_schemaMigrationDataStore)).Singleton().AsSelf().AsImplementedInterfaces();
 
             ServiceProvider provider = collection.BuildServiceProvider();
             _mediator = new Mediator(type => provider.GetService(type));
