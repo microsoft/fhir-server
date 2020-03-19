@@ -9,6 +9,7 @@ using System.Net;
 using EnsureThat;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.Health.Fhir.SqlServer.Features.Exceptions;
 using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Health.Fhir.SqlServer.Api.Features.Filters
@@ -35,6 +36,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.Features.Filters
                         context.ExceptionHandled = true;
                         break;
 
+                    case RecordNotFoundException _:
                     case FileNotFoundException _:
                         context.Result = new JsonResult(resultJson) { StatusCode = (int)HttpStatusCode.NotFound };
                         context.ExceptionHandled = true;

@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Features.Routing;
@@ -20,13 +21,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.UnitTests.Controllers
     public class SchemaControllerTests
     {
         private readonly SchemaController _schemaController;
+        private readonly IMediator _mediator;
 
         public SchemaControllerTests()
         {
             var schemaInformation = new SchemaInformation();
             var urlResolver = Substitute.For<IUrlResolver>();
+            _mediator = Substitute.For<IMediator>();
             urlResolver.ResolveRouteNameUrl(RouteNames.Script, Arg.Any<IDictionary<string, object>>()).Returns(new Uri("https://localhost/script"));
-            _schemaController = new SchemaController(schemaInformation, urlResolver, NullLogger<SchemaController>.Instance);
+            _schemaController = new SchemaController(schemaInformation, urlResolver, _mediator, NullLogger<SchemaController>.Instance);
         }
 
         [Fact]
@@ -51,18 +54,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.UnitTests.Controllers
             JToken firstResult = jArrayResult.First;
             Assert.Equal(1, firstResult["id"]);
             Assert.Equal("https://localhost/script", firstResult["script"]);
-        }
-
-        [Fact]
-        public void GivenACurrentVersiontRequest_WhenNotImplemented_ThenNotImplementedShouldBeThrown()
-        {
-            Assert.Throws<NotImplementedException>(() => _schemaController.CurrentVersion());
-        }
-
-        [Fact]
-        public void GivenACompatibilityRequest_WhenNotImplemented_ThenNotImplementedShouldBeThrown()
-        {
-            Assert.Throws<NotImplementedException>(() => _schemaController.Compatibility());
         }
     }
 }

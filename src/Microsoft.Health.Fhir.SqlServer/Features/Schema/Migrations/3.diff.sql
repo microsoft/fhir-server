@@ -1,3 +1,4 @@
+
 /*************************************************************
     Instance Schema
 **************************************************************/
@@ -147,3 +148,60 @@ AS
     WHERE Name = @name
 
 GO
+
+--
+--  STORED PROCEDURE
+--      SelectCompatibleSchemaVersions
+--
+--  DESCRIPTION
+--      Selects the compatible schema versions
+--
+--  RETURNS
+--      The maximum and minimum compatible versions
+--
+CREATE PROCEDURE dbo.SelectCompatibleSchemaVersions
+
+AS
+BEGIN
+    SET NOCOUNT ON
+
+    DECLARE @maxSchemaVersion int,
+            @currentSchemaVersion int,
+            @minSchemaVersion int
+
+    Select @maxSchemaVersion = min(MaxVersion), @currentSchemaVersion = CurrentVersion, @minSchemaVersion = min(MinVersion)
+    FROM dbo.InstanceSchema
+    WHERE Timeout > SYSUTCDATETIME() GROUP BY CurrentVersion
+
+    SELECT @minSchemaVersion, MAX(Version)
+    FROM dbo.SchemaVersion
+    WHERE Status = 'complete' AND Version BETWEEN @currentSchemaVersion AND @maxSchemaVersion
+
+END
+GO
+
+--
+--  STORED PROCEDURE
+--      SelectCurrentVersionsInformation
+--
+--  DESCRIPTION
+--      Selects the current schema versions information
+--
+--  RETURNS
+--      The current versions, status and server names using that version
+--
+CREATE PROCEDURE dbo.SelectCurrentVersionsInformation
+
+AS
+BEGIN
+    SET NOCOUNT ON
+
+    SELECT SV.Version, SV.Status, STRING_AGG(SCH.NAME, ',')
+    FROM
+    dbo.SchemaVersion AS SV LEFT OUTER JOIN dbo.InstanceSchema as SCH
+    ON SV.Version = SCH.CurrentVersion
+    GROUP BY Version, Status
+
+END
+GO
+
