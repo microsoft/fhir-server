@@ -3,7 +3,7 @@ services:
   fhir-api:
     build: 
       context: ./../../
-      dockerfile: ./samples/docker/Dockerfile
+      dockerfile: ./build/docker/Dockerfile
       args:
         FHIR_VERSION: R4
     restart: on-failure

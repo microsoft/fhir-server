@@ -12,8 +12,6 @@ steps:
   displayName: 'Build FHIR ${{parameters.version}} Server Image'
   inputs:
     action: Build services
-    azureSubscriptionEndpoint: 'docker-build'
-    azureContainerRegistry: 'healthplatformregistry.azurecr.io'
     dockerComposeFile: build/docker/docker-compose.yaml
     dockerComposeFileArgs: FHIR_VERSION = ${{parameters.version}}
     projectName: ${{parameters.version}}
@@ -25,6 +23,5 @@ steps:
     action: Push services
     azureSubscriptionEndpoint: 'docker-build'
     azureContainerRegistry: 'healthplatformregistry.azurecr.io'
-    dockerComposeFile: build/docker/docker-compose.yaml
     projectName: ${{parameters.version}}
     additionalImageTags: ${{parameters.tag}}
