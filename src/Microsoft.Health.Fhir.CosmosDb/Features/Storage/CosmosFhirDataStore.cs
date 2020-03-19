@@ -19,6 +19,7 @@ using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -32,7 +33,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
     public sealed class CosmosFhirDataStore : IFhirDataStore, IProvideCapability
     {
-        private readonly Func<IScoped<IDocumentClient>> _documentClientFactory;
+        private readonly IScoped<IDocumentClient> _documentClientScope;
         private readonly ICosmosDocumentQueryFactory _cosmosDocumentQueryFactory;
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
         private readonly ILogger<CosmosFhirDataStore> _logger;
@@ -40,11 +41,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         private readonly UpsertWithHistory _upsertWithHistoryProc;
         private readonly HardDelete _hardDelete;
+        private readonly CoreFeatureConfiguration _coreFeatures;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="CosmosFhirDataStore"/> class.
         /// </summary>
-        /// <param name="documentClientFactory">
+        /// <param name="documentClientScope">
         /// A function that returns an <see cref="IDocumentClient"/>.
         /// Note that this is a function so that the lifetime of the instance is not directly controlled by the IoC container.
         /// </param>
@@ -54,28 +56,32 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <param name="retryExceptionPolicyFactory">The retry exception policy factory.</param>
         /// <param name="logger">The logger instance.</param>
         /// <param name="modelInfoProvider">The model provider</param>
+        /// <param name="coreFeatures">The core feature configuration</param>
         public CosmosFhirDataStore(
-            Func<IScoped<IDocumentClient>> documentClientFactory,
+            IScoped<IDocumentClient> documentClientScope,
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
             IOptionsMonitor<CosmosCollectionConfiguration> namedCosmosCollectionConfigurationAccessor,
             FhirCosmosDocumentQueryFactory cosmosDocumentQueryFactory,
             RetryExceptionPolicyFactory retryExceptionPolicyFactory,
             ILogger<CosmosFhirDataStore> logger,
-            IModelInfoProvider modelInfoProvider)
+            IModelInfoProvider modelInfoProvider,
+            IOptions<CoreFeatureConfiguration> coreFeatures)
         {
-            EnsureArg.IsNotNull(documentClientFactory, nameof(documentClientFactory));
+            EnsureArg.IsNotNull(documentClientScope, nameof(documentClientScope));
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
             EnsureArg.IsNotNull(namedCosmosCollectionConfigurationAccessor, nameof(namedCosmosCollectionConfigurationAccessor));
             EnsureArg.IsNotNull(cosmosDocumentQueryFactory, nameof(cosmosDocumentQueryFactory));
             EnsureArg.IsNotNull(retryExceptionPolicyFactory, nameof(retryExceptionPolicyFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
+            EnsureArg.IsNotNull(coreFeatures, nameof(coreFeatures));
 
-            _documentClientFactory = documentClientFactory;
+            _documentClientScope = documentClientScope;
             _cosmosDocumentQueryFactory = cosmosDocumentQueryFactory;
             _retryExceptionPolicyFactory = retryExceptionPolicyFactory;
             _logger = logger;
             _modelInfoProvider = modelInfoProvider;
+            _coreFeatures = coreFeatures.Value;
 
             CosmosCollectionConfiguration collectionConfiguration = namedCosmosCollectionConfigurationAccessor.Get(Constants.CollectionConfigurationName);
 
@@ -86,8 +92,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _upsertWithHistoryProc = new UpsertWithHistory();
             _hardDelete = new HardDelete();
         }
-
-        private IDocumentClient DocumentClient => _documentClientFactory().Value;
 
         private string DatabaseId { get; }
 
@@ -112,7 +116,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                 UpsertWithHistoryModel response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
                     async ct => await _upsertWithHistoryProc.Execute(
-                        DocumentClient,
+                        _documentClientScope.Value,
                         CollectionUri,
                         cosmosWrapper,
                         weakETag?.VersionId,
@@ -128,7 +132,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 switch (dce.GetSubStatusCode())
                 {
                     case HttpStatusCode.PreconditionFailed:
-                        throw new ResourceConflictException(weakETag);
+                        throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag?.VersionId));
                     case HttpStatusCode.NotFound:
                         if (cosmosWrapper.IsDeleted)
                         {
@@ -137,7 +141,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                         if (weakETag != null)
                         {
-                            throw new ResourceConflictException(weakETag);
+                            throw new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundByIdAndVersion, resource.ResourceTypeName, resource.ResourceId, weakETag.VersionId));
                         }
                         else if (!allowCreate)
                         {
@@ -172,18 +176,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                 var sqlQuerySpec = new SqlQuerySpec("select * from root r where r.resourceId = @resourceId and r.version = @version", sqlParameterCollection);
 
-                var executor = CreateDocumentQuery<FhirCosmosResourceWrapper>(
+                var result = await ExecuteDocumentQueryAsync<FhirCosmosResourceWrapper>(
                     sqlQuerySpec,
-                    new FeedOptions { PartitionKey = new PartitionKey(key.ToPartitionKey()) });
-
-                var result = await executor.ExecuteNextAsync<FhirCosmosResourceWrapper>(cancellationToken);
+                    new FeedOptions { PartitionKey = new PartitionKey(key.ToPartitionKey()) },
+                    cancellationToken);
 
                 return result.FirstOrDefault();
             }
 
             try
             {
-                return await DocumentClient.ReadDocumentAsync<FhirCosmosResourceWrapper>(
+                return await _documentClientScope.Value.ReadDocumentAsync<FhirCosmosResourceWrapper>(
                     UriFactory.CreateDocumentUri(DatabaseId, CollectionId, key.Id),
                     new RequestOptions { PartitionKey = new PartitionKey(key.ToPartitionKey()) },
                     cancellationToken);
@@ -204,7 +207,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                 StoredProcedureResponse<IList<string>> response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
                     async ct => await _hardDelete.Execute(
-                        DocumentClient,
+                        _documentClientScope.Value,
                         CollectionUri,
                         key,
                         ct),
@@ -225,15 +228,18 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
-        internal IDocumentQuery<T> CreateDocumentQuery<T>(
-            SqlQuerySpec sqlQuerySpec,
-            FeedOptions feedOptions = null)
+        internal async Task<FeedResponse<T>> ExecuteDocumentQueryAsync<T>(SqlQuerySpec sqlQuerySpec, FeedOptions feedOptions, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(sqlQuerySpec, nameof(sqlQuerySpec));
 
-            CosmosQueryContext context = new CosmosQueryContext(CollectionUri, sqlQuerySpec, feedOptions);
+            var context = new CosmosQueryContext(CollectionUri, sqlQuerySpec, feedOptions);
 
-            return _cosmosDocumentQueryFactory.Create<T>(DocumentClient, context);
+            IDocumentQuery<T> documentQuery = _cosmosDocumentQueryFactory.Create<T>(_documentClientScope.Value, context);
+
+            using (documentQuery)
+            {
+                return await documentQuery.ExecuteNextAsync<T>(cancellationToken);
+            }
         }
 
         private static string GetValue(HttpStatusCode type)
@@ -241,21 +247,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             return ((int)type).ToString();
         }
 
-        public void Build(IListedCapabilityStatement statement)
+        public void Build(ICapabilityStatementBuilder builder)
         {
-            EnsureArg.IsNotNull(statement, nameof(statement));
+            EnsureArg.IsNotNull(builder, nameof(builder));
 
-            foreach (var resource in _modelInfoProvider.GetResourceTypeNames())
+            builder.AddDefaultResourceInteractions()
+                .AddDefaultSearchParameters()
+                .AddDefaultRestSearchParams();
+
+            if (_coreFeatures.SupportsBatch)
             {
-                statement.BuildRestResourceComponent(resource, builder =>
-                {
-                    builder.AddResourceVersionPolicy(ResourceVersionPolicy.NoVersion);
-                    builder.AddResourceVersionPolicy(ResourceVersionPolicy.Versioned);
-                    builder.AddResourceVersionPolicy(ResourceVersionPolicy.VersionedUpdate);
-
-                    builder.ReadHistory = true;
-                    builder.UpdateCreate = true;
-                });
+                builder.AddRestInteraction(SystemRestfulInteraction.Batch);
             }
         }
     }

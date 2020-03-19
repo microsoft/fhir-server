@@ -13,7 +13,6 @@ using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Formatters;
-using Microsoft.AspNetCore.Mvc.Formatters.Json.Internal;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Mvc.Razor;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -33,7 +32,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
         private readonly FhirJsonSerializer _fhirJsonSerializer;
         private readonly ILogger<HtmlOutputFormatter> _logger;
         private readonly INarrativeHtmlSanitizer _htmlSanitizer;
-        private JsonArrayPool<char> _charPool;
+        private IArrayPool<char> _charPool;
 
         public HtmlOutputFormatter(
             FhirJsonSerializer fhirJsonSerializer,
@@ -49,7 +48,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             _fhirJsonSerializer = fhirJsonSerializer;
             _logger = logger;
             _htmlSanitizer = htmlSanitizer;
-            _charPool = new JsonArrayPool<char>(charPool);
+            _charPool = new JsonArrayPool(charPool);
 
             SupportedEncodings.Add(Encoding.UTF8);
             SupportedMediaTypes.Add("text/html");
@@ -68,6 +67,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             EnsureArg.IsNotNull(context, nameof(context));
             EnsureArg.IsNotNull(selectedEncoding, nameof(selectedEncoding));
 
+            context.HttpContext.AllowSynchronousIO();
+
             var engine = context.HttpContext.RequestServices.GetService<IRazorViewEngine>();
             var tempDataProvider = context.HttpContext.RequestServices.GetService<ITempDataProvider>();
 
@@ -80,7 +81,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 
                 if (viewResult.View == null)
                 {
-                    throw new FileNotFoundException(Resources.ViewNotFound, $"{viewName}.cshtml");
+                    throw new FileNotFoundException(Api.Resources.ViewNotFound, $"{viewName}.cshtml");
                 }
 
                 var resourceInstance = (Resource)context.Object;

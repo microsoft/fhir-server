@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Text;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Validation;
@@ -15,7 +16,6 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
-using Microsoft.Health.Fhir.Web;
 using Xunit;
 using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Common.FhirClient;
 using Task = System.Threading.Tasks.Task;
@@ -23,9 +23,9 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
-    public class CreateTests : IClassFixture<HttpIntegrationTestFixture<Startup>>
+    public class CreateTests : IClassFixture<HttpIntegrationTestFixture>
     {
-        public CreateTests(HttpIntegrationTestFixture<Startup> fixture)
+        public CreateTests(HttpIntegrationTestFixture fixture)
         {
             Client = fixture.FhirClient;
         }
@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenPostingToHttp_GivenAResource_TheServerShouldRespondSuccessfully()
+        public async Task GivenAResource_WhenPostingToHttp_TheServerShouldRespondSuccessfully()
         {
             FhirResponse<Observation> response = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
@@ -58,8 +58,26 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb)]
+        public async Task GivenALargeResource_WhenPostingToHttp_ThenServerShouldRespondWithRequestEntityTooLarge()
+        {
+            var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
+            StringBuilder largeStringBuilder = new StringBuilder();
+
+            for (int i = 0; i < 1024 * 1024 * 2; i++)
+            {
+                largeStringBuilder.Append('a');
+            }
+
+            poco.Text.Div = $"<div>{largeStringBuilder.ToString()}</div>";
+
+            var exception = await Assert.ThrowsAsync<FhirException>(() => Client.CreateAsync(poco));
+            Assert.Equal(HttpStatusCode.RequestEntityTooLarge, exception.StatusCode);
+        }
+
+        [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenPostingToHttp_GivenAResourceWithIdAndMeta_TheServerShouldRespondSuccessfullyWithUpdatedContents()
+        public async Task GivenAResourceWithIdAndMeta_WhenPostingToHttp_TheServerShouldRespondSuccessfullyWithUpdatedContents()
         {
             Observation originalResource = Samples.GetDefaultObservation().ToPoco<Observation>();
             originalResource.Id = Guid.NewGuid().ToString();
@@ -94,7 +112,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenPostingToHttp_GivenAnUnsupportedResourceType_TheServerShouldRespondWithANotFoundResponse()
+        public async Task GivenALocationResourceWithPosition_WhenPostingToHttp_TheServerShouldRespondSuccessfully()
+        {
+            Location originalResource = Samples.GetJsonSample("Location-example-hq").ToPoco<Location>();
+
+            FhirResponse<Location> response = await Client.CreateAsync(originalResource);
+
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAnUnsupportedResourceType_WhenPostingToHttp_TheServerShouldRespondWithANotFoundResponse()
         {
             FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.CreateAsync("NotObservation", Samples.GetDefaultObservation().ToPoco<Observation>()));
 
@@ -103,16 +132,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenPostingToHttp_GivenUnsetContentType_TheServerShouldRespondWithAUnsupportedMediaTypeResponse()
+        public async Task GivenUnsetContentType_WhenPostingToHttp_TheServerShouldRespondWithAUnsupportedMediaTypeResponse()
         {
-            var result = await Client.HttpClient.PostAsync("Observation", new StringContent("Content!"));
+            var result = await Client.
+                HttpClient.PostAsync("Observation", new StringContent("Content!"));
 
             Assert.Equal(HttpStatusCode.UnsupportedMediaType, result.StatusCode);
         }
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenPostingToHttp_GivenAnUnsupportedContentType_TheServerShouldRespondWithAUnsupportedMediaTypeResponse()
+        public async Task GivenAnUnsupportedContentType_WhenPostingToHttp_TheServerShouldRespondWithAUnsupportedMediaTypeResponse()
         {
             var result = await Client.HttpClient.PostAsync("Observation", new FormUrlEncodedContent(new KeyValuePair<string, string>[0]));
 
@@ -121,7 +151,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenPostingToHttp_GivenAnInvalidResource_TheServerShouldRespondWithBadRequestResponse()
+        public async Task GivenAnInvalidResource_WhenPostingToHttp_TheServerShouldRespondWithBadRequestResponse()
         {
             // An empty observation is invalid because it is missing fields that have a minimum cardinality of 1
             FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.CreateAsync(new Observation()));
@@ -132,7 +162,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Theory]
         [MemberData(nameof(AllXssStrings))]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenPostingToHttpWithMaliciousUrl_GivenAResource_TheServerShouldHandleRequest(string code)
+        public async Task GivenAResource_WhenPostingToHttpWithMaliciousUrl_TheServerShouldHandleRequest(string code)
         {
             FhirResponse<Observation> response = await Client.CreateAsync($"Observation?{code}", Samples.GetDefaultObservation().ToPoco<Observation>());
 
@@ -145,7 +175,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenPostingToHttpWithMaliciousId_GivenAResource_TheServerShouldThrowBadRequestOrNotFound()
+        public async Task GivenAResource_WhenPostingToHttpWithMaliciousId_TheServerShouldThrowBadRequestOrNotFound()
         {
             var observation = Samples.GetDefaultObservation()
                 .UpdateId("' SELECT name FROM syscolumns WHERE id = (SELECT id FROM sysobjects WHERE name = tablename')--")
@@ -159,7 +189,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Theory]
         [MemberData(nameof(HandledXssStrings))]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenPostingToHttpWithMaliciousNarrative_GivenAResource_TheServerShouldHandleRequest(string code)
+        public async Task GivenAResource_WhenPostingToHttpWithMaliciousNarrative_TheServerShouldHandleRequest(string code)
         {
             var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
             observation.Text = new Narrative
@@ -179,7 +209,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Theory]
         [MemberData(nameof(BadRequestXssStrings))]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenPostingToHttpWithMaliciousNarrative_GivenAResource_TheServerShouldBlockRequest(string code)
+        public async Task GivenAResource_WhenPostingToHttpWithMaliciousNarrative_TheServerShouldBlockRequest(string code)
         {
             var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
             observation.Text = new Narrative
@@ -191,7 +221,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // Xml can't even serialize these broken fragments
             if (Client.Format != ResourceFormat.Xml)
             {
-                await Assert.ThrowsAsync<FhirException>(() => Client.CreateAsync(observation));
+                var exception = await Assert.ThrowsAsync<FhirException>(() => Client.CreateAsync(observation));
+                Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
             }
         }
 

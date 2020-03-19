@@ -15,8 +15,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
     /// </summary>
     public class ExportJobRecord
     {
-        private const string SecretPrefix = "Export-Destination-";
-
         public ExportJobRecord(Uri requestUri, string resourceType, string hash, IReadOnlyCollection<KeyValuePair<string, string>> requestorClaims = null)
         {
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
@@ -33,7 +31,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             Status = OperationStatus.Queued;
 
             QueuedTime = Clock.UtcNow;
-            SecretName = SecretPrefix + Id;
         }
 
         [JsonConstructor]
@@ -50,9 +47,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         [JsonProperty(JobRecordProperties.RequestorClaims)]
         public IReadOnlyCollection<KeyValuePair<string, string>> RequestorClaims { get; private set; }
 
-        [JsonProperty(JobRecordProperties.SecretName)]
-        public string SecretName { get; private set; }
-
         [JsonProperty(JobRecordProperties.Id)]
         public string Id { get; private set; }
 
@@ -66,10 +60,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         public int SchemaVersion { get; private set; }
 
         [JsonProperty(JobRecordProperties.Output)]
-        public List<ExportFileInfo> Output { get; private set; } = new List<ExportFileInfo>();
+        public IDictionary<string, ExportFileInfo> Output { get; private set; } = new Dictionary<string, ExportFileInfo>();
 
         [JsonProperty(JobRecordProperties.Error)]
-        public List<ExportFileInfo> Error { get; private set; } = new List<ExportFileInfo>();
+        public IList<ExportFileInfo> Error { get; private set; } = new List<ExportFileInfo>();
 
         [JsonProperty(JobRecordProperties.Status)]
         public OperationStatus Status { get; set; }
@@ -80,10 +74,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         [JsonProperty(JobRecordProperties.EndTime)]
         public DateTimeOffset? EndTime { get; set; }
 
-        [JsonProperty(JobRecordProperties.CancelledTime)]
-        public DateTimeOffset? CancelledTime { get; set; }
+        [JsonProperty(JobRecordProperties.CanceledTime)]
+        public DateTimeOffset? CanceledTime { get; set; }
 
         [JsonProperty(JobRecordProperties.Progress)]
         public ExportJobProgress Progress { get; set; }
+
+        [JsonProperty(JobRecordProperties.FailureDetails)]
+        public ExportJobFailureDetails FailureDetails { get; set; }
     }
 }

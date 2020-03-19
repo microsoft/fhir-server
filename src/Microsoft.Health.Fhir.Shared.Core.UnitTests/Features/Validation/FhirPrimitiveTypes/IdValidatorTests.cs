@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using System.Linq;
 using FluentValidation;
 using FluentValidation.Internal;
 using FluentValidation.Results;
@@ -23,14 +24,22 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.FhirPrimitive
         [InlineData("1_1")]
         [InlineData("11|")]
         [InlineData("00000000000000000000000000000000000000000000000000000000000000065")]
-        public void GivenAnInvalidId_WhenProcessingAResource_ThenAValidationMessageIsCreated(string id)
+        public void GivenAnInvalidId_WhenProcessingAResource_ThenAValidationMessageWithAFhirPathIsCreated(string id)
         {
-            var defaultObservation = Samples.GetDefaultObservation()
-                .UpdateId(id);
+            var defaultObservation = Samples.GetDefaultObservation().UpdateId(id);
 
             IEnumerable<ValidationFailure> result = GetValidationFailures(defaultObservation);
+            List<ValidationFailure> validationFailures = result as List<ValidationFailure> ?? result.ToList();
 
-            Assert.Single(result);
+            Assert.Single(validationFailures);
+
+            var actualPartialFhirPath = validationFailures.FirstOrDefault()?.PropertyName;
+
+            var expectedPartialFhirPath = validationFailures?.FirstOrDefault()?.PropertyName;
+            expectedPartialFhirPath = string.IsNullOrEmpty(expectedPartialFhirPath) ? string.Empty : expectedPartialFhirPath;
+
+            // TODO: Test full path once resource type is included in path.
+            Assert.Equal(expectedPartialFhirPath, actualPartialFhirPath);
         }
 
         [Theory]
@@ -40,7 +49,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.FhirPrimitive
         [InlineData("a94060e6-038e-411b-a64b-38c2c3ff0fb7")]
         [InlineData("AF30C45C-94AC-4DE3-89D8-9A20BB2A973F")]
         [InlineData("0000000000000000000000000000000000000000000000000000000000000064")]
-        public void GivenAValidId_WhenProcessingAResource_ThenAValidationMessageIsCreated(string id)
+        public void GivenAValidId_WhenProcessingAResource_ThenAValidationMessageIsNotCreated(string id)
         {
             var defaultObservation = Samples.GetDefaultObservation().UpdateId(id);
 

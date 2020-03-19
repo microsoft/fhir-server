@@ -94,17 +94,21 @@ namespace Microsoft.Health.Extensions.Xunit
                 EnsureArg.IsNotNull(@class, nameof(@class));
                 EnsureArg.IsNotNull(testCases, nameof(testCases));
 
-                if (!(testClass.Class is TestClassWithFixtureArgumentsTypeInfo classWithFixtureArguments))
+                Dictionary<Type, object> combinedMappings = null;
+
+                if (testClass.Class is TestClassWithFixtureArgumentsTypeInfo classWithFixtureArguments)
                 {
-                    return base.RunTestClassAsync(testClass, @class, testCases);
+                    combinedMappings = new Dictionary<Type, object>(CollectionFixtureMappings);
+
+                    foreach (var variant in classWithFixtureArguments.FixtureArguments)
+                    {
+                        combinedMappings.Add(variant.EnumValue.GetType(), variant.EnumValue);
+                    }
                 }
 
-                // this is a test class that needs special logic for instantiating its fixture.
-
-                var combinedMappings = new Dictionary<Type, object>(CollectionFixtureMappings);
-                foreach (var variant in classWithFixtureArguments.FixtureArguments)
+                if (_assemblyFixtureMappings.Count > 0 && combinedMappings == null)
                 {
-                    combinedMappings.Add(variant.EnumValue.GetType(), variant.EnumValue);
+                    combinedMappings = new Dictionary<Type, object>(CollectionFixtureMappings);
                 }
 
                 foreach (var assemblyFixtureMapping in _assemblyFixtureMappings)
@@ -112,7 +116,7 @@ namespace Microsoft.Health.Extensions.Xunit
                     combinedMappings.Add(assemblyFixtureMapping.Key, assemblyFixtureMapping.Value);
                 }
 
-                return new XunitTestClassRunner(
+                return new ExecutionContextFlowingClassRunner(
                         testClass,
                         @class,
                         testCases,
@@ -121,8 +125,42 @@ namespace Microsoft.Health.Extensions.Xunit
                         TestCaseOrderer,
                         new ExceptionAggregator(Aggregator),
                         CancellationTokenSource,
-                        combinedMappings)
+                        combinedMappings ?? CollectionFixtureMappings)
                     .RunAsync();
+            }
+        }
+
+        /// <summary>
+        /// An <see cref="XunitTestClassRunner"/> that runs tests in the same <see cref="ExecutionContext"/> as when all fixture constructors ran.
+        /// This means that <see cref="AsyncLocal{T}"/>s set during a fixture constructor can be read during test method execution.
+        /// </summary>
+        private class ExecutionContextFlowingClassRunner : XunitTestClassRunner
+        {
+            private ExecutionContext _context;
+
+            public ExecutionContextFlowingClassRunner(ITestClass testClass, IReflectionTypeInfo @class, IEnumerable<IXunitTestCase> testCases, IMessageSink diagnosticMessageSink, IMessageBus messageBus, ITestCaseOrderer testCaseOrderer, ExceptionAggregator aggregator, CancellationTokenSource cancellationTokenSource, IDictionary<Type, object> collectionFixtureMappings)
+                : base(testClass, @class, testCases, diagnosticMessageSink, messageBus, testCaseOrderer, aggregator, cancellationTokenSource, collectionFixtureMappings)
+            {
+            }
+
+            protected override void CreateClassFixture(Type fixtureType)
+            {
+                base.CreateClassFixture(fixtureType);
+                _context = ExecutionContext.Capture();
+            }
+
+            protected override Task<RunSummary> RunTestMethodsAsync()
+            {
+                if (_context == null)
+                {
+                    // no class fixtures, so context needed
+
+                    return base.RunTestMethodsAsync();
+                }
+
+                Task<RunSummary> result = null;
+                ExecutionContext.Run(_context, state => result = base.RunTestMethodsAsync(), null);
+                return result;
             }
         }
 

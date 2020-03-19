@@ -20,11 +20,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     {
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
 
-        public StringOverflowRewriter(ISearchParameterDefinitionManager searchParameterDefinitionManager)
-            : base(new Scout(searchParameterDefinitionManager))
+        public StringOverflowRewriter(SupportedSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver)
+            : base(new Scout(searchParameterDefinitionManagerResolver()))
         {
-            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
-            _searchParameterDefinitionManager = searchParameterDefinitionManager;
+            EnsureArg.IsNotNull(searchParameterDefinitionManagerResolver, nameof(searchParameterDefinitionManagerResolver));
+            _searchParameterDefinitionManager = searchParameterDefinitionManagerResolver();
         }
 
         public override Expression VisitSearchParameter(SearchParameterExpression expression, object context)
@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                     return false;
                 }
 
-                if (expression.StringOperator == StringOperator.Equals && expression.Value.Length <= V1.StringSearchParam.Text.Metadata.MaxLength)
+                if (expression.StringOperator == StringOperator.Equals && expression.Value.Length <= VLatest.StringSearchParam.Text.Metadata.MaxLength)
                 {
                     // in these cases, we will know for sure that we do not need to consider the overflow column
                     return false;

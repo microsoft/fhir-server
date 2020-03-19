@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Azure {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "15.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     internal class Resources {
@@ -61,11 +61,11 @@ namespace Microsoft.Health.Fhir.Azure {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Unable to connect to given destination..
+        ///   Looks up a localized string similar to Unable to get access token for storage account for export..
         /// </summary>
-        internal static string CantConnectToDestination {
+        internal static string CannotGetAccessToken {
             get {
-                return ResourceManager.GetString("CantConnectToDestination", resourceCulture);
+                return ResourceManager.GetString("CannotGetAccessToken", resourceCulture);
             }
         }
         
@@ -84,6 +84,15 @@ namespace Microsoft.Health.Fhir.Azure {
         internal static string InvalidConnectionSettings {
             get {
                 return ResourceManager.GetString("InvalidConnectionSettings", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The given storage uri is invalid.
+        /// </summary>
+        internal static string InvalidStorageUri {
+            get {
+                return ResourceManager.GetString("InvalidStorageUri", resourceCulture);
             }
         }
     }

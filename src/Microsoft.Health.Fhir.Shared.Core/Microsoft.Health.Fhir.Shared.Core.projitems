@@ -12,31 +12,30 @@
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\FhirMediatorExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\ModelExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\ResourceTypeExtensions.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\CapabilityStatementExtensions.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\ConformanceProvider.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\ConformanceProviderBase.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\ConformanceProviderExtensions.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\DefaultConformanceProvider.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\GetCapabilitiesHandler.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\IConfiguredConformanceProvider.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\ISystemConformanceProvider.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\ListedContactPoint.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\SystemConformanceProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\DefaultParserSettings.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Definition\SupportedSearchParameterDefinitionManager.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Definition\SearchableSearchParameterDefinitionManager.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Definition\CompartmentDefinitionManager.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Definition\CompartmentIndexer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Definition\SearchParameterDefinitionBuilder.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Definition\SearchParameterDefinitionManager.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Definition\UnsupportedSearchParameters.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Export\ResourceToNdjsonBytesSerializer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\RawResourceFactory.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\BaseResourceHandler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Create\ConditionalCreateResourceHandler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Create\ConditionalCreateResourceValidator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Create\CreateResourceHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Create\CreateResourceValidator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Delete\DeleteResourceHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Delete\DeleteResourceValidator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Get\GetResourceHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Get\GetResourceValidator.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\ResourceExtensions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\ResourceReferenceResolver.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Upsert\ConditionalUpsertResourceHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Upsert\UpsertResourceHandler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Upsert\ConditionalUpsertResourceValidator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Upsert\UpsertResourceValidator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\BundleFactory.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\AddressToStringSearchValueConverter.cs" />
@@ -81,5 +80,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchResourceHistoryHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\ModelAttributeValidator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)FhirExtensions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)VersionSpecificModelInfoProvider.cs" />
   </ItemGroup>
 </Project>

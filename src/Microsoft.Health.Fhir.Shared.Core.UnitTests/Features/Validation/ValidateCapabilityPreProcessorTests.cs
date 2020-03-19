@@ -16,6 +16,9 @@ using Microsoft.Health.Fhir.Core.Messages.Get;
 using Microsoft.Health.Fhir.Tests.Common.Mocks;
 using NSubstitute;
 using Xunit;
+#pragma warning disable IDE0005 // Using directive is unnecessary.
+using static Hl7.Fhir.Model.CapabilityStatement;
+#pragma warning restore IDE0005 // Using directive is unnecessary.
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
@@ -27,7 +30,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation
         public ValidateCapabilityPreProcessorTests()
         {
             var statement = CapabilityStatementMock.GetMockedCapabilityStatement();
-            CapabilityStatementMock.SetupMockResource(statement, ResourceType.Observation, new[] { CapabilityStatement.TypeRestfulInteraction.Read });
+            CapabilityStatementMock.SetupMockResource(statement, ResourceType.Observation, interactions: new[] { TypeRestfulInteraction.Read });
 
             _conformanceProvider = Substitute.For<ConformanceProviderBase>();
             _conformanceProvider.GetCapabilityStatementAsync().Returns(statement.ToTypedElement().ToResourceElement());

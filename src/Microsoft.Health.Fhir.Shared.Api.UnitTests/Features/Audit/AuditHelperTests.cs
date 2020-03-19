@@ -6,14 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Net;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Abstractions;
-using Microsoft.AspNetCore.Mvc.Controllers;
-using Microsoft.AspNetCore.Mvc.Infrastructure;
-using Microsoft.AspNetCore.Mvc.RazorPages;
-using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Security;
@@ -24,129 +17,102 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
 {
     public class AuditHelperTests
     {
-        private const string ControllerName = nameof(MockController);
-        private const string AnonymousMethodName = nameof(MockController.Anonymous);
-        private const string AudittedMethodName = nameof(MockController.Auditted);
-        private const string NoAttributeMethodName = nameof(MockController.NoAttribute);
         private const string AuditEventType = "audit";
         private const string CorrelationId = "correlation";
         private static readonly Uri Uri = new Uri("http://localhost/123");
         private static readonly IReadOnlyCollection<KeyValuePair<string, string>> Claims = new List<KeyValuePair<string, string>>();
+        private static readonly IPAddress CallerIpAddress = new IPAddress(new byte[] { 0xA, 0x0, 0x0, 0x0 }); // 10.0.0.0
+        private const string CallerIpAddressInString = "10.0.0.0";
 
-        private readonly IActionDescriptorCollectionProvider _actionDescriptorCollectionProvider = Substitute.For<IActionDescriptorCollectionProvider>();
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
-        private readonly IClaimsExtractor _claimsExtractor = Substitute.For<IClaimsExtractor>();
         private readonly IAuditLogger _auditLogger = Substitute.For<IAuditLogger>();
+        private readonly IAuditHeaderReader _auditHeaderReader = Substitute.For<IAuditHeaderReader>();
 
         private readonly IFhirRequestContext _fhirRequestContext = Substitute.For<IFhirRequestContext>();
 
         private readonly IAuditHelper _auditHelper;
 
+        private readonly HttpContext _httpContext = new DefaultHttpContext();
+        private readonly IClaimsExtractor _claimsExtractor = Substitute.For<IClaimsExtractor>();
+
         public AuditHelperTests()
         {
-            Type mockControllerType = typeof(MockController);
-
-            var actionDescriptors = new List<ActionDescriptor>()
-            {
-                new ControllerActionDescriptor()
-                {
-                    ControllerName = ControllerName,
-                    ActionName = AnonymousMethodName,
-                    MethodInfo = mockControllerType.GetMethod(AnonymousMethodName),
-                },
-                new ControllerActionDescriptor()
-                {
-                    ControllerName = ControllerName,
-                    ActionName = AudittedMethodName,
-                    MethodInfo = mockControllerType.GetMethod(AudittedMethodName),
-                },
-                new ControllerActionDescriptor()
-                {
-                    ControllerName = ControllerName,
-                    ActionName = NoAttributeMethodName,
-                    MethodInfo = mockControllerType.GetMethod(NoAttributeMethodName),
-                },
-                new PageActionDescriptor()
-                {
-                },
-            };
-
-            var actionDescriptorCollection = new ActionDescriptorCollection(actionDescriptors, 1);
-
-            _actionDescriptorCollectionProvider.ActionDescriptors.Returns(actionDescriptorCollection);
-
             _fhirRequestContext.Uri.Returns(Uri);
             _fhirRequestContext.CorrelationId.Returns(CorrelationId);
+            _fhirRequestContext.ResourceType.Returns("Patient");
 
             _fhirRequestContextAccessor.FhirRequestContext = _fhirRequestContext;
 
+            _httpContext.Connection.RemoteIpAddress = CallerIpAddress;
+
             _claimsExtractor.Extract().Returns(Claims);
 
-            _auditHelper = new AuditHelper(_actionDescriptorCollectionProvider, _fhirRequestContextAccessor, _claimsExtractor, _auditLogger, NullLogger<AuditHelper>.Instance);
-
-            ((IStartable)_auditHelper).Start();
-        }
-
-        [Theory]
-        [InlineData(ControllerName, AnonymousMethodName, null)]
-        [InlineData(ControllerName, AudittedMethodName, AuditEventType)]
-        public void GivenControllerNameAndActionName_WhenGetAuditEventTypeIsCalled_ThenAuditEventTypeShouldBeReturned(string controllerName, string actionName, string expectedAuditEventType)
-        {
-            string actualAuditEventType = _auditHelper.GetAuditEventType(controllerName, actionName);
-
-            Assert.Equal(expectedAuditEventType, actualAuditEventType);
+            _auditHelper = new AuditHelper(_fhirRequestContextAccessor, _auditLogger, _auditHeaderReader);
         }
 
         [Fact]
-        public void GivenUnknownControllerNameAndActionName_WhenGetAuditEventTypeIsCalled_ThenAuditExceptionShouldBeThrown()
+        public void GivenNoAuditEventType_WhenLogExecutingIsCalled_ThenAuditLogShouldNotBeLogged()
         {
-            Assert.Throws<AuditException>(() => _auditHelper.GetAuditEventType("test", "action"));
+            _auditHelper.LogExecuting(_httpContext, _claimsExtractor);
+
+            _auditLogger.DidNotReceiveWithAnyArgs().LogAudit(
+                auditAction: default,
+                operation: default,
+                resourceType: default,
+                requestUri: default,
+                statusCode: default,
+                correlationId: default,
+                callerIpAddress: default,
+                callerClaims: default);
         }
 
         [Fact]
-        public void GivenAnActionHasAllowAnonymousAttribute_WhenLogExecutingIsCalled_ThenAuditLogShouldNotBeLogged()
+        public void GivenAuditEventType_WhenLogExecutingIsCalled_ThenAuditLogShouldBeLogged()
         {
-            _auditHelper.LogExecuting(ControllerName, AnonymousMethodName);
+            _fhirRequestContext.AuditEventType.Returns(AuditEventType);
 
-            _auditLogger.DidNotReceiveWithAnyArgs().LogAudit(AuditAction.Executing, null, null, null, null, null, null);
-        }
-
-        [Fact]
-        public void GivenAnActionHasAuditEventTypeAttribute_WhenLogExecutingIsCalled_ThenAuditLogShouldBeLogged()
-        {
-            _auditHelper.LogExecuting(ControllerName, AudittedMethodName);
+            _auditHelper.LogExecuting(_httpContext, _claimsExtractor);
 
             _auditLogger.Received(1).LogAudit(
                 AuditAction.Executing,
                 AuditEventType,
-                resourceType: null,
+                resourceType: "Patient",
                 requestUri: Uri,
                 statusCode: null,
                 correlationId: CorrelationId,
-                claims: Claims);
+                callerIpAddress: CallerIpAddressInString,
+                callerClaims: Claims,
+                customHeaders: _auditHeaderReader.Read(_httpContext));
         }
 
         [Fact]
-        public void GivenUnknownActon_WhenLogExecutingIsCalled_ThenAuditExceptionShouldBeThrown()
+        public void GivenNoAuditEventType_WhenLogExecutedIsCalled_ThenAuditLogShouldNotBeLogged()
         {
-            Assert.Throws<AuditException>(() => _auditHelper.LogExecuting("test", "action"));
+            _auditHelper.LogExecuted(_httpContext, _claimsExtractor);
+
+            _auditLogger.DidNotReceiveWithAnyArgs().LogAudit(
+                auditAction: default,
+                operation: default,
+                resourceType: default,
+                requestUri: default,
+                statusCode: default,
+                correlationId: default,
+                callerIpAddress: default,
+                callerClaims: default);
         }
 
         [Fact]
-        public void GivenAnActionHasAllowAnonymousAttribute_WhenLogExecutedIsCalled_ThenAuditLogShouldNotBeLogged()
-        {
-            _auditHelper.LogExecuted(ControllerName, AnonymousMethodName, HttpStatusCode.OK, "Patient");
-
-            _auditLogger.DidNotReceiveWithAnyArgs().LogAudit(AuditAction.Executed, null, null, null, null, null, null);
-        }
-
-        [Fact]
-        public void GivenAnActionHasAuditEventTypeAttribute_WhenLogExecutedIsCalled_ThenAuditLogShouldBeLogged()
+        public void GivenAuditEventType_WhenLogExecutedIsCalled_ThenAuditLogShouldBeLogged()
         {
             const HttpStatusCode expectedStatusCode = HttpStatusCode.Created;
             const string expectedResourceType = "Patient";
 
-            _auditHelper.LogExecuted(ControllerName, AudittedMethodName, expectedStatusCode, expectedResourceType);
+            _fhirRequestContext.AuditEventType.Returns(AuditEventType);
+            _fhirRequestContext.ResourceType.Returns(expectedResourceType);
+
+            _httpContext.Response.StatusCode = (int)expectedStatusCode;
+
+            _auditHelper.LogExecuted(_httpContext, _claimsExtractor);
 
             _auditLogger.Received(1).LogAudit(
                 AuditAction.Executed,
@@ -155,24 +121,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
                 Uri,
                 expectedStatusCode,
                 CorrelationId,
-                Claims);
-        }
-
-        [Fact]
-        public void GivenUnknownActon_WhenLogExecutedIsCalled_ThenAuditExceptionShouldBeThrown()
-        {
-            Assert.Throws<AuditException>(() => _auditHelper.LogExecuted("test", "action", HttpStatusCode.Created, "Patient"));
-        }
-
-        private class MockController : Controller
-        {
-            [AllowAnonymous]
-            public IActionResult Anonymous() => new OkResult();
-
-            [AuditEventType(AuditEventType)]
-            public IActionResult Auditted() => new OkResult();
-
-            public IActionResult NoAttribute() => new OkResult();
+                CallerIpAddressInString,
+                Claims,
+                customHeaders: _auditHeaderReader.Read(_httpContext));
         }
     }
 }

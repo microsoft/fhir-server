@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -12,7 +13,9 @@ using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Health.Fhir.Api.Features.Filters;
+using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Validation;
+using Microsoft.Health.Fhir.Core.Models;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
@@ -46,7 +49,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 
             var context = CreateContext(observation, observation.Id.ToUpper());
 
-            Assert.Throws<ResourceNotValidException>(() => filter.OnActionExecuting(context));
+            var exception = Assert.Throws<ResourceNotValidException>(() => filter.OnActionExecuting(context));
+            Assert.Equal("Observation.id", exception.Issues.First<OperationOutcomeIssue>().Location.First());
         }
 
         [Fact]
@@ -73,13 +77,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 
             var context = CreateContext(observation, Guid.NewGuid().ToString());
 
-            Assert.Throws<ResourceNotValidException>(() => filter.OnActionExecuting(context));
+            var exception = Assert.Throws<ResourceNotValidException>(() => filter.OnActionExecuting(context));
+            Assert.Equal("Observation.id", exception.Issues.First<OperationOutcomeIssue>().Location.First());
         }
 
         private static ActionExecutingContext CreateContext(Resource type, string id)
         {
             return new ActionExecutingContext(
-                new ActionContext(new DefaultHttpContext(), new RouteData { Values = { ["type"] = "Observation", ["id"] = id } }, new ActionDescriptor()),
+                new ActionContext(new DefaultHttpContext(), new RouteData { Values = { [KnownActionParameterNames.ResourceType] = "Observation", [KnownActionParameterNames.Id] = id } }, new ActionDescriptor()),
                 new List<IFilterMetadata>(),
                 new Dictionary<string, object> { { "resource", type } },
                 FilterTestsHelper.CreateMockFhirController());

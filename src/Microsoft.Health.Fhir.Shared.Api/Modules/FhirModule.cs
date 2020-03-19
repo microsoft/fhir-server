@@ -6,8 +6,10 @@
 using System;
 using System.Collections.Generic;
 using EnsureThat;
+using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Hl7.FhirPath;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.Extensions.DependencyInjection;
@@ -24,8 +26,7 @@ using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Validation;
-using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
+using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Api.Modules
@@ -58,6 +59,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton(jsonSerializer);
             services.AddSingleton(xmlParser);
             services.AddSingleton(xmlSerializer);
+
+            FhirPathCompiler.DefaultSymbolTable.AddFhirExtensions();
 
             ResourceElement SetMetadata(Resource resource, string versionId, DateTimeOffset lastModified)
             {
@@ -92,24 +95,14 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.Add<FormatterConfiguration>()
                 .Singleton()
                 .AsSelf()
-                .AsService<IPostConfigureOptions<MvcOptions>>()
-                .AsService<IProvideCapability>();
+                .AsService<IPostConfigureOptions<MvcOptions>>();
 
             services.AddSingleton<IContentTypeService, ContentTypeService>();
             services.AddSingleton<OperationOutcomeExceptionFilterAttribute>();
             services.AddSingleton<ValidateContentTypeFilterAttribute>();
             services.AddSingleton<ValidateExportRequestFilterAttribute>();
 
-            // HTML
-            // If UI is supported, then add the formatter so that the
-            // document can be output in HTML view.
-            if (_featureConfiguration.SupportsUI)
-            {
-                services.Add<HtmlOutputFormatter>()
-                    .Singleton()
-                    .AsSelf()
-                    .AsService<TextOutputFormatter>();
-            }
+            FhirPathCompiler.DefaultSymbolTable.AddFhirExtensions();
 
             services.Add<FhirJsonInputFormatter>()
                 .Singleton()
@@ -121,19 +114,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsSelf()
                 .AsService<TextOutputFormatter>();
 
-            if (_featureConfiguration.SupportsXml)
-            {
-                services.Add<FhirXmlInputFormatter>()
-                    .Singleton()
-                    .AsSelf()
-                    .AsService<TextInputFormatter>();
-
-                services.Add<FhirXmlOutputFormatter>()
-                    .Singleton()
-                    .AsSelf()
-                    .AsService<TextOutputFormatter>();
-            }
-
             services.Add<FhirRequestContextAccessor>()
                 .Singleton()
                 .AsSelf()
@@ -142,17 +122,10 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton<CorrelationIdProvider>(_ => () => Guid.NewGuid().ToString());
 
             // Add conformance provider for implementation metadata.
-            services.AddSingleton<IConfiguredConformanceProvider, DefaultConformanceProvider>();
-
-            services.Add<ConformanceProvider>()
-                .Singleton()
-                .AsSelf()
-                .AsService<IConformanceProvider>();
-
             services.Add<SystemConformanceProvider>()
                 .Singleton()
                 .AsSelf()
-                .AsService<ISystemConformanceProvider>();
+                .AsImplementedInterfaces();
 
             services.Add<SecurityProvider>()
                 .Singleton()
@@ -164,9 +137,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .Transient()
                 .AsService<IProvideCapability>();
 
-            services.AddSingleton<INarrativeHtmlSanitizer, NarrativeHtmlSanitizer>();
-
-            services.AddSingleton<IModelAttributeValidator, ModelAttributeValidator>();
+            services.AddSingleton<IClaimsExtractor, PrincipalClaimsExtractor>();
 
             ModelExtensions.SetModelInfoProvider();
             services.Add(_ => ModelInfoProvider.Instance).Singleton().AsSelf().AsImplementedInterfaces();

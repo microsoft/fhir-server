@@ -77,6 +77,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         }
 
         [Fact]
+        public void GivenAValidSearchParameterDefinitionFile_WhenBuilt_ThenAllResourceTypesShouldBeIncluded()
+        {
+            _builderWithValidEntries.Build();
+
+            Assert.Equal(
+                ModelInfoProvider.GetResourceTypeNames().Concat(new[] { "Resource", "DomainResource" }).OrderBy(x => x).ToArray(),
+                _builderWithValidEntries.ResourceTypeDictionary.Select(x => x.Key).OrderBy(x => x).ToArray());
+        }
+
+        [Fact]
         public void GivenAValidSearchParameterDefinitionFile_WhenBuilt_ThenCorrectListOfSearchParametersIsBuiltForEntriesWithSingleBase()
         {
             _builderWithValidEntries.Build();
@@ -94,7 +104,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         [Theory]
         [InlineData(ResourceType.MedicationRequest)]
         [InlineData(ResourceType.MedicationAdministration)]
-        [InlineData(ResourceType.MedicationStatement)]
+        [InlineData(ResourceType.Medication)]
         [InlineData(ResourceType.MedicationDispense)]
         public void GivenAValidSearchParameterDefinitionFile_WhenBuilt_ThenCorrectListOfSearchParametersIsBuiltForEntriesWithMultipleBase(ResourceType resourceType)
         {
@@ -106,13 +116,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
                 searchParametersDictionary,
                 ("_type", SearchParamType.Token, "Resource.type().name"),
                 ("_id", SearchParamType.Token, "Resource.id"),
-                ("identifier", SearchParamType.Token, "MedicationRequest.identifier | MedicationAdministration.identifier | MedicationStatement.identifier | MedicationDispense.identifier"));
+                ("identifier", SearchParamType.Token, "MedicationRequest.identifier | MedicationAdministration.identifier | Medication.identifier | MedicationDispense.identifier"));
         }
 
         private SearchParameterDefinitionBuilder CreateBuilder(string fileName)
         {
             return new SearchParameterDefinitionBuilder(
                 _jsonParser,
+                ModelInfoProvider.Instance,
                 typeof(EmbeddedResourceManager).Assembly,
                 $"{typeof(Definitions).Namespace}.DefinitionFiles.{ModelInfoProvider.Version}.{fileName}.json");
         }

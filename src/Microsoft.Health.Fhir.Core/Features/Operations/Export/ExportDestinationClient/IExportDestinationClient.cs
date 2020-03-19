@@ -16,18 +16,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinatio
     public interface IExportDestinationClient
     {
         /// <summary>
-        /// Gets the supported destination type.
-        /// </summary>
-        string DestinationType { get; }
-
-        /// <summary>
         /// Connects to the destination.
         /// </summary>
-        /// <param name="connectionSettings">The connection settings.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <param name="containerId">The id of the container to use for exporting data. We will use the default/root container if not provided.</param>
         /// <returns>A <see cref="Task"/> representing connection operation.</returns>
-        Task ConnectAsync(string connectionSettings, CancellationToken cancellationToken, string containerId = null);
+        /// <exception cref="DestinationConnectionException">Thrown when we can't connect to the destination.</exception>
+        Task ConnectAsync(CancellationToken cancellationToken, string containerId = null);
 
         /// <summary>
         /// Creates a new file in the destination.
@@ -53,5 +48,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinatio
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>A <see cref="Task"/> representing the asynchronous commit operation.</returns>
         Task CommitAsync(CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Opens an existing file from the destination.
+        /// </summary>
+        /// <param name="fileUri">Uri of the file to be opened.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>A <see cref="Task"/> representing the asynchronous initialize operation.</returns>
+        Task OpenFileAsync(Uri fileUri, CancellationToken cancellationToken);
     }
 }

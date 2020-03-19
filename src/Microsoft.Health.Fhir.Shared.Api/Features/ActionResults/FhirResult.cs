@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
     /// <summary>
     /// Handles the output of a FHIR MVC Action Method
     /// </summary>
-    public class FhirResult : BaseActionResult<ResourceElement>
+    public class FhirResult : ResourceActionResult<ResourceElement>
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="FhirResult" /> class.

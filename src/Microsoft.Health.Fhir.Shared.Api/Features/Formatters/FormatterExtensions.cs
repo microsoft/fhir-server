@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                 return contentType;
             }
 
-            throw new UnsupportedMediaTypeException(Resources.UnsupportedFormatParameter);
+            throw new UnsupportedMediaTypeException(Api.Resources.UnsupportedFormatParameter);
         }
     }
 }

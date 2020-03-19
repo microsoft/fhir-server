@@ -34,6 +34,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private static readonly Uri _selfUrl = new Uri("http://self/");
         private static readonly Uri _nextUrl = new Uri("http://next/");
         private static readonly IReadOnlyList<Tuple<string, string>> _unsupportedSearchParameters = new Tuple<string, string>[0];
+        private static readonly IReadOnlyList<(string searchParameter, string reason)> _unsupportedSortingParameters = Array.Empty<(string parameterName, string reason)>();
+
         private static readonly DateTimeOffset _dateTime = new DateTimeOffset(2019, 1, 5, 15, 30, 23, TimeSpan.FromHours(8));
 
         public BundleFactoryTests()
@@ -56,13 +58,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public void GivenAnEmptySearchResult_WhenCreateSearchBundle_ThenCorrectBundleShouldBeReturned()
         {
-            _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters).Returns(_selfUrl);
+            _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters, _unsupportedSortingParameters).Returns(_selfUrl);
 
             ResourceElement actual = null;
 
             using (Mock.Property(() => Clock.UtcNowFunc, () => _dateTime))
             {
-                actual = _bundleFactory.CreateSearchBundle(new SearchResult(new ResourceWrapper[0], _unsupportedSearchParameters, null));
+                actual = _bundleFactory.CreateSearchBundle(new SearchResult(new SearchResultEntry[0], _unsupportedSearchParameters, _unsupportedSortingParameters, null));
             }
 
             Assert.NotNull(actual);
@@ -76,18 +78,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public void GivenASearchResult_WhenCreateSearchBundle_ThenCorrectBundleShouldBeReturned()
         {
             _urlResolver.ResolveResourceUrl(Arg.Any<ResourceElement>()).Returns(x => new Uri(string.Format(_resourceUrlFormat, x.ArgAt<ResourceElement>(0).Id)));
-            _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters).Returns(_selfUrl);
+            _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters, _unsupportedSortingParameters).Returns(_selfUrl);
 
             ResourceElement observation1 = Samples.GetDefaultObservation().UpdateId("123");
             ResourceElement observation2 = Samples.GetDefaultObservation().UpdateId("abc");
 
-            var resourceWrappers = new ResourceWrapper[]
+            var resourceWrappers = new SearchResultEntry[]
             {
-                CreateResourceWrapper(observation1),
-                CreateResourceWrapper(observation2),
+                new SearchResultEntry(CreateResourceWrapper(observation1)),
+                new SearchResultEntry(CreateResourceWrapper(observation2)),
             };
 
-            var searchResult = new SearchResult(resourceWrappers, _unsupportedSearchParameters, continuationToken: null);
+            var searchResult = new SearchResult(resourceWrappers, _unsupportedSearchParameters, _unsupportedSortingParameters, continuationToken: null);
 
             ResourceElement actual = null;
 
@@ -129,14 +131,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public void GivenASearchResultWithContinuationToken_WhenCreateSearchBundle_ThenCorrectBundleShouldBeReturned()
         {
-            _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters, _continuationToken).Returns(_nextUrl);
-            _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters).Returns(_selfUrl);
+            string encodedContinuationToken = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(_continuationToken));
+            _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters, _unsupportedSortingParameters, encodedContinuationToken, true).Returns(_nextUrl);
+            _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters, _unsupportedSortingParameters).Returns(_selfUrl);
 
-            var searchResult = new SearchResult(new ResourceWrapper[0], _unsupportedSearchParameters, _continuationToken);
+            var searchResult = new SearchResult(new SearchResultEntry[0], _unsupportedSearchParameters, _unsupportedSortingParameters, _continuationToken);
 
             ResourceElement actual = _bundleFactory.CreateSearchBundle(searchResult);
 
-            // Since there is no continuation token, there should not be next link.
             Assert.Equal(_nextUrl.OriginalString, actual.Scalar<string>("Bundle.link.where(relation='next').url"));
         }
     }

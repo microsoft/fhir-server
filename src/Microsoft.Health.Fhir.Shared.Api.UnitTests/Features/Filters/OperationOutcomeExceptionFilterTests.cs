@@ -15,7 +15,9 @@ using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
+using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Filters;
+using Microsoft.Health.Fhir.Api.UnitTests.Features.Context;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -32,9 +34,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
     public class OperationOutcomeExceptionFilterTests
     {
         private readonly ActionExecutedContext _context;
-        private IFhirRequestContextAccessor _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
-        private IFhirRequestContext _fhirRequestContext = Substitute.For<IFhirRequestContext>();
-        private string _correlationId = Guid.NewGuid().ToString();
+        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
+        private readonly DefaultFhirRequestContext _fhirRequestContext = new DefaultFhirRequestContext();
+        private readonly string _correlationId = Guid.NewGuid().ToString();
 
         public OperationOutcomeExceptionFilterTests()
         {
@@ -43,7 +45,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
                 new List<IFilterMetadata>(),
                 FilterTestsHelper.CreateMockFhirController());
 
-            _fhirRequestContext.CorrelationId.Returns(_correlationId);
+            _fhirRequestContext.CorrelationId = _correlationId;
             _fhirRequestContextAccessor.FhirRequestContext.Returns(_fhirRequestContext);
         }
 
@@ -158,13 +160,48 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         [Fact]
         public void GivenAnOperationNotImplementedException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
-            ValidateOperationOutcome(new OperationNotImplementedException("Not implemented."), HttpStatusCode.NotImplemented);
+            ValidateOperationOutcome(new OperationNotImplementedException("Not implemented."), HttpStatusCode.MethodNotAllowed);
         }
 
         [Fact]
         public void GivenAJobNotFoundException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
             ValidateOperationOutcome(new JobNotFoundException("Job not found."), HttpStatusCode.NotFound);
+        }
+
+        [Theory]
+        [InlineData(HttpStatusCode.BadRequest)]
+        [InlineData(HttpStatusCode.InternalServerError)]
+        public void GivenAnOperationFailedException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome(HttpStatusCode statusCode)
+        {
+            ValidateOperationOutcome(new OperationFailedException("Operation failed.", statusCode), statusCode);
+        }
+
+        [Theory]
+        [InlineData(HttpStatusCode.BadRequest)]
+        [InlineData(HttpStatusCode.PreconditionFailed)]
+        [InlineData(HttpStatusCode.NotFound)]
+        public void GivenATransactionFailedException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome(HttpStatusCode statusCode)
+        {
+            ValidateOperationOutcome(new TransactionFailedException("Transaction failed.", statusCode, new List<OperationOutcomeIssue>()), statusCode);
+        }
+
+        [Fact]
+        public void GivenANotAcceptableException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
+        {
+            ValidateOperationOutcome(new NotAcceptableException("Not acceptable."), HttpStatusCode.NotAcceptable);
+        }
+
+        [Fact]
+        public void GivenARequestEntityTooLargeException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
+        {
+            ValidateOperationOutcome(new RequestEntityTooLargeException(), HttpStatusCode.RequestEntityTooLarge);
+        }
+
+        [Fact]
+        public void GivenABundleEntryLimitExceededException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
+        {
+            ValidateOperationOutcome(new BundleEntryLimitExceededException("Bundle entry limit exceeded."), HttpStatusCode.BadRequest);
         }
 
         private OperationOutcomeResult ValidateOperationOutcome(Exception exception, HttpStatusCode expectedStatusCode)

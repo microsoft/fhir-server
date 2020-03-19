@@ -6,64 +6,58 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Net;
 using System.Threading;
-using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
-using Microsoft.Health.Fhir.Core.Features.SecretStore;
-using Newtonsoft.Json;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
     public class ExportJobTask : IExportJobTask
     {
-        private readonly IFhirOperationDataStore _fhirOperationDataStore;
-        private readonly ISecretStore _secretStore;
+        private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
         private readonly ExportJobConfiguration _exportJobConfiguration;
-        private readonly ISearchService _searchService;
+        private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly IResourceToByteArraySerializer _resourceToByteArraySerializer;
-        private readonly IExportDestinationClientFactory _exportDestinationClientFactory;
+        private readonly IExportDestinationClient _exportDestinationClient;
         private readonly ILogger _logger;
 
         // Currently we will have only one file per resource type. In the future we will add the ability to split
         // individual files based on a max file size. This could result in a single resource having multiple files.
         // We will have to update the below mapping to support multiple ExportFileInfo per resource type.
-        private readonly Dictionary<string, ExportFileInfo> _resourceTypeToFileInfoMapping = new Dictionary<string, ExportFileInfo>();
+        private readonly IDictionary<string, ExportFileInfo> _resourceTypeToFileInfoMapping = new Dictionary<string, ExportFileInfo>();
 
         private ExportJobRecord _exportJobRecord;
         private WeakETag _weakETag;
-        private IExportDestinationClient _exportDestinationClient;
 
         public ExportJobTask(
-            IFhirOperationDataStore fhirOperationDataStore,
-            ISecretStore secretStore,
+            Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory,
             IOptions<ExportJobConfiguration> exportJobConfiguration,
-            ISearchService searchService,
+            Func<IScoped<ISearchService>> searchServiceFactory,
             IResourceToByteArraySerializer resourceToByteArraySerializer,
-            IExportDestinationClientFactory exportDestinationClientFactory,
+            IExportDestinationClient exportDestinationClient,
             ILogger<ExportJobTask> logger)
         {
-            EnsureArg.IsNotNull(fhirOperationDataStore, nameof(fhirOperationDataStore));
-            EnsureArg.IsNotNull(secretStore, nameof(secretStore));
+            EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
             EnsureArg.IsNotNull(exportJobConfiguration?.Value, nameof(exportJobConfiguration));
-            EnsureArg.IsNotNull(searchService, nameof(searchService));
+            EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(resourceToByteArraySerializer, nameof(resourceToByteArraySerializer));
-            EnsureArg.IsNotNull(exportDestinationClientFactory, nameof(exportDestinationClientFactory));
+            EnsureArg.IsNotNull(exportDestinationClient, nameof(exportDestinationClient));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _fhirOperationDataStore = fhirOperationDataStore;
-            _secretStore = secretStore;
+            _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
             _exportJobConfiguration = exportJobConfiguration.Value;
-            _searchService = searchService;
+            _searchServiceFactory = searchServiceFactory;
             _resourceToByteArraySerializer = resourceToByteArraySerializer;
-            _exportDestinationClientFactory = exportDestinationClientFactory;
+            _exportDestinationClient = exportDestinationClient;
             _logger = logger;
         }
 
@@ -77,26 +71,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             try
             {
-                // Get destination type from secret store.
-                DestinationInfo destinationInfo = await GetDestinationInfo(cancellationToken);
+                // Connect to export destination using appropriate client.
+                await _exportDestinationClient.ConnectAsync(cancellationToken, _exportJobRecord.Id);
 
-                // Connect to the destination using appropriate client.
-                _exportDestinationClient = _exportDestinationClientFactory.Create(destinationInfo.DestinationType);
-
-                await _exportDestinationClient.ConnectAsync(destinationInfo.DestinationConnectionString, cancellationToken, _exportJobRecord.Id);
-
-                // TODO: For now, always restart from the beginning. We will support resume in another work item.
-                _exportJobRecord.Progress = new ExportJobProgress(continuationToken: null, page: 0);
+                // If we are resuming a job, we can detect that by checking the progress info from the job record.
+                // If it is null, then we know we are processing a new job.
+                if (_exportJobRecord.Progress == null)
+                {
+                    _exportJobRecord.Progress = new ExportJobProgress(continuationToken: null, page: 0);
+                }
 
                 ExportJobProgress progress = _exportJobRecord.Progress;
 
-                // Current page will be used to organize a set of search results into a group so that they can be committed together.
+                // Current batch will be used to organize a set of search results into a group so that they can be committed together.
                 uint currentBatchId = progress.Page;
 
                 // The first item is placeholder for continuation token so that it can be updated efficiently later.
                 var queryParameters = new Tuple<string, string>[]
                 {
-                    null,
+                    Tuple.Create(KnownQueryParameterNames.ContinuationToken, progress.ContinuationToken),
                     Tuple.Create(KnownQueryParameterNames.Count, _exportJobConfiguration.MaximumNumberOfResourcesPerQuery.ToString(CultureInfo.InvariantCulture)),
                     Tuple.Create(KnownQueryParameterNames.LastUpdated, $"le{_exportJobRecord.QueuedTime.ToString("o", CultureInfo.InvariantCulture)}"),
                 };
@@ -106,26 +99,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 // 2. There is no continuation token but the page is 0, which means it's the initial export.
                 while (progress.ContinuationToken != null || progress.Page == 0)
                 {
-                    // Commit the changes if necessary.
-                    if (progress.Page != 0 && progress.Page % _exportJobConfiguration.NumberOfPagesPerCommit == 0)
+                    SearchResult searchResult;
+
+                    // Search and process the results.
+                    using (IScoped<ISearchService> searchService = _searchServiceFactory())
                     {
-                        await _exportDestinationClient.CommitAsync(cancellationToken);
+                        // If the continuation token is null, then we will exclude it. Calculate the offset and count to be passed in.
+                        int offset = queryParameters[0].Item2 == null ? 1 : 0;
 
-                        // Update the job record.
-                        await UpdateJobRecord(_exportJobRecord, cancellationToken);
-
-                        currentBatchId = progress.Page;
+                        searchResult = await searchService.Value.SearchAsync(
+                            _exportJobRecord.ResourceType,
+                            new ArraySegment<Tuple<string, string>>(queryParameters, offset, queryParameters.Length - offset),
+                            cancellationToken);
                     }
 
-                    // Set the continuation token.
-                    queryParameters[0] = Tuple.Create(KnownQueryParameterNames.ContinuationToken, progress.ContinuationToken);
-
-                    SearchResult searchResult = await _searchService.SearchAsync(_exportJobRecord.ResourceType, queryParameters, cancellationToken);
-
-                    foreach (ResourceWrapper resourceWrapper in searchResult.Results)
-                    {
-                        await ProcessResourceWrapperAsync(resourceWrapper, currentBatchId, cancellationToken);
-                    }
+                    await ProcessSearchResultsAsync(searchResult.Results, currentBatchId, cancellationToken);
 
                     if (searchResult.ContinuationToken == null)
                     {
@@ -133,36 +121,41 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         break;
                     }
 
-                    // Update the job record.
+                    // Update the continuation token (local cache).
                     progress.UpdateContinuationToken(searchResult.ContinuationToken);
+                    queryParameters[0] = Tuple.Create(KnownQueryParameterNames.ContinuationToken, progress.ContinuationToken);
+
+                    if (progress.Page % _exportJobConfiguration.NumberOfPagesPerCommit == 0)
+                    {
+                        // Commit the changes.
+                        await _exportDestinationClient.CommitAsync(cancellationToken);
+
+                        // Update the job record.
+                        await UpdateJobRecordAsync(cancellationToken);
+
+                        currentBatchId = progress.Page;
+                    }
                 }
 
                 // Commit one last time for any pending changes.
                 await _exportDestinationClient.CommitAsync(cancellationToken);
 
-                _exportJobRecord.Output.AddRange(_resourceTypeToFileInfoMapping.Values);
+                await CompleteJobAsync(OperationStatus.Completed, cancellationToken);
 
                 _logger.LogTrace("Successfully completed the job.");
-
-                await UpdateJobStatus(OperationStatus.Completed, updateEndTimestamp: true, cancellationToken);
-
-                try
-                {
-                    // Best effort to delete the secret. If it fails to delete, then move on.
-                    await _secretStore.DeleteSecretAsync(_exportJobRecord.SecretName, cancellationToken);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to delete the secret.");
-                }
             }
             catch (JobConflictException)
             {
-                // The job was updated by another process.
-                _logger.LogWarning("The job was updated by another process.");
+                // The export job was updated externally. There might be some additional resources that were exported
+                // but we will not be updating the job record.
+                _logger.LogTrace("The job was updated by another process.");
+            }
+            catch (DestinationConnectionException dce)
+            {
+                _logger.LogError(dce, "Can't connect to destination. The job will be marked as failed.");
 
-                // TODO: We will want to get the latest and merge the results without updating the status.
-                return;
+                _exportJobRecord.FailureDetails = new ExportJobFailureDetails(dce.Message, dce.StatusCode);
+                await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
             catch (Exception ex)
             {
@@ -170,61 +163,70 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 // Try to update the job to failed state.
                 _logger.LogError(ex, "Encountered an unhandled exception. The job will be marked as failed.");
 
-                await UpdateJobStatus(OperationStatus.Failed, updateEndTimestamp: true, cancellationToken);
+                _exportJobRecord.FailureDetails = new ExportJobFailureDetails(Resources.UnknownError, HttpStatusCode.InternalServerError);
+                await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
         }
 
-        private async Task UpdateJobStatus(OperationStatus operationStatus, bool updateEndTimestamp, CancellationToken cancellationToken)
+        private async Task CompleteJobAsync(OperationStatus completionStatus, CancellationToken cancellationToken)
         {
-            _exportJobRecord.Status = operationStatus;
+            _exportJobRecord.Status = completionStatus;
+            _exportJobRecord.EndTime = Clock.UtcNow;
 
-            if (updateEndTimestamp)
+            await UpdateJobRecordAsync(cancellationToken);
+        }
+
+        private async Task UpdateJobRecordAsync(CancellationToken cancellationToken)
+        {
+            using (IScoped<IFhirOperationDataStore> fhirOperationDataStore = _fhirOperationDataStoreFactory())
             {
-                _exportJobRecord.EndTime = Clock.UtcNow;
+                ExportJobOutcome updatedExportJobOutcome = await fhirOperationDataStore.Value.UpdateExportJobAsync(_exportJobRecord, _weakETag, cancellationToken);
+
+                _exportJobRecord = updatedExportJobOutcome.JobRecord;
+                _weakETag = updatedExportJobOutcome.ETag;
             }
-
-            await UpdateJobRecord(_exportJobRecord, cancellationToken);
         }
 
-        private async Task UpdateJobRecord(ExportJobRecord jobRecord, CancellationToken cancellationToken)
+        private async Task ProcessSearchResultsAsync(IEnumerable<SearchResultEntry> searchResults, uint partId, CancellationToken cancellationToken)
         {
-            ExportJobOutcome updatedExportJobOutcome = await _fhirOperationDataStore.UpdateExportJobAsync(jobRecord, _weakETag, cancellationToken);
-
-            _exportJobRecord = updatedExportJobOutcome.JobRecord;
-            _weakETag = updatedExportJobOutcome.ETag;
-        }
-
-        private async Task<DestinationInfo> GetDestinationInfo(CancellationToken cancellationToken)
-        {
-            SecretWrapper secret = await _secretStore.GetSecretAsync(_exportJobRecord.SecretName, cancellationToken);
-
-            DestinationInfo destinationInfo = JsonConvert.DeserializeObject<DestinationInfo>(secret.SecretValue);
-            return destinationInfo;
-        }
-
-        private async Task ProcessResourceWrapperAsync(ResourceWrapper resourceWrapper, uint partId, CancellationToken cancellationToken)
-        {
-            string resourceType = resourceWrapper.ResourceTypeName;
-
-            // Check whether we already have an existing file for the current resource type.
-            if (!_resourceTypeToFileInfoMapping.TryGetValue(resourceType, out ExportFileInfo exportFileInfo))
+            foreach (SearchResultEntry result in searchResults)
             {
-                string fileName = resourceType + ".ndjson";
+                ResourceWrapper resourceWrapper = result.Resource;
 
-                Uri fileUri = await _exportDestinationClient.CreateFileAsync(fileName, cancellationToken);
+                string resourceType = resourceWrapper.ResourceTypeName;
 
-                exportFileInfo = new ExportFileInfo(resourceType, fileUri, sequence: 0);
+                // Check whether we already have an existing file for the current resource type.
+                if (!_resourceTypeToFileInfoMapping.TryGetValue(resourceType, out ExportFileInfo exportFileInfo))
+                {
+                    // Check whether we have seen this file previously (in situations where we are resuming an export)
+                    if (_exportJobRecord.Output.TryGetValue(resourceType, out exportFileInfo))
+                    {
+                        // A file already exists for this resource type. Let us open the file on the client.
+                        await _exportDestinationClient.OpenFileAsync(exportFileInfo.FileUri, cancellationToken);
+                    }
+                    else
+                    {
+                        // File does not exist. Create it.
+                        string fileName = resourceType + ".ndjson";
+                        Uri fileUri = await _exportDestinationClient.CreateFileAsync(fileName, cancellationToken);
 
-                _resourceTypeToFileInfoMapping.Add(resourceType, exportFileInfo);
+                        exportFileInfo = new ExportFileInfo(resourceType, fileUri, sequence: 0);
+
+                        // Since we created a new file the JobRecord Output also needs to know about it.
+                        _exportJobRecord.Output.TryAdd(resourceType, exportFileInfo);
+                    }
+
+                    _resourceTypeToFileInfoMapping.Add(resourceType, exportFileInfo);
+                }
+
+                // Serialize into NDJson and write to the file.
+                byte[] bytesToWrite = _resourceToByteArraySerializer.Serialize(resourceWrapper);
+
+                await _exportDestinationClient.WriteFilePartAsync(exportFileInfo.FileUri, partId, bytesToWrite, cancellationToken);
+
+                // Increment the file information.
+                exportFileInfo.IncrementCount(bytesToWrite.Length);
             }
-
-            // Serialize into NDJson and write to the file.
-            byte[] bytesToWrite = _resourceToByteArraySerializer.Serialize(resourceWrapper);
-
-            await _exportDestinationClient.WriteFilePartAsync(exportFileInfo.FileUri, partId, bytesToWrite, cancellationToken);
-
-            // Increment the file information.
-            exportFileInfo.IncrementCount(bytesToWrite.Length);
         }
     }
 }

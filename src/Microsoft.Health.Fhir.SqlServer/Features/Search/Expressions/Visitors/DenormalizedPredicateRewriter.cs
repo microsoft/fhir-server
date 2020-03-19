@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
     /// <summary>
     /// Promotes predicates applied directly in on the Resource table to the search parameter tables.
-    /// These are predicates on the ResoruceSurrogateId and ResourceType columns. The idea is to make these
+    /// These are predicates on the ResourceSurrogateId and ResourceType columns. The idea is to make these
     /// queries as selective as possible.
     /// </summary>
     internal class DenormalizedPredicateRewriter : ExpressionRewriterWithInitialContext<object>, ISqlExpressionVisitor<object, Expression>
@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public Expression VisitSqlRoot(SqlRootExpression expression, object context)
         {
-            if (expression.TableExpressions.Count == 0 || expression.DenormalizedExpressions.Count == 0 || expression.TableExpressions.All(t => t.Kind == TableExpressionKind.Chain))
+            if (expression.TableExpressions.Count == 0 || expression.DenormalizedExpressions.Count == 0 || expression.TableExpressions.All(t => t.Kind == TableExpressionKind.Chain) || expression.TableExpressions.All(t => t.Kind == TableExpressionKind.Include))
             {
                 return expression;
             }
@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             var newTableExpressions = new List<TableExpression>(expression.TableExpressions.Count);
             foreach (var tableExpression in expression.TableExpressions)
             {
-                if (tableExpression.Kind == TableExpressionKind.Chain)
+                if (tableExpression.Kind == TableExpressionKind.Chain || tableExpression.Kind == TableExpressionKind.Include)
                 {
                     newTableExpressions.Add(tableExpression);
                 }

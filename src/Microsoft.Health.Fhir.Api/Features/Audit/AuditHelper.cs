@@ -3,17 +3,9 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 using EnsureThat;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc.Controllers;
-using Microsoft.AspNetCore.Mvc.Infrastructure;
-using Microsoft.Extensions.Logging;
-using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Api.Extensions;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Security;
 
@@ -22,109 +14,63 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
     /// <summary>
     /// Provides helper methods for auditing.
     /// </summary>
-    public class AuditHelper : IAuditHelper, IStartable
+    public class AuditHelper : IAuditHelper
     {
-        private readonly IActionDescriptorCollectionProvider _actionDescriptorCollectionProvider;
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
-        private readonly IClaimsExtractor _claimsExtractor;
         private readonly IAuditLogger _auditLogger;
-        private readonly ILogger<AuditHelper> _logger;
-
-        private IReadOnlyDictionary<(string ControllerName, string ActionName), Attribute> _attributeDictionary;
+        private readonly IAuditHeaderReader _auditHeaderReader;
 
         public AuditHelper(
-            IActionDescriptorCollectionProvider actionDescriptorCollectionProvider,
             IFhirRequestContextAccessor fhirRequestContextAccessor,
-            IClaimsExtractor claimsExtractor,
             IAuditLogger auditLogger,
-            ILogger<AuditHelper> logger)
+            IAuditHeaderReader auditHeaderReader)
         {
-            EnsureArg.IsNotNull(actionDescriptorCollectionProvider, nameof(actionDescriptorCollectionProvider));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
-            EnsureArg.IsNotNull(claimsExtractor, nameof(claimsExtractor));
             EnsureArg.IsNotNull(auditLogger, nameof(auditLogger));
-            EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsNotNull(auditHeaderReader, nameof(auditHeaderReader));
 
-            _actionDescriptorCollectionProvider = actionDescriptorCollectionProvider;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
-            _claimsExtractor = claimsExtractor;
             _auditLogger = auditLogger;
-            _logger = logger;
+            _auditHeaderReader = auditHeaderReader;
         }
 
         /// <inheritdoc />
-        public string GetAuditEventType(string controllerName, string actionName)
+        public void LogExecuting(HttpContext httpContext, IClaimsExtractor claimsExtractor)
         {
-            Attribute attribute = GetAttribute(controllerName, actionName);
+            EnsureArg.IsNotNull(claimsExtractor, nameof(claimsExtractor));
+            EnsureArg.IsNotNull(httpContext, nameof(httpContext));
 
-            if (attribute is AuditEventTypeAttribute auditEventTypeAttribute)
-            {
-                return auditEventTypeAttribute.AuditEventType;
-            }
-
-            return null;
+            Log(AuditAction.Executing, statusCode: null, httpContext, claimsExtractor);
         }
 
         /// <inheritdoc />
-        public void LogExecuting(string controllerName, string actionName)
+        public void LogExecuted(HttpContext httpContext, IClaimsExtractor claimsExtractor)
         {
-            Log(AuditAction.Executing, controllerName, actionName, statusCode: null, resourceType: null);
+            EnsureArg.IsNotNull(claimsExtractor, nameof(claimsExtractor));
+            EnsureArg.IsNotNull(httpContext, nameof(httpContext));
+
+            Log(AuditAction.Executed, (HttpStatusCode)httpContext.Response.StatusCode, httpContext, claimsExtractor);
         }
 
-        /// <inheritdoc />
-        public void LogExecuted(string controllerName, string actionName, HttpStatusCode statusCode, string responseResultType)
+        private void Log(AuditAction auditAction, HttpStatusCode? statusCode, HttpContext httpContext, IClaimsExtractor claimsExtractor)
         {
-            Log(AuditAction.Executed, controllerName, actionName, statusCode, responseResultType);
-        }
+            IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
 
-        void IStartable.Start()
-        {
-            _attributeDictionary = _actionDescriptorCollectionProvider.ActionDescriptors.Items
-                .OfType<ControllerActionDescriptor>()
-                .Select(ad =>
-                {
-                    Attribute attribute = ad.MethodInfo?.GetCustomAttributes<AllowAnonymousAttribute>().FirstOrDefault() ??
-                        (Attribute)ad.MethodInfo?.GetCustomAttributes<AuditEventTypeAttribute>().FirstOrDefault();
+            string auditEventType = fhirRequestContext.AuditEventType;
 
-                    return (ad.ControllerName, ad.ActionName, Attribute: attribute);
-                })
-                .Where(item => item.Attribute != null)
-                .ToDictionary(
-                    item => (item.ControllerName, item.ActionName),
-                    item => item.Attribute);
-        }
-
-        private Attribute GetAttribute(string controllerName, string actionName)
-        {
-            if (_attributeDictionary.TryGetValue((controllerName, actionName), out Attribute attribute))
+            // Audit the call if an audit event type is associated with the action.
+            if (!string.IsNullOrEmpty(auditEventType))
             {
-                return attribute;
-            }
-
-            throw new AuditException(controllerName, actionName);
-        }
-
-        private void Log(AuditAction auditAction, string controllerName, string actionName, HttpStatusCode? statusCode, string resourceType)
-        {
-            Attribute attribute = GetAttribute(controllerName, actionName);
-
-            // If anonymous allowed, don't audit.
-            if (attribute is AllowAnonymousAttribute)
-            {
-                return;
-            }
-            else if (attribute is AuditEventTypeAttribute auditEventTypeAttribute)
-            {
-                IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
-
                 _auditLogger.LogAudit(
                     auditAction,
-                    action: auditEventTypeAttribute.AuditEventType,
-                    resourceType: resourceType,
+                    operation: auditEventType,
+                    resourceType: fhirRequestContext.ResourceType,
                     requestUri: fhirRequestContext.Uri,
                     statusCode: statusCode,
                     correlationId: fhirRequestContext.CorrelationId,
-                    claims: _claimsExtractor.Extract());
+                    callerIpAddress: httpContext.Connection?.RemoteIpAddress?.ToString(),
+                    callerClaims: claimsExtractor.Extract(),
+                    customHeaders: _auditHeaderReader.Read(httpContext));
             }
         }
     }

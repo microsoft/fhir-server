@@ -6,21 +6,21 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
-using Microsoft.Health.Fhir.Web;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
-    public class BasicSearchTests : SearchTestsBase<HttpIntegrationTestFixture<Startup>>
+    public class BasicSearchTests : SearchTestsBase<HttpIntegrationTestFixture>
     {
-        public BasicSearchTests(HttpIntegrationTestFixture<Startup> fixture)
+        public BasicSearchTests(HttpIntegrationTestFixture fixture)
             : base(fixture)
         {
             // Delete all patients before starting the test.
@@ -169,7 +169,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             while (!string.IsNullOrEmpty(url))
             {
                 // There should not be more than 5 loops.
-                Assert.True(loop <= 5);
+                // For some reason, we're getting one more continuation token which returns 0 results, which is why we're checking for 6 instead of 5.
+                Assert.True(loop <= 6, url);
 
                 Bundle bundle = await Client.SearchAsync(url);
 
@@ -237,6 +238,154 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.NotNull(bundle);
             Assert.Equal(numberOfResources, bundle.Total);
             Assert.Empty(bundle.Entry);
+        }
+
+        [InlineData("_summary", "_count")]
+        [InlineData("_summary", "xyz")]
+        [InlineData("_count", "abc")]
+        [Theory]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenResources_WhenSearchedWithIncorrectSummaryParams_ThenExceptionShouldBeThrown(string key, string val)
+        {
+            Patient[] patients = await Client.CreateResourcesAsync<Patient>(3);
+            FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync($"Patient?{key}={val}"));
+
+            Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenListOfResources_WhenSearchedWithTotalTypeAccurate_ThenTotalCountShouldBeIncludedInReturnedBundle()
+        {
+            const int numberOfResources = 5;
+
+            var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
+
+            Patient patient = Samples.GetDefaultPatient().ToPoco<Patient>();
+
+            for (int i = 0; i < numberOfResources; i++)
+            {
+                patient.Meta = new Meta();
+                patient.Meta.Tag.Add(tag);
+
+                await Client.CreateAsync(patient);
+            }
+
+            Bundle bundle = await Client.SearchAsync($"Patient?_tag={tag.Code}&_total=accurate");
+
+            Assert.NotNull(bundle);
+            Assert.NotEmpty(bundle.Entry);
+            Assert.Equal(numberOfResources, bundle.Total);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenListOfResources_WhenSearchedWithTotalTypeNone_ThenTotalCountShouldBeIncludedInReturnedBundle()
+        {
+            const int numberOfResources = 5;
+
+            var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
+
+            Patient patient = Samples.GetDefaultPatient().ToPoco<Patient>();
+
+            for (int i = 0; i < numberOfResources; i++)
+            {
+                patient.Meta = new Meta();
+                patient.Meta.Tag.Add(tag);
+
+                await Client.CreateAsync(patient);
+            }
+
+            Bundle bundle = await Client.SearchAsync($"Patient?_tag={tag.Code}&_total=none");
+
+            Assert.NotNull(bundle);
+            Assert.NotEmpty(bundle.Entry);
+            Assert.Null(bundle.Total);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenListOfResources_WhenSearchedWithTotalTypeAccurate_ThenTotalCountShouldNotBeIncludedInReturnedBundleForSubsequentPages()
+        {
+            const int numberOfResources = 5;
+
+            var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
+
+            Patient patient = Samples.GetDefaultPatient().ToPoco<Patient>();
+
+            for (int i = 0; i < numberOfResources; i++)
+            {
+                patient.Meta = new Meta();
+                patient.Meta.Tag.Add(tag);
+
+                await Client.CreateAsync(patient);
+            }
+
+            Bundle bundle = await Client.SearchAsync($"Patient?_tag={tag.Code}&_total=accurate&_count=2");
+
+            Assert.NotNull(bundle);
+            Assert.NotEmpty(bundle.Entry);
+            Assert.Equal(numberOfResources, bundle.Total);
+            Assert.DoesNotContain("_total", bundle.NextLink.ToString(), StringComparison.OrdinalIgnoreCase);
+
+            bundle = await Client.SearchAsync(bundle.NextLink.ToString());
+
+            Assert.NotNull(bundle);
+            Assert.NotEmpty(bundle.Entry);
+            Assert.Null(bundle.Total);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenListOfResources_WhenSearchedWithTotalTypeEstimate_ThenExceptionShouldBeThrown()
+        {
+            const int numberOfResources = 5;
+
+            var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
+
+            Patient patient = Samples.GetDefaultPatient().ToPoco<Patient>();
+
+            for (int i = 0; i < numberOfResources; i++)
+            {
+                patient.Meta = new Meta();
+                patient.Meta.Tag.Add(tag);
+
+                await Client.CreateAsync(patient);
+            }
+
+            FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync($"Patient?_total=estimate"));
+
+            Assert.Equal(HttpStatusCode.Forbidden, ex.StatusCode);
+        }
+
+        [InlineData("_total", "count")]
+        [InlineData("_total", "xyz")]
+        [Theory]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenListOfResources_WhenSearchedWithInvalidTotalType_ThenExceptionShouldBeThrown(string key, string val)
+        {
+            Patient[] patients = await Client.CreateResourcesAsync<Patient>(3);
+            FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync($"Patient?{key}={val}"));
+
+            Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenResourceWithTypeValue_WhenSearchedWithTypeParam_ThenOnlyResourcesMatchingAllSearchParamsShouldBeReturned()
+        {
+            var code = Guid.NewGuid().ToString();
+            NamingSystem library = await Client.CreateAsync(new NamingSystem
+                {
+                    Name = "test",
+                    Status = PublicationStatus.Draft,
+                    Kind = NamingSystem.NamingSystemType.Codesystem,
+                    Date = "2019",
+                    UniqueId = new List<NamingSystem.UniqueIdComponent> { new NamingSystem.UniqueIdComponent { Type = NamingSystem.NamingSystemIdentifierType.Uri, Value = "https://localhost" } },
+                    Type = new CodeableConcept("https://localhost/", code),
+                });
+
+            await ExecuteAndValidateBundle($"NamingSystem?type={code}", library);
         }
     }
 }

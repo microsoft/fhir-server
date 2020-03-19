@@ -15,8 +15,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string Id = "id";
 
-        public const string SecretName = "secretName";
-
         public const string Hash = "hash";
 
         public const string Status = "status";
@@ -29,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string EndTime = "endTime";
 
-        public const string CancelledTime = "cancelledTime";
+        public const string CanceledTime = "canceledTime";
 
         public const string RequestUri = "requestUri";
 
@@ -58,5 +56,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public const string CommitedBytes = "committedBytes";
 
         public const string SchemaVersion = "schemaVersion";
+
+        public const string FailureReason = "failureReason";
+
+        public const string FailureStatusCode = "failureStatusCode";
+
+        public const string FailureDetails = "failureDetails";
     }
 }

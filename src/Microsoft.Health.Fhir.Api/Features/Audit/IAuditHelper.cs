@@ -3,7 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Net;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Health.Fhir.Core.Features.Security;
 
 namespace Microsoft.Health.Fhir.Api.Features.Audit
 {
@@ -13,28 +14,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
     public interface IAuditHelper
     {
         /// <summary>
-        /// Gets the audit event type from the <paramref name="controllerName"/> and <paramref name="actionName"/>.
+        /// Logs an executing audit entry for the current operation.
         /// </summary>
-        /// <param name="controllerName">The controller name.</param>
-        /// <param name="actionName">The action name.</param>
-        /// <returns>The audit event type if exists; <c>null</c> if anonymous access is allowed.</returns>
-        /// <exception cref="AuditException">Thrown when the audit event type could not be found.</exception>
-        string GetAuditEventType(string controllerName, string actionName);
+        /// <param name="httpContext">The HTTP context.</param>
+        /// <param name="claimsExtractor">The extractor used to extract claims.</param>
+        void LogExecuting(HttpContext httpContext, IClaimsExtractor claimsExtractor);
 
         /// <summary>
-        /// Logs an audit entry for executing the <paramref name="controllerName"/> and <paramref name="actionName"/>.
+        /// Logs an executed audit entry for the current operation.
         /// </summary>
-        /// <param name="controllerName">The controller name.</param>
-        /// <param name="actionName">The action name.</param>
-        void LogExecuting(string controllerName, string actionName);
-
-        /// <summary>
-        /// Logs an audit entry for executed the <paramref name="controllerName"/> and <paramref name="actionName"/>.
-        /// </summary>
-        /// <param name="controllerName">The controller name.</param>
-        /// <param name="actionName">The action name.</param>
-        /// <param name="statusCode">The HTTP status code.</param>
-        /// <param name="responseResultType">The optional response result type.</param>
-        void LogExecuted(string controllerName, string actionName, HttpStatusCode statusCode, string responseResultType);
+        /// <param name="httpContext">The HTTP context.</param>
+        /// <param name="claimsExtractor">The extractor used to extract claims.</param>
+        void LogExecuted(HttpContext httpContext, IClaimsExtractor claimsExtractor);
     }
 }

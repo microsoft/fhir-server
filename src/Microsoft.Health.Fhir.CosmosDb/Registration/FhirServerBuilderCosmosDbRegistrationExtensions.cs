@@ -12,6 +12,7 @@ using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.CosmosDb.Features.Storage.StoredProcedures;
 using Microsoft.Health.CosmosDb.Features.Storage.Versioning;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.CosmosDb;
 using Microsoft.Health.Fhir.CosmosDb.Features.Health;
@@ -49,10 +50,26 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.AddCosmosDb();
 
-            services.Configure<CosmosCollectionConfiguration>(Constants.CollectionConfigurationName, cosmosCollectionConfiguration => configuration.GetSection("FhirServer:CosmosDb").Bind(cosmosCollectionConfiguration));
+            services.AddTransient<IConfigureOptions<CosmosCollectionConfiguration>>(
+                sp => new ConfigureNamedOptions<CosmosCollectionConfiguration>(
+                    Constants.CollectionConfigurationName,
+                    cosmosCollectionConfiguration =>
+                    {
+                        configuration.GetSection("FhirServer:CosmosDb").Bind(cosmosCollectionConfiguration);
+                        if (string.IsNullOrWhiteSpace(cosmosCollectionConfiguration.CollectionId))
+                        {
+                            IModelInfoProvider modelInfoProvider = sp.GetRequiredService<IModelInfoProvider>();
+                            cosmosCollectionConfiguration.CollectionId = modelInfoProvider.Version == FhirSpecification.Stu3 ? "fhir" : $"fhir{modelInfoProvider.Version}";
+                        }
+                    }));
 
             services.Add<CosmosFhirDataStore>()
-                .Singleton()
+                .Scoped()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
+            services.Add<CosmosTransactionHandler>()
+                .Scoped()
                 .AsSelf()
                 .AsImplementedInterfaces();
 
@@ -102,7 +119,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf();
 
             services.Add<CosmosFhirOperationDataStore>()
-                .Singleton()
+                .Scoped()
                 .AsSelf()
                 .AsImplementedInterfaces();
 
@@ -110,13 +127,18 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsService<IDocumentClientInitializer>();
 
+            services.Add<CosmosResponseProcessor>()
+                .Singleton()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
             return fhirServerBuilder;
         }
 
         private static IFhirServerBuilder AddCosmosDbSearch(this IFhirServerBuilder fhirServerBuilder)
         {
             fhirServerBuilder.Services.Add<FhirCosmosSearchService>()
-                .Singleton()
+                .Scoped()
                 .AsSelf()
                 .AsImplementedInterfaces();
 

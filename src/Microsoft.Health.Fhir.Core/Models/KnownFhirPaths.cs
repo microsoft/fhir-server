@@ -13,6 +13,8 @@ namespace Microsoft.Health.Fhir.Core.Models
 
         public const string BundleSelfLink = "Resource.link.where(relation = 'self').url";
 
+        public const string BundleType = "Resource.type";
+
         public const string ResourceNarrative = "text.div";
     }
 }

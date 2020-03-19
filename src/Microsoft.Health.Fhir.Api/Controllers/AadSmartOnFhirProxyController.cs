@@ -10,12 +10,12 @@ using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Filters;
@@ -32,9 +32,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     /// <summary>
     /// Controller class enabling Azure Active Directory SMART on FHIR Proxy Capability
     /// </summary>
-    [TypeFilter(typeof(AadSmartOnFhirProxyFeatureFilterAttribute))]
+    [ServiceFilter(typeof(AadSmartOnFhirProxyAuditLoggingFilterAttribute))]
     [TypeFilter(typeof(AadSmartOnFhirProxyExceptionFilterAttribute))]
     [Route("AadSmartOnFhirProxy")]
+    [AllowAnonymous]
     public class AadSmartOnFhirProxyController : Controller
     {
         private readonly bool _isAadV2;
@@ -112,7 +113,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="state">state URL parameter.</param>
         /// <param name="aud">aud (audience) URL parameter.</param>
         [HttpGet]
-        [TypeFilter(typeof(SmartOnFhirAuditLoggingFilterAttribute), Arguments = new object[] { AuditEventSubType.SmartOnFhirAuthorize })]
+        [AuditEventType(AuditEventSubType.SmartOnFhirAuthorize)]
         [Route("authorize", Name = RouteNames.AadSmartOnFhirProxyAuthorize)]
         public ActionResult Authorize(
             [FromQuery(Name = "response_type")] string responseType,
@@ -153,7 +154,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Redirect URL passed to Authorize failed to resolve.");
+                _logger.LogDebug(ex, "Redirect URL passed to Authorize failed to resolve.");
             }
 
             if (!_isAadV2 && !string.IsNullOrEmpty(aud))
@@ -205,7 +206,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="error">error URL parameter.</param>
         /// <param name="errorDescription">error_description URL parameter.</param>
         [HttpGet]
-        [TypeFilter(typeof(SmartOnFhirAuditLoggingFilterAttribute), Arguments = new object[] { AuditEventSubType.SmartOnFhirCallback })]
+        [AuditEventType(AuditEventSubType.SmartOnFhirCallback)]
         [Route("callback/{encodedRedirect}", Name = RouteNames.AadSmartOnFhirProxyCallback)]
         public ActionResult Callback(
             string encodedRedirect,
@@ -280,7 +281,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <param name="clientId">client_id request parameter.</param>
         /// <param name="clientSecret">client_secret request parameter.</param>
         [HttpPost]
-        [TypeFilter(typeof(SmartOnFhirAuditLoggingFilterAttribute), Arguments = new object[] { AuditEventSubType.SmartOnFhirToken })]
+        [AuditEventType(AuditEventSubType.SmartOnFhirToken)]
         [Route("token", Name = RouteNames.AadSmartOnFhirProxyToken)]
         public async Task<ActionResult> Token(
             [FromForm(Name = "grant_type")] string grantType,
@@ -390,23 +391,27 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             tokenResponse["client_id"] = clientId;
 
             // Replace fully qualifies scopes with short scopes and replace $
-            string[] scopes = tokenResponse["scope"].ToString().Split(' ');
-            var scopesBuilder = new StringBuilder();
+            string[] scopes = tokenResponse["scope"]?.ToString().Split(' ');
 
-            foreach (var s in scopes)
+            if (scopes != null)
             {
-                if (IsAbsoluteUrl(s))
-                {
-                    var scopeUri = new Uri(s);
-                    scopesBuilder.Append($"{scopeUri.Segments.Last().Replace('$', '/')} ");
-                }
-                else
-                {
-                    scopesBuilder.Append($"{s.Replace('$', '/')} ");
-                }
-            }
+                var scopesBuilder = new StringBuilder();
 
-            tokenResponse["scope"] = scopesBuilder.ToString().TrimEnd(' ');
+                foreach (var s in scopes)
+                {
+                    if (IsAbsoluteUrl(s))
+                    {
+                        var scopeUri = new Uri(s);
+                        scopesBuilder.Append($"{scopeUri.Segments.Last().Replace('$', '/')} ");
+                    }
+                    else
+                    {
+                        scopesBuilder.Append($"{s.Replace('$', '/')} ");
+                    }
+                }
+
+                tokenResponse["scope"] = scopesBuilder.ToString().TrimEnd(' ');
+            }
 
             return new ContentResult()
             {

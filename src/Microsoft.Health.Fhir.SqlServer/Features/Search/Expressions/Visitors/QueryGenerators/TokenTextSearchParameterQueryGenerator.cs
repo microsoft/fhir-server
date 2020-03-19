@@ -12,11 +12,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
     {
         public static readonly TokenTextSearchParameterQueryGenerator Instance = new TokenTextSearchParameterQueryGenerator();
 
-        public override Table Table => V1.TokenText;
+        public override Table Table => VLatest.TokenText;
 
         public override SearchParameterQueryGeneratorContext VisitString(StringExpression expression, SearchParameterQueryGeneratorContext context)
         {
-            return VisitSimpleString(expression, context, V1.TokenText.Text, expression.Value);
+            return VisitSimpleString(expression, context, VLatest.TokenText.Text, expression.Value);
         }
     }
 }

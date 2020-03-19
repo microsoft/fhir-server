@@ -6,12 +6,15 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Storage;
 using Microsoft.Azure.Storage.Blob;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 
 namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
@@ -24,40 +27,59 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
         private Dictionary<Uri, CloudBlockBlobWrapper> _uriToBlobMapping = new Dictionary<Uri, CloudBlockBlobWrapper>();
         private Dictionary<(Uri FileUri, uint PartId), Stream> _streamMappings = new Dictionary<(Uri FileUri, uint PartId), Stream>();
 
-        public string DestinationType => "azure-block-blob";
+        private readonly IExportClientInitializer<CloudBlobClient> _exportClientInitializer;
+        private readonly ILogger _logger;
 
-        public async Task ConnectAsync(string connectionSettings, CancellationToken cancellationToken, string containerId = null)
+        public AzureExportDestinationClient(
+            IExportClientInitializer<CloudBlobClient> exportClientInitializer,
+            ILogger<AzureExportDestinationClient> logger)
         {
-            EnsureArg.IsNotNullOrWhiteSpace(connectionSettings, nameof(connectionSettings));
+            EnsureArg.IsNotNull(exportClientInitializer, nameof(exportClientInitializer));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
-            string decodedConnectionString;
+            _exportClientInitializer = exportClientInitializer;
+            _logger = logger;
+        }
+
+        public async Task ConnectAsync(CancellationToken cancellationToken, string containerId = null)
+        {
             try
             {
-                decodedConnectionString = Encoding.UTF8.GetString(Convert.FromBase64String(connectionSettings));
+                _blobClient = await _exportClientInitializer.GetAuthorizedClientAsync(cancellationToken);
             }
-            catch (Exception)
+            catch (ExportClientInitializerException ece)
             {
-                throw new DestinationConnectionException(Resources.InvalidConnectionSettings);
+                _logger.LogError(ece, "Unable to initialize export client");
+
+                throw new DestinationConnectionException(ece.Message, ece.StatusCode);
             }
 
-            if (!CloudStorageAccount.TryParse(decodedConnectionString, out CloudStorageAccount cloudAccount))
-            {
-                throw new DestinationConnectionException(Resources.CantConnectToDestination);
-            }
+            await CreateContainerAsync(_blobClient, containerId);
+        }
 
-            _blobClient = cloudAccount.CreateCloudBlobClient();
-
+        private async Task CreateContainerAsync(CloudBlobClient blobClient, string containerId)
+        {
             // Use root container if no container id has been provided.
             if (string.IsNullOrWhiteSpace(containerId))
             {
-                _blobContainer = _blobClient.GetRootContainerReference();
+                _blobContainer = blobClient.GetRootContainerReference();
             }
             else
             {
-                _blobContainer = _blobClient.GetContainerReference(containerId);
+                _blobContainer = blobClient.GetContainerReference(containerId);
             }
 
-            await _blobContainer.CreateIfNotExistsAsync();
+            try
+            {
+                await _blobContainer.CreateIfNotExistsAsync();
+            }
+            catch (StorageException se)
+            {
+                _logger.LogWarning(se, se.Message);
+
+                HttpStatusCode responseCode = ParseStorageException(se);
+                throw new DestinationConnectionException(se.Message, responseCode);
+            }
         }
 
         public Task<Uri> CreateFileAsync(string fileName, CancellationToken cancellationToken)
@@ -66,8 +88,12 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             CheckIfClientIsConnected();
 
             CloudBlockBlob blockBlob = _blobContainer.GetBlockBlobReference(fileName);
-            blockBlob.Properties.ContentType = "application/fhir+ndjson";
-            _uriToBlobMapping.Add(blockBlob.Uri, new CloudBlockBlobWrapper(blockBlob));
+
+            if (!_uriToBlobMapping.ContainsKey(blockBlob.Uri))
+            {
+                blockBlob.Properties.ContentType = "application/fhir+ndjson";
+                _uriToBlobMapping.Add(blockBlob.Uri, new CloudBlockBlobWrapper(blockBlob));
+            }
 
             return Task.FromResult(blockBlob.Uri);
         }
@@ -93,38 +119,97 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
         {
             CheckIfClientIsConnected();
 
-            var uploadAndCommitTasks = new List<Task>();
+            // Upload all blocks for each blob that was modified.
+            Task[] uploadTasks = new Task[_streamMappings.Count];
+            CloudBlockBlobWrapper[] wrappersToCommit = new CloudBlockBlobWrapper[_streamMappings.Count];
+
+            int index = 0;
             foreach (KeyValuePair<(Uri, uint), Stream> mapping in _streamMappings)
             {
+                // Reset stream position.
                 Stream stream = mapping.Value;
-
-                // Reset the position.
                 stream.Position = 0;
 
                 CloudBlockBlobWrapper blobWrapper = _uriToBlobMapping[mapping.Key.Item1];
-
                 var blockId = Convert.ToBase64String(Encoding.ASCII.GetBytes(mapping.Key.Item2.ToString("d6")));
-                uploadAndCommitTasks.Add(Task.Run(async () =>
-                {
-                    await blobWrapper.UploadBlockAsync(blockId, stream, md5Hash: null, cancellationToken);
-                    await blobWrapper.CommitBlockListAsync(cancellationToken);
 
-                    stream.Dispose();
-                }));
+                uploadTasks[index] = blobWrapper.UploadBlockAsync(blockId, stream, md5Hash: null, cancellationToken);
+                wrappersToCommit[index] = blobWrapper;
+                index++;
             }
 
-            await Task.WhenAll(uploadAndCommitTasks);
+            await Task.WhenAll(uploadTasks);
 
-            // We can clear the stream mappings once we commit everything in memory.
+            // Commit all the blobs that were uploaded.
+            Task[] commitTasks = wrappersToCommit.Select(wrapper => wrapper.CommitBlockListAsync(cancellationToken)).ToArray();
+            await Task.WhenAll(commitTasks);
+
+            // We can clear the stream mappings once we commit everything.
+            foreach (Stream stream in _streamMappings.Values)
+            {
+                stream.Dispose();
+            }
+
             _streamMappings.Clear();
+        }
+
+        public async Task OpenFileAsync(Uri fileUri, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(fileUri, nameof(fileUri));
+            CheckIfClientIsConnected();
+
+            if (_uriToBlobMapping.ContainsKey(fileUri))
+            {
+                _logger.LogInformation("Trying to open a file that the client already knows about.");
+                return;
+            }
+
+            var blob = new CloudBlockBlob(fileUri, _blobClient);
+
+            // We are going to consider only committed blocks.
+            IEnumerable<ListBlockItem> result = await blob.DownloadBlockListAsync(
+                BlockListingFilter.Committed,
+                accessCondition: null,
+                options: null,
+                operationContext: null,
+                cancellationToken);
+
+            // Update the internal mapping with the block lists of the blob.
+            var wrapper = new CloudBlockBlobWrapper(blob, result.Select(x => x.Name).ToList());
+            _uriToBlobMapping.Add(fileUri, wrapper);
         }
 
         private void CheckIfClientIsConnected()
         {
-            if (_blobClient == null)
+            if (_blobClient == null || _blobContainer == null)
             {
-                throw new DestinationConnectionException(Resources.DestinationClientNotConnected);
+                throw new DestinationConnectionException(Resources.DestinationClientNotConnected, HttpStatusCode.InternalServerError);
             }
+        }
+
+        private HttpStatusCode ParseStorageException(StorageException storageException)
+        {
+            EnsureArg.IsNotNull(storageException, nameof(storageException));
+
+            HttpStatusCode responseCode = HttpStatusCode.InternalServerError;
+            if (storageException.RequestInformation != null)
+            {
+                _logger.LogWarning($"RequestResult ErrorCode: {storageException.RequestInformation.ErrorCode}, RequestResult HttpStatusCode: {storageException.RequestInformation.HttpStatusCode}");
+
+                try
+                {
+                    if (Enum.IsDefined(typeof(HttpStatusCode), storageException.RequestInformation.HttpStatusCode))
+                    {
+                        responseCode = Enum.Parse<HttpStatusCode>(storageException.RequestInformation.HttpStatusCode.ToString());
+                    }
+                }
+                catch (Exception)
+                {
+                    _logger.LogInformation("Unable to parse httpstatus code information from storage exception");
+                }
+            }
+
+            return responseCode;
         }
     }
 }

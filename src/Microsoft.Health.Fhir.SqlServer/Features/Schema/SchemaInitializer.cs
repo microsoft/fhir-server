@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
             _logger = logger;
         }
 
-        private void Initialize()
+        internal void Initialize(bool forceIncrementalSchemaUpgrade = false)
         {
             if (!CanInitialize())
             {
@@ -48,22 +48,35 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
 
             _logger.LogInformation("Schema version is {version}", _schemaInformation.Current?.ToString() ?? "NULL");
 
-            // GetCurrentVersion doesn't exist, so run version 1.
+            // If the stored procedure to get the current schema version doesn't exist
             if (_schemaInformation.Current == null || _sqlServerDataStoreConfiguration.DeleteAllDataOnStartup)
             {
-                _schemaUpgradeRunner.ApplySchema(1);
+                if (forceIncrementalSchemaUpgrade)
+                {
+                    // Run version 1. We'll use this as a base schema and apply .diff.sql files to upgrade the schema version.
+                    _schemaUpgradeRunner.ApplySchema(version: 1, applyFullSchemaSnapshot: true);
+                }
+                else
+                {
+                    // Apply the maximum supported version. This won't consider the .diff.sql files.
+                    _schemaUpgradeRunner.ApplySchema((int)_schemaInformation.MaximumSupportedVersion, applyFullSchemaSnapshot: true);
+                }
+
                 GetCurrentSchemaVersion();
             }
 
+            // If the current schema version needs to be upgraded
             if (_schemaInformation.Current < _schemaInformation.MaximumSupportedVersion)
             {
+                // Apply each .diff.sql file one by one.
                 int current = (int?)_schemaInformation.Current ?? 0;
-
                 for (int i = current + 1; i <= (int)_schemaInformation.MaximumSupportedVersion; i++)
                 {
-                    _schemaUpgradeRunner.ApplySchema(i);
+                    _schemaUpgradeRunner.ApplySchema(version: i, applyFullSchemaSnapshot: false);
                 }
             }
+
+            GetCurrentSchemaVersion();
         }
 
         private void GetCurrentSchemaVersion()
@@ -129,36 +142,39 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
                 throw new InvalidOperationException("The initial catalog in the connection string cannot be a system database");
             }
 
-            // connect to master database to evaluate if the requested database exists
-            var masterConnectionBuilder = new SqlConnectionStringBuilder(_sqlServerDataStoreConfiguration.ConnectionString) { InitialCatalog = string.Empty };
-            using (var connection = new SqlConnection(masterConnectionBuilder.ToString()))
+            if (_sqlServerDataStoreConfiguration.AllowDatabaseCreation)
             {
-                connection.Open();
-
-                using (var checkDatabaseExistsCommand = connection.CreateCommand())
+                // connect to master database to evaluate if the requested database exists
+                var masterConnectionBuilder = new SqlConnectionStringBuilder(_sqlServerDataStoreConfiguration.ConnectionString) { InitialCatalog = string.Empty };
+                using (var connection = new SqlConnection(masterConnectionBuilder.ToString()))
                 {
-                    checkDatabaseExistsCommand.CommandText = "SELECT 1 FROM sys.databases where name = @databaseName";
-                    checkDatabaseExistsCommand.Parameters.AddWithValue("@databaseName", databaseName);
-                    bool exists = (int?)checkDatabaseExistsCommand.ExecuteScalar() == 1;
+                    connection.Open();
 
-                    if (!exists)
+                    using (var checkDatabaseExistsCommand = connection.CreateCommand())
                     {
-                        _logger.LogInformation("Database does not exist");
+                        checkDatabaseExistsCommand.CommandText = "SELECT 1 FROM sys.databases where name = @databaseName";
+                        checkDatabaseExistsCommand.Parameters.AddWithValue("@databaseName", databaseName);
+                        bool exists = (int?)checkDatabaseExistsCommand.ExecuteScalar() == 1;
 
-                        using (var canCreateDatabaseCommand = new SqlCommand("SELECT count(*) FROM fn_my_permissions (NULL, 'DATABASE') WHERE permission_name = 'CREATE DATABASE'", connection))
+                        if (!exists)
                         {
-                            if ((int)canCreateDatabaseCommand.ExecuteScalar() > 0)
+                            _logger.LogInformation("Database does not exist");
+
+                            using (var canCreateDatabaseCommand = new SqlCommand("SELECT count(*) FROM fn_my_permissions (NULL, 'DATABASE') WHERE permission_name = 'CREATE DATABASE'", connection))
                             {
-                                using (var createDatabaseCommand = new SqlCommand($"CREATE DATABASE {databaseName}", connection))
+                                if ((int)canCreateDatabaseCommand.ExecuteScalar() > 0)
                                 {
-                                    createDatabaseCommand.ExecuteNonQuery();
-                                    _logger.LogInformation("Created database");
+                                    using (var createDatabaseCommand = new SqlCommand($"CREATE DATABASE {databaseName}", connection))
+                                    {
+                                        createDatabaseCommand.ExecuteNonQuery();
+                                        _logger.LogInformation("Created database");
+                                    }
                                 }
-                            }
-                            else
-                            {
-                                _logger.LogWarning("Insufficient permissions to create the database");
-                                return false;
+                                else
+                                {
+                                    _logger.LogWarning("Insufficient permissions to create the database");
+                                    return false;
+                                }
                             }
                         }
                     }
@@ -191,8 +207,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
             if (!string.IsNullOrWhiteSpace(_sqlServerDataStoreConfiguration.ConnectionString))
             {
                 Initialize();
-
-                GetCurrentSchemaVersion();
             }
             else
             {

@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
@@ -28,6 +29,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// Gets a value indicating whether to only return the record count
         /// </summary>
         public bool CountOnly { get; internal set; }
+
+        /// <summary>
+        /// Indicates if the total number of resources that match the search parameters should be calculated.
+        /// </summary>
+        /// <remarks>The ability to retrieve an estimate of the total is yet to be implemented.</remarks>
+        public TotalType IncludeTotal { get; internal set; }
 
         /// <summary>
         /// Gets the maximum number of items to find.
@@ -58,5 +65,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// Gets the list of search parameters that were not used in the search.
         /// </summary>
         public IReadOnlyList<Tuple<string, string>> UnsupportedSearchParams { get; internal set; }
+
+        /// <summary>
+        /// Gets the list of unsupported sorting search parameters that were ignored in the search.
+        /// </summary>
+        public IReadOnlyList<(string parameterName, string reason)> UnsupportedSortingParams { get; internal set; }
+
+        /// <summary>
+        /// Gets the list of sorting parameters.
+        /// </summary>
+        public IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> Sort { get; internal set; }
     }
 }

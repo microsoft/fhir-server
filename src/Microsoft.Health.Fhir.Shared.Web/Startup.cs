@@ -28,8 +28,8 @@ namespace Microsoft.Health.Fhir.Web
 
             Core.Registration.IFhirServerBuilder fhirServerBuilder = services.AddFhirServer(Configuration)
                 .AddExportWorker()
-                .AddKeyVaultSecretStore(Configuration)
-                .AddAzureExportDestinationClient();
+                .AddAzureExportDestinationClient()
+                .AddAzureExportClientInitializer(Configuration);
 
             string dataStore = Configuration["DataStore"];
             if (dataStore.Equals(KnownDataStores.CosmosDb, StringComparison.InvariantCultureIgnoreCase))
@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Web
         {
             app.UseFhirServer();
 
-            app.UseDevelopmentIdentityProvider();
+            app.UseDevelopmentIdentityProviderIfConfigured();
         }
 
         /// <summary>

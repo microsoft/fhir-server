@@ -10,7 +10,6 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
-using Microsoft.Health.Fhir.Web;
 using Xunit;
 using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Common.FhirClient;
 using Task = System.Threading.Tasks.Task;
@@ -18,9 +17,9 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
-    public class VReadTests : IClassFixture<HttpIntegrationTestFixture<Startup>>
+    public class VReadTests : IClassFixture<HttpIntegrationTestFixture>
     {
-        public VReadTests(HttpIntegrationTestFixture<Startup> fixture)
+        public VReadTests(HttpIntegrationTestFixture fixture)
         {
             Client = fixture.FhirClient;
         }
@@ -29,7 +28,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenGettingAResource_GivenAnIdAndVersionId_TheServerShouldReturnTheAppropriateResourceSuccessfully()
+        public async Task GivenAnIdAndVersionId_WhenGettingAResource_TheServerShouldReturnTheAppropriateResourceSuccessfully()
         {
             Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
@@ -51,7 +50,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenGettingAResource_GivenANonExistingIdAndVersionId_TheServerShouldReturnANotFoundStatus()
+        public async Task GivenANonExistingIdAndVersionId_WhenGettingAResource_TheServerShouldReturnANotFoundStatus()
         {
             FhirException ex = await Assert.ThrowsAsync<FhirException>(
                 () => Client.VReadAsync<Observation>(ResourceType.Observation, Guid.NewGuid().ToString(), Guid.NewGuid().ToString()));
@@ -61,7 +60,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenGettingAResource_GivenAIdAndNonExistingVersionId_TheServerShouldReturnANotFoundStatus()
+        public async Task GivenAIdAndNonExistingVersionId_WhenGettingAResource_TheServerShouldReturnANotFoundStatus()
         {
             Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
@@ -73,7 +72,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenGettingAResource_GivenADeletedIdAndVersionId_TheServerShouldReturnAGoneStatus()
+        public async Task GivenADeletedIdAndVersionId_WhenGettingAResource_TheServerShouldReturnAGoneStatus()
         {
             Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 

@@ -6,11 +6,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Models;
@@ -20,23 +22,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 {
     public class SearchOptionsFactory : ISearchOptionsFactory
     {
+        private static readonly Regex Base64FormatRegex = new Regex("^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$", RegexOptions.Compiled | RegexOptions.Singleline);
+
         private readonly IExpressionParser _expressionParser;
+        private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ILogger _logger;
         private readonly SearchParameterInfo _resourceTypeSearchParameter;
 
         public SearchOptionsFactory(
             IExpressionParser expressionParser,
-            ISearchParameterDefinitionManager searchParameterDefinitionManager,
+            SearchableSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
             ILogger<SearchOptionsFactory> logger)
         {
             EnsureArg.IsNotNull(expressionParser, nameof(expressionParser));
-            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
+            EnsureArg.IsNotNull(searchParameterDefinitionManagerResolver, nameof(searchParameterDefinitionManagerResolver));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _expressionParser = expressionParser;
+            _searchParameterDefinitionManager = searchParameterDefinitionManagerResolver();
             _logger = logger;
 
-            _resourceTypeSearchParameter = searchParameterDefinitionManager.GetSearchParameter(ResourceType.Resource.ToString(), SearchParameterNames.ResourceType);
+            _resourceTypeSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(ResourceType.Resource.ToString(), SearchParameterNames.ResourceType);
         }
 
         public SearchOptions Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters)
@@ -58,13 +64,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             {
                 if (query.Item1 == KnownQueryParameterNames.ContinuationToken)
                 {
+                    // This is an unreachable case. The mapping of the query parameters makes it so only one continuation token can exist.
                     if (continuationToken != null)
                     {
                         throw new InvalidSearchOperationException(
                             string.Format(Core.Resources.MultipleQueryParametersNotAllowed, KnownQueryParameterNames.ContinuationToken));
                     }
 
-                    continuationToken = query.Item2;
+                    // Checks if the continuation token is base 64 bit encoded. Needed for systems that have cached continuation tokens from before they were encoded.
+                    if (Base64FormatRegex.IsMatch(query.Item2))
+                    {
+                        continuationToken = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(query.Item2));
+                    }
+                    else
+                    {
+                        continuationToken = query.Item2;
+                    }
                 }
                 else if (query.Item1 == KnownQueryParameterNames.Format)
                 {
@@ -75,19 +90,34 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     // Query parameter with empty value is not supported.
                     unsupportedSearchParameters.Add(query);
                 }
+                else if (string.Compare(query.Item1, KnownQueryParameterNames.Total, StringComparison.OrdinalIgnoreCase) == 0)
+                {
+                    if (Enum.TryParse<TotalType>(query.Item2, true, out var totalType))
+                    {
+                        // Estimate is not yet supported.
+                        if (totalType == TotalType.Estimate)
+                        {
+                            throw new SearchOperationNotSupportedException(Core.Resources.UnsupportedTotalParameter);
+                        }
+
+                        searchOptions.IncludeTotal = totalType;
+                    }
+                    else
+                    {
+                        throw new BadRequestException(Core.Resources.UnsupportedTotalParameter);
+                    }
+                }
                 else
                 {
                     // Parse the search parameters.
                     try
                     {
+                        // Basic format checking (e.g. integer value for _count key etc.).
                         searchParams.Add(query.Item1, query.Item2);
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogInformation(ex, "Failed to parse the query parameter. Skipping.");
-
-                        // There was a problem parsing the parameter. Add it to list of unsupported parameters.
-                        unsupportedSearchParameters.Add(query);
+                        throw new BadRequestException(ex.Message);
                     }
                 }
             }
@@ -136,6 +166,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     })
                 .Where(item => item != null));
 
+            if (searchParams.Include?.Count > 0)
+            {
+                searchExpressions.AddRange(searchParams.Include.Select(
+                    q => _expressionParser.ParseInclude(parsedResourceType.ToString(), q))
+                    .Where(item => item != null));
+            }
+
             if (!string.IsNullOrWhiteSpace(compartmentType))
             {
                 if (Enum.TryParse(compartmentType, out CompartmentType parsedCompartmentType))
@@ -169,6 +206,33 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
 
             searchOptions.UnsupportedSearchParams = unsupportedSearchParameters;
+
+            if (searchParams.Sort?.Count > 0)
+            {
+                var sortings = new List<(SearchParameterInfo, SortOrder)>();
+                List<(string parameterName, string reason)> unsupportedSortings = null;
+
+                foreach (Tuple<string, Hl7.Fhir.Rest.SortOrder> sorting in searchParams.Sort)
+                {
+                    try
+                    {
+                        SearchParameterInfo searchParameterInfo = _searchParameterDefinitionManager.GetSearchParameter(parsedResourceType.ToString(), sorting.Item1);
+                        sortings.Add((searchParameterInfo, sorting.Item2.ToCoreSortOrder()));
+                    }
+                    catch (SearchParameterNotSupportedException)
+                    {
+                        (unsupportedSortings ??= new List<(string parameterName, string reason)>()).Add((sorting.Item1, string.Format(Core.Resources.SearchParameterNotSupported, sorting.Item1, resourceType)));
+                    }
+                }
+
+                searchOptions.Sort = sortings;
+                searchOptions.UnsupportedSortingParams = (IReadOnlyList<(string parameterName, string reason)>)unsupportedSortings ?? Array.Empty<(string parameterName, string reason)>();
+            }
+            else
+            {
+                searchOptions.Sort = Array.Empty<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)>();
+                searchOptions.UnsupportedSortingParams = Array.Empty<(string parameterName, string reason)>();
+            }
 
             return searchOptions;
         }

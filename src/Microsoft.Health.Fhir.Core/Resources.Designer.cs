@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "15.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     internal class Resources {
@@ -70,20 +70,11 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The authorization permission definition contains one or more invalid entries..
+        ///   Looks up a localized string similar to Only a bundle can be submitted for batch or transaction processing..
         /// </summary>
-        internal static string AuthorizationPermissionDefinitionInvalid {
+        internal static string BundleRequiredForBatchOrTransaction {
             get {
-                return ResourceManager.GetString("AuthorizationPermissionDefinitionInvalid", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to CapabilityStatement must have only a single item in the &apos;Rest&apos; collection..
-        /// </summary>
-        internal static string CapabilityStatementSingleRestItem {
-            get {
-                return ResourceManager.GetString("CapabilityStatementSingleRestItem", resourceCulture);
+                return ResourceManager.GetString("BundleRequiredForBatchOrTransaction", resourceCulture);
             }
         }
         
@@ -214,11 +205,84 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Operation was not attempted because search criteria was not selective enough..
+        /// </summary>
+        internal static string ConditionalOperationNotSelectiveEnough {
+            get {
+                return ResourceManager.GetString("ConditionalOperationNotSelectiveEnough", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Found result with Id &apos;{0}&apos;, which did not match the provided Id &apos;{1}&apos;..
+        /// </summary>
+        internal static string ConditionalUpdateMismatchedIds {
+            get {
+                return ResourceManager.GetString("ConditionalUpdateMismatchedIds", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The prefix used to identify custom audit headers cannot be empty..
+        /// </summary>
+        internal static string CustomHeaderPrefixCannotBeEmpty {
+            get {
+                return ResourceManager.GetString("CustomHeaderPrefixCannotBeEmpty", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The date time string &apos;{0}&apos; is not in a correct format..
+        /// </summary>
+        internal static string DateTimeStringIsIncorrectlyFormatted {
+            get {
+                return ResourceManager.GetString("DateTimeStringIsIncorrectlyFormatted", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to At least one portion of the date time string &apos;{0}&apos; is out of range..
+        /// </summary>
+        internal static string DateTimeStringIsOutOfRange {
+            get {
+                return ResourceManager.GetString("DateTimeStringIsOutOfRange", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Deleting a specific record version is not supported..
         /// </summary>
         internal static string DeleteVersionNotAllowed {
             get {
                 return ResourceManager.GetString("DeleteVersionNotAllowed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to There are {0} roles with the name &apos;{1}&apos;.
+        /// </summary>
+        internal static string DuplicateRoleNames {
+            get {
+                return ResourceManager.GetString("DuplicateRoleNames", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Error validating roles:
+        ///{0}.
+        /// </summary>
+        internal static string ErrorValidatingRoles {
+            get {
+                return ResourceManager.GetString("ErrorValidatingRoles", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Authorization failed..
+        /// </summary>
+        internal static string Forbidden {
+            get {
+                return ResourceManager.GetString("Forbidden", resourceCulture);
             }
         }
         
@@ -295,6 +359,24 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The _include search cannot be used against the base route..
+        /// </summary>
+        internal static string IncludeCannotBeAgainstBase {
+            get {
+                return ResourceManager.GetString("IncludeCannotBeAgainstBase", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The _include search is missing the type to search..
+        /// </summary>
+        internal static string IncludeMissingType {
+            get {
+                return ResourceManager.GetString("IncludeMissingType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Field &apos;{0}&apos; with value &apos;{1}&apos; is not supported..
         /// </summary>
         internal static string InvalidBooleanConfigSetting {
@@ -304,38 +386,38 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Given conditional reference &apos;{0}&apos; does not resolve to a resource..
+        /// </summary>
+        internal static string InvalidConditionalReference {
+            get {
+                return ResourceManager.GetString("InvalidConditionalReference", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Resource type and query parameter must be present in a given request &apos;{0}&apos;..
+        /// </summary>
+        internal static string InvalidConditionalReferenceParameters {
+            get {
+                return ResourceManager.GetString("InvalidConditionalReferenceParameters", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Value &apos;{0}&apos; is not supported. Please select from the following list of supported capabilities: [{1}]..
+        /// </summary>
+        internal static string InvalidConfigSetting {
+            get {
+                return ResourceManager.GetString("InvalidConfigSetting", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The continuation token is invalid..
         /// </summary>
         internal static string InvalidContinuationToken {
             get {
                 return ResourceManager.GetString("InvalidContinuationToken", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Field &apos;{0}&apos; with value &apos;{1}&apos; is not supported. Please select from the following list of supported capabilities: [{2}]..
-        /// </summary>
-        internal static string InvalidEnumConfigSetting {
-            get {
-                return ResourceManager.GetString("InvalidEnumConfigSetting", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to A duplicate value was found for field &apos;{0}&apos;. Please check your configured options..
-        /// </summary>
-        internal static string InvalidListConfigDuplicateItem {
-            get {
-                return ResourceManager.GetString("InvalidListConfigDuplicateItem", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Unsupported values for field &apos;{0}&apos; were selected. Please check your configured options..
-        /// </summary>
-        internal static string InvalidListConfigSetting {
-            get {
-                return ResourceManager.GetString("InvalidListConfigSetting", resourceCulture);
             }
         }
         
@@ -448,6 +530,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to {0} operation failed for reason: {1}.
+        /// </summary>
+        internal static string OperationFailed {
+            get {
+                return ResourceManager.GetString("OperationFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to  or .
         /// </summary>
         internal static string OrDelimiter {
@@ -462,6 +553,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string ReadHistoryDisabled {
             get {
                 return ResourceManager.GetString("ReadHistoryDisabled", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Resource type &apos;{0}&apos; in the reference &apos;{1}&apos; is not supported..
+        /// </summary>
+        internal static string ReferenceResourceTypeNotSupported {
+            get {
+                return ResourceManager.GetString("ReferenceResourceTypeNotSupported", resourceCulture);
             }
         }
         
@@ -511,11 +611,11 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Role must have one or more resource permissions..
+        ///   Looks up a localized string similar to The requested resource exceeded the backing database&apos;s size limit..
         /// </summary>
-        internal static string ResourcePermissionEmpty {
+        internal static string ResourceTooLarge {
             get {
-                return ResourceManager.GetString("ResourcePermissionEmpty", resourceCulture);
+                return ResourceManager.GetString("ResourceTooLarge", resourceCulture);
             }
         }
         
@@ -529,20 +629,20 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Role name cannot be null or empty..
+        ///   Looks up a localized string similar to The reverse chain search is missing the reference to search..
         /// </summary>
-        internal static string RoleNameEmpty {
+        internal static string ReverseChainMissingReference {
             get {
-                return ResourceManager.GetString("RoleNameEmpty", resourceCulture);
+                return ResourceManager.GetString("ReverseChainMissingReference", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Role contains a resource permissions with no actions..
+        ///   Looks up a localized string similar to The reverse chain search is missing the type to search..
         /// </summary>
-        internal static string RoleResourcePermissionWithNoAction {
+        internal static string ReverseChainMissingType {
             get {
-                return ResourceManager.GetString("RoleResourcePermissionWithNoAction", resourceCulture);
+                return ResourceManager.GetString("ReverseChainMissingType", resourceCulture);
             }
         }
         
@@ -682,6 +782,60 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The _sort parameter is not supported..
+        /// </summary>
+        internal static string SortNotSupported {
+            get {
+                return ResourceManager.GetString("SortNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Bundle type is not present. Possible values are: transaction or batch.
+        /// </summary>
+        internal static string TypeNotPresent {
+            get {
+                return ResourceManager.GetString("TypeNotPresent", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Unable to delete secret from SecretStore.
+        /// </summary>
+        internal static string UnableToDeleteSecret {
+            get {
+                return ResourceManager.GetString("UnableToDeleteSecret", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Unable to get secret from SecretStore.
+        /// </summary>
+        internal static string UnableToGetSecret {
+            get {
+                return ResourceManager.GetString("UnableToGetSecret", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Unable to set secret in SecretStore.
+        /// </summary>
+        internal static string UnableToSetSecret {
+            get {
+                return ResourceManager.GetString("UnableToSetSecret", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Unknown Error..
+        /// </summary>
+        internal static string UnknownError {
+            get {
+                return ResourceManager.GetString("UnknownError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Unsupported configuration found..
         /// </summary>
         internal static string UnsupportedConfigurationMessage {
@@ -691,11 +845,11 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The destination type &apos;{0}&apos; is not supported..
+        ///   Looks up a localized string similar to The requested &quot;_total&quot; parameter is not supported..
         /// </summary>
-        internal static string UnsupportedDestinationTypeMessage {
+        internal static string UnsupportedTotalParameter {
             get {
-                return ResourceManager.GetString("UnsupportedDestinationTypeMessage", resourceCulture);
+                return ResourceManager.GetString("UnsupportedTotalParameter", resourceCulture);
             }
         }
         
@@ -705,6 +859,24 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string UpdateRequestsRequireId {
             get {
                 return ResourceManager.GetString("UpdateRequestsRequireId", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to User requested cancellation of operation..
+        /// </summary>
+        internal static string UserRequestedCancellation {
+            get {
+                return ResourceManager.GetString("UserRequestedCancellation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to All OK.
+        /// </summary>
+        internal static string ValidationPassed {
+            get {
+                return ResourceManager.GetString("ValidationPassed", resourceCulture);
             }
         }
         

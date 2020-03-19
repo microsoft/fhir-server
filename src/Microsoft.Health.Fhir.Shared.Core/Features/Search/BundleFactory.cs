@@ -14,6 +14,7 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
@@ -36,55 +37,48 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
         public ResourceElement CreateSearchBundle(SearchResult result)
         {
-            EnsureArg.IsNotNull(result, nameof(result));
-
-            // Create the bundle from the result.
-            var bundle = new Bundle();
-
-            if (result != null)
+            return CreateBundle(result, Bundle.BundleType.Searchset, r =>
             {
-                IEnumerable<Bundle.EntryComponent> entries = result.Results.Select(r =>
-                {
-                    ResourceElement resource = _deserializer.Deserialize(r);
+                ResourceElement resource = _deserializer.Deserialize(r.Resource);
 
-                    return new Bundle.EntryComponent
+                return new Bundle.EntryComponent
+                {
+                    FullUrlElement = new FhirUri(_urlResolver.ResolveResourceUrl(resource)),
+                    Resource = resource.Instance.ToPoco<Resource>(),
+                    Search = new Bundle.SearchComponent
                     {
-                        FullUrlElement = new FhirUri(_urlResolver.ResolveResourceUrl(resource)),
-                        Resource = resource.Instance.ToPoco<Resource>(),
-                        Search = new Bundle.SearchComponent
-                        {
-                            // TODO: For now, everything returned is a match. We will need to
-                            // distinct between match and include once we support it.
-                            Mode = Bundle.SearchEntryMode.Match,
-                        },
-                    };
-                });
-
-                bundle.Entry.AddRange(entries);
-
-                if (result.ContinuationToken != null)
-                {
-                    bundle.NextLink = _urlResolver.ResolveRouteUrl(
-                        result.UnsupportedSearchParameters,
-                        result.ContinuationToken);
-                }
-            }
-
-            // Add the self link to indicate which search parameters were used.
-            bundle.SelfLink = _urlResolver.ResolveRouteUrl(result.UnsupportedSearchParameters);
-
-            bundle.Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId;
-            bundle.Type = Bundle.BundleType.Searchset;
-            bundle.Total = result?.TotalCount;
-            bundle.Meta = new Meta
-            {
-                LastUpdated = Clock.UtcNow,
-            };
-
-            return bundle.ToResourceElement();
+                        Mode = r.SearchEntryMode == SearchEntryMode.Match ? Bundle.SearchEntryMode.Match : Bundle.SearchEntryMode.Include,
+                    },
+                };
+            });
         }
 
         public ResourceElement CreateHistoryBundle(SearchResult result)
+        {
+            return CreateBundle(result, Bundle.BundleType.History, r =>
+            {
+                var resource = _deserializer.Deserialize(r.Resource);
+                var hasVerb = Enum.TryParse(r.Resource.Request?.Method, true, out Bundle.HTTPVerb httpVerb);
+
+                return new Bundle.EntryComponent
+                {
+                    FullUrlElement = new FhirUri(_urlResolver.ResolveResourceUrl(resource, true)),
+                    Resource = resource.Instance.ToPoco<Resource>(),
+                    Request = new Bundle.RequestComponent
+                    {
+                        Method = hasVerb ? (Bundle.HTTPVerb?)httpVerb : null,
+                        Url = hasVerb ? $"{resource.InstanceType}/{(httpVerb == Bundle.HTTPVerb.POST ? null : resource.Id)}" : null,
+                    },
+                    Response = new Bundle.ResponseComponent
+                    {
+                        LastModified = r.Resource.LastModified,
+                        Etag = WeakETag.FromVersionId(r.Resource.Version).ToString(),
+                    },
+                };
+            });
+        }
+
+        private ResourceElement CreateBundle(SearchResult result, Bundle.BundleType type, Func<SearchResultEntry, Bundle.EntryComponent> selectionFunction)
         {
             EnsureArg.IsNotNull(result, nameof(result));
 
@@ -93,27 +87,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             if (result != null)
             {
-                IEnumerable<Bundle.EntryComponent> entries = result.Results.Select(r =>
-                {
-                    var resource = _deserializer.Deserialize(r);
-                    var hasVerb = Enum.TryParse(r.Request?.Method, true, out Bundle.HTTPVerb httpVerb);
-
-                    return new Bundle.EntryComponent
-                    {
-                        FullUrlElement = new FhirUri(_urlResolver.ResolveResourceUrl(resource, true)),
-                        Resource = resource.Instance.ToPoco<Resource>(),
-                        Request = new Bundle.RequestComponent
-                        {
-                            Method = hasVerb ? (Bundle.HTTPVerb?)httpVerb : null,
-                            Url = hasVerb ? $"{resource.InstanceType}/{(httpVerb == Bundle.HTTPVerb.POST ? null : resource.Id)}" : null,
-                        },
-                        Response = new Bundle.ResponseComponent
-                        {
-                            LastModified = r.LastModified,
-                            Etag = WeakETag.FromVersionId(r.Version).ToString(),
-                        },
-                    };
-                });
+                IEnumerable<Bundle.EntryComponent> entries = result.Results.Select(selectionFunction);
 
                 bundle.Entry.AddRange(entries);
 
@@ -121,15 +95,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 {
                     bundle.NextLink = _urlResolver.ResolveRouteUrl(
                         result.UnsupportedSearchParameters,
-                        result.ContinuationToken);
+                        result.UnsupportedSortingParameters,
+                        Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(result.ContinuationToken)),
+                        true);
                 }
             }
 
             // Add the self link to indicate which search parameters were used.
-            bundle.SelfLink = _urlResolver.ResolveRouteUrl(result.UnsupportedSearchParameters);
+            bundle.SelfLink = _urlResolver.ResolveRouteUrl(result.UnsupportedSearchParameters, result.UnsupportedSortingParameters);
 
             bundle.Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId;
-            bundle.Type = Bundle.BundleType.History;
+            bundle.Type = type;
             bundle.Total = result?.TotalCount;
             bundle.Meta = new Meta
             {

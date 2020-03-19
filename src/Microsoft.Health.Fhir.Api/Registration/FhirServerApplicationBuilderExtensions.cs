@@ -10,6 +10,7 @@ using EnsureThat;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Health.Fhir.Api.Features.Routing;
 using Newtonsoft.Json;
 
 namespace Microsoft.AspNetCore.Builder
@@ -25,7 +26,7 @@ namespace Microsoft.AspNetCore.Builder
         {
             EnsureArg.IsNotNull(app, nameof(app));
 
-            app.UseHealthChecks("/health/check", new HealthCheckOptions
+            app.UseHealthChecks(new PathString(KnownRoutes.HealthCheck), new HealthCheckOptions
             {
                 ResponseWriter = async (httpContext, healthReport) =>
                 {
@@ -37,6 +38,7 @@ namespace Microsoft.AspNetCore.Builder
                             {
                                 name = entry.Key,
                                 status = Enum.GetName(typeof(HealthStatus), entry.Value.Status),
+                                description = entry.Value.Description,
                             }),
                         });
 

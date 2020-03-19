@@ -9,7 +9,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
+using Microsoft.Health.Fhir.Core.Features.Operations.Versions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Messages.Get;
@@ -106,18 +108,31 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             return result.Bundle;
         }
 
-        public static async Task<ResourceElement> GetCapabilitiesAsync(this IMediator mediator, bool isSystem = false, CancellationToken cancellationToken = default)
+        public static async Task<ResourceElement> GetCapabilitiesAsync(this IMediator mediator, CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
 
-            if (isSystem)
-            {
-                var sysResponse = await mediator.Send(new GetSystemCapabilitiesRequest(), cancellationToken);
-                return sysResponse.CapabilityStatement;
-            }
-
             var response = await mediator.Send(new GetCapabilitiesRequest(), cancellationToken);
             return response.CapabilityStatement;
+        }
+
+        public static async Task<VersionsResult> GetOperationVersionsAsync(this IMediator mediator, CancellationToken cancellationToken = default)
+        {
+            EnsureArg.IsNotNull(mediator, nameof(mediator));
+
+            var response = await mediator.Send(new GetOperationVersionsRequest(), cancellationToken);
+
+            return new VersionsResult(response.SupportedVersions, response.DefaultVersion);
+        }
+
+        public static async Task<ResourceElement> PostBundle(this IMediator mediator, ResourceElement bundle, CancellationToken cancellationToken = default)
+        {
+            EnsureArg.IsNotNull(mediator, nameof(mediator));
+            EnsureArg.IsNotNull(bundle, nameof(bundle));
+
+            BundleResponse result = await mediator.Send<BundleResponse>(new BundleRequest(bundle), cancellationToken);
+
+            return result.Bundle;
         }
     }
 }

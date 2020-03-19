@@ -4,7 +4,7 @@ Do Not Translate or Localize
 
 This file is based on or incorporates material from the projects listed below (Third Party IP). The original copyright notice and the license under which Microsoft received such Third Party IP, are set forth below. Such licenses and notices are provided for informational purposes only. Microsoft licenses the Third Party IP to you under the licensing terms for the Microsoft product. Microsoft reserves all other rights not expressly granted under this agreement, whether by implication, estoppel or otherwise.
 
-## AngleSharp 0.11.0
+## AngleSharp 0.13.0
 * Component Source:   https://github.com/AngleSharp/AngleSharp/
 * Component Copyright and License:
   > The MIT License (MIT)
@@ -29,7 +29,7 @@ This file is based on or incorporates material from the projects listed below (T
   > OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
   > SOFTWARE.
 
-## Ensure.That 8.1.1
+## Ensure.That 8.1.2
 * Component Source:   https://github.com/danielwertheim/Ensure.That/
 * Component Copyright and License:
   > The MIT License (MIT)
@@ -54,7 +54,7 @@ This file is based on or incorporates material from the projects listed below (T
   > OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
   > SOFTWARE.
 
-## FluentValidation 8.0.101
+## FluentValidation 8.6.1
 * Component Source:   https://github.com/JeremySkinner/fluentvalidation/
 * Component Copyright and License:
   >                                  Apache License
@@ -234,7 +234,7 @@ This file is based on or incorporates material from the projects listed below (T
   > 
   >    END OF TERMS AND CONDITIONS
 
-## Hl7.Fhir.STU3 1.2.0
+## Hl7.Fhir.STU3 1.5.0
 * Component Source:   https://github.com/FirelyTeam/fhir-net-api
 * Component Copyright and License:  
   > Copyright (c) 2013-2019, HL7, Firely (info@fire.ly), Microsoft Open Technologies
@@ -267,7 +267,73 @@ This file is based on or incorporates material from the projects listed below (T
   > (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
   > SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-## IdentityServer4 2.3.0
+## Hl7.Fhir.R4 1.5.0
+* Component Source:   https://github.com/FirelyTeam/fhir-net-api
+* Component Copyright and License:  
+  > Copyright (c) 2013-2019, HL7, Firely (info@fire.ly), Microsoft Open Technologies
+  > and contributors. See the file CONTRIBUTORS for details
+  > 
+  > All rights reserved.
+  > 
+  > Redistribution and use in source and binary forms, with or without modification,
+  > are permitted provided that the following conditions are met:
+  > 
+  > * Redistributions of source code must retain the above copyright notice, this
+  >   list of conditions and the following disclaimer.
+  > 
+  > * Redistributions in binary form must reproduce the above copyright notice, this
+  >   list of conditions and the following disclaimer in the documentation and/or
+  >   other materials provided with the distribution.
+  > 
+  > * Neither the name of Furore nor the names of its
+  >   contributors may be used to endorse or promote products derived from
+  >   this software without specific prior written permission.
+  > 
+  > THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+  > ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+  > WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+  > DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+  > ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+  > (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+  > LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+  > ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+  > (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+  > SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+## Hl7.Fhir.R5 1.7.0-alpha
+* Component Source:   https://github.com/FirelyTeam/fhir-net-api
+* Component Copyright and License:  
+  > Copyright (c) 2013-2020, HL7, Firely (info@fire.ly), Microsoft Open Technologies 
+  > and contributors. See the file CONTRIBUTORS for details
+  > 
+  > All rights reserved.
+  > 
+  > Redistribution and use in source and binary forms, with or without modification,
+  > are permitted provided that the following conditions are met:
+  > 
+  > * Redistributions of source code must retain the above copyright notice, this
+  >   list of conditions and the following disclaimer.
+  > 
+  > * Redistributions in binary form must reproduce the above copyright notice, this
+  >   list of conditions and the following disclaimer in the documentation and/or
+  >   other materials provided with the distribution.
+  > 
+  > * Neither the name of Firely nor the names of its
+  >   contributors may be used to endorse or promote products derived from
+  >   this software without specific prior written permission.
+  > 
+  > THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+  > ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+  > WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+  > DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+  > ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+  > (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+  > LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+  > ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+  > (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+  > SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+## IdentityServer4 2.5.3
 * Component Source:   https://github.com/IdentityServer/IdentityServer4
 * Component Copyright and License:
   >                                  Apache License
@@ -473,7 +539,7 @@ This file is based on or incorporates material from the projects listed below (T
   >    limitations under the License.
   > 
 
-## MediatR 7.0.0
+## MediatR 8.0.0
 * Component Source:   https://github.com/jbogard/MediatR
 * Component Copyright and License:
   > Apache License
@@ -678,7 +744,7 @@ This file is based on or incorporates material from the projects listed below (T
   >    See the License for the specific language governing permissions and
   >    limitations under the License.
   
-## NSubstitute 3.1.0
+## NSubstitute 4.2.1
 * Component Source:   https://github.com/nsubstitute/
 * Component Copyright and License:  
   > Copyright (c) 2009 Anthony Egerton (nsubstitute@delfish.com) and David Tchepak (dave@davesquared.net)
@@ -709,7 +775,7 @@ This file is based on or incorporates material from the projects listed below (T
   > 
   > [ http://www.opensource.org/licenses/bsd-license.php ]> 
 
-## Polly 7.1.0
+## Polly 7.2.0
 * Component Source:   https://github.com/App-vNext/Polly
 * Component Copyright and License:
   > New BSD License
@@ -739,7 +805,7 @@ This file is based on or incorporates material from the projects listed below (T
   > (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
   > SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-## StyleCop.Analyzers 1.1.0-beta008
+## StyleCop.Analyzers 1.1.118
 * Component Source:   https://github.com/DotNetAnalyzers/StyleCopAnalyzers/
 * Component Copyright and License:  
   >Copyright (c) Tunnel Vision Laboratories, LLC. All rights reserved.

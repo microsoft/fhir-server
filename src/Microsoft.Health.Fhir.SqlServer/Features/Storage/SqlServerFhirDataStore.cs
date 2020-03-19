@@ -15,6 +15,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -37,27 +39,37 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly SqlServerDataStoreConfiguration _configuration;
         private readonly SqlServerFhirModel _model;
         private readonly SearchParameterToSearchValueTypeMap _searchParameterTypeMap;
-        private readonly V1.UpsertResourceTvpGenerator<ResourceMetadata> _upsertResourceTvpGenerator;
+        private readonly VLatest.UpsertResourceTvpGenerator<ResourceMetadata> _upsertResourceTvpGenerator;
         private readonly RecyclableMemoryStreamManager _memoryStreamManager;
+        private readonly CoreFeatureConfiguration _coreFeatures;
+        private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private readonly ILogger<SqlServerFhirDataStore> _logger;
 
         public SqlServerFhirDataStore(
             SqlServerDataStoreConfiguration configuration,
             SqlServerFhirModel model,
             SearchParameterToSearchValueTypeMap searchParameterTypeMap,
-            V1.UpsertResourceTvpGenerator<ResourceMetadata> upsertResourceTvpGenerator,
+            VLatest.UpsertResourceTvpGenerator<ResourceMetadata> upsertResourceTvpGenerator,
+            IOptions<CoreFeatureConfiguration> coreFeatures,
+            SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             ILogger<SqlServerFhirDataStore> logger)
         {
             EnsureArg.IsNotNull(configuration, nameof(configuration));
             EnsureArg.IsNotNull(model, nameof(model));
             EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));
             EnsureArg.IsNotNull(upsertResourceTvpGenerator, nameof(upsertResourceTvpGenerator));
+            EnsureArg.IsNotNull(coreFeatures, nameof(coreFeatures));
+            EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
+
             _configuration = configuration;
             _model = model;
             _searchParameterTypeMap = searchParameterTypeMap;
             _upsertResourceTvpGenerator = upsertResourceTvpGenerator;
+            _coreFeatures = coreFeatures.Value;
+            _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _logger = logger;
+
             _memoryStreamManager = new RecyclableMemoryStreamManager();
         }
 
@@ -68,7 +80,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             int etag = 0;
             if (weakETag != null && !int.TryParse(weakETag.VersionId, out etag))
             {
-                throw new ResourceConflictException(weakETag);
+                // Set the etag to a sentinel value to enable expected failure paths when updating with both existing and nonexistent resources.
+                etag = -1;
             }
 
             var resourceMetadata = new ResourceMetadata(
@@ -76,11 +89,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 resource.SearchIndices?.ToLookup(e => _searchParameterTypeMap.GetSearchValueType(e)),
                 resource.LastModifiedClaims);
 
-            using (var connection = new SqlConnection(_configuration.ConnectionString))
+            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
             {
-                await connection.OpenAsync(cancellationToken);
-
-                using (var command = connection.CreateCommand())
+                using (SqlCommand command = sqlConnectionWrapper.CreateSqlCommand())
                 using (var stream = new RecyclableMemoryStream(_memoryStreamManager))
                 using (var gzipStream = new GZipStream(stream, CompressionMode.Compress))
                 using (var writer = new StreamWriter(gzipStream, ResourceEncoding))
@@ -90,7 +101,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     stream.Seek(0, 0);
 
-                    V1.UpsertResource.PopulateCommand(
+                    VLatest.UpsertResource.PopulateCommand(
                         command,
                         baseResourceSurrogateId: ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.UtcDateTime),
                         resourceTypeId: _model.GetResourceTypeId(resource.ResourceTypeName),
@@ -120,10 +131,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         switch (e.Number)
                         {
-                            case SqlErrorCodes.NotFound:
-                                throw new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed);
                             case SqlErrorCodes.PreconditionFailed:
-                                throw new ResourceConflictException(weakETag);
+                                throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag?.VersionId));
+                            case SqlErrorCodes.NotFound:
+                                if (weakETag != null)
+                                {
+                                    throw new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundByIdAndVersion, resource.ResourceTypeName, resource.ResourceId, weakETag.VersionId));
+                                }
+
+                                goto default;
+                            case SqlErrorCodes.MethodNotAllowed:
+                                throw new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed);
                             default:
                                 _logger.LogError(e, "Error from SQL database on upsert");
                                 throw;
@@ -137,10 +155,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             await _model.EnsureInitialized();
 
-            using (var connection = new SqlConnection(_configuration.ConnectionString))
+            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
             {
-                await connection.OpenAsync(cancellationToken);
-
                 int? requestedVersion = null;
                 if (!string.IsNullOrEmpty(key.VersionId))
                 {
@@ -152,9 +168,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     requestedVersion = parsedVersion;
                 }
 
-                using (SqlCommand command = connection.CreateCommand())
+                using (SqlCommand command = sqlConnectionWrapper.CreateSqlCommand())
                 {
-                    V1.ReadResource.PopulateCommand(
+                    VLatest.ReadResource.PopulateCommand(
                         command,
                         resourceTypeId: _model.GetResourceTypeId(key.ResourceType),
                         resourceId: key.Id,
@@ -167,7 +183,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             return null;
                         }
 
-                        var resourceTable = V1.Resource;
+                        var resourceTable = VLatest.Resource;
 
                         (long resourceSurrogateId, int version, bool isDeleted, bool isHistory, Stream rawResourceStream) = sqlDataReader.ReadRow(
                             resourceTable.ResourceSurrogateId,
@@ -208,33 +224,35 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             await _model.EnsureInitialized();
 
-            using (var connection = new SqlConnection(_configuration.ConnectionString))
+            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
             {
-                await connection.OpenAsync(cancellationToken);
-
-                using (var command = connection.CreateCommand())
+                using (var command = sqlConnectionWrapper.CreateSqlCommand())
                 {
-                    V1.HardDeleteResource.PopulateCommand(command, resourceTypeId: _model.GetResourceTypeId(key.ResourceType), resourceId: key.Id);
+                    VLatest.HardDeleteResource.PopulateCommand(command, resourceTypeId: _model.GetResourceTypeId(key.ResourceType), resourceId: key.Id);
 
                     await command.ExecuteNonQueryAsync(cancellationToken);
                 }
             }
         }
 
-        public void Build(IListedCapabilityStatement statement)
+        public void Build(ICapabilityStatementBuilder builder)
         {
-            EnsureArg.IsNotNull(statement, nameof(statement));
+            EnsureArg.IsNotNull(builder, nameof(builder));
 
-            foreach (var resource in ModelInfoProvider.GetResourceTypeNames())
+            builder.AddDefaultResourceInteractions()
+                   .AddDefaultSearchParameters()
+                   .AddDefaultRestSearchParams();
+
+            if (_coreFeatures.SupportsBatch)
             {
-                statement.BuildRestResourceComponent(resource, builder =>
-                {
-                    builder.AddResourceVersionPolicy(ResourceVersionPolicy.NoVersion);
-                    builder.AddResourceVersionPolicy(ResourceVersionPolicy.Versioned);
-                    builder.AddResourceVersionPolicy(ResourceVersionPolicy.VersionedUpdate);
-                    builder.ReadHistory = true;
-                    builder.UpdateCreate = true;
-                });
+                // Batch supported added in listedCapability
+                builder.AddRestInteraction(SystemRestfulInteraction.Batch);
+            }
+
+            if (_coreFeatures.SupportsTransaction)
+            {
+                // Transaction supported added in listedCapability
+                builder.AddRestInteraction(SystemRestfulInteraction.Transaction);
             }
         }
     }

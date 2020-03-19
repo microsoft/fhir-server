@@ -29,7 +29,7 @@ There is also a managed offering in Azure called the [Azure API for FHIR](https:
 
 - [Open Source Deployment](https://docs.microsoft.com/en-us/azure/healthcare-apis/fhir-oss-portal-quickstart): Describes how to deploy FHIR Server for Azure.
 - [PaaS Service Deployment](https://docs.microsoft.com/en-us/azure/healthcare-apis/fhir-paas-portal-quickstart): Describes how to deploy Azure API for FHIR.
-- [FHIR Postman tutorial](https://docs.microsoft.com/en-us/azure/healthcare-apis/access-fhir-postman-tutorial): Describes how to access a FHIR API suing Postman.
+- [FHIR Postman tutorial](https://docs.microsoft.com/en-us/azure/healthcare-apis/access-fhir-postman-tutorial): Describes how to access a FHIR API using Postman.
 - [Azure Active Directory Application Registrations](docs/PortalAppRegistration.md): Describes how to configure Azure Active Directory (AAD) for use with FHIR Server for Azure.
 - [Authentication](docs/Authentication.md): Describes the authentication settings for the FHIR server and how to make use of it in development and test scenarios.
 - [Roles](docs/Roles.md): Describes how the FHIR Server for Azure role-based access control (RBAC) system works.
@@ -42,8 +42,8 @@ There is also a managed offering in Azure called the [Azure API for FHIR](https:
 * [Azure API for FHIR documentation](https://docs.microsoft.com/azure/healthcare-apis/)
 * [FHIR Server Samples Repo](https://github.com/Microsoft/fhir-server-samples): A demo sandbox using the Azure API for FHIR.
 * [Features](https://docs.microsoft.com/en-us/azure/healthcare-apis/fhir-features-supported): This document lists the main features of the FHIR Server for Azure and Azure API for FHIR.
-* [Roadmap](docs/Roadmap.md): This document provides a list of features that are planned or in development.
-* Blog: [FHIR Server for Azure, an open source project for modern healthcare](https://cloudblogs.microsoft.com/industry-blog/industry/health/fhir-server-for-azure-an-open-source-project-for-cloud-based-health-solutions/)
+* Blog: [FHIR Server for Azure, an open source project for modern healthcare](https://cloudblogs.microsoft.com/industry-blog/industry/health/fhir-server-for-azure-an-open-source-project-for-cloud-based-health-solutions/).
+* Blog: [Azure API for FHIR moves to general availability](https://azure.microsoft.com/en-us/blog/azure-api-for-fhir-moves-to-general-availability/).
 * Twitter: [Health_IT](https://twitter.com/Health_IT)
 
 ## Contributing

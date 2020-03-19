@@ -7,14 +7,13 @@ using System.Collections.Generic;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
-using Microsoft.Health.Fhir.Web;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
-    public class ReferenceSearchTestFixture : HttpIntegrationTestFixture<Startup>
+    public class ReferenceSearchTestFixture : HttpIntegrationTestFixture
     {
-        public ReferenceSearchTestFixture(DataStore dataStore, Format format)
-            : base(dataStore, format)
+        public ReferenceSearchTestFixture(DataStore dataStore, Format format, TestFhirServerFactory testFhirServerFactory)
+            : base(dataStore, format, testFhirServerFactory)
         {
             // Prepare the resources used for string search tests.
             FhirClient.DeleteAllResources(ResourceType.Patient).Wait();

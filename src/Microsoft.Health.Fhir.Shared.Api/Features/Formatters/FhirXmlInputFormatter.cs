@@ -52,7 +52,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             EnsureArg.IsNotNull(context, nameof(context));
             EnsureArg.IsNotNull(encoding, nameof(encoding));
 
-            var request = context.HttpContext.Request;
+            context.HttpContext.AllowSynchronousIO();
+
+            HttpRequest request = context.HttpContext.Request;
 
             if (!request.Body.CanSeek)
             {
@@ -71,7 +73,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             }
             catch (Exception ex)
             {
-                context.ModelState.TryAddModelError(string.Empty, ex.Message);
+                var errorMessage = string.IsNullOrEmpty(ex.Message) ? Api.Resources.ParsingError : ex.Message;
+
+                context.ModelState.TryAddModelError(string.Empty, errorMessage);
             }
 
             return InputFormatterResult.Failure();

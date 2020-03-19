@@ -56,5 +56,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         public virtual TOutput VisitString(StringExpression expression, TContext context) => default;
 
         public virtual TOutput VisitCompartment(CompartmentSearchExpression expression, TContext context) => default;
+
+        public virtual TOutput VisitInclude(IncludeExpression expression, TContext context) => default;
     }
 }

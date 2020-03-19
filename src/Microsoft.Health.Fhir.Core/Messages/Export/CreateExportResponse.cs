@@ -9,11 +9,11 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
 {
     public class CreateExportResponse
     {
-        public CreateExportResponse(string id)
+        public CreateExportResponse(string jobId)
         {
-            EnsureArg.IsNotNullOrWhiteSpace(id, nameof(id));
+            EnsureArg.IsNotNullOrWhiteSpace(jobId, nameof(jobId));
 
-            JobId = id;
+            JobId = jobId;
         }
 
         public string JobId { get; }

@@ -9,7 +9,6 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
-using Microsoft.Health.Fhir.Web;
 using Xunit;
 using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Common.FhirClient;
 using Task = System.Threading.Tasks.Task;
@@ -17,9 +16,9 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
-    public class ReadTests : IClassFixture<HttpIntegrationTestFixture<Startup>>
+    public class ReadTests : IClassFixture<HttpIntegrationTestFixture>
     {
-        public ReadTests(HttpIntegrationTestFixture<Startup> fixture)
+        public ReadTests(HttpIntegrationTestFixture fixture)
         {
             Client = fixture.FhirClient;
         }
@@ -28,7 +27,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenGettingAResource_GivenAnId_TheServerShouldReturnTheAppropriateResourceSuccessfully()
+        public async Task GivenAnId_WhenGettingAResource_TheServerShouldReturnTheAppropriateResourceSuccessfully()
         {
             Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
@@ -48,7 +47,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenGettingAResource_GivenANonExistantId_TheServerShouldReturnANotFoundStatus()
+        public async Task GivenANonExistantId_WhenGettingAResource_TheServerShouldReturnANotFoundStatus()
         {
             FhirException ex = await Assert.ThrowsAsync<FhirException>(
                 () => Client.ReadAsync<Observation>(ResourceType.Observation, Guid.NewGuid().ToString()));
@@ -58,7 +57,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenGettingAResource_GivenADeletedId_TheServerShouldReturnAGoneStatus()
+        public async Task GivenADeletedId_WhenGettingAResource_TheServerShouldReturnAGoneStatus()
         {
             Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 

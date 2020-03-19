@@ -9,7 +9,6 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
-using Microsoft.Health.Fhir.Web;
 using Xunit;
 using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Common.FhirClient;
 using Task = System.Threading.Tasks.Task;
@@ -17,9 +16,9 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
-    public class UpdateTests : IClassFixture<HttpIntegrationTestFixture<Startup>>
+    public partial class UpdateTests : IClassFixture<HttpIntegrationTestFixture>
     {
-        public UpdateTests(HttpIntegrationTestFixture<Startup> fixture)
+        public UpdateTests(HttpIntegrationTestFixture fixture)
         {
             Client = fixture.FhirClient;
         }
@@ -28,7 +27,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenUpdatingAnExistingResource_GivenTheResource_TheServerShouldReturnTheUpdatedResourceSuccessfully()
+        public async Task GivenTheResource_WhenUpdatingAnExistingResource_TheServerShouldReturnTheUpdatedResourceSuccessfully()
         {
             Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
@@ -49,7 +48,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenUpdatingANewResource_GivenTheResource_TheServerShouldReturnTheNewResourceSuccessfully()
+        public async Task GivenTheResource_WhenUpdatingANewResource_TheServerShouldReturnTheNewResourceSuccessfully()
         {
             var resourceToCreate = Samples.GetDefaultObservation().ToPoco<Observation>();
             resourceToCreate.Id = Guid.NewGuid().ToString();
@@ -75,7 +74,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenUpdatingANewResource_GivenTheResourceWithMetaSet_TheServerShouldReturnTheNewResourceSuccessfully()
+        public async Task GivenTheResourceWithMetaSet_WhenUpdatingANewResource_TheServerShouldReturnTheNewResourceSuccessfully()
         {
             var resourceToCreate = Samples.GetDefaultObservation().ToPoco<Observation>();
             resourceToCreate.Id = Guid.NewGuid().ToString();
@@ -106,7 +105,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenUpdatingAResource_GivenAMismatchedId_TheServerShouldReturnABadRequestResponse()
+        public async Task GivenAMismatchedId_WhenUpdatingAResource_TheServerShouldReturnABadRequestResponse()
         {
             Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
@@ -118,7 +117,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenUpdatingAResource_GivenAResourceWithNoId_TheServerShouldReturnABadRequestResponse()
+        public async Task GivenAResourceWithNoId_WhenUpdatingAResource_TheServerShouldReturnABadRequestResponse()
         {
             var resourceToCreate = Samples.GetDefaultObservation().ToPoco<Observation>();
 
@@ -130,11 +129,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenUpdatingAResource_GivenAnETagHeader_TheServerShouldReturnTheUpdatedResourceSuccessfully()
+        public async Task GivenAnETagHeader_WhenUpdatingAResource_TheServerShouldReturnTheUpdatedResourceSuccessfully()
         {
             Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
-            FhirResponse<Observation> updateResponse = await Client.UpdateAsync(createdResource);
+            FhirResponse<Observation> updateResponse = await Client.UpdateAsync(createdResource, createdResource.Meta.VersionId);
 
             Assert.Equal(System.Net.HttpStatusCode.OK, updateResponse.StatusCode);
 
@@ -147,17 +146,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             Assert.Contains(updatedResource.Meta.VersionId, updateResponse.Headers.ETag.Tag);
             TestHelper.AssertLastUpdatedAndLastModifiedAreEqual(updatedResource.Meta.LastUpdated, updateResponse.Content.Headers.LastModified);
-        }
-
-        [Fact]
-        [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenUpdatingAResource_GivenAnIncorrectETagHeader_TheServerShouldReturnAConflictResponse()
-        {
-            Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
-
-            FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.UpdateAsync(createdResource, Guid.NewGuid().ToString()));
-
-            Assert.Equal(System.Net.HttpStatusCode.Conflict, ex.StatusCode);
         }
     }
 }

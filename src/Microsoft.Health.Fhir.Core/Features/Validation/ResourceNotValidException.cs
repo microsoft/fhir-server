@@ -31,17 +31,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             {
                 if (failure is FhirValidationFailure fhirValidationFailure)
                 {
-                    foreach (var item in fhirValidationFailure.IssueComponent)
+                    if (fhirValidationFailure.IssueComponent != null)
                     {
-                        Issues.Add(item);
+                        Issues.Add(fhirValidationFailure.IssueComponent);
                     }
                 }
                 else
                 {
+                    string[] location = string.IsNullOrEmpty(failure.PropertyName) ? null : new[] { failure.PropertyName };
+
                     Issues.Add(new OperationOutcomeIssue(
                             OperationOutcomeConstants.IssueSeverity.Error,
                             OperationOutcomeConstants.IssueType.Invalid,
-                            failure.ErrorMessage));
+                            failure.ErrorMessage,
+                            location));
                 }
             }
         }

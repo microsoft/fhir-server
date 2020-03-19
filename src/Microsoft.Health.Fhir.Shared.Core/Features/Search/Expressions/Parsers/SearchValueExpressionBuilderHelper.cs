@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 {
     internal class SearchValueExpressionBuilderHelper : ISearchValueVisitor
     {
-        private const double ApproximateDateTimeRangeMultiplier = .1;
+        private const decimal ApproximateMultiplier = .1M;
 
         private string _searchParameterName;
         private SearchModifierCode? _modifier;
@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                     var startTicks = dateTime.Start.UtcTicks;
                     var endTicks = dateTime.End.UtcTicks;
 
-                    var differenceTicks = (long)((Clock.UtcNow.Ticks - Math.Max(startTicks, endTicks)) * ApproximateDateTimeRangeMultiplier);
+                    var differenceTicks = (long)((Clock.UtcNow.Ticks - Math.Max(startTicks, endTicks)) * ApproximateMultiplier);
 
                     var approximateStart = dateTime.Start.AddTicks(-differenceTicks);
                     var approximateEnd = dateTime.End.AddTicks(differenceTicks);
@@ -338,8 +338,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
             switch (_comparator)
             {
-                case SearchComparator.Eq:
                 case SearchComparator.Ap:
+                    var approximateModifier = Math.Abs(number * ApproximateMultiplier);
+                    lowerBound -= approximateModifier;
+                    upperBound += approximateModifier;
+                    goto case SearchComparator.Eq;
+                case SearchComparator.Eq:
                     return Expression.And(
                         Expression.GreaterThanOrEqual(fieldName, _componentIndex, lowerBound),
                         Expression.LessThanOrEqual(fieldName, _componentIndex, upperBound));

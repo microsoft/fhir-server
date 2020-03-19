@@ -34,13 +34,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         private readonly IReadOnlyList<Tuple<string, string>> _queryParameters = new Tuple<string, string>[0];
         private readonly IReadOnlyList<Tuple<string, string>> _unsupportedQueryParameters = new Tuple<string, string>[0];
+        private readonly IReadOnlyList<(string searchParameterName, string reason)> _unsupportedSortingParameters = Array.Empty<(string searchParameterName, string reason)>();
 
         public SearchServiceTests()
         {
             _searchOptionsFactory.Create(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>())
                 .Returns(x => new SearchOptions());
 
-            _searchService = new TestSearchService(_searchOptionsFactory, _fhirDataStore, ModelInfoProvider.Instance);
+            _searchService = new TestSearchService(_searchOptionsFactory, _fhirDataStore);
             _rawResourceFactory = new RawResourceFactory(new FhirJsonSerializer());
         }
 
@@ -53,7 +54,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             _searchOptionsFactory.Create(resourceType, _queryParameters).Returns(expectedSearchOptions);
 
-            var expectedSearchResult = new SearchResult(new ResourceWrapper[0], _unsupportedQueryParameters, null);
+            var expectedSearchResult = new SearchResult(new SearchResultEntry[0], _unsupportedQueryParameters, _unsupportedSortingParameters, null);
 
             _searchService.SearchImplementation = options =>
             {
@@ -78,7 +79,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             _searchOptionsFactory.Create(compartmentType, compartmentId, resourceType, _queryParameters).Returns(expectedSearchOptions);
 
-            var expectedSearchResult = new SearchResult(new ResourceWrapper[0], _unsupportedQueryParameters, null);
+            var expectedSearchResult = new SearchResult(new SearchResultEntry[0], _unsupportedQueryParameters, _unsupportedSortingParameters, null);
 
             _searchService.SearchImplementation = options =>
             {
@@ -98,7 +99,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             const string resourceType = "Observation";
             const string resourceId = "abc";
 
-            _searchService.SearchImplementation = options => new SearchResult(new ResourceWrapper[0], _unsupportedQueryParameters, null);
+            _searchService.SearchImplementation = options => new SearchResult(new SearchResultEntry[0], _unsupportedQueryParameters, _unsupportedSortingParameters, null);
 
             await Assert.ThrowsAsync<ResourceNotFoundException>(() => _searchService.SearchHistoryAsync(resourceType, resourceId, null, null, null, null, null, CancellationToken.None));
         }
@@ -113,7 +114,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var resourceWrapper =
                 new ResourceWrapper(observation, _rawResourceFactory.Create(observation), _resourceRequest, false, null, null, null);
-            _searchService.SearchImplementation = options => new SearchResult(new ResourceWrapper[0], _unsupportedQueryParameters, null);
+            _searchService.SearchImplementation = options => new SearchResult(new SearchResultEntry[0], _unsupportedQueryParameters, _unsupportedSortingParameters, null);
 
             _fhirDataStore.GetAsync(Arg.Any<ResourceKey>(), Arg.Any<CancellationToken>()).Returns(resourceWrapper);
 
@@ -124,8 +125,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         private class TestSearchService : SearchService
         {
-            public TestSearchService(ISearchOptionsFactory searchOptionsFactory, IFhirDataStore fhirDataStore, IModelInfoProvider modelInfoProvider)
-                : base(searchOptionsFactory, fhirDataStore, modelInfoProvider)
+            public TestSearchService(ISearchOptionsFactory searchOptionsFactory, IFhirDataStore fhirDataStore)
+                : base(searchOptionsFactory, fhirDataStore)
             {
                 SearchImplementation = options => null;
             }

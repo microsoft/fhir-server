@@ -1,9 +1,10 @@
 <Project>
+
   <PropertyGroup>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <WarningsAsErrors />
-    <DebugType>Full</DebugType>
-    <LangVersion>7.3</LangVersion>
+    <DebugType>Portable</DebugType>
+    <LangVersion>8.0</LangVersion>
     <HighEntropyVA>true</HighEntropyVA>
     <EnableSourceLink Condition="$([MSBuild]::IsOSPlatform('osx'))">false</EnableSourceLink>
     <EnableSourceControlManagerQueries>$(EnableSourceLink)</EnableSourceControlManagerQueries>
@@ -37,8 +38,15 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0-beta2-18618-05" />
-    <PackageReference Include="StyleCop.Analyzers" Version="1.1.1-beta.61" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0" />
+    <PackageReference Include="StyleCop.Analyzers" Version="1.1.118" />
   </ItemGroup>
 
+  <Choose>
+    <When Condition="$(MSBuildProjectName)!='SmartLauncher' AND !$(MSBuildProjectName.Contains('Test'))">
+      <ItemGroup>
+        <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.6.3" />
+      </ItemGroup>
+    </When>
+  </Choose>
 </Project>

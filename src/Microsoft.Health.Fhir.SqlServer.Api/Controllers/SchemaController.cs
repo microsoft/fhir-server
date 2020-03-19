@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Routing;
@@ -16,7 +17,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 
 namespace Microsoft.Health.Fhir.SqlServer.Api.Controllers
 {
-    [NotImplementedExceptionFilter]
+    [HttpExceptionFilter]
     [Route(KnownRoutes.SchemaRoot)]
     public class SchemaController : Controller
     {
@@ -36,6 +37,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.Controllers
         }
 
         [HttpGet]
+        [AllowAnonymous]
         [Route(KnownRoutes.Versions)]
         public ActionResult AvailableVersions()
         {
@@ -54,6 +56,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.Controllers
         }
 
         [HttpGet]
+        [AllowAnonymous]
         [Route(KnownRoutes.Current)]
         public ActionResult CurrentVersion()
         {
@@ -63,15 +66,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.Controllers
         }
 
         [HttpGet]
+        [AllowAnonymous]
         [Route(KnownRoutes.Script, Name = RouteNames.Script)]
-        public ActionResult SqlScript(int id)
+        public FileContentResult SqlScript(int id)
         {
             _logger.LogInformation($"Attempting to get script for schema version: {id}");
-
-            throw new NotImplementedException(Resources.ScriptNotImplemented);
+            string fileName = $"{id}.sql";
+            return File(ScriptProvider.GetMigrationScriptAsBytes(id), "application/json", fileName);
         }
 
         [HttpGet]
+        [AllowAnonymous]
         [Route(KnownRoutes.Compatibility)]
         public ActionResult Compatibility()
         {

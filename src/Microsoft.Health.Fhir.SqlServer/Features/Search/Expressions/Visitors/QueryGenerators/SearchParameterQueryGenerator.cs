@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         public override SearchParameterQueryGeneratorContext VisitSearchParameter(SearchParameterExpression expression, SearchParameterQueryGeneratorContext context)
         {
             short searchParamId = context.Model.GetSearchParamId(expression.Parameter.Url);
-            SmallIntColumn searchParamIdColumn = V1.SearchParam.SearchParamId;
+            SmallIntColumn searchParamIdColumn = VLatest.SearchParam.SearchParamId;
 
             context.StringBuilder
                 .Append(searchParamIdColumn, context.TableAlias)
@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             Debug.Assert(!expression.IsMissing, "IsMissing=true expressions should have been rewritten");
 
             short searchParamId = context.Model.GetSearchParamId(expression.Parameter.Url);
-            SmallIntColumn searchParamIdColumn = V1.SearchParam.SearchParamId;
+            SmallIntColumn searchParamIdColumn = VLatest.SearchParam.SearchParamId;
 
             context.StringBuilder
                 .Append(searchParamIdColumn, context.TableAlias)
@@ -84,7 +84,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         protected SearchParameterQueryGeneratorContext VisitSimpleBinary(BinaryOperator binaryOperator, SearchParameterQueryGeneratorContext context, Column column, int? componentIndex, object value)
         {
-            context.StringBuilder.Append(column, context.TableAlias).Append(componentIndex + 1);
+            AppendColumnName(context, column, componentIndex);
 
             switch (binaryOperator)
             {
@@ -117,7 +117,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         protected SearchParameterQueryGeneratorContext VisitSimpleString(StringExpression expression, SearchParameterQueryGeneratorContext context, StringColumn column, string value)
         {
-            context.StringBuilder.Append(column, context.TableAlias).Append(expression.ComponentIndex + 1);
+            AppendColumnName(context, column, expression);
 
             bool needsEscaping = false;
             switch (expression.StringOperator)
@@ -176,8 +176,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 throw new InvalidOperationException($"Unexpected missing field {expression.FieldName}");
             }
 
-            context.StringBuilder.Append(column, context.TableAlias).Append(expression.ComponentIndex + 1).Append(" IS NULL");
+            AppendColumnName(context, column, expression).Append(" IS NULL");
             return context;
+        }
+
+        protected static IndentedStringBuilder AppendColumnName(SearchParameterQueryGeneratorContext context, Column column, IFieldExpression expression)
+        {
+            return AppendColumnName(context, column, expression.ComponentIndex);
+        }
+
+        protected static IndentedStringBuilder AppendColumnName(SearchParameterQueryGeneratorContext context, Column column, int? componentIndex)
+        {
+            return context.StringBuilder.Append(column, context.TableAlias).Append(componentIndex + 1);
         }
     }
 }

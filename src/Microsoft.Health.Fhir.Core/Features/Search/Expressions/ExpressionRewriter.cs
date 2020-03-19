@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 return expression;
             }
 
-            return new ChainedExpression(resourceType: expression.ResourceType, referenceSearchParameter: expression.ReferenceSearchParameter, targetResourceType: expression.TargetResourceType, expression: visitedExpression);
+            return new ChainedExpression(resourceType: expression.ResourceType, referenceSearchParameter: expression.ReferenceSearchParameter, targetResourceType: expression.TargetResourceType, reversed: expression.Reversed, expression: visitedExpression);
         }
 
         public virtual Expression VisitMissingField(MissingFieldExpression expression, TContext context)
@@ -63,6 +63,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         }
 
         public virtual Expression VisitCompartment(CompartmentSearchExpression expression, TContext context)
+        {
+            return expression;
+        }
+
+        public virtual Expression VisitInclude(IncludeExpression expression, TContext context)
         {
             return expression;
         }

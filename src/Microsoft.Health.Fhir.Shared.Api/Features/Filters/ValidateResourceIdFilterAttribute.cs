@@ -24,19 +24,21 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             if (context.RouteData.Values.TryGetValue(KnownActionParameterNames.Id, out var actionId) &&
                 context.ActionArguments.TryGetValue(KnownActionParameterNames.Resource, out var parsedModel))
             {
-                if (!string.Equals((string)actionId, ((Resource)parsedModel).Id, StringComparison.Ordinal))
+                var resource = (Resource)parsedModel;
+                var location = $"{resource.TypeName}.id";
+                if (string.IsNullOrWhiteSpace(resource.Id))
                 {
                     throw new ResourceNotValidException(new List<ValidationFailure>
                     {
-                        new ValidationFailure(nameof(Base.TypeName), Resources.UrlResourceIdMismatch),
+                        new ValidationFailure(location, Api.Resources.ResourceIdRequired),
                     });
                 }
 
-                if (string.IsNullOrWhiteSpace(((Resource)parsedModel).Id))
+                if (!string.Equals((string)actionId, resource.Id, StringComparison.Ordinal))
                 {
                     throw new ResourceNotValidException(new List<ValidationFailure>
                     {
-                        new ValidationFailure(nameof(Base.TypeName), Resources.ResourceIdRequired),
+                        new ValidationFailure(location, Api.Resources.UrlResourceIdMismatch),
                     });
                 }
             }
@@ -44,7 +46,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             {
                 throw new ResourceNotValidException(new List<ValidationFailure>
                 {
-                    new ValidationFailure(nameof(Base.TypeName), Resources.ResourceAndIdRequired),
+                    new ValidationFailure(nameof(Base.TypeName), Api.Resources.ResourceAndIdRequired),
                 });
             }
         }

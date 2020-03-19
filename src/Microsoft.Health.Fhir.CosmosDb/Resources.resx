@@ -117,6 +117,12 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="ChainedExpressionNotSupported" xml:space="preserve">
+    <value>Chained expression is not supported.</value>
+  </data>
+  <data name="IncludeExpressionNotSupported" xml:space="preserve">
+    <value>Include expression is not supported.</value>
+  </data>
   <data name="InvalidConsistencyLevel" xml:space="preserve">
     <value>Consistency level '{0}' specified in the request is invalid when service is configured with consistency level '{1}'. Ensure the request consistency level is not stronger than the service consistency level.</value>
   </data>

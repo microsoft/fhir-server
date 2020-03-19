@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using Hl7.Fhir.ElementModel;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Routing
@@ -34,9 +33,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Routing
         /// Resolves the URL for the specified route
         /// </summary>
         /// <param name="unsupportedSearchParams">A list of unsupported search parameters.</param>
+        /// <param name="unsupportedSortingParameters">A list of unsupported sorting parameters</param>
         /// <param name="continuationToken">The continuation token.</param>
+        /// <param name="removeTotalParameter">True if the _total parameter should be removed from the url, false otherwise.</param>
         /// <returns>The URL.</returns>
-        Uri ResolveRouteUrl(IEnumerable<Tuple<string, string>> unsupportedSearchParams = null, string continuationToken = null);
+        Uri ResolveRouteUrl(IEnumerable<Tuple<string, string>> unsupportedSearchParams = null, IReadOnlyList<(string parameterName, string reason)> unsupportedSortingParameters = null, string continuationToken = null, bool removeTotalParameter = false);
 
         /// <summary>
         /// Resolves the URL for the specified routeName.

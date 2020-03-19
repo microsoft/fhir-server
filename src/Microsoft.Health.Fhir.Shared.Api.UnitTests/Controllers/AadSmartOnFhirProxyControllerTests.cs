@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
 using System.Reflection;
+using System.Threading.Tasks;
 using System.Web;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -18,6 +19,8 @@ using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using NSubstitute;
 using Xunit;
 
@@ -186,6 +189,42 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             };
 
             Assert.ThrowsAsync<AadSmartOnFhirProxyBadRequestException>(() => _controller.Token(grantType, compoundCode, redirectUri, clientId, clientSecret)).Wait();
+        }
+
+        [Theory]
+        [InlineData(null, null)]
+        [InlineData("user_impersonation test.scope", "user_impersonation test.scope")]
+        [InlineData("patient$Observation.read", "patient/Observation.read")]
+        [InlineData("patient$Observation.read patient$Encounter.read", "patient/Observation.read patient/Encounter.read")]
+        public async Task GivenScopesInTokenResponse_WhenTokenRequestAction_ThenCorrectScopesReturned(string tokenScopes, string expectedScopes)
+        {
+            string grantType = "authorization_code";
+            string clientId = "1234";
+            string clientStringPlaceHolder = "XYZ";
+            string compoundCode = "eyAiY29kZSIgOiAiZm9vIiB9";
+            Uri redirectUri = new Uri("https://localhost");
+
+            _urlResolver.ResolveRouteNameUrl(Arg.Any<string>(), Arg.Any<IDictionary<string, object>>()).Returns(redirectUri);
+
+            JObject content = new JObject();
+            content["access_token"] = "xyz";
+            if (tokenScopes != null)
+            {
+                content["scope"] = tokenScopes;
+            }
+
+            _httpMessageHandler.Response = new HttpResponseMessage()
+            {
+                StatusCode = System.Net.HttpStatusCode.OK,
+                Content = new StringContent(content.ToString(Formatting.None)),
+            };
+
+            var result = await _controller.Token(grantType, compoundCode, redirectUri, clientId, clientStringPlaceHolder) as ContentResult;
+            Assert.NotNull(result);
+
+            var resultJson = JObject.Parse(result.Content);
+
+            Assert.Equal(expectedScopes, resultJson["scope"]?.ToString());
         }
     }
 }

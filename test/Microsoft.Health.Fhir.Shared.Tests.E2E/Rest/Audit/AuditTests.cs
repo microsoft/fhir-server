@@ -10,7 +10,7 @@ using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
-using Hl7.Fhir.Rest;
+using IdentityModel.Client;
 using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -22,11 +22,15 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 {
+    /// <summary>
+    /// Provides Audit specific tests.
+    /// </summary
     [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json)]
     public class AuditTests : IClassFixture<AuditTestFixture>
     {
         private const string RequestIdHeaderName = "X-Request-Id";
-        private const string ExpectedClaimKey = "appid";
+        private const string CustomAuditHeaderPrefix = "X-MS-AZUREFHIR-AUDIT-";
+        private const string ExpectedClaimKey = "client_id";
 
         private readonly AuditTestFixture _fixture;
         private readonly FhirClient _client;
@@ -38,6 +42,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             _fixture = fixture;
             _client = fixture.FhirClient;
             _auditLogger = _fixture.AuditLogger;
+            _client.DeleteAllResources(ResourceType.Patient).Wait();
+        }
+
+        [Fact]
+        public async Task GivenMetadata_WhenRead_ThenAuditLogEntriesShouldNotBeCreated()
+        {
+            if (!_fixture.IsUsingInProcTestServer)
+            {
+                // This test only works with the in-proc server with customized middleware pipeline
+                return;
+            }
+
+            FhirResponse response = await _client.ReadAsync<CapabilityStatement>("metadata");
+
+            string correlationId = response.Headers.GetValues(RequestIdHeaderName).FirstOrDefault();
+
+            Assert.NotNull(correlationId);
+
+            Assert.Empty(_auditLogger.GetAuditEntriesByCorrelationId(correlationId));
         }
 
         [Fact]
@@ -71,6 +94,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         public async Task GivenANonExistingResource_WhenRead_ThenAuditLogEntriesShouldBeCreated()
         {
             // TODO: The resource type being logged here is incorrect. The issue is tracked by https://github.com/Microsoft/fhir-server/issues/334.
+
+            string resourceId = Guid.NewGuid().ToString();
             await ExecuteAndValidate(
                 async () =>
                 {
@@ -78,18 +103,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 
                     try
                     {
-                        await _client.ReadAsync<Patient>(ResourceType.Patient, "123");
+                        await _client.ReadAsync<Patient>(ResourceType.Patient, resourceId);
                     }
                     catch (FhirException ex)
                     {
                         result = ex.Response;
                     }
 
+                    // The request should have failed.
+                    Assert.NotNull(result);
+
                     return result;
                 },
                 "read",
-                ResourceType.OperationOutcome,
-                _ => $"Patient/123",
+                ResourceType.Patient,
+                _ => $"Patient/{resourceId}",
                 HttpStatusCode.NotFound);
         }
 
@@ -144,13 +172,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 
             var expectedUri = new Uri($"http://localhost/Patient/{result.Resource.Id}");
 
-            string expectedAppId = TestApplications.ServiceClient.ClientId;
+            string expectedAppId = TestApplications.GlobalAdminServicePrincipal.ClientId;
 
-            // TODO: The resource type being logged here is incorrect. The issue is tracked by https://github.com/Microsoft/fhir-server/issues/334.
             Assert.Collection(
                 _auditLogger.GetAuditEntriesByCorrelationId(correlationId),
-                ae => ValidateExecutingAuditEntry(ae, "delete", expectedUri, correlationId, expectedAppId, ExpectedClaimKey),
-                ae => ValidateExecutedAuditEntry(ae, "delete", null, expectedUri, HttpStatusCode.NoContent, correlationId, expectedAppId, ExpectedClaimKey));
+                ae => ValidateExecutingAuditEntry(ae, "delete", ResourceType.Patient, expectedUri, correlationId, expectedAppId, ExpectedClaimKey),
+                ae => ValidateExecutedAuditEntry(ae, "delete", ResourceType.Patient, expectedUri, HttpStatusCode.NoContent, correlationId, expectedAppId, ExpectedClaimKey));
         }
 
         [Fact]
@@ -161,7 +188,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             await ExecuteAndValidate(
                 () => _client.SearchAsync(url),
                 "history-type",
-                ResourceType.Bundle,
+                ResourceType.Observation,
                 _ => url,
                 HttpStatusCode.OK);
         }
@@ -174,7 +201,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             await ExecuteAndValidate(
                 () => _client.SearchAsync(url),
                 "history-system",
-                ResourceType.Bundle,
+                null,
                 _ => url,
                 HttpStatusCode.OK);
         }
@@ -190,7 +217,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                     return await _client.SearchAsync($"Observation/{result.Resource.Id}/_history");
                 },
                 "history-instance",
-                ResourceType.Bundle,
+                ResourceType.Observation,
                 b => $"Observation/{b.Entry.First().Resource.Id}/_history",
                 HttpStatusCode.OK);
         }
@@ -203,7 +230,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             await ExecuteAndValidate(
                 () => _client.SearchAsync(url),
                 "search",
-                ResourceType.Bundle,
+                ResourceType.Condition,
                 _ => url,
                 HttpStatusCode.OK);
         }
@@ -216,7 +243,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             await ExecuteAndValidate(
                 () => _client.SearchAsync(url),
                 "search-type",
-                ResourceType.Bundle,
+                ResourceType.Observation,
                 _ => url,
                 HttpStatusCode.OK);
         }
@@ -227,7 +254,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             await ExecuteAndValidate(
                 () => _client.SearchPostAsync("Observation", ("_tag", "123")),
                 "search-type",
-                ResourceType.Bundle,
+                ResourceType.Observation,
                 _ => "Observation/_search",
                 HttpStatusCode.OK);
         }
@@ -240,7 +267,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             await ExecuteAndValidate(
                 () => _client.SearchAsync(url),
                 "search-system",
-                ResourceType.Bundle,
+                null,
                 _ => url,
                 HttpStatusCode.OK);
         }
@@ -251,7 +278,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             await ExecuteAndValidate(
                 () => _client.SearchPostAsync(null, ("_tag", "123")),
                 "search-system",
-                ResourceType.Bundle,
+                null,
                 _ => "_search",
                 HttpStatusCode.OK);
         }
@@ -260,11 +287,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         public async Task GivenARequest_WhenNoAuthorizationTokenIsSupplied_ThenAuditLogEntriesShouldBeCreated()
         {
             await ExecuteAndValidate(
-                client =>
+                () =>
                 {
-                    client.HttpClient.DefaultRequestHeaders.Authorization = null;
+                    FhirClient newClient = _client.Clone();
 
-                    return Task.CompletedTask;
+                    newClient.HttpClient.DefaultRequestHeaders.Authorization = null;
+
+                    return newClient;
                 },
                 HttpStatusCode.Unauthorized,
                 expectedAppId: null);
@@ -274,11 +303,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         public async Task GivenARequest_WhenInvalidAuthorizationTokenIsSupplied_ThenAuditLogEntriesShouldBeCreated()
         {
             await ExecuteAndValidate(
-                client =>
+                () =>
                 {
-                    client.HttpClient.SetBearerToken("invalid");
+                    FhirClient newClient = _client.Clone();
 
-                    return Task.CompletedTask;
+                    newClient.HttpClient.SetBearerToken("invalid");
+
+                    return newClient;
                 },
                 HttpStatusCode.Unauthorized,
                 expectedAppId: null);
@@ -288,7 +319,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         public async Task GivenARequest_WhenValidAuthorizationTokenWithInvalidAudienceIsSupplied_ThenAuditLogEntriesShouldBeCreated()
         {
             await ExecuteAndValidate(
-                client => client.RunAsClientApplication(TestApplications.WrongAudienceClient),
+                () => _client.CreateClientForClientApplication(TestApplications.WrongAudienceClient),
                 HttpStatusCode.Unauthorized,
                 expectedAppId: null);
         }
@@ -333,25 +364,106 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             };
 
             var content = new FormUrlEncodedContent(formFields);
+            content.Headers.Add(CustomAuditHeaderPrefix + "test", "test");
             await ExecuteAndValidate(
                 async () => await _client.HttpClient.PostAsync(pathSegment, content),
                 "smart-on-fhir-token",
                 pathSegment,
                 HttpStatusCode.BadRequest,
                 "1234",
-                "client_id");
+                "client_id",
+                new Dictionary<string, string>() { [CustomAuditHeaderPrefix + "test"] = "test" });
         }
 
         [Fact]
         public async Task GivenAResource_WhenNotAuthorized_ThenAuditLogEntriesShouldBeCreated()
         {
             await ExecuteAndValidate(
-                client => client.RunAsClientApplication(TestApplications.NativeClient),
+                () => _client.CreateClientForClientApplication(TestApplications.NativeClient),
                 HttpStatusCode.Forbidden,
                 expectedAppId: TestApplications.NativeClient.ClientId);
         }
 
-        private async Task ExecuteAndValidate<T>(Func<Task<FhirResponse<T>>> action, string expectedAction, ResourceType expectedResourceType, Func<T, string> expectedPathGenerator, HttpStatusCode expectedStatusCode)
+        [HttpIntegrationFixtureArgumentSets(DataStore.All)]
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        [Trait(Traits.Category, Categories.Batch)]
+        public async Task GivenABatch_WhenPost_ThenAuditLogEntriesShouldBeCreated()
+        {
+            var batch = Samples.GetDefaultBatch().ToPoco<Bundle>();
+
+            await _client.UpdateAsync(batch.Entry[2].Resource as Patient);
+
+            List<(string expectedActions, string expectedPathSegments, HttpStatusCode? expectedStatusCodes, ResourceType? resourceType)> expectedList = new List<(string, string, HttpStatusCode?, ResourceType?)>
+            {
+                ("batch", string.Empty, HttpStatusCode.OK, null),
+                ("delete", batch.Entry[5].Request.Url, HttpStatusCode.NoContent, ResourceType.Patient),
+                ("create", batch.Entry[0].Request.Url, HttpStatusCode.Created, ResourceType.Patient),
+                ("create", batch.Entry[1].Request.Url, HttpStatusCode.Created, ResourceType.Patient),
+                ("update", batch.Entry[2].Request.Url, HttpStatusCode.OK, ResourceType.Patient),
+                ("update", batch.Entry[3].Request.Url, HttpStatusCode.Created, ResourceType.Patient),
+                ("update", batch.Entry[4].Request.Url, Constants.IfMatchFailureStatus, ResourceType.Patient),
+                ("search-type", batch.Entry[8].Request.Url, HttpStatusCode.OK, ResourceType.Patient),
+                ("read", batch.Entry[9].Request.Url, HttpStatusCode.NotFound, ResourceType.Patient),
+            };
+
+            await ExecuteAndValidateBundle(
+               () =>
+               {
+                   return _client.PostBundleAsync(batch);
+               },
+               expectedList,
+               TestApplications.GlobalAdminServicePrincipal.ClientId);
+        }
+
+        [HttpIntegrationFixtureArgumentSets(DataStore.All)]
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        [Trait(Traits.Category, Categories.Authorization)]
+        [Trait(Traits.Category, Categories.Batch)]
+        public async Task GivenABatchAndUserWithoutWrite_WhenPost_ThenAuditLogEntriesShouldBeCreated()
+        {
+            var batch = new Bundle
+            {
+                Type = Bundle.BundleType.Batch,
+                Entry = new List<Bundle.EntryComponent>
+                {
+                    new Bundle.EntryComponent
+                    {
+                        Resource = Samples.GetDefaultObservation().ToPoco(),
+                        Request = new Bundle.RequestComponent
+                        {
+                            Method = Bundle.HTTPVerb.POST,
+                            Url = "Observation",
+                        },
+                    },
+                    new Bundle.EntryComponent
+                    {
+                        Request = new Bundle.RequestComponent
+                        {
+                            Method = Bundle.HTTPVerb.GET,
+                            Url = "Patient?name=peter",
+                        },
+                    },
+                },
+            };
+
+            List<(string expectedActions, string expectedPathSegments, HttpStatusCode? expectedStatusCodes, ResourceType? resourceType)> expectedList = new List<(string, string, HttpStatusCode?, ResourceType?)>
+            {
+                ("batch", string.Empty, HttpStatusCode.OK, null),
+                ("create", "Observation", HttpStatusCode.Forbidden, ResourceType.Observation),
+                ("search-type", "Patient?name=peter", HttpStatusCode.OK, ResourceType.Patient),
+            };
+
+            FhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
+
+            await ExecuteAndValidateBundle(
+                () => tempClient.PostBundleAsync(batch),
+                expectedList,
+                TestApplications.NativeClient.ClientId);
+        }
+
+        private async Task ExecuteAndValidateBundle<T>(Func<Task<FhirResponse<T>>> action, List<(string auditAction, string route, HttpStatusCode? statusCode, ResourceType? resourceType)> expectedList, string expectedAppId)
             where T : Resource
         {
             if (!_fixture.IsUsingInProcTestServer)
@@ -360,9 +472,96 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 return;
             }
 
-            FhirResponse<T> response = null;
+            FhirResponse<T> response = await action();
 
-            response = await action();
+            string correlationId = response.Headers.GetValues(RequestIdHeaderName).FirstOrDefault();
+            Assert.NotNull(correlationId);
+
+            var inspectors = new List<Action<AuditEntry>>();
+
+            int insertIndex = 0;
+            foreach ((string auditAction, string route, HttpStatusCode? statusCode, ResourceType? resourceType) in expectedList)
+            {
+                if (insertIndex == 2 && inspectors.Count == 2)
+                {
+                    insertIndex--;
+                }
+
+                if (statusCode != HttpStatusCode.Unauthorized)
+                {
+                    inspectors.Insert(insertIndex, ae => ValidateExecutingAuditEntry(ae, auditAction, resourceType, new Uri($"http://localhost/{route}"), correlationId, expectedAppId, ExpectedClaimKey));
+                    insertIndex++;
+                }
+
+                inspectors.Insert(insertIndex, ae => ValidateExecutedAuditEntry(ae, auditAction, resourceType, new Uri($"http://localhost/{route}"), statusCode, correlationId, expectedAppId, ExpectedClaimKey));
+                insertIndex++;
+            }
+
+            Assert.Collection(
+                _auditLogger.GetAuditEntriesByCorrelationId(correlationId),
+                inspectors.ToArray());
+        }
+
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        [Trait(Traits.Category, Categories.Transaction)]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenATransactionBundleWithValidEntries_WhenSuccessfulPost_ThenAuditLogEntriesShouldBeCreated()
+        {
+            // Even entries are audit executed entry and odd entries are audit executing entry
+            List<(string expectedActions, string expectedPathSegments, HttpStatusCode? expectedStatusCodes, ResourceType? resourceType)> expectedList = new List<(string, string, HttpStatusCode?, ResourceType?)>
+            {
+                ("transaction", string.Empty, HttpStatusCode.OK, null),
+                ("create", "Patient", HttpStatusCode.Created, ResourceType.Patient),
+                ("create", "Patient", HttpStatusCode.Created, ResourceType.Patient),
+                ("update", "Patient/123", HttpStatusCode.OK, ResourceType.Patient),
+                ("update", "Patient?identifier=http:/example.org/fhir/ids|456456", HttpStatusCode.Created, ResourceType.Patient),
+            };
+
+            var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithValidBundleEntry");
+
+            await ExecuteAndValidateBundle(
+               () => _client.PostBundleAsync(requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>()),
+               expectedList,
+               TestApplications.GlobalAdminServicePrincipal.ClientId);
+        }
+
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        [Trait(Traits.Category, Categories.Transaction)]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenATransactionBundle_WhenAnUnsuccessfulPost_ThenTransactionShouldRollBackAndAuditLogEntriesShouldBeCreated()
+        {
+            List<(string expectedActions, string expectedPathSegments, HttpStatusCode? expectedStatusCodes, ResourceType? resourceType)> expectedList = new List<(string, string, HttpStatusCode?, ResourceType?)>
+            {
+                ("transaction", string.Empty, HttpStatusCode.NotFound, null),
+                ("create", "Patient", HttpStatusCode.Created, ResourceType.Patient),
+                ("read", "Patient/12345", HttpStatusCode.NotFound, ResourceType.Patient),
+            };
+
+            var requestBundle = Samples.GetJsonSample("Bundle-TransactionForRollBack");
+
+            await ExecuteAndValidateBundle(
+              async () =>
+              {
+                  var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await _client.PostBundleAsync(requestBundle.ToPoco<Bundle>()));
+
+                  return fhirException.Response;
+              },
+              expectedList,
+              TestApplications.GlobalAdminServicePrincipal.ClientId);
+        }
+
+        private async Task ExecuteAndValidate<T>(Func<Task<FhirResponse<T>>> action, string expectedAction, ResourceType? expectedResourceType, Func<T, string> expectedPathGenerator, HttpStatusCode expectedStatusCode)
+            where T : Resource
+        {
+            if (!_fixture.IsUsingInProcTestServer)
+            {
+                // This test only works with the in-proc server with customized middleware pipeline.
+                return;
+            }
+
+            FhirResponse<T> response = await action();
 
             string correlationId = response.Headers.GetValues(RequestIdHeaderName).FirstOrDefault();
 
@@ -370,15 +569,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 
             var expectedUri = new Uri($"http://localhost/{expectedPathGenerator(response.Resource)}");
 
-            string expectedAppId = TestApplications.ServiceClient.ClientId;
+            string expectedAppId = TestApplications.GlobalAdminServicePrincipal.ClientId;
 
             Assert.Collection(
                 _auditLogger.GetAuditEntriesByCorrelationId(correlationId),
-                ae => ValidateExecutingAuditEntry(ae, expectedAction, expectedUri, correlationId, expectedAppId, ExpectedClaimKey),
+                ae => ValidateExecutingAuditEntry(ae, expectedAction, expectedResourceType, expectedUri, correlationId, expectedAppId, ExpectedClaimKey),
                 ae => ValidateExecutedAuditEntry(ae, expectedAction, expectedResourceType, expectedUri, expectedStatusCode, correlationId, expectedAppId, ExpectedClaimKey));
         }
 
-        private async Task ExecuteAndValidate(Func<Task<HttpResponseMessage>> action, string expectedAction, string expectedPathSegment, HttpStatusCode expectedStatusCode, string expectedClaimValue, string expectedClaimKey)
+        private async Task ExecuteAndValidate(Func<Task<HttpResponseMessage>> action, string expectedAction, string expectedPathSegment, HttpStatusCode expectedStatusCode, string expectedClaimValue, string expectedClaimKey, Dictionary<string, string> expectedCustomAuditHeaders = null)
         {
             if (!_fixture.IsUsingInProcTestServer)
             {
@@ -396,11 +595,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 
             Assert.Collection(
                 _auditLogger.GetAuditEntriesByCorrelationId(correlationId),
-                ae => ValidateExecutingAuditEntry(ae, expectedAction, expectedUri, correlationId, expectedClaimValue, expectedClaimKey),
-                ae => ValidateExecutedAuditEntry(ae, expectedAction, null, expectedUri, expectedStatusCode, correlationId, expectedClaimValue, expectedClaimKey));
+                ae => ValidateExecutingAuditEntry(ae, expectedAction, null, expectedUri, correlationId, expectedClaimValue, expectedClaimKey, expectedCustomAuditHeaders),
+                ae => ValidateExecutedAuditEntry(ae, expectedAction, null, expectedUri, expectedStatusCode, correlationId, expectedClaimValue, expectedClaimKey, expectedCustomAuditHeaders));
         }
 
-        private async Task ExecuteAndValidate(Func<FhirClient, Task> clientSetup, HttpStatusCode expectedStatusCode, string expectedAppId)
+        private async Task ExecuteAndValidate(Func<FhirClient> createClient, HttpStatusCode expectedStatusCode, string expectedAppId)
         {
             if (!_fixture.IsUsingInProcTestServer || !_fixture.FhirClient.SecuritySettings.SecurityEnabled)
             {
@@ -411,9 +610,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             const string url = "Patient/123";
 
             // Create a new client with no token supplied.
-            var client = new FhirClient(_fixture.CreateHttpClient(), ResourceFormat.Json);
-
-            await clientSetup(client);
+            var client = createClient();
 
             FhirResponse<OperationOutcome> response = (await Assert.ThrowsAsync<FhirException>(() => client.ReadAsync<Patient>(url))).Response;
 
@@ -423,22 +620,36 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 
             var expectedUri = new Uri($"http://localhost/{url}");
 
+            var inspectors = new List<Action<AuditEntry>>
+            {
+                ae => ValidateExecutedAuditEntry(ae, "read", ResourceType.Patient, expectedUri, expectedStatusCode, correlationId, expectedAppId, ExpectedClaimKey),
+            };
+
+            if (expectedStatusCode != HttpStatusCode.Unauthorized)
+            {
+                // we expect an executing entry as well
+
+                inspectors.Insert(
+                    0,
+                    ae => ValidateExecutingAuditEntry(ae, "read", ResourceType.Patient, expectedUri, correlationId, expectedAppId, ExpectedClaimKey));
+            }
+
             Assert.Collection(
                 _auditLogger.GetAuditEntriesByCorrelationId(correlationId),
-                ae => ValidateExecutedAuditEntry(ae, "read", ResourceType.Patient, expectedUri, expectedStatusCode, correlationId, expectedAppId, ExpectedClaimKey));
+                inspectors.ToArray());
         }
 
-        private void ValidateExecutingAuditEntry(AuditEntry auditEntry, string expectedAction, Uri expectedUri, string expectedCorrelationId, string expectedClaimValue, string expectedClaimKey)
+        private void ValidateExecutingAuditEntry(AuditEntry auditEntry, string expectedAction, ResourceType? expectedResourceType, Uri expectedUri, string expectedCorrelationId, string expectedClaimValue, string expectedClaimKey, Dictionary<string, string> expectedCustomAuditHeaders = null)
         {
-            ValidateAuditEntry(auditEntry, AuditAction.Executing, expectedAction, null, expectedUri, null, expectedCorrelationId, expectedClaimValue, expectedClaimKey);
+            ValidateAuditEntry(auditEntry, AuditAction.Executing, expectedAction, expectedResourceType, expectedUri, null, expectedCorrelationId, expectedClaimValue, expectedClaimKey, expectedCustomAuditHeaders);
         }
 
-        private void ValidateExecutedAuditEntry(AuditEntry auditEntry, string expectedAction, ResourceType? expectedResourceType, Uri expectedUri, HttpStatusCode? expectedStatusCode, string expectedCorrelationId, string expectedClaimValue, string expectedClaimKey)
+        private void ValidateExecutedAuditEntry(AuditEntry auditEntry, string expectedAction, ResourceType? expectedResourceType, Uri expectedUri, HttpStatusCode? expectedStatusCode, string expectedCorrelationId, string expectedClaimValue, string expectedClaimKey, Dictionary<string, string> expectedCustomAuditHeaders = null)
         {
-            ValidateAuditEntry(auditEntry, AuditAction.Executed, expectedAction, expectedResourceType, expectedUri, expectedStatusCode, expectedCorrelationId, expectedClaimValue, expectedClaimKey);
+            ValidateAuditEntry(auditEntry, AuditAction.Executed, expectedAction, expectedResourceType, expectedUri, expectedStatusCode, expectedCorrelationId, expectedClaimValue, expectedClaimKey, expectedCustomAuditHeaders);
         }
 
-        private void ValidateAuditEntry(AuditEntry auditEntry, AuditAction expectedAuditAction, string expectedAction, ResourceType? expectedResourceType, Uri expectedUri, HttpStatusCode? expectedStatusCode, string expectedCorrelationId, string expectedClaimValue, string expectedClaimKey)
+        private void ValidateAuditEntry(AuditEntry auditEntry, AuditAction expectedAuditAction, string expectedAction, ResourceType? expectedResourceType, Uri expectedUri, HttpStatusCode? expectedStatusCode, string expectedCorrelationId, string expectedClaimValue, string expectedClaimKey, Dictionary<string, string> expectedCustomAuditHeaders = null)
         {
             Assert.NotNull(auditEntry);
             Assert.Equal(expectedAuditAction, auditEntry.AuditAction);
@@ -448,15 +659,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             Assert.Equal(expectedStatusCode, auditEntry.StatusCode);
             Assert.Equal(expectedCorrelationId, auditEntry.CorrelationId);
 
+            // Unfortunately, we cannot test the caller IP because these tests only run in-process, which does not go through network.
+
             if (expectedClaimValue != null)
             {
-                Assert.Equal(1, auditEntry.Claims.Count);
-                Assert.Equal(expectedClaimKey, auditEntry.Claims.Single().Key);
-                Assert.Equal(expectedClaimValue, auditEntry.Claims.Single().Value);
+                Assert.Contains(
+                    new KeyValuePair<string, string>(expectedClaimKey, expectedClaimValue), auditEntry.CallerClaims);
             }
             else
             {
-                Assert.Empty(auditEntry.Claims);
+                Assert.Empty(auditEntry.CallerClaims);
+            }
+
+            if (expectedCustomAuditHeaders != null)
+            {
+                Assert.Equal(expectedCustomAuditHeaders, auditEntry.CustomHeaders);
+            }
+            else
+            {
+                Assert.Empty(auditEntry.CustomHeaders);
             }
         }
     }

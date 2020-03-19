@@ -7,8 +7,6 @@ using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.Fhir.ValueSets;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.Features.Context
@@ -26,7 +24,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
             _next = next;
         }
 
-        public Task Invoke(HttpContext context, IFhirRequestContextAccessor fhirRequestContextAccessor, CorrelationIdProvider correlationIdProvider)
+        public async Task Invoke(HttpContext context, IFhirRequestContextAccessor fhirRequestContextAccessor, CorrelationIdProvider correlationIdProvider)
         {
             HttpRequest request = context.Request;
 
@@ -48,23 +46,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                 method: request.Method,
                 uriString: uriInString,
                 baseUriString: baseUriInString,
-                requestType: new CodingInfo(AuditEventType.System, AuditEventType.RestFulOperationCode),
                 correlationId: correlationId,
                 requestHeaders: context.Request.Headers,
                 responseHeaders: context.Response.Headers);
 
             context.Response.Headers[RequestIdHeaderName] = correlationId;
 
-            // Note that if this is executed before authentication occurs, the user will not contain any claims.
-            if (context.User != null)
-            {
-                fhirRequestContext.Principal = context.User;
-            }
-
             fhirRequestContextAccessor.FhirRequestContext = fhirRequestContext;
 
             // Call the next delegate/middleware in the pipeline
-            return _next(context);
+            await _next(context);
         }
     }
 }

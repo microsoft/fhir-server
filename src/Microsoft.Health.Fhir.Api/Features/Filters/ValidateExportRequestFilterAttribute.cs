@@ -4,21 +4,18 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
+using System.Linq;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Filters;
-using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Features;
-using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 using Microsoft.Net.Http.Headers;
 
 namespace Microsoft.Health.Fhir.Api.Features.Filters
 {
     /// <summary>
-    /// A filter that validates the headers and parameters present in the export request.
+    /// A filter that validates the headers present in the export request.
     /// Short-circuits the pipeline if they are invalid.
     /// </summary>
     [AttributeUsage(AttributeTargets.Method)]
@@ -27,24 +24,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
         private const string PreferHeaderName = "Prefer";
         private const string PreferHeaderExpectedValue = "respond-async";
 
-        private readonly IExportDestinationClientFactory _exportDestinationClientFactory;
-
-        // For now we will use a hard-coded list to determine what query parameters we will
-        // allow for export requests. In the future, once we add export and other operations
-        // to the capabilities statement, we can derive this list from there (via the ConformanceProvider).
-        private readonly HashSet<string> _supportedQueryParams;
-
-        public ValidateExportRequestFilterAttribute(IExportDestinationClientFactory exportDestinationClientFactory)
+        public ValidateExportRequestFilterAttribute()
         {
-            EnsureArg.IsNotNull(exportDestinationClientFactory, nameof(exportDestinationClientFactory));
-
-            _exportDestinationClientFactory = exportDestinationClientFactory;
-
-            _supportedQueryParams = new HashSet<string>(StringComparer.Ordinal)
-            {
-                KnownQueryParameterNames.DestinationType,
-                KnownQueryParameterNames.DestinationConnectionSettings,
-            };
         }
 
         public override void OnActionExecuting(ActionExecutingContext context)
@@ -65,28 +46,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 throw new RequestNotValidException(string.Format(Resources.UnsupportedHeaderValue, PreferHeaderName));
             }
 
+            // Validate that the request does not contain any query parameters.
             IQueryCollection queryCollection = context.HttpContext.Request.Query;
-
-            // Validate that the request does not contain query parameters that are not supported.
-            foreach (string paramName in queryCollection.Keys)
+            if (queryCollection?.Count > 0)
             {
-                if (!_supportedQueryParams.Contains(paramName))
-                {
-                    throw new RequestNotValidException(string.Format(Resources.UnsupportedParameter, paramName));
-                }
-            }
-
-            if (!queryCollection.TryGetValue(KnownQueryParameterNames.DestinationType, out StringValues destinationTypeValue)
-               || string.IsNullOrWhiteSpace(destinationTypeValue)
-               || !_exportDestinationClientFactory.IsSupportedDestinationType(destinationTypeValue))
-            {
-                throw new RequestNotValidException(string.Format(Resources.UnsupportedParameterValue, KnownQueryParameterNames.DestinationType));
-            }
-
-            if (!queryCollection.TryGetValue(KnownQueryParameterNames.DestinationConnectionSettings, out StringValues destinationSettingValue)
-                || string.IsNullOrWhiteSpace(destinationSettingValue))
-            {
-                throw new RequestNotValidException(string.Format(Resources.UnsupportedParameterValue, KnownQueryParameterNames.DestinationConnectionSettings));
+                string paramName = queryCollection.FirstOrDefault().Key;
+                throw new RequestNotValidException(string.Format(Resources.UnsupportedParameter, paramName));
             }
         }
     }
