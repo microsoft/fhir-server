@@ -11,10 +11,6 @@ jobs:
 - job: '${{parameters.version}}_Docker'
   pool:
     vmImage: 'ubuntu-latest'
-  variables:
-      azureSubscriptionEndpoint: docker-build
-      azureContainerRegistry: healthplatformregistry.azurecr.io
-      composeLocation: build/docker/docker-compose.yaml
   steps:
   - task: DockerCompose@0
     displayName: 'Build FHIR ${{parameters.version}} Server Image'
