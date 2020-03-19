@@ -21,4 +21,4 @@ jobs:
 
 - template: docker-build-all.yml
   parameters: 
-    tag: $(SourceBranchName) 
+    tag: $(build.sourceBranchName) 
