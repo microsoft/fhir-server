@@ -118,7 +118,8 @@
             "defaultValue": "R4",
             "allowedValues": [
                 "Stu3",
-                "R4"
+                "R4",
+                "R5"
             ],
             "metadata": {
                 "description": "Only applies when MsdeployPackageUrl is not specified."
