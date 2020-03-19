@@ -6,35 +6,17 @@ parameters:
   type: string
 
 jobs:            
-- job: R4_Docker
-  variables:
-  - template: docker-variables.yml
-  pool:
-    vmImage: 'ubuntu-latest'
-  steps:
-  - template: docker-build-push.yml
-    parameters: 
-      version: "R4"
-      tag: ${{parameters.tag}}
+- template: docker-build-push.yml
+  parameters: 
+    version: "R4"
+    tag: ${{parameters.tag}}
 
-- job: Stu3_Docker
-  variables:
-  - template: docker-variables.yml
-  pool:
-    vmImage: 'ubuntu-latest'
-  steps:
-  - template: docker-build-push.yml
-    parameters: 
-      version: "Stu3"
-      tag: ${{parameters.tag}}
+- template: docker-build-push.yml
+  parameters: 
+    version: "Stu3"
+    tag: ${{parameters.tag}}
 
-- job: R5_Docker
-  variables:
-  - template: docker-variables.yml
-  pool:
-    vmImage: 'ubuntu-latest'
-  steps:
-  - template: docker-build-push.yml
-    parameters: 
-      version: "R5" 
-      tag: ${{parameters.tag}}
+- template: docker-build-push.yml
+  parameters: 
+    version: "R5"
+    tag: ${{parameters.tag}}

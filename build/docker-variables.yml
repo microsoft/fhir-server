@@ -1,7 +1,0 @@
-# DESCRIPTION: 
-# Variables used for docker tasks
-
-variables:
-  azureSubscriptionEndpoint: 'docker-build'
-  azureContainerRegistry: 'healthplatformregistry.azurecr.io'
-  composeLocation: 'build/docker/docker-compose.yaml'

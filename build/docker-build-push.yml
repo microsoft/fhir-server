@@ -6,25 +6,33 @@ parameters:
   type: string
 - name: tag
   type: string
- 
-steps:
-- task: DockerCompose@0
-  displayName: 'Build FHIR ${{parameters.version}} Server Image'
-  inputs:
-    action: Build services
-    azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
-    azureContainerRegistry: $(azureContainerRegistry)
-    dockerComposeFile: $(composeLocation)
-    dockerComposeFileArgs: FHIR_VERSION = ${{parameters.version}}
-    projectName: ${{parameters.version}}
-    additionalImageTags: ${{parameters.tag}}
 
-- task: DockerCompose@0
-  displayName: 'Push FHIR ${{parameters.version}} Server Image'
-  inputs:
-    action: Push services
-    azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
-    azureContainerRegistry: $(azureContainerRegistry)
-    dockerComposeFile: $(composeLocation)
-    projectName: ${{parameters.version}}
-    additionalImageTags: ${{parameters.tag}}
+jobs:
+- job: '${{parameters.version}}_Docker'
+  pool:
+    vmImage: 'ubuntu-latest'
+  variables:
+    azureSubscriptionEndpoint: 'docker-build'
+    azureContainerRegistry: 'healthplatformregistry.azurecr.io'
+    composeLocation: 'build/docker/docker-compose.yaml'
+  steps:
+  - task: DockerCompose@0
+      displayName: 'Build FHIR ${{parameters.version}} Server Image'
+      inputs:
+      action: Build services
+      azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
+      azureContainerRegistry: $(azureContainerRegistry)
+      dockerComposeFile: $(composeLocation)
+      dockerComposeFileArgs: FHIR_VERSION = ${{parameters.version}}
+      projectName: ${{parameters.version}}
+      additionalImageTags: ${{parameters.tag}}
+
+  - task: DockerCompose@0
+      displayName: 'Push FHIR ${{parameters.version}} Server Image'
+      inputs:
+      action: Push services
+      azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
+      azureContainerRegistry: $(azureContainerRegistry)
+      dockerComposeFile: $(composeLocation)
+      projectName: ${{parameters.version}}
+      additionalImageTags: ${{parameters.tag}}
