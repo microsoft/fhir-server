@@ -1,0 +1,34 @@
+# DESCRIPTION: 
+# Builds and pushes images for all supported FHIR versions
+
+parameters:
+- name: tag
+  type: string
+
+jobs:            
+- job: R4 Docker
+  pool:
+    vmImage: 'ubuntu-latest'
+  steps:
+  - template: docker-build-push.yml
+    parameters: 
+      version: "R4"
+      tag: ${{parameters.tag}}
+
+- job: Stu3 Docker
+  pool:
+    vmImage: 'ubuntu-latest'
+  steps:
+  - template: docker-build-push.yml
+    parameters: 
+      version: "Stu3"
+      tag: ${{parameters.tag}}
+
+- job: R5 Docker
+  pool:
+    vmImage: 'ubuntu-latest'
+  steps:
+  - template: docker-build-push.yml
+    parameters: 
+      version: "R5" 
+      tag: ${{parameters.tag}}
