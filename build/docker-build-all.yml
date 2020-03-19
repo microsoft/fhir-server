@@ -7,6 +7,8 @@ parameters:
 
 jobs:            
 - job: R4_Docker
+  variables:
+  - template: docker-variables.yml
   pool:
     vmImage: 'ubuntu-latest'
   steps:
@@ -16,6 +18,8 @@ jobs:
       tag: ${{parameters.tag}}
 
 - job: Stu3_Docker
+  variables:
+  - template: docker-variables.yml
   pool:
     vmImage: 'ubuntu-latest'
   steps:
@@ -25,6 +29,8 @@ jobs:
       tag: ${{parameters.tag}}
 
 - job: R5_Docker
+  variables:
+  - template: docker-variables.yml
   pool:
     vmImage: 'ubuntu-latest'
   steps:

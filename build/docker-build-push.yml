@@ -6,13 +6,14 @@ parameters:
   type: string
 - name: tag
   type: string
-
+ 
 steps:
 - task: DockerCompose@0
   displayName: 'Build FHIR ${{parameters.version}} Server Image'
   inputs:
     action: Build services
-    dockerComposeFile: build/docker/docker-compose.yaml
+    azureContainerRegistry: $(azureContainerRegistry)
+    dockerComposeFile: $(composeLocation)
     dockerComposeFileArgs: FHIR_VERSION = ${{parameters.version}}
     projectName: ${{parameters.version}}
     additionalImageTags: ${{parameters.tag}}
@@ -21,8 +22,8 @@ steps:
   displayName: 'Push FHIR ${{parameters.version}} Server Image'
   inputs:
     action: Push services
-    dockerComposeFile: build/docker/docker-compose.yaml
     azureSubscriptionEndpoint: 'docker-build'
-    azureContainerRegistry: 'healthplatformregistry.azurecr.io'
+    azureContainerRegistry: $(azureContainerRegistry)
+    dockerComposeFile: $(composeLocation)
     projectName: ${{parameters.version}}
     additionalImageTags: ${{parameters.tag}}
