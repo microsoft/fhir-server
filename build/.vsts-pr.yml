@@ -3,10 +3,7 @@
 
 name: pr$(system.pullRequest.pullRequestNumber)-$(Date:yyyyMMdd)$(Rev:-r)
 variables:
-  buildConfiguration: 'Release' 
-  azureSubscriptionEndpoint: 'docker-build'
-  azureContainerRegistry: 'healthplatformregistry.azurecr.io'
-  composeLocation: 'build/docker/docker-compose.yaml'
+- template: build-variables.yml
 jobs:
 - job: Windows
   pool:

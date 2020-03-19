@@ -3,9 +3,7 @@
 
 name: $(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:-r)
 variables:
-  buildConfiguration: 'Release'
-  azureSubscriptionEndpoint: 'docker-build'
-  azureContainerRegistry: 'healthplatformregistry.azurecr.io'
+- template: build-variables.yml
 jobs:
 - job: Windows
   pool:
