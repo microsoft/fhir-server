@@ -1,0 +1,22 @@
+# DESCRIPTION: 
+# Builds and pushes images for all supported FHIR versions
+
+parameters:
+- name: tag
+  type: string
+
+jobs:            
+- template: docker-build-push.yml
+  parameters: 
+    version: "R4"
+    tag: ${{parameters.tag}}
+
+- template: docker-build-push.yml
+  parameters: 
+    version: "Stu3"
+    tag: ${{parameters.tag}}
+
+- template: docker-build-push.yml
+  parameters: 
+    version: "R5"
+    tag: ${{parameters.tag}}
