@@ -4,7 +4,7 @@ trigger:
 variables:
     ConnectedServiceName: 'Microsoft Health Open Source Subscription'
     resourceGroupRoot: 'msh-fhir-pr'
-    prNumber: '12'
+    prNumber: $(system.pullRequest.pullRequestNumber)
     DeploymentEnvironmentName: '$(resourceGroupRoot)-$(prNumber)'
     DeploymentEnvironmentNameR4: '$(DeploymentEnvironmentName)-r4'
     DeploymentEnvironmentNameSql: '$(DeploymentEnvironmentName)-sql'
@@ -12,24 +12,9 @@ variables:
     CrucibleEnvironmentUrl: 'https://crucible.mshapis.com/'
 stages:
 - stage: BuildUnitTests
-  dependsOn: []
-  displayName: 'Build and unit tests'
-  variables:
-    buildConfiguration: 'Release'
-    name: pr$(system.pullRequest.pullRequestNumber)-$(Date:yyyyMMdd)$(Rev:-r)
+  displayName: 'Build and run unit tests'
   jobs:
-  - job: Windows
-    pool:
-      vmImage: 'vs2017-win2016'
-    steps:
-    - template: build.yml
-  - job: Linux
-    pool:
-      vmImage: 'ubuntu-16.04'
-    steps:
-    - template: build.yml
-      parameters:
-        packageArtifacts: false
+  - template: .vsts-pr.yml
 
 - stage: provisionEnvironment
   displayName: 'Provision Azure Environment'
@@ -49,63 +34,48 @@ stages:
         azureSubscription: 'Microsoft Health Open Source Subscription'
         KeyVaultName: 'resolute-oss-tenant-info'
     - task: AzurePowerShell@3
-      displayName: 'Deploy ARM template & Setup AAD environment'
+      displayName: 'Azure PowerShell script: InlineScript'
       inputs:
         azureSubscription: 'Microsoft Health Open Source Subscription'
+        azurePowerShellVersion: LatestVersion
         ScriptType: InlineScript
         Inline: |
-          Add-Type -AssemblyName System.Web
-          Install-Module AzureAD -Force
-
-          New-AzureRmResourceGroup -Name "$(DeploymentEnvironmentName)" -Location "$(ResourceGroupRegion)" -Force
-
-          $roles = (ConvertFrom-Json (Get-Content -Raw "$(System.DefaultWorkingDirectory)/testauthenvironment.json")).roles
-          $flattenedRoles = $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/ConvertTo-FlattenedConfigurationHashtable.ps1 -InputObject $roles -PathPrefix "FhirServer:Security:Authorization:Roles"
-
-          $cors = (ConvertFrom-Json (Get-Content -Raw "$(System.DefaultWorkingDirectory)/test/Configuration/corstestconfiguration.json"))
-          $flattenedCors = $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/ConvertTo-FlattenedConfigurationHashtable.ps1 -InputObject $cors
-
-          $export= (ConvertFrom-Json (Get-Content -Raw "$(System.DefaultWorkingDirectory)/test/Configuration/exporttestconfiguration.json"))
-          $flattenedExport = $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/ConvertTo-FlattenedConfigurationHashtable.ps1 -InputObject $export
-
-          $additionalProperties = $flattenedRoles + $flattenedCors + $flattenedExport
-
-          $additionalProperties["SqlServer:DeleteAllDataOnStartup"] = "true"
-
-          $templateParameters = @{
-            appServicePlanResourceGroup = "$(resourceGroupRoot)"
-            appServicePlanName = "$(AppServicePlanName)"
-            serviceName = "$(DeploymentEnvironmentName)"
-            securityAuthenticationAuthority = "https://login.microsoftonline.com/$(tenant-id)"
-            repositoryUrl = ""
-            securityAuthenticationAudience = "$(TestEnvironmentUrl)"
-            additionalFhirServerConfigProperties = $additionalProperties
-            enableAadSmartOnFhirProxy = $true
-          }
-
-          # Deploy CosmosDb environment
-          New-AzureRmResourceGroupDeployment -ResourceGroupName "$(DeploymentEnvironmentName)" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy.json -TemplateParameterObject $templateParameters -Verbose
-          Set-AzureRmKeyVaultAccessPolicy -VaultName "$(DeploymentEnvironmentName)" -ObjectId 4d4d503d-9ca8-462e-9e18-b35fc8b5285b -PermissionsToSecrets list,get
-
-          # Deploy R4 CosmosDb environment
-          $templateParameters["serviceName"] = "$(DeploymentEnvironmentNameR4)"
-          New-AzureRmResourceGroupDeployment -ResourceGroupName "$(DeploymentEnvironmentName)" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy.json -TemplateParameterObject $templateParameters -Verbose
-
-          # Setup SQL specific variables
-          $sap = [System.Web.Security.Membership]::GeneratePassword(15, 5).replace(";", "_").replace("$","!")
-          Write-Host "##vso[task.setvariable variable=SqlAdminPassword]$sap"
-          $templateParameters["solutionType"] = "FhirServerSqlServer"
-          $templateParameters["sqlAdminPassword"] = $sap
-
-          # Deploy STU3 SqlServer
-          $templateParameters["serviceName"] = "$(DeploymentEnvironmentNameSql)"
-          New-AzureRmResourceGroupDeployment -ResourceGroupName "$(DeploymentEnvironmentName)" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy-sql.json -TemplateParameterObject $templateParameters -Verbose
-          Set-AzureRmKeyVaultAccessPolicy -VaultName "$(DeploymentEnvironmentNameSql)" -ObjectId 4d4d503d-9ca8-462e-9e18-b35fc8b5285b -PermissionsToSecrets list,get
-
-          # Deploy R4 SqlServer
-          $templateParameters["serviceName"] = "$(DeploymentEnvironmentNameR4Sql)"
-          New-AzureRmResourceGroupDeployment -ResourceGroupName "$(DeploymentEnvironmentName)" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy-sql.json -TemplateParameterObject $templateParameters -Verbose
-        azurePowerShellVersion: LatestVersion
+         Add-Type -AssemblyName System.Web
+     
+         $deployPath = "$(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy"
+     
+         $cors = (ConvertFrom-Json (Get-Content -Raw "$deployPath/corstestconfiguration.json"))
+         $flattenedCors = $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/scripts/PowerShell/ConvertTo-FlattenedConfigurationHashtable.ps1 -InputObject $cors
+     
+         $additionalProperties = $flattenedCors
+     
+         $additionalProperties["SqlServer__DeleteAllDataOnStartup"] = "true"
+     
+         $templateParameters = @{
+             appServicePlanResourceGroup = "$(resourceGroupRoot)"
+             appServicePlanName = "$(AppServicePlanName)"
+             serviceName = "$(DeploymentEnvironmentName)"
+             securityAuthenticationAuthority = "https://login.microsoftonline.com/$(tenant-id)"
+             securityAuthenticationAudience = "$(Audience)"
+             additionalFhirServerConfigProperties = $additionalProperties 
+             enableAadSmartOnFhirProxy = $true
+             enableExport = $true
+         }
+     
+         if("$(IsSqlEnvironment)" -eq "true"){
+             $templateParameters["solutionType"] = "FhirServerSqlServer"
+             $templateParameters["sqlAdminPassword"] = [System.Web.Security.Membership]::GeneratePassword(15, 5).replace(";", "_").replace("$","!")
+     
+             # Deploy SQL Environment
+             New-AzureRmResourceGroupDeployment -Name "$(DeploymentEnvironmentName)" -ResourceGroupName "$(ResourceGroupName)" -TemplateFile $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/templates/default-azuredeploy-sql.json -TemplateParameterObject $templateParameters -Verbose
+         }
+         else{
+             # Deploy CosmosDb environment
+             New-AzureRmResourceGroupDeployment -Name "$(DeploymentEnvironmentName)" -ResourceGroupName "$(ResourceGroupName)" -TemplateFile $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/templates/default-azuredeploy.json -TemplateParameterObject $templateParameters -Verbose
+         }
+     
+         Set-AzureRmKeyVaultAccessPolicy -VaultName "$(DeploymentEnvironmentName)" -ObjectId $(AzureServiceConnectionOid) -PermissionsToSecrets list,get
+   
 
 
 - stage: deployStu3
