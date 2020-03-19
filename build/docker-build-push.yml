@@ -21,6 +21,7 @@ steps:
   displayName: 'Push FHIR ${{parameters.version}} Server Image'
   inputs:
     action: Push services
+    dockerComposeFile: build/docker/docker-compose.yaml
     azureSubscriptionEndpoint: 'docker-build'
     azureContainerRegistry: 'healthplatformregistry.azurecr.io'
     projectName: ${{parameters.version}}
