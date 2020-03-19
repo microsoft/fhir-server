@@ -17,8 +17,8 @@ jobs:
     composeLocation: 'build/docker/docker-compose.yaml'
   steps:
   - task: DockerCompose@0
-      displayName: 'Build FHIR ${{parameters.version}} Server Image'
-      inputs:
+    displayName: 'Build FHIR ${{parameters.version}} Server Image'
+    inputs:
       action: Build services
       azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
       azureContainerRegistry: $(azureContainerRegistry)
@@ -28,8 +28,8 @@ jobs:
       additionalImageTags: ${{parameters.tag}}
 
   - task: DockerCompose@0
-      displayName: 'Push FHIR ${{parameters.version}} Server Image'
-      inputs:
+    displayName: 'Push FHIR ${{parameters.version}} Server Image'
+    inputs:
       action: Push services
       azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
       azureContainerRegistry: $(azureContainerRegistry)
