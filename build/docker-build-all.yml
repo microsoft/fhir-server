@@ -6,7 +6,7 @@ parameters:
   type: string
 
 jobs:            
-- job: R4 Docker
+- job: R4_Docker
   pool:
     vmImage: 'ubuntu-latest'
   steps:
@@ -15,7 +15,7 @@ jobs:
       version: "R4"
       tag: ${{parameters.tag}}
 
-- job: Stu3 Docker
+- job: Stu3_Docker
   pool:
     vmImage: 'ubuntu-latest'
   steps:
@@ -24,7 +24,7 @@ jobs:
       version: "Stu3"
       tag: ${{parameters.tag}}
 
-- job: R5 Docker
+- job: R5_Docker
   pool:
     vmImage: 'ubuntu-latest'
   steps:
