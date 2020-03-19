@@ -9,20 +9,16 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
-using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Schema;
-using Microsoft.Health.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Storage;
 using Newtonsoft.Json;
 using Task = System.Threading.Tasks.Task;
@@ -35,14 +31,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     /// many many times in the database. For more compact storage, we use IDs instead of the strings when referencing these.
     /// Also, because the number of distinct values is small, we can maintain all values in memory and avoid joins when querying.
     /// </summary>
-    public sealed class SqlServerFhirModel : IDisposable
+    public sealed class SqlServerFhirModel : SqlServerModelInitializer
     {
-        private readonly SqlServerDataStoreConfiguration _configuration;
-        private readonly ISchemaInformation _schemaInformation;
-        private readonly ILogger<SqlServerFhirModel> _logger;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly SecurityConfiguration _securityConfiguration;
-        private readonly RetryableInitializationOperation _initializationOperation;
+        private readonly ILogger<SqlServerFhirModel> _logger;
         private Dictionary<string, short> _resourceTypeToId;
         private Dictionary<short, string> _resourceTypeIdToTypeName;
         private Dictionary<Uri, short> _searchParamUriToId;
@@ -57,25 +50,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             SupportedSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
             IOptions<SecurityConfiguration> securityConfiguration,
             ILogger<SqlServerFhirModel> logger)
+            : base(configuration, schemaInformation, logger)
         {
-            EnsureArg.IsNotNull(configuration, nameof(configuration));
-            EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             EnsureArg.IsNotNull(searchParameterDefinitionManagerResolver, nameof(searchParameterDefinitionManagerResolver));
             EnsureArg.IsNotNull(securityConfiguration?.Value, nameof(securityConfiguration));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _configuration = configuration;
-            _schemaInformation = schemaInformation;
-            _logger = logger;
             _searchParameterDefinitionManager = searchParameterDefinitionManagerResolver();
             _securityConfiguration = securityConfiguration.Value;
-
-            _initializationOperation = new RetryableInitializationOperation(Initialize);
-            if (schemaInformation.Current != null)
-            {
-                // kick off initialization so that it can be ready for requests. Errors will be observed by requests when they call the method.
-                EnsureInitialized();
-            }
+            _logger = logger;
         }
 
         public short GetResourceTypeId(string resourceTypeName)
@@ -142,21 +125,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return _quantityCodeToId.TryGetValue(code, out quantityCodeId);
         }
 
-        public ValueTask EnsureInitialized() => _initializationOperation.EnsureInitialized();
-
-        private async Task Initialize()
+        protected override async Task Initialize()
         {
-            if (!_schemaInformation.Current.HasValue)
+            if (!SchemaInformation.Current.HasValue)
             {
                 _logger.LogError($"The current version of the database is not available. Unable in initialize {nameof(SqlServerFhirModel)}.");
                 throw new ServiceUnavailableException();
             }
 
-            var connectionStringBuilder = new SqlConnectionStringBuilder(_configuration.ConnectionString);
+            var connectionStringBuilder = new SqlConnectionStringBuilder(SqlServerDataStoreConfiguration.ConnectionString);
 
             _logger.LogInformation("Initializing {Server} {Database}", connectionStringBuilder.DataSource, connectionStringBuilder.InitialCatalog);
 
-            using (var connection = new SqlConnection(_configuration.ConnectionString))
+            using (var connection = new SqlConnection(SqlServerDataStoreConfiguration.ConnectionString))
             {
                 await connection.OpenAsync();
 
@@ -287,63 +268,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     }
                 }
             }
-        }
-
-        private int GetStringId(ConcurrentDictionary<string, int> cache, string stringValue, Table table, Column<int> idColumn, Column<string> stringColumn)
-        {
-            if (cache.TryGetValue(stringValue, out int id))
-            {
-                return id;
-            }
-
-            _logger.LogInformation("Cache miss for string ID on {table}", table);
-
-            using (var connection = new SqlConnection(_configuration.ConnectionString))
-            {
-                connection.Open();
-
-                using (SqlCommand sqlCommand = connection.CreateCommand())
-                {
-                    sqlCommand.CommandText = $@"
-                        SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
-                        BEGIN TRANSACTION
-
-                        DECLARE @id int = (SELECT {idColumn} FROM {table} WITH (UPDLOCK) WHERE {stringColumn} = @stringValue)
-
-                        IF (@id IS NULL) BEGIN
-                            INSERT INTO {table} 
-                                ({stringColumn})
-                            VALUES 
-                                (@stringValue)
-                            SET @id = SCOPE_IDENTITY()
-                        END
-
-                        COMMIT TRANSACTION
-
-                        SELECT @id";
-
-                    sqlCommand.Parameters.AddWithValue("@stringValue", stringValue);
-
-                    id = (int)sqlCommand.ExecuteScalar();
-
-                    cache.TryAdd(stringValue, id);
-                    return id;
-                }
-            }
-        }
-
-        private void ThrowIfNotInitialized()
-        {
-            if (!_initializationOperation.IsInitialized)
-            {
-                _logger.LogError($"The {nameof(SqlServerFhirModel)} instance has not been initialized.");
-                throw new ServiceUnavailableException();
-            }
-        }
-
-        public void Dispose()
-        {
-            _initializationOperation?.Dispose();
         }
     }
 }

@@ -14,6 +14,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer.Api.Registration;
 using Microsoft.Health.SqlServer.Configs;
+using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Registration;
 
@@ -26,10 +27,10 @@ namespace Microsoft.Extensions.DependencyInjection
             EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
             IServiceCollection services = fhirServerBuilder.Services;
 
-            services.AddSqlServerBase(configureAction);
+            services.AddSqlServerBase<SchemaVersion>(configureAction);
             services.AddSqlServerApi();
 
-            services.Add<SchemaInformation>()
+            services.Add(provider => new SchemaInformation((int)SchemaVersion.V1, (int)SchemaVersion.V2))
                 .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();
