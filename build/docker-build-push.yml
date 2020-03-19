@@ -6,10 +6,6 @@ parameters:
   type: string
 - name: tag
   type: string
-
-variables:
-  azureSubscriptionEndpoint: 'docker-build'
-  azureContainerRegistry: 'healthplatformregistry.azurecr.io'
  
 steps:
 - task: DockerCompose@0

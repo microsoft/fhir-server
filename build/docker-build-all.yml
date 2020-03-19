@@ -5,6 +5,10 @@ parameters:
 - name: tag
   type: string
 
+variables:
+  azureSubscriptionEndpoint: 'docker-build'
+  azureContainerRegistry: 'healthplatformregistry.azurecr.io'
+
 jobs:            
 - job: R4 Docker
   pool:
