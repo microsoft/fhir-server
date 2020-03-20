@@ -1,7 +1,8 @@
 trigger:
   branches:
-    include: ['personal/brpoll/yaml-build']
+    include: ['personal/rojo/yaml-build']
 variables:
+    - template: build-variables.yml
     ConnectedServiceName: 'Microsoft Health Open Source Subscription'
     ResourceGroupRegion: 'southcentralus'
     resourceGroupRoot: 'msh-fhir-pr'
@@ -17,7 +18,19 @@ stages:
 - stage: BuildUnitTests
   displayName: 'Build and run unit tests'
   jobs:
-  - template: .vsts-pr.yml
+  - job: Windows
+    pool:
+      vmImage: 'windows-2019'
+    steps:
+    - template: build.yml
+
+  - job: Linux
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - template: build.yml
+      parameters:
+        packageArtifacts: false
 
 - stage: provisionEnvironment
   displayName: Provision Environment
