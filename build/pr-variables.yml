@@ -1,0 +1,12 @@
+variables:
+    ConnectedServiceName: 'Microsoft Health Open Source Subscription'
+    ResourceGroupRegion: 'southcentralus'
+    resourceGroupRoot: 'msh-fhir-pr'
+    appServicePlanName: '$(resourceGroupRoot)-southcentralus'
+    prNumber: $(system.pullRequest.pullRequestNumber)
+    DeploymentEnvironmentName: '$(resourceGroupRoot)-$(prNumber)'
+    DeploymentEnvironmentNameR4: '$(DeploymentEnvironmentName)-r4'
+    DeploymentEnvironmentNameSql: '$(DeploymentEnvironmentName)-sql'
+    DeploymentEnvironmentNameR4Sql: '$(DeploymentEnvironmentName)-r4-sql'
+    CrucibleEnvironmentUrl: 'https://crucible.mshapis.com/'
+    TestEnvironmentUrl: 'https://$(DeploymentEnvironmentName).azurewebsites.net'
