@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public SqlServerFhirModel(
             SqlServerDataStoreConfiguration configuration,
-            ISchemaInformation schemaInformation,
+            SchemaInformation schemaInformation,
             SupportedSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
             IOptions<SecurityConfiguration> securityConfiguration,
             ILogger<SqlServerFhirModel> logger)
