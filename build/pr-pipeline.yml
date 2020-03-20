@@ -3,13 +3,16 @@ trigger:
     include: ['personal/brpoll/yaml-build']
 variables:
     ConnectedServiceName: 'Microsoft Health Open Source Subscription'
+    ResourceGroupRegion: 'southcentralus'
     resourceGroupRoot: 'msh-fhir-pr'
+    appServicePlanName: '$(resourceGroupRoot)-southcentralus'
     prNumber: $(system.pullRequest.pullRequestNumber)
     DeploymentEnvironmentName: '$(resourceGroupRoot)-$(prNumber)'
     DeploymentEnvironmentNameR4: '$(DeploymentEnvironmentName)-r4'
     DeploymentEnvironmentNameSql: '$(DeploymentEnvironmentName)-sql'
     DeploymentEnvironmentNameR4Sql: '$(DeploymentEnvironmentName)-r4-sql'
     CrucibleEnvironmentUrl: 'https://crucible.mshapis.com/'
+    TestEnvironmentUrl: 'https://$(DeploymentEnvironmentName).azurewebsites.net'
 stages:
 - stage: BuildUnitTests
   displayName: 'Build and run unit tests'
@@ -17,174 +20,84 @@ stages:
   - template: .vsts-pr.yml
 
 - stage: provisionEnvironment
-  displayName: 'Provision Azure Environment'
-  dependsOn: []
-  variables:
-    AppServicePlanName: 'msh-fhir-pr-southcentralus'
-    ResourceGroupRegion: 'South Central US'
-    TestEnvironmentUrl: 'https://$(DeploymentEnvironmentName).azurewebsites.net'
+  displayName: Provision Environment
   jobs:
-  - job: deploy
-    pool:
-      vmImage: 'vs2017-win2016'
+  - job: provision
     steps:
-    - task: AzureKeyVault@1
-      displayName: 'Azure Key Vault: resolute-oss-tenant-info'
+    - task: AzurePowerShell@4
+      displayName: Provision Resource Group
       inputs:
         azureSubscription: 'Microsoft Health Open Source Subscription'
-        KeyVaultName: 'resolute-oss-tenant-info'
-    - task: AzurePowerShell@3
-      displayName: 'Azure PowerShell script: InlineScript'
-      inputs:
-        azureSubscription: 'Microsoft Health Open Source Subscription'
-        azurePowerShellVersion: LatestVersion
-        ScriptType: InlineScript
+        azurePowerShellVersion: latestVersion
+        ScriptType: inlineScript
         Inline: |
-         Add-Type -AssemblyName System.Web
-     
-         $deployPath = "$(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy"
-     
-         $cors = (ConvertFrom-Json (Get-Content -Raw "$deployPath/corstestconfiguration.json"))
-         $flattenedCors = $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/scripts/PowerShell/ConvertTo-FlattenedConfigurationHashtable.ps1 -InputObject $cors
-     
-         $additionalProperties = $flattenedCors
-     
-         $additionalProperties["SqlServer__DeleteAllDataOnStartup"] = "true"
-     
-         $templateParameters = @{
-             appServicePlanResourceGroup = "$(resourceGroupRoot)"
-             appServicePlanName = "$(AppServicePlanName)"
-             serviceName = "$(DeploymentEnvironmentName)"
-             securityAuthenticationAuthority = "https://login.microsoftonline.com/$(tenant-id)"
-             securityAuthenticationAudience = "$(Audience)"
-             additionalFhirServerConfigProperties = $additionalProperties 
-             enableAadSmartOnFhirProxy = $true
-             enableExport = $true
-         }
-     
-         if("$(IsSqlEnvironment)" -eq "true"){
-             $templateParameters["solutionType"] = "FhirServerSqlServer"
-             $templateParameters["sqlAdminPassword"] = [System.Web.Security.Membership]::GeneratePassword(15, 5).replace(";", "_").replace("$","!")
-     
-             # Deploy SQL Environment
-             New-AzureRmResourceGroupDeployment -Name "$(DeploymentEnvironmentName)" -ResourceGroupName "$(ResourceGroupName)" -TemplateFile $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/templates/default-azuredeploy-sql.json -TemplateParameterObject $templateParameters -Verbose
-         }
-         else{
-             # Deploy CosmosDb environment
-             New-AzureRmResourceGroupDeployment -Name "$(DeploymentEnvironmentName)" -ResourceGroupName "$(ResourceGroupName)" -TemplateFile $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/templates/default-azuredeploy.json -TemplateParameterObject $templateParameters -Verbose
-         }
-     
-         Set-AzureRmKeyVaultAccessPolicy -VaultName "$(DeploymentEnvironmentName)" -ObjectId $(AzureServiceConnectionOid) -PermissionsToSecrets list,get
-   
-
+          New-AzureRmResourceGroup -Name "$(DeploymentEnvironmentName)" -Location "$(ResourceGroupRegion)" -Force
 
 - stage: deployStu3
   displayName: 'Deploy STU3 Site'
-  variables:
-    WebAppName: '$(DeploymentEnvironmentName)'
   dependsOn:
   - provisionEnvironment
   - BuildUnitTests
   jobs:
-  - job: 'deploy'
-    steps:
-    - checkout: none
-    - task: DownloadBuildArtifacts@0
-      inputs:
-        buildType: 'current'
-        downloadType: 'single'
-        downloadPath: '$(System.ArtifactsDirectory)'
-        artifactName: 'deploy'
-    - task: AzureRmWebAppDeployment@3
-      displayName: 'Azure App Service Deploy'
-      inputs:
-        azureSubscription: '$(ConnectedServiceName)'
-        appType: 'app'
-        WebAppName: '$(WebAppName)'
-        Package: '$(Build.ArtifactStagingDirectory)/deploy/*Stu3*.zip'
-        TakeAppOfflineFlag: true
-
+  - template: ./jobs/provision-deploy.yml
+    parameters: 
+      version: Stu3
+      webAppName: $(DeploymentEnvironmentName)
+      appServicePlanName: $(appServicePlanName)
+      appServicePlanResourceGroup: $(resourceGroupRoot)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(DeploymentEnvironmentName)
+      testEnvironmentUrl: $(TestEnvironmentUrl)
 
 - stage: deployStu3Sql
   displayName: 'Deploy STU3 SQL Site'
-  variables:
-    WebAppName: '$(DeploymentEnvironmentNameSql)'
   dependsOn:
   - provisionEnvironment
   - BuildUnitTests
   jobs:
-  - job: 'deploy'
-    steps:
-    - checkout: none
-    - task: DownloadBuildArtifacts@0
-      inputs:
-        buildType: 'current'
-        downloadType: 'single'
-        downloadPath: '$(System.ArtifactsDirectory)'
-        artifactName: 'deploy'
-    - task: AzureRmWebAppDeployment@3
-      displayName: 'Azure App Service Deploy'
-      inputs:
-        azureSubscription: '$(ConnectedServiceName)'
-        appType: 'app'
-        WebAppName: '$(WebAppName)'
-        Package: '$(Build.ArtifactStagingDirectory)/deploy/*Stu3*.zip'
-        TakeAppOfflineFlag: true
-
+  - template: ./jobs/provision-deploy.yml
+    parameters: 
+      version: Stu3
+      sql: true
+      webAppName: $(DeploymentEnvironmentName)
+      appServicePlanName: $(appServicePlanName)
+      appServicePlanResourceGroup: $(resourceGroupRoot)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(DeploymentEnvironmentName)
+      testEnvironmentUrl: $(TestEnvironmentUrl)
 
 - stage: deployR4
   displayName: 'Deploy R4 Site'
-  variables:
-    WebAppName: '$(DeploymentEnvironmentNameR4)'
   dependsOn:
   - provisionEnvironment
   - BuildUnitTests
   jobs:
-  - job: 'deploy'
-    steps:
-    - checkout: none
-    - task: DownloadBuildArtifacts@0
-      inputs:
-        buildType: 'current'
-        downloadType: 'single'
-        downloadPath: '$(System.ArtifactsDirectory)'
-        artifactName: 'deploy'
-    - task: AzureRmWebAppDeployment@3
-      displayName: 'Azure App Service Deploy'
-      inputs:
-        azureSubscription: '$(ConnectedServiceName)'
-        appType: 'app'
-        WebAppName: '$(WebAppName)'
-        Package: '$(Build.ArtifactStagingDirectory)/deploy/*R4*.zip'
-        TakeAppOfflineFlag: true
-
+  - template: ./jobs/provision-deploy.yml
+    parameters: 
+      version: R4
+      webAppName: $(DeploymentEnvironmentName)
+      appServicePlanName: $(appServicePlanName)
+      appServicePlanResourceGroup: $(resourceGroupRoot)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(DeploymentEnvironmentName)
+      testEnvironmentUrl: $(TestEnvironmentUrl)
 
 - stage: deployR4Sql
   displayName: 'Deploy R4 SQL Site'
-  variables:
-    WebAppName: '$(DeploymentEnvironmentNameR4Sql)'
   dependsOn:
   - provisionEnvironment
   - BuildUnitTests
   jobs:
-  - job: 'deploy'
-    steps:
-    - checkout: none
-    - task: DownloadBuildArtifacts@0
-      inputs:
-        buildType: 'current'
-        downloadType: 'single'
-        downloadPath: '$(System.ArtifactsDirectory)'
-        artifactName: 'deploy'
-    - task: AzureRmWebAppDeployment@3
-      displayName: 'Azure App Service Deploy'
-      inputs:
-        azureSubscription: '$(ConnectedServiceName)'
-        appType: 'app'
-        WebAppName: '$(WebAppName)'
-        Package: '$(Build.ArtifactStagingDirectory)/deploy/*R4*.zip'
-        TakeAppOfflineFlag: true
-
+  - template: ./jobs/provision-deploy.yml
+    parameters: 
+      version: R4
+      sql: true
+      webAppName: $(DeploymentEnvironmentName)
+      appServicePlanName: $(appServicePlanName)
+      appServicePlanResourceGroup: $(resourceGroupRoot)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(DeploymentEnvironmentName)
+      testEnvironmentUrl: $(TestEnvironmentUrl)
 
 - stage: integrationTest
   displayName: 'Run Integration and E2E Tests'
