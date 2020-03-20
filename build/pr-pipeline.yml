@@ -1,6 +1,9 @@
+
+trigger: none
+
 variables:
-    - template: build-variables.yml
-    - template: pr-variables.yml
+- template: build-variables.yml
+- template: pr-variables.yml
 
 stages:
 - stage: BuildUnitTests
