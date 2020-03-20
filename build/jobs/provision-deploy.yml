@@ -38,7 +38,7 @@ jobs:
       Inline: |
         Add-Type -AssemblyName System.Web
      
-        $deployPath = "$(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy"
+        $deployPath = "$(System.DefaultWorkingDirectory)/test/Configuration"
      
         $cors = (ConvertFrom-Json (Get-Content -Raw "$deployPath/corstestconfiguration.json"))
         $flattenedCors = $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/scripts/PowerShell/ConvertTo-FlattenedConfigurationHashtable.ps1 -InputObject $cors
