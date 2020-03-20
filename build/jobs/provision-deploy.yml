@@ -63,14 +63,14 @@ jobs:
             $templateParameters["sqlAdminPassword"] = [System.Web.Security.Membership]::GeneratePassword(15, 5).replace(";", "_").replace("$","!")
      
             # Deploy SQL Environment
-            New-AzureRmResourceGroupDeployment -Name "${{ parameters.webAppName }}" -ResourceGroupName "${{ parameters.resourceGroup }}" -TemplateFile $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/templates/default-azuredeploy-sql.json -TemplateParameterObject $templateParameters -Verbose
+            New-AzResourceGroupDeployment -Name "${{ parameters.webAppName }}" -ResourceGroupName "${{ parameters.resourceGroup }}" -TemplateFile $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/templates/default-azuredeploy-sql.json -TemplateParameterObject $templateParameters -Verbose
         }
         else{
             # Deploy CosmosDb environment
-            New-AzureRmResourceGroupDeployment -Name "${{ parameters.webAppName }}" -ResourceGroupName "${{ parameters.resourceGroup }}" -TemplateFile $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/templates/default-azuredeploy.json -TemplateParameterObject $templateParameters -Verbose
+            New-AzResourceGroupDeployment -Name "${{ parameters.webAppName }}" -ResourceGroupName "${{ parameters.resourceGroup }}" -TemplateFile $(System.DefaultWorkingDirectory)/_Microsoft.fhir-server.pr/deploy/templates/default-azuredeploy.json -TemplateParameterObject $templateParameters -Verbose
         }
      
-        Set-AzureRmKeyVaultAccessPolicy -VaultName "${{ parameters.webAppName }}" -ObjectId 4d4d503d-9ca8-462e-9e18-b35fc8b5285b -PermissionsToSecrets list,get
+        Set-AzKeyVaultAccessPolicy -VaultName "${{ parameters.webAppName }}" -ObjectId 4d4d503d-9ca8-462e-9e18-b35fc8b5285b -PermissionsToSecrets list,get
 
   - task: DownloadBuildArtifacts@0
     inputs:

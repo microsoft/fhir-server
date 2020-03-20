@@ -8,6 +8,7 @@ variables:
 stages:
 - stage: BuildUnitTests
   displayName: 'Build and run unit tests'
+  dependsOn: []
   jobs:
   - job: Windows
     pool:
@@ -25,6 +26,7 @@ stages:
 
 - stage: provisionEnvironment
   displayName: Provision Environment
+  dependsOn: []
   jobs:
   - job: provision
     steps:
@@ -35,7 +37,7 @@ stages:
         azurePowerShellVersion: latestVersion
         ScriptType: inlineScript
         Inline: |
-          New-AzureRmResourceGroup -Name "$(DeploymentEnvironmentName)" -Location "$(ResourceGroupRegion)" -Force
+          New-AzResourceGroup -Name "$(DeploymentEnvironmentName)" -Location "$(ResourceGroupRegion)" -Force
 
 - stage: deployStu3
   displayName: 'Deploy STU3 Site'
@@ -185,7 +187,6 @@ stages:
         ScriptType: InlineScript
         preferredAzurePowerShellVersion: 5.1.1
         Inline: |
-          Install-Module AzureAD -Force
           dotnet dev-certs https
 
           # Get admin token
@@ -209,7 +210,7 @@ stages:
           $response = Invoke-RestMethod -Method 'Post' -Uri $adTokenUrl -ContentType "application/x-www-form-urlencoded" -Body $body
           $token = $response.access_token
 
-          Connect-AzureAD -TenantId $tenantId -AadAccessToken $response.access_token -AccountId $username
+          Connect-AzAccount -Tenant $tenantId -AccessToken $response.access_token -AccountId $username
 
           Import-Module $(System.DefaultWorkingDirectory)/samples/scripts/PowerShell/FhirServer/FhirServer.psd1
           Import-Module $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/FhirServerRelease/FhirServerRelease.psd1
