@@ -110,18 +110,26 @@
                 "description": "The password for the sql admin user if using SQL server."
             }
         },
+        "sqlLocation": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().location]",
+            "metadata": {
+                "description": "An override location for the sql server database."
+            }
+        },
         "fhirVersion": {
             "type": "string",
             "defaultValue": "R4",
             "allowedValues": [
                 "Stu3",
-                "R4"
+                "R4",
+                "R5"
             ],
             "metadata": {
                 "description": "Only applies when MsdeployPackageUrl is not specified."
             }
         },
-        "enableExport" : {
+        "enableExport": {
             "type": "bool",
             "defaultValue": false,
             "metadata": {
@@ -142,7 +150,7 @@
         "deployAppInsights": "[and(parameters('deployApplicationInsights'),not(variables('isMAG')))]",
         "appInsightsName": "[concat('AppInsights-', variables('serviceName'))]",
         "storageBlobDataContributerRoleId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]",
-        "blobStorageUri" : "[if(variables('isMAG'), '.blob.core.usgovcloudapi.net', '.blob.core.windows.net')]",
+        "blobStorageUri": "[if(variables('isMAG'), '.blob.core.usgovcloudapi.net', '.blob.core.windows.net')]",
         "staticFhirServerConfigProperties": {
             "APPINSIGHTS_PORTALINFO": "ASP.NETCORE",
             "APPINSIGHTS_PROFILERFEATURE_VERSION": "1.0.0",
@@ -244,7 +252,7 @@
             "name": "[variables('serviceName')]",
             "type": "Microsoft.Sql/servers",
             "apiVersion": "2015-05-01-preview",
-            "location": "[resourceGroup().location]",
+            "location": "[parameters('sqlLocation')]",
             "tags": {
                 "FhirServerSolution": "[parameters('solutionType')]"
             },
@@ -259,7 +267,7 @@
                     "dependsOn": [
                         "[variables('serviceName')]"
                     ],
-                    "location": "[resourceGroup().location]",
+                    "location": "[parameters('sqlLocation')]",
                     "tags": {
                         "FhirServerSolution": "[parameters('solutionType')]"
                     },
@@ -271,7 +279,7 @@
                         "name": "Standard",
                         "tier": "Standard",
                         "capacity": 20
-                      },
+                    },
                     "type": "databases"
                 },
                 {
@@ -328,7 +336,7 @@
             "apiVersion": "2015-06-01",
             "properties": {
                 "contentType": "text/plain",
-                "value":  "[concat('Server=tcp:', reference(variables('computedSqlServerReference'), '2015-05-01-preview').fullyQualifiedDomainName,',1433;Initial Catalog=FHIR;Persist Security Info=False;User ID=', reference(variables('computedSqlServerReference'), '2015-05-01-preview').administratorLogin,';Password=',parameters('sqlAdminPassword'),';MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;')]"
+                "value": "[concat('Server=tcp:', reference(variables('computedSqlServerReference'), '2015-05-01-preview').fullyQualifiedDomainName,',1433;Initial Catalog=FHIR;Persist Security Info=False;User ID=', reference(variables('computedSqlServerReference'), '2015-05-01-preview').administratorLogin,';Password=',parameters('sqlAdminPassword'),';MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;')]"
             },
             "dependsOn": [
                 "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]",

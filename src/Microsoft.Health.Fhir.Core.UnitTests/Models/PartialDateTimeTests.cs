@@ -14,172 +14,139 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
 {
     public class PartialDateTimeTests : IDisposable
     {
-        private const string ParamNameYear = "year";
-        private const string ParamNameMonth = "month";
-        private const string ParamNameDay = "day";
-        private const string ParamNameHour = "hour";
-        private const string ParamNameMinute = "minute";
-        private const string ParamNameSecond = "second";
-        private const string ParamNameFraction = "fraction";
-        private const string ParamNameUtcOffset = "utcOffset";
-        private const string ParamNameS = "s";
-
-        private const int DefaultYear = 2017;
-        private const int DefaultMonth = 7;
-        private const int DefaultDay = 1;
-        private const int DefaultHour = 10;
-        private const int DefaultMinute = 5;
-        private const int DefaultSecond = 55;
-        private const decimal DefaultFraction = 0.9931094m;
-        private static readonly TimeSpan DefaultUtcOffset = TimeSpan.FromMinutes(60);
-
-        private PartialDateTimeBuilder _builder = new PartialDateTimeBuilder();
-
-        private CultureInfo _originalCulture;
+        private readonly CultureInfo _originalCulture;
 
         public PartialDateTimeTests()
         {
             _originalCulture = Thread.CurrentThread.CurrentCulture;
         }
 
-        public static IEnumerable<object[]> GetParameterPreviousParamNullData()
-        {
-            yield return new object[] { ParamNameDay, null, 15, 20, 30, 30, 0.500230m, 60, ParamNameMonth }; // Day cannot be specified if month is not specified.
-            yield return new object[] { ParamNameHour, null, null, 10, 15, 0, 0.10023m, 0, ParamNameMonth }; // Hour cannot be specified if month is not specified.
-            yield return new object[] { ParamNameHour, 1, null, 10, 15, 0, 0.10023m, 0, ParamNameDay }; // Hour cannot be specified if day is not specified.
-            yield return new object[] { ParamNameMinute, null, null, null, 10, 15, 0.999234m, 30, ParamNameMonth }; // Minute cannot be specified if month is not specified.
-            yield return new object[] { ParamNameMinute, 2, null, null, 10, 15, 0.999234m, 30, ParamNameDay }; // Minute cannot be specified if day is not specified.
-            yield return new object[] { ParamNameMinute, 2, 5, null, 10, 15, 0.999234m, 30, ParamNameHour }; // Minute cannot be specified if hour is not specified.
-            yield return new object[] { ParamNameSecond, null, null, null, null, 10, 0.20035m, 720, ParamNameMonth }; // Second cannot be specified if month is not specified.
-            yield return new object[] { ParamNameSecond, 5, null, null, null, 10, 0.20035m, 720, ParamNameDay }; // Second cannot be specified if day is not specified.
-            yield return new object[] { ParamNameSecond, 5, 3, null, null, 10, 0.20035m, 720, ParamNameHour }; // Second cannot be specified if hour is not specified.
-            yield return new object[] { ParamNameSecond, 5, 3, 23, null, 10, 0.20035m, 720, ParamNameMinute }; // Second cannot be specified if minute is not specified.
-            yield return new object[] { ParamNameFraction, null, null, null, null, null, 0.20035m, 720, ParamNameMonth }; // Fraction cannot be specified if month is not specified.
-            yield return new object[] { ParamNameFraction, 5, null, null, null, null, 0.20035m, 720, ParamNameDay }; // Fraction cannot be specified if day is not specified.
-            yield return new object[] { ParamNameFraction, 5, 3, null, null, null, 0.20035m, 720, ParamNameHour }; // Fraction cannot be specified if hour is not specified.
-            yield return new object[] { ParamNameFraction, 5, 3, 23, null, null, 0.20035m, 720, ParamNameMinute }; // Fraction cannot be specified if minute is not specified.
-            yield return new object[] { ParamNameFraction, 5, 3, 23, 20, null, 0.20035m, 720, ParamNameSecond }; // Fraction cannot be specified if second is not specified.
-        }
-
         [Theory]
-        [MemberData(nameof(GetParameterPreviousParamNullData))]
-        public void GivenPreviousParamIsNull_WhenInitializing_ThenExceptionShouldBeThrown(
-            string paramName,
-            int? month,
-            int? day,
-            int? hour,
-            int? minute,
-            int? second,
-            decimal? fraction,
-            int? utcOffsetInMinutes,
-            string firstNullParamName)
+        [InlineData("05")] // Year needs to be specified.
+        [InlineData("05-18")]
+        [InlineData("05-18T23:57")]
+        [InlineData("05-18T23:57:09")]
+        [InlineData("05-18T23:57:09.931094")]
+        [InlineData("05-18T23:57+01:00")]
+        [InlineData("05-18T23:57:09+01:00")]
+        [InlineData("05-18T23:57:09.931094+01:00")]
+        [InlineData("2013-05T23:57")] // Month/date needs to be specified.
+        [InlineData("2013-05T23:57:09")]
+        [InlineData("2013-05T23:57:09.931094")]
+        [InlineData("2013-05T23:57+01:00")]
+        [InlineData("2013-05T23:57:09+01:00")]
+        [InlineData("2013-05T23:57:09.931094+01:00")]
+        [InlineData("2013T23:57")] // Month and date need to be specified.
+        [InlineData("2013T23:57:09")]
+        [InlineData("2013T23:57:09.931094")]
+        [InlineData("2013T23:57+01:00")]
+        [InlineData("2013T23:57:09+01:00")]
+        [InlineData("2013T23:57:09.931094+01:00")]
+        [InlineData("T23:57")] // Year, month and date need to be specified.
+        [InlineData("T23:57:09")]
+        [InlineData("T23:57:09.931094")]
+        [InlineData("T23:57+01:00")]
+        [InlineData("T23:57:09+01:00")]
+        [InlineData("T23:57:09.931094+01:00")]
+        [InlineData("2013-05-18T23:09.931094")] // Hour/minute/second needs to be specified.
+        [InlineData("2013-05-18T23:09.931094+01:00")]
+        [InlineData("2013-05-18T09.931094")] // Hour and minute need to be specified.
+        [InlineData("2013-05-18T09.931094+01:00")]
+        [InlineData("2013-05-18T.931094")] // Hour, minute and second need to be specified.
+        [InlineData("2013-05-18T.931094+01:00")]
+        public void GivenPreviousParamIsNotSpecified_WhenParsingPartialDateTime_ThenFormatExceptionShouldBeThrown(string inputString)
         {
-            _builder.Month = month;
-            _builder.Day = day;
-            _builder.Hour = hour;
-            _builder.Minute = minute;
-            _builder.Second = second;
-            _builder.Fraction = fraction;
-            _builder.UtcOffset = utcOffsetInMinutes == null ?
-                (TimeSpan?)null :
-                TimeSpan.FromMinutes(utcOffsetInMinutes.Value);
+            Exception ex = Assert.Throws<FormatException>(() => PartialDateTime.Parse(inputString));
 
-            Exception ex = Assert.Throws<ArgumentException>(paramName, () => _builder.ToPartialDateTime());
-
-            string expectedMessage = $"The {paramName} portion of a date cannot be specified if the {firstNullParamName} portion is not specified. (Parameter '{paramName}')";
-
+            string expectedMessage = string.Format(Resources.DateTimeStringIsIncorrectlyFormatted, inputString);
             Assert.Equal(expectedMessage, ex.Message);
         }
 
-        public static IEnumerable<object[]> GetParameterInvalidData()
+        [Theory]
+        [InlineData("2013+01:00")] // Time needs to be specified if UTC offset is specified.
+        [InlineData("2013-05+01:00")]
+        [InlineData("2013-05-18+01:00")]
+        public void GivenUtcOffsetButNoTime_WhenParsingPartialDateTime_ThenFormatExceptionShouldBeThrown(string inputString)
         {
-            yield return new object[] { ParamNameMinute, 10, 30, 23, null, null, null, 60 }; // Minute must be specified if Hour is specified.
-            yield return new object[] { ParamNameUtcOffset, 3, 5, 17, 30, 15, 0.400123m, null }; // UtcOffset must be specified if Hour and Minutes are specified.
+            Exception ex = Assert.Throws<FormatException>(() => PartialDateTime.Parse(inputString));
+
+            string expectedMessage = string.Format(Resources.DateTimeStringIsIncorrectlyFormatted, inputString);
+            Assert.Equal(expectedMessage, ex.Message);
         }
 
         [Theory]
-        [MemberData(nameof(GetParameterInvalidData))]
-        public void GivenAnInvalidParameter_WhenInitializing_ThenExceptionShouldBeThrown(
-            string paramName,
-            int? month,
-            int? day,
-            int? hour,
-            int? minute,
-            int? second,
-            decimal? fraction,
-            int? utcOffsetInMinutes)
+        [InlineData("2013-05-18T23")] // Minutes need to be specified if hour is specified.
+        [InlineData("2013-05-18T23+01:00")]
+        public void GivenHourIsSpecifiedWithoutMinutes_WhenParsingPartialDateTime_ThenFormatExceptionShouldBeThrown(string inputString)
         {
-            _builder.Month = month;
-            _builder.Day = day;
-            _builder.Hour = hour;
-            _builder.Minute = minute;
-            _builder.Second = second;
-            _builder.Fraction = fraction;
-            _builder.UtcOffset = utcOffsetInMinutes == null ?
-                (TimeSpan?)null :
-                TimeSpan.FromMinutes(utcOffsetInMinutes.Value);
+            Exception ex = Assert.Throws<FormatException>(() => PartialDateTime.Parse(inputString));
 
-            Assert.Throws<ArgumentException>(paramName, () => _builder.ToPartialDateTime());
-        }
-
-        public static IEnumerable<object[]> GetParameterOutOfRangeData()
-        {
-            yield return new object[] { ParamNameYear, 0, 1, 1, 1, 1, 1, 0m, 60 }; // Year cannot be less than 1.
-            yield return new object[] { ParamNameYear, 10000, 1, 1, 1, 1, 1, 0m, 60 }; // Year cannot be greater than 9999.
-            yield return new object[] { ParamNameMonth, 2017, 0, 1, 1, 1, 1, 0m, 60 }; // Month cannot be less than 1.
-            yield return new object[] { ParamNameMonth, 2017, 13, 1, 1, 1, 1, 0m, 60 }; // Month cannot be greater than 12.
-            yield return new object[] { ParamNameDay, 2017, 1, 0, 1, 1, 1, 0m, 60 }; // Day cannot be less than 1.
-            yield return new object[] { ParamNameDay, 2017, 1, 32, 1, 1, 1, 0m, 60 }; // Day cannot be greater 31 in January.
-            yield return new object[] { ParamNameDay, 2001, 2, 29, 1, 1, 1, 0m, 60 }; // Day cannot be greater than 28 in non-leap year.
-            yield return new object[] { ParamNameDay, 2000, 2, 30, 1, 1, 1, 0m, 60 }; // Day cannot be greater than 29 in leap year.
-            yield return new object[] { ParamNameHour, 2017, 1, 1, -1, 1, 1, 0m, 60 }; // Hour cannot be less than 0.
-            yield return new object[] { ParamNameHour, 2017, 1, 1, 24, 1, 1, 0m, 60 }; // Hour cannot be greater than 23.
-            yield return new object[] { ParamNameMinute, 2017, 1, 1, 1, -1, 1, 0m, 60 }; // Minute cannot be less than 0.
-            yield return new object[] { ParamNameMinute, 2017, 1, 1, 1, 61, 1, 0m, 60 }; // Minute cannot be greater than 59.
-            yield return new object[] { ParamNameSecond, 2017, 1, 1, 1, 1, -1, 0m, 60 }; // Second cannot be less than 0.
-            yield return new object[] { ParamNameSecond, 2017, 1, 1, 1, 1, 61, 0m, 60 }; // Second cannot be greater than 59.
-            yield return new object[] { ParamNameFraction, 2017, 1, 1, 1, 1, 1, -1m, 60 }; // Fraction cannot be less than 0.
-            yield return new object[] { ParamNameFraction, 2017, 1, 1, 1, 1, 1, 1m, 60 }; // Fraction cannot be greater than .
+            string expectedMessage = string.Format(Resources.DateTimeStringIsIncorrectlyFormatted, inputString);
+            Assert.Equal(expectedMessage, ex.Message);
         }
 
         [Theory]
-        [MemberData(nameof(GetParameterOutOfRangeData))]
-        public void GivenAOutOfRangeParameter_WhenInitializing_ThenExceptionShouldBeThrown(
-            string paramName,
-            int year,
-            int month,
-            int day,
-            int hour,
-            int minute,
-            int second,
-            decimal? fraction,
-            int utcOffsetInMinutes)
+        [InlineData("2013-05-18T23:09+1:00")]
+        [InlineData("2013-05-18T23:09-4:30")]
+        [InlineData("2013-05-18T23:09+01:300")]
+        [InlineData("2013-05-18T23:09+01:77")]
+        [InlineData("2013-05-18T23:09+1")]
+        [InlineData("2013-05-18T23:09-7")]
+        [InlineData("2013-05-18T23:09-07")]
+        [InlineData("2013-05-18T23:09+Z")]
+        [InlineData("2013-05-18T23:09-Z")]
+        [InlineData("2013-05-18T23:09ZZ")]
+        [InlineData("2013-05-18T23:09-99:00")]
+        [InlineData("2013-05-18T23:09-789")]
+        public void GivenInvalidUtcOffset_WhenParsingPartialDateTime_ThenFormatExceptionShouldBeThrown(string inputString)
         {
-            _builder.Year = year;
-            _builder.Month = month;
-            _builder.Day = day;
-            _builder.Hour = hour;
-            _builder.Minute = minute;
-            _builder.Second = second;
-            _builder.Fraction = fraction;
-            _builder.UtcOffset = TimeSpan.FromMinutes(utcOffsetInMinutes);
+            Exception ex = Assert.Throws<FormatException>(() => PartialDateTime.Parse(inputString));
 
-            Assert.Throws<ArgumentOutOfRangeException>(paramName, () => _builder.ToPartialDateTime());
+            string expectedMessage = string.Format(Resources.DateTimeStringIsIncorrectlyFormatted, inputString);
+            Assert.Equal(expectedMessage, ex.Message);
+        }
+
+        [Theory]
+        [InlineData("0000-05-18T23:57:09.931094+01:00")] // Year cannot be less than 1.
+        [InlineData("10000-05-18T23:57:09.931094+01:00")] // Year cannot be greater than 9999.
+        [InlineData("2013-00-18T23:57:09.931094+01:00")] // Month cannot be less than 1.
+        [InlineData("2013-13-18T23:57:09.931094+01:00")] // Month cannot be greater than 12.
+        [InlineData("2013-05-00T23:57:09.931094+01:00")] // Day cannot be less than 1.
+        [InlineData("2013-05-32T23:57:09.931094+01:00")] // Day cannot be greater than 31 in May.
+        [InlineData("2013-02-29T23:57:09.931094+01:00")] // Day cannot be greater than 28 in non-leap year.
+        [InlineData("2020-02-30T23:57:09.931094+01:00")] // Day cannot be greater than 29 in leap year.
+        [InlineData("2013-05-18T-01:57:09.931094+01:00")] // Hour cannot be less than 0.
+        [InlineData("2013-05-18T24:00:00Z")] // Hour cannot be greater than 23.
+        [InlineData("2013-05-18T23:-01:09.931094+01:00")] // Minute cannot be less than 0.
+        [InlineData("2013-05-18T23:60:00Z")] // Minute cannot be greater than 59.
+        [InlineData("2013-05-18T23:57:-01.931094+01:00")] // Second cannot be less than 0.
+        [InlineData("2013-05-18T23:57:60Z")] // Second cannot be greater than 59.
+        [InlineData("2013-05-18T23:57:09.999999999999999999999999+01:00")] // Fraction cannot be rounded up to 1 minute.
+        public void GivenAOutOfRangeParameter_WhenInitializing_ThenFormatExceptionShouldBeThrown(string inputString)
+        {
+            Exception ex = Assert.Throws<FormatException>(() => PartialDateTime.Parse(inputString));
+
+            string expectedMessage = string.Format(Resources.DateTimeStringIsIncorrectlyFormatted, inputString);
+            Assert.Equal(expectedMessage, ex.Message);
         }
 
         public static IEnumerable<object[]> GetParameterNullData()
         {
-            yield return new object[] { null, null, null, null, null, null, null };
-            yield return new object[] { 1, null, null, null, null, null, null };
-            yield return new object[] { 3, 5, null, null, null, null, null };
-            yield return new object[] { 6, 1, 12, 35, null, null, 60 };
-            yield return new object[] { 12, 2, 23, 8, 24, null, -150 };
-            yield return new object[] { 1, 3, 5, 2, 15, 0.9991532m, 30 };
+            yield return new object[] { "1999", 1999, null, null, null, null, null, null, null };
+            yield return new object[] { "1999-10", 1999, 10, null, null, null, null, null, null };
+            yield return new object[] { "1999-10-01", 1999, 10, 1, null, null, null, null, null };
+            yield return new object[] { "1999-10-18T12:35", 1999, 10, 18, 12, 35, null, null, 0 };
+            yield return new object[] { "1999-10-18T12:35+01:00", 1999, 10, 18, 12, 35, null, null, 60 };
+            yield return new object[] { "1999-10-18T12:35:55-02:30", 1999, 10, 18, 12, 35, 55, null, -150 };
+            yield return new object[] { "1999-10-18T12:35:55Z", 1999, 10, 18, 12, 35, 55, null, 0 };
+            yield return new object[] { "1999-10-18T12:35:55.9991532-02:30", 1999, 10, 18, 12, 35, 55, 0.9991532m, -150 };
         }
 
         [Theory]
         [MemberData(nameof(GetParameterNullData))]
         public void GivenANullParameter_WhenInitialized_ThenCorrectPartialDateTimeShouldBeCreated(
+            string inputString,
+            int year,
             int? month,
             int? day,
             int? hour,
@@ -188,22 +155,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
             decimal? fraction,
             int? utcOffsetInMinutes)
         {
-            _builder.Month = month;
-            _builder.Day = day;
-            _builder.Hour = hour;
-            _builder.Minute = minute;
-            _builder.Second = second;
-            _builder.Fraction = fraction;
+            TimeSpan? utcOffset = utcOffsetInMinutes == null ? (TimeSpan?)null : TimeSpan.FromMinutes(utcOffsetInMinutes.Value);
 
-            TimeSpan? utcOffset = utcOffsetInMinutes == null ?
-                (TimeSpan?)null :
-                TimeSpan.FromMinutes(utcOffsetInMinutes.Value);
+            var dateTime = PartialDateTime.Parse(inputString);
 
-            _builder.UtcOffset = utcOffset;
-
-            PartialDateTime dateTime = _builder.ToPartialDateTime();
-
-            Assert.Equal(DefaultYear, dateTime.Year);
+            Assert.Equal(year, dateTime.Year);
             Assert.Equal(month, dateTime.Month);
             Assert.Equal(day, dateTime.Day);
             Assert.Equal(hour, dateTime.Hour);
@@ -214,7 +170,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
         }
 
         [Fact]
-        public void GivenADateImtOffset_WhenInitialized_ThenCorrectPartialDateTimeShouldBeCreated()
+        public void GivenADateTimeOffset_WhenInitialized_ThenCorrectPartialDateTimeShouldBeCreated()
         {
             const int year = 2018;
             const int month = 5;
@@ -224,19 +180,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
             const int second = 59;
             const int millisecond = 153;
             const int fraction = 1234;
-            TimeSpan utcOffset = TimeSpan.FromMinutes(240);
+            var utcOffset = TimeSpan.FromMinutes(240);
 
-            var dateTimeOffset = new DateTimeOffset(
-                year,
-                month,
-                day,
-                hour,
-                minute,
-                second,
-                millisecond,
-                utcOffset).AddTicks(fraction);
+            var dateTimeOffset = new DateTimeOffset(year, month, day, hour, minute, second, millisecond, utcOffset).AddTicks(fraction);
 
-            PartialDateTime partialDateTime = new PartialDateTime(dateTimeOffset);
+            var partialDateTime = new PartialDateTime(dateTimeOffset);
 
             Assert.Equal(year, partialDateTime.Year);
             Assert.Equal(month, partialDateTime.Month);
@@ -248,31 +196,35 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
             Assert.Equal(utcOffset, partialDateTime.UtcOffset);
         }
 
-        [Fact]
-        public void GivenANullString_WhenParsing_ThenExceptionShouldBeThrown()
-        {
-            Assert.Throws<ArgumentNullException>(ParamNameS, () => PartialDateTime.Parse(null));
-        }
-
         [Theory]
         [InlineData("")]
         [InlineData("    ")]
-        public void GivenAnInvalidString_WhenParsing_ThenExceptionShouldBeThrown(string s)
+        [InlineData("        ")]
+        public void GivenAnEmptyStringOrWhiteSpaces_WhenParsing_ThenArgumentExceptionShouldBeThrown(string inputString)
         {
-            Assert.Throws<ArgumentException>(ParamNameS, () => PartialDateTime.Parse(s));
+            Assert.Throws<ArgumentException>(() => PartialDateTime.Parse(inputString));
         }
 
         [Fact]
-        public void GivenAnInvalidFormatString_WhenParsing_ThenExceptionShouldBeThrown()
+        public void GivenANullString_WhenParsing_ThenArgumentNullExceptionShouldBeThrown()
         {
-            Assert.Throws<FormatException>(() => PartialDateTime.Parse("abc"));
+            Assert.Throws<ArgumentNullException>(() => PartialDateTime.Parse(null));
+        }
+
+        [Theory]
+        [InlineData("****")]
+        [InlineData("!")]
+        [InlineData("abc")]
+        public void GivenAnInvalidString_WhenParsing_ThenFormatExceptionShouldBeThrown(string inputString)
+        {
+            Exception ex = Assert.Throws<FormatException>(() => PartialDateTime.Parse(inputString));
+
+            string expectedMessage = string.Format(Resources.DateTimeStringIsIncorrectlyFormatted, inputString);
+            Assert.Equal(expectedMessage, ex.Message);
         }
 
         public static IEnumerable<object[]> GetParseData()
         {
-            yield return new object[] { "2017", 2017, null, null, null, null, null, null, null };
-            yield return new object[] { "2017-01", 2017, 1, null, null, null, null, null, null };
-            yield return new object[] { "2019-01-02", 2019, 1, 2, null, null, null, null, null };
             yield return new object[] { "2017-01-07T11:21:12", 2017, 1, 7, 11, 21, 12, null, 0 };
             yield return new object[] { "2017-02-15T13:30:00Z", 2017, 2, 15, 13, 30, 0, null, 0 };
             yield return new object[] { "2018-02-03T05:30:03.0Z", 2018, 2, 3, 5, 30, 3, 0.0m, 0 };
@@ -284,7 +236,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
         [Theory]
         [MemberData(nameof(GetParseData))]
         public void GivenAValidString_WhenParsed_ThenCorrectPartialDateTimeShouldBeCreated(
-            string s,
+            string inputString,
             int year,
             int? month,
             int? day,
@@ -292,11 +244,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
             int? minute,
             int? second,
             decimal? fraction,
-            int? utcOffsetInMinute)
+            int? utcOffsetInMinutes)
         {
-            PartialDateTime dateTime = PartialDateTime.Parse(s);
+            TimeSpan? utcOffset = utcOffsetInMinutes == null ? (TimeSpan?)null : TimeSpan.FromMinutes(utcOffsetInMinutes.Value);
 
-            Assert.NotNull(dateTime);
+            var dateTime = PartialDateTime.Parse(inputString);
+
             Assert.Equal(year, dateTime.Year);
             Assert.Equal(month, dateTime.Month);
             Assert.Equal(day, dateTime.Day);
@@ -304,23 +257,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
             Assert.Equal(minute, dateTime.Minute);
             Assert.Equal(second, dateTime.Second);
             Assert.Equal(fraction, dateTime.Fraction);
-
-            TimeSpan? utcOffset = null;
-
-            if (utcOffsetInMinute != null)
-            {
-                utcOffset = TimeSpan.FromMinutes(utcOffsetInMinute.Value);
-            }
-
             Assert.Equal(utcOffset, dateTime.UtcOffset);
         }
 
         [Fact]
         public void GivenAPartialDateTimeWithNoMissingComponent_WhenToDateTimeOffsetIsCalled_ThenCorrectDateTimeOffsetIsReturned()
         {
-            PartialDateTime dateTime = _builder.ToPartialDateTime();
+            var dateTime = PartialDateTime.Parse("2013-10-12T23:01:35.9995555+02:00");
 
-            DateTimeOffset actualOffset = dateTime.ToDateTimeOffset(
+            var actualOffset = dateTime.ToDateTimeOffset(
                 2,
                 (year, month) => 10,
                 15,
@@ -329,16 +274,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
                 0.300250m,
                 TimeSpan.FromMinutes(30));
 
-            DateTimeOffset expectedOffset = new DateTimeOffset(
-                DefaultYear,
-                DefaultMonth,
-                DefaultDay,
-                DefaultHour,
-                DefaultMinute,
-                DefaultSecond,
-                DefaultUtcOffset);
+            var expectedOffset = new DateTimeOffset(
+                2013,
+                10,
+                12,
+                23,
+                01,
+                35,
+                TimeSpan.FromMinutes(120));
 
-            expectedOffset = expectedOffset.AddTicks((long)(DefaultFraction * TimeSpan.TicksPerSecond));
+            expectedOffset = expectedOffset.AddTicks((long)(0.9995555m * TimeSpan.TicksPerSecond));
 
             Assert.Equal(expectedOffset, actualOffset);
         }
@@ -346,25 +291,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
         [Fact]
         public void GivenAPartialDateTimeWithMissingComponents_WhenToDateTimeOffsetIsCalled_ThenCorrectDateTimeOffsetIsReturned()
         {
-            int expectedMonth = 2;
-            int expectedDay = 10;
-            int expectedHour = 15;
-            int expectedMinute = 13;
-            int expectedSecond = 12;
-            decimal expectedFraction = 0.3009953m;
-            TimeSpan expectedUtcOffset = TimeSpan.FromMinutes(30);
+            const int expectedMonth = 2;
+            const int expectedDay = 10;
+            const int expectedHour = 15;
+            const int expectedMinute = 13;
+            const int expectedSecond = 12;
+            const decimal expectedFraction = 0.3009953m;
+            var expectedUtcOffset = TimeSpan.FromMinutes(30);
 
-            _builder.Month = null;
-            _builder.Day = null;
-            _builder.Hour = null;
-            _builder.Minute = null;
-            _builder.Second = null;
-            _builder.Fraction = null;
-            _builder.UtcOffset = null;
+            var dateTime = PartialDateTime.Parse("2013");
 
-            PartialDateTime dateTime = _builder.ToPartialDateTime();
-
-            DateTimeOffset actualOffset = dateTime.ToDateTimeOffset(
+            var actualOffset = dateTime.ToDateTimeOffset(
                 expectedMonth,
                 (year, month) => expectedDay,
                 expectedHour,
@@ -373,8 +310,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
                 expectedFraction,
                 expectedUtcOffset);
 
-            DateTimeOffset expectedOffset = new DateTimeOffset(
-                DefaultYear,
+            var expectedOffset = new DateTimeOffset(
+                2013,
                 expectedMonth,
                 expectedDay,
                 expectedHour,
@@ -401,7 +338,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
         [InlineData("2018-11-29T18:30:27.911+01:00", "2018-11-29T18:30:27.9110000+01:00")]
         public void GivenAValidPartialDateTime_WhenToStringIsCalled_ThenCorrectStringShouldBeReturned(string input, string expected)
         {
-            PartialDateTime dateTime = PartialDateTime.Parse(input);
+            var dateTime = PartialDateTime.Parse(input);
 
             Assert.NotNull(dateTime);
             Assert.Equal(expected, dateTime.ToString());
@@ -411,62 +348,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Models
         [InlineData("de-DE", "2018-11-29T18:30:27.911+01:00", "2018-11-29T18:30:27,9110000+01:00")]
         [InlineData("en-GB", "2018-11-29T18:30:27.911+01:00", "2018-11-29T18:30:27.9110000+01:00")]
         [InlineData("en-US", "2018-11-29T18:30:27.911+01:00", "2018-11-29T18:30:27.9110000+01:00")]
-        public void GivenACulture_WhenToStringisCalled_ThenCorrectStringShouldBeReturned(string culture, string input, string expected)
+        public void GivenACulture_WhenToStringIsCalled_ThenCorrectStringShouldBeReturned(string culture, string inputString, string expectedString)
         {
-            System.Threading.Thread.CurrentThread.CurrentCulture = new System.Globalization.CultureInfo(culture);
-            PartialDateTime dateTime = PartialDateTime.Parse(input);
+            System.Threading.Thread.CurrentThread.CurrentCulture = new CultureInfo(culture);
+            var dateTime = PartialDateTime.Parse(inputString);
 
             Assert.NotNull(dateTime);
-            Assert.Equal(expected, dateTime.ToString());
+            Assert.Equal(expectedString, dateTime.ToString());
         }
 
         public void Dispose()
         {
             Thread.CurrentThread.CurrentCulture = _originalCulture;
-        }
-
-        private class PartialDateTimeBuilder
-        {
-            public PartialDateTimeBuilder()
-            {
-                Year = DefaultYear;
-                Month = DefaultMonth;
-                Day = DefaultDay;
-                Hour = DefaultHour;
-                Minute = DefaultMinute;
-                Second = DefaultSecond;
-                Fraction = DefaultFraction;
-                UtcOffset = DefaultUtcOffset;
-            }
-
-            public int Year { get; set; }
-
-            public int? Month { get; set; }
-
-            public int? Day { get; set; }
-
-            public int? Hour { get; set; }
-
-            public int? Minute { get; set; }
-
-            public int? Second { get; set; }
-
-            public decimal? Fraction { get; set; }
-
-            public TimeSpan? UtcOffset { get; set; }
-
-            public PartialDateTime ToPartialDateTime()
-            {
-                return new PartialDateTime(
-                    Year,
-                    Month,
-                    Day,
-                    Hour,
-                    Minute,
-                    Second,
-                    Fraction,
-                    UtcOffset);
-            }
         }
     }
 }
