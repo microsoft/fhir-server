@@ -47,6 +47,12 @@ stages:
   jobs:
   - job: setup
     steps:
+    - task: AzureKeyVault@1
+      displayName: 'Azure Key Vault: resolute-oss-tenant-info'
+      inputs:
+        azureSubscription: 'Microsoft Health Open Source Subscription'
+        KeyVaultName: 'resolute-oss-tenant-info'
+
     - task: AzurePowerShell@4
       displayName: Setup Test Environment
       inputs:
