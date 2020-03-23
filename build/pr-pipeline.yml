@@ -159,7 +159,6 @@ stages:
         'CosmosDb:Key': $(CosmosDb--Key)
         'SqlServer:ConnectionString': $(SqlServer--ConnectionString)
 
-
   - job: 'e2eTests'
     pool:
       vmImage: 'vs2017-win2016'
@@ -180,12 +179,12 @@ stages:
         azureSubscription: 'Microsoft Health Open Source Subscription'
         KeyVaultName: 'resolute-oss-tenant-info'
     
-    - task: AzurePowerShell@3
+    - task: AzurePowerShell@4
       displayName: 'Set Variables'
       inputs:
         azureSubscription: 'Microsoft Health Open Source Subscription'
-        ScriptType: InlineScript
-        preferredAzurePowerShellVersion: 5.1.1
+        azurePowerShellVersion: latestVersion
+        ScriptType: inlineScript
         Inline: |
           dotnet dev-certs https
 
@@ -255,13 +254,13 @@ stages:
       pool:
         vmImage: 'vs2017-win2016'
       steps:
-      - task: AzurePowerShell@3
+      - task: AzurePowerShell@4
         displayName: 'Delete resource group'
         inputs:
           azureSubscription: 'Microsoft Health Open Source Subscription'
+          azurePowerShellVersion: latestVersion
           ScriptType: InlineScript
-          Inline: 'Get-AzureRmResourceGroup -Name $(DeploymentEnvironmentName) | Remove-AzureRmResourceGroup -Verbose -Force'
-          preferredAzurePowerShellVersion: 5.1.1
+          Inline: 'Get-AzResourceGroup -Name $(DeploymentEnvironmentName) | Remove-AzResourceGroup -Verbose -Force'
     - job: cleanupAad
       displayName: 'Cleanup Azure Active Directory'
       pool:
@@ -278,11 +277,11 @@ stages:
         inputs:
           azureSubscription: 'Microsoft Health Open Source Subscription'
           KeyVaultName: 'resolute-oss-tenant-info'
-      - task: AzurePowerShell@3
+      - task: AzurePowerShell@4
         inputs:
           azureSubscription: 'Microsoft Health Open Source Subscription'
+          azurePowerShellVersion: latestVersion
           ScriptType: InlineScript
-          preferredAzurePowerShellVersion: 5.1.1
           Inline: |
             $clientId = "$(tenant-admin-service-principal-name)"
             $clientSecret = "$(tenant-admin-service-principal-password)"
@@ -301,7 +300,7 @@ stages:
             $response = Invoke-RestMethod -Method 'Post' -Uri $adTokenUrl -ContentType "application/x-www-form-urlencoded" -Body $body
             $token = $response.access_token
 
-            Connect-AzureAD -TenantId $tenantId -AadAccessToken $response.access_token -AccountId $clientId
+            Connect-AzAccount -TenantId $tenantId -AadAccessToken $response.access_token -AccountId $clientId
 
             Import-Module $(System.DefaultWorkingDirectory)/samples/scripts/PowerShell/FhirServer/FhirServer.psd1
             Import-Module $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/FhirServerRelease/FhirServerRelease.psd1
