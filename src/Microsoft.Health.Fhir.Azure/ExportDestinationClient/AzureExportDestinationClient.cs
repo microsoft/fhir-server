@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             {
                 _logger.LogWarning(se, se.Message);
 
-                HttpStatusCode responseCode = ParseStorageException(se);
+                HttpStatusCode responseCode = StorageExceptionParser.ParseStorageException(se);
                 throw new DestinationConnectionException(se.Message, responseCode);
             }
         }
@@ -245,31 +245,6 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             {
                 throw new DestinationConnectionException(Resources.DestinationClientNotConnected, HttpStatusCode.InternalServerError);
             }
-        }
-
-        private HttpStatusCode ParseStorageException(StorageException storageException)
-        {
-            EnsureArg.IsNotNull(storageException, nameof(storageException));
-
-            HttpStatusCode responseCode = HttpStatusCode.InternalServerError;
-            if (storageException.RequestInformation != null)
-            {
-                _logger.LogWarning($"RequestResult ErrorCode: {storageException.RequestInformation.ErrorCode}, RequestResult HttpStatusCode: {storageException.RequestInformation.HttpStatusCode}");
-
-                try
-                {
-                    if (Enum.IsDefined(typeof(HttpStatusCode), storageException.RequestInformation.HttpStatusCode))
-                    {
-                        responseCode = Enum.Parse<HttpStatusCode>(storageException.RequestInformation.HttpStatusCode.ToString());
-                    }
-                }
-                catch (Exception)
-                {
-                    _logger.LogWarning("Unable to parse httpstatus code information from storage exception");
-                }
-            }
-
-            return responseCode;
         }
 
         /// <summary>
