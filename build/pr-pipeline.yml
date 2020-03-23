@@ -221,7 +221,7 @@ stages:
           {
               Write-Host "Retrieving '$($user.environmentId)-password' from  '$(DeploymentEnvironmentName)-ts'"
 
-              $secret = Get-AzureKeyVaultSecret -VaultName $(DeploymentEnvironmentName)-ts -Name "$($user.environmentId)-password"
+              $secret = Get-AzKeyVaultSecret -VaultName $(DeploymentEnvironmentName)-ts -Name "$($user.environmentId)-password"
               Write-Host "##vso[task.setvariable variable=user_$($user.Id)_id]$($user.upn)"
               Write-Host "##vso[task.setvariable variable=user_$($user.Id)_secret]$($secret.SecretValueText)"
           }
@@ -229,7 +229,7 @@ stages:
           foreach($clientApp in $output.environmentClientApplications)
           {
               Write-Host "Retrieving '$($clientApp.displayName)-secret' from '$(DeploymentEnvironmentName)-ts'"
-              $secret = Get-AzureKeyVaultSecret -VaultName $(DeploymentEnvironmentName)-ts -Name "$($clientApp.displayName)-secret"
+              $secret = Get-AzKeyVaultSecret -VaultName $(DeploymentEnvironmentName)-ts -Name "$($clientApp.displayName)-secret"
 
               Write-Host "##vso[task.setvariable variable=app_$($clientApp.Id)_id]$($clientApp.AppId)"
               Write-Host "##vso[task.setvariable variable=app_$($clientApp.Id)_secret]$($secret.SecretValueText)"
