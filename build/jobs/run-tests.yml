@@ -1,6 +1,8 @@
 parameters:
 - name: version
   type: string
+- name: keyVaultNAme
+  type: string
 
 jobs:
 - job: "integrationTests"
@@ -19,16 +21,16 @@ jobs:
       version: '3.1.100' 
 
   - task: AzureKeyVault@1
-    displayName: 'Azure Key Vault: $(DeploymentEnvironmentName)'
+    displayName: 'Azure Key Vault: ${{ parameters.keyVaultNAme }}'
     inputs:
       azureSubscription: 'Microsoft Health Open Source Subscription'
-      KeyVaultName: '$(DeploymentEnvironmentName)'
+      KeyVaultName: '${{ parameters.keyVaultNAme }}'
 
   - task: AzureKeyVault@1
-    displayName: 'Azure Key Vault: $(DeploymentEnvironmentNameSql)'
+    displayName: 'Azure Key Vault: ${{ parameters.keyVaultNAme }}-sql'
     inputs:
       azureSubscription: 'Microsoft Health Open Source Subscription'
-      KeyVaultName: $(DeploymentEnvironmentNameSql)
+      KeyVaultName: '${{ parameters.keyVaultNAme }}-sql'
 
   - task: VSTest@2
     displayName: 'Run Integration Tests'

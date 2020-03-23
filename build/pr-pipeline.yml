@@ -168,6 +168,7 @@ stages:
   - template: ./jobs/run-tests.yml
     parameters:
       version: Stu3
+      keyVaultName: $(DeploymentEnvironmentName)
 
 - stage: testR4
   displayName: 'Run R4 Tests'
@@ -179,6 +180,7 @@ stages:
   - template: ./jobs/run-tests.yml
     parameters:
       version: R4
+      keyVaultName: $(DeploymentEnvironmentNameR4)
 
 - stage: cleanup
   displayName: 'Cleanup Azure Environment'
