@@ -91,5 +91,25 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 Assert.Equal(Guid.Parse("91f994e5-f34c-4b8a-a09d-36de9fa82924"), sqlDataReader.GetGuid("guid", 12));
             }
         }
+
+#if DEBUG // checks are only enabled on debug builds.
+        [Fact(Skip = "Won't work with nuget package. Needs to be moved to shared repo.")]
+        public void GivenASqlDataReader_WhenReadingFieldsWithIncorrectCorrectNamesAndOrdinals_Throws()
+        {
+            using (var connection = new SqlConnection(_connectionString))
+            {
+                connection.Open();
+
+                SqlCommand sqlCommand = connection.CreateCommand();
+                sqlCommand.CommandText = @"select 1 as int";
+
+                SqlDataReader sqlDataReader = sqlCommand.ExecuteReader();
+                Assert.True(sqlDataReader.Read());
+
+                Assert.Throws<InvalidOperationException>(() => sqlDataReader.GetInt32("WrongName", 0));
+                Assert.Throws<InvalidOperationException>(() => sqlDataReader.GetInt64("int", 0));
+            }
+        }
+#endif
     }
 }
