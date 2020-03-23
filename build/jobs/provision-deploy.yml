@@ -47,6 +47,8 @@ jobs:
      
         $additionalProperties["SqlServer__DeleteAllDataOnStartup"] = "true"
      
+        Write-Host "$(tenant-id)"
+
         $templateParameters = @{
             appServicePlanResourceGroup = "${{ parameters.appServicePlanResourceGroup }}"
             appServicePlanName = "${{ parameters.appServicePlanName }}"
