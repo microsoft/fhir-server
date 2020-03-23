@@ -46,8 +46,6 @@ jobs:
         $additionalProperties = $flattenedCors
      
         $additionalProperties["SqlServer__DeleteAllDataOnStartup"] = "true"
-     
-        Write-Host "$(tenant-id)"
 
         $templateParameters = @{
             appServicePlanResourceGroup = "${{ parameters.appServicePlanResourceGroup }}"

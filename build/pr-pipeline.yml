@@ -134,7 +134,7 @@ stages:
 
     - task: DotNetCoreInstaller@0
       inputs:
-        version: '2.2.103' 
+        version: '3.1.100' 
 
     - task: AzureKeyVault@1
       displayName: 'Azure Key Vault: $(DeploymentEnvironmentName)'
@@ -147,6 +147,7 @@ stages:
       inputs:
         azureSubscription: 'Microsoft Health Open Source Subscription'
         KeyVaultName: $(DeploymentEnvironmentNameSql)
+
     - task: VSTest@2
       displayName: 'Run Integration Tests'
       inputs:
@@ -169,9 +170,10 @@ stages:
         downloadType: 'single'
         downloadPath: '$(System.ArtifactsDirectory)'
         artifactName: 'IntegrationTests'
+
     - task: DotNetCoreInstaller@0
       inputs:
-        version: '2.2.103' 
+        version: '3.1.100' 
         
     - task: AzureKeyVault@1
       displayName: 'Azure Key Vault: resolute-oss-tenant-info'
@@ -195,8 +197,6 @@ stages:
           $password =  ConvertTo-SecureString -AsPlainText $password_raw -Force
           $adminCredential = New-Object PSCredential $username,$password
 
-          Write-Host "Assigned variables - $tenantId"
-
           $adTokenUrl = "https://login.microsoftonline.com/$tenantId/oauth2/token"
           $resource = "https://graph.windows.net/"
 
@@ -209,19 +209,12 @@ stages:
           }
 
           $response = Invoke-RestMethod -Method 'Post' -Uri $adTokenUrl -ContentType "application/x-www-form-urlencoded" -Body $body
-
-          Write-Host "Got Response"
-
-          Connect-AzAccount -Tenant $tenantId -AccessToken $response.access_token -AccountId $username
-
-          Write-Host "Connected"
+          Connect-AzAccount -AccessToken $response.access_token -AccountId $username
 
           Import-Module $(System.DefaultWorkingDirectory)/samples/scripts/PowerShell/FhirServer/FhirServer.psd1
           Import-Module $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/FhirServerRelease/FhirServerRelease.psd1
 
           $output = Add-AadTestAuthEnvironment -TestAuthEnvironmentPath $(System.DefaultWorkingDirectory)/testauthenvironment.json -EnvironmentName $(DeploymentEnvironmentName) -TenantAdminCredential $adminCredential
-
-          Write-Host "Got Output"
 
           foreach($user in $output.environmentUsers)
           {
@@ -268,6 +261,7 @@ stages:
           azurePowerShellVersion: latestVersion
           ScriptType: InlineScript
           Inline: 'Get-AzResourceGroup -Name $(DeploymentEnvironmentName) | Remove-AzResourceGroup -Verbose -Force'
+
     - job: cleanupAad
       displayName: 'Cleanup Azure Active Directory'
       pool:
@@ -279,12 +273,15 @@ stages:
           downloadType: 'single'
           downloadPath: '$(System.ArtifactsDirectory)'
           artifactName: 'deploy'
+
       - task: AzureKeyVault@1
         displayName: 'Azure Key Vault: resolute-oss-tenant-info'
         inputs:
           azureSubscription: 'Microsoft Health Open Source Subscription'
           KeyVaultName: 'resolute-oss-tenant-info'
+
       - task: AzurePowerShell@4
+        displayName: 'Delete AAD apps'
         inputs:
           azureSubscription: 'Microsoft Health Open Source Subscription'
           azurePowerShellVersion: latestVersion
@@ -305,11 +302,9 @@ stages:
             }
 
             $response = Invoke-RestMethod -Method 'Post' -Uri $adTokenUrl -ContentType "application/x-www-form-urlencoded" -Body $body
-
-            Connect-AzAccount -Tenant $tenantId -AccessToken $response.access_token -AccountId $clientId
+            Connect-AzAccount -AccessToken $response.access_token -AccountId $clientId
 
             Import-Module $(System.DefaultWorkingDirectory)/samples/scripts/PowerShell/FhirServer/FhirServer.psd1
             Import-Module $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/FhirServerRelease/FhirServerRelease.psd1
 
             Remove-AadTestAuthEnvironment -TestAuthEnvironmentPath $(System.DefaultWorkingDirectory)/testauthenvironment.json -EnvironmentName $(DeploymentEnvironmentName)
-        displayName: 'Delete AAD apps'
