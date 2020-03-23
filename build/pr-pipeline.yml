@@ -65,7 +65,7 @@ stages:
     parameters: 
       version: Stu3
       sql: true
-      webAppName: $(DeploymentEnvironmentName)
+      webAppName: $(DeploymentEnvironmentNameSql)
       appServicePlanName: $(appServicePlanName)
       appServicePlanResourceGroup: $(resourceGroupRoot)
       subscription: $(ConnectedServiceName)
@@ -81,7 +81,7 @@ stages:
   - template: ./jobs/provision-deploy.yml
     parameters: 
       version: R4
-      webAppName: $(DeploymentEnvironmentName)
+      webAppName: $(DeploymentEnvironmentNameR4)
       appServicePlanName: $(appServicePlanName)
       appServicePlanResourceGroup: $(resourceGroupRoot)
       subscription: $(ConnectedServiceName)
@@ -98,7 +98,7 @@ stages:
     parameters: 
       version: R4
       sql: true
-      webAppName: $(DeploymentEnvironmentName)
+      webAppName: $(DeploymentEnvironmentNameR4Sql)
       appServicePlanName: $(appServicePlanName)
       appServicePlanResourceGroup: $(resourceGroupRoot)
       subscription: $(ConnectedServiceName)
