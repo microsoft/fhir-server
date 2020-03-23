@@ -60,7 +60,8 @@ stages:
         azurePowerShellVersion: latestVersion
         ScriptType: inlineScript
         Inline: |
-          Install-Module AzureAD -Force
+          Install-PackageProvider -Name NuGet -Force -Scope CurrentUser
+          Install-Module -Name AzureAD -Force -Verbose -Scope CurrentUser
 
           $tenantId = "$(tenant-id)"
 
@@ -82,8 +83,6 @@ stages:
           }
  
           $response = Invoke-RestMethod -Method 'Post' -Uri $adTokenUrl -ContentType "application/x-www-form-urlencoded" -Body $body
-          $token = $response.access_token
-
           Connect-AzureAD -TenantId $tenantId -AadAccessToken $response.access_token -AccountId $username
 
           Import-Module $(System.DefaultWorkingDirectory)/samples/scripts/PowerShell/FhirServer/FhirServer.psd1
