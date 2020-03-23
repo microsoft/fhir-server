@@ -188,6 +188,7 @@ stages:
         azurePowerShellVersion: latestVersion
         ScriptType: inlineScript
         Inline: |
+          Install-Module AzureAD -Force
           dotnet dev-certs https
 
           # Get admin token
@@ -287,6 +288,7 @@ stages:
           azurePowerShellVersion: latestVersion
           ScriptType: InlineScript
           Inline: |
+            Install-Module AzureAD -Force
             $clientId = "$(tenant-admin-service-principal-name)"
             $clientSecret = "$(tenant-admin-service-principal-password)"
             $tenantId = "$(tenant-id)"
