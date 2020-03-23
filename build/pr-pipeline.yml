@@ -54,7 +54,7 @@ stages:
         KeyVaultName: 'resolute-oss-tenant-info'
 
     - powershell: |
-        Install-PackageProvider -Name NuGet -Force -Scope CurrentUser
+        Find-PackageProvider -Name "NuGet" | Install-PackageProvider -Verbose -Force -Scope CurrentUser
         Install-Module -Name AzureAD -Force -Verbose -Scope CurrentUser
       displayName: 'Install AzureAD'
 
