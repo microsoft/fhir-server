@@ -276,6 +276,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             foreach (KeyValuePair<Uri, CloudBlockBlobWrapper> kvp in _uriToBlobMapping)
             {
                 var newBlob = new CloudBlockBlob(kvp.Key, _blobClient);
+                newBlob.Properties.ContentType = "application/fhir+ndjson";
                 kvp.Value.UpdateCloudBlockBlob(newBlob);
             }
         }
