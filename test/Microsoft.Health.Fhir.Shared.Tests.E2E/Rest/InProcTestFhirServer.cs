@@ -114,6 +114,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 do
                 {
                     errorMessage += $"\t\tDirectory: {directoryInfo.FullName}\r\n";
+                    foreach (DirectoryInfo info in directoryInfo.EnumerateDirectories())
+                    {
+                        errorMessage += $"\t\t\t{info.FullName}\r\n";
+                    }
+
                     directoryInfo = directoryInfo.Parent;
 
                     var projectDirectoryInfo = new DirectoryInfo(Path.Combine(directoryInfo.FullName, projectRelativePath));
