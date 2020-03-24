@@ -73,6 +73,12 @@ jobs:
     inputs:
       azureSubscription: 'Microsoft Health Open Source Subscription'
       KeyVaultName: 'resolute-oss-tenant-info'
+
+  - task: AzureKeyVault@1
+    displayName: 'Azure Key Vault: $(DeploymentEnvironmentName)-ts'
+    inputs:
+      azureSubscription: 'Microsoft Health Open Source Subscription'
+      KeyVaultName: '$(DeploymentEnvironmentName)-ts'
     
   - task: AzurePowerShell@4
     displayName: 'Set Variables'

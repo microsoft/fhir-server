@@ -171,11 +171,11 @@ stages:
       keyVaultName: $(DeploymentEnvironmentNameR4)
 
 - stage: testR5
-  displayName: 'Run R4 Tests'
+  displayName: 'Run R5 Tests'
   dependsOn:
   - aadTestEnvironment
-  - deployR4
-  - deployR4Sql
+  - deployR5
+  - deployR5Sql
   jobs:
   - template: ./jobs/run-tests.yml
     parameters:
