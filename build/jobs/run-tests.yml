@@ -68,7 +68,7 @@ jobs:
     inputs:
       buildType: 'current'
       downloadType: 'single'
-      downloadPath: '$(System.DefaultWorkingDirectory)'
+      downloadPath: '$(System.ArtifactsDirectory)'
       artifactName: 'src'
 
   - task: UseDotNet@2
