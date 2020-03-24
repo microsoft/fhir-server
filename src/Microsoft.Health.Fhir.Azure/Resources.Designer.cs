@@ -70,6 +70,15 @@ namespace Microsoft.Health.Fhir.Azure {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Unable to get an authorized client to export destination..
+        /// </summary>
+        internal static string CannotGetAuthorizedClient {
+            get {
+                return ResourceManager.GetString("CannotGetAuthorizedClient", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The destination client is not connected to the destination end point..
         /// </summary>
         internal static string DestinationClientNotConnected {
