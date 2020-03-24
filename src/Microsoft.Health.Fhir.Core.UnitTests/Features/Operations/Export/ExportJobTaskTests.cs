@@ -50,17 +50,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         public ExportJobTaskTests()
         {
             _cancellationToken = _cancellationTokenSource.Token;
-            _exportJobRecord = new ExportJobRecord(
-                new Uri("https://localhost/ExportJob/"),
-                "Patient",
-                "hash");
-
-            _fhirOperationDataStore.UpdateExportJobAsync(_exportJobRecord, _weakETag, _cancellationToken).Returns(x =>
-            {
-                _lastExportJobOutcome = new ExportJobOutcome(_exportJobRecord, _weakETag);
-
-                return _lastExportJobOutcome;
-            });
+            SetupExportJobRecordAndOperationDataStore();
 
             _resourceToByteArraySerializer.Serialize(Arg.Any<ResourceWrapper>()).Returns(x => Encoding.UTF8.GetBytes(x.ArgAt<ResourceWrapper>(0).ResourceId));
 
@@ -98,6 +88,37 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         }
 
         [Fact]
+        public async Task GivenAJobWithSinceParameter_WhenExecuted_ThenCorrectSearchIsPerformed()
+        {
+            bool capturedSearch = false;
+
+            _exportJobConfiguration.MaximumNumberOfResourcesPerQuery = 1;
+            var exportJobRecordWithSince = new ExportJobRecord(
+               new Uri("https://localhost/ExportJob/"),
+               "Patient",
+               "hash",
+               since: Core.Models.PartialDateTime.MinValue.ToString());
+
+            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithSince);
+
+            // First search should not have continuation token in the list of query parameters.
+            _searchService.SearchAsync(
+                _exportJobRecord.ResourceType,
+                Arg.Is(CreateQueryParametersExpression(_exportJobRecord.Since)),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    capturedSearch = true;
+
+                    return CreateSearchResult();
+                });
+
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            Assert.True(capturedSearch);
+        }
+
+        [Fact]
         public async Task GivenThereAreMoreSearchResults_WhenExecuted_ThenCorrectSearchIsPerformed()
         {
             const string continuationToken = "ct";
@@ -116,7 +137,46 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // Second search returns a search result without continuation token.
             _searchService.SearchAsync(
                 _exportJobRecord.ResourceType,
-                Arg.Is(CreateQueryParametersExpression(continuationToken)),
+                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(continuationToken)),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    capturedSearch = true;
+
+                    return CreateSearchResult();
+                });
+
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            Assert.True(capturedSearch);
+        }
+
+        [Fact]
+        public async Task GivenThereAreMoreSearchResultsWithSinceParameter_WhenExecuted_ThenCorrectSearchIsPerformed()
+        {
+            const string continuationToken = "ct";
+
+            _exportJobConfiguration.MaximumNumberOfResourcesPerQuery = 1;
+            var exportJobRecordWithSince = new ExportJobRecord(
+               new Uri("https://localhost/ExportJob/"),
+               "Patient",
+               "hash",
+               since: Core.Models.PartialDateTime.MinValue.ToString());
+            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithSince);
+
+            // First search returns a search result with continuation token.
+            _searchService.SearchAsync(
+                _exportJobRecord.ResourceType,
+                Arg.Is(CreateQueryParametersExpression(_exportJobRecord.Since)),
+                _cancellationToken)
+                .Returns(CreateSearchResult(continuationToken: continuationToken));
+
+            bool capturedSearch = false;
+
+            // Second search returns a search result without continuation token.
+            _searchService.SearchAsync(
+                _exportJobRecord.ResourceType,
+                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(continuationToken, _exportJobRecord.Since)),
                 _cancellationToken)
                 .Returns(x =>
                 {
@@ -135,9 +195,29 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             return arg => arg != null && Tuple.Create("_count", "1").Equals(arg[0]) && Tuple.Create("_lastUpdated", $"le{_exportJobRecord.QueuedTime.ToString("o")}").Equals(arg[1]);
         }
 
-        private Expression<Predicate<IReadOnlyList<Tuple<string, string>>>> CreateQueryParametersExpression(string continuationToken)
+        private Expression<Predicate<IReadOnlyList<Tuple<string, string>>>> CreateQueryParametersExpression(string since)
         {
-            return arg => arg != null && Tuple.Create("ct", continuationToken).Equals(arg[0]) && Tuple.Create("_count", "1").Equals(arg[1]) && Tuple.Create("_lastUpdated", $"le{_exportJobRecord.QueuedTime.ToString("o")}").Equals(arg[2]);
+            return arg => arg != null &&
+                Tuple.Create("_count", "1").Equals(arg[0]) &&
+                Tuple.Create("_lastUpdated", $"le{_exportJobRecord.QueuedTime.ToString("o")}").Equals(arg[1]) &&
+                Tuple.Create("_lastUpdated", $"ge{since}").Equals(arg[2]);
+        }
+
+        private Expression<Predicate<IReadOnlyList<Tuple<string, string>>>> CreateQueryParametersExpressionWithContinuationToken(string continuationToken)
+        {
+            return arg => arg != null &&
+                Tuple.Create("ct", continuationToken).Equals(arg[0]) &&
+                Tuple.Create("_count", "1").Equals(arg[1]) &&
+                Tuple.Create("_lastUpdated", $"le{_exportJobRecord.QueuedTime.ToString("o")}").Equals(arg[2]);
+        }
+
+        private Expression<Predicate<IReadOnlyList<Tuple<string, string>>>> CreateQueryParametersExpressionWithContinuationToken(string continuationToken, string since)
+        {
+            return arg => arg != null &&
+                Tuple.Create("ct", continuationToken).Equals(arg[0]) &&
+                Tuple.Create("_count", "1").Equals(arg[1]) &&
+                Tuple.Create("_lastUpdated", $"le{_exportJobRecord.QueuedTime.ToString("o")}").Equals(arg[2]) &&
+                Tuple.Create("_lastUpdated", $"ge{since}").Equals(arg[3]);
         }
 
         [Fact]
@@ -391,6 +471,21 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             }
 
             return new SearchResult(resourceWrappers, new Tuple<string, string>[0], Array.Empty<(string parameterName, string reason)>(), continuationToken);
+        }
+
+        private void SetupExportJobRecordAndOperationDataStore(ExportJobRecord exportJobRecord = null)
+        {
+            _exportJobRecord = exportJobRecord ?? new ExportJobRecord(
+                new Uri("https://localhost/ExportJob/"),
+                "Patient",
+                "hash");
+
+            _fhirOperationDataStore.UpdateExportJobAsync(_exportJobRecord, _weakETag, _cancellationToken).Returns(x =>
+            {
+                _lastExportJobOutcome = new ExportJobOutcome(_exportJobRecord, _weakETag);
+
+                return _lastExportJobOutcome;
+            });
         }
     }
 }

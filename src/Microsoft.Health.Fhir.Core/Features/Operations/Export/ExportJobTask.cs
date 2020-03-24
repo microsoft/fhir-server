@@ -87,12 +87,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 uint currentBatchId = progress.Page;
 
                 // The first item is placeholder for continuation token so that it can be updated efficiently later.
-                var queryParameters = new Tuple<string, string>[]
+                Tuple<string, string>[] queryParameters;
+                if (!string.IsNullOrWhiteSpace(_exportJobRecord.Since))
                 {
-                    Tuple.Create(KnownQueryParameterNames.ContinuationToken, progress.ContinuationToken),
-                    Tuple.Create(KnownQueryParameterNames.Count, _exportJobConfiguration.MaximumNumberOfResourcesPerQuery.ToString(CultureInfo.InvariantCulture)),
-                    Tuple.Create(KnownQueryParameterNames.LastUpdated, $"le{_exportJobRecord.QueuedTime.ToString("o", CultureInfo.InvariantCulture)}"),
-                };
+                    queryParameters = new Tuple<string, string>[4];
+                    queryParameters[3] = Tuple.Create(KnownQueryParameterNames.LastUpdated, $"ge{_exportJobRecord.Since}");
+                }
+                else
+                {
+                    queryParameters = new Tuple<string, string>[3];
+                }
+
+                queryParameters[0] = Tuple.Create(KnownQueryParameterNames.ContinuationToken, progress.ContinuationToken);
+                queryParameters[1] = Tuple.Create(KnownQueryParameterNames.Count, _exportJobConfiguration.MaximumNumberOfResourcesPerQuery.ToString(CultureInfo.InvariantCulture));
+                queryParameters[2] = Tuple.Create(KnownQueryParameterNames.LastUpdated, $"le{_exportJobRecord.QueuedTime.ToString("o", CultureInfo.InvariantCulture)}");
 
                 // Process the export if:
                 // 1. There is continuation token, which means there is more resource to be exported.

@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
     /// </summary>
     public class ExportJobRecord
     {
-        public ExportJobRecord(Uri requestUri, string resourceType, string hash, IReadOnlyCollection<KeyValuePair<string, string>> requestorClaims = null)
+        public ExportJobRecord(Uri requestUri, string resourceType, string hash, IReadOnlyCollection<KeyValuePair<string, string>> requestorClaims = null, string since = null)
         {
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
             EnsureArg.IsNotNullOrWhiteSpace(hash, nameof(hash));
@@ -24,6 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             RequestUri = requestUri;
             ResourceType = resourceType;
             RequestorClaims = requestorClaims;
+            Since = since;
 
             // Default values
             SchemaVersion = 1;
@@ -82,5 +83,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
         [JsonProperty(JobRecordProperties.FailureDetails)]
         public ExportJobFailureDetails FailureDetails { get; set; }
+
+        [JsonProperty(JobRecordProperties.Since)]
+        public string Since { get; private set; }
     }
 }

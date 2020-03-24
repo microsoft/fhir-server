@@ -13,6 +13,8 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Net.Http.Headers;
 using Xunit;
 
@@ -80,7 +82,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         }
 
         [Fact]
-        public void GivenARequestWithCorrectHeadersAndQueryParam_WhenGettingAnExportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown()
+        public void GivenARequestWithCorrectHeadersAndUnsupportedQueryParam_WhenGettingAnExportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown()
         {
             var context = CreateContext();
             context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
@@ -96,7 +98,23 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         }
 
         [Fact]
-        public void GiveARequestWithValidAcceptAndPreferHeaderAndNoQueryParams_WhenGettingAnExportOperationRequest_ThenTheResultIsSuccessful()
+        public void GiveARequestWithCorrectHeaderAndSinceQueryParam_WhenGettingAnExportOperationRequest_ThenTheResultIsSuccessful()
+        {
+            var context = CreateContext();
+            context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
+            context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
+
+            var queryParams = new Dictionary<string, StringValues>()
+            {
+                { KnownQueryParameterNames.Since, PartialDateTime.MinValue.ToString() },
+            };
+            context.HttpContext.Request.Query = new QueryCollection(queryParams);
+
+            _filter.OnActionExecuting(context);
+        }
+
+        [Fact]
+        public void GiveARequestWithCorrectHeaderAndNoQueryParams_WhenGettingAnExportOperationRequest_ThenTheResultIsSuccessful()
         {
             var context = CreateContext();
             context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
