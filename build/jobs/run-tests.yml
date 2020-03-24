@@ -1,7 +1,7 @@
 parameters:
 - name: version
   type: string
-- name: keyVaultNAme
+- name: keyVaultName
   type: string
 - name: runIntegration
   type: boolean
@@ -28,13 +28,13 @@ jobs:
       version: '3.1.100' 
 
   - task: AzureKeyVault@1
-    displayName: 'Azure Key Vault: ${{ parameters.keyVaultNAme }}'
+    displayName: 'Azure Key Vault: ${{ parameters.keyVaultName }}'
     inputs:
       azureSubscription: 'Microsoft Health Open Source Subscription'
-      KeyVaultName: '${{ parameters.keyVaultNAme }}'
+      KeyVaultName: '${{ parameters.keyVaultName }}'
 
   - task: AzureKeyVault@1
-    displayName: 'Azure Key Vault: ${{ parameters.keyVaultNAme }}-sql'
+    displayName: 'Azure Key Vault: ${{ parameters.keyVaultName }}-sql'
     inputs:
       azureSubscription: 'Microsoft Health Open Source Subscription'
       KeyVaultName: '${{ parameters.keyVaultNAme }}-sql'
@@ -60,8 +60,16 @@ jobs:
   - task: DownloadBuildArtifacts@0
     inputs:
       buildType: 'current'
-      downloadType: 'specific'
+      downloadType: 'single'
       downloadPath: '$(System.ArtifactsDirectory)'
+      artifactName: 'IntegrationTests'
+
+  - task: DownloadBuildArtifacts@0
+    inputs:
+      buildType: 'current'
+      downloadType: 'single'
+      downloadPath: '$(System.DefaultWorkingDirectory)'
+      artifactName: 'src'
 
   - task: UseDotNet@2
     inputs:
