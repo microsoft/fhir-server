@@ -87,7 +87,6 @@ stages:
       subscription: $(ConnectedServiceName)
       resourceGroup: $(DeploymentEnvironmentName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
-      runE2E: false
 
 - stage: deployR4Sql
   displayName: 'Deploy R4 SQL Site'
@@ -105,12 +104,10 @@ stages:
       subscription: $(ConnectedServiceName)
       resourceGroup: $(DeploymentEnvironmentName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
-      runE2E: false
 
 - stage: testStu3
   displayName: 'Run Stu3 Tests'
   dependsOn:
-  - aadTestEnvironment
   - deployStu3
   - deployStu3Sql
   jobs:
@@ -122,7 +119,6 @@ stages:
 - stage: testR4
   displayName: 'Run R4 Tests'
   dependsOn:
-  - aadTestEnvironment
   - deployR4
   - deployR4Sql
   jobs:
@@ -130,6 +126,7 @@ stages:
     parameters:
       version: R4
       keyVaultName: $(DeploymentEnvironmentNameR4)
+      runE2E: false
 
 - stage: cleanup
   displayName: 'Cleanup Azure Environment'
