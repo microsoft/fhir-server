@@ -5,8 +5,10 @@ variables:
     appServicePlanName: '$(resourceGroupRoot)-southcentralus'
     prNumber: $(system.pullRequest.pullRequestNumber)
     DeploymentEnvironmentName: '$(resourceGroupRoot)-$(prNumber)'
-    DeploymentEnvironmentNameR4: '$(DeploymentEnvironmentName)-r4'
     DeploymentEnvironmentNameSql: '$(DeploymentEnvironmentName)-sql'
+    DeploymentEnvironmentNameR4: '$(DeploymentEnvironmentName)-r4'
     DeploymentEnvironmentNameR4Sql: '$(DeploymentEnvironmentName)-r4-sql'
+    DeploymentEnvironmentNameR5: '$(DeploymentEnvironmentName)-r5'
+    DeploymentEnvironmentNameR5Sql: '$(DeploymentEnvironmentName)-r5-sql'
     CrucibleEnvironmentUrl: 'https://crucible.mshapis.com/'
     TestEnvironmentUrl: 'https://$(DeploymentEnvironmentName).azurewebsites.net'

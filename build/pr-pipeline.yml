@@ -113,6 +113,39 @@ stages:
       resourceGroup: $(DeploymentEnvironmentName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
 
+- stage: deployR5
+  displayName: 'Deploy R5 Site'
+  dependsOn:
+  - provisionEnvironment
+  - BuildUnitTests
+  jobs:
+  - template: ./jobs/provision-deploy.yml
+    parameters: 
+      version: R5
+      webAppName: $(DeploymentEnvironmentNameR5)
+      appServicePlanName: $(appServicePlanName)
+      appServicePlanResourceGroup: $(resourceGroupRoot)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(DeploymentEnvironmentName)
+      testEnvironmentUrl: $(TestEnvironmentUrl)
+
+- stage: deployR5Sql
+  displayName: 'Deploy R5 SQL Site'
+  dependsOn:
+  - provisionEnvironment
+  - BuildUnitTests
+  jobs:
+  - template: ./jobs/provision-deploy.yml
+    parameters: 
+      version: R5
+      sql: true
+      webAppName: $(DeploymentEnvironmentNameR5Sql)
+      appServicePlanName: $(appServicePlanName)
+      appServicePlanResourceGroup: $(resourceGroupRoot)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(DeploymentEnvironmentName)
+      testEnvironmentUrl: $(TestEnvironmentUrl)
+
 - stage: testStu3
   displayName: 'Run Stu3 Tests'
   dependsOn:
@@ -136,6 +169,18 @@ stages:
     parameters:
       version: R4
       keyVaultName: $(DeploymentEnvironmentNameR4)
+
+- stage: testR5
+  displayName: 'Run R4 Tests'
+  dependsOn:
+  - aadTestEnvironment
+  - deployR4
+  - deployR4Sql
+  jobs:
+  - template: ./jobs/run-tests.yml
+    parameters:
+      version: R5
+      keyVaultName: $(DeploymentEnvironmentNameR5)
 
 - stage: cleanup
   displayName: 'Cleanup Azure Environment'
