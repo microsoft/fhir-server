@@ -53,11 +53,6 @@ stages:
         azureSubscription: 'Microsoft Health Open Source Subscription'
         KeyVaultName: 'resolute-oss-tenant-info'
 
-    - powershell: |
-        Find-PackageProvider -Name "NuGet" | Install-PackageProvider -Verbose -Force -Scope CurrentUser
-        Install-Module -Name AzureAD -Force -Verbose -Scope CurrentUser
-      displayName: 'Install AzureAD'
-
     - task: AzurePowerShell@4
       displayName: Setup Test Environment
       inputs:
@@ -65,6 +60,7 @@ stages:
         azurePowerShellVersion: latestVersion
         ScriptType: inlineScript
         Inline: |
+          Install-Module -Name AzureAD -Force -Verbose -Scope CurrentUser
           $tenantId = "$(tenant-id)"
 
           # Get admin token
