@@ -39,55 +39,6 @@ stages:
         Inline: |
           New-AzResourceGroup -Name "$(DeploymentEnvironmentName)" -Location "$(ResourceGroupRegion)" -Force
 
-- stage: aadTestEnvironment
-  displayName: Setup AAD Test Environment
-  dependsOn:
-  - provisionEnvironment
-  - BuildUnitTests
-  jobs:
-  - job: setup
-    steps:
-    - task: AzureKeyVault@1
-      displayName: 'Azure Key Vault: resolute-oss-tenant-info'
-      inputs:
-        azureSubscription: 'Microsoft Health Open Source Subscription'
-        KeyVaultName: 'resolute-oss-tenant-info'
-
-    - task: AzurePowerShell@4
-      displayName: Setup Test Environment
-      inputs:
-        azureSubscription: 'Microsoft Health Open Source Subscription'
-        azurePowerShellVersion: latestVersion
-        ScriptType: inlineScript
-        Inline: |
-          Install-Module -Name AzureAD -Force -Verbose -Scope CurrentUser
-          $tenantId = "$(tenant-id)"
-
-          # Get admin token
-          $username = "$(tenant-admin-user-name)"
-          $password_raw = "$(tenant-admin-user-password)"
-          $password =  ConvertTo-SecureString -AsPlainText $password_raw -Force
-          $adminCredential = New-Object PSCredential $username,$password
- 
-          $adTokenUrl = "https://login.microsoftonline.com/$tenantId/oauth2/token"
-          $resource = "https://graph.windows.net/"
- 
-          $body = @{
-              grant_type = "password"
-              username   = $username
-              password   = $password_raw
-              resource   = $resource 
-              client_id  = "1950a258-227b-4e31-a9cf-717495945fc2" # Microsoft Azure PowerShell
-          }
- 
-          $response = Invoke-RestMethod -Method 'Post' -Uri $adTokenUrl -ContentType "application/x-www-form-urlencoded" -Body $body
-          Connect-AzureAD -TenantId $tenantId -AadAccessToken $response.access_token -AccountId $username
-
-          Import-Module $(System.DefaultWorkingDirectory)/samples/scripts/PowerShell/FhirServer/FhirServer.psd1
-          Import-Module $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/FhirServerRelease/FhirServerRelease.psd1
-
-          $output = Add-AadTestAuthEnvironment -TestAuthEnvironmentPath $(System.DefaultWorkingDirectory)/testauthenvironment.json -EnvironmentName $(DeploymentEnvironmentName) -TenantAdminCredential $adminCredential
-
 - stage: deployStu3
   displayName: 'Deploy STU3 Site'
   dependsOn:
@@ -136,6 +87,7 @@ stages:
       subscription: $(ConnectedServiceName)
       resourceGroup: $(DeploymentEnvironmentName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
+      runE2E: false
 
 - stage: deployR4Sql
   displayName: 'Deploy R4 SQL Site'
@@ -153,6 +105,7 @@ stages:
       subscription: $(ConnectedServiceName)
       resourceGroup: $(DeploymentEnvironmentName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
+      runE2E: false
 
 - stage: testStu3
   displayName: 'Run Stu3 Tests'
