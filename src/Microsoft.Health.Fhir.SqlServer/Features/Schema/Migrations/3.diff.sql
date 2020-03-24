@@ -55,6 +55,8 @@ AS
     VALUES
         (@name, @currentVersion, @maxVersion, @minVersion, @timeout)
 
+    SELECT @name
+
     END
 GO
 
@@ -125,27 +127,23 @@ AS
         VALUES
             (@name, @currentVersion, @maxVersion, @minVersion, @timeout)
     END
+
 GO
 
 --
 -- STORED PROCEDURE
---     Deletes an instance schema.
+--     Delete instance schema information.
 --
 -- DESCRIPTION
---     Deletes an existing record in the InstanceSchema table.
+--     Delete all the expired records in the InstanceSchema table.
 --
--- PARAMETERS
---     @name
---         * The unique name for a particular instance
---
-CREATE PROCEDURE dbo.DeleteInstanceSchemaByName
-    @name varchar(64)
+CREATE PROCEDURE dbo.DeleteInstanceSchema
     
 AS
     SET NOCOUNT ON
 
     DELETE FROM dbo.InstanceSchema
-    WHERE Name = @name
+    WHERE Timeout < SYSUTCDATETIME()
 
 GO
 

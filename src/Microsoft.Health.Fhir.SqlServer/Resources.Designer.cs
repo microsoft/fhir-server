@@ -88,6 +88,15 @@ namespace Microsoft.Health.Fhir.SqlServer {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The sql operation is failed..
+        /// </summary>
+        internal static string OperationFailed {
+            get {
+                return ResourceManager.GetString("OperationFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The provided version is unknown..
         /// </summary>
         internal static string ScriptNotFound {

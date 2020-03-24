@@ -51,6 +51,10 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf();
 
+            services.Add<InstanceSchemaDataStore>()
+               .Singleton()
+               .AsSelf();
+
             services.Add<SchemaInitializer>()
                 .Singleton()
                 .AsService<IStartable>();
@@ -69,9 +73,9 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsImplementedInterfaces();
 
             services.Add<SqlTransactionHandler>()
-                .Scoped()
-                .AsSelf()
-                .AsImplementedInterfaces();
+               .Scoped()
+               .AsSelf()
+               .AsImplementedInterfaces();
 
             services.Add<SqlConnectionWrapperFactory>()
                 .Scoped()

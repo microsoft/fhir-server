@@ -41,6 +41,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.Features.Filters
                         context.Result = new JsonResult(resultJson) { StatusCode = (int)HttpStatusCode.NotFound };
                         context.ExceptionHandled = true;
                         break;
+
+                    case OperationFailedException _:
+                        context.Result = new JsonResult(resultJson) { StatusCode = (int)HttpStatusCode.InternalServerError };
+                        context.ExceptionHandled = true;
+                        break;
                 }
             }
         }

@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         internal readonly static AcquireExportJobsProcedure AcquireExportJobs = new AcquireExportJobsProcedure();
         internal readonly static CreateExportJobProcedure CreateExportJob = new CreateExportJobProcedure();
         internal readonly static CreateInstanceSchemaProcedure CreateInstanceSchema = new CreateInstanceSchemaProcedure();
-        internal readonly static DeleteInstanceSchemaByNameProcedure DeleteInstanceSchemaByName = new DeleteInstanceSchemaByNameProcedure();
+        internal readonly static DeleteInstanceSchemaProcedure DeleteInstanceSchema = new DeleteInstanceSchemaProcedure();
         internal readonly static GetExportJobByHashProcedure GetExportJobByHash = new GetExportJobByHashProcedure();
         internal readonly static GetExportJobByIdProcedure GetExportJobById = new GetExportJobByIdProcedure();
         internal readonly static GetInstanceSchemaByNameProcedure GetInstanceSchemaByName = new GetInstanceSchemaByNameProcedure();
@@ -472,18 +472,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
         }
 
-        internal class DeleteInstanceSchemaByNameProcedure : StoredProcedure
+        internal class DeleteInstanceSchemaProcedure : StoredProcedure
         {
-            internal DeleteInstanceSchemaByNameProcedure(): base("dbo.DeleteInstanceSchemaByName")
+            internal DeleteInstanceSchemaProcedure(): base("dbo.DeleteInstanceSchema")
             {
             }
 
-            private readonly ParameterDefinition<System.String> _name = new ParameterDefinition<System.String>("@name", global::System.Data.SqlDbType.VarChar, false, 64);
-            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.String name)
+            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command)
             {
                 command.CommandType = global::System.Data.CommandType.StoredProcedure;
-                command.CommandText = "dbo.DeleteInstanceSchemaByName";
-                _name.AddParameter(command.Parameters, name);
+                command.CommandText = "dbo.DeleteInstanceSchema";
             }
         }
 

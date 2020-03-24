@@ -8,9 +8,9 @@ using EnsureThat;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Exceptions
 {
-    public class RecordNotFoundException : Exception
+    public class OperationFailedException : Exception
     {
-        public RecordNotFoundException(string message)
+        public OperationFailedException(string message)
             : base(message)
         {
             EnsureArg.IsNotNullOrWhiteSpace(message, nameof(message));

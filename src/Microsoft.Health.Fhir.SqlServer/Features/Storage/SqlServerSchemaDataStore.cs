@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     if (dataReader.Read())
                     {
-                        compatibleVersions = new CompatibleVersions(ConvertToInt(dataReader.GetValue(0)), ConvertToInt(dataReader.GetValue(1)));
+                        compatibleVersions = new CompatibleVersions(InstanceSchemaDataStore.ConvertToInt(dataReader.GetValue(0)), InstanceSchemaDataStore.ConvertToInt(dataReader.GetValue(1)));
                     }
                     else
                     {
@@ -106,18 +106,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             return new GetCurrentVersionResponse(currentVersions);
-        }
-
-        private int ConvertToInt(object o)
-        {
-            if (o == DBNull.Value)
-            {
-                throw new RecordNotFoundException(Resources.CompatibilityRecordNotFound);
-            }
-            else
-            {
-               return Convert.ToInt32(o);
-            }
         }
     }
 }

@@ -6,10 +6,12 @@
 using System;
 using System.Data;
 using System.Data.SqlClient;
+using System.Threading;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.SqlServer.Configs;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
 {
@@ -22,19 +24,34 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
         private readonly SqlServerDataStoreConfiguration _sqlServerDataStoreConfiguration;
         private readonly SchemaUpgradeRunner _schemaUpgradeRunner;
         private readonly SchemaInformation _schemaInformation;
+        private readonly InstanceSchemaDataStore _instanceSchemaDataStore;
         private readonly ILogger<SchemaInitializer> _logger;
 
-        public SchemaInitializer(SqlServerDataStoreConfiguration sqlServerDataStoreConfiguration, SchemaUpgradeRunner schemaUpgradeRunner, SchemaInformation schemaInformation, ILogger<SchemaInitializer> logger)
+        public SchemaInitializer(SqlServerDataStoreConfiguration sqlServerDataStoreConfiguration, SchemaUpgradeRunner schemaUpgradeRunner, SchemaInformation schemaInformation, InstanceSchemaDataStore instanceSchemaHelper, ILogger<SchemaInitializer> logger)
         {
             EnsureArg.IsNotNull(sqlServerDataStoreConfiguration, nameof(sqlServerDataStoreConfiguration));
             EnsureArg.IsNotNull(schemaUpgradeRunner, nameof(schemaUpgradeRunner));
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
+            EnsureArg.IsNotNull(instanceSchemaHelper, nameof(instanceSchemaHelper));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _sqlServerDataStoreConfiguration = sqlServerDataStoreConfiguration;
             _schemaUpgradeRunner = schemaUpgradeRunner;
             _schemaInformation = schemaInformation;
+            _instanceSchemaDataStore = instanceSchemaHelper;
             _logger = logger;
+        }
+
+        public void Start()
+        {
+            if (!string.IsNullOrWhiteSpace(_sqlServerDataStoreConfiguration.ConnectionString))
+            {
+                Initialize();
+            }
+            else
+            {
+                _logger.LogCritical("There was no connection string supplied. Schema initialization can not be completed.");
+            }
         }
 
         internal void Initialize(bool forceIncrementalSchemaUpgrade = false)
@@ -59,7 +76,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
                 else
                 {
                     // Apply the maximum supported version. This won't consider the .diff.sql files.
-                    _schemaUpgradeRunner.ApplySchema((int)_schemaInformation.MaximumSupportedVersion, applyFullSchemaSnapshot: true);
+                    _schemaUpgradeRunner.ApplySchema(_schemaInformation.MaximumSupportedVersion, applyFullSchemaSnapshot: true);
                 }
 
                 GetCurrentSchemaVersion();
@@ -69,14 +86,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
             if (_schemaInformation.Current < _schemaInformation.MaximumSupportedVersion)
             {
                 // Apply each .diff.sql file one by one.
-                int current = (int?)_schemaInformation.Current ?? 0;
-                for (int i = current + 1; i <= (int)_schemaInformation.MaximumSupportedVersion; i++)
+                int current = _schemaInformation.Current ?? 0;
+                for (int i = current + 1; i <= _schemaInformation.MaximumSupportedVersion; i++)
                 {
                     _schemaUpgradeRunner.ApplySchema(version: i, applyFullSchemaSnapshot: false);
                 }
             }
 
             GetCurrentSchemaVersion();
+
+            _instanceSchemaDataStore.InsertInstanceSchemaInformation(_schemaInformation);
+
+            PollInstanceSchemaUpdates();
         }
 
         private void GetCurrentSchemaVersion()
@@ -114,7 +135,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
                         command.CommandType = CommandType.StoredProcedure;
 
                         object current = command.ExecuteScalar();
-                        _schemaInformation.Current = (current == null || Convert.IsDBNull(current)) ? null : (SchemaVersion?)(int?)current;
+                        _schemaInformation.Current = (current == null || Convert.IsDBNull(current)) ? null : (int?)current;
                     }
                 }
             }
@@ -203,16 +224,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
             }
         }
 
-        public void Start()
+        private void PollInstanceSchemaUpdates()
         {
-            if (!string.IsNullOrWhiteSpace(_sqlServerDataStoreConfiguration.ConnectionString))
-            {
-                Initialize();
-            }
-            else
-            {
-                _logger.LogCritical("There was no connection string supplied. Schema initialization can not be completed.");
-            }
+            CompatibleVersions compatibleVersions = null;
+
+            var timer = new Timer(
+                       async e =>
+                       {
+                           _logger.LogInformation($"Polling started at {TimeZoneInfo.ConvertTimeToUtc(DateTime.Now)}");
+                           compatibleVersions = await _instanceSchemaDataStore.GetCompatibility();
+                           GetCurrentSchemaVersion();
+                           await _instanceSchemaDataStore.UpsertInstanceSchemaInformation(compatibleVersions, (int)_schemaInformation.Current);
+                           await _instanceSchemaDataStore.DeleteExpiredRecordsAsync();
+                       },
+                       null,
+                       TimeSpan.Zero,
+                       TimeSpan.FromMinutes(1));
         }
     }
 }
