@@ -37,7 +37,7 @@ jobs:
     displayName: 'Azure Key Vault: ${{ parameters.keyVaultName }}-sql'
     inputs:
       azureSubscription: 'Microsoft Health Open Source Subscription'
-      KeyVaultName: '${{ parameters.keyVaultNAme }}-sql'
+      KeyVaultName: '${{ parameters.keyVaultName }}-sql'
 
   - task: VSTest@2
     displayName: 'Run Integration Tests'
