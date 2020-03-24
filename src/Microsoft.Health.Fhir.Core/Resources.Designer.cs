@@ -221,6 +221,15 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("ConditionalUpdateMismatchedIds", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The customer managed key is not accessible..
+        /// </summary>
+        internal static string CustomerManagedKeyInaccessible {
+            get {
+                return ResourceManager.GetString("CustomerManagedKeyInaccessible", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to The prefix used to identify custom audit headers cannot be empty..
