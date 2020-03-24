@@ -60,9 +60,8 @@ jobs:
   - task: DownloadBuildArtifacts@0
     inputs:
       buildType: 'current'
-      downloadType: 'single'
+      downloadType: 'specific'
       downloadPath: '$(System.ArtifactsDirectory)'
-      artifactName: 'IntegrationTests'
 
   - task: UseDotNet@2
     inputs:
