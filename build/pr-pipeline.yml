@@ -38,14 +38,6 @@ stages:
         ScriptType: inlineScript
         Inline: |
           New-AzResourceGroup -Name "$(DeploymentEnvironmentName)" -Location "$(ResourceGroupRegion)" -Force
-
-- stage: aadTestEnvironment
-  displayName: Setup AAD Test Environment
-  dependsOn:
-  - provisionEnvironment
-  - BuildUnitTests
-  jobs:
-  - template: ./jobs/add-aad-test-environment.yml
  
 - stage: deployStu3
   displayName: 'Deploy STU3 Site'
@@ -157,6 +149,7 @@ stages:
     parameters:
       version: Stu3
       keyVaultName: $(DeploymentEnvironmentName)
+      runE2E: false
 
 - stage: testR4
   displayName: 'Run R4 Tests'
@@ -169,6 +162,7 @@ stages:
     parameters:
       version: R4
       keyVaultName: $(DeploymentEnvironmentNameR4)
+      runE2E: false
 
 - stage: testR5
   displayName: 'Run R5 Tests'
@@ -181,6 +175,90 @@ stages:
     parameters:
       version: R5
       keyVaultName: $(DeploymentEnvironmentNameR5)
+      runE2E: false
+
+- stage: testE2E
+  jobs:
+  - job: 'e2eTests'
+    pool:
+      vmImage: 'vs2017-win2016'
+    steps:
+    - task: DownloadBuildArtifacts@0
+      inputs:
+        buildType: 'current'
+        downloadType: 'single'
+        downloadPath: '$(System.ArtifactsDirectory)'
+        artifactName: 'IntegrationTests'
+
+    - task: DownloadBuildArtifacts@0
+      inputs:
+        buildType: 'current'
+        downloadType: 'single'
+        downloadPath: '$(System.ArtifactsDirectory)'
+        artifactName: 'src'
+
+    - task: UseDotNet@2
+      inputs:
+        version: '3.1.100' 
+        
+    - task: AzureKeyVault@1
+      displayName: 'Azure Key Vault: resolute-oss-tenant-info'
+      inputs:
+        azureSubscription: 'Microsoft Health Open Source Subscription'
+        KeyVaultName: 'resolute-oss-tenant-info'
+    
+    - task: AzurePowerShell@3
+      displayName: 'Set Variables'
+      inputs:
+        azureSubscription: 'Microsoft Health Open Source Subscription'
+        ScriptType: InlineScript
+        preferredAzurePowerShellVersion: 5.1.1
+        Inline: |
+          Install-Module AzureAD -Force
+          dotnet dev-certs https
+          # Get admin token
+          $tenantId = "$(tenant-id)"
+          $username = "$(tenant-admin-user-name)"
+          $password_raw = "$(tenant-admin-user-password)"
+          $password =  ConvertTo-SecureString -AsPlainText $password_raw -Force
+          $adminCredential = New-Object PSCredential $username,$password
+          $adTokenUrl = "https://login.microsoftonline.com/$tenantId/oauth2/token"
+          $resource = "https://graph.windows.net/"
+          $body = @{
+              grant_type = "password"
+              username   = $username
+              password   = $password_raw
+              resource   = $resource
+              client_id  = "1950a258-227b-4e31-a9cf-717495945fc2" # Microsoft Azure PowerShell
+          }
+          $response = Invoke-RestMethod -Method 'Post' -Uri $adTokenUrl -ContentType "application/x-www-form-urlencoded" -Body $body
+          $token = $response.access_token
+          Connect-AzureAD -TenantId $tenantId -AadAccessToken $response.access_token -AccountId $username
+          Import-Module $(System.DefaultWorkingDirectory)/samples/scripts/PowerShell/FhirServer/FhirServer.psd1
+          Import-Module $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/FhirServerRelease/FhirServerRelease.psd1
+          $output = Add-AadTestAuthEnvironment -TestAuthEnvironmentPath $(System.DefaultWorkingDirectory)/testauthenvironment.json -EnvironmentName $(DeploymentEnvironmentName) -TenantAdminCredential $adminCredential
+          foreach($user in $output.environmentUsers)
+          {
+              Write-Host "Retrieving '$($user.environmentId)-password' from  '$(DeploymentEnvironmentName)-ts'"
+              $secret = Get-AzureKeyVaultSecret -VaultName $(DeploymentEnvironmentName)-ts -Name "$($user.environmentId)-password"
+              Write-Host "##vso[task.setvariable variable=user_$($user.Id)_id]$($user.upn)"
+              Write-Host "##vso[task.setvariable variable=user_$($user.Id)_secret]$($secret.SecretValueText)"
+          }
+          foreach($clientApp in $output.environmentClientApplications)
+          {
+              Write-Host "Retrieving '$($clientApp.displayName)-secret' from '$(DeploymentEnvironmentName)-ts'"
+              $secret = Get-AzureKeyVaultSecret -VaultName $(DeploymentEnvironmentName)-ts -Name "$($clientApp.displayName)-secret"
+              Write-Host "##vso[task.setvariable variable=app_$($clientApp.Id)_id]$($clientApp.AppId)"
+              Write-Host "##vso[task.setvariable variable=app_$($clientApp.Id)_secret]$($secret.SecretValueText)"
+              Write-Host "##vso[task.setvariable variable=TestClientSecret]$($secret.SecretValueText)"
+          }
+    - task: VSTest@2
+      displayName: 'Run E2E Tests'
+      inputs:
+        testSelector: testAssemblies
+        testAssemblyVer2: |
+          **\*Tests.E2E*.dll
+        searchFolder: '$(System.ArtifactsDirectory)'
 
 - stage: cleanup
   displayName: 'Cleanup Azure Environment'
