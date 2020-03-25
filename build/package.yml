@@ -92,18 +92,14 @@ steps:
       pathToPublish: '$(build.binariesdirectory)/IntegrationTests'
       artifactName: 'IntegrationTests'
       artifactType: 'container'
-
-  - task: CopyFiles@2
-    inputs:
-      sourceFolder: '$(build.sourcesDirectory)/src/'
-      contents: |
-        '**/*'
-        !'**/*.UnitTests/**/*'
-      targetFolder: '$(Build.artifactStagingDirectory)/src'
+      parallel: true
+      parallelCount: 8
 
   - task: PublishBuildArtifacts@1
     displayName: 'publish Source'
     inputs:
-      pathToPublish: '$(Build.artifactStagingDirectory)/src'
+      pathToPublish: './src/'
       artifactName: 'src'
       artifactType: 'container'
+      parallel: true
+      parallelCount: 8
