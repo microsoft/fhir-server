@@ -88,7 +88,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 // The first item is placeholder for continuation token so that it can be updated efficiently later.
                 Tuple<string, string>[] queryParameters;
-                if (!string.IsNullOrWhiteSpace(_exportJobRecord.Since))
+                if (_exportJobRecord.Since != null)
                 {
                     queryParameters = new Tuple<string, string>[4];
                     queryParameters[3] = Tuple.Create(KnownQueryParameterNames.LastUpdated, $"ge{_exportJobRecord.Since}");

@@ -20,6 +20,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationCli
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using NSubstitute;
@@ -97,7 +98,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                new Uri("https://localhost/ExportJob/"),
                "Patient",
                "hash",
-               since: Core.Models.PartialDateTime.MinValue.ToString());
+               since: Core.Models.PartialDateTime.MinValue);
 
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithSince);
 
@@ -161,7 +162,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                new Uri("https://localhost/ExportJob/"),
                "Patient",
                "hash",
-               since: Core.Models.PartialDateTime.MinValue.ToString());
+               since: PartialDateTime.MinValue);
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithSince);
 
             // First search returns a search result with continuation token.
@@ -195,7 +196,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             return arg => arg != null && Tuple.Create("_count", "1").Equals(arg[0]) && Tuple.Create("_lastUpdated", $"le{_exportJobRecord.QueuedTime.ToString("o")}").Equals(arg[1]);
         }
 
-        private Expression<Predicate<IReadOnlyList<Tuple<string, string>>>> CreateQueryParametersExpression(string since)
+        private Expression<Predicate<IReadOnlyList<Tuple<string, string>>>> CreateQueryParametersExpression(PartialDateTime since)
         {
             return arg => arg != null &&
                 Tuple.Create("_count", "1").Equals(arg[0]) &&
@@ -211,7 +212,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 Tuple.Create("_lastUpdated", $"le{_exportJobRecord.QueuedTime.ToString("o")}").Equals(arg[2]);
         }
 
-        private Expression<Predicate<IReadOnlyList<Tuple<string, string>>>> CreateQueryParametersExpressionWithContinuationToken(string continuationToken, string since)
+        private Expression<Predicate<IReadOnlyList<Tuple<string, string>>>> CreateQueryParametersExpressionWithContinuationToken(string continuationToken, PartialDateTime since)
         {
             return arg => arg != null &&
                 Tuple.Create("ct", continuationToken).Equals(arg[0]) &&
