@@ -5,12 +5,13 @@
 
 using System.Reflection;
 using Microsoft.Health.Fhir.Core;
+using Microsoft.Health.Fhir.Core.Exceptions;
 
 namespace Microsoft.Health.Fhir.Api.Modules
 {
     public static class KnownAssemblies
     {
-        public static Assembly Core => typeof(Clock).Assembly;
+        public static Assembly Core => typeof(FhirException).Assembly;
 
         public static Assembly CoreVersionSpecific => typeof(VersionSpecificModelInfoProvider).Assembly;
     }

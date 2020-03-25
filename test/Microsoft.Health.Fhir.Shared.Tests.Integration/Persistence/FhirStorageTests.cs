@@ -13,6 +13,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Health.Core.Internal;
 using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -104,7 +105,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public async Task GivenAResource_WhenSaving_ThenTheMetaIsUpdated()
         {
             var instant = new DateTimeOffset(DateTimeOffset.Now.Date, TimeSpan.Zero);
-            using (Mock.Property(() => Clock.UtcNowFunc, () => instant))
+            using (Mock.Property(() => ClockResolver.UtcNowFunc, () => instant))
             {
                 var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
 

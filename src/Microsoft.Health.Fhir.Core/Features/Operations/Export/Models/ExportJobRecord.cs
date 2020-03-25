@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using EnsureThat;
+using Microsoft.Health.Core;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
