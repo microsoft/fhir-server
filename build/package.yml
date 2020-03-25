@@ -95,7 +95,7 @@ steps:
 
   - task: CopyFiles@2
     inputs:
-      sourceFolder: './src/'
+      sourceFolder: '$(build.sourcesDirectory)/src/'
       contents: |
         '**/*'
         !'**/*.UnitTests/**/*'
