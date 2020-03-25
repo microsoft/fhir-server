@@ -138,46 +138,12 @@ stages:
       resourceGroup: $(DeploymentEnvironmentName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
 
-- stage: testStu3
-  displayName: 'Run Stu3 Tests'
-  dependsOn:
-  - aadTestEnvironment
-  - deployStu3
-  - deployStu3Sql
-  jobs:
-  - template: ./jobs/run-tests.yml
-    parameters:
-      version: Stu3
-      keyVaultName: $(DeploymentEnvironmentName)
-      runE2E: false
-
-- stage: testR4
-  displayName: 'Run R4 Tests'
-  dependsOn:
-  - aadTestEnvironment
-  - deployR4
-  - deployR4Sql
-  jobs:
-  - template: ./jobs/run-tests.yml
-    parameters:
-      version: R4
-      keyVaultName: $(DeploymentEnvironmentNameR4)
-      runE2E: false
-
-- stage: testR5
-  displayName: 'Run R5 Tests'
-  dependsOn:
-  - aadTestEnvironment
-  - deployR5
-  - deployR5Sql
-  jobs:
-  - template: ./jobs/run-tests.yml
-    parameters:
-      version: R5
-      keyVaultName: $(DeploymentEnvironmentNameR5)
-      runE2E: false
 
 - stage: testE2E
+  displayName: 'Run Tests'
+  dependsOn:
+  - deployStu3
+  - deployStu3Sql
   jobs:
   - job: 'e2eTests'
     pool:
@@ -263,7 +229,6 @@ stages:
 - stage: cleanup
   displayName: 'Cleanup Azure Environment'
   dependsOn:
-  - testStu3
-  - testR4
+  - testE2E
   jobs:
   - template: ./jobs/cleanup.yml
