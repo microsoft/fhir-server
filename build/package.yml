@@ -93,9 +93,17 @@ steps:
       artifactName: 'IntegrationTests'
       artifactType: 'container'
 
+  - task: CopyFiles@2
+    inputs:
+      sourceFolder: './src/'
+      contents: |
+        '**/*'
+        !'**/*.UnitTests/**/*'
+      targetFolder: '$(Build.artifactStagingDirectory)/src'
+
   - task: PublishBuildArtifacts@1
     displayName: 'publish Source'
     inputs:
-      pathToPublish: './src/'
+      pathToPublish: '$(Build.artifactStagingDirectory)/src'
       artifactName: 'src'
       artifactType: 'container'

@@ -96,31 +96,27 @@ jobs:
       Inline: |
         $secrets = Get-AzKeyVaultSecret -VaultName $(DeploymentEnvironmentName)-ts
 
-        Write-Host "From $(DeploymentEnvironmentName)-ts"
         foreach($secret in $secrets)
         {
             $environmentVariableName = $secret.Name.Replace("--","_")
-
-            Write-Host "Set secret $environmentVariableName"
 
             $secretValue = Get-AzKeyVaultSecret -VaultName $(DeploymentEnvironmentName)-ts -Name $secret.Name
             Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($secretValue.SecretValueText)"
         }
 
+        Write-Host "##vso[task.setvariable variable=Resource]$(TestEnvironmentUrl)"
+        
+        # Do not know if this is needed...
         $secrets = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info
-
-        Write-Host "From resolute-oss-tenant-info"
+ 
         foreach($secret in $secrets)
         {
             $environmentVariableName = $secret.Name.Replace("--","_")
 
-            Write-Host "Set secret $environmentVariableName"
-
             $secretValue = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info -Name $secret.Name
             Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($secretValue.SecretValueText)"
         }
-
-        Write-Host "##vso[task.setvariable variable=Resource]$(TestEnvironmentUrl)"
+        # ----------------------------------------
 
         dotnet dev-certs https
 
