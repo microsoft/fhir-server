@@ -5,11 +5,13 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Hl7.FhirPath;
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.Extensions.DependencyInjection;
@@ -49,6 +51,12 @@ namespace Microsoft.Health.Fhir.Api.Modules
         {
             EnsureArg.IsNotNull(services, nameof(services));
 
+            AddMediatrServices(services);
+            AddFhirServices(services);
+        }
+
+        private static void AddFhirServices(IServiceCollection services)
+        {
             var jsonParser = new FhirJsonParser(DefaultParserSettings.Settings);
             var jsonSerializer = new FhirJsonSerializer();
 
@@ -66,6 +74,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             {
                 resource.VersionId = versionId;
                 resource.Meta.LastUpdated = lastModified;
+
                 return resource.ToResourceElement();
             }
 
@@ -77,6 +86,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                         FhirResourceFormat.Json, (str, version, lastModified) =>
                         {
                             var resource = jsonParser.Parse<Resource>(str);
+
                             return SetMetadata(resource, version, lastModified);
                         }
                     },
@@ -84,6 +94,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                         FhirResourceFormat.Xml, (str, version, lastModified) =>
                         {
                             var resource = xmlParser.Parse<Resource>(str);
+
                             return SetMetadata(resource, version, lastModified);
                         }
                     },
@@ -102,6 +113,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton<ValidateContentTypeFilterAttribute>();
             services.AddSingleton<ValidateExportRequestFilterAttribute>();
 
+            // Support for resolve()
             FhirPathCompiler.DefaultSymbolTable.AddFhirExtensions();
 
             services.Add<FhirJsonInputFormatter>()
@@ -147,6 +159,31 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.AddLazy();
             services.AddScoped();
+        }
+
+        private static void AddMediatrServices(IServiceCollection services)
+        {
+            EnsureArg.IsNotNull(services, nameof(services));
+
+            services.AddMediatR(KnownAssemblies.Core, KnownAssemblies.CoreVersionSpecific);
+
+            Predicate<Type> isPipelineBehavior = y => y.IsGenericType && y.GetGenericTypeDefinition() == typeof(IPipelineBehavior<,>);
+
+            services.TypesInSameAssembly(KnownAssemblies.Core, KnownAssemblies.CoreVersionSpecific)
+                .Transient()
+                .AsImplementedInterfaces(isPipelineBehavior);
+
+            // Allows handlers to provide capabilities
+            var openRequestInterfaces = new[]
+            {
+                typeof(IRequestHandler<,>),
+                typeof(INotificationHandler<>),
+            };
+
+            services.TypesInSameAssembly(KnownAssemblies.Core, KnownAssemblies.CoreVersionSpecific)
+                .Where(y => y.Type.IsGenericType && openRequestInterfaces.Contains(y.Type.GetGenericTypeDefinition()))
+                .Transient()
+                .AsImplementedInterfaces(x => x == typeof(IProvideCapability));
         }
     }
 }

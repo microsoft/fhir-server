@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 string listedTypes = string.Join(",", converters.Select(x => x.result.ClassMapping.NativeType.Name));
                 _outputHelper.WriteLine($"Info: {parameterName} ({searchParamType}) found {listedTypes} types ({converters.Count}).");
 
-                foreach (var result in converters.Where(x => x.hasConverter || !parameterInfo.IsPartiallySupported))
+                foreach (var result in converters.Where(x => x.hasConverter || !parameterInfo.IsPartiallySupported.GetValueOrDefault()))
                 {
                     var found = _fixtureData.Manager.TryGetConverter(result.result.ClassMapping.NativeType, SearchIndexer.GetSearchValueTypeForSearchParamType(result.result.SearchParamType), out var converter);
 
@@ -114,7 +114,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 {
                     systemUnsupported.Unsupported.Add(searchParameter.Url);
                 }
-                else if (searchParameter.IsPartiallySupported)
+                else if (searchParameter.IsPartiallySupported.GetValueOrDefault())
                 {
                     systemUnsupported.PartialSupport.Add(searchParameter.Url);
                 }

@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.Core.Models
         /// Returns true if the search parameter resolves to more than one type (FhirString, FhirUri, etc...)
         /// but not all types are able to be indexed / searched
         /// </summary>
-        public bool IsPartiallySupported { get; set; }
+        public bool? IsPartiallySupported { get; set; }
 
         public IReadOnlyList<SearchParameterComponentInfo> Component { get; }
     }
