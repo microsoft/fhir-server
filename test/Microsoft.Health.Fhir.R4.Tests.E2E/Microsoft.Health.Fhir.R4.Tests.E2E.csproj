@@ -20,7 +20,7 @@
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="3.1.0" />
     <PackageReference Include="Microsoft.Azure.DocumentDB.Core" Version="2.6.0" />
     <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection" Version="1.0.0-master-20200318-1" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.3.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.4.0" />
     <PackageReference Include="selenium.chrome.webdriver" Version="79.0.0" />
     <PackageReference Include="selenium.webdriver" Version="3.141.0" />
     <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="4.7.0" />
