@@ -48,6 +48,7 @@ jobs:
         $additionalProperties["SqlServer__DeleteAllDataOnStartup"] = "true"
 
         $templateParameters = @{
+            fhirVersion: "${{ parameters.version }}"
             appServicePlanResourceGroup = "${{ parameters.appServicePlanResourceGroup }}"
             appServicePlanName = "${{ parameters.appServicePlanName }}"
             serviceName = "${{ parameters.webAppName }}"
