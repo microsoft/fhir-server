@@ -26,7 +26,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Context\FhirRequestContextAfterAuthenticationMiddlewareTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Context\FhirRequestContextBeforeAuthenticationMiddlewareTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Context\FhirRequestContextMiddlewareTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Cors\CorsModuleTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Exceptions\BaseExceptionMiddlewareTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\FhirRequestContextRouteDataPopulatingFilterAttributeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\FilterTestsHelper.cs" />
@@ -52,14 +51,10 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Routing\RouteTestBase.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Routing\UrlResolverTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Security\RequestHandlerCheckAccessTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Security\SecurityHeadersHelperTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="$(MSBuildThisFileDirectory)Controllers\openid-configuration.json">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </EmbeddedResource>
-  </ItemGroup>
-  <ItemGroup>
-    <Folder Include="$(MSBuildThisFileDirectory)Features\Bundle\" />
   </ItemGroup>
 </Project>
