@@ -86,7 +86,7 @@ GO
 
 --
 -- STORED PROCEDURE
---     Updates an instance schema.
+--     Update an instance schema.
 --
 -- DESCRIPTION
 --     Modifies an existing record in the InstanceSchema table.
@@ -119,6 +119,8 @@ AS
         UPDATE dbo.InstanceSchema
         SET CurrentVersion = @currentVersion, MaxVersion = @maxVersion, Timeout = @timeout
         WHERE Name = @name
+
+        SELECT @name
     END
     ELSE
     BEGIN
@@ -126,6 +128,8 @@ AS
             (Name, CurrentVersion, MaxVersion, MinVersion, Timeout)
         VALUES
             (@name, @currentVersion, @maxVersion, @minVersion, @timeout)
+
+        SELECT @name
     END
 
 GO

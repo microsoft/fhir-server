@@ -8,7 +8,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.SqlServer.Configs;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Messages.Get;
@@ -16,7 +15,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema.Messages.Get;
 namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
 {
     /// <summary>
-    /// The worker responsible for running the export job tasks.
+    /// The worker responsible for running the schema job.
     /// </summary>
     public class SchemaJobWorker
     {
@@ -24,14 +23,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
         private readonly SqlServerDataStoreConfiguration _sqlServerDataStoreConfiguration;
         private readonly ILogger _logger;
 
-        public SchemaJobWorker(Func<IScoped<ISchemaDataStore>> schemaDataStoreFactory, IOptions<SqlServerDataStoreConfiguration> sqlServerDataStoreConfiguration, ILogger<SchemaJobWorker> logger)
+        public SchemaJobWorker(Func<IScoped<ISchemaDataStore>> schemaDataStoreFactory, SqlServerDataStoreConfiguration sqlServerDataStoreConfiguration, ILogger<SchemaJobWorker> logger)
         {
             EnsureArg.IsNotNull(schemaDataStoreFactory, nameof(schemaDataStoreFactory));
-            EnsureArg.IsNotNull(sqlServerDataStoreConfiguration?.Value, nameof(sqlServerDataStoreConfiguration));
+            EnsureArg.IsNotNull(sqlServerDataStoreConfiguration, nameof(sqlServerDataStoreConfiguration));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _schemaDataStoreFactory = schemaDataStoreFactory;
-            _sqlServerDataStoreConfiguration = sqlServerDataStoreConfiguration.Value;
+            _sqlServerDataStoreConfiguration = sqlServerDataStoreConfiguration;
             _logger = logger;
         }
 

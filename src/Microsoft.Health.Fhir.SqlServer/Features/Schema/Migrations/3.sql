@@ -2078,6 +2078,7 @@ AS
         (@name, @currentVersion, @maxVersion, @minVersion, @timeout)
 
     SELECT @name
+
     END
 GO
 
@@ -2107,7 +2108,7 @@ GO
 
 --
 -- STORED PROCEDURE
---     Updates an instance schema.
+--     Update an instance schema.
 --
 -- DESCRIPTION
 --     Modifies an existing record in the InstanceSchema table.

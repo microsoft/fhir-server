@@ -29,8 +29,7 @@ namespace Microsoft.Health.Fhir.Web
             Core.Registration.IFhirServerBuilder fhirServerBuilder = services.AddFhirServer(Configuration)
                 .AddExportWorker()
                 .AddAzureExportDestinationClient()
-                .AddAzureExportClientInitializer(Configuration)
-                .AddSchemaWorker();
+                .AddAzureExportClientInitializer(Configuration);
 
             string dataStore = Configuration["DataStore"];
             if (dataStore.Equals(KnownDataStores.CosmosDb, StringComparison.InvariantCultureIgnoreCase))
@@ -39,7 +38,8 @@ namespace Microsoft.Health.Fhir.Web
             }
             else if (dataStore.Equals(KnownDataStores.SqlServer, StringComparison.InvariantCultureIgnoreCase))
             {
-                fhirServerBuilder.AddExperimentalSqlServer();
+                fhirServerBuilder.AddExperimentalSqlServer()
+                                 .AddSchemaWorker();
             }
 
             AddApplicationInsightsTelemetry(services);

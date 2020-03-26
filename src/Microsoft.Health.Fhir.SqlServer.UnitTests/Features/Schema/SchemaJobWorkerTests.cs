@@ -7,7 +7,6 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.SqlServer.Configs;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
@@ -33,7 +32,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Schema
 
             _schemaJobWorker = new SchemaJobWorker(
                 () => scopedSchemaDataStore,
-                Options.Create(_sqlServerDataStoreConfiguration),
+                _sqlServerDataStoreConfiguration,
                 NullLogger<SchemaJobWorker>.Instance);
 
             _cancellationToken = _cancellationTokenSource.Token;
