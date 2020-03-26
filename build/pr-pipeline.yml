@@ -39,7 +39,7 @@ stages:
         Inline: |
           New-AzResourceGroup -Name "$(DeploymentEnvironmentName)" -Location "$(ResourceGroupRegion)" -Force
 
- - stage: aadTestEnvironment
+- stage: aadTestEnvironment
   displayName: Setup AAD Test Environment
   dependsOn:
   - provisionEnvironment
