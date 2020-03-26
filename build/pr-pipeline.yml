@@ -157,7 +157,6 @@ stages:
     parameters:
       version: Stu3
       keyVaultName: $(DeploymentEnvironmentName)
-      runE2E: false
 
 - stage: testR4
   displayName: 'Run R4 Tests'
@@ -170,7 +169,6 @@ stages:
     parameters:
       version: R4
       keyVaultName: $(DeploymentEnvironmentNameR4)
-      runE2E: false
 
 - stage: testR5
   displayName: 'Run R5 Tests'
@@ -183,7 +181,6 @@ stages:
     parameters:
       version: R5
       keyVaultName: $(DeploymentEnvironmentNameR5)
-      runE2E: false
 
 - stage: cleanup
   displayName: 'Cleanup Azure Environment'
