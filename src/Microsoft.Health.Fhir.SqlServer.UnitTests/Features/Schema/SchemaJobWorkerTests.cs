@@ -39,16 +39,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Schema
         }
 
         [Fact]
-        public async Task GivenSchemaBackgroundJob_WhenExecutedWithCancellationToken_ThenOnlyInsertExecuted()
-        {
-            _cancellationTokenSource.CancelAfter(TimeSpan.FromMilliseconds(0));
-
-            await _schemaJobWorker.ExecuteAsync(schemaInformation, "instanceName", _cancellationToken);
-            await _schemaDataStore.Received().InsertInstanceSchemaInformation("instanceName", schemaInformation, _cancellationToken);
-            await _schemaDataStore.DidNotReceive().GetLatestCompatibleVersionAsync(_cancellationToken);
-        }
-
-        [Fact]
         public async Task GivenSchemaBackgroundJob_WhenExecuted_ThenInsertAndPollingIsExecuted()
         {
             _cancellationTokenSource.CancelAfter(TimeSpan.FromMilliseconds(100));
