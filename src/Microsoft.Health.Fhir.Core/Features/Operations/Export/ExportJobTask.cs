@@ -86,10 +86,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 // Current batch will be used to organize a set of search results into a group so that they can be committed together.
                 uint currentBatchId = progress.Page;
 
-                // The first item is placeholder for continuation token so that it can be updated efficiently later.
-                List<Tuple<string, string>> queryParametersList = new List<Tuple<string, string>>();
-                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Count, _exportJobConfiguration.MaximumNumberOfResourcesPerQuery.ToString(CultureInfo.InvariantCulture)));
-                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.LastUpdated, $"le{_exportJobRecord.QueuedTime.ToString("o", CultureInfo.InvariantCulture)}"));
+                // The intial list of query parameters will not have a continutation token. We will add that later if we get one back
+                // from the search result.
+                var queryParametersList = new List<Tuple<string, string>>()
+                {
+                    Tuple.Create(KnownQueryParameterNames.Count, _exportJobConfiguration.MaximumNumberOfResourcesPerQuery.ToString(CultureInfo.InvariantCulture)),
+                    Tuple.Create(KnownQueryParameterNames.LastUpdated, $"le{_exportJobRecord.QueuedTime.ToString("o", CultureInfo.InvariantCulture)}"),
+                };
 
                 if (_exportJobRecord.Since != null)
                 {
@@ -121,6 +124,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     }
 
                     // Update the continuation token in local cache and queryParams.
+                    // We will add or udpate the continuation token to the end of the query parameters list.
                     progress.UpdateContinuationToken(searchResult.ContinuationToken);
                     if (queryParametersList[queryParametersList.Count - 1].Item1 == KnownQueryParameterNames.ContinuationToken)
                     {
