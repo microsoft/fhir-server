@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 {
                     throw new Core.Exceptions.RequestEntityTooLargeException();
                 }
-                else if (dce.StatusCode == HttpStatusCode.Forbidden)
+                else if (dce.StatusCode == HttpStatusCode.Forbidden && dce.Message.Contains("Request is blocked due to Customer Managed Key not being accessible", StringComparison.OrdinalIgnoreCase))
                 {
                     throw new Core.Exceptions.CustomerManagedKeyInaccessibleException();
                 }

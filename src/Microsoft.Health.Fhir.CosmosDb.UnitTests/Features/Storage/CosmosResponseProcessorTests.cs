@@ -156,6 +156,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         }
 
         [Fact]
+        public async Task GivenADocumentClientExceptionWithCustomerManagedKeyInaccessible_WhenProcessing_ThenExceptionShouldThrow()
+        {
+            DocumentClientException documentClientException = CreateDocumentClientException("12.4", "Request is blocked due to Customer Managed Key not being accessible", HttpStatusCode.Forbidden);
+
+            await Assert.ThrowsAsync<CustomerManagedKeyInaccessibleException>(async () => await _cosmosResponseProcessor.ProcessException(documentClientException));
+
+            ValidateExecution(expectedSessionToken: null, 12.4, false);
+        }
+
+        [Fact]
         public async Task GivenANullFhirRequestContext_WhenProcessing_ThenNothingAdditionalShouldOccur()
         {
             _fhirRequestContextAccessor.FhirRequestContext.Returns((IFhirRequestContext)null);
