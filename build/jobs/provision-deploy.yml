@@ -48,7 +48,7 @@ jobs:
         $additionalProperties["SqlServer__DeleteAllDataOnStartup"] = "true"
 
         $templateParameters = @{
-            fhirVersion: "${{ parameters.version }}"
+            fhirVersion = "${{ parameters.version }}"
             appServicePlanResourceGroup = "${{ parameters.appServicePlanResourceGroup }}"
             appServicePlanName = "${{ parameters.appServicePlanName }}"
             serviceName = "${{ parameters.webAppName }}"
@@ -80,7 +80,7 @@ jobs:
       downloadPath: '$(System.ArtifactsDirectory)'
       artifactName: 'deploy'
 
-  - task: AzureRmWebAppDeployment@3
+  - task: AzureRmWebAppDeployment@4
     displayName: 'Azure App Service Deploy'
     inputs:
       azureSubscription: '${{ parameters.subscription }}'
