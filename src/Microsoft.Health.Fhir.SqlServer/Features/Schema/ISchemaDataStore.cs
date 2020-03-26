@@ -6,6 +6,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Messages.Get;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
 {
@@ -24,5 +25,30 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
         /// /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>The current schema versions information</returns>
         Task<GetCurrentVersionResponse> GetCurrentVersionAsync(CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Delete expired instance schema information.
+        /// </summary>
+        /// <returns>A task</returns>
+        Task DeleteExpiredRecordsAsync();
+
+        /// <summary>
+        /// Upsert current version information.
+        /// </summary>
+        /// /// <param name="name">The instance name.</param>
+        /// /// <param name="versions">The compatible versions.</param>
+        /// /// <param name="currentVersion">The current version.</param>
+        /// /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>The instance name</returns>
+        Task<string> UpsertInstanceSchemaInformation(string name, CompatibleVersions versions, int currentVersion, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Upsert current version information.
+        /// </summary>
+        /// /// <param name="name">The instance name.</param>
+        /// /// <param name="schemaInformation">The schemainformation.</param>
+        /// /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>The instance name</returns>
+        Task<string> InsertInstanceSchemaInformation(string name, SchemaInformation schemaInformation, CancellationToken cancellationToken);
     }
 }

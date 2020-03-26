@@ -59,6 +59,84 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
+        public async Task<string> InsertInstanceSchemaInformation(string name, SchemaInformation schemaInformation, CancellationToken cancellationToken)
+        {
+            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper())
+            using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
+            {
+                VLatest.CreateInstanceSchema.PopulateCommand(
+                     sqlCommand,
+                     name,
+                     schemaInformation.Current.GetValueOrDefault(),
+                     schemaInformation.MaximumSupportedVersion,
+                     schemaInformation.MinimumSupportedVersion);
+                try
+                {
+                    var output = (string)await sqlCommand.ExecuteScalarAsync();
+
+                    if (output.NullIfEmpty() == null)
+                    {
+                        throw new OperationFailedException(Resources.OperationFailed);
+                    }
+
+                    return output;
+                }
+                catch (SqlException e)
+                {
+                    _logger.LogError(e, "Error from SQL database on Upsert");
+                    throw;
+                }
+            }
+        }
+
+        public async Task<string> UpsertInstanceSchemaInformation(string name, CompatibleVersions versions, int currentVersion, CancellationToken cancellationToken)
+        {
+            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper())
+            using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
+            {
+                VLatest.UpsertInstanceSchema.PopulateCommand(
+                     sqlCommand,
+                     name,
+                     currentVersion,
+                     versions.Max,
+                     versions.Min);
+                try
+                {
+                    var output = (string)await sqlCommand.ExecuteScalarAsync();
+
+                    if (output.NullIfEmpty() == null)
+                    {
+                        throw new OperationFailedException(Resources.OperationFailed);
+                    }
+
+                    return output;
+                }
+                catch (SqlException e)
+                {
+                    _logger.LogError(e, "Error from SQL database on Upsert");
+                    throw;
+                }
+            }
+        }
+
+        public async Task DeleteExpiredRecordsAsync()
+        {
+            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper())
+            using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
+            {
+                VLatest.DeleteInstanceSchema.PopulateCommand(sqlCommand);
+                try
+                {
+                    await sqlCommand.ExecuteNonQueryAsync();
+                }
+                catch (SqlException e)
+                {
+                    _logger.LogError(e, "Error from SQL database on Delete");
+                    throw;
+                }
+            }
+        }
+
         public async Task<GetCurrentVersionResponse> GetCurrentVersionAsync(CancellationToken cancellationToken)
         {
             var currentVersions = new List<CurrentVersionInformation>();

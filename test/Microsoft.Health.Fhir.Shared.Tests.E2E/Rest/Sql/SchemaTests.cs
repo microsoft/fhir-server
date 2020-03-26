@@ -59,11 +59,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Sql
         [Fact]
         public async Task WhenRequestingSchema_GivenGetMethodAndCompatibilityPathAndInstanceSchemaTableIsEmpty_TheServerShouldReturnsNotFound()
         {
-            // Since Instance Schema information table is empty,
-            HttpResponseMessage response = await SendAndVerifyStatusCode(HttpMethod.Get, "_schema/compatibility", HttpStatusCode.NotFound);
+            var request = new HttpRequestMessage
+            {
+                Method = HttpMethod.Get,
+                RequestUri = new Uri(_client.BaseAddress, "_schema/compatibility"),
+            };
 
-            string responseBodyAsText = await response.Content.ReadAsStringAsync();
-            Assert.Contains("The compatibility information is not found.", responseBodyAsText);
+            HttpResponseMessage response = await _client.SendAsync(request);
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+            string responseBodyAsString = await response.Content.ReadAsStringAsync();
+
+            CompatibleVersions jsonList = JsonConvert.DeserializeObject<CompatibleVersions>(responseBodyAsString);
+            Assert.NotNull(jsonList);
         }
 
         [Fact]
@@ -74,7 +83,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Sql
             string responseBodyAsString = await response.Content.ReadAsStringAsync();
             var jsonList = JsonConvert.DeserializeObject<IList<CurrentVersionInformation>>(responseBodyAsString);
             Assert.Equal(3, jsonList[0].Id);
-            Assert.Equal(0, jsonList[0].Servers.Count);
+            Assert.Equal(1, jsonList[0].Servers.Count);
             Assert.Equal("complete", jsonList[0].Status);
         }
 

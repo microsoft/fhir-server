@@ -13,6 +13,7 @@ using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.SqlServer;
 using Microsoft.Health.Fhir.SqlServer.Api.Controllers;
 using Microsoft.Health.Fhir.SqlServer.Api.Features;
+using Microsoft.Health.Fhir.SqlServer.Api.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Configs;
 using Microsoft.Health.Fhir.SqlServer.Features.Health;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
@@ -47,13 +48,13 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf();
 
-            services.Add<SchemaInformation>()
+            services.Add<SchemaJobWorker>()
                 .Singleton()
                 .AsSelf();
 
-            services.Add<InstanceSchemaDataStore>()
-               .Singleton()
-               .AsSelf();
+            services.Add<SchemaInformation>()
+                .Singleton()
+                .AsSelf();
 
             services.Add<SchemaInitializer>()
                 .Singleton()
@@ -124,6 +125,21 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add<StringOverflowRewriter>()
                 .Singleton()
                 .AsSelf();
+
+            return fhirServerBuilder;
+        }
+
+        /// <summary>
+        /// Adds the Schema worker background service.
+        /// </summary>
+        /// <param name="fhirServerBuilder">The FHIR server builder.</param>
+        /// <returns>The builder.</returns>
+        public static IFhirServerBuilder AddSchemaWorker(
+            this IFhirServerBuilder fhirServerBuilder)
+        {
+            EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
+
+            fhirServerBuilder.Services.AddHostedService<SchemaJobWorkerBackgroundService>();
 
             return fhirServerBuilder;
         }

@@ -29,7 +29,8 @@ namespace Microsoft.Health.Fhir.Web
             Core.Registration.IFhirServerBuilder fhirServerBuilder = services.AddFhirServer(Configuration)
                 .AddExportWorker()
                 .AddAzureExportDestinationClient()
-                .AddAzureExportClientInitializer(Configuration);
+                .AddAzureExportClientInitializer(Configuration)
+                .AddSchemaWorker();
 
             string dataStore = Configuration["DataStore"];
             if (dataStore.Equals(KnownDataStores.CosmosDb, StringComparison.InvariantCultureIgnoreCase))

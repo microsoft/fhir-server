@@ -11,26 +11,28 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Schema
 {
-    [CollectionDefinition("InstanceSchemaDataStoreTests", DisableParallelization = true)]
+    [CollectionDefinition("SqlServerSchemaDataStoreTests", DisableParallelization = true)]
     [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
-    public class InstanceSchemaDataStoreTests : IClassFixture<SqlServerFhirStorageTestsFixture>, IAsyncLifetime
+    public class SqlServerSchemaDataStoreTests : IClassFixture<SqlServerFhirStorageTestsFixture>, IAsyncLifetime
     {
         private readonly string _connectionString;
         private readonly string _name;
-        private readonly InstanceSchemaDataStore _instanceSchemaDataStore;
+        private readonly SqlServerSchemaDataStore _sqlServerSchemaDataStore;
+        private readonly CancellationToken _cancellationToken = default;
         private readonly SchemaInformation _schemaInformation = new SchemaInformation();
 
-        public InstanceSchemaDataStoreTests(SqlServerFhirStorageTestsFixture fixture)
+        public SqlServerSchemaDataStoreTests(SqlServerFhirStorageTestsFixture fixture)
         {
             _connectionString = fixture.TestConnectionString;
             _name = Guid.NewGuid() + "-" + Process.GetCurrentProcess().Id.ToString();
-            _instanceSchemaDataStore = new InstanceSchemaDataStore(fixture.SqlServerDataStoreConfiguration, NullLogger<InstanceSchemaDataStore>.Instance);
+            _sqlServerSchemaDataStore = new SqlServerSchemaDataStore(fixture.SqlConnectionWrapperFactory, NullLogger<SqlServerSchemaDataStore>.Instance);
         }
 
         public Task InitializeAsync()
@@ -49,16 +51,16 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Sch
         }
 
         [Fact]
-        public void GivenThereIsNoRecord_WhenCreatingAnInstanceSchemaRecord_ThenNewRecordCreated()
+        public async Task GivenThereIsNoRecord_WhenCreatingAnInstanceSchemaRecord_ThenNewRecordCreated()
         {
-            string name = _instanceSchemaDataStore.InsertInstanceSchemaInformation(_schemaInformation);
+            string name = await _sqlServerSchemaDataStore.InsertInstanceSchemaInformation(_name, _schemaInformation, _cancellationToken);
             Assert.NotNull(name);
         }
 
         [Fact]
         public async Task GivenThereIsARecord_WhenUpsertingAnInstanceSchemaRecord_ThenRecordUpserted()
         {
-            string name = await _instanceSchemaDataStore.UpsertInstanceSchemaInformation(new CompatibleVersions(1, 3), 2);
+            string name = await _sqlServerSchemaDataStore.UpsertInstanceSchemaInformation(_name, new CompatibleVersions(1, 3), 2, _cancellationToken);
             Assert.NotNull(name);
         }
 

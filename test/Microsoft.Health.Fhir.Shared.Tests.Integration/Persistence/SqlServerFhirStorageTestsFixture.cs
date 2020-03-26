@@ -49,11 +49,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var sqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(SqlServerDataStoreConfiguration, new SqlTransactionHandler());
 
             var schemaUpgradeRunner = new SchemaUpgradeRunner(SqlServerDataStoreConfiguration, NullLogger<SchemaUpgradeRunner>.Instance);
-            var instanceSchemaHelper = new InstanceSchemaDataStore(SqlServerDataStoreConfiguration, NullLogger<InstanceSchemaDataStore>.Instance);
 
             var schemaInformation = new SchemaInformation();
 
-            _schemaInitializer = new SchemaInitializer(SqlServerDataStoreConfiguration, schemaUpgradeRunner, schemaInformation, instanceSchemaHelper, NullLogger<SchemaInitializer>.Instance);
+            _schemaInitializer = new SchemaInitializer(SqlServerDataStoreConfiguration, schemaUpgradeRunner, schemaInformation, NullLogger<SchemaInitializer>.Instance);
 
             var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
             searchParameterDefinitionManager.AllSearchParameters.Returns(new[]
@@ -92,6 +91,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         internal SqlConnectionWrapperFactory SqlConnectionWrapperFactory { get; }
 
         public SqlServerDataStoreConfiguration SqlServerDataStoreConfiguration { get; }
+
+        public SqlServerDataStoreConfiguration SchemaJobConfiguration { get; }
 
         public async Task InitializeAsync()
         {
