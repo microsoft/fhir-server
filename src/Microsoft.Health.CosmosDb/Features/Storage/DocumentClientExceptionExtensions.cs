@@ -16,7 +16,7 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
         /// throw new Error(404, "Document not found");
         /// the status code of the exception will be 400 bad request, but there will be a substatus header
         /// with the error code specified in the Error object (404 in this example).
-        /// This methods returns the substatus code if it is present.
+        /// This method returns the substatus code if it is present.
         /// </summary>
         /// <param name="exception">The exception object</param>
         /// <returns>The status code or null if not present (or not an integer)</returns>
@@ -30,7 +30,7 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
         /// throw new Error(404, "Document not found");
         /// the status code of the exception will be 400 bad request, but there will be a substatus header
         /// with the error code specified in the Error object (404 in this example).
-        /// This methods returns the value of substatus header if it is present.
+        /// This method returns the value of substatus header if it is present.
         /// </summary>
         /// <param name="exception">The exception object</param>
         /// <returns>The status code value or null if not present (or not an integer)</returns>

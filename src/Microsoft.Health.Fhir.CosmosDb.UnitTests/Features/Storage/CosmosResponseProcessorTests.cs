@@ -174,7 +174,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
 
             await _cosmosResponseProcessor.ProcessException(documentClientException);
 
-            _ = _fhirRequestContextAccessor.Received(1).FhirRequestContext;
+            ValidateExecution(expectedSessionToken: null, 12.4, false);
         }
 
         [Fact]
