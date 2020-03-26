@@ -38,6 +38,8 @@ jobs:
       ScriptType: InlineScript
       Inline: |
         Install-Module AzureAD -Force
+        
+        $username = "$(tenant-admin-user-name)"
         $clientId = "$(tenant-admin-service-principal-name)"
         $clientSecret = "$(tenant-admin-service-principal-password)"
         $tenantId = "$(tenant-id)"
