@@ -94,15 +94,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         /// <returns>The full path to the target project.</returns>
         private static string GetProjectPath(string projectRelativePath, Type startupType)
         {
-            string errorMessage = $"Relative Path: {projectRelativePath}\r\n";
-
             for (Type type = startupType; type != null; type = type.BaseType)
             {
-                errorMessage += $"Working on type: {type.FullName}\r\n";
-
                 // Get name of the target project which we want to test
                 var projectName = type.GetTypeInfo().Assembly.GetName().Name;
-                errorMessage += $"\tProject Name: {projectName}\r\n";
 
                 // Get currently executing test project path
                 var applicationBasePath = System.AppContext.BaseDirectory;
@@ -110,21 +105,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 // Find the path to the target project
                 var directoryInfo = new DirectoryInfo(applicationBasePath);
 
-                errorMessage += "\tDirectory Path:\r\n";
                 do
                 {
-                    errorMessage += $"\t\tDirectory: {directoryInfo.FullName}\r\n";
-                    foreach (DirectoryInfo info in directoryInfo.EnumerateDirectories())
-                    {
-                        errorMessage += $"\t\t\t{info.FullName}\r\n";
-                    }
-
                     directoryInfo = directoryInfo.Parent;
 
                     var projectDirectoryInfo = new DirectoryInfo(Path.Combine(directoryInfo.FullName, projectRelativePath));
                     if (projectDirectoryInfo.Exists)
                     {
-                        errorMessage += $"\t\t\tFound Project Directory Info\r\n";
                         var projectFileInfo = new FileInfo(Path.Combine(projectDirectoryInfo.FullName, projectName, $"{projectName}.csproj"));
                         if (projectFileInfo.Exists)
                         {
@@ -135,7 +122,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 while (directoryInfo.Parent != null);
             }
 
-            throw new InvalidOperationException($"Project root could not be located for startup type {startupType.FullName}:\r\n{errorMessage}");
+            throw new InvalidOperationException($"Project root could not be located for startup type {startupType.FullName}");
         }
     }
 }
