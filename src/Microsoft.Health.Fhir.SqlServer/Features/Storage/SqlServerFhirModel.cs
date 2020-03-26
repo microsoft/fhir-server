@@ -127,12 +127,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         protected override async Task Initialize()
         {
-            if (!SchemaInformation.Current.HasValue)
-            {
-                _logger.LogError($"The current version of the database is not available. Unable in initialize {nameof(SqlServerFhirModel)}.");
-                throw new ServiceUnavailableException();
-            }
-
             var connectionStringBuilder = new SqlConnectionStringBuilder(SqlServerDataStoreConfiguration.ConnectionString);
 
             _logger.LogInformation("Initializing {Server} {Database}", connectionStringBuilder.DataSource, connectionStringBuilder.InitialCatalog);

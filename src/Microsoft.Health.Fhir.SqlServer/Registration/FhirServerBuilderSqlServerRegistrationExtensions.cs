@@ -22,7 +22,7 @@ namespace Microsoft.Extensions.DependencyInjection
 {
     public static class FhirServerBuilderSqlServerRegistrationExtensions
     {
-        public static IFhirServerBuilder AddExperimentalSqlServer(this IFhirServerBuilder fhirServerBuilder, Action<SqlServerDataStoreConfiguration> configureAction = null)
+        public static IFhirServerBuilder AddSqlServer(this IFhirServerBuilder fhirServerBuilder, Action<SqlServerDataStoreConfiguration> configureAction = null)
         {
             EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
             IServiceCollection services = fhirServerBuilder.Services;
