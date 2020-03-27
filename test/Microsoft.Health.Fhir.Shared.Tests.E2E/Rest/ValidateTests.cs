@@ -55,9 +55,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Theory]
         [InlineData(
             "Patient/$validate",
-            "{\"resourceType\":\"Patient\",\"name\":\"test, one\"}",
-            "Type checking the data: Since type HumanName is not a primitive, it cannot have a value (at Resource.name[0])")]
-        public async void GivenAValidateRequest_WhenTheResourceIsInvalid_ThenADetailedErrorIsReturned(string path, string payload, string expectedIssue)
+            "{\"resourceType\":\"Patient\",\"name\":\"test, one\"}")]
+        public async void GivenAValidateRequest_WhenTheResourceIsInvalid_ThenADetailedErrorIsReturned(string path, string payload)
         {
             OperationOutcome outcome = await _client.ValidateAsync(path, payload);
 
@@ -66,7 +65,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     outcome.Issue[0],
                     OperationOutcome.IssueSeverity.Error,
                     OperationOutcome.IssueType.Invalid,
-                    expectedIssue);
+                    Api.Resources.ParsingError);
         }
 
         [Theory]
