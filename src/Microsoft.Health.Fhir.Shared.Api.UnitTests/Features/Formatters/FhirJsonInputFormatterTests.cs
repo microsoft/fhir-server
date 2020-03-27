@@ -6,6 +6,7 @@
 using System;
 using System.Buffers;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
@@ -94,6 +95,22 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
 
             Assert.False(result.IsModelSet);
             Assert.Equal(1, modelStateDictionary.ErrorCount);
+        }
+
+        [Fact]
+        public async Task GivenAResourceWithMissingResourceType_WhenParsing_ThenAnErrorShouldBeAddedToModelState()
+        {
+            var modelStateDictionary = new ModelStateDictionary();
+
+            var result = await ReadRequestBody(Samples.GetJson("PatientMissingResourceType"), modelStateDictionary);
+
+            Assert.False(result.IsModelSet);
+            Assert.Equal(1, modelStateDictionary.ErrorCount);
+
+            (_, ModelStateEntry entry) = modelStateDictionary.First();
+
+            Assert.Single(entry.Errors);
+            Assert.Equal(Api.Resources.ParsingError, entry.Errors.First().ErrorMessage);
         }
 
         private static async Task<InputFormatterResult> ReadRequestBody(string sampleJson, ModelStateDictionary modelStateDictionary)

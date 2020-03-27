@@ -88,6 +88,7 @@
     <None Remove="TestFiles\Normative\Patient-f001.json" />
     <None Remove="TestFiles\Normative\Patient.json" />
     <None Remove="TestFiles\Normative\Patient.xml" />
+    <None Remove="TestFiles\Normative\PatientMissingResourceType.json" />
     <None Remove="TestFiles\Normative\PatientWithMinimalData.json" />
     <None Remove="TestFiles\Normative\Weight.json" />
     <None Remove="TestFiles\Normative\WeightInGrams.json" />
@@ -195,6 +196,7 @@
     <EmbeddedResource Include="TestFiles\Normative\ObservationWithTPMTDiplotype.json" />
     <EmbeddedResource Include="TestFiles\Normative\ObservationWithTPMTHaplotypeOne.json" />
     <EmbeddedResource Include="TestFiles\Normative\Patient-f001.json" />
+    <EmbeddedResource Include="TestFiles\Normative\PatientMissingResourceType.json" />
     <EmbeddedResource Include="TestFiles\Normative\PatientWithMinimalData.json" />
     <EmbeddedResource Include="TestFiles\Normative\Patient.json" />
     <EmbeddedResource Include="TestFiles\Normative\Patient.xml" />
