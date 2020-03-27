@@ -127,3 +127,6 @@ jobs:
       testAssemblyVer2: |
         **\*${{ parameters.version }}.Tests.E2E*.dll
       searchFolder: '$(System.ArtifactsDirectory)'
+      rerunFailedTests: true
+      rerunMaxAttempts: 3
+      runInParallel: true
