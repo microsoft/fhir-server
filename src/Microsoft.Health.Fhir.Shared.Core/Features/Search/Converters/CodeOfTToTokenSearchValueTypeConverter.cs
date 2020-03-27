@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
 
             var systemAndCode = value as ISystemAndCode;
 
-            if (systemAndCode == null || systemAndCode.Code == null)
+            if (systemAndCode == null || string.IsNullOrEmpty(systemAndCode.Code)
             {
                 yield return null;
             }
