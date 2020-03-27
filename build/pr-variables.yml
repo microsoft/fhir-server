@@ -19,4 +19,5 @@ variables:
     TestEnvironmentUrl_R5_Sql: 'https://$(DeploymentEnvironmentName)-r5-sql.azurewebsites.net'
     TestClientUrl: 'https://$(DeploymentEnvironmentName)-client/'
     TestEnvironmentName: 'OSS PR$(prNumber)'
+    WindowsVmImage: 'windows-latest'
     ImageTag: 'pr$(prNumber)'
