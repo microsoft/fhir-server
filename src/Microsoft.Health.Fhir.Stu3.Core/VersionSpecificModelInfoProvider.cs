@@ -12,6 +12,6 @@ namespace Microsoft.Health.Fhir.Core
     /// </summary>
     public partial class VersionSpecificModelInfoProvider
     {
-        public FhirSpecification Version => FhirSpecification.R4;
+        public FhirSpecification Version => FhirSpecification.Stu3;
     }
 }
