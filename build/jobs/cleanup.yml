@@ -2,7 +2,7 @@ jobs:
 - job: DeleteResourceGroup
   displayName: 'Delete resource group'
   pool:
-    vmImage: 'vs2017-win2016'
+    vmImage: $(WindowsVmImage)
   steps:
   - task: AzurePowerShell@4
     displayName: 'Delete resource group'
@@ -15,7 +15,7 @@ jobs:
 - job: cleanupAad
   displayName: 'Cleanup Azure Active Directory'
   pool:
-    vmImage: 'vs2017-win2016' 
+    vmImage: $(WindowsVmImage)
   steps:
   - task: DownloadBuildArtifacts@0
     inputs:
@@ -27,13 +27,13 @@ jobs:
   - task: AzureKeyVault@1
     displayName: 'Azure Key Vault: resolute-oss-tenant-info'
     inputs:
-      azureSubscription: 'Microsoft Health Open Source Subscription'
+      azureSubscription: $(ConnectedServiceName)
       KeyVaultName: 'resolute-oss-tenant-info'
 
   - task: AzurePowerShell@4
     displayName: 'Delete AAD apps'
     inputs:
-      azureSubscription: 'Microsoft Health Open Source Subscription'
+      azureSubscription: $(ConnectedServiceName)
       azurePowerShellVersion: latestVersion
       ScriptType: InlineScript
       Inline: |

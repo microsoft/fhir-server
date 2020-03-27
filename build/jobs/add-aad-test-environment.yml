@@ -1,18 +1,18 @@
 jobs:  
 - job: setup
   pool:
-    vmImage: 'vs2017-win2016'
+    vmImage: $(WindowsVmImage)
   steps:
   - task: AzureKeyVault@1
     displayName: 'Azure Key Vault: resolute-oss-tenant-info'
     inputs:
-      azureSubscription: 'Microsoft Health Open Source Subscription'
+      azureSubscription: $(ConnectedServiceName)
       KeyVaultName: 'resolute-oss-tenant-info'
 
   - task: AzurePowerShell@4
     displayName: Setup Test Environment
     inputs:
-      azureSubscription: 'Microsoft Health Open Source Subscription'
+      azureSubscription: $(ConnectedServiceName)
       azurePowerShellVersion: latestVersion
       ScriptType: inlineScript
       Inline: |

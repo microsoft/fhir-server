@@ -14,7 +14,7 @@ jobs:
 - job: "integrationTests"
   condition: eq('${{ parameters.runIntegration }}', true)
   pool:
-    vmImage: 'vs2017-win2016'
+    vmImage: $(WindowsVmImage)
   steps:
   - task: DownloadBuildArtifacts@0
     inputs:
@@ -25,7 +25,7 @@ jobs:
 
   - task: UseDotNet@2
     inputs:
-      version: '3.1.100' 
+      useGlobalJson: true
 
   - task: AzureKeyVault@1
     displayName: 'Azure Key Vault: ${{ parameters.keyVaultName }}'
@@ -36,7 +36,7 @@ jobs:
   - task: AzureKeyVault@1
     displayName: 'Azure Key Vault: ${{ parameters.keyVaultName }}-sql'
     inputs:
-      azureSubscription: 'Microsoft Health Open Source Subscription'
+      azureSubscription: $(ConnectedServiceName)
       KeyVaultName: '${{ parameters.keyVaultName }}-sql'
 
   - task: VSTest@2
@@ -55,7 +55,7 @@ jobs:
   condition: eq('${{ parameters.runE2E }}', true)
   dependsOn: []
   pool:
-    vmImage: 'vs2017-win2016'
+    vmImage: $(WindowsVmImage)
   steps:
   - task: DownloadBuildArtifacts@0
     inputs:
@@ -73,24 +73,24 @@ jobs:
 
   - task: UseDotNet@2
     inputs:
-      version: '3.1.100' 
+      useGlobalJson: true
         
   - task: AzureKeyVault@1
     displayName: 'Azure Key Vault: resolute-oss-tenant-info'
     inputs:
-      azureSubscription: 'Microsoft Health Open Source Subscription'
+      azureSubscription: $(ConnectedServiceName)
       KeyVaultName: 'resolute-oss-tenant-info'
 
   - task: AzureKeyVault@1
     displayName: 'Azure Key Vault: $(DeploymentEnvironmentName)-ts'
     inputs:
-      azureSubscription: 'Microsoft Health Open Source Subscription'
+      azureSubscription: $(ConnectedServiceName)
       KeyVaultName: '$(DeploymentEnvironmentName)-ts'
     
   - task: AzurePowerShell@4
     displayName: 'Set Variables'
     inputs:
-      azureSubscription: 'Microsoft Health Open Source Subscription'
+      azureSubscription: $(ConnectedServiceName)
       azurePowerShellVersion: latestVersion
       ScriptType: inlineScript
       Inline: |

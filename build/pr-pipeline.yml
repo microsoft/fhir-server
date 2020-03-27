@@ -12,7 +12,7 @@ stages:
   jobs:
   - job: Windows
     pool:
-      vmImage: 'windows-2019'
+      vmImage: $(WindowsVmImage)
     steps:
     - template: build.yml
 
