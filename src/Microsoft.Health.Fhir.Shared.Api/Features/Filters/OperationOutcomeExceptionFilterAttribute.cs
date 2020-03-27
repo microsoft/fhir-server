@@ -159,7 +159,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
                         break;
                     case ServiceUnavailableException serviceUnavailableException:
-                        healthExceptionResult = healthExceptionResult = CreateOperationOutcomeResult(serviceUnavailableException.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Processing, HttpStatusCode.ServiceUnavailable);
+                        healthExceptionResult = CreateOperationOutcomeResult(serviceUnavailableException.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Processing, HttpStatusCode.ServiceUnavailable);
                         break;
                     default:
                         healthExceptionResult = new OperationOutcomeResult(
