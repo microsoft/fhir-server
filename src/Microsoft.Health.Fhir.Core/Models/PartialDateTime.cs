@@ -9,6 +9,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 using EnsureThat;
+using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Models
 {
@@ -70,6 +71,11 @@ namespace Microsoft.Health.Fhir.Core.Models
             UtcOffset = utcOffset;
         }
 
+        [JsonConstructor]
+        protected PartialDateTime()
+        {
+        }
+
         /// <summary>
         /// Initializes a new instance of the <see cref="PartialDateTime"/> class.
         /// </summary>
@@ -99,42 +105,50 @@ namespace Microsoft.Health.Fhir.Core.Models
         /// <summary>
         /// The year component.
         /// </summary>
-        public int Year { get; }
+        [JsonProperty("year")]
+        public int Year { get; private set; }
 
         /// <summary>
         /// The optional month component.
         /// </summary>
-        public int? Month { get; }
+        [JsonProperty("month")]
+        public int? Month { get; private set; }
 
         /// <summary>
         /// The optional day component.
         /// </summary>
-        public int? Day { get; }
+        [JsonProperty("day")]
+        public int? Day { get; private set; }
 
         /// <summary>
         /// The optional hour component.
         /// </summary>
-        public int? Hour { get; }
+        [JsonProperty("hour")]
+        public int? Hour { get; private set; }
 
         /// <summary>
         /// The optional minute component.
         /// </summary>
-        public int? Minute { get; }
+        [JsonProperty("minute")]
+        public int? Minute { get; private set; }
 
         /// <summary>
         /// The optional second component.
         /// </summary>
-        public int? Second { get; }
+        [JsonProperty("second")]
+        public int? Second { get; private set; }
 
         /// <summary>
         /// The optional fraction component representing the fraction of second up to 7 digits.
         /// </summary>
-        public decimal? Fraction { get; }
+        [JsonProperty("fraction")]
+        public decimal? Fraction { get; private set; }
 
         /// <summary>
         /// The optional UTC offset.
         /// </summary>
-        public TimeSpan? UtcOffset { get; }
+        [JsonProperty("utcOffset")]
+        public TimeSpan? UtcOffset { get; private set; }
 
         /// <summary>
         /// Parses the string value to an instance of <see cref="PartialDateTime"/>.
