@@ -4,7 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
-using Microsoft.Health.Fhir.SqlServer.Configs;
+using Microsoft.Health.SqlServer.Configs;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {

@@ -21,8 +21,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible.Client
     {
         private readonly HttpClient _client;
         private string _serverBase;
-        private const int TimoutInMinutes = 20;
-        private const int PollingDelayMs = 1000;
+        private const int TimoutInMinutes = 30;
+        private const int PollingDelayMs = 30000;
         private static SemaphoreSlim _semaphore = new SemaphoreSlim(1, 1);
 
         public CrucibleClient()
