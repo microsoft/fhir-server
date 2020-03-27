@@ -17,6 +17,8 @@ parameters:
   type: string
 - name: testEnvironmentUrl
   type: string
+- name: imageTag
+  type: string
 
 jobs:
 - job: provisionEnvironment
@@ -84,7 +86,8 @@ jobs:
     displayName: 'Azure App Service Deploy'
     inputs:
       azureSubscription: '${{ parameters.subscription }}'
-      appType: 'app'
+      appType: 'webAppContainer'
       WebAppName: '${{ parameters.webAppName }}'
-      Package: '$(Build.ArtifactStagingDirectory)/deploy/*${{ parameters.version }}*.zip'
-      TakeAppOfflineFlag: true
+      DockerNamespace: $(azureContainerRegistry)
+      DockerRepository: '${{ parameters.version }}_fhir-server'
+      DockerImageTag: ${{ parameters.imageTag }}

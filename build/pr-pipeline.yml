@@ -26,7 +26,7 @@ stages:
 
   - template: docker-build-all.yml
     parameters: 
-      tag: pr$(system.pullRequest.pullRequestNumber)
+      tag: $(ImageTag)
 
 - stage: provisionEnvironment
   displayName: Provision Environment
@@ -66,6 +66,7 @@ stages:
       subscription: $(ConnectedServiceName)
       resourceGroup: $(DeploymentEnvironmentName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
+      imageTag: $(ImageTag)
 
 - stage: deployStu3Sql
   displayName: 'Deploy STU3 SQL Site'
@@ -83,6 +84,7 @@ stages:
       subscription: $(ConnectedServiceName)
       resourceGroup: $(DeploymentEnvironmentName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
+      imageTag: $(ImageTag)
 
 - stage: deployR4
   displayName: 'Deploy R4 Site'
@@ -99,6 +101,7 @@ stages:
       subscription: $(ConnectedServiceName)
       resourceGroup: $(DeploymentEnvironmentName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
+      imageTag: $(ImageTag)
 
 - stage: deployR4Sql
   displayName: 'Deploy R4 SQL Site'
@@ -116,6 +119,7 @@ stages:
       subscription: $(ConnectedServiceName)
       resourceGroup: $(DeploymentEnvironmentName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
+      imageTag: $(ImageTag)
 
 - stage: deployR5
   displayName: 'Deploy R5 Site'
@@ -132,6 +136,7 @@ stages:
       subscription: $(ConnectedServiceName)
       resourceGroup: $(DeploymentEnvironmentName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
+      imageTag: $(ImageTag)
 
 - stage: deployR5Sql
   displayName: 'Deploy R5 SQL Site'
@@ -149,6 +154,7 @@ stages:
       subscription: $(ConnectedServiceName)
       resourceGroup: $(DeploymentEnvironmentName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
+      imageTag: $(ImageTag)
   
 - stage: testStu3
   displayName: 'Run Stu3 Tests'
