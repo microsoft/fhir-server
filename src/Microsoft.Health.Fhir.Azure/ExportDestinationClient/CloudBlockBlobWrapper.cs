@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
@@ -21,7 +22,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
     public class CloudBlockBlobWrapper
     {
         private readonly OrderedSetOfBlockIds _existingBlockIds;
-        private readonly CloudBlockBlob _cloudBlob;
+        private CloudBlockBlob _cloudBlob;
 
         public CloudBlockBlobWrapper(CloudBlockBlob blockBlob)
             : this(blockBlob, new List<string>())
@@ -50,6 +51,14 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
         public async Task CommitBlockListAsync(CancellationToken cancellationToken)
         {
             await _cloudBlob.PutBlockListAsync(_existingBlockIds.ToList(), cancellationToken);
+        }
+
+        public void UpdateCloudBlockBlob(CloudBlockBlob cloudBlockBlob)
+        {
+            EnsureArg.IsNotNull(cloudBlockBlob, nameof(cloudBlockBlob));
+            EnsureArg.Is(Uri.Compare(_cloudBlob.Uri, cloudBlockBlob.Uri, UriComponents.AbsoluteUri, UriFormat.Unescaped, StringComparison.OrdinalIgnoreCase), 0);
+
+            _cloudBlob = cloudBlockBlob;
         }
     }
 }
