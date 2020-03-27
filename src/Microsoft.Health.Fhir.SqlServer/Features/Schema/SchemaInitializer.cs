@@ -81,8 +81,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
             if (_sqlServerDataStoreConfiguration.SchemaUpdatesEnabled && _schemaInformation.Current < _schemaInformation.MaximumSupportedVersion)
             {
                 // Apply each .diff.sql file one by one.
-                int current = _schemaInformation.Current ?? 0;
-                for (int i = current + 1; i <= _schemaInformation.MaximumSupportedVersion; i++)
+                for (int i = (int)_schemaInformation.Current + 1; i <= _schemaInformation.MaximumSupportedVersion; i++)
                 {
                     _schemaUpgradeRunner.ApplySchema(version: i, applyFullSchemaSnapshot: false);
                 }

@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.SqlServer.Configs;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Messages.Get;
 
@@ -45,7 +46,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
             {
                 try
                 {
-                    _logger.LogInformation($"Polling started at {TimeZoneInfo.ConvertTimeToUtc(DateTime.Now)}");
+                    _logger.LogInformation($"Polling started at {Clock.UtcNow}");
 
                     using (IScoped<ISchemaDataStore> store = _schemaDataStoreFactory())
                     {

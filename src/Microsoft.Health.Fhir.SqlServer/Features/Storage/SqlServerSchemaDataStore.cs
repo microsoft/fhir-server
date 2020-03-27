@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        public async Task<string> InsertInstanceSchemaInformation(string name, SchemaInformation schemaInformation, CancellationToken cancellationToken)
+        public async Task InsertInstanceSchemaInformation(string name, SchemaInformation schemaInformation, CancellationToken cancellationToken)
         {
             using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper())
             using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
@@ -78,18 +78,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         throw new OperationFailedException(Resources.OperationFailed);
                     }
-
-                    return output;
                 }
                 catch (SqlException e)
                 {
-                    _logger.LogError(e, "Error from SQL database on Upsert");
+                    _logger.LogError(e, "Error from SQL database on insert");
                     throw;
                 }
             }
         }
 
-        public async Task<string> UpsertInstanceSchemaInformation(string name, CompatibleVersions versions, int currentVersion, CancellationToken cancellationToken)
+        public async Task UpsertInstanceSchemaInformation(string name, CompatibleVersions versions, int currentVersion, CancellationToken cancellationToken)
         {
             using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper())
             using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
@@ -108,8 +106,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     {
                         throw new OperationFailedException(Resources.OperationFailed);
                     }
-
-                    return output;
                 }
                 catch (SqlException e)
                 {
@@ -186,7 +182,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return new GetCurrentVersionResponse(currentVersions);
         }
 
-        public static int ConvertToInt(object o)
+        private int ConvertToInt(object o)
         {
             if (o == DBNull.Value)
             {

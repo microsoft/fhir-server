@@ -53,15 +53,15 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Sch
         [Fact]
         public async Task GivenThereIsNoRecord_WhenCreatingAnInstanceSchemaRecord_ThenNewRecordCreated()
         {
-            string name = await _sqlServerSchemaDataStore.InsertInstanceSchemaInformation(_name, _schemaInformation, _cancellationToken);
-            Assert.NotNull(name);
+            await _sqlServerSchemaDataStore.InsertInstanceSchemaInformation(_name, _schemaInformation, _cancellationToken);
+            Assert.Equal(1, await SelectInstanceSchemaRecordAsync());
         }
 
         [Fact]
-        public async Task GivenThereIsARecord_WhenUpsertingAnInstanceSchemaRecord_ThenRecordUpserted()
+        public async Task GivenThereIsARecord_WhenUpsertingAnInstanceSchemaRecord_ThenRecordUpdated()
         {
-            string name = await _sqlServerSchemaDataStore.UpsertInstanceSchemaInformation(_name, new CompatibleVersions(1, 3), 2, _cancellationToken);
-            Assert.NotNull(name);
+            await _sqlServerSchemaDataStore.UpsertInstanceSchemaInformation(_name, new CompatibleVersions(1, 3), 2, _cancellationToken);
+            Assert.Equal(1, await SelectInstanceSchemaRecordAsync());
         }
 
         private async Task DeleteInstanceSchemaRecordAsync(string name, CancellationToken cancellationToken = default)
@@ -75,6 +75,20 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Sch
 
                 await command.Connection.OpenAsync(cancellationToken);
                 await command.ExecuteNonQueryAsync(cancellationToken);
+            }
+        }
+
+        private async Task<int> SelectInstanceSchemaRecordAsync(CancellationToken cancellationToken = default)
+        {
+            using (var connection = new SqlConnection(_connectionString))
+            {
+                var command = new SqlCommand("Select count(*) FROM dbo.InstanceSchema WHERE name=@name", connection);
+
+                var parameter = new SqlParameter { ParameterName = "@name", Value = _name };
+                command.Parameters.Add(parameter);
+
+                await command.Connection.OpenAsync(cancellationToken);
+                return (int)await command.ExecuteScalarAsync(cancellationToken);
             }
         }
     }
