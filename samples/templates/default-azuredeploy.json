@@ -137,8 +137,8 @@
         "isMAG": "[or(contains(resourceGroup().location,'usgov'),contains(resourceGroup().location,'usdod'))]",
         "serviceName": "[toLower(parameters('serviceName'))]",
         "keyvaultEndpoint": "[if(variables('isMAG'), concat('https://', variables('serviceName'), '.vault.usgovcloudapi.net/'), concat('https://', variables('serviceName'), '.vault.azure.net/'))]",
-        "appServicePlanResourceGroup": "[if(empty(parameters('appServicePlanResourceGroup')), resourceGroup().name, parameters('appServicePlanResourceGroup'))]",
-        "appServicePlanName": "[if(empty(parameters('appServicePlanName')),concat(variables('serviceName'),'-asp'),parameters('appServicePlanName'))]",
+        "appServicePlanResourceGroup": "[resourceGroup().name]",
+        "appServicePlanName": "[concat(variables('serviceName'),'-asp')]",
         "appServiceResourceId": "[resourceId('Microsoft.Web/sites', variables('serviceName'))]",
         "securityAuthenticationEnabled": "[and(not(empty(parameters('securityAuthenticationAuthority'))),not(empty(parameters('securityAuthenticationAudience'))))]",
         "deployAppInsights": "[and(parameters('deployApplicationInsights'),not(variables('isMAG')))]",
@@ -150,7 +150,7 @@
             "APPINSIGHTS_PROFILERFEATURE_VERSION": "1.0.0",
             "APPINSIGHTS_SNAPSHOTFEATURE_VERSION": "1.0.0",
             "WEBSITE_NODE_DEFAULT_VERSION": "6.9.4",
-            "KeyVault:Endpoint": "[variables('keyvaultEndpoint')]",
+            "KeyVault__Endpoint": "[variables('keyvaultEndpoint')]",
             "FhirServer__Security__Enabled": "[variables('securityAuthenticationEnabled')]",
             "FhirServer__Security__EnableAadSmartOnFhirProxy": "[parameters('enableAadSmartOnFhirProxy')]",
             "FhirServer__Security__Authentication__Authority": "[parameters('securityAuthenticationAuthority')]",
@@ -166,7 +166,6 @@
     },
     "resources": [
         {
-            "condition": "[empty(parameters('appServicePlanResourceGroup'))]",
             "apiVersion": "2019-08-01",
             "name": "[variables('appServicePlanName')]",
             "type": "Microsoft.Web/serverfarms",
@@ -184,7 +183,7 @@
             }
         },
         {
-            "apiVersion": "2015-08-01",
+            "apiVersion": "2018-11-01",
             "type": "Microsoft.Web/sites",
             "name": "[variables('serviceName')]",
             "tags": {
@@ -223,11 +222,11 @@
                 "clientAffinityEnabled": false
             },
             "dependsOn": [
-                "[if(empty(parameters('appServicePlanResourceGroup')), resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName')), resourceId('Microsoft.DocumentDB/databaseAccounts', variables('serviceName')))]"
+                "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]"
             ],
             "resources": [
                 {
-                    "apiVersion": "2015-08-01",
+                    "apiVersion": "2019-08-01",
                     "name": "appsettings",
                     "type": "config",
                     "dependsOn": [
