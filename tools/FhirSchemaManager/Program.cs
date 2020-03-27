@@ -35,7 +35,7 @@ namespace FhirSchemaManager
             {
                 fhirServerOption,
             };
-            currentCommand.Handler = CommandHandler.Create<InvocationContext, Uri>(CurrentCommand.HandlerAsync);
+            currentCommand.Handler = CommandHandler.Create<Uri>(CurrentCommand.Handler);
             currentCommand.Argument.AddValidator(symbol => Validators.RequiredOptionValidator.Validate(symbol, fhirServerOption, Resources.FhirServerRequiredValidation));
 
             var applyCommand = new Command(CommandNames.Apply, Resources.ApplyCommandDescription)
