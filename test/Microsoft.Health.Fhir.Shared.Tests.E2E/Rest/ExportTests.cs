@@ -10,6 +10,7 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Net.Http.Headers;
@@ -51,10 +52,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var uri = response.Content.Headers.ContentLocation;
             Assert.False(string.IsNullOrWhiteSpace(uri.ToString()));
+
+            await GenerateAndSendCancelExportMessage(response.Content.Headers.ContentLocation);
         }
 
         [Fact]
-        public async Task GivenExportIsEnabled_WhenRequestingExportWithQueryParam_ThenServerShouldReturnBadRequest()
+        public async Task GivenExportIsEnabled_WhenRequestingExportWithUnsupportedQueryParam_ThenServerShouldReturnBadRequest()
         {
             var queryParam = new Dictionary<string, string>()
             {
@@ -65,6 +68,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             HttpResponseMessage response = await _client.SendAsync(request);
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        }
+
+        [Fact]
+        public async Task GivenExportIsEnabled_WhenRequestingExportWithSinceQueryParam_ThenServerShouldReturnAcceptedAndNonEmptyContentLocationHeader()
+        {
+            var queryParam = new Dictionary<string, string>()
+            {
+                { KnownQueryParameterNames.Since, DateTimeOffset.UtcNow.ToString() },
+            };
+            HttpRequestMessage request = GenerateExportRequest(queryParams: queryParam);
+
+            HttpResponseMessage response = await _client.SendAsync(request);
+
+            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+
+            var uri = response.Content.Headers.ContentLocation;
+            Assert.False(string.IsNullOrWhiteSpace(uri.ToString()));
+
+            await GenerateAndSendCancelExportMessage(response.Content.Headers.ContentLocation);
         }
 
         [Fact]
@@ -88,6 +110,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var getStatusResponse = await _client.SendAsync(getStatusRequest);
 
             Assert.Equal(HttpStatusCode.Accepted, getStatusResponse.StatusCode);
+
+            await GenerateAndSendCancelExportMessage(response.Content.Headers.ContentLocation);
         }
 
         [Fact]
@@ -154,6 +178,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             request.RequestUri = new Uri(_client.BaseAddress, path);
 
             return request;
+        }
+
+        // Currently our tests do not validate the data that is being exported.
+        // So once the tests are done we would like to cancel the export request
+        // to try to prevent the worker from actually processing the export.
+        private async Task GenerateAndSendCancelExportMessage(Uri contentLocation)
+        {
+            var request = new HttpRequestMessage
+            {
+                Method = HttpMethod.Delete,
+            };
+
+            request.RequestUri = contentLocation;
+
+            await _client.SendAsync(request);
         }
     }
 }

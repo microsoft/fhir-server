@@ -120,6 +120,9 @@
   <data name="CannotGetAccessToken" xml:space="preserve">
     <value>Unable to get access token for storage account for export.</value>
   </data>
+  <data name="CannotGetAuthorizedClient" xml:space="preserve">
+    <value>Unable to get an authorized client to export destination.</value>
+  </data>
   <data name="DestinationClientNotConnected" xml:space="preserve">
     <value>The destination client is not connected to the destination end point.</value>
   </data>
