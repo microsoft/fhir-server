@@ -24,9 +24,12 @@
             "commandName": "Project",
             "environmentVariables": {
                 "SqlServer:Initialize": "true",
+                "SqlServer:DeleteAllDataOnStartUp": "true",
                 "SqlServer:AllowDatabaseCreation": "true",
                 "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
                 "SqlServer:ConnectionString": "server=(local);Initial Catalog=FHIR_R4;Integrated Security=true",
+                "SqlServer:SchemaUpdatesEnabled": "true",
+                "SqlServer:SchemaUpdatesJobPollingFrequency": "00:01:00",
                 "DataStore": "SqlServer",
                 "ASPNETCORE_ENVIRONMENT": "development"
             },
