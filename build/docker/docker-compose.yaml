@@ -4,3 +4,5 @@ services:
     build: 
       context: ./../../
       dockerfile: ./build/docker/Dockerfile
+      args:
+        FHIR_VERSION: "${FHIR_VERSION}"
