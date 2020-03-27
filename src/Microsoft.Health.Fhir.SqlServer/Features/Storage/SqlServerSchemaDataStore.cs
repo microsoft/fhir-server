@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     if (output.NullIfEmpty() == null)
                     {
-                        throw new OperationFailedException(Resources.OperationFailed);
+                        throw new SqlOperationFailedException(Resources.OperationFailed);
                     }
                 }
                 catch (SqlException e)
@@ -104,7 +104,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     if (output.NullIfEmpty() == null)
                     {
-                        throw new OperationFailedException(Resources.OperationFailed);
+                        throw new SqlOperationFailedException(Resources.OperationFailed);
                     }
                 }
                 catch (SqlException e)

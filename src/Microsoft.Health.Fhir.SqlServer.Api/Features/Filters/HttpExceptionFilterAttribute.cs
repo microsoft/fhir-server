@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.Features.Filters
                         context.ExceptionHandled = true;
                         break;
 
-                    case OperationFailedException _:
+                    case SqlOperationFailedException _:
                         context.Result = new JsonResult(resultJson) { StatusCode = (int)HttpStatusCode.InternalServerError };
                         context.ExceptionHandled = true;
                         break;
