@@ -1,0 +1,8 @@
+# DESCRIPTION: 
+# Variables used during builds.
+
+variables:
+  buildConfiguration: 'Release' 
+  azureSubscriptionEndpoint: 'docker-build'
+  azureContainerRegistry: 'healthplatformregistry.azurecr.io'
+  composeLocation: 'build/docker/docker-compose.yaml'

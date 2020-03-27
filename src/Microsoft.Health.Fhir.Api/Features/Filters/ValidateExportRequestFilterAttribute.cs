@@ -4,12 +4,13 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Linq;
+using System.Collections.Generic;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Net.Http.Headers;
 
 namespace Microsoft.Health.Fhir.Api.Features.Filters
@@ -24,8 +25,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
         private const string PreferHeaderName = "Prefer";
         private const string PreferHeaderExpectedValue = "respond-async";
 
+        private readonly HashSet<string> _supportedQueryParams;
+
         public ValidateExportRequestFilterAttribute()
         {
+            _supportedQueryParams = new HashSet<string>(StringComparer.Ordinal)
+            {
+                KnownQueryParameterNames.Since,
+            };
         }
 
         public override void OnActionExecuting(ActionExecutingContext context)
@@ -46,12 +53,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 throw new RequestNotValidException(string.Format(Resources.UnsupportedHeaderValue, PreferHeaderName));
             }
 
-            // Validate that the request does not contain any query parameters.
+            // Validate that the request does not contain query parameters that are not supported.
             IQueryCollection queryCollection = context.HttpContext.Request.Query;
-            if (queryCollection?.Count > 0)
+            foreach (string paramName in queryCollection?.Keys)
             {
-                string paramName = queryCollection.FirstOrDefault().Key;
-                throw new RequestNotValidException(string.Format(Resources.UnsupportedParameter, paramName));
+                if (!_supportedQueryParams.Contains(paramName))
+                {
+                    throw new RequestNotValidException(string.Format(Resources.UnsupportedParameter, paramName));
+                }
             }
         }
     }

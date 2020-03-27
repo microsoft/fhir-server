@@ -13,6 +13,8 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Net.Http.Headers;
 using Xunit;
 
@@ -37,7 +39,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         [InlineData("text/xml")]
         [InlineData("application/json")]
         [InlineData("*/*")]
-        public void GiveARequestWithInvalidAcceptHeader_WhenGettingAnExportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown(string acceptHeader)
+        public void GivenARequestWithInvalidAcceptHeader_WhenGettingAnExportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown(string acceptHeader)
         {
             var context = CreateContext();
 
@@ -47,7 +49,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         }
 
         [Fact]
-        public void GiveARequestWithNoAcceptHeader_WhenGettingAnExportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown()
+        public void GivenARequestWithNoAcceptHeader_WhenGettingAnExportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown()
         {
             var context = CreateContext();
 
@@ -79,8 +81,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
 
-        [Fact]
-        public void GivenARequestWithCorrectHeadersAndQueryParam_WhenGettingAnExportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown()
+        [InlineData("since")]
+        [InlineData("_SINCE")]
+        [InlineData("queryParam")]
+        [Theory]
+        public void GivenARequestWithCorrectHeadersAndUnsupportedQueryParam_WhenGettingAnExportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown(string queryParamName)
         {
             var context = CreateContext();
             context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
@@ -88,7 +93,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
 
             var queryParams = new Dictionary<string, StringValues>()
             {
-                { "queryParam", "paramValue" },
+                { queryParamName, "paramValue" },
             };
             context.HttpContext.Request.Query = new QueryCollection(queryParams);
 
@@ -96,7 +101,23 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         }
 
         [Fact]
-        public void GiveARequestWithValidAcceptAndPreferHeaderAndNoQueryParams_WhenGettingAnExportOperationRequest_ThenTheResultIsSuccessful()
+        public void GivenARequestWithCorrectHeaderAndSinceQueryParam_WhenGettingAnExportOperationRequest_ThenTheResultIsSuccessful()
+        {
+            var context = CreateContext();
+            context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
+            context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
+
+            var queryParams = new Dictionary<string, StringValues>()
+            {
+                { KnownQueryParameterNames.Since, PartialDateTime.MinValue.ToString() },
+            };
+            context.HttpContext.Request.Query = new QueryCollection(queryParams);
+
+            _filter.OnActionExecuting(context);
+        }
+
+        [Fact]
+        public void GivenARequestWithCorrectHeaderAndNoQueryParams_WhenGettingAnExportOperationRequest_ThenTheResultIsSuccessful()
         {
             var context = CreateContext();
             context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
