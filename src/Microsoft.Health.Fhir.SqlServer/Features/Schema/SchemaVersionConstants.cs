@@ -3,10 +3,11 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.SqlServer.Api.Features.Routing
+namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
 {
-    public static class RouteNames
+    public static class SchemaVersionConstants
     {
-        public const string Script = "Script";
+        public const int Max = (int)SchemaVersion.V2;
+        public const int Min = (int)SchemaVersion.V1;
     }
 }
