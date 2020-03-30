@@ -396,9 +396,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 
             var tokenJson = JObject.Parse(await tokenResponse.Content.ReadAsStringAsync());
 
-            var bearerToken = tokenJson["access_token"].Value<string>();
-
-            return bearerToken;
+            try
+            {
+                var bearerToken = tokenJson["access_token"].Value<string>();
+                return bearerToken;
+            }
+            catch
+            {
+                throw new ArgumentNullException("Bearer token can not be null:\r\n" + tokenJson.ToString());
+            }
         }
 
         private List<KeyValuePair<string, string>> GetAppSecuritySettings(TestApplication clientApplication)
