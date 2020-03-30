@@ -225,8 +225,7 @@
                     "alwaysOn": true
                 },
                 "serverFarmId": "[resourceId(variables('appServicePlanResourceGroup'), 'Microsoft.Web/serverfarms/', variables('appServicePlanName'))]",
-                "clientAffinityEnabled": false,
-                "httpsOnly": true
+                "clientAffinityEnabled": false
             },
             "dependsOn": [
                 "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]"
