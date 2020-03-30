@@ -88,6 +88,7 @@ GO
 --
 --  DESCRIPTION
 --      Selects the compatible schema versions
+--      The returning max compatible version is not greater than the most recent, complete schema version
 --
 --  RETURNS
 --      The maximum and minimum compatible versions
