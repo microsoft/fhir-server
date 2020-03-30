@@ -30,5 +30,6 @@ jobs:
       azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
       azureContainerRegistry: $(azureContainerRegistry)
       dockerComposeFile: $(composeLocation)
+      dockerComposeFileArgs: FHIR_VERSION=${{parameters.version}}
       projectName: ${{parameters.version}}
       additionalImageTags: ${{parameters.tag}}
