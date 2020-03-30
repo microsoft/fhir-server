@@ -8,6 +8,8 @@ using System.Collections.Generic;
 using System.CommandLine.Invocation;
 using System.CommandLine.Rendering;
 using System.CommandLine.Rendering.Views;
+using System.Globalization;
+using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using FhirSchemaManager.Model;
@@ -19,8 +21,6 @@ namespace FhirSchemaManager.Commands
     {
         public static async Task HandlerAsync(InvocationContext invocationContext, Uri fhirServer)
         {
-            Console.WriteLine($"--fhir-server {fhirServer}");
-
             var region = new Region(
                            0,
                            0,
@@ -28,7 +28,17 @@ namespace FhirSchemaManager.Commands
                            Console.WindowHeight,
                            true);
 
-            List<CurrentVersion> currentVersions = await GetCurrentVersionInformation(fhirServer);
+            List<CurrentVersion> currentVersions = null;
+
+            try
+            {
+                currentVersions = await GetCurrentVersionInformation(fhirServer);
+            }
+            catch (HttpRequestException ex)
+            {
+                Console.WriteLine(ex.Message);
+                return;
+            }
 
             var tableView = new TableView<CurrentVersion>
             {
@@ -44,7 +54,7 @@ namespace FhirSchemaManager.Commands
                 header: new ContentView("Status"));
 
             tableView.AddColumn(
-                cellValue: currentVersion => currentVersion.Servers,
+                cellValue: currentVersion => string.Join(", ", currentVersion.Servers),
                 header: new ContentView("Servers"));
 
             var consoleRenderer = new ConsoleRenderer(
@@ -65,10 +75,24 @@ namespace FhirSchemaManager.Commands
                 BaseAddress = serverUri,
             };
 
-            using (var response = await httpClient.GetAsync(new Uri("/_schema/compatibility", UriKind.Relative)))
+            var response = await httpClient.GetAsync(new Uri("/_schema/versions/current", UriKind.Relative));
+            if (response.IsSuccessStatusCode)
             {
                 var responseBodyAsString = await response.Content.ReadAsStringAsync();
                 currentVersionList = JsonConvert.DeserializeObject<List<CurrentVersion>>(responseBodyAsString);
+            }
+            else
+            {
+                switch (response.StatusCode)
+                {
+                    case HttpStatusCode.NotFound:
+                        Console.WriteLine(Resources.CurrentInformationNotFound);
+                        break;
+
+                    default:
+                        Console.WriteLine(string.Format(CultureInfo.InvariantCulture, Resources.CurrentDefaultErrorDescription, response.StatusCode, "message"));
+                        break;
+                }
             }
 
             return currentVersionList;

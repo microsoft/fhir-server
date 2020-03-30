@@ -132,11 +132,20 @@
   <data name="CurrentCommandDescription" xml:space="preserve">
     <value>Returns the current SQL schema version(s) from the given FHIR server.</value>
   </data>
+  <data name="CurrentDefaultErrorDescription" xml:space="preserve">
+    <value>Error occured with StatusCode {0) and Description {1}.</value>
+  </data>
+  <data name="CurrentInformationNotFound" xml:space="preserve">
+    <value>Current version information is not found.</value>
+  </data>
   <data name="FhirServerOptionDescription" xml:space="preserve">
     <value>The root URL of the FHIR server to connect to.</value>
   </data>
   <data name="FhirServerRequiredValidation" xml:space="preserve">
     <value>You must include a FHIR server.</value>
+  </data>
+  <data name="HttpRequestExceptionMessage" xml:space="preserve">
+    <value>No connection could be made to the target machine.</value>
   </data>
   <data name="VersionOptionDescription" xml:space="preserve">
     <value>The version of the schema to apply.</value>
