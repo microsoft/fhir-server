@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Core.Internal;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -379,7 +380,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
         [InlineData("2220-02-01T10:00-07:00", "2240-04-17T16:18:05.9999999+00:00", "2199-11-16T17:42:54.0000000+00:00")]
         public void GivenADateWithApComparator_WhenBuilt_ThenCorrectExpressionShouldBeCreated(string dateTimeInput, string expectedStartValue, string expectedEndValue)
         {
-            using (Mock.Property(() => Clock.UtcNowFunc, () => DateTimeOffset.Parse("2018-01-01T00:00Z")))
+            using (Mock.Property(() => ClockResolver.UtcNowFunc, () => DateTimeOffset.Parse("2018-01-01T00:00Z")))
             {
                 var partialDateTime = PartialDateTime.Parse(dateTimeInput);
                 var dateTimeSearchValue = new DateTimeSearchValue(partialDateTime);

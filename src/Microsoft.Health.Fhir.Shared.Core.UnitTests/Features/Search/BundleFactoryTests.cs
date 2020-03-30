@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.Health.Core.Internal;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -62,7 +63,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             ResourceElement actual = null;
 
-            using (Mock.Property(() => Clock.UtcNowFunc, () => _dateTime))
+            using (Mock.Property(() => ClockResolver.UtcNowFunc, () => _dateTime))
             {
                 actual = _bundleFactory.CreateSearchBundle(new SearchResult(new SearchResultEntry[0], _unsupportedSearchParameters, _unsupportedSortingParameters, null));
             }
@@ -93,7 +94,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             ResourceElement actual = null;
 
-            using (Mock.Property(() => Clock.UtcNowFunc, () => _dateTime))
+            using (Mock.Property(() => ClockResolver.UtcNowFunc, () => _dateTime))
             {
                 actual = _bundleFactory.CreateSearchBundle(searchResult);
             }

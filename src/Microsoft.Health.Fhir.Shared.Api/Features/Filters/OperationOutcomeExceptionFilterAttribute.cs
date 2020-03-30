@@ -158,12 +158,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         }
 
                         break;
-                    case ServiceUnavailableException _:
-                        healthExceptionResult = new OperationOutcomeResult(
-                            new OperationOutcome
-                            {
-                                Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,
-                            }, HttpStatusCode.ServiceUnavailable);
+                    case ServiceUnavailableException serviceUnavailableException:
+                        healthExceptionResult = CreateOperationOutcomeResult(serviceUnavailableException.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Processing, HttpStatusCode.ServiceUnavailable);
                         break;
                     default:
                         healthExceptionResult = new OperationOutcomeResult(

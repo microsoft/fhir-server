@@ -6,6 +6,8 @@
 using System;
 using EnsureThat;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Core;
+using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;

@@ -11,8 +11,8 @@ using EnsureThat;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Api.Extensions;
-using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Features.Context;
 
 namespace Microsoft.Health.Fhir.Api.Features.ApiNotifications

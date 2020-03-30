@@ -14,6 +14,7 @@ using AngleSharp.Html.Dom.Events;
 using AngleSharp.Html.Parser;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Core;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
 {
