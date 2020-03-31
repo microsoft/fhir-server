@@ -13,6 +13,7 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Newtonsoft.Json.Linq;
@@ -72,6 +73,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
 
             Uri tokenEndpoint = urlResolver.ResolveRouteNameUrl(tokenRouteName, null);
             Uri authorizationEndpoint = urlResolver.ResolveRouteNameUrl(authorizeRouteName, null);
+
+            if (!tokenEndpoint.ToString().StartsWith("https", StringComparison.OrdinalIgnoreCase))
+            {
+                var request = ((UrlResolver)urlResolver).GetRequest();
+                throw new BadRequestException("Non secure url: " + tokenEndpoint
+                    + "\r\nSceme: " + request.Scheme
+                    + "\r\nHeaders: " + request.Headers.ToString()
+                    + "\r\nProtocol: " + request.Protocol);
+            }
 
             var smartExtension = new
             {

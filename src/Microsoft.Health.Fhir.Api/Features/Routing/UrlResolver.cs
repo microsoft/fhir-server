@@ -235,6 +235,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             return new Uri(uriString);
         }
 
+        public HttpRequest GetRequest()
+        {
+            return Request;
+        }
+
         public Uri ResolveOperationResultUrl(string operationName, string id)
         {
             EnsureArg.IsNotNullOrWhiteSpace(operationName, nameof(operationName));
