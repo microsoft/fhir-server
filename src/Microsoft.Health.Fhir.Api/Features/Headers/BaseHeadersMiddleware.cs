@@ -24,6 +24,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
         public async Task Invoke(HttpContext context)
         {
             context.Response.OnStarting(SecurityHeadersHelper.SetSecurityHeaders, state: context);
+            context.Request.Scheme = "https";
 
             // Call the next delegate/middleware in the pipeline
             await _next(context);
