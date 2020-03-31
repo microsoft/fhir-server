@@ -49,10 +49,6 @@ namespace Microsoft.Health.Fhir.Web
         public virtual void Configure(IApplicationBuilder app)
         {
             app.UseFhirServer();
-            app.UseForwardedHeaders(new ForwardedHeadersOptions
-            {
-                ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
-            });
             app.UseDevelopmentIdentityProviderIfConfigured();
         }
 
