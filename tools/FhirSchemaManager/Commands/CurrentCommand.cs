@@ -8,11 +8,12 @@ using System.Collections.Generic;
 using System.CommandLine.Invocation;
 using System.CommandLine.Rendering;
 using System.CommandLine.Rendering.Views;
-using System.Globalization;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
+using FhirSchemaManager.Exceptions;
 using FhirSchemaManager.Model;
+using FhirSchemaManager.Utils;
 using Newtonsoft.Json;
 
 namespace FhirSchemaManager.Commands
@@ -22,21 +23,25 @@ namespace FhirSchemaManager.Commands
         public static async Task HandlerAsync(InvocationContext invocationContext, Uri fhirServer)
         {
             var region = new Region(
-                           0,
-                           0,
-                           Console.WindowWidth,
-                           Console.WindowHeight,
-                           true);
-
+                          0,
+                          0,
+                          Console.WindowWidth,
+                          Console.WindowHeight,
+                          true);
             List<CurrentVersion> currentVersions = null;
 
             try
             {
                 currentVersions = await GetCurrentVersionInformation(fhirServer);
             }
-            catch (HttpRequestException ex)
+            catch (SchemaOperationFailedException ex)
             {
-                Console.WriteLine(ex.Message);
+                CommandUtils.RenderError(new ErrorDescription((int)ex.StatusCode, ex.Message), invocationContext, region);
+                return;
+            }
+            catch (HttpRequestException)
+            {
+                CommandUtils.PrintError(Resources.RequestFailedMessage);
                 return;
             }
 
@@ -68,8 +73,6 @@ namespace FhirSchemaManager.Commands
 
         private static async Task<List<CurrentVersion>> GetCurrentVersionInformation(Uri serverUri)
         {
-            List<CurrentVersion> currentVersionList = null;
-
             var httpClient = new HttpClient
             {
                 BaseAddress = serverUri,
@@ -79,23 +82,19 @@ namespace FhirSchemaManager.Commands
             if (response.IsSuccessStatusCode)
             {
                 var responseBodyAsString = await response.Content.ReadAsStringAsync();
-                currentVersionList = JsonConvert.DeserializeObject<List<CurrentVersion>>(responseBodyAsString);
+                return JsonConvert.DeserializeObject<List<CurrentVersion>>(responseBodyAsString);
             }
             else
             {
                 switch (response.StatusCode)
                 {
                     case HttpStatusCode.NotFound:
-                        Console.WriteLine(Resources.CurrentInformationNotFound);
-                        break;
+                        throw new SchemaOperationFailedException(response.StatusCode, Resources.CurrentInformationNotFound);
 
                     default:
-                        Console.WriteLine(string.Format(CultureInfo.InvariantCulture, Resources.CurrentDefaultErrorDescription, response.StatusCode, "message"));
-                        break;
+                        throw new SchemaOperationFailedException(response.StatusCode, Resources.CurrentDefaultErrorDescription);
                 }
             }
-
-            return currentVersionList;
         }
     }
 }

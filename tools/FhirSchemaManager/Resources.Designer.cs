@@ -106,7 +106,7 @@ namespace FhirSchemaManager {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Error occured with StatusCode {0) and Description {1}..
+        ///   Looks up a localized string similar to Current version information is not available..
         /// </summary>
         internal static string CurrentDefaultErrorDescription {
             get {
@@ -147,6 +147,15 @@ namespace FhirSchemaManager {
         internal static string HttpRequestExceptionMessage {
             get {
                 return ResourceManager.GetString("HttpRequestExceptionMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Request has failed due to fhirServerUrl is invalid or inactive..
+        /// </summary>
+        internal static string RequestFailedMessage {
+            get {
+                return ResourceManager.GetString("RequestFailedMessage", resourceCulture);
             }
         }
         
