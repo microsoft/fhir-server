@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Web
             }
             else if (dataStore.Equals(KnownDataStores.SqlServer, StringComparison.InvariantCultureIgnoreCase))
             {
-                fhirServerBuilder.AddExperimentalSqlServer();
+                fhirServerBuilder.AddSqlServer();
             }
 
             AddApplicationInsightsTelemetry(services);

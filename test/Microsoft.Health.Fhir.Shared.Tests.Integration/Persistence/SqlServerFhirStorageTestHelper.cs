@@ -9,8 +9,9 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Health.Fhir.SqlServer.Configs;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
+using Microsoft.Health.SqlServer.Configs;
+using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.SqlServer.Dac.Compare;
 using Polly;
 using Xunit;
@@ -185,8 +186,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private SchemaInitializer CreateSchemaInitializer(string testConnectionString)
         {
             var config = new SqlServerDataStoreConfiguration { ConnectionString = testConnectionString, Initialize = true };
-            var schemaUpgradeRunner = new SchemaUpgradeRunner(config, NullLogger<SchemaUpgradeRunner>.Instance);
-            var schemaInformation = new SchemaInformation();
+            var schemaInformation = new SchemaInformation((int)SchemaVersion.V1, (int)SchemaVersion.V2);
+            var scriptProvider = new ScriptProvider<SchemaVersion>();
+            var schemaUpgradeRunner = new SchemaUpgradeRunner(scriptProvider, config, NullLogger<SchemaUpgradeRunner>.Instance);
 
             return new SchemaInitializer(config, schemaUpgradeRunner, schemaInformation, NullLogger<SchemaInitializer>.Instance);
         }

@@ -13,6 +13,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Core;
+using Microsoft.Health.Core.Internal;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
@@ -338,7 +340,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             DateTimeOffset endTimestamp = DateTimeOffset.UtcNow;
 
-            using (Mock.Property(() => Clock.UtcNowFunc, () => endTimestamp))
+            using (Mock.Property(() => ClockResolver.UtcNowFunc, () => endTimestamp))
             {
                 await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
             }
@@ -362,7 +364,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             DateTimeOffset endTimestamp = DateTimeOffset.UtcNow;
 
-            using (Mock.Property(() => Clock.UtcNowFunc, () => endTimestamp))
+            using (Mock.Property(() => ClockResolver.UtcNowFunc, () => endTimestamp))
             {
                 await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
             }

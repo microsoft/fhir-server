@@ -6,7 +6,7 @@
 using System;
 using System.Diagnostics;
 using EnsureThat;
-using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Core.Extensions;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {

@@ -81,7 +81,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     case MethodNotAllowedException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.MethodNotAllowed;
                         break;
-                    case ServiceUnavailableException _:
                     case OpenIdConfigurationException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.ServiceUnavailable;
                         break;
@@ -158,6 +157,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                                 ex.RetryAfter.Value.TotalMilliseconds.ToString(CultureInfo.InvariantCulture));
                         }
 
+                        break;
+                    case ServiceUnavailableException serviceUnavailableException:
+                        healthExceptionResult = CreateOperationOutcomeResult(serviceUnavailableException.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Processing, HttpStatusCode.ServiceUnavailable);
                         break;
                     default:
                         healthExceptionResult = new OperationOutcomeResult(

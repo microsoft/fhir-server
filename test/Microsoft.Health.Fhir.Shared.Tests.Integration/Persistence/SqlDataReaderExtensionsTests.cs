@@ -6,7 +6,7 @@
 using System;
 using System.Data.SqlClient;
 using System.Linq;
-using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.SqlServer.Features.Storage;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
 #if DEBUG // checks are only enabled on debug builds.
-        [Fact]
+        [Fact(Skip = "Won't work with nuget package. Needs to be moved to shared repo.")]
         public void GivenASqlDataReader_WhenReadingFieldsWithIncorrectCorrectNamesAndOrdinals_Throws()
         {
             using (var connection = new SqlConnection(_connectionString))

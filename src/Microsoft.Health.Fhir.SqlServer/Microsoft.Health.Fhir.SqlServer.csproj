@@ -4,7 +4,6 @@
     <TargetFramework>netcoreapp3.1</TargetFramework>
   </PropertyGroup>
 
-
   <ItemGroup>
     <None Remove="Features\Schema\Migrations\1.sql" />
     <None Remove="Features\Schema\Migrations\2.diff.sql" />
@@ -21,15 +20,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Generated Include="IndentedStringBuilder.Generated.cs">
-      <Generator>IndentedStringBuilderGenerator</Generator>
-      <Namespace>Microsoft.Health.Fhir.SqlServer</Namespace>
-    </Generated>
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Microsoft.Health.Extensions.BuildTimeCodeGenerator" Version="1.0.0-master-20200318-1" />
     <PackageReference Include="Ensure.That" Version="8.1.2" />
+    <PackageReference Include="Microsoft.Health.Abstractions" Version="1.0.0-master-20200327-1" /> 
+    <PackageReference Include="Microsoft.Health.SqlServer" Version="1.0.0-master-20200327-1" />
+    <PackageReference Include="Microsoft.Health.SqlServer.Api" Version="1.0.0-master-20200327-1" />
+    <PackageReference Include="Microsoft.Health.Extensions.BuildTimeCodeGenerator" Version="1.0.0-master-20200327-1" />
     <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" Version="1.3.2" />
     <PackageReference Include="Microsoft.SqlServer.SqlManagementObjects" Version="150.18208.0" />
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions" Version="3.1.0" />
@@ -54,5 +49,4 @@
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
   </ItemGroup>
-
 </Project>

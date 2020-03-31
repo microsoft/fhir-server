@@ -10,7 +10,7 @@ using EnsureThat;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Fhir.Core;
+using Microsoft.Health.Core;
 
 namespace Microsoft.Health.Fhir.Api.Modules.HealthChecks
 {
