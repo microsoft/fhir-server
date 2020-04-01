@@ -77,9 +77,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Security
             if (!tokenEndpoint.ToString().StartsWith("https", StringComparison.OrdinalIgnoreCase))
             {
                 var request = ((UrlResolver)urlResolver).GetRequest();
+                var headers = request.Headers;
+                var stringHeaders = "\r\n";
+                foreach (var header in headers)
+                {
+                    stringHeaders += "\t" + header.Key + ": " + header.Value + "\r\n";
+                }
+
                 throw new BadRequestException("Non secure url: " + tokenEndpoint
                     + "\r\nSceme: " + request.Scheme
-                    + "\r\nHeaders: " + request.Headers.ToString()
+                    + "\r\nHeaders: " + stringHeaders
                     + "\r\nProtocol: " + request.Protocol);
             }
 
