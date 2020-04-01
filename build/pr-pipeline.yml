@@ -24,7 +24,10 @@ stages:
       parameters:
         packageArtifacts: false
 
-- stage: DockerBuild
+- stage: DockerBuild  
+  displayName: 'Build images'
+  dependsOn: []
+  jobs:
   - template: docker-build-all.yml
     parameters: 
       tag: $(ImageTag)
