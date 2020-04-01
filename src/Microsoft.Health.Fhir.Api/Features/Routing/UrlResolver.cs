@@ -70,12 +70,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         {
             get
             {
+                var request = _httpContextAccessor.HttpContext.Request;
                 if (_bundleHttpContextAccessor.HttpContext != null)
                 {
-                    return _bundleHttpContextAccessor.HttpContext.Request;
+                    request = _bundleHttpContextAccessor.HttpContext.Request;
                 }
 
-                return _httpContextAccessor.HttpContext.Request;
+                request.Scheme = "https";
+                return request;
             }
         }
 
