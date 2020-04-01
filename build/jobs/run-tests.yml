@@ -128,5 +128,5 @@ jobs:
         **\*${{ parameters.version }}.Tests.E2E*.dll
       searchFolder: '$(System.ArtifactsDirectory)'
       rerunFailedTests: true
+      rerunFailedThreshold: '70'
       rerunMaxAttempts: 3
-      runInParallel: true
