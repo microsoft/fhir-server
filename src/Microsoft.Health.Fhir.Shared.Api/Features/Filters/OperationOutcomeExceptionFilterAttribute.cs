@@ -24,6 +24,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Net.Http.Headers;
+using UnsupportedMediaTypeException = Microsoft.Health.Abstractions.Exceptions.UnsupportedMediaTypeException;
 
 namespace Microsoft.Health.Fhir.Api.Features.Filters
 {
@@ -104,9 +105,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     case ResourceConflictException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.Conflict;
                         break;
-                    case UnsupportedMediaTypeException _:
-                        operationOutcomeResult.StatusCode = HttpStatusCode.UnsupportedMediaType;
-                        break;
                     case PreconditionFailedException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.PreconditionFailed;
                         break;
@@ -157,6 +155,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                                 ex.RetryAfter.Value.TotalMilliseconds.ToString(CultureInfo.InvariantCulture));
                         }
 
+                        break;
+                    case UnsupportedMediaTypeException unsupportedMediaTypeException:
+                        healthExceptionResult = CreateOperationOutcomeResult(unsupportedMediaTypeException.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.NotSupported, HttpStatusCode.UnsupportedMediaType);
                         break;
                     case ServiceUnavailableException serviceUnavailableException:
                         healthExceptionResult = CreateOperationOutcomeResult(serviceUnavailableException.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Processing, HttpStatusCode.ServiceUnavailable);

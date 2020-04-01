@@ -16,6 +16,7 @@ using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Core.Exceptions;
