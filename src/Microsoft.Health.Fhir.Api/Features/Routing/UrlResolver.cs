@@ -70,13 +70,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         {
             get
             {
-                var request = _httpContextAccessor.HttpContext.Request;
                 if (_bundleHttpContextAccessor.HttpContext != null)
                 {
-                    request = _bundleHttpContextAccessor.HttpContext.Request;
+                    return _bundleHttpContextAccessor.HttpContext.Request;
                 }
 
-                return request;
+                return _httpContextAccessor.HttpContext.Request;
             }
         }
 
@@ -234,11 +233,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 Request.Host.Value);
 
             return new Uri(uriString);
-        }
-
-        public HttpRequest GetRequest()
-        {
-            return Request;
         }
 
         public Uri ResolveOperationResultUrl(string operationName, string id)

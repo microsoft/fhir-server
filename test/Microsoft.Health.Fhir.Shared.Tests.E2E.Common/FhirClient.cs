@@ -397,6 +397,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             var tokenJson = JObject.Parse(await tokenResponse.Content.ReadAsStringAsync());
 
             var bearerToken = tokenJson["access_token"].Value<string>();
+
             return bearerToken;
         }
 

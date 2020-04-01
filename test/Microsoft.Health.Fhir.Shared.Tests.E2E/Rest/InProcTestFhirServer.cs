@@ -104,7 +104,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                 // Find the path to the target project
                 var directoryInfo = new DirectoryInfo(applicationBasePath);
-
                 do
                 {
                     directoryInfo = directoryInfo.Parent;
