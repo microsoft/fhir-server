@@ -1,18 +1,6 @@
 steps:
 
   # Package web
-  - template: package-web.yml
-    parameters:
-      csproj: '**/Microsoft.Health.Fhir.Stu3.Web.csproj'
-
-  - template: package-web.yml
-    parameters:
-      csproj: '**/Microsoft.Health.Fhir.R4.Web.csproj'
-
-  - template: package-web.yml
-    parameters:
-      csproj: '**/Microsoft.Health.Fhir.R5.Web.csproj'
-
   - task: DotNetCoreCLI@2
     displayName: 'dotnet publish Integration Tests'
     inputs:
@@ -38,48 +26,6 @@ steps:
 
   # Publish artifacts
   - task: PublishBuildArtifacts@1
-    displayName: 'publish web artifacts'
-    inputs:
-      pathToPublish: '$(build.artifactStagingDirectory)/web'
-      artifactName: 'deploy'
-      artifactType: 'container'
-
-  - task: PublishBuildArtifacts@1
-    displayName: 'publish samples'
-    inputs:
-      pathToPublish: './samples/'
-      artifactName: 'deploy'
-      artifactType: 'container'
-
-  - task: PublishBuildArtifacts@1
-    displayName: 'publish testauthenvironment.json'
-    inputs:
-      pathToPublish: './testauthenvironment.json'
-      artifactName: 'deploy'
-      artifactType: 'container'
-
-  - task: PublishBuildArtifacts@1
-    displayName: 'publish global.json'
-    inputs:
-      pathToPublish: './global.json'
-      artifactName: 'deploy'
-      artifactType: 'container'
-      
-  - task: PublishBuildArtifacts@1
-    displayName: 'publish test configuration jsons'
-    inputs:
-      pathToPublish: './test/configuration/'
-      artifactName: 'deploy'
-      artifactType: 'container'
-
-  - task: PublishBuildArtifacts@1
-    displayName: 'publish release directory'
-    inputs:
-      pathToPublish: './release/'
-      artifactName: 'deploy'
-      artifactType: 'container'
-
-  - task: PublishBuildArtifacts@1
     displayName: 'publish nuget artifacts'
     inputs:
       pathtoPublish: '$(build.artifactStagingDirectory)/nupkgs'
@@ -92,8 +38,6 @@ steps:
       pathToPublish: '$(build.binariesdirectory)/IntegrationTests'
       artifactName: 'IntegrationTests'
       artifactType: 'container'
-      parallel: true
-      parallelCount: 8
 
   - task: PublishBuildArtifacts@1
     displayName: 'publish Source'
@@ -101,5 +45,3 @@ steps:
       pathToPublish: './src/'
       artifactName: 'src'
       artifactType: 'container'
-      parallel: true
-      parallelCount: 8

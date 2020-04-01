@@ -54,6 +54,8 @@ jobs:
 - job: 'e2eTests'
   condition: eq('${{ parameters.runE2E }}', true)
   dependsOn: []
+  stategy:
+    parallel: 4
   pool:
     vmImage: $(WindowsVmImage)
   steps:
@@ -128,5 +130,7 @@ jobs:
         **\*${{ parameters.version }}.Tests.E2E*.dll
       searchFolder: '$(System.ArtifactsDirectory)'
       rerunFailedTests: true
-      rerunFailedThreshold: '70'
+      rerunType: 'basedOnTestFailurePercentage'
+      rerunFailedThreshold: '95'
       rerunMaxAttempts: 3
+      runInParallel: true

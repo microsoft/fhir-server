@@ -48,6 +48,7 @@ jobs:
         $additionalProperties = $flattenedCors
      
         $additionalProperties["SqlServer__DeleteAllDataOnStartup"] = "true"
+        $additionalProperties["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true"
 
         $templateParameters = @{
             fhirVersion = "${{ parameters.version }}"
@@ -74,13 +75,6 @@ jobs:
         }
      
         Set-AzKeyVaultAccessPolicy -VaultName "${{ parameters.webAppName }}" -ObjectId 4d4d503d-9ca8-462e-9e18-b35fc8b5285b -PermissionsToSecrets list,get
-
-  - task: DownloadBuildArtifacts@0
-    inputs:
-      buildType: 'current'
-      downloadType: 'single'
-      downloadPath: '$(System.ArtifactsDirectory)'
-      artifactName: 'deploy'
 
   - task: AzureRmWebAppDeployment@4
     displayName: 'Azure App Service Deploy'

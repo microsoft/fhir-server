@@ -24,6 +24,7 @@ stages:
       parameters:
         packageArtifacts: false
 
+- stage: DockerBuild
   - template: docker-build-all.yml
     parameters: 
       tag: $(ImageTag)
@@ -47,7 +48,7 @@ stages:
   displayName: Setup AAD Test Environment
   dependsOn:
   - provisionEnvironment
-  - BuildUnitTests
+  - DockerBuild
   jobs:
   - template: ./jobs/add-aad-test-environment.yml
 
@@ -55,7 +56,7 @@ stages:
   displayName: 'Deploy STU3 Site'
   dependsOn:
   - provisionEnvironment
-  - BuildUnitTests
+  - DockerBuild
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -72,7 +73,7 @@ stages:
   displayName: 'Deploy STU3 SQL Site'
   dependsOn:
   - provisionEnvironment
-  - BuildUnitTests
+  - DockerBuild
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -90,7 +91,7 @@ stages:
   displayName: 'Deploy R4 Site'
   dependsOn:
   - provisionEnvironment
-  - BuildUnitTests
+  - DockerBuild
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -107,7 +108,7 @@ stages:
   displayName: 'Deploy R4 SQL Site'
   dependsOn:
   - provisionEnvironment
-  - BuildUnitTests
+  - DockerBuild
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -125,7 +126,7 @@ stages:
   displayName: 'Deploy R5 Site'
   dependsOn:
   - provisionEnvironment
-  - BuildUnitTests
+  - DockerBuild
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -142,7 +143,7 @@ stages:
   displayName: 'Deploy R5 SQL Site'
   dependsOn:
   - provisionEnvironment
-  - BuildUnitTests
+  - DockerBuild
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -159,6 +160,7 @@ stages:
 - stage: testStu3
   displayName: 'Run Stu3 Tests'
   dependsOn:
+  - BuildUnitTests
   - aadTestEnvironment
   - deployStu3
   - deployStu3Sql
@@ -171,6 +173,7 @@ stages:
 - stage: testR4
   displayName: 'Run R4 Tests'
   dependsOn:
+  - BuildUnitTests
   - aadTestEnvironment
   - deployR4
   - deployR4Sql
@@ -183,6 +186,7 @@ stages:
 - stage: testR5
   displayName: 'Run R5 Tests'
   dependsOn:
+  - BuildUnitTests
   - aadTestEnvironment
   - deployR5
   - deployR5Sql
