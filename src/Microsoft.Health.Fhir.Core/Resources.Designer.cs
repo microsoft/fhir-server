@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.Core {
     [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-    internal class Resources {
+    public class Resources {
         
         private static global::System.Resources.ResourceManager resourceMan;
         
@@ -433,7 +433,7 @@ namespace Microsoft.Health.Fhir.Core {
         /// <summary>
         ///   Looks up a localized string similar to The &apos;_total&apos; parameter value &apos;{0}&apos; is invalid. The supported values are: {1}..
         /// </summary>
-        internal static string InvalidTotalParameter {
+        public static string InvalidTotalParameter {
             get {
                 return ResourceManager.GetString("InvalidTotalParameter", resourceCulture);
             }
@@ -847,7 +847,7 @@ namespace Microsoft.Health.Fhir.Core {
         /// <summary>
         ///   Looks up a localized string similar to The &apos;_total&apos; parameter value &apos;{0}&apos; is not supported. The supported values are: {1}..
         /// </summary>
-        internal static string UnsupportedTotalParameter {
+        public static string UnsupportedTotalParameter {
             get {
                 return ResourceManager.GetString("UnsupportedTotalParameter", resourceCulture);
             }
