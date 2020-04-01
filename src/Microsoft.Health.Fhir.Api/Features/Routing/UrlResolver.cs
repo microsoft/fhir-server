@@ -76,7 +76,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                     request = _bundleHttpContextAccessor.HttpContext.Request;
                 }
 
-                request.Scheme = "https";
                 return request;
             }
         }
