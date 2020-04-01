@@ -24,7 +24,6 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Net.Http.Headers;
-using UnsupportedMediaTypeException = Microsoft.Health.Abstractions.Exceptions.UnsupportedMediaTypeException;
 
 namespace Microsoft.Health.Fhir.Api.Features.Filters
 {
