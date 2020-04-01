@@ -54,7 +54,7 @@ jobs:
 - job: 'e2eTests'
   condition: eq('${{ parameters.runE2E }}', true)
   dependsOn: []
-  stategy:
+  strategy:
     parallel: 4
   pool:
     vmImage: $(WindowsVmImage)
