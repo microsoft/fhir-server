@@ -116,7 +116,6 @@ namespace Microsoft.Extensions.DependencyInjection
 
                     // This middleware will add delegates to the OnStarting method of httpContext.Response for setting headers.
                     app.UseBaseHeaders();
-                    app.UseForwardedHeaders();
 
                     app.UseCors(Constants.DefaultCorsPolicy);
 
