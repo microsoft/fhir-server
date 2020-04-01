@@ -251,6 +251,10 @@
   <data name="InvalidSearchCountSpecified" xml:space="preserve">
     <value>The count must be greater than zero.</value>
   </data>
+  <data name="InvalidTotalParameter" xml:space="preserve">
+    <value>The '_total' parameter value '{0}' is invalid. The supported values are: {1}.</value>
+    <comment>{0}: the invalid _total parameter value. {1}: the supported _total parameter values.</comment>
+  </data>
   <data name="InvalidValueTypeForMissingModifier" xml:space="preserve">
     <value>Invalid value for :missing modifier. Valid values are: true, false.</value>
   </data>
@@ -392,7 +396,8 @@
     <value>Unsupported configuration found.</value>
   </data>
   <data name="UnsupportedTotalParameter" xml:space="preserve">
-    <value>The requested "_total" parameter is not supported.</value>
+    <value>The '_total' parameter value '{0}' is not supported. The supported values are: {1}.</value>
+    <comment>{0}: the unsupported _total parameter value. {1}: the supported _total parameter values.</comment>
   </data>
   <data name="UpdateRequestsRequireId" xml:space="preserve">
     <value>Resource id is required for updates.</value>

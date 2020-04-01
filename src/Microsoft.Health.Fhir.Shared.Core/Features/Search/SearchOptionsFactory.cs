@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
 using EnsureThat;
@@ -92,19 +93,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 }
                 else if (string.Compare(query.Item1, KnownQueryParameterNames.Total, StringComparison.OrdinalIgnoreCase) == 0)
                 {
+                    // Estimate is not yet supported.
+                    var supportedTotalTypes = new string($"'{TotalType.Accurate}', '{TotalType.None}'").ToLower(CultureInfo.CurrentCulture);
+
                     if (Enum.TryParse<TotalType>(query.Item2, true, out var totalType))
                     {
-                        // Estimate is not yet supported.
                         if (totalType == TotalType.Estimate)
                         {
-                            throw new SearchOperationNotSupportedException(Core.Resources.UnsupportedTotalParameter);
+                            throw new SearchOperationNotSupportedException(string.Format(Core.Resources.UnsupportedTotalParameter, query.Item2, supportedTotalTypes));
                         }
 
                         searchOptions.IncludeTotal = totalType;
                     }
                     else
                     {
-                        throw new BadRequestException(Core.Resources.UnsupportedTotalParameter);
+                        throw new BadRequestException(string.Format(Core.Resources.InvalidTotalParameter, query.Item2, supportedTotalTypes));
                     }
                 }
                 else
