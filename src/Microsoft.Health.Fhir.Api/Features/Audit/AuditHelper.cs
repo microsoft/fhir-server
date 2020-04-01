@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             EnsureArg.IsNotNull(claimsExtractor, nameof(claimsExtractor));
             EnsureArg.IsNotNull(httpContext, nameof(httpContext));
 
-            Log(AuditAction.Executing, statusCode: null, resourceType: null, httpContext, claimsExtractor);
+            Log(AuditAction.Executing, statusCode: null, httpContext, claimsExtractor);
         }
 
         /// <inheritdoc />
@@ -49,12 +49,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             EnsureArg.IsNotNull(claimsExtractor, nameof(claimsExtractor));
             EnsureArg.IsNotNull(httpContext, nameof(httpContext));
 
-            string resourceType = _fhirRequestContextAccessor.FhirRequestContext.ResourceType;
-
-            Log(AuditAction.Executed, (HttpStatusCode)httpContext.Response.StatusCode, resourceType, httpContext, claimsExtractor);
+            Log(AuditAction.Executed, (HttpStatusCode)httpContext.Response.StatusCode, httpContext, claimsExtractor);
         }
 
-        private void Log(AuditAction auditAction, HttpStatusCode? statusCode, string resourceType, HttpContext httpContext, IClaimsExtractor claimsExtractor)
+        private void Log(AuditAction auditAction, HttpStatusCode? statusCode, HttpContext httpContext, IClaimsExtractor claimsExtractor)
         {
             IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
 
@@ -66,7 +64,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
                 _auditLogger.LogAudit(
                     auditAction,
                     operation: auditEventType,
-                    resourceType: resourceType,
+                    resourceType: fhirRequestContext.ResourceType,
                     requestUri: fhirRequestContext.Uri,
                     statusCode: statusCode,
                     correlationId: fhirRequestContext.CorrelationId,

@@ -286,7 +286,16 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The requested &quot;{0}&quot; operation is not implemented..
+        ///   Looks up a localized string similar to The requested &quot;{0}&quot; operation is not enabled.
+        /// </summary>
+        public static string OperationNotEnabled {
+            get {
+                return ResourceManager.GetString("OperationNotEnabled", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The requested &quot;{0}&quot; operation is not supported..
         /// </summary>
         public static string OperationNotImplemented {
             get {
@@ -300,6 +309,15 @@ namespace Microsoft.Health.Fhir.Api {
         public static string PageTitle {
             get {
                 return ResourceManager.GetString("PageTitle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Error occurred when parsing model..
+        /// </summary>
+        public static string ParsingError {
+            get {
+                return ResourceManager.GetString("ParsingError", resourceCulture);
             }
         }
         
@@ -430,29 +448,11 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The requested &quot;{0}&quot; operation is not supported..
-        /// </summary>
-        public static string UnsupportedOperation {
-            get {
-                return ResourceManager.GetString("UnsupportedOperation", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to The &quot;{0}&quot; parameter is not supported..
         /// </summary>
         public static string UnsupportedParameter {
             get {
                 return ResourceManager.GetString("UnsupportedParameter", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to The supplied value for &quot;{0}&quot; paramter is invalid..
-        /// </summary>
-        public static string UnsupportedParameterValue {
-            get {
-                return ResourceManager.GetString("UnsupportedParameterValue", resourceCulture);
             }
         }
         

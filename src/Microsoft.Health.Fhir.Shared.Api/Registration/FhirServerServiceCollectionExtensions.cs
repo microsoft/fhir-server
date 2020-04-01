@@ -10,13 +10,13 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Health.Api.Features.Headers;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.ApiNotifications;
 using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
-using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Operations.Export;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Cors;
@@ -48,7 +48,8 @@ namespace Microsoft.Extensions.DependencyInjection
                 options.EnableEndpointRouting = false;
                 options.RespectBrowserAcceptHeader = true;
             })
-            .AddNewtonsoftJson();
+            .AddNewtonsoftJson()
+            .AddRazorRuntimeCompilation();
 
             var fhirServerConfiguration = new FhirServerConfiguration();
 

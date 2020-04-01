@@ -15,8 +15,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string Id = "id";
 
-        public const string SecretName = "secretName";
-
         public const string Hash = "hash";
 
         public const string Status = "status";
@@ -64,5 +62,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public const string FailureStatusCode = "failureStatusCode";
 
         public const string FailureDetails = "failureDetails";
+
+        public const string Since = "since";
     }
 }

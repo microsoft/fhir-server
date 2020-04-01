@@ -10,7 +10,7 @@ using EnsureThat;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Fhir.Core;
+using Microsoft.Health.Core;
 
 namespace Microsoft.Health.Fhir.Api.Modules.HealthChecks
 {
@@ -44,7 +44,16 @@ namespace Microsoft.Health.Fhir.Api.Modules.HealthChecks
                 return _lastResult;
             }
 
-            await _semaphore.WaitAsync(cancellationToken);
+            try
+            {
+                await _semaphore.WaitAsync(cancellationToken);
+            }
+            catch (OperationCanceledException oce) when (cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogInformation(oce, $"Cancellation was requested for {nameof(CheckHealthAsync)}");
+                return _lastResult;
+            }
+
             try
             {
                 if (_lastChecked >= ExpirationWindow)

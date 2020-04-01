@@ -9,8 +9,8 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Core.Internal;
 using Microsoft.Health.Fhir.Api.Modules.HealthChecks;
-using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Tests.Common;
 using NSubstitute;
 using Xunit;
@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.HealthCheck
         public async Task GivenTheHealthCheckCache_WhenMoreThan1SecondApart_ThenSecondRequestGetsFreshResults()
         {
             // Mocks the time a second ago so we can call the middleware in the past
-            using (Mock.Property(() => Clock.UtcNowFunc, () => DateTimeOffset.UtcNow.AddSeconds(-1)))
+            using (Mock.Property(() => ClockResolver.UtcNowFunc, () => DateTimeOffset.UtcNow.AddSeconds(-1)))
             {
                 await Task.WhenAll(
                     _cahcedHealthCheck.CheckHealthAsync(_context, CancellationToken.None),
@@ -90,6 +90,22 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.HealthCheck
             await _cahcedHealthCheck.CheckHealthAsync(_context, CancellationToken.None);
 
             _healthCheckFunc.Received(2).Invoke(_serviceScope.ServiceProvider);
+        }
+
+        [Fact]
+        public async Task GivenTheHealthCheckCache_WhenCancellationIsRequested_ThenWeDoNotThrowAndReturnLastHealthCheckResult()
+        {
+            // Trigger a health check so as to populate lastResult
+            await _cahcedHealthCheck.CheckHealthAsync(_context, CancellationToken.None);
+
+            var ctSource = new CancellationTokenSource();
+            ctSource.Cancel();
+
+            HealthCheckResult result = await _cahcedHealthCheck.CheckHealthAsync(_context, ctSource.Token);
+
+            // Confirm we only called CheckHealthAsync once.
+            await _healthCheck.Received(1).CheckHealthAsync(Arg.Any<HealthCheckContext>(), Arg.Any<CancellationToken>());
+            Assert.Equal(HealthStatus.Healthy, result.Status);
         }
     }
 }

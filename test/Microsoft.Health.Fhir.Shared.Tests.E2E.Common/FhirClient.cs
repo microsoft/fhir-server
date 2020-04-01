@@ -15,7 +15,6 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
 using IdentityModel.Client;
-using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Tests.E2E.Rest;
@@ -282,10 +281,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             return await CreateResponseAsync<Bundle>(response);
         }
 
-        public async Task<string> ExportAsync(Dictionary<string, string> queryParams)
+        public async Task<string> ExportAsync()
         {
-            string path = QueryHelpers.AddQueryString("$export", queryParams);
-            var message = new HttpRequestMessage(HttpMethod.Get, path);
+            var message = new HttpRequestMessage(HttpMethod.Get, "$export");
 
             message.Headers.Add("Accept", "application/fhir+json");
             message.Headers.Add("Prefer", "respond-async");

@@ -9,6 +9,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="DefinitionFiles\R5\SearchParameters.json" />
+    <None Remove="DefinitionFiles\R5\SearchParametersWithInvalidBase.json" />
+    <None Remove="DefinitionFiles\R5\SearchParametersWithInvalidDefinitions.json" />
+    <None Remove="DefinitionFiles\R5\SearchParametersWithInvalidEntries.json" />
+    <None Remove="DefinitionFiles\R5\SearchParametersWithInvalidType.json" />
+    <None Remove="DefinitionFiles\R5\SearchParametersWithNullEntry.json" />
     <None Remove="DefinitionFiles\R4\SearchParameters.json" />
     <None Remove="DefinitionFiles\R4\SearchParametersWithInvalidBase.json" />
     <None Remove="DefinitionFiles\R4\SearchParametersWithInvalidDefinitions.json" />
@@ -48,27 +54,59 @@
     <None Remove="TestFiles\Patient-f001.json" />
     <None Remove="TestFiles\Patient.json" />
     <None Remove="TestFiles\Patient.xml" />
-    <None Remove="TestFiles\R4\AuthConfigWithInvalidEntries.json" />
-    <None Remove="TestFiles\R4\AuthConfigWithValidRoles.json" />
+    <None Remove="TestFiles\R5\BasicExampleNarrative.json" />
+    <None Remove="TestFiles\R5\BasicExampleNarrative.xml" />
+    <None Remove="TestFiles\Normative\BloodGlucose.json" />
+    <None Remove="TestFiles\Normative\BloodPressure.json" />
+    <None Remove="TestFiles\Normative\Bundle-Batch.json" />
+    <None Remove="TestFiles\Normative\Bundle-Transaction.json" />
+    <None Remove="TestFiles\Normative\Bundle-TransactionForRollBack.json" />
+    <None Remove="TestFiles\Normative\Bundle-TransactionWithAllValidRoutes.json" />
+    <None Remove="TestFiles\Normative\Bundle-TransactionWithConditionalReferenceInResourceBody.json" />
+    <None Remove="TestFiles\Normative\Bundle-TransactionWithConditionalReferenceReferringToSameResource.json" />
+    <None Remove="TestFiles\Normative\Bundle-TransactionWithForeignReferenceInResourceBody.json" />
+    <None Remove="TestFiles\Normative\Bundle-TransactionWithInvalidProcessingRoutes.json" />
+    <None Remove="TestFiles\Normative\Bundle-TransactionWithInvalidResourceType.json" />
+    <None Remove="TestFiles\Normative\Bundle-TransactionWithMultipleEntriesModifyingSameResource.json" />
+    <None Remove="TestFiles\Normative\Bundle-TransactionWithMultipleResourcesWithSameFullUrl.json" />
+    <None Remove="TestFiles\Normative\Bundle-TransactionWithPOSTFullUrlMatchesWithPUTRequestUrl.json" />
+    <None Remove="TestFiles\Normative\Bundle-TransactionWithValidBundleEntry.json" />
+    <None Remove="TestFiles\Normative\Bundle-TypeMissing.json" />
+    <None Remove="TestFiles\Normative\Observation-For-Patient-f001.json" />
+    <None Remove="TestFiles\Normative\ObservationWith1MinuteApgarScore.json" />
+    <None Remove="TestFiles\Normative\ObservationWith20MinuteApgarScore.json" />
+    <None Remove="TestFiles\Normative\ObservationWithBloodPressure.json" />
+    <None Remove="TestFiles\Normative\ObservationWithEyeColor.json" />
+    <None Remove="TestFiles\Normative\ObservationWithInvalidStatus.json" />
+    <None Remove="TestFiles\Normative\ObservationWithInvalidStatus.xml" />
+    <None Remove="TestFiles\Normative\ObservationWithLongEyeColor.json" />
+    <None Remove="TestFiles\Normative\ObservationWithNoCode.json" />
+    <None Remove="TestFiles\Normative\ObservationWithNoCode.xml" />
+    <None Remove="TestFiles\Normative\ObservationWithTemperature.json" />
+    <None Remove="TestFiles\Normative\ObservationWithTPMTDiplotype.json" />
+    <None Remove="TestFiles\Normative\ObservationWithTPMTHaplotypeOne.json" />
+    <None Remove="TestFiles\Normative\Patient-f001.json" />
+    <None Remove="TestFiles\Normative\Patient.json" />
+    <None Remove="TestFiles\Normative\Patient.xml" />
+    <None Remove="TestFiles\Normative\PatientMissingResourceType.json" />
+    <None Remove="TestFiles\Normative\PatientWithMinimalData.json" />
+    <None Remove="TestFiles\Normative\Weight.json" />
+    <None Remove="TestFiles\Normative\WeightInGrams.json" />
+    <None Remove="TestFiles\R5\Condition-For-Patient-f001.json" />
+    <None Remove="TestFiles\R5\Device-d1.json" />
+    <None Remove="TestFiles\R5\DocumentReference-example-002.json" />
+    <None Remove="TestFiles\R5\DocumentReference-example-003.json" />
+    <None Remove="TestFiles\R5\DocumentReference-example.json" />
+    <None Remove="TestFiles\R5\Encounter-For-Patient-f001.json" />
+    <None Remove="TestFiles\R5\InvalidCompartmentDefinition.json" />
+    <None Remove="TestFiles\R5\Location-example-hq.json" />
+    <None Remove="TestFiles\R5\MedicinalProduct.json" />
+    <None Remove="TestFiles\R5\MedicinalProductDefinition.json" />
+    <None Remove="TestFiles\R5\ObservationDefinition-example.json" />
+    <None Remove="TestFiles\R5\Organization.json" />
+    <None Remove="TestFiles\R5\ValidCompartmentDefinition.json" />
     <None Remove="TestFiles\R4\BasicExampleNarrative.json" />
     <None Remove="TestFiles\R4\BasicExampleNarrative.xml" />
-    <None Remove="TestFiles\R4\BloodGlucose.json" />
-    <None Remove="TestFiles\R4\BloodPressure.json" />
-    <None Remove="TestFiles\R4\Bundle-Batch.json" />
-    <None Remove="TestFiles\R4\Bundle-Transaction.json" />
-    <None Remove="TestFiles\R4\Bundle-TransactionForRollBack.json" />
-    <None Remove="TestFiles\R4\Bundle-TransactionWithAllValidRoutes.json" />
-    <None Remove="TestFiles\R4\Bundle-TransactionWithConditionalReferenceInResourceBody.json" />
-    <None Remove="TestFiles\R4\Bundle-TransactionWithConditionalReferenceReferringToSameResource.json" />
-    <None Remove="TestFiles\R4\Bundle-TransactionWithForeignReferenceInResourceBody.json" />
-    <None Remove="TestFiles\R4\Bundle-TransactionWithInvalidProcessingRoutes.json" />
-    <None Remove="TestFiles\R4\Bundle-TransactionWithInvalidResourceType.json" />
-    <None Remove="TestFiles\R4\Bundle-TransactionWithMultipleEntriesModifyingSameResource.json" />
-    <None Remove="TestFiles\R4\Bundle-TransactionWithMultipleResourcesWithSameFullUrl.json" />
-    <None Remove="TestFiles\R4\Bundle-TransactionWithPOSTFullUrlMatchesWithPUTRequestUrl.json" />
-    <None Remove="TestFiles\R4\Bundle-TransactionWithReferenceInResourceBody.json" />
-    <None Remove="TestFiles\R4\Bundle-TransactionWithValidBundleEntry.json" />
-    <None Remove="TestFiles\R4\Bundle-TypeMissing.json" />
     <None Remove="TestFiles\R4\Condition-For-Patient-f001.json" />
     <None Remove="TestFiles\R4\Device-d1.json" />
     <None Remove="TestFiles\R4\DocumentReference-example-002.json" />
@@ -78,28 +116,9 @@
     <None Remove="TestFiles\R4\InvalidCompartmentDefinition.json" />
     <None Remove="TestFiles\R4\Location-example-hq.json" />
     <None Remove="TestFiles\R4\MedicinalProduct.json" />
-    <None Remove="TestFiles\R4\Observation-For-Patient-f001.json" />
     <None Remove="TestFiles\R4\ObservationDefinition-example.json" />
-    <None Remove="TestFiles\R4\ObservationWith1MinuteApgarScore.json" />
-    <None Remove="TestFiles\R4\ObservationWith20MinuteApgarScore.json" />
-    <None Remove="TestFiles\R4\ObservationWithBloodPressure.json" />
-    <None Remove="TestFiles\R4\ObservationWithEyeColor.json" />
-    <None Remove="TestFiles\R4\ObservationWithInvalidStatus.json" />
-    <None Remove="TestFiles\R4\ObservationWithInvalidStatus.xml" />
-    <None Remove="TestFiles\R4\ObservationWithLongEyeColor.json" />
-    <None Remove="TestFiles\R4\ObservationWithNoCode.json" />
-    <None Remove="TestFiles\R4\ObservationWithNoCode.xml" />
-    <None Remove="TestFiles\R4\ObservationWithTemperature.json" />
-    <None Remove="TestFiles\R4\ObservationWithTPMTDiplotype.json" />
-    <None Remove="TestFiles\R4\ObservationWithTPMTHaplotypeOne.json" />
     <None Remove="TestFiles\R4\Organization.json" />
-    <None Remove="TestFiles\R4\Patient-f001.json" />
-    <None Remove="TestFiles\R4\Patient.json" />
-    <None Remove="TestFiles\R4\Patient.xml" />
-    <None Remove="TestFiles\R4\PatientWithMinimalData.json" />
     <None Remove="TestFiles\R4\ValidCompartmentDefinition.json" />
-    <None Remove="TestFiles\R4\Weight.json" />
-    <None Remove="TestFiles\R4\WeightInGrams.json" />
     <None Remove="TestFiles\ResourceWrapperNoVersion.json" />
     <None Remove="TestFiles\Stu3\Bundle-Batch.json" />
     <None Remove="TestFiles\Stu3\Bundle-Transaction.json" />
@@ -129,6 +148,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="DefinitionFiles\R5\SearchParameters.json" />
+    <EmbeddedResource Include="DefinitionFiles\R5\SearchParametersWithInvalidBase.json" />
+    <EmbeddedResource Include="DefinitionFiles\R5\SearchParametersWithInvalidDefinitions.json" />
+    <EmbeddedResource Include="DefinitionFiles\R5\SearchParametersWithInvalidEntries.json" />
+    <EmbeddedResource Include="DefinitionFiles\R5\SearchParametersWithInvalidType.json" />
+    <EmbeddedResource Include="DefinitionFiles\R5\SearchParametersWithNullEntry.json" />
     <EmbeddedResource Include="DefinitionFiles\R4\SearchParameters.json" />
     <EmbeddedResource Include="DefinitionFiles\R4\SearchParametersWithInvalidBase.json" />
     <EmbeddedResource Include="DefinitionFiles\R4\SearchParametersWithInvalidDefinitions.json" />
@@ -141,27 +166,60 @@
     <EmbeddedResource Include="DefinitionFiles\Stu3\SearchParametersWithInvalidBase.json" />
     <EmbeddedResource Include="DefinitionFiles\Stu3\SearchParametersWithNullEntry.json" />
     <EmbeddedResource Include="DefinitionFiles\Stu3\SearchParametersWithInvalidEntries.json" />
-    <EmbeddedResource Include="TestFiles\R4\AuthConfigWithInvalidEntries.json" />
-    <EmbeddedResource Include="TestFiles\R4\AuthConfigWithValidRoles.json" />
+    <EmbeddedResource Include="TestFiles\Normative\BloodGlucose.json" />
+    <EmbeddedResource Include="TestFiles\Normative\BloodPressure.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Bundle-TypeMissing.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Bundle-Batch.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionForRollBack.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithAllValidRoutes.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithInvalidProcessingRoutes.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithInvalidResourceType.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithForeignReferenceInResourceBody.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithValidBundleEntry.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithConditionalReferenceInResourceBody.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithMultipleEntriesModifyingSameResource.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithConditionalReferenceReferringToSameResource.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithPOSTFullUrlMatchesWithPUTRequestUrl.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithMultipleResourcesWithSameFullUrl.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Bundle-Transaction.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Observation-For-Patient-f001.json" />
+    <EmbeddedResource Include="TestFiles\Normative\ObservationWith1MinuteApgarScore.json" />
+    <EmbeddedResource Include="TestFiles\Normative\ObservationWith20MinuteApgarScore.json" />
+    <EmbeddedResource Include="TestFiles\Normative\ObservationWithBloodPressure.json" />
+    <EmbeddedResource Include="TestFiles\Normative\ObservationWithLongEyeColor.json" />
+    <EmbeddedResource Include="TestFiles\Normative\ObservationWithEyeColor.json" />
+    <EmbeddedResource Include="TestFiles\Normative\ObservationWithInvalidStatus.json" />
+    <EmbeddedResource Include="TestFiles\Normative\ObservationWithInvalidStatus.xml" />
+    <EmbeddedResource Include="TestFiles\Normative\ObservationWithNoCode.json" />
+    <EmbeddedResource Include="TestFiles\Normative\ObservationWithNoCode.xml" />
+    <EmbeddedResource Include="TestFiles\Normative\ObservationWithTemperature.json" />
+    <EmbeddedResource Include="TestFiles\Normative\ObservationWithTPMTDiplotype.json" />
+    <EmbeddedResource Include="TestFiles\Normative\ObservationWithTPMTHaplotypeOne.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Patient-f001.json" />
+    <EmbeddedResource Include="TestFiles\Normative\PatientMissingResourceType.json" />
+    <EmbeddedResource Include="TestFiles\Normative\PatientWithMinimalData.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Patient.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Patient.xml" />
+    <EmbeddedResource Include="TestFiles\Normative\Weight.json" />
+    <EmbeddedResource Include="TestFiles\Normative\WeightInGrams.json" />
+    <EmbeddedResource Include="TestFiles\R5\BasicExampleNarrative.json" />
+    <EmbeddedResource Include="TestFiles\R5\BasicExampleNarrative.xml" />
+    <EmbeddedResource Include="TestFiles\R5\Bundle-TransactionWithReferenceInResourceBody.json" />
+    <EmbeddedResource Include="TestFiles\R5\Condition-For-Patient-f001.json" />
+    <EmbeddedResource Include="TestFiles\R5\Device-d1.json" />
+    <EmbeddedResource Include="TestFiles\R5\DocumentReference-example-002.json" />
+    <EmbeddedResource Include="TestFiles\R5\DocumentReference-example-003.json" />
+    <EmbeddedResource Include="TestFiles\R5\DocumentReference-example.json" />
+    <EmbeddedResource Include="TestFiles\R5\Encounter-For-Patient-f001.json" />
+    <EmbeddedResource Include="TestFiles\R5\InvalidCompartmentDefinition.json" />
+    <EmbeddedResource Include="TestFiles\R5\Location-example-hq.json" />
+    <EmbeddedResource Include="TestFiles\R5\MedicinalProductDefinition.json" />
+    <EmbeddedResource Include="TestFiles\R5\ObservationDefinition-example.json" />
+    <EmbeddedResource Include="TestFiles\R5\Organization.json" />
+    <EmbeddedResource Include="TestFiles\R5\ValidCompartmentDefinition.json" />
     <EmbeddedResource Include="TestFiles\R4\BasicExampleNarrative.json" />
     <EmbeddedResource Include="TestFiles\R4\BasicExampleNarrative.xml" />
-    <EmbeddedResource Include="TestFiles\R4\BloodGlucose.json" />
-    <EmbeddedResource Include="TestFiles\R4\BloodPressure.json" />
-    <EmbeddedResource Include="TestFiles\R4\Bundle-TypeMissing.json" />
-    <EmbeddedResource Include="TestFiles\R4\Bundle-Batch.json" />
-    <EmbeddedResource Include="TestFiles\R4\Bundle-TransactionForRollBack.json" />
-    <EmbeddedResource Include="TestFiles\R4\Bundle-TransactionWithAllValidRoutes.json" />
-    <EmbeddedResource Include="TestFiles\R4\Bundle-TransactionWithInvalidProcessingRoutes.json" />
-    <EmbeddedResource Include="TestFiles\R4\Bundle-TransactionWithInvalidResourceType.json" />
-    <EmbeddedResource Include="TestFiles\R4\Bundle-TransactionWithForeignReferenceInResourceBody.json" />
     <EmbeddedResource Include="TestFiles\R4\Bundle-TransactionWithReferenceInResourceBody.json" />
-    <EmbeddedResource Include="TestFiles\R4\Bundle-TransactionWithValidBundleEntry.json" />
-    <EmbeddedResource Include="TestFiles\R4\Bundle-TransactionWithConditionalReferenceInResourceBody.json" />
-    <EmbeddedResource Include="TestFiles\R4\Bundle-TransactionWithMultipleEntriesModifyingSameResource.json" />
-    <EmbeddedResource Include="TestFiles\R4\Bundle-TransactionWithConditionalReferenceReferringToSameResource.json" />
-    <EmbeddedResource Include="TestFiles\R4\Bundle-TransactionWithPOSTFullUrlMatchesWithPUTRequestUrl.json" />
-    <EmbeddedResource Include="TestFiles\R4\Bundle-TransactionWithMultipleResourcesWithSameFullUrl.json" />
-    <EmbeddedResource Include="TestFiles\R4\Bundle-Transaction.json" />
     <EmbeddedResource Include="TestFiles\R4\Condition-For-Patient-f001.json" />
     <EmbeddedResource Include="TestFiles\R4\Device-d1.json" />
     <EmbeddedResource Include="TestFiles\R4\DocumentReference-example-002.json" />
@@ -171,28 +229,9 @@
     <EmbeddedResource Include="TestFiles\R4\InvalidCompartmentDefinition.json" />
     <EmbeddedResource Include="TestFiles\R4\Location-example-hq.json" />
     <EmbeddedResource Include="TestFiles\R4\MedicinalProduct.json" />
-    <EmbeddedResource Include="TestFiles\R4\Observation-For-Patient-f001.json" />
     <EmbeddedResource Include="TestFiles\R4\ObservationDefinition-example.json" />
-    <EmbeddedResource Include="TestFiles\R4\ObservationWith1MinuteApgarScore.json" />
-    <EmbeddedResource Include="TestFiles\R4\ObservationWith20MinuteApgarScore.json" />
-    <EmbeddedResource Include="TestFiles\R4\ObservationWithBloodPressure.json" />
-    <EmbeddedResource Include="TestFiles\R4\ObservationWithLongEyeColor.json" />
-    <EmbeddedResource Include="TestFiles\R4\ObservationWithEyeColor.json" />
-    <EmbeddedResource Include="TestFiles\R4\ObservationWithInvalidStatus.json" />
-    <EmbeddedResource Include="TestFiles\R4\ObservationWithInvalidStatus.xml" />
-    <EmbeddedResource Include="TestFiles\R4\ObservationWithNoCode.json" />
-    <EmbeddedResource Include="TestFiles\R4\ObservationWithNoCode.xml" />
-    <EmbeddedResource Include="TestFiles\R4\ObservationWithTemperature.json" />
-    <EmbeddedResource Include="TestFiles\R4\ObservationWithTPMTDiplotype.json" />
-    <EmbeddedResource Include="TestFiles\R4\ObservationWithTPMTHaplotypeOne.json" />
     <EmbeddedResource Include="TestFiles\R4\Organization.json" />
-    <EmbeddedResource Include="TestFiles\R4\Patient-f001.json" />
-    <EmbeddedResource Include="TestFiles\R4\PatientWithMinimalData.json" />
-    <EmbeddedResource Include="TestFiles\R4\Patient.json" />
-    <EmbeddedResource Include="TestFiles\R4\Patient.xml" />
     <EmbeddedResource Include="TestFiles\R4\ValidCompartmentDefinition.json" />
-    <EmbeddedResource Include="TestFiles\R4\Weight.json" />
-    <EmbeddedResource Include="TestFiles\R4\WeightInGrams.json" />
     <EmbeddedResource Include="TestFiles\Stu3\BasicExampleNarrative.json" />
     <EmbeddedResource Include="TestFiles\Stu3\BasicExampleNarrative.xml" />
     <EmbeddedResource Include="TestFiles\Stu3\BloodGlucose.json" />
@@ -240,8 +279,6 @@
     <EmbeddedResource Include="TestFiles\Stu3\Patient.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Patient.xml" />
     <EmbeddedResource Include="TestFiles\Stu3\ResourceWrapperNoVersion.json" />
-    <EmbeddedResource Include="TestFiles\Stu3\AuthConfigWithInvalidEntries.json" />
-    <EmbeddedResource Include="TestFiles\Stu3\AuthConfigWithValidRoles.json" />
     <EmbeddedResource Include="TestFiles\Stu3\ValidCompartmentDefinition.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Weight.json" />
     <EmbeddedResource Include="TestFiles\Stu3\WeightInGrams.json" />
@@ -249,6 +286,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.Health.Abstractions" Version="1.0.0-master-20200327-1" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.3.0" />
     <PackageReference Include="NSubstitute" Version="4.2.1" />
     <PackageReference Include="xunit" Version="2.4.1" />
@@ -256,7 +294,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Microsoft.Health.Abstractions\Microsoft.Health.Abstractions.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
   </ItemGroup>
 

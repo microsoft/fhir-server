@@ -156,9 +156,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
         [Fact]
         public void GivenADateTimeSearchValue_WhenGenerated_ThenCorrectJObjectShouldBeCreated()
         {
-            var value = new DateTimeSearchValue(
-                new PartialDateTime(2000),
-                new PartialDateTime(2001));
+            var value = new DateTimeSearchValue(PartialDateTime.Parse("2000"), PartialDateTime.Parse("2001"));
 
             var expectedValues = new[]
             {

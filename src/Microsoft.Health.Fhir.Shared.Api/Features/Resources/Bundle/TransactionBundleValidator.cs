@@ -9,29 +9,24 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Features.Conformance;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Search;
-using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using static Hl7.Fhir.Model.Bundle;
 
 namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 {
-    public class TransactionBundleValidator : BaseConditionalHandler
+    public class TransactionBundleValidator
     {
-        public TransactionBundleValidator(
-            IFhirDataStore fhirDataStore,
-            Lazy<IConformanceProvider> conformanceProvider,
-            IResourceWrapperFactory resourceWrapperFactory,
-            ISearchService searchService,
-            ResourceIdProvider resourceIdProvider)
-            : base(fhirDataStore, searchService, conformanceProvider, resourceWrapperFactory, resourceIdProvider)
+        private readonly ResourceReferenceResolver _referenceResolver;
+
+        public TransactionBundleValidator(ResourceReferenceResolver referenceResolver)
         {
+            EnsureArg.IsNotNull(referenceResolver, nameof(referenceResolver));
+
+            _referenceResolver = referenceResolver;
         }
 
         /// <summary>
@@ -104,8 +99,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     conditionalQueries = entry.Request.IfNoneExist;
                 }
 
-                SearchResultEntry[] matchedResults = await GetExistingResourceId(entry.Request.Url, resourceType, conditionalQueries, cancellationToken);
-                int? count = matchedResults?.Length;
+                IReadOnlyCollection<SearchResultEntry> matchedResults = await _referenceResolver.GetExistingResourceId(entry.Request.Url, resourceType, conditionalQueries, cancellationToken);
+                int? count = matchedResults?.Count;
 
                 if (count > 1)
                 {
@@ -115,26 +110,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                 if (count == 1)
                 {
-                    return entry.Resource.TypeName + "/" + matchedResults[0].Resource.ResourceId;
+                    return entry.Resource.TypeName + "/" + matchedResults.First().Resource.ResourceId;
                 }
             }
 
             return string.Empty;
-        }
-
-        public async Task<SearchResultEntry[]> GetExistingResourceId(string requestUrl, string resourceType, StringValues conditionalQueries, CancellationToken cancellationToken)
-        {
-            if (string.IsNullOrEmpty(resourceType) || string.IsNullOrEmpty(conditionalQueries))
-            {
-                throw new RequestNotValidException(string.Format(Api.Resources.InvalidConditionalReferenceParameters, requestUrl));
-            }
-
-            Tuple<string, string>[] conditionalParameters = QueryHelpers.ParseQuery(conditionalQueries)
-                              .SelectMany(query => query.Value, (query, value) => Tuple.Create(query.Key, value)).ToArray();
-
-            var searchResourceRequest = new SearchResourceRequest(resourceType, conditionalParameters);
-
-            return await Search(searchResourceRequest.ResourceType, searchResourceRequest.Queries, cancellationToken);
         }
 
         private static bool ShouldValidateBundleEntry(EntryComponent entry)

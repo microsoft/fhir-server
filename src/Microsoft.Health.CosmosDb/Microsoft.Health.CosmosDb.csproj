@@ -11,13 +11,10 @@
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="3.1.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="3.1.0" />
     <PackageReference Include="Microsoft.Extensions.Options" Version="3.1.0" />
-    <PackageReference Include="Polly" Version="7.1.1" />
+    <PackageReference Include="Microsoft.Health.Abstractions" Version="1.0.0-master-20200327-1" />
+    <PackageReference Include="Microsoft.Health.Core" Version="1.0.0-master-20200327-1" />
+    <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection" Version="1.0.0-master-20200327-1" />
+    <PackageReference Include="Polly" Version="7.2.0" />
   </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\Microsoft.Health.Abstractions\Microsoft.Health.Abstractions.csproj" />
-    <ProjectReference Include="..\Microsoft.Health.Extensions.DependencyInjection\Microsoft.Health.Extensions.DependencyInjection.csproj" />
-    <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
-  </ItemGroup>
-
+  
 </Project>

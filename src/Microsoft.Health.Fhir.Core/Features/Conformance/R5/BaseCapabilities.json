@@ -1,0 +1,36 @@
+﻿{
+    "url": "/metadata",
+    "version": "1.0.0.0",
+    "name": "Microsoft FHIR Server",
+    "status": [ "draft", "active", "retired" ],
+    "experimental": true,
+    "publisher": "Microsoft",
+    "contact": [
+        {
+            "telecom": [
+                {
+                    "system": "url",
+                    "value": "https://www.microsoft.com"
+                }
+            ]
+        }
+    ],
+    "kind": [ "capability" ],
+    "fhirVersion": "4.2.0",
+    "format": [
+        "application/fhir+json"
+    ],
+    "rest": [
+        {
+            "mode": "server",
+            "security": {
+                "cors": false,
+                "service": []
+            },
+            "resource": [],
+            "interaction": [],
+            "searchParam": [],
+            "operation": []
+        }
+    ]
+}

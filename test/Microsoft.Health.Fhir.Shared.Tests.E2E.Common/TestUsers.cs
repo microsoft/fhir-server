@@ -7,16 +7,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 {
     public static class TestUsers
     {
-        public static TestUser ReadOnlyUser { get; } = new TestUser("john");
+        public static TestUser ReadOnlyUser { get; } = new TestUser("globalReaderUser");
 
-        public static TestUser WriteOnlyUser { get; } = new TestUser("sam");
+        public static TestUser ReadWriteUser { get; } = new TestUser("globalWriterUser");
 
-        public static TestUser ReadWriteUser { get; } = new TestUser("frank");
+        public static TestUser ExportUser { get; } = new TestUser("globalExporterUser");
 
-        public static TestUser HardDeleteUser { get; } = new TestUser("doug");
-
-        public static TestUser ExportUser { get; } = new TestUser("steve");
-
-        public static TestUser AdminUser { get; } = new TestUser("itguy");
+        public static TestUser AdminUser { get; } = new TestUser("globalAdminUser");
     }
 }

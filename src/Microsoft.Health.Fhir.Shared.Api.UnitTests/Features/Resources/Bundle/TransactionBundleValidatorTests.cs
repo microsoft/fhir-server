@@ -6,16 +6,19 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
+using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Tests.Common;
 using NSubstitute;
 using Xunit;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 {
@@ -26,11 +29,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
         public TransactionBundleValidatorTests()
         {
-            IFhirDataStore fhirDataStore = Substitute.For<IFhirDataStore>();
-            Lazy<IConformanceProvider> conformanceProvider = Substitute.For<Lazy<IConformanceProvider>>();
-            IResourceWrapperFactory resourceWrapperFactory = Substitute.For<IResourceWrapperFactory>();
-            ResourceIdProvider resourceIdProvider = Substitute.For<ResourceIdProvider>();
-            _transactionBundleValidator = new TransactionBundleValidator(fhirDataStore, conformanceProvider, resourceWrapperFactory, _searchService, resourceIdProvider);
+            _transactionBundleValidator = new TransactionBundleValidator(new ResourceReferenceResolver(_searchService, new QueryStringParser()));
         }
 
         [Fact]
@@ -62,7 +61,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.Equal(expectedMessage, exception.Message);
         }
 
-        private async System.Threading.Tasks.Task ValidateIfBundleEntryIsUniqueAsync(Core.Models.ResourceElement requestBundle)
+        private async Task ValidateIfBundleEntryIsUniqueAsync(Core.Models.ResourceElement requestBundle)
         {
             var resourceIdList = new HashSet<string>(StringComparer.Ordinal);
             var bundle = requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>();

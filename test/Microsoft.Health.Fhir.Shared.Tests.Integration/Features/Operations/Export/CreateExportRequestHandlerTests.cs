@@ -5,33 +5,29 @@
 
 using System;
 using System.Collections.Generic;
-using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Health.Fhir.Azure.KeyVault;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
-using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
-using Microsoft.Health.Fhir.Core.Features.SecretStore;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Export;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
-using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 {
     [Collection(FhirOperationTestConstants.FhirOperationTests)]
-    [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
+    [FhirStorageTestsFixtureArgumentSets(DataStore.All)]
     public class CreateExportRequestHandlerTests : IClassFixture<FhirStorageTestsFixture>, IAsyncLifetime
     {
-        private static readonly Uri RequestUrl = new Uri("https://localhost/$export/");
-        private const string DestinationType = "destinationType";
-        private const string ConnectionString = "destinationConnection";
+        private static readonly Uri RequestUrl = new Uri("https://localhost/$export");
+        private static readonly PartialDateTime SinceParameter = new PartialDateTime(DateTimeOffset.UtcNow);
+        private static readonly Uri RequestUrlWithSince = new Uri($"https://localhost/$export?_since={SinceParameter}");
 
         private readonly MockClaimsExtractor _claimsExtractor = new MockClaimsExtractor();
-        private readonly ISecretStore _secretStore = new InMemorySecretStore();
         private readonly IFhirOperationDataStore _fhirOperationDataStore;
         private readonly IFhirStorageTestHelper _fhirStorageTestHelper;
 
@@ -43,13 +39,37 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
         {
             _fhirOperationDataStore = fixture.OperationDataStore;
             _fhirStorageTestHelper = fixture.TestHelper;
+            _createExportRequestHandler = new CreateExportRequestHandler(_claimsExtractor, _fhirOperationDataStore, DisabledFhirAuthorizationService.Instance);
+        }
 
-            _createExportRequestHandler = new CreateExportRequestHandler(_claimsExtractor, _fhirOperationDataStore, _secretStore);
+        public static IEnumerable<object[]> ExportUriForSameJobs
+        {
+            get
+            {
+                return new[]
+                {
+                    new object[] { RequestUrl, null },
+                    new object[] { RequestUrlWithSince, SinceParameter },
+                };
+            }
+        }
+
+        public static IEnumerable<object[]> ExportUriForDifferentJobs
+        {
+            get
+            {
+                return new[]
+                {
+                    new object[] { RequestUrl, null, RequestUrlWithSince, SinceParameter },
+                    new object[] { RequestUrl, null, new Uri("http://localhost/test"), null },
+                    new object[] { RequestUrlWithSince, SinceParameter, new Uri("https://localhost/$export?_since=2020-01-01"), PartialDateTime.Parse("2020-01-01") },
+                };
+            }
         }
 
         public Task InitializeAsync()
         {
-            return _fhirStorageTestHelper.DeleteAllExportJobRecordsAsync();
+            return _fhirStorageTestHelper.DeleteAllExportJobRecordsAsync(_cancellationToken);
         }
 
         public Task DisposeAsync()
@@ -57,29 +77,27 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             return Task.CompletedTask;
         }
 
-        [Fact]
-        public async Task GivenThereIsNoMatchingJob_WhenCreatingAnExportJob_ThenNewJobShouldBeCreated()
+        [Theory]
+        [MemberData(nameof(ExportUriForSameJobs))]
+        public async Task GivenThereIsNoMatchingJob_WhenCreatingAnExportJob_ThenNewJobShouldBeCreated(Uri requestUrl, PartialDateTime since)
         {
-            var request = new CreateExportRequest(RequestUrl, DestinationType, ConnectionString);
+            var request = new CreateExportRequest(requestUrl, since: since);
 
             CreateExportResponse response = await _createExportRequestHandler.Handle(request, _cancellationToken);
 
             Assert.NotNull(response);
             Assert.False(string.IsNullOrWhiteSpace(response.JobId));
-
-            SecretWrapper secret = await _secretStore.GetSecretAsync($"Export-Destination-{response.JobId}", _cancellationToken);
-
-            Assert.NotNull(secret);
         }
 
-        [Fact]
-        public async Task GivenThereIsAMatchingJob_WhenCreatingAnExportJob_ThenExistingJobShouldBeReturned()
+        [MemberData(nameof(ExportUriForSameJobs))]
+        [Theory]
+        public async Task GivenThereIsAMatchingJob_WhenCreatingAnExportJob_ThenExistingJobShouldBeReturned(Uri requestUri, PartialDateTime since)
         {
-            var request = new CreateExportRequest(RequestUrl, DestinationType, ConnectionString);
+            var request = new CreateExportRequest(requestUri, since: since);
 
             CreateExportResponse response = await _createExportRequestHandler.Handle(request, _cancellationToken);
 
-            var newRequest = new CreateExportRequest(RequestUrl, DestinationType, ConnectionString);
+            var newRequest = new CreateExportRequest(requestUri, since: since);
 
             CreateExportResponse newResponse = await _createExportRequestHandler.Handle(request, _cancellationToken);
 
@@ -87,14 +105,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             Assert.Equal(response.JobId, newResponse.JobId);
         }
 
-        [Fact]
-        public async Task GivenDifferentRequestUrl_WhenCreatingAnExportJob_ThenNewJobShouldBeCreated()
+        [MemberData(nameof(ExportUriForDifferentJobs))]
+        [Theory]
+        public async Task GivenDifferentRequestUrl_WhenCreatingAnExportJob_ThenNewJobShouldBeCreated(Uri requestUri, PartialDateTime since, Uri newRequestUri, PartialDateTime newSince)
         {
-            var request = new CreateExportRequest(RequestUrl, DestinationType, ConnectionString);
+            var request = new CreateExportRequest(requestUri, since: since);
 
             CreateExportResponse response = await _createExportRequestHandler.Handle(request, _cancellationToken);
 
-            var newRequest = new CreateExportRequest(new Uri("http://localhost/test"), DestinationType, ConnectionString);
+            var newRequest = new CreateExportRequest(newRequestUri, since: newSince);
 
             CreateExportResponse newResponse = await _createExportRequestHandler.Handle(newRequest, _cancellationToken);
 
@@ -107,13 +126,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
         {
             _claimsExtractor.ExtractImpl = () => new[] { KeyValuePair.Create("oid", "user1") };
 
-            var request = new CreateExportRequest(RequestUrl, DestinationType, ConnectionString);
+            var request = new CreateExportRequest(RequestUrl);
 
             CreateExportResponse response = await _createExportRequestHandler.Handle(request, _cancellationToken);
 
             _claimsExtractor.ExtractImpl = () => new[] { KeyValuePair.Create("oid", "user2") };
 
-            var newRequest = new CreateExportRequest(RequestUrl, DestinationType, ConnectionString);
+            var newRequest = new CreateExportRequest(RequestUrl);
 
             CreateExportResponse newResponse = await _createExportRequestHandler.Handle(newRequest, _cancellationToken);
 
@@ -129,67 +148,18 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 
             _claimsExtractor.ExtractImpl = () => new[] { claim1, claim2 };
 
-            var request = new CreateExportRequest(RequestUrl, DestinationType, ConnectionString);
+            var request = new CreateExportRequest(RequestUrl);
 
             CreateExportResponse response = await _createExportRequestHandler.Handle(request, _cancellationToken);
 
             _claimsExtractor.ExtractImpl = () => new[] { claim2, claim1 };
 
-            var newRequest = new CreateExportRequest(RequestUrl, DestinationType, ConnectionString);
+            var newRequest = new CreateExportRequest(RequestUrl);
 
             CreateExportResponse newResponse = await _createExportRequestHandler.Handle(newRequest, _cancellationToken);
 
             Assert.NotNull(newResponse);
             Assert.Equal(response.JobId, newResponse.JobId);
-        }
-
-        [Fact]
-        public async Task GivenDifferentDestination_WhenCreatingAnExportJob_ThenNewJobShouldBeCreated()
-        {
-            var request = new CreateExportRequest(RequestUrl, DestinationType, ConnectionString);
-
-            CreateExportResponse response = await _createExportRequestHandler.Handle(request, _cancellationToken);
-
-            var newRequest = new CreateExportRequest(RequestUrl, DestinationType, "123");
-
-            CreateExportResponse newResponse = await _createExportRequestHandler.Handle(newRequest, _cancellationToken);
-
-            Assert.NotEqual(response.JobId, newResponse.JobId);
-        }
-
-        [Fact]
-        public async Task GivenDestinationTypeOrDestinationConnectionSettings_WhenCreatingAnExportJob_ThenItShouldBeRemovedFromRequestUri()
-        {
-            const string baseUrlFormat = "http://localhost/$export?_count=100{0}&_another=123";
-
-            var requestUri = new Uri(string.Format(baseUrlFormat, "&_destinationType=type&_destinationConnectionSettings=settings"));
-
-            var request = new CreateExportRequest(requestUri, DestinationType, ConnectionString);
-
-            CreateExportResponse response = await _createExportRequestHandler.Handle(request, _cancellationToken);
-
-            ExportJobOutcome outcome = await _fhirOperationDataStore.GetExportJobByIdAsync(response.JobId, CancellationToken.None);
-
-            Assert.Equal(new Uri(string.Format(baseUrlFormat, string.Empty)), outcome.JobRecord.RequestUri);
-        }
-
-        [Fact]
-        public async Task GivenSetSecretFails_WhenCreatingAnExportJob_ThenThrowsOperationFailedException()
-        {
-            // Set up create export request handler with mock secret store.
-            ISecretStore mockSecretStore = Substitute.For<ISecretStore>();
-            HttpStatusCode errorStatusCode = HttpStatusCode.InternalServerError;
-            mockSecretStore.SetSecretAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
-                .Returns<SecretWrapper>(_ => throw new SecretStoreException(SecretStoreErrors.SetSecretError, innerException: null, statusCode: errorStatusCode));
-
-            _createExportRequestHandler = new CreateExportRequestHandler(_claimsExtractor, _fhirOperationDataStore, mockSecretStore);
-
-            var request = new CreateExportRequest(RequestUrl, DestinationType, ConnectionString);
-
-            OperationFailedException ofe = await Assert.ThrowsAsync<OperationFailedException>(() => _createExportRequestHandler.Handle(request, _cancellationToken));
-
-            Assert.NotNull(ofe);
-            Assert.Equal(errorStatusCode, ofe.ResponseStatusCode);
         }
 
         private class MockClaimsExtractor : IClaimsExtractor

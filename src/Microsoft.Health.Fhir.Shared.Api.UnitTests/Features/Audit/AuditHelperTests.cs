@@ -39,6 +39,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         {
             _fhirRequestContext.Uri.Returns(Uri);
             _fhirRequestContext.CorrelationId.Returns(CorrelationId);
+            _fhirRequestContext.ResourceType.Returns("Patient");
 
             _fhirRequestContextAccessor.FhirRequestContext = _fhirRequestContext;
 
@@ -75,7 +76,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
             _auditLogger.Received(1).LogAudit(
                 AuditAction.Executing,
                 AuditEventType,
-                resourceType: null,
+                resourceType: "Patient",
                 requestUri: Uri,
                 statusCode: null,
                 correlationId: CorrelationId,

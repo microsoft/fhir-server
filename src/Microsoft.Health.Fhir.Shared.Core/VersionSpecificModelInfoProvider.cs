@@ -5,6 +5,11 @@
 
 using System;
 using System.Collections.Generic;
+
+#if R5
+using System.Linq;
+#endif
+
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
@@ -40,7 +45,13 @@ namespace Microsoft.Health.Fhir.Core
 
         public IReadOnlyCollection<string> GetResourceTypeNames()
         {
-            return ModelInfo.SupportedResources;
+            var supportedResources = ModelInfo.SupportedResources;
+
+#if R5
+            supportedResources = supportedResources.Where(x => x != "CanonicalResource" && x != "MetadataResource").ToList();
+#endif
+
+            return supportedResources;
         }
 
         public IReadOnlyCollection<string> GetCompartmentTypeNames()

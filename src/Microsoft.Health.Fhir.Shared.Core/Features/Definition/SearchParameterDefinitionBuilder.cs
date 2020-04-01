@@ -29,9 +29,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly Assembly _assembly;
         private readonly string _embeddedResourceName;
+        private readonly string _unsupportedParamsEmbeddedResourceName;
 
         private readonly Dictionary<Uri, SearchParameterInfo> _uriDictionary = new Dictionary<Uri, SearchParameterInfo>();
         private readonly Dictionary<string, IDictionary<string, SearchParameterInfo>> _resourceTypeDictionary = new Dictionary<string, IDictionary<string, SearchParameterInfo>>();
+        private UnsupportedSearchParameters _unsupportedParams = new UnsupportedSearchParameters();
 
         private bool _initialized;
 
@@ -39,7 +41,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             FhirJsonParser fhirJsonParser,
             IModelInfoProvider modelInfoProvider,
             Assembly assembly,
-            string embeddedResourceName)
+            string embeddedResourceName,
+            string unsupportedParamsEmbeddedResourceName = null)
         {
             EnsureArg.IsNotNull(fhirJsonParser, nameof(fhirJsonParser));
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
@@ -50,6 +53,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             _modelInfoProvider = modelInfoProvider;
             _assembly = assembly;
             _embeddedResourceName = embeddedResourceName;
+            _unsupportedParamsEmbeddedResourceName = unsupportedParamsEmbeddedResourceName;
         }
 
         internal IDictionary<Uri, SearchParameterInfo> UriDictionary
@@ -121,10 +125,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             Bundle bundle = null;
 
-            using (Stream stream = _assembly.GetManifestResourceStream(_embeddedResourceName))
-            using (TextReader reader = new StreamReader(stream))
-            using (JsonReader jsonReader = new JsonTextReader(reader))
+            if (!string.IsNullOrWhiteSpace(_unsupportedParamsEmbeddedResourceName))
             {
+                using Stream stream = _assembly.GetManifestResourceStream(_unsupportedParamsEmbeddedResourceName);
+                using TextReader reader = new StreamReader(stream);
+                _unsupportedParams = JsonConvert.DeserializeObject<UnsupportedSearchParameters>(reader.ReadToEnd());
+            }
+
+            using (Stream stream = _assembly.GetManifestResourceStream(_embeddedResourceName))
+            {
+                using TextReader reader = new StreamReader(stream);
+                using JsonReader jsonReader = new JsonTextReader(reader);
                 try
                 {
                     // The parser does some basic validation such as making sure entry is not null, enum has the right value, and etc.
@@ -154,7 +165,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
                 try
                 {
-                    _uriDictionary.Add(new Uri(searchParameter.Url), searchParameter.ToInfo());
+                    _uriDictionary.Add(new Uri(searchParameter.Url), CreateSearchParameterInfo(searchParameter));
                 }
                 catch (FormatException)
                 {
@@ -252,7 +263,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                         }
                     }
 
-                    validatedSearchParameters.Add((baseResourceType, searchParameter.ToInfo()));
+                    validatedSearchParameters.Add((baseResourceType, CreateSearchParameterInfo(searchParameter)));
                 }
             }
 
@@ -279,6 +290,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             }
         }
 
+        private SearchParameterInfo CreateSearchParameterInfo(SearchParameter searchParameter)
+        {
+            SearchParameterInfo info = searchParameter.ToInfo();
+
+            var uri = new Uri(searchParameter.Url);
+            if (_unsupportedParams.Unsupported.Contains(uri))
+            {
+                info.IsSupported = false;
+                info.IsSearchable = false;
+            }
+
+            if (_unsupportedParams.PartialSupport.Contains(uri))
+            {
+                info.IsPartiallySupported = true;
+            }
+
+            return info;
+        }
+
         private IEnumerable<SearchParameterInfo> BuildSearchParameterDefinition(
             ILookup<string, SearchParameterInfo> searchParametersLookup,
             string resourceType)
@@ -292,7 +322,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             Type type = _modelInfoProvider.GetTypeForFhirType(resourceType);
 
-            Debug.Assert(type != null, "The type should not be null.");
+            Debug.Assert(type != null, $"The type for {resourceType} should not be null.");
 
             string baseType = _modelInfoProvider.GetFhirTypeNameForType(type.BaseType);
 

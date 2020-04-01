@@ -5,6 +5,7 @@
 
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
+using Microsoft.Health.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
 {
@@ -12,11 +13,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
     {
         public static readonly UriSearchParameterQueryGenerator Instance = new UriSearchParameterQueryGenerator();
 
-        public override Table Table => V1.UriSearchParam;
+        public override Table Table => VLatest.UriSearchParam;
 
         public override SearchParameterQueryGeneratorContext VisitString(StringExpression expression, SearchParameterQueryGeneratorContext context)
         {
-            return VisitSimpleString(expression, context, V1.UriSearchParam.Uri, expression.Value);
+            return VisitSimpleString(expression, context, VLatest.UriSearchParam.Uri, expression.Value);
         }
     }
 }

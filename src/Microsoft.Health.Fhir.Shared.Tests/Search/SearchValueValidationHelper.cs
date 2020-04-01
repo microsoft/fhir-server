@@ -78,6 +78,11 @@ namespace Microsoft.Health.Fhir.Tests.Common.Search
             Assert.Equal(expected.Text, tsv.Text);
         }
 
+        public static void ValidateNull(Code<ResourceType> expected, ISearchValue sv)
+        {
+            Assert.Null(sv);
+        }
+
         public static void ValidateUri(string expected, ISearchValue sv)
         {
             UriSearchValue usv = Assert.IsType<UriSearchValue>(sv);

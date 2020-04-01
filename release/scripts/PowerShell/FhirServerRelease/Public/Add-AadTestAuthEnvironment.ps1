@@ -26,7 +26,7 @@ function Add-AadTestAuthEnvironment {
         [Parameter(Mandatory = $true)]
         [ValidateNotNull()]
         [pscredential]$TenantAdminCredential,
-        
+
         [Parameter(Mandatory = $false )]
         [String]$WebAppSuffix = "azurewebsites.net",
 
@@ -36,13 +36,13 @@ function Add-AadTestAuthEnvironment {
         [parameter(Mandatory = $false)]
         [string]$KeyVaultName = "$EnvironmentName-ts"
     )
-    
+
     Set-StrictMode -Version Latest
 
     # Get current AzureAd context
     try {
         $tenantInfo = Get-AzureADCurrentSessionInfo -ErrorAction Stop
-    } 
+    }
     catch {
         throw "Please log in to Azure AD with Connect-AzureAD cmdlet before proceeding"
     }
@@ -50,7 +50,7 @@ function Add-AadTestAuthEnvironment {
     # Get current Az context
     try {
         $azContext = Get-AzContext
-    } 
+    }
     catch {
         throw "Please log in to Azure RM with Login-AzAccount cmdlet before proceeding"
     }
@@ -77,7 +77,7 @@ function Add-AadTestAuthEnvironment {
 
         sleep 10
     }
-    
+
     if ($azContext.Account.Type -eq "User") {
         Write-Host "Current context is user: $($azContext.Account.Id)"
         $currentObjectId = (Get-AzADUser -UserPrincipalName $azContext.Account.Id).Id
@@ -104,13 +104,13 @@ function Add-AadTestAuthEnvironment {
 
     if (!$application) {
         $newApplication = New-FhirServerApiApplicationRegistration -FhirServiceAudience $fhirServiceAudience
-        
+
         # Change to use applicationId returned
         $application = Get-AzureAdApplicationByIdentifierUri $fhirServiceAudience
     }
 
     Write-Host "Setting roles on API Application"
-    $appRoles = ($testAuthEnvironment.roles | Select -ExpandProperty name)
+    $appRoles = ($testAuthEnvironment.users.roles + $testAuthEnvironment.clientApplications.roles) | Select-Object -Unique
     Set-FhirServerApiApplicationRoles -ApiAppId $application.AppId -AppRoles $appRoles | Out-Null
 
     Write-Host "Ensuring users and role assignments for API Application exist"
@@ -135,10 +135,10 @@ function Add-AadTestAuthEnvironment {
         else {
             $existingPassword = Get-AzureADApplicationPasswordCredential -ObjectId $aadClientApplication.ObjectId | Remove-AzureADApplicationPasswordCredential -ObjectId $aadClientApplication.ObjectId
             $newPassword = New-AzureADApplicationPasswordCredential -ObjectId $aadClientApplication.ObjectId
-            
+
             $secretSecureString = ConvertTo-SecureString $newPassword.Value -AsPlainText -Force
         }
-            
+
         if ($publicClient) {
             Grant-ClientAppAdminConsent -AppId $aadClientApplication.AppId -TenantAdminCredential $TenantAdminCredential
 
@@ -151,7 +151,7 @@ function Add-AadTestAuthEnvironment {
             displayName = $displayName
             appId       = $aadClientApplication.AppId
         }
-        
+
         $appIdSecureString = ConvertTo-SecureString -String $aadClientApplication.AppId -AsPlainText -Force
         Set-AzKeyVaultSecret -VaultName $KeyVaultName -Name "app--$($clientApp.Id)--id" -SecretValue $appIdSecureString | Out-Null
         Set-AzKeyVaultSecret -VaultName $KeyVaultName -Name "app--$($clientApp.Id)--secret" -SecretValue $secretSecureString | Out-Null

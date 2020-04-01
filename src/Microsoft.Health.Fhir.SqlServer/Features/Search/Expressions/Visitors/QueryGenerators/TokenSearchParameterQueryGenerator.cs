@@ -7,6 +7,7 @@ using System;
 using System.Diagnostics;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
+using Microsoft.Health.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
 {
@@ -14,11 +15,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
     {
         public static readonly TokenSearchParameterQueryGenerator Instance = new TokenSearchParameterQueryGenerator();
 
-        public override Table Table => V1.TokenSearchParam;
+        public override Table Table => VLatest.TokenSearchParam;
 
         public override SearchParameterQueryGeneratorContext VisitMissingField(MissingFieldExpression expression, SearchParameterQueryGeneratorContext context)
         {
-            return VisitMissingFieldImpl(expression, context, FieldName.TokenSystem, V1.TokenSearchParam.SystemId);
+            return VisitMissingFieldImpl(expression, context, FieldName.TokenSystem, VLatest.TokenSearchParam.SystemId);
         }
 
         public override SearchParameterQueryGeneratorContext VisitString(StringExpression expression, SearchParameterQueryGeneratorContext context)
@@ -30,23 +31,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 case FieldName.TokenSystem:
                     if (context.Model.TryGetSystemId(expression.Value, out var systemId))
                     {
-                        return VisitSimpleBinary(BinaryOperator.Equal, context, V1.TokenSearchParam.SystemId, expression.ComponentIndex, systemId);
+                        return VisitSimpleBinary(BinaryOperator.Equal, context, VLatest.TokenSearchParam.SystemId, expression.ComponentIndex, systemId);
                     }
 
-                    AppendColumnName(context, V1.TokenSearchParam.SystemId, expression)
+                    AppendColumnName(context, VLatest.TokenSearchParam.SystemId, expression)
                         .Append(" IN (SELECT ")
-                        .Append(V1.System.SystemId, null)
-                        .Append(" FROM ").Append(V1.System)
+                        .Append(VLatest.System.SystemId, null)
+                        .Append(" FROM ").Append(VLatest.System)
                         .Append(" WHERE ")
-                        .Append(V1.System.Value, null)
+                        .Append(VLatest.System.Value, null)
                         .Append(" = ")
-                        .Append(context.Parameters.AddParameter(V1.System.Value, expression.Value))
+                        .Append(context.Parameters.AddParameter(VLatest.System.Value, expression.Value))
                         .Append(")");
 
                     return context;
 
                 case FieldName.TokenCode:
-                    VisitSimpleString(expression, context, V1.TokenSearchParam.Code, expression.Value);
+                    VisitSimpleString(expression, context, VLatest.TokenSearchParam.Code, expression.Value);
                     break;
                 default:
                     throw new InvalidOperationException();

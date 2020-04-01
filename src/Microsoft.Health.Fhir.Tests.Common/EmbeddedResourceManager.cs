@@ -14,6 +14,15 @@ namespace Microsoft.Health.Fhir.Tests.Common
         public static string GetStringContent(string embeddedResourceSubNamespace, string fileName, string extension)
         {
             string resourceName = $"{typeof(EmbeddedResourceManager).Namespace}.{embeddedResourceSubNamespace}.{ModelInfoProvider.Version}.{fileName}.{extension}";
+
+            var resourceInfo = Assembly.GetExecutingAssembly().GetManifestResourceInfo(resourceName);
+
+            if (resourceInfo == null)
+            {
+                // There isn't a version specific over-ride for the requested test file, attempt to find it in the Normative test files.
+                resourceName = $"{typeof(EmbeddedResourceManager).Namespace}.{embeddedResourceSubNamespace}.Normative.{fileName}.{extension}";
+            }
+
             using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName))
             {
                 using (var reader = new StreamReader(stream))

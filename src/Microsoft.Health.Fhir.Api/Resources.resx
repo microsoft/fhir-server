@@ -179,7 +179,7 @@
     <comment>{0} is operation name, {1} is failure reason.</comment>
   </data>
   <data name="OperationNotImplemented" xml:space="preserve">
-    <value>The requested "{0}" operation is not implemented.</value>
+    <value>The requested "{0}" operation is not supported.</value>
     <comment>{0} is the operation name</comment>
   </data>
   <data name="PageTitle" xml:space="preserve">
@@ -230,17 +230,13 @@
     <value>Value supplied for the "{0}" header is not supported.</value>
     <comment>{0} is the header name.</comment>
   </data>
-  <data name="UnsupportedOperation" xml:space="preserve">
-    <value>The requested "{0}" operation is not supported.</value>
+  <data name="OperationNotEnabled" xml:space="preserve">
+    <value>The requested "{0}" operation is not enabled</value>
     <comment>{0} is the operation name</comment>
   </data>
   <data name="UnsupportedParameter" xml:space="preserve">
     <value>The "{0}" parameter is not supported.</value>
     <comment>{0} is the parameter name.</comment>
-  </data>
-  <data name="UnsupportedParameterValue" xml:space="preserve">
-    <value>The supplied value for "{0}" paramter is invalid.</value>
-    <comment>{0} is parameter name</comment>
   </data>
   <data name="UnsupportedResourceType" xml:space="preserve">
     <value>Requested operation does not support resource type: {0}.</value>
@@ -290,6 +286,10 @@
     <value>The number of entries in the bundle exceeded the configured limit of {0}.</value>
     <comment>{0} is the number of entries allowed.</comment>
   </data>
+  <data name="ParsingError" xml:space="preserve">
+    <value>Error occurred when parsing model.</value>
+  </data>
+</root>
   <data name="ValidationForUpdateAndDeleteNotSupported" xml:space="preserve">
     <value>Resources can not be validated for update or delete at the default endpoint. An id must be provided in the URL.</value>
   </data>

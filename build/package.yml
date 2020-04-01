@@ -9,6 +9,10 @@ steps:
     parameters:
       csproj: '**/Microsoft.Health.Fhir.R4.Web.csproj'
 
+  - template: package-web.yml
+    parameters:
+      csproj: '**/Microsoft.Health.Fhir.R5.Web.csproj'
+
   - task: DotNetCoreCLI@2
     displayName: 'dotnet publish Integration Tests'
     inputs:

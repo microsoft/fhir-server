@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Core.Internal;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -35,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
 
         public SearchValueExpressionBuilderTests()
         {
-            _parser = new SearchParameterExpressionParser(_searchParameterDefinitionManager, _referenceSearchValueParser);
+            _parser = new SearchParameterExpressionParser(() => _searchParameterDefinitionManager, _referenceSearchValueParser);
         }
 
         public static IEnumerable<object[]> GetNonEqualSearchComparatorAsMemberData()
@@ -276,20 +277,20 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
         }
 
         [Theory]
-        [InlineData("eq2018")]
-        [InlineData("eq2018-02")]
-        [InlineData("eq2018-02-01")]
-        [InlineData("eq2018-02-01T10:00")]
-        [InlineData("eq2018-02-01T10:00-07:00")]
-        public void GivenADateWithEqComparator_WhenBuilt_ThenCorrectExpressionShouldBeCreated(string input)
+        [InlineData("2018")]
+        [InlineData("2018-02")]
+        [InlineData("2018-02-01")]
+        [InlineData("2018-02-01T10:00")]
+        [InlineData("2018-02-01T10:00-07:00")]
+        public void GivenADateWithEqComparator_WhenBuilt_ThenCorrectExpressionShouldBeCreated(string dateTimeInput)
         {
-            var partialDateTime = PartialDateTime.Parse(input);
+            var partialDateTime = PartialDateTime.Parse(dateTimeInput);
             var dateTimeSearchValue = new DateTimeSearchValue(partialDateTime);
 
             Validate(
                 CreateSearchParameter(SearchParamType.Date),
                 null,
-                input,
+                "eq" + dateTimeInput,
                 e => ValidateMultiaryExpression(
                     e,
                     MultiaryOperator.And,
@@ -298,20 +299,20 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
         }
 
         [Theory]
-        [InlineData("ne2018")]
-        [InlineData("ne2018-02")]
-        [InlineData("ne2018-02-01")]
-        [InlineData("ne2018-02-01T10:00")]
-        [InlineData("ne2018-02-01T10:00-07:00")]
-        public void GivenADateWithNeComparator_WhenBuilt_ThenCorrectExpressionShouldBeCreated(string input)
+        [InlineData("2018")]
+        [InlineData("2018-02")]
+        [InlineData("2018-02-01")]
+        [InlineData("2018-02-01T10:00")]
+        [InlineData("2018-02-01T10:00-07:00")]
+        public void GivenADateWithNeComparator_WhenBuilt_ThenCorrectExpressionShouldBeCreated(string dateTimeInput)
         {
-            var partialDateTime = PartialDateTime.Parse(input);
+            var partialDateTime = PartialDateTime.Parse(dateTimeInput);
             var dateTimeSearchValue = new DateTimeSearchValue(partialDateTime);
 
             Validate(
                 CreateSearchParameter(SearchParamType.Date),
                 null,
-                input,
+                "ne" + dateTimeInput,
                 e => ValidateMultiaryExpression(
                     e,
                     MultiaryOperator.Or,
@@ -320,45 +321,45 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
         }
 
         [Theory]
-        [InlineData("lt2018", FieldName.DateTimeStart, BinaryOperator.LessThan, true)]
-        [InlineData("lt2018-02", FieldName.DateTimeStart, BinaryOperator.LessThan, true)]
-        [InlineData("lt2018-02-01", FieldName.DateTimeStart, BinaryOperator.LessThan, true)]
-        [InlineData("lt2018-02-01T10:00", FieldName.DateTimeStart, BinaryOperator.LessThan, true)]
-        [InlineData("lt2018-02-01T10:00-07:00", FieldName.DateTimeStart, BinaryOperator.LessThan, true)]
-        [InlineData("gt2018", FieldName.DateTimeEnd, BinaryOperator.GreaterThan, false)]
-        [InlineData("gt2018-02", FieldName.DateTimeEnd, BinaryOperator.GreaterThan, false)]
-        [InlineData("gt2018-02-01", FieldName.DateTimeEnd, BinaryOperator.GreaterThan, false)]
-        [InlineData("gt2018-02-01T10:00", FieldName.DateTimeEnd, BinaryOperator.GreaterThan, false)]
-        [InlineData("gt2018-02-01T10:00-07:00", FieldName.DateTimeEnd, BinaryOperator.GreaterThan, false)]
-        [InlineData("le2018", FieldName.DateTimeStart, BinaryOperator.LessThanOrEqual, false)]
-        [InlineData("le2018-02", FieldName.DateTimeStart, BinaryOperator.LessThanOrEqual, false)]
-        [InlineData("le2018-02-01", FieldName.DateTimeStart, BinaryOperator.LessThanOrEqual, false)]
-        [InlineData("le2018-02-01T10:00", FieldName.DateTimeStart, BinaryOperator.LessThanOrEqual, false)]
-        [InlineData("le2018-02-01T10:00-07:00", FieldName.DateTimeStart, BinaryOperator.LessThanOrEqual, false)]
-        [InlineData("ge2018", FieldName.DateTimeEnd, BinaryOperator.GreaterThanOrEqual, true)]
-        [InlineData("ge2018-02", FieldName.DateTimeEnd, BinaryOperator.GreaterThanOrEqual, true)]
-        [InlineData("ge2018-02-01", FieldName.DateTimeEnd, BinaryOperator.GreaterThanOrEqual, true)]
-        [InlineData("ge2018-02-01T10:00", FieldName.DateTimeEnd, BinaryOperator.GreaterThanOrEqual, true)]
-        [InlineData("ge2018-02-01T10:00-07:00", FieldName.DateTimeEnd, BinaryOperator.GreaterThanOrEqual, true)]
-        [InlineData("sa2018", FieldName.DateTimeStart, BinaryOperator.GreaterThan, false)]
-        [InlineData("sa2018-02", FieldName.DateTimeStart, BinaryOperator.GreaterThan, false)]
-        [InlineData("sa2018-02-01", FieldName.DateTimeStart, BinaryOperator.GreaterThan, false)]
-        [InlineData("sa2018-02-01T10:00", FieldName.DateTimeStart, BinaryOperator.GreaterThan, false)]
-        [InlineData("sa2018-02-01T10:00-07:00", FieldName.DateTimeStart, BinaryOperator.GreaterThan, false)]
-        [InlineData("eb2018", FieldName.DateTimeEnd, BinaryOperator.LessThan, true)]
-        [InlineData("eb2018-02", FieldName.DateTimeEnd, BinaryOperator.LessThan, true)]
-        [InlineData("eb2018-02-01", FieldName.DateTimeEnd, BinaryOperator.LessThan, true)]
-        [InlineData("eb2018-02-01T10:00", FieldName.DateTimeEnd, BinaryOperator.LessThan, true)]
-        [InlineData("eb2018-02-01T10:00-07:00", FieldName.DateTimeEnd, BinaryOperator.LessThan, true)]
-        public void GivenADateWithComparatorOfSingleBinaryOperator_WhenBuilt_ThenCorrectExpressionShouldBeCreated(string input, FieldName fieldName, BinaryOperator binaryOperator, bool expectStartTimeValue)
+        [InlineData("lt", "2018", FieldName.DateTimeStart, BinaryOperator.LessThan, true)]
+        [InlineData("lt", "2018-02", FieldName.DateTimeStart, BinaryOperator.LessThan, true)]
+        [InlineData("lt", "2018-02-01", FieldName.DateTimeStart, BinaryOperator.LessThan, true)]
+        [InlineData("lt", "2018-02-01T10:00", FieldName.DateTimeStart, BinaryOperator.LessThan, true)]
+        [InlineData("lt", "2018-02-01T10:00-07:00", FieldName.DateTimeStart, BinaryOperator.LessThan, true)]
+        [InlineData("gt", "2018", FieldName.DateTimeEnd, BinaryOperator.GreaterThan, false)]
+        [InlineData("gt", "2018-02", FieldName.DateTimeEnd, BinaryOperator.GreaterThan, false)]
+        [InlineData("gt", "2018-02-01", FieldName.DateTimeEnd, BinaryOperator.GreaterThan, false)]
+        [InlineData("gt", "2018-02-01T10:00", FieldName.DateTimeEnd, BinaryOperator.GreaterThan, false)]
+        [InlineData("gt", "2018-02-01T10:00-07:00", FieldName.DateTimeEnd, BinaryOperator.GreaterThan, false)]
+        [InlineData("le", "2018", FieldName.DateTimeStart, BinaryOperator.LessThanOrEqual, false)]
+        [InlineData("le", "2018-02", FieldName.DateTimeStart, BinaryOperator.LessThanOrEqual, false)]
+        [InlineData("le", "2018-02-01", FieldName.DateTimeStart, BinaryOperator.LessThanOrEqual, false)]
+        [InlineData("le", "2018-02-01T10:00", FieldName.DateTimeStart, BinaryOperator.LessThanOrEqual, false)]
+        [InlineData("le", "2018-02-01T10:00-07:00", FieldName.DateTimeStart, BinaryOperator.LessThanOrEqual, false)]
+        [InlineData("ge", "2018", FieldName.DateTimeEnd, BinaryOperator.GreaterThanOrEqual, true)]
+        [InlineData("ge", "2018-02", FieldName.DateTimeEnd, BinaryOperator.GreaterThanOrEqual, true)]
+        [InlineData("ge", "2018-02-01", FieldName.DateTimeEnd, BinaryOperator.GreaterThanOrEqual, true)]
+        [InlineData("ge", "2018-02-01T10:00", FieldName.DateTimeEnd, BinaryOperator.GreaterThanOrEqual, true)]
+        [InlineData("ge", "2018-02-01T10:00-07:00", FieldName.DateTimeEnd, BinaryOperator.GreaterThanOrEqual, true)]
+        [InlineData("sa", "2018", FieldName.DateTimeStart, BinaryOperator.GreaterThan, false)]
+        [InlineData("sa", "2018-02", FieldName.DateTimeStart, BinaryOperator.GreaterThan, false)]
+        [InlineData("sa", "2018-02-01", FieldName.DateTimeStart, BinaryOperator.GreaterThan, false)]
+        [InlineData("sa", "2018-02-01T10:00", FieldName.DateTimeStart, BinaryOperator.GreaterThan, false)]
+        [InlineData("sa", "2018-02-01T10:00-07:00", FieldName.DateTimeStart, BinaryOperator.GreaterThan, false)]
+        [InlineData("eb", "2018", FieldName.DateTimeEnd, BinaryOperator.LessThan, true)]
+        [InlineData("eb", "2018-02", FieldName.DateTimeEnd, BinaryOperator.LessThan, true)]
+        [InlineData("eb", "2018-02-01", FieldName.DateTimeEnd, BinaryOperator.LessThan, true)]
+        [InlineData("eb", "2018-02-01T10:00", FieldName.DateTimeEnd, BinaryOperator.LessThan, true)]
+        [InlineData("eb", "2018-02-01T10:00-07:00", FieldName.DateTimeEnd, BinaryOperator.LessThan, true)]
+        public void GivenADateWithComparatorOfSingleBinaryOperator_WhenBuilt_ThenCorrectExpressionShouldBeCreated(string prefix, string dateTimeInput, FieldName fieldName, BinaryOperator binaryOperator, bool expectStartTimeValue)
         {
-            var partialDateTime = PartialDateTime.Parse(input);
+            var partialDateTime = PartialDateTime.Parse(dateTimeInput);
             var dateTimeSearchValue = new DateTimeSearchValue(partialDateTime);
 
             Validate(
                 CreateSearchParameter(SearchParamType.Date),
                 null,
-                input,
+                prefix + dateTimeInput,
                 e => ValidateDateTimeBinaryOperatorExpression(
                     e,
                     fieldName,
@@ -367,27 +368,27 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
         }
 
         [Theory]
-        [InlineData("ap2016", "2015-11-25T12:00:00.0000000+00:00", "2017-02-06T11:59:59.9999999+00:00")]
-        [InlineData("ap2016-02", "2015-11-25T21:36:00.0000000+00:00", "2016-05-07T02:23:59.9999999+00:00")]
-        [InlineData("ap2016-02-01", "2015-11-23T02:24:00.0000000+00:00", "2016-04-11T21:35:59.9999999+00:00")]
-        [InlineData("ap2016-02-01T10:00", "2015-11-23T11:00:06.0000000+00:00", "2016-04-11T09:00:53.9999999+00:00")]
-        [InlineData("ap2016-02-01T10:00-07:00", "2015-11-23T18:42:06.0000000+00:00", "2016-04-11T15:18:53.9999999+00:00")]
-        [InlineData("ap2220", "2240-04-19T09:35:59.9999999+00:00", "2200-09-13T14:24:00.0000000+00:00")]
-        [InlineData("ap2220-02", "2240-04-19T19:11:59.9999999+00:00", "2199-12-12T04:48:00.0000000+00:00")]
-        [InlineData("ap2220-02-01", "2240-04-16T23:59:59.9999999+00:00", "2199-11-17T00:00:00.0000000+00:00")]
-        [InlineData("ap2220-02-01T10:00", "2240-04-17T08:36:05.9999999+00:00", "2199-11-16T11:24:54.0000000+00:00")]
-        [InlineData("ap2220-02-01T10:00-07:00", "2240-04-17T16:18:05.9999999+00:00", "2199-11-16T17:42:54.0000000+00:00")]
-        public void GivenADateWithApComparator_WhenBuilt_ThenCorrectExpressionShouldBeCreated(string input, string expectedStartValue, string expectedEndValue)
+        [InlineData("2016", "2015-11-25T12:00:00.0000000+00:00", "2017-02-06T11:59:59.9999999+00:00")]
+        [InlineData("2016-02", "2015-11-25T21:36:00.0000000+00:00", "2016-05-07T02:23:59.9999999+00:00")]
+        [InlineData("2016-02-01", "2015-11-23T02:24:00.0000000+00:00", "2016-04-11T21:35:59.9999999+00:00")]
+        [InlineData("2016-02-01T10:00", "2015-11-23T11:00:06.0000000+00:00", "2016-04-11T09:00:53.9999999+00:00")]
+        [InlineData("2016-02-01T10:00-07:00", "2015-11-23T18:42:06.0000000+00:00", "2016-04-11T15:18:53.9999999+00:00")]
+        [InlineData("2220", "2240-04-19T09:35:59.9999999+00:00", "2200-09-13T14:24:00.0000000+00:00")]
+        [InlineData("2220-02", "2240-04-19T19:11:59.9999999+00:00", "2199-12-12T04:48:00.0000000+00:00")]
+        [InlineData("2220-02-01", "2240-04-16T23:59:59.9999999+00:00", "2199-11-17T00:00:00.0000000+00:00")]
+        [InlineData("2220-02-01T10:00", "2240-04-17T08:36:05.9999999+00:00", "2199-11-16T11:24:54.0000000+00:00")]
+        [InlineData("2220-02-01T10:00-07:00", "2240-04-17T16:18:05.9999999+00:00", "2199-11-16T17:42:54.0000000+00:00")]
+        public void GivenADateWithApComparator_WhenBuilt_ThenCorrectExpressionShouldBeCreated(string dateTimeInput, string expectedStartValue, string expectedEndValue)
         {
-            using (Mock.Property(() => Clock.UtcNowFunc, () => DateTimeOffset.Parse("2018-01-01T00:00Z")))
+            using (Mock.Property(() => ClockResolver.UtcNowFunc, () => DateTimeOffset.Parse("2018-01-01T00:00Z")))
             {
-                var partialDateTime = PartialDateTime.Parse(input);
+                var partialDateTime = PartialDateTime.Parse(dateTimeInput);
                 var dateTimeSearchValue = new DateTimeSearchValue(partialDateTime);
 
                 Validate(
                     CreateSearchParameter(SearchParamType.Date),
                     null,
-                    input,
+                    "ap" + dateTimeInput,
                     e => ValidateMultiaryExpression(
                         e,
                         MultiaryOperator.And,

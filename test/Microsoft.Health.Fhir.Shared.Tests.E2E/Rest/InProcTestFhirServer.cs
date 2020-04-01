@@ -33,21 +33,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public InProcTestFhirServer(DataStore dataStore, Type startupType)
             : base(new Uri("http://localhost/"))
         {
-            var contentRoot = GetProjectPath("src", startupType);
+            var projectDir = GetProjectPath("src", startupType);
             var corsPath = Path.GetFullPath("corstestconfiguration.json");
-            var exportPath = Path.GetFullPath("exporttestconfiguration.json");
 
-            var launchSettings = JObject.Parse(File.ReadAllText(Path.Combine(contentRoot, "Properties", "launchSettings.json")));
+            var launchSettings = JObject.Parse(File.ReadAllText(Path.Combine(projectDir, "Properties", "launchSettings.json")));
 
             var configuration = launchSettings["profiles"][dataStore.ToString()]["environmentVariables"].Cast<JProperty>().ToDictionary(p => p.Name, p => p.Value.ToString());
 
+            configuration["TestAuthEnvironment:FilePath"] = "testauthenvironment.json";
+            configuration["FhirServer:Security:Authentication:Authority"] = "https://inprochost";
+
             var builder = WebHost.CreateDefaultBuilder()
-                .UseContentRoot(contentRoot)
+                .UseContentRoot(Path.GetDirectoryName(startupType.Assembly.Location))
                 .ConfigureAppConfiguration(configurationBuilder =>
                 {
-                    configurationBuilder.AddDevelopmentAuthEnvironment("testauthenvironment.json");
+                    configurationBuilder.AddDevelopmentAuthEnvironmentIfConfigured(new ConfigurationBuilder().AddInMemoryCollection(configuration).Build());
                     configurationBuilder.AddJsonFile(corsPath);
-                    configurationBuilder.AddJsonFile(exportPath);
                     configurationBuilder.AddInMemoryCollection(configuration);
                 })
                 .UseStartup(startupType)

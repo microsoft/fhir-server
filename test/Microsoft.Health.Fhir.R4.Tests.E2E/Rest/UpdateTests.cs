@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("-1")]
         [InlineData("0")]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenUpdatingAResourceWithInvalidETagHeader_GivenR4Server_TheServerShouldReturnAPreconditionFailedResponse(string versionId)
+        public async Task GivenR4Server_WhenUpdatingAResourceWithInvalidETagHeader_TheServerShouldReturnAPreconditionFailedResponse(string versionId)
         {
             Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task WhenUpdatingAResourceWithIncorrectETagHeader_GivenR4Server_TheServerShouldReturnAPreconditionFailedResponse()
+        public async Task GivenR4Server_WhenUpdatingAResourceWithIncorrectETagHeader_TheServerShouldReturnAPreconditionFailedResponse()
         {
             Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 

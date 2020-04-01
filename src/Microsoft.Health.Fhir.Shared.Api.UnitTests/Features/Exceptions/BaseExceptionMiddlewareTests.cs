@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Exceptions
         [InlineData("Test exception", "There was an error processing your request.")]
         [InlineData("IDX10803: Unable to obtain configuration from:", "Unable to obtain OpenID configuration.")]
         [InlineData("The MetadataAddress or Authority must use HTTPS unless disabled for development by setting RequireHttpsMetadata=false.", "The security configuration requires the authority to be set to an https address.")]
-        public async Task WhenExecutingBaseExceptionMiddleware_GivenAnHttpContextWithException_TheResponseShouldBeOperationOutcome(string exceptionMessage, string diagnosticMessage)
+        public async Task GivenAnHttpContextWithException_WhenExecutingBaseExceptionMiddleware_TheResponseShouldBeOperationOutcome(string exceptionMessage, string diagnosticMessage)
         {
             var baseExceptionMiddleware = CreateBaseExceptionMiddleware(innerHttpContext => throw new Exception(exceptionMessage));
 
@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Exceptions
         }
 
         [Fact]
-        public async Task WhenExecutingBaseExceptionMiddleware_GivenAnHttpContextWithNoException_TheResponseShouldBeEmpty()
+        public async Task GivenAnHttpContextWithNoException_WhenExecutingBaseExceptionMiddleware_TheResponseShouldBeEmpty()
         {
             var baseExceptionMiddleware = CreateBaseExceptionMiddleware(innerHttpContext => Task.CompletedTask);
 

@@ -10,6 +10,7 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Net.Http.Headers;
@@ -17,14 +18,11 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
-    [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json)]
+    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class ExportTests : IClassFixture<HttpIntegrationTestFixture>
     {
         private readonly HttpClient _client;
         private const string PreferHeaderName = "Prefer";
-        private const string DestinationTypeQueryParamName = "_destinationType";
-        private const string DestinationConnectionQueryParamName = "_destinationConnectionSettings";
-        private const string SupportedDestinationType = "in-memory";
 
         public ExportTests(HttpIntegrationTestFixture fixture)
         {
@@ -34,17 +32,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Theory]
         [InlineData("Patient/$export")]
         [InlineData("Group/id/$export")]
-        public async Task GivenExportIsEnabled_WhenRequestingExportWithCorrectHeadersAndParams_ThenServerShouldReturnNotImplemented(string path)
+        public async Task GivenExportIsEnabled_WhenRequestingExportForResourceWithCorrectHeaders_ThenServerShouldReturnMethodNotAllowed(string path)
         {
             HttpRequestMessage request = GenerateExportRequest(path);
 
             HttpResponseMessage response = await _client.SendAsync(request);
 
-            Assert.Equal(HttpStatusCode.NotImplemented, response.StatusCode);
+            Assert.Equal(HttpStatusCode.MethodNotAllowed, response.StatusCode);
         }
 
         [Fact]
-        public async Task GivenExportIsEnabled_WhenRequestingExportWithCorrectHeadersAndParams_ThenServerShouldReturnAcceptedAndNonEmptyContentLocationHeader()
+        public async Task GivenExportIsEnabled_WhenRequestingExportWithCorrectHeaders_ThenServerShouldReturnAcceptedAndNonEmptyContentLocationHeader()
         {
             HttpRequestMessage request = GenerateExportRequest();
 
@@ -54,14 +52,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var uri = response.Content.Headers.ContentLocation;
             Assert.False(string.IsNullOrWhiteSpace(uri.ToString()));
+
+            await GenerateAndSendCancelExportMessage(response.Content.Headers.ContentLocation);
         }
 
         [Fact]
-        public async Task GivenExportIsEnabled_WhenRequestingExportWithMissingDestinationConnectionParam_ThenServerShouldReturnBadRequest()
+        public async Task GivenExportIsEnabled_WhenRequestingExportWithUnsupportedQueryParam_ThenServerShouldReturnBadRequest()
         {
             var queryParam = new Dictionary<string, string>()
             {
-                { DestinationTypeQueryParamName, SupportedDestinationType },
+                { "anyQueryParam", "anyValue" },
             };
             HttpRequestMessage request = GenerateExportRequest(queryParams: queryParam);
 
@@ -71,32 +71,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
-        public async Task GivenExportIsEnabled_WhenRequestingExportWithMissingDestinationTypeParam_ThenServerShouldReturnBadRequest()
+        public async Task GivenExportIsEnabled_WhenRequestingExportWithSinceQueryParam_ThenServerShouldReturnAcceptedAndNonEmptyContentLocationHeader()
         {
             var queryParam = new Dictionary<string, string>()
             {
-                { DestinationConnectionQueryParamName, "destinationConnection" },
+                { KnownQueryParameterNames.Since, DateTimeOffset.UtcNow.ToString() },
             };
             HttpRequestMessage request = GenerateExportRequest(queryParams: queryParam);
 
             HttpResponseMessage response = await _client.SendAsync(request);
 
-            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        }
+            Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
 
-        [Fact]
-        public async Task GivenExportIsEnabled_WhenRequestingExportWithUnsupportedDestinationTypeParam_ThenServerShouldReturnBadRequest()
-        {
-            var queryParam = new Dictionary<string, string>()
-            {
-                { DestinationTypeQueryParamName, "unsupportedDestinationType" },
-                { DestinationConnectionQueryParamName, "destinationConnection" },
-            };
-            HttpRequestMessage request = GenerateExportRequest(queryParams: queryParam);
+            var uri = response.Content.Headers.ContentLocation;
+            Assert.False(string.IsNullOrWhiteSpace(uri.ToString()));
 
-            HttpResponseMessage response = await _client.SendAsync(request);
-
-            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            await GenerateAndSendCancelExportMessage(response.Content.Headers.ContentLocation);
         }
 
         [Fact]
@@ -120,6 +110,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var getStatusResponse = await _client.SendAsync(getStatusRequest);
 
             Assert.Equal(HttpStatusCode.Accepted, getStatusResponse.StatusCode);
+
+            await GenerateAndSendCancelExportMessage(response.Content.Headers.ContentLocation);
         }
 
         [Fact]
@@ -178,19 +170,29 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             request.Headers.Add(HeaderNames.Accept, acceptHeader);
             request.Headers.Add(PreferHeaderName, preferHeader);
 
-            if (queryParams == null)
+            if (queryParams != null)
             {
-                queryParams = new Dictionary<string, string>()
-                {
-                    { DestinationTypeQueryParamName, SupportedDestinationType },
-                    { DestinationConnectionQueryParamName, "connectionString" },
-                };
+                path = QueryHelpers.AddQueryString(path, queryParams);
             }
 
-            path = QueryHelpers.AddQueryString(path, queryParams);
             request.RequestUri = new Uri(_client.BaseAddress, path);
 
             return request;
+        }
+
+        // Currently our tests do not validate the data that is being exported.
+        // So once the tests are done we would like to cancel the export request
+        // to try to prevent the worker from actually processing the export.
+        private async Task GenerateAndSendCancelExportMessage(Uri contentLocation)
+        {
+            var request = new HttpRequestMessage
+            {
+                Method = HttpMethod.Delete,
+            };
+
+            request.RequestUri = contentLocation;
+
+            await _client.SendAsync(request);
         }
     }
 }
