@@ -15,6 +15,7 @@ using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Routing;
+using Microsoft.Health.Fhir.Api.Helpers;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -47,7 +48,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpPost]
         [Route(KnownRoutes.ValidateResourceType)]
         [AuditEventType(AuditEventSubType.Read)]
-        [Authorize(PolicyNames.ReadPolicy)]
         public async Task<IActionResult> Validate([FromBody] Resource resource, [FromQuery(Name = KnownQueryParameterNames.Profile)] string profile, [FromQuery(Name = KnownQueryParameterNames.Mode)] string mode, string typeParameter)
         {
             return await RunValidationAsync(resource, profile, mode, typeParameter);
@@ -56,7 +56,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpPost]
         [Route(KnownRoutes.ValidateResourceTypeById)]
         [AuditEventType(AuditEventSubType.Read)]
-        [Authorize(PolicyNames.ReadPolicy)]
         public async Task<IActionResult> ValidateById([FromBody] Resource resource, [FromQuery(Name = KnownQueryParameterNames.Profile)] string profile, [FromQuery(Name = KnownQueryParameterNames.Mode)] string mode, string typeParameter, string idParameter)
         {
             return await RunValidationAsync(resource, profile, mode, typeParameter, idParameter, true);
@@ -69,14 +68,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new OperationNotImplementedException(Resources.ValidationNotSupported);
             }
 
-            if (profile != null)
-            {
-                throw new OperationNotImplementedException(Resources.ValidateWithProfileNotSupported);
-            }
-
             if (resource.ResourceType == ResourceType.Parameters)
             {
                 resource = ParseParameters((Parameters)resource, ref profile, ref mode);
+            }
+
+            if (profile != null)
+            {
+                throw new OperationNotImplementedException(Resources.ValidateWithProfileNotSupported);
             }
 
             // This is the same as the filter that is applied in the ValidationModeFilter.
@@ -85,11 +84,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             // This is needed because if a user requests a delete validation it doesn't matter what resource they pass, so the delete validation should run regardless of if the resource is valid.
             ValidationModeFilterAttribute.ParseMode(mode, idMode);
 
-            ValidateResourceTypeFilterAttribute.ValidateType(resource, typeParameter);
+            ValidationHelpers.ValidateType(resource, typeParameter);
 
             if (idMode)
             {
-                ValidateResourceIdFilterAttribute.ValidateId(resource, idParameter);
+                ValidationHelpers.ValidateId(resource, idParameter);
             }
 
             var response = await _mediator.Send<ValidateOperationResponse>(new ValidateOperationRequest(resource.ToResourceElement()));

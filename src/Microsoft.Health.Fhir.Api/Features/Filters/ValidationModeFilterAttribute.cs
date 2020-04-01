@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             EnsureArg.IsNotNull(context, nameof(context));
 
             StringValues modes;
-            if (context.HttpContext.Request.Query.TryGetValue(KnownQueryParameterNames.Mode, out modes))
+            if (context.HttpContext.Request.Query.TryGetValue(KnownQueryParameterNames.Mode, out modes) && modes.Count > 0)
             {
                 if (modes.Count > 1)
                 {
@@ -51,6 +51,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
                     throw new BadRequestException(Resources.ValidationForUpdateAndDeleteNotSupported);
                 case "DELETE":
+                    // When a resource is requested to be deleted and an id is provided no validation is done as we do not currenty check that the id exists. 
+                    // A validation passed message is returned without looking at the message body.
                     if (idMode)
                     {
                         // This is done to bypass any exceptions that could be thrown in latter attribute filters.
