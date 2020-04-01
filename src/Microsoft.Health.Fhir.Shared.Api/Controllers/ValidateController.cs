@@ -15,7 +15,6 @@ using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Routing;
-using Microsoft.Health.Fhir.Api.Helpers;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -84,11 +83,11 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             // This is needed because if a user requests a delete validation it doesn't matter what resource they pass, so the delete validation should run regardless of if the resource is valid.
             ValidationModeFilterAttribute.ParseMode(mode, idMode);
 
-            ValidationHelpers.ValidateType(resource, typeParameter);
+            ValidateResourceTypeFilterAttribute.ValidateType(resource, typeParameter);
 
             if (idMode)
             {
-                ValidationHelpers.ValidateId(resource, idParameter);
+                ValidateResourceIdFilterAttribute.ValidateId(resource, idParameter);
             }
 
             var response = await _mediator.Send<ValidateOperationResponse>(new ValidateOperationRequest(resource.ToResourceElement()));

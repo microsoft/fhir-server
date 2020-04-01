@@ -62,6 +62,5 @@
     <Compile Include="$(MSBuildThisFileDirectory)Modules\ValidationModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\FeatureFlags\ConditionalUpdates\ConditionalUpsertPostConfigureOptions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Registration\FhirServerServiceCollectionExtensions.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Helpers\ValidationHelpers.cs" />
   </ItemGroup>
 </Project>

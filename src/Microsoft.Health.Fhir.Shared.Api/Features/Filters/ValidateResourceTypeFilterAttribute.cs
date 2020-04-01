@@ -4,11 +4,13 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using EnsureThat;
+using FluentValidation.Results;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Health.Fhir.Api.Features.Routing;
-using Microsoft.Health.Fhir.Api.Helpers;
+using Microsoft.Health.Fhir.Core.Features.Validation;
 
 namespace Microsoft.Health.Fhir.Api.Features.Filters
 {
@@ -22,7 +24,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             if (context.RouteData.Values.TryGetValue(KnownActionParameterNames.ResourceType, out var actionModelType) &&
                 context.ActionArguments.TryGetValue(KnownActionParameterNames.Resource, out var parsedModel))
             {
-                ValidationHelpers.ValidateType((Resource)parsedModel, (string)actionModelType);
+                ValidateType((Resource)parsedModel, (string)actionModelType);
+            }
+        }
+
+        public static void ValidateType(Resource resource, string expectedType)
+        {
+            if (!string.Equals(expectedType, resource.TypeName, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ResourceNotValidException(new List<ValidationFailure>
+                    {
+                        new ValidationFailure(nameof(Base.TypeName), Api.Resources.ResourceTypeMismatch),
+                    });
             }
         }
     }
