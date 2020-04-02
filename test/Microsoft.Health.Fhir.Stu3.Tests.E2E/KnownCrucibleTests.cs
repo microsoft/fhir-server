@@ -553,6 +553,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             "connectathon-15-patient-bonus-client-id-json/Step4-PatientSearch",
             "connectathon-15-patient-fhirserver-05-vread-server-id-json/01-VersionReadCreatedPatient",
             "connectathon-15-patient-fhirserver-99-all-client-id-json/06-SearchPatient",
+            "resourcetest_testscript/X067_TestScript",
+            "resourcetest_testreport/X067_TestReport",
         };
 
         public static readonly IDictionary<DataStore, string[]> KnowFailuresForDataStore =
