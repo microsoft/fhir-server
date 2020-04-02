@@ -488,7 +488,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             "transactionandbatchtest/XFER0",
             "transactionandbatchtest/XFER10",
 
-            
             // Profile Validation Failures
             "resourcetest_account/X067_Account",
             "resourcetest_activitydefinition/X067_ActivityDefinition",
