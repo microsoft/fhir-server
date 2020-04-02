@@ -54,8 +54,6 @@ jobs:
 - job: 'e2eTests'
   condition: eq('${{ parameters.runE2E }}', true)
   dependsOn: []
-  strategy:
-    parallel: 4
   pool:
     vmImage: $(WindowsVmImage)
   steps:
@@ -133,4 +131,3 @@ jobs:
       rerunType: 'basedOnTestFailurePercentage'
       rerunFailedThreshold: '95'
       rerunMaxAttempts: 3
-      runInParallel: true
