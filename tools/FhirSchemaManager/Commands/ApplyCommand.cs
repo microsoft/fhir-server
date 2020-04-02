@@ -4,16 +4,104 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
+using System.CommandLine.Invocation;
+using System.CommandLine.Rendering;
+using System.Data;
+using System.Data.SqlClient;
+using System.Linq;
+using System.Net.Http;
+using System.Threading.Tasks;
+using FhirSchemaManager.Exceptions;
+using FhirSchemaManager.Model;
+using FhirSchemaManager.Utils;
 
 namespace FhirSchemaManager.Commands
 {
     public static class ApplyCommand
     {
-        public static void Handler(string connectionString, Uri fhirServer, int version)
+        public static async Task HandlerAsync(InvocationContext invocationContext, string connectionString, Uri fhirServer, int version)
         {
             Console.WriteLine($"--connection-string {connectionString}");
             Console.WriteLine($"--fhir-server {fhirServer}");
             Console.WriteLine($"--version {version}");
+
+            var region = new Region(
+                          0,
+                          0,
+                          Console.WindowWidth,
+                          Console.WindowHeight,
+                          true);
+            string script;
+            List<CurrentVersion> currentVersions = null;
+            CompatibleVersion compatibleVersion = null;
+            IInvokeAPI invokeAPI = new InvokeAPI();
+
+            try
+            {
+                script = await invokeAPI.GetScript(fhirServer, version);
+                currentVersions = await invokeAPI.GetCurrentVersionInformation(fhirServer);
+                compatibleVersion = await invokeAPI.GetCompatibility(fhirServer);
+            }
+            catch (SchemaOperationFailedException ex)
+            {
+                CommandUtils.RenderError(new ErrorDescription((int)ex.StatusCode, ex.Message), invocationContext, region);
+                return;
+            }
+            catch (HttpRequestException)
+            {
+                CommandUtils.PrintError(Resources.RequestFailedMessage);
+                return;
+            }
+
+            // check if version lies in the compatibility range
+            if (!Enumerable.Range(compatibleVersion.Min, compatibleVersion.Max).Contains(version))
+            {
+                CommandUtils.PrintError(Resources.VersionIncompatibilityMessage);
+                return;
+            }
+
+            // check if any instance is not running on the previous version
+            bool isInValidVersion = currentVersions.Any(currentVersion => currentVersion.Id != (version - 1) && currentVersion.Servers.Count > 0);
+            if (isInValidVersion)
+            {
+                CommandUtils.PrintError(Resources.InvalidVersionMessage);
+                return;
+            }
+
+            // check if entry for schema version exists in failed status
+            string deleteQuery = $"DELETE FROM dbo.SchemaVersion WHERE Version = {version} AND Status = 'failed'";
+            ExecuteQuery(connectionString, deleteQuery);
+
+            // Execute script
+            try
+            {
+                ExecuteQuery(connectionString, script);
+            }
+            catch (SqlException ex)
+            {
+                // update version status to failed state
+                string updateQuery = $"UPDATE dbo.SchemaVersion SET status = 'failed' WHERE Version = {version} AND Status = 'started'";
+                ExecuteQuery(connectionString, updateQuery);
+
+                CommandUtils.PrintError(string.Format(Resources.QueryExecutionExceptionMessage, ex.Message));
+                return;
+            }
+
+            Console.WriteLine($"Schema Migration is completed successfully for the version : {version}");
+        }
+
+        private static void ExecuteQuery(string connectionString, string queryString)
+        {
+            using (var connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+                SqlCommand command = connection.CreateCommand();
+                command.CommandText = queryString;
+                command.CommandType = CommandType.Text;
+
+                command.ExecuteNonQueryAsync();
+            }
         }
     }
 }

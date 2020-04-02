@@ -8,13 +8,11 @@ using System.Collections.Generic;
 using System.CommandLine.Invocation;
 using System.CommandLine.Rendering;
 using System.CommandLine.Rendering.Views;
-using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using FhirSchemaManager.Exceptions;
 using FhirSchemaManager.Model;
 using FhirSchemaManager.Utils;
-using Newtonsoft.Json;
 
 namespace FhirSchemaManager.Commands
 {
@@ -29,10 +27,11 @@ namespace FhirSchemaManager.Commands
                           Console.WindowHeight,
                           true);
             List<CurrentVersion> currentVersions = null;
+            IInvokeAPI invokeAPI = new InvokeAPI();
 
             try
             {
-                currentVersions = await GetCurrentVersionInformation(fhirServer);
+                currentVersions = await invokeAPI.GetCurrentVersionInformation(fhirServer);
             }
             catch (SchemaOperationFailedException ex)
             {
@@ -69,32 +68,6 @@ namespace FhirSchemaManager.Commands
 
             var screen = new ScreenView(renderer: consoleRenderer) { Child = tableView };
             screen.Render(region);
-        }
-
-        private static async Task<List<CurrentVersion>> GetCurrentVersionInformation(Uri serverUri)
-        {
-            var httpClient = new HttpClient
-            {
-                BaseAddress = serverUri,
-            };
-
-            var response = await httpClient.GetAsync(new Uri("/_schema/versions/current", UriKind.Relative));
-            if (response.IsSuccessStatusCode)
-            {
-                var responseBodyAsString = await response.Content.ReadAsStringAsync();
-                return JsonConvert.DeserializeObject<List<CurrentVersion>>(responseBodyAsString);
-            }
-            else
-            {
-                switch (response.StatusCode)
-                {
-                    case HttpStatusCode.NotFound:
-                        throw new SchemaOperationFailedException(response.StatusCode, Resources.CurrentInformationNotFound);
-
-                    default:
-                        throw new SchemaOperationFailedException(response.StatusCode, Resources.CurrentDefaultErrorDescription);
-                }
-            }
         }
     }
 }

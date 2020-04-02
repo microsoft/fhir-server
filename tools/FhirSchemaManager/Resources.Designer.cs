@@ -79,6 +79,24 @@ namespace FhirSchemaManager {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The compatible versions information is not available..
+        /// </summary>
+        internal static string CompatibilityDefaultErrorMessage {
+            get {
+                return ResourceManager.GetString("CompatibilityDefaultErrorMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The compatible versions information is not found..
+        /// </summary>
+        internal static string CompatibilityNotFound {
+            get {
+                return ResourceManager.GetString("CompatibilityNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The connection string of the SQL server to apply the schema update..
         /// </summary>
         internal static string ConnectionStringOptionDescription {
@@ -106,7 +124,7 @@ namespace FhirSchemaManager {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Current version information is not available..
+        ///   Looks up a localized string similar to The current version information is not available..
         /// </summary>
         internal static string CurrentDefaultErrorDescription {
             get {
@@ -115,7 +133,7 @@ namespace FhirSchemaManager {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Current version information is not found..
+        ///   Looks up a localized string similar to Thee current version information is not found..
         /// </summary>
         internal static string CurrentInformationNotFound {
             get {
@@ -151,11 +169,47 @@ namespace FhirSchemaManager {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The schema version cannot be applied because all the instances are not running the previous version..
+        /// </summary>
+        internal static string InvalidVersionMessage {
+            get {
+                return ResourceManager.GetString("InvalidVersionMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Script execution has failed due to {0}..
+        /// </summary>
+        internal static string QueryExecutionExceptionMessage {
+            get {
+                return ResourceManager.GetString("QueryExecutionExceptionMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Request has failed due to fhirServerUrl is invalid or inactive..
         /// </summary>
         internal static string RequestFailedMessage {
             get {
                 return ResourceManager.GetString("RequestFailedMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The script is not found for the given version..
+        /// </summary>
+        internal static string ScriptNotFound {
+            get {
+                return ResourceManager.GetString("ScriptNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The schema version is not compatbile..
+        /// </summary>
+        internal static string VersionIncompatibilityMessage {
+            get {
+                return ResourceManager.GetString("VersionIncompatibilityMessage", resourceCulture);
             }
         }
         
