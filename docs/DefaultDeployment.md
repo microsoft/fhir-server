@@ -52,7 +52,7 @@ Set-FhirServerUserAppRoleAssignments -UserPrincipalName myuser@mydomain.com -Api
 
 ## Deploying the FHIR Server Template
 
-To deploy the backend Cosmos DB, Azure Web App, and FHIR server code, use the buttons below to deploy through the Azure Portal. If you would like to protect the FHIR API with token authorization, you will need to supply application registration details as described above.
+To deploy the backend SQL Server, Azure Web App, and FHIR server code, use the buttons below to deploy through the Azure Portal. If you would like to protect the FHIR API with token authorization, you will need to supply application registration details as described above.
 
 <a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FMicrosoft%2Ffhir-server%2Fmaster%2Fsamples%2Ftemplates%2Fdefault-azuredeploy-sql.json" target="_blank">
     <img src="https://azuredeploy.net/deploybutton.png"/>
