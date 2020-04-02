@@ -70,15 +70,6 @@
                 "description": "Webdeploy package to use as depoyment code. If blank, the latest code package will be deployed."
             }
         },
-        "cosmosDbAccountConsistencyPolicy": {
-            "type": "object",
-            "defaultValue": {
-                "defaultConsistencyLevel": "Strong"
-            },
-            "metadata": {
-                "description": "An object representing the default consistency policy for the Cosmos DB account. See https://docs.microsoft.com/en-us/azure/templates/microsoft.documentdb/databaseaccounts#ConsistencyPolicy"
-            }
-        },
         "deployApplicationInsights": {
             "type": "bool",
             "defaultValue": true,
@@ -108,9 +99,22 @@
         },
         "solutionType": {
             "type": "string",
-            "defaultValue": "FhirServerCosmosDB",
+            "defaultValue": "FhirServerSqlServer",
             "metadata": {
                 "description": "The type of the solution"
+            }
+        },
+        "sqlAdminPassword": {
+            "type": "securestring",
+            "metadata": {
+                "description": "The password for the sql admin user if using SQL server."
+            }
+        },
+        "sqlLocation": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().location]",
+            "metadata": {
+                "description": "An override location for the sql server database."
             }
         },
         "fhirVersion": {
@@ -134,15 +138,13 @@
         }
     },
     "variables": {
-        "defaultMsdeployPackageUrl": "[concat('https://fhirserverforazure.blob.core.windows.net/builds/ci/Microsoft.Health.Fhir.', parameters('fhirVersion'),'.Web.zip')]",
         "isMAG": "[or(contains(resourceGroup().location,'usgov'),contains(resourceGroup().location,'usdod'))]",
         "serviceName": "[toLower(parameters('serviceName'))]",
         "keyvaultEndpoint": "[if(variables('isMAG'), concat('https://', variables('serviceName'), '.vault.usgovcloudapi.net/'), concat('https://', variables('serviceName'), '.vault.azure.net/'))]",
-        "appServicePlanResourceGroup": "[if(empty(parameters('appServicePlanResourceGroup')), resourceGroup().name, parameters('appServicePlanResourceGroup'))]",
-        "appServicePlanName": "[if(empty(parameters('appServicePlanName')),concat(variables('serviceName'),'-asp'),parameters('appServicePlanName'))]",
+        "appServicePlanResourceGroup": "[resourceGroup().name]",
+        "appServicePlanName": "[concat(variables('serviceName'),'-asp')]",
         "appServiceResourceId": "[resourceId('Microsoft.Web/sites', variables('serviceName'))]",
         "securityAuthenticationEnabled": "[and(not(empty(parameters('securityAuthenticationAuthority'))),not(empty(parameters('securityAuthenticationAudience'))))]",
-        "msdeployPackageUrlToUse": "[if(empty(parameters('msdeployPackageUrl')),variables('defaultMsdeployPackageUrl'),parameters('msdeployPackageUrl'))]",
         "deployAppInsights": "[and(parameters('deployApplicationInsights'),not(variables('isMAG')))]",
         "appInsightsName": "[concat('AppInsights-', variables('serviceName'))]",
         "storageBlobDataContributerRoleId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]",
@@ -152,25 +154,28 @@
             "APPINSIGHTS_PROFILERFEATURE_VERSION": "1.0.0",
             "APPINSIGHTS_SNAPSHOTFEATURE_VERSION": "1.0.0",
             "WEBSITE_NODE_DEFAULT_VERSION": "6.9.4",
-            "KeyVault:Endpoint": "[variables('keyvaultEndpoint')]",
-            "FhirServer:Security:Enabled": "[variables('securityAuthenticationEnabled')]",
-            "FhirServer:Security:EnableAadSmartOnFhirProxy": "[parameters('enableAadSmartOnFhirProxy')]",
-            "FhirServer:Security:Authentication:Authority": "[parameters('securityAuthenticationAuthority')]",
-            "FhirServer:Security:Authentication:Audience": "[parameters('securityAuthenticationAudience')]",
-            "CosmosDb:ContinuationTokenSizeLimitInKb": "1",
-            "DataStore": "CosmosDb",
-            "FhirServer:Operations:Export:Enabled": "[parameters('enableExport')]",
-            "FhirServer:Operations:Export:StorageAccountUri": "[if(parameters('enableExport'), concat('https://', variables('storageAccountName'), variables('blobStorageUri')), 'null')]"
+            "KeyVault__Endpoint": "[variables('keyvaultEndpoint')]",
+            "FhirServer__Security__Enabled": "[variables('securityAuthenticationEnabled')]",
+            "FhirServer__Security__EnableAadSmartOnFhirProxy": "[parameters('enableAadSmartOnFhirProxy')]",
+            "FhirServer__Security__Authentication__Authority": "[parameters('securityAuthenticationAuthority')]",
+            "FhirServer__Security__Authentication__Audience": "[parameters('securityAuthenticationAudience')]",
+            "CosmosDb__ContinuationTokenSizeLimitInKb": "1",
+            "SqlServer__Initialize": "true",
+            "DataStore": "SqlServer",
+            "FhirServer__Operations__Export__Enabled": "[parameters('enableExport')]",
+            "FhirServer__Operations__Export__StorageAccountUri": "[if(parameters('enableExport'), concat('https://', variables('storageAccountName'), variables('blobStorageUri')), 'null')]"
         },
         "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'))]",
-        "storageAccountName": "[concat(substring(replace(variables('serviceName'), '-', ''), 0, min(11, length(variables('serviceName')))), uniquestring(resourceGroup().id, variables('serviceName')))]"
+        "computedSqlServerReference": "[concat('Microsoft.Sql/servers/', variables('serviceName'))]",
+        "storageAccountName": "[concat(substring(replace(variables('serviceName'), '-', ''), 0, min(11, length(variables('serviceName')))), uniquestring(resourceGroup().id, variables('serviceName')))]",
+        "registryName": "healthplatformregistry.azurecr.io"
     },
     "resources": [
         {
-            "condition": "[empty(parameters('appServicePlanResourceGroup'))]",
-            "apiVersion": "2015-08-01",
+            "apiVersion": "2019-08-01",
             "name": "[variables('appServicePlanName')]",
             "type": "Microsoft.Web/serverfarms",
+            "kind": "linux",
             "tags": {
                 "FhirServerSolution": "[parameters('solutionType')]"
             },
@@ -179,49 +184,62 @@
                 "name": "[parameters('appServicePlanSku')]"
             },
             "properties": {
-                "name": "[variables('appServicePlanName')]"
+                "name": "[variables('appServicePlanName')]",
+                "reserved": true
             }
         },
         {
-            "apiVersion": "2015-08-01",
+            "apiVersion": "2018-11-01",
+            "name": "[parameters('serviceName')]",
             "type": "Microsoft.Web/sites",
-            "name": "[variables('serviceName')]",
+            "location": "[resourceGroup().location]",
             "tags": {
                 "FhirServerSolution": "[parameters('solutionType')]"
             },
-            "location": "[resourceGroup().location]",
             "identity": {
                 "type": "SystemAssigned"
             },
             "properties": {
-                "clientAffinityEnabled": false,
-                "serverFarmId": "[resourceId(variables('appServicePlanResourceGroup'), 'Microsoft.Web/serverfarms/', variables('appServicePlanName'))]"
+                "name": "[parameters('serviceName')]",
+                "siteConfig": {
+                    "appSettings": [
+                        {
+                            "name": "DOCKER_REGISTRY_SERVER_URL",
+                            "value": "[concat('https://', variables('registryName'))]"
+                        },
+                        {
+                            "name": "DOCKER_REGISTRY_SERVER_USERNAME",
+                            "value": ""
+                        },
+                        {
+                            "name": "DOCKER_REGISTRY_SERVER_PASSWORD",
+                            "value": ""
+                        },
+                        {
+                            "name": "WEBSITES_ENABLE_APP_SERVICE_STORAGE",
+                            "value": "true"
+                        }
+                    ],
+                    "linuxFxVersion": "[concat('DOCKER|', variables('registryName'), '/fhirserver-', toLower(parameters('fhirVersion')),'_fhir-api:latest')]",
+                    "appCommandLine": "azure-fhir-api",
+                    "alwaysOn": true
+                },
+                "serverFarmId": "[resourceId(variables('appServicePlanResourceGroup'), 'Microsoft.Web/serverfarms/', variables('appServicePlanName'))]",
+                "clientAffinityEnabled": false
             },
             "dependsOn": [
-                "[if(empty(parameters('appServicePlanResourceGroup')), resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName')), resourceId('Microsoft.DocumentDB/databaseAccounts', variables('serviceName')))]"
+                "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]"
             ],
             "resources": [
                 {
-                    "apiVersion": "2015-08-01",
+                    "apiVersion": "2019-08-01",
                     "name": "appsettings",
                     "type": "config",
                     "dependsOn": [
                         "[variables('appServiceResourceId')]",
-                        "[concat(variables('appServiceResourceId'), '/Extensions/MSDeploy')]",
                         "[if(variables('deployAppInsights'),concat('Microsoft.Insights/components/', variables('appInsightsName')),resourceId('Microsoft.KeyVault/vaults', variables('serviceName')))]"
                     ],
-                    "properties": "[if(variables('deployAppInsights'), union(variables('combinedFhirServerConfigProperties'), json(concat('{\"ApplicationInsights:InstrumentationKey\": \"', reference(concat('Microsoft.Insights/components/', variables('appInsightsName'))).InstrumentationKey, '\"}'))), variables('combinedFhirServerConfigProperties'))]"
-                },
-                {
-                    "apiVersion": "2015-08-01",
-                    "type": "extensions",
-                    "name": "MSDeploy",
-                    "dependsOn": [
-                        "[variables('appServiceResourceId')]"
-                    ],
-                    "properties": {
-                        "packageUri": "[variables('msdeployPackageUrlToUse')]"
-                    }
+                    "properties": "[if(variables('deployAppInsights'), union(variables('combinedFhirServerConfigProperties'), json(concat('{\"ApplicationInsights__InstrumentationKey\": \"', reference(concat('Microsoft.Insights/components/', variables('appInsightsName'))).InstrumentationKey, '\"}'))), variables('combinedFhirServerConfigProperties'))]"
                 }
             ]
         },
@@ -243,24 +261,53 @@
             }
         },
         {
-            "apiVersion": "2015-04-08",
-            "type": "Microsoft.DocumentDB/databaseAccounts",
+            "name": "[variables('serviceName')]",
+            "type": "Microsoft.Sql/servers",
+            "apiVersion": "2015-05-01-preview",
+            "location": "[parameters('sqlLocation')]",
             "tags": {
                 "FhirServerSolution": "[parameters('solutionType')]"
             },
-            "name": "[variables('serviceName')]",
-            "location": "[resourceGroup().location]",
             "properties": {
-                "name": "[variables('serviceName')]",
-                "databaseAccountOfferType": "Standard",
-                "consistencyPolicy": "[parameters('cosmosDbAccountConsistencyPolicy')]",
-                "locations": [
-                    {
-                        "locationName": "[resourceGroup().location]",
-                        "failoverPriority": 0
-                    }
-                ]
-            }
+                "administratorLogin": "fhirAdmin",
+                "administratorLoginPassword": "[parameters('sqlAdminPassword')]",
+                "version": "12.0"
+            },
+            "resources": [
+                {
+                    "apiVersion": "2017-10-01-preview",
+                    "dependsOn": [
+                        "[variables('serviceName')]"
+                    ],
+                    "location": "[parameters('sqlLocation')]",
+                    "tags": {
+                        "FhirServerSolution": "[parameters('solutionType')]"
+                    },
+                    "name": "FHIR",
+                    "properties": {
+                        "collation": "SQL_Latin1_General_CP1_CI_AS"
+                    },
+                    "sku": {
+                        "name": "Standard",
+                        "tier": "Standard",
+                        "capacity": 20
+                    },
+                    "type": "databases"
+                },
+                {
+                    "apiVersion": "2014-04-01",
+                    "dependsOn": [
+                        "[variables('serviceName')]"
+                    ],
+                    "location": "[resourceGroup().location]",
+                    "name": "AllowAllWindowsAzureIps",
+                    "properties": {
+                        "endIpAddress": "0.0.0.0",
+                        "startIpAddress": "0.0.0.0"
+                    },
+                    "type": "firewallrules"
+                }
+            ]
         },
         {
             "type": "Microsoft.KeyVault/vaults",
@@ -297,28 +344,15 @@
         },
         {
             "type": "Microsoft.KeyVault/vaults/secrets",
-            "name": "[concat(variables('serviceName'), '/CosmosDb--Host')]",
+            "name": "[concat(variables('serviceName'), '/SqlServer--ConnectionString')]",
             "apiVersion": "2015-06-01",
             "properties": {
                 "contentType": "text/plain",
-                "value": "[reference(concat('Microsoft.DocumentDb/databaseAccounts/', variables('serviceName'))).documentEndpoint]"
+                "value": "[concat('Server=tcp:', reference(variables('computedSqlServerReference'), '2015-05-01-preview').fullyQualifiedDomainName,',1433;Initial Catalog=FHIR;Persist Security Info=False;User ID=', reference(variables('computedSqlServerReference'), '2015-05-01-preview').administratorLogin,';Password=',parameters('sqlAdminPassword'),';MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;')]"
             },
             "dependsOn": [
                 "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]",
-                "[resourceId('Microsoft.DocumentDb/databaseAccounts', variables('serviceName'))]"
-            ]
-        },
-        {
-            "type": "Microsoft.KeyVault/vaults/secrets",
-            "name": "[concat(variables('serviceName'), '/CosmosDb--Key')]",
-            "apiVersion": "2015-06-01",
-            "properties": {
-                "contentType": "text/plain",
-                "value": "[listKeys(resourceId('Microsoft.DocumentDb/databaseAccounts', variables('serviceName')), '2015-04-08').primaryMasterKey]"
-            },
-            "dependsOn": [
-                "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]",
-                "[resourceId('Microsoft.DocumentDb/databaseAccounts', variables('serviceName'))]"
+                "[resourceId('Microsoft.Sql/servers', variables('serviceName'))]"
             ]
         },
         {
