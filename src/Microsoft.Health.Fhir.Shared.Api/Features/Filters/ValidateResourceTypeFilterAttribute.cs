@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             }
         }
 
-        public static void ValidateType(Resource resource, string expectedType)
+        private static void ValidateType(Resource resource, string expectedType)
         {
             if (!string.Equals(expectedType, resource.TypeName, StringComparison.OrdinalIgnoreCase))
             {

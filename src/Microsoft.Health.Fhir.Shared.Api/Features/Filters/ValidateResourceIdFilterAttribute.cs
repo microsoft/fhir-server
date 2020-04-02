@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             }
         }
 
-        public static void ValidateId(Resource resource, string expectedId)
+        private static void ValidateId(Resource resource, string expectedId)
         {
             var location = $"{resource.TypeName}.id";
             if (string.IsNullOrWhiteSpace(resource.Id))

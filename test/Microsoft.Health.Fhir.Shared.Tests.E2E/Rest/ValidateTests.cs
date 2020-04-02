@@ -142,6 +142,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 "Patient.id");
         }
 
+        // Need mode tests, parameter syntax tests, and a profile unsupported test (maybe a validation unsupported test too)
+
         private void CheckOperationOutcomeIssue(
             OperationOutcome.IssueComponent issue,
             OperationOutcome.IssueSeverity? expectedSeverity,

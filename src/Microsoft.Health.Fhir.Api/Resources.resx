@@ -289,7 +289,6 @@
   <data name="ParsingError" xml:space="preserve">
     <value>Error occurred when parsing model.</value>
   </data>
-</root>
   <data name="ValidationForUpdateAndDeleteNotSupported" xml:space="preserve">
     <value>Resources can not be validated for update or delete at the default endpoint. An id must be provided in the URL.</value>
   </data>

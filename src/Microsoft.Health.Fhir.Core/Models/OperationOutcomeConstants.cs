@@ -5,7 +5,7 @@
 
 namespace Microsoft.Health.Fhir.Core.Models
 {
-    internal static class OperationOutcomeConstants
+    public static class OperationOutcomeConstants
     {
         public static class IssueSeverity
         {
