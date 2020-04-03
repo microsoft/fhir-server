@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
             string profile = null;
             StringValues profiles;
-            if (context.HttpContext.Request.Query.TryGetValue(KnownQueryParameterNames.Mode, out profiles) && profiles.Count > 0)
+            if (context.HttpContext.Request.Query.TryGetValue(KnownQueryParameterNames.Profile, out profiles) && profiles.Count > 0)
             {
                 if (profiles.Count > 1)
                 {
