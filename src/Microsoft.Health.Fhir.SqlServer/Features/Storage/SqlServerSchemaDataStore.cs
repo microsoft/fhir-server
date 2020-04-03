@@ -87,7 +87,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        public async Task UpsertInstanceSchemaInformation(string name, SchemaInformation schemaInformation, int currentVersion, CancellationToken cancellationToken)
+        public async Task UpsertInstanceSchemaInformation(string name, SchemaInformation schemaInformation, CancellationToken cancellationToken)
         {
             using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper())
             using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
@@ -95,7 +95,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 VLatest.UpsertInstanceSchema.PopulateCommand(
                      sqlCommand,
                      name,
-                     currentVersion,
+                     schemaInformation.Current.GetValueOrDefault(),
                      schemaInformation.MaximumSupportedVersion,
                      schemaInformation.MinimumSupportedVersion);
                 try

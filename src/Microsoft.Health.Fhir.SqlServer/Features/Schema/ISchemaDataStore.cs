@@ -36,10 +36,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
         /// </summary>
         /// /// <param name="name">The instance name.</param>
         /// /// <param name="schemaInformation">The Schema information</param>
-        /// /// <param name="currentVersion">The current version.</param>
         /// /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>A Task</returns>
-        Task UpsertInstanceSchemaInformation(string name, SchemaInformation schemaInformation, int currentVersion, CancellationToken cancellationToken);
+        Task UpsertInstanceSchemaInformation(string name, SchemaInformation schemaInformation, CancellationToken cancellationToken);
 
         /// <summary>
         /// Upsert current version information.

@@ -41,11 +41,11 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Schema
         [Fact]
         public async Task GivenSchemaBackgroundJob_WhenExecuted_ThenInsertAndPollingIsExecuted()
         {
-            _cancellationTokenSource.CancelAfter(TimeSpan.FromMilliseconds(100));
+            _cancellationTokenSource.CancelAfter(TimeSpan.FromMilliseconds(1000));
 
             await _schemaJobWorker.ExecuteAsync(schemaInformation, "instanceName", _cancellationToken);
-            await _schemaDataStore.Received().GetLatestCompatibleVersionAsync(_cancellationToken);
             await _schemaDataStore.Received().InsertInstanceSchemaInformation("instanceName", schemaInformation, _cancellationToken);
+            await _schemaDataStore.Received().UpsertInstanceSchemaInformation("instanceName", schemaInformation, _cancellationToken);
         }
     }
 }

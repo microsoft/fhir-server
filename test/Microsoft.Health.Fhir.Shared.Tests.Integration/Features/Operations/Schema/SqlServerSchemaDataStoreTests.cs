@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Sch
         [Fact]
         public async Task GivenThereIsARecord_WhenUpsertingAnInstanceSchemaRecord_ThenRecordUpdated()
         {
-            await _sqlServerSchemaDataStore.UpsertInstanceSchemaInformation(_name, _schemaInformation, 2, _cancellationToken);
+            await _sqlServerSchemaDataStore.UpsertInstanceSchemaInformation(_name, _schemaInformation, _cancellationToken);
             Assert.Equal(1, await SelectInstanceSchemaRecordAsync());
         }
 

@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
                         // Ensure schemaInformation has the latest current version
                         schemaInformation.Current = store.Value.GetCurrentSchemaVersion();
 
-                        await store.Value.UpsertInstanceSchemaInformation(instanceName, schemaInformation, schemaInformation.Current.GetValueOrDefault(), cancellationToken);
+                        await store.Value.UpsertInstanceSchemaInformation(instanceName, schemaInformation, cancellationToken);
                         await store.Value.DeleteExpiredRecords();
                     }
 
