@@ -5,10 +5,12 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Net;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -353,9 +355,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 await Client.CreateAsync(patient);
             }
 
-            FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync($"Patient?_total=estimate"));
+            var totalType = TotalType.Estimate.ToString();
 
-            Assert.Equal(HttpStatusCode.Forbidden, ex.StatusCode);
+            FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync($"Patient?_total={totalType}"));
+
+            var expectedStatusCode = HttpStatusCode.Forbidden;
+            Assert.Equal(expectedStatusCode, ex.StatusCode);
+
+            var supportedTotalTypes = new string($"'{TotalType.Accurate}', '{TotalType.None}'").ToLower(CultureInfo.CurrentCulture);
+            var expectedErrorMessage = $"{expectedStatusCode}: " + string.Format(Core.Resources.UnsupportedTotalParameter, totalType, supportedTotalTypes);
+
+            Assert.Equal(expectedErrorMessage, ex.Message);
         }
 
         [InlineData("_total", "count")]
@@ -367,7 +377,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Patient[] patients = await Client.CreateResourcesAsync<Patient>(3);
             FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync($"Patient?{key}={val}"));
 
-            Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
+            var expectedStatusCode = HttpStatusCode.BadRequest;
+            Assert.Equal(expectedStatusCode, ex.StatusCode);
+
+            var supportedTotalTypes = new string($"'{TotalType.Accurate}', '{TotalType.None}'").ToLower(CultureInfo.CurrentCulture);
+            var expectedErrorMessage = $"{expectedStatusCode}: " + string.Format(Core.Resources.InvalidTotalParameter, val, supportedTotalTypes);
+
+            Assert.Equal(expectedErrorMessage, ex.Message);
         }
 
         [Fact]

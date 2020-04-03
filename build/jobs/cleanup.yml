@@ -7,7 +7,7 @@ jobs:
   - task: AzurePowerShell@4
     displayName: 'Delete resource group'
     inputs:
-      azureSubscription: 'Microsoft Health Open Source Subscription'
+      azureSubscription: $(ConnectedServiceName)
       azurePowerShellVersion: latestVersion
       ScriptType: InlineScript
       Inline: 'Get-AzResourceGroup -Name $(DeploymentEnvironmentName) | Remove-AzResourceGroup -Verbose -Force'

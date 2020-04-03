@@ -19,10 +19,10 @@ namespace Microsoft.Health.Fhir.Core {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "4.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-    internal class Resources {
+    public class Resources {
         
         private static global::System.Resources.ResourceManager resourceMan;
         
@@ -427,6 +427,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string InvalidSearchCountSpecified {
             get {
                 return ResourceManager.GetString("InvalidSearchCountSpecified", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The &apos;_total&apos; parameter value &apos;{0}&apos; is invalid. The supported values are: {1}..
+        /// </summary>
+        public static string InvalidTotalParameter {
+            get {
+                return ResourceManager.GetString("InvalidTotalParameter", resourceCulture);
             }
         }
         
@@ -836,9 +845,9 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The requested &quot;_total&quot; parameter is not supported..
+        ///   Looks up a localized string similar to The &apos;_total&apos; parameter value &apos;{0}&apos; is not supported. The supported values are: {1}..
         /// </summary>
-        internal static string UnsupportedTotalParameter {
+        public static string UnsupportedTotalParameter {
             get {
                 return ResourceManager.GetString("UnsupportedTotalParameter", resourceCulture);
             }
