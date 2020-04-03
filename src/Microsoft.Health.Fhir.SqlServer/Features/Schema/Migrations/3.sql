@@ -98,13 +98,9 @@ AS
 BEGIN
     SET NOCOUNT ON
 
-    DECLARE @maxSchemaVersion int,
-            @minSchemaVersion int
-
-    Select @maxSchemaVersion = MIN(MaxVersion), @minSchemaVersion = MAX(MinVersion)
+    Select MAX(MinVersion), MIN(MaxVersion)
     FROM dbo.InstanceSchema
     WHERE Timeout > SYSUTCDATETIME()
-
 END
 GO
 
