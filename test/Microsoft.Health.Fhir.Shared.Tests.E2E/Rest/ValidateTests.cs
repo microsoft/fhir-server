@@ -172,8 +172,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Theory]
         [InlineData("CREATE", "CREATE is not a supported validation mode.")]
-        [InlineData("UPDATE", "UPDATE is not a supported validation mode.")]
-        [InlineData("DELETE", "DELETE is not a supported validation mode.")]
+        [InlineData("UPDATE", "Resources can not be validated for update or delete at the default endpoint. An id must be provided in the URL.")]
+        [InlineData("DELETE", "Resources can not be validated for update or delete at the default endpoint. An id must be provided in the URL.")]
         [InlineData("invalid", "invalid is not a valid validation mode")]
         public async void GivenAValidateRequest_WhenAModeIsPassed_ThenAnExceptionIsReturned(string mode, string message)
         {
@@ -190,50 +190,129 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Theory]
-        [InlineData("", "")]
+        [InlineData("CREATE", "CREATE is not a supported validation mode.")]
+        [InlineData("UPDATE", "UPDATE is not a supported validation mode.")]
+        [InlineData("invalid", "invalid is not a valid validation mode")]
         public async void GivenAValidateByIdRequest_WhenAModeIsPassed_ThenAnExceptionIsReturned(string mode, string message)
         {
+            var payload = "{\"resourceType\": \"Patient\", \"id\": \"123\"}";
 
+            OperationOutcome outcome = await _client.ValidateAsync("Patient/123/$validate?mode=" + mode, payload);
+
+            Assert.Single(outcome.Issue);
+            CheckOperationOutcomeIssue(
+                outcome.Issue[0],
+                OperationOutcome.IssueSeverity.Error,
+                OperationOutcome.IssueType.Invalid,
+                message);
         }
 
         [Fact]
         public async void GivenAValidateByIdRequest_WhenAModeOfDeleteIsPassed_ThenAnOkMessageIsReturned()
         {
+            var payload = "{\"resourceType\": \"Patient\", \"id\": \"123\"}";
+
+            OperationOutcome outcome = await _client.ValidateAsync("Patient/123/$validate?mode=DELETE", payload);
+
+            Assert.Single(outcome.Issue);
+            CheckOperationOutcomeIssue(
+                outcome.Issue[0],
+                OperationOutcome.IssueSeverity.Information,
+                OperationOutcome.IssueType.Informational,
+                Success);
         }
 
         [Theory]
-        [InlineData("", "")]
+        [InlineData("CREATE", "CREATE is not a supported validation mode.")]
+        [InlineData("UPDATE", "Resources can not be validated for update or delete at the default endpoint. An id must be provided in the URL.")]
+        [InlineData("DELETE", "Resources can not be validated for update or delete at the default endpoint. An id must be provided in the URL.")]
+        [InlineData("invalid", "invalid is not a valid validation mode")]
         public async void GivenAValidateRequest_WhenAModeIsPassedAsAParameter_ThenAnExceptionIsReturned(string mode, string message)
         {
+            var payload = "{\"resourceType\": \"Parameters\", \"parameter\": ["
+                + "{\"name\": \"mode\", \"valueCode\": \"" + mode + "\"},"
+                + "{\"name\": \"resource\", \"resource\": {\"resourceType\": \"Patient\", \"id\": \"123\"}}]}";
 
+            OperationOutcome outcome = await _client.ValidateAsync("Patient/$validate", payload);
+
+            Assert.Single(outcome.Issue);
+            CheckOperationOutcomeIssue(
+                outcome.Issue[0],
+                OperationOutcome.IssueSeverity.Error,
+                OperationOutcome.IssueType.Invalid,
+                message);
         }
 
         [Theory]
-        [InlineData("", "")]
+        [InlineData("CREATE", "CREATE is not a supported validation mode.")]
+        [InlineData("UPDATE", "UPDATE is not a supported validation mode.")]
+        [InlineData("invalid", "invalid is not a valid validation mode")]
         public async void GivenAValidateByIdRequest_WhenAModeIsPassedAsAParameter_ThenAnExceptionIsReturned(string mode, string message)
         {
+            var payload = "{\"resourceType\": \"Parameters\", \"parameter\": ["
+                + "{\"name\": \"mode\", \"valueCode\": \"" + mode + "\"},"
+                + "{\"name\": \"resource\", \"resource\": {\"resourceType\": \"Patient\", \"id\": \"123\"}}]}";
 
+            OperationOutcome outcome = await _client.ValidateAsync("Patient/123/$validate", payload);
+
+            Assert.Single(outcome.Issue);
+            CheckOperationOutcomeIssue(
+                outcome.Issue[0],
+                OperationOutcome.IssueSeverity.Error,
+                OperationOutcome.IssueType.Invalid,
+                message);
         }
 
         [Fact]
         public async void GivenAValidateByIdRequest_WhenAModeOfDeleteIsPassedAsAParameter_ThenAnOkMessageIsReturned()
         {
+            var payload = "{\"resourceType\": \"Parameters\", \"parameter\": ["
+                   + "{\"name\": \"mode\", \"valueCode\": \"DELETE\"},"
+                   + "{\"name\": \"resource\", \"resource\": {\"resourceType\": \"Patient\", \"id\": \"123\"}}]}";
 
+            OperationOutcome outcome = await _client.ValidateAsync("Patient/123/$validate", payload);
+
+            Assert.Single(outcome.Issue);
+            CheckOperationOutcomeIssue(
+                outcome.Issue[0],
+                OperationOutcome.IssueSeverity.Information,
+                OperationOutcome.IssueType.Informational,
+                Success);
         }
 
         [Fact]
         public async void GivenAValidateRequest_WhenAProfileIsPassed_ThenAnUnsuportedExceptionIsReturned()
         {
+            var payload = "{\"resourceType\": \"Patient\", \"id\": \"123\"}";
 
+            OperationOutcome outcome = await _client.ValidateAsync("Patient/$validate?profile=test", payload);
+
+            Assert.Single(outcome.Issue);
+            CheckOperationOutcomeIssue(
+                outcome.Issue[0],
+                OperationOutcome.IssueSeverity.Error,
+                OperationOutcome.IssueType.Invalid,
+                "Validation against a profile is not supported.");
         }
 
         [Fact]
         public async void GivenAValidateRequest_WhenAProfileIsPassedAsAParameter_ThenAnUnsuportedExceptionIsReturned()
         {
+            var payload = "{\"resourceType\": \"Parameters\", \"parameter\": ["
+                + "{\"name\": \"profile\", \"valueUri\": \"test\"},"
+                + "{\"name\": \"resource\", \"resource\": {\"resourceType\": \"Patient\", \"id\": \"123\"}}]}";
 
+            OperationOutcome outcome = await _client.ValidateAsync("Patient/$validate", payload);
+
+            Assert.Single(outcome.Issue);
+            CheckOperationOutcomeIssue(
+                outcome.Issue[0],
+                OperationOutcome.IssueSeverity.Error,
+                OperationOutcome.IssueType.Invalid,
+                "Validation against a profile is not supported.");
         }
 
-        // (maybe a validation unsupported test too)
+        // multiple modes and profiles? (maybe a validation unsupported test too)
 
         private void CheckOperationOutcomeIssue(
             OperationOutcome.IssueComponent issue,
