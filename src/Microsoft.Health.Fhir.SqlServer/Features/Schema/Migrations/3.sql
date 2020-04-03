@@ -88,7 +88,6 @@ GO
 --
 --  DESCRIPTION
 --      Selects the compatible schema versions
---      The returning max compatible version is not greater than the most recent, complete schema version
 --
 --  RETURNS
 --      The maximum and minimum compatible versions
@@ -105,10 +104,6 @@ BEGIN
     Select @maxSchemaVersion = MIN(MaxVersion), @minSchemaVersion = MAX(MinVersion)
     FROM dbo.InstanceSchema
     WHERE Timeout > SYSUTCDATETIME()
-
-    SELECT @minSchemaVersion, MAX(Version)
-    FROM dbo.SchemaVersion
-    WHERE Status = 'complete' AND Version <= @maxSchemaVersion
 
 END
 GO

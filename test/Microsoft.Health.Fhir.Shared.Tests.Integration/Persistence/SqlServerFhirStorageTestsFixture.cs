@@ -11,6 +11,7 @@ using Hl7.Fhir.Model;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -52,7 +53,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var schemaInformation = new SchemaInformation();
 
-            _schemaInitializer = new SchemaInitializer(SqlServerDataStoreConfiguration, schemaUpgradeRunner, schemaInformation, NullLogger<SchemaInitializer>.Instance);
+            _schemaInitializer = new SchemaInitializer(Substitute.For<Func<IScoped<ISchemaDataStore>>>(), SqlServerDataStoreConfiguration, schemaUpgradeRunner, schemaInformation, NullLogger<SchemaInitializer>.Instance);
 
             var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
             searchParameterDefinitionManager.AllSearchParameters.Returns(new[]

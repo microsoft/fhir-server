@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Data;
 using System.Data.SqlClient;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
@@ -19,18 +18,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
     /// </summary>
     public class SchemaInitializer : IStartable
     {
+        private readonly Func<IScoped<ISchemaDataStore>> _schemaDataStoreFactory;
         private readonly SqlServerDataStoreConfiguration _sqlServerDataStoreConfiguration;
         private readonly SchemaUpgradeRunner _schemaUpgradeRunner;
         private readonly SchemaInformation _schemaInformation;
         private readonly ILogger<SchemaInitializer> _logger;
 
-        public SchemaInitializer(SqlServerDataStoreConfiguration sqlServerDataStoreConfiguration, SchemaUpgradeRunner schemaUpgradeRunner, SchemaInformation schemaInformation, ILogger<SchemaInitializer> logger)
+        public SchemaInitializer(Func<IScoped<ISchemaDataStore>> schemaDataStoreFactory, SqlServerDataStoreConfiguration sqlServerDataStoreConfiguration, SchemaUpgradeRunner schemaUpgradeRunner, SchemaInformation schemaInformation, ILogger<SchemaInitializer> logger)
         {
+            EnsureArg.IsNotNull(schemaDataStoreFactory, nameof(schemaDataStoreFactory));
             EnsureArg.IsNotNull(sqlServerDataStoreConfiguration, nameof(sqlServerDataStoreConfiguration));
             EnsureArg.IsNotNull(schemaUpgradeRunner, nameof(schemaUpgradeRunner));
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
+            _schemaDataStoreFactory = schemaDataStoreFactory;
             _sqlServerDataStoreConfiguration = sqlServerDataStoreConfiguration;
             _schemaUpgradeRunner = schemaUpgradeRunner;
             _schemaInformation = schemaInformation;
@@ -56,78 +58,40 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
                 return;
             }
 
-            GetCurrentSchemaVersion();
-
-            _logger.LogInformation("Schema version is {version}", _schemaInformation.Current?.ToString() ?? "NULL");
-
-            // If the stored procedure to get the current schema version doesn't exist
-            if (_schemaInformation.Current == null || _sqlServerDataStoreConfiguration.DeleteAllDataOnStartup)
+            using (IScoped<ISchemaDataStore> store = _schemaDataStoreFactory())
             {
-                if (forceIncrementalSchemaUpgrade)
+                _schemaInformation.Current = store.Value.GetCurrentSchemaVersion();
+
+                _logger.LogInformation("Schema version is {version}", _schemaInformation.Current?.ToString() ?? "NULL");
+
+                // If the stored procedure to get the current schema version doesn't exist
+                if (_schemaInformation.Current == null || _sqlServerDataStoreConfiguration.DeleteAllDataOnStartup)
                 {
-                    // Run version 1. We'll use this as a base schema and apply .diff.sql files to upgrade the schema version.
-                    _schemaUpgradeRunner.ApplySchema(version: 1, applyFullSchemaSnapshot: true);
-                }
-                else
-                {
-                    // Apply the maximum supported version. This won't consider the .diff.sql files.
-                    _schemaUpgradeRunner.ApplySchema(_schemaInformation.MaximumSupportedVersion, applyFullSchemaSnapshot: true);
-                }
-
-                GetCurrentSchemaVersion();
-            }
-
-            // If the current schema version needs to be upgraded
-            if (_sqlServerDataStoreConfiguration.SchemaUpdatesEnabled && _schemaInformation.Current < _schemaInformation.MaximumSupportedVersion)
-            {
-                // Apply each .diff.sql file one by one.
-                for (int i = (int)_schemaInformation.Current + 1; i <= _schemaInformation.MaximumSupportedVersion; i++)
-                {
-                    _schemaUpgradeRunner.ApplySchema(version: i, applyFullSchemaSnapshot: false);
-                }
-            }
-
-            GetCurrentSchemaVersion();
-        }
-
-        private void GetCurrentSchemaVersion()
-        {
-            using (var connection = new SqlConnection(_sqlServerDataStoreConfiguration.ConnectionString))
-            {
-                connection.Open();
-
-                string procedureSchema = "dbo";
-                string procedureName = "SelectCurrentSchemaVersion";
-
-                bool procedureExists;
-                using (var checkProcedureExistsCommand = connection.CreateCommand())
-                {
-                    checkProcedureExistsCommand.CommandText = @"
-                        SELECT 1
-                        FROM sys.procedures p
-                        INNER JOIN sys.schemas s on p.schema_id = s.schema_id
-                        WHERE s.name = @schemaName AND p.name = @procedureName";
-
-                    checkProcedureExistsCommand.Parameters.AddWithValue("@schemaName", procedureSchema);
-                    checkProcedureExistsCommand.Parameters.AddWithValue("@procedureName", procedureName);
-                    procedureExists = checkProcedureExistsCommand.ExecuteScalar() != null;
-                }
-
-                if (!procedureExists)
-                {
-                    _logger.LogInformation("Procedure to select the schema version was not found. This must be a new database.");
-                }
-                else
-                {
-                    using (var command = connection.CreateCommand())
+                    if (forceIncrementalSchemaUpgrade)
                     {
-                        command.CommandText = $"{procedureSchema}.{procedureName}";
-                        command.CommandType = CommandType.StoredProcedure;
+                        // Run version 1. We'll use this as a base schema and apply .diff.sql files to upgrade the schema version.
+                        _schemaUpgradeRunner.ApplySchema(version: 1, applyFullSchemaSnapshot: true);
+                    }
+                    else
+                    {
+                        // Apply the maximum supported version. This won't consider the .diff.sql files.
+                        _schemaUpgradeRunner.ApplySchema(_schemaInformation.MaximumSupportedVersion, applyFullSchemaSnapshot: true);
+                    }
 
-                        object current = command.ExecuteScalar();
-                        _schemaInformation.Current = (current == null || Convert.IsDBNull(current)) ? null : (int?)current;
+                    _schemaInformation.Current = store.Value.GetCurrentSchemaVersion();
+                }
+
+                // If the current schema version needs to be upgraded
+                if (_sqlServerDataStoreConfiguration.SchemaUpdatesEnabled && _schemaInformation.Current < _schemaInformation.MaximumSupportedVersion)
+                {
+                    // Apply each .diff.sql file one by one.
+                    for (int i = (int)_schemaInformation.Current + 1; i <= _schemaInformation.MaximumSupportedVersion; i++)
+                    {
+                        _schemaUpgradeRunner.ApplySchema(version: i, applyFullSchemaSnapshot: false);
                     }
                 }
+
+                _schemaInformation.Current = store.Value.GetCurrentSchemaVersion();
             }
         }
 

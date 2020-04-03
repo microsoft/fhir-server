@@ -87,7 +87,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        public async Task UpsertInstanceSchemaInformation(string name, CompatibleVersions versions, int currentVersion, CancellationToken cancellationToken)
+        public async Task UpsertInstanceSchemaInformation(string name, SchemaInformation schemaInformation, int currentVersion, CancellationToken cancellationToken)
         {
             using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper())
             using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
@@ -96,8 +96,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                      sqlCommand,
                      name,
                      currentVersion,
-                     versions.Max,
-                     versions.Min);
+                     schemaInformation.MaximumSupportedVersion,
+                     schemaInformation.MinimumSupportedVersion);
                 try
                 {
                     var output = (string)await sqlCommand.ExecuteScalarAsync();
@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        public async Task DeleteExpiredRecordsAsync()
+        public async Task DeleteExpiredRecords()
         {
             using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper())
             using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
@@ -180,6 +180,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             return new GetCurrentVersionResponse(currentVersions);
+        }
+
+        public int? GetCurrentSchemaVersion()
+        {
+            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper())
+            using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
+            {
+                VLatest.SelectCurrentSchemaVersion.PopulateCommand(sqlCommand);
+                try
+                {
+                    var current = sqlCommand.ExecuteScalar();
+
+                    return (current == null || Convert.IsDBNull(current)) ? null : (int?)current;
+                }
+                catch (SqlException e)
+                {
+                    _logger.LogError(e, "Error from SQL database on Get current version");
+                    throw;
+                }
+            }
         }
 
         private int ConvertToInt(object o)

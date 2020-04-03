@@ -10,7 +10,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
-using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
@@ -60,7 +59,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations.Sch
         [Fact]
         public async Task GivenThereIsARecord_WhenUpsertingAnInstanceSchemaRecord_ThenRecordUpdated()
         {
-            await _sqlServerSchemaDataStore.UpsertInstanceSchemaInformation(_name, new CompatibleVersions(1, 3), 2, _cancellationToken);
+            await _sqlServerSchemaDataStore.UpsertInstanceSchemaInformation(_name, _schemaInformation, 2, _cancellationToken);
             Assert.Equal(1, await SelectInstanceSchemaRecordAsync());
         }
 

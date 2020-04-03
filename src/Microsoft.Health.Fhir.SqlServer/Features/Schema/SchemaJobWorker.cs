@@ -11,7 +11,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.SqlServer.Configs;
-using Microsoft.Health.Fhir.SqlServer.Features.Schema.Messages.Get;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
 {
@@ -42,18 +41,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
                 await store.Value.InsertInstanceSchemaInformation(instanceName, schemaInformation, cancellationToken);
             }
 
+            _logger.LogInformation($"Polling started at {Clock.UtcNow}");
+
             while (!cancellationToken.IsCancellationRequested)
             {
                 try
                 {
-                    _logger.LogInformation($"Polling started at {Clock.UtcNow}");
-
                     using (IScoped<ISchemaDataStore> store = _schemaDataStoreFactory())
                     {
-                        GetCompatibilityVersionResponse getCompatibilityVersion = await store.Value.GetLatestCompatibleVersionAsync(cancellationToken);
+                        // Ensure schemaInformation has the latest current version
+                        schemaInformation.Current = store.Value.GetCurrentSchemaVersion();
 
-                        await store.Value.UpsertInstanceSchemaInformation(instanceName, getCompatibilityVersion.Versions, schemaInformation.Current.GetValueOrDefault(), cancellationToken);
-                        await store.Value.DeleteExpiredRecordsAsync();
+                        await store.Value.UpsertInstanceSchemaInformation(instanceName, schemaInformation, schemaInformation.Current.GetValueOrDefault(), cancellationToken);
+                        await store.Value.DeleteExpiredRecords();
                     }
 
                     await Task.Delay(_sqlServerDataStoreConfiguration.SchemaUpdatesJobPollingFrequency, cancellationToken);
