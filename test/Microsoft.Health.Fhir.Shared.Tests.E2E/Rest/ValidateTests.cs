@@ -171,11 +171,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Theory]
-        [InlineData("CREATE", "CREATE is not a supported validation mode.")]
-        [InlineData("UPDATE", "Resources can not be validated for update or delete at the default endpoint. An id must be provided in the URL.")]
-        [InlineData("DELETE", "Resources can not be validated for update or delete at the default endpoint. An id must be provided in the URL.")]
-        [InlineData("invalid", "invalid is not a valid validation mode.")]
-        public async void GivenAValidateRequest_WhenAModeIsPassed_ThenAnExceptionIsReturned(string mode, string message)
+        [InlineData("CREATE", "CREATE is not a supported validation mode.", OperationOutcome.IssueType.NotSupported)]
+        [InlineData("UPDATE", "Resources can not be validated for update or delete at the default endpoint. An id must be provided in the URL.", OperationOutcome.IssueType.Invalid)]
+        [InlineData("DELETE", "Resources can not be validated for update or delete at the default endpoint. An id must be provided in the URL.", OperationOutcome.IssueType.Invalid)]
+        [InlineData("invalid", "invalid is not a valid validation mode.", OperationOutcome.IssueType.Invalid)]
+        public async void GivenAValidateRequest_WhenAModeIsPassed_ThenAnExceptionIsReturned(string mode, string message, OperationOutcome.IssueType issueType)
         {
             var payload = "{\"resourceType\": \"Patient\", \"id\": \"123\"}";
 
@@ -191,7 +191,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 CheckOperationOutcomeIssue(
                     outcome.Issue[0],
                     OperationOutcome.IssueSeverity.Error,
-                    OperationOutcome.IssueType.NotSupported,
+                    issueType,
                     message);
                 return;
             }
@@ -200,10 +200,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Theory]
-        [InlineData("CREATE", "CREATE is not a supported validation mode.")]
-        [InlineData("UPDATE", "UPDATE is not a supported validation mode.")]
-        [InlineData("invalid", "invalid is not a valid validation mode.")]
-        public async void GivenAValidateByIdRequest_WhenAModeIsPassed_ThenAnExceptionIsReturned(string mode, string message)
+        [InlineData("CREATE", "CREATE is not a supported validation mode.", OperationOutcome.IssueType.NotSupported)]
+        [InlineData("UPDATE", "UPDATE is not a supported validation mode.", OperationOutcome.IssueType.NotSupported)]
+        [InlineData("invalid", "invalid is not a valid validation mode.", OperationOutcome.IssueType.Invalid)]
+        public async void GivenAValidateByIdRequest_WhenAModeIsPassed_ThenAnExceptionIsReturned(string mode, string message, OperationOutcome.IssueType issueType)
         {
             var payload = "{\"resourceType\": \"Patient\", \"id\": \"123\"}";
 
@@ -219,7 +219,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 CheckOperationOutcomeIssue(
                     outcome.Issue[0],
                     OperationOutcome.IssueSeverity.Error,
-                    OperationOutcome.IssueType.NotSupported,
+                    issueType,
                     message);
                 return;
             }
@@ -243,11 +243,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Theory]
-        [InlineData("CREATE", "CREATE is not a supported validation mode.")]
-        [InlineData("UPDATE", "Resources can not be validated for update or delete at the default endpoint. An id must be provided in the URL.")]
-        [InlineData("DELETE", "Resources can not be validated for update or delete at the default endpoint. An id must be provided in the URL.")]
-        [InlineData("invalid", "invalid is not a valid validation mode.")]
-        public async void GivenAValidateRequest_WhenAModeIsPassedAsAParameter_ThenAnExceptionIsReturned(string mode, string message)
+        [InlineData("CREATE", "CREATE is not a supported validation mode.", OperationOutcome.IssueType.NotSupported)]
+        [InlineData("UPDATE", "Resources can not be validated for update or delete at the default endpoint. An id must be provided in the URL.", OperationOutcome.IssueType.Invalid)]
+        [InlineData("DELETE", "Resources can not be validated for update or delete at the default endpoint. An id must be provided in the URL.", OperationOutcome.IssueType.Invalid)]
+        [InlineData("invalid", "invalid is not a valid validation mode.", OperationOutcome.IssueType.Invalid)]
+        public async void GivenAValidateRequest_WhenAModeIsPassedAsAParameter_ThenAnExceptionIsReturned(string mode, string message, OperationOutcome.IssueType issueType)
         {
             var payload = "{\"resourceType\": \"Parameters\", \"parameter\": ["
                 + "{\"name\": \"mode\", \"valueCode\": \"" + mode + "\"},"
@@ -265,7 +265,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 CheckOperationOutcomeIssue(
                     outcome.Issue[0],
                     OperationOutcome.IssueSeverity.Error,
-                    OperationOutcome.IssueType.NotSupported,
+                    issueType,
                     message);
                 return;
             }
@@ -274,10 +274,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Theory]
-        [InlineData("CREATE", "CREATE is not a supported validation mode.")]
-        [InlineData("UPDATE", "UPDATE is not a supported validation mode.")]
-        [InlineData("invalid", "invalid is not a valid validation mode.")]
-        public async void GivenAValidateByIdRequest_WhenAModeIsPassedAsAParameter_ThenAnExceptionIsReturned(string mode, string message)
+        [InlineData("CREATE", "CREATE is not a supported validation mode.", OperationOutcome.IssueType.NotSupported)]
+        [InlineData("UPDATE", "UPDATE is not a supported validation mode.", OperationOutcome.IssueType.NotSupported)]
+        [InlineData("invalid", "invalid is not a valid validation mode.", OperationOutcome.IssueType.Invalid)]
+        public async void GivenAValidateByIdRequest_WhenAModeIsPassedAsAParameter_ThenAnExceptionIsReturned(string mode, string message, OperationOutcome.IssueType issueType)
         {
             var payload = "{\"resourceType\": \"Parameters\", \"parameter\": ["
                 + "{\"name\": \"mode\", \"valueCode\": \"" + mode + "\"},"
@@ -295,7 +295,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 CheckOperationOutcomeIssue(
                     outcome.Issue[0],
                     OperationOutcome.IssueSeverity.Error,
-                    OperationOutcome.IssueType.NotSupported,
+                    issueType,
                     message);
                 return;
             }
@@ -337,7 +337,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 CheckOperationOutcomeIssue(
                     outcome.Issue[0],
                     OperationOutcome.IssueSeverity.Error,
-                    OperationOutcome.IssueType.Invalid,
+                    OperationOutcome.IssueType.NotSupported,
                     "Validation against a profile is not supported.");
                 return;
             }
@@ -364,7 +364,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 CheckOperationOutcomeIssue(
                     outcome.Issue[0],
                     OperationOutcome.IssueSeverity.Error,
-                    OperationOutcome.IssueType.Invalid,
+                    OperationOutcome.IssueType.NotSupported,
                     "Validation against a profile is not supported.");
                 return;
             }
