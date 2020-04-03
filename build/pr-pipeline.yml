@@ -8,7 +8,6 @@ variables:
 stages:
 - stage: BuildUnitTests
   displayName: 'Build and run unit tests'
-  dependsOn: []
   jobs:
   - job: Windows
     pool:
