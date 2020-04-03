@@ -66,7 +66,7 @@ stages:
       version: Stu3
       webAppName: $(DeploymentEnvironmentName)
       appServicePlanName: $(appServicePlanName)
-      appServicePlanResourceGroup: $(resourceGroupRoot)
+      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(DeploymentEnvironmentName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
@@ -84,7 +84,7 @@ stages:
       sql: true
       webAppName: $(DeploymentEnvironmentNameSql)
       appServicePlanName: $(appServicePlanName)
-      appServicePlanResourceGroup: $(resourceGroupRoot)
+      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(DeploymentEnvironmentName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
@@ -101,7 +101,7 @@ stages:
       version: R4
       webAppName: $(DeploymentEnvironmentNameR4)
       appServicePlanName: $(appServicePlanName)
-      appServicePlanResourceGroup: $(resourceGroupRoot)
+      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(DeploymentEnvironmentName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
@@ -119,7 +119,7 @@ stages:
       sql: true
       webAppName: $(DeploymentEnvironmentNameR4Sql)
       appServicePlanName: $(appServicePlanName)
-      appServicePlanResourceGroup: $(resourceGroupRoot)
+      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(DeploymentEnvironmentName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
@@ -136,7 +136,7 @@ stages:
       version: R5
       webAppName: $(DeploymentEnvironmentNameR5)
       appServicePlanName: $(appServicePlanName)
-      appServicePlanResourceGroup: $(resourceGroupRoot)
+      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(DeploymentEnvironmentName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
@@ -154,7 +154,7 @@ stages:
       sql: true
       webAppName: $(DeploymentEnvironmentNameR5Sql)
       appServicePlanName: $(appServicePlanName)
-      appServicePlanResourceGroup: $(resourceGroupRoot)
+      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(DeploymentEnvironmentName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
