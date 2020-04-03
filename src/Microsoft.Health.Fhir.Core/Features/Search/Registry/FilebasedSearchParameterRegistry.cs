@@ -18,16 +18,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 {
     public class FilebasedSearchParameterRegistry : ISearchParameterRegistry
     {
+        private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly Assembly _resourceAssembly;
         private readonly string _unsupportedParamsEmbeddedResourceName;
         private WeakReference<ResourceSearchParameterStatus[]> _statusResults;
         private object sync = new object();
 
-        public FilebasedSearchParameterRegistry(Assembly resourceAssembly, string unsupportedParamsEmbeddedResourceName)
+        public FilebasedSearchParameterRegistry(
+            ISearchParameterDefinitionManager searchParameterDefinitionManager,
+            Assembly resourceAssembly,
+            string unsupportedParamsEmbeddedResourceName)
         {
+            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(resourceAssembly, nameof(resourceAssembly));
             EnsureArg.IsNotNullOrWhiteSpace(unsupportedParamsEmbeddedResourceName, nameof(unsupportedParamsEmbeddedResourceName));
 
+            _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _resourceAssembly = resourceAssembly;
             _unsupportedParamsEmbeddedResourceName = unsupportedParamsEmbeddedResourceName;
         }
@@ -46,7 +52,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                         using TextReader reader = new StreamReader(stream);
                         var unsupportedParams = JsonConvert.DeserializeObject<UnsupportedSearchParameters>(reader.ReadToEnd());
 
-                        statusResults = unsupportedParams.Unsupported
+                        // Loads unsupported parameters
+                        var support = unsupportedParams.Unsupported
                             .Select(x => new ResourceSearchParameterStatus
                             {
                                 Uri = x,
@@ -61,6 +68,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                                     IsPartiallySupported = true,
                                     LastUpdated = Clock.UtcNow,
                                 }))
+                            .ToDictionary(x => x.Uri);
+
+                        // Merge with supported list
+                        statusResults = _searchParameterDefinitionManager.AllSearchParameters
+                            .Where(x => !support.ContainsKey(x.Url))
+                            .Select(x => new ResourceSearchParameterStatus
+                            {
+                                Uri = x.Url,
+                                Status = SearchParameterStatus.Enabled,
+                                LastUpdated = Clock.UtcNow,
+                            })
+                            .Concat(support.Values)
                             .ToArray();
 
                         _statusResults = new WeakReference<ResourceSearchParameterStatus[]>(statusResults);

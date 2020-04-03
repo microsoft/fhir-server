@@ -49,6 +49,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             Type managerType = typeof(SearchParameterDefinitionManager);
             var statusRegistry = new FilebasedSearchParameterRegistry(
+                manager,
                 managerType.Assembly,
                 $"{managerType.Namespace}.unsupported-search-parameters.json");
             var statusManager = new SearchParameterStatusManager(statusRegistry, manager, Substitute.For<IMediator>());

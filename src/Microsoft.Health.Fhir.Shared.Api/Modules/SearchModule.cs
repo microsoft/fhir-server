@@ -66,7 +66,10 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             // This will be replaced by datastore specific implementations
             Type searchDefinitionManagerType = typeof(SearchParameterDefinitionManager);
-            services.Add(c => new FilebasedSearchParameterRegistry(searchDefinitionManagerType.Assembly, $"{searchDefinitionManagerType.Namespace}.unsupported-search-parameters.json"))
+            services.Add(c => new FilebasedSearchParameterRegistry(
+                    c.GetRequiredService<ISearchParameterDefinitionManager>(),
+                    searchDefinitionManagerType.Assembly,
+                    $"{searchDefinitionManagerType.Namespace}.unsupported-search-parameters.json"))
                 .Singleton()
                 .AsSelf()
                 .AsService<ISearchParameterRegistry>();
