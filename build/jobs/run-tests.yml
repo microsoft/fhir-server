@@ -30,7 +30,7 @@ jobs:
   - task: AzureKeyVault@1
     displayName: 'Azure Key Vault: ${{ parameters.keyVaultName }}'
     inputs:
-      azureSubscription: 'Microsoft Health Open Source Subscription'
+      azureSubscription: $(ConnectedServiceName)
       KeyVaultName: '${{ parameters.keyVaultName }}'
 
   - task: AzureKeyVault@1
