@@ -72,12 +72,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                      schemaInformation.MinimumSupportedVersion);
                 try
                 {
-                    var output = (string)await sqlCommand.ExecuteScalarAsync();
-
-                    if (output.NullIfEmpty() == null)
-                    {
-                        throw new SqlOperationFailedException(Resources.OperationFailed);
-                    }
+                    await sqlCommand.ExecuteNonQueryAsync();
                 }
                 catch (SqlException e)
                 {
@@ -87,7 +82,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        public async Task UpsertInstanceSchemaInformation(string name, SchemaInformation schemaInformation, CancellationToken cancellationToken)
+        public async Task<int> UpsertInstanceSchemaInformation(string name, SchemaInformation schemaInformation, CancellationToken cancellationToken)
         {
             using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper())
             using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
@@ -95,17 +90,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 VLatest.UpsertInstanceSchema.PopulateCommand(
                      sqlCommand,
                      name,
-                     schemaInformation.Current.GetValueOrDefault(),
                      schemaInformation.MaximumSupportedVersion,
                      schemaInformation.MinimumSupportedVersion);
                 try
                 {
-                    var output = (string)await sqlCommand.ExecuteScalarAsync();
-
-                    if (output.NullIfEmpty() == null)
-                    {
-                        throw new SqlOperationFailedException(Resources.OperationFailed);
-                    }
+                    return (int)await sqlCommand.ExecuteScalarAsync();
                 }
                 catch (SqlException e)
                 {
@@ -180,26 +169,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             return new GetCurrentVersionResponse(currentVersions);
-        }
-
-        public int? GetCurrentSchemaVersion()
-        {
-            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper())
-            using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
-            {
-                VLatest.SelectCurrentSchemaVersion.PopulateCommand(sqlCommand);
-                try
-                {
-                    var current = sqlCommand.ExecuteScalar();
-
-                    return (current == null || Convert.IsDBNull(current)) ? null : (int?)current;
-                }
-                catch (SqlException e)
-                {
-                    _logger.LogError(e, "Error from SQL database on Get current version");
-                    throw;
-                }
-            }
         }
 
         private int ConvertToInt(object o)

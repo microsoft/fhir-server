@@ -50,9 +50,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
                     using (IScoped<ISchemaDataStore> store = _schemaDataStoreFactory())
                     {
                         // Ensure schemaInformation has the latest current version
-                        schemaInformation.Current = store.Value.GetCurrentSchemaVersion();
+                        schemaInformation.Current = await store.Value.UpsertInstanceSchemaInformation(instanceName, schemaInformation, cancellationToken);
 
-                        await store.Value.UpsertInstanceSchemaInformation(instanceName, schemaInformation, cancellationToken);
                         await store.Value.DeleteExpiredRecords();
                     }
 

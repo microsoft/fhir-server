@@ -2068,8 +2068,6 @@ AS
     VALUES
         (@name, @currentVersion, @maxVersion, @minVersion, @timeout)
 
-    SELECT @name
-
     END
 GO
 
@@ -2107,8 +2105,6 @@ GO
 -- PARAMETERS
 --    @name
 --         * The unique name for a particular instance
---     @currentVersion
---         * The current version of the schema that the given instance is using
 --     @maxVersion
 --         * The maximum supported schema version for the given instance
 --     @minVersion
@@ -2116,7 +2112,6 @@ GO
 --
 CREATE PROCEDURE dbo.UpsertInstanceSchema
     @name varchar(64),
-    @currentVersion int,
     @maxVersion int,
     @minVersion int
     
@@ -2124,7 +2119,10 @@ AS
     SET NOCOUNT ON
 
     DECLARE @timeout datetime2(0) = DATEADD(minute, 2, SYSUTCDATETIME())
-    IF EXISTS(SELECT *
+    DECLARE @currentVersion int = (SELECT COALESCE(MAX(Version), 0)
+                                  FROM dbo.SchemaVersion
+                                  WHERE  Status = 'complete')
+   IF EXISTS(SELECT *
         FROM dbo.InstanceSchema
         WHERE Name = @name)
     BEGIN
@@ -2132,7 +2130,7 @@ AS
         SET CurrentVersion = @currentVersion, MaxVersion = @maxVersion, Timeout = @timeout
         WHERE Name = @name
         
-        SELECT @name
+        SELECT @currentVersion
     END
     ELSE
     BEGIN
@@ -2141,7 +2139,7 @@ AS
         VALUES
             (@name, @currentVersion, @maxVersion, @minVersion, @timeout)
 
-        SELECT @name
+        SELECT @currentVersion
     END
 GO
 
