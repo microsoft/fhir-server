@@ -77,6 +77,7 @@ namespace FhirSchemaManager.Commands
             try
             {
                 ExecuteQuery(connectionString, script);
+                ExecuteUpsertQuery(connectionString, version, "complete");
             }
             catch (SqlException ex)
             {
@@ -101,6 +102,23 @@ namespace FhirSchemaManager.Commands
                 command.CommandType = CommandType.Text;
 
                 command.ExecuteNonQueryAsync();
+            }
+        }
+
+        private static void ExecuteUpsertQuery(string connectionString, int version, string status)
+        {
+            using (var connection = new SqlConnection(connectionString))
+            {
+                var upsertCommand = new SqlCommand("dbo.UpsertSchemaVersion", connection)
+                {
+                    CommandType = CommandType.StoredProcedure,
+                };
+
+                upsertCommand.Parameters.AddWithValue("@version", version);
+                upsertCommand.Parameters.AddWithValue("@status", status);
+
+                connection.Open();
+                upsertCommand.ExecuteNonQuery();
             }
         }
     }
