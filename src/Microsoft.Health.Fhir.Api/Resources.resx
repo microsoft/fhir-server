@@ -299,7 +299,7 @@
     <value>Only one profile can be provided between a Parameters resource and the URL</value>
   </data>
   <data name="ValidationModeNotRecognized" xml:space="preserve">
-    <value>{0} is not a valid validation mode</value>
+    <value>{0} is not a valid validation mode.</value>
     <comment>Error message for invalid parameter value, {0} is the value</comment>
   </data>
   <data name="ValidationModeNotSupported" xml:space="preserve">

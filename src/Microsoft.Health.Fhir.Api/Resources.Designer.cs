@@ -493,7 +493,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to {0} is not a valid validation mode.
+        ///   Looks up a localized string similar to {0} is not a valid validation mode..
         /// </summary>
         public static string ValidationModeNotRecognized {
             get {

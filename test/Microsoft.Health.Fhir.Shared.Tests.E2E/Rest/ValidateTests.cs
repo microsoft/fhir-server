@@ -22,9 +22,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _client = fixture.FhirClient;
         }
 
-        // Add an example for each that uses parameter syntax
-        // Add an example that uses the DELETE mode
-
         [Theory]
         [InlineData("Patient/$validate", "{\"resourceType\":\"Patient\",\"name\":{\"family\":\"test\",\"given\":\"one\"}}")]
         [InlineData("Observation/$validate", "{\"resourceType\":\"Observation\",\"status\":\"registered\",\"code\":{\"coding\":[{\"system\":\"system\",\"code\":\"code\"}]}}")]
@@ -142,7 +139,101 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 "Patient.id");
         }
 
-        // Need mode tests, parameter syntax tests, and a profile unsupported test (maybe a validation unsupported test too)
+        [Fact]
+        public async void GivenAValidateRequest_WhenAValidResourceIsPassedByParameter_ThenAnOkMessageIsReturned()
+        {
+            var payload = "{\"resourceType\": \"Parameters\", \"parameter\": [{\"name\": \"resource\", \"resource\": {\"resourceType\": \"Patient\", \"id\": \"123\"}}]}";
+
+            OperationOutcome outcome = await _client.ValidateAsync("Patient/$validate", payload);
+
+            Assert.Single(outcome.Issue);
+            CheckOperationOutcomeIssue(
+                outcome.Issue[0],
+                OperationOutcome.IssueSeverity.Information,
+                OperationOutcome.IssueType.Informational,
+                Success);
+        }
+
+        [Fact]
+        public async void GivenAValidateRequest_WhenAnInvlaidResourceIsPassedByParameter_ThenADetailedErrorIsReturned()
+        {
+            var payload = "{\"resourceType\": \"Parameters\", \"parameter\": [{\"name\": \"resource\", \"resource\": {\"resourceType\":\"Patient\",\"name\":{\"family\":\"test\",\"given\":\"one\"}}}]}";
+
+            OperationOutcome outcome = await _client.ValidateAsync("Observation/$validate", payload);
+
+            Assert.Single(outcome.Issue);
+            CheckOperationOutcomeIssue(
+                outcome.Issue[0],
+                OperationOutcome.IssueSeverity.Error,
+                OperationOutcome.IssueType.Invalid,
+                "Resource type in the URL must match resourceType in the resource.",
+                "TypeName");
+        }
+
+        [Theory]
+        [InlineData("CREATE", "CREATE is not a supported validation mode.")]
+        [InlineData("UPDATE", "UPDATE is not a supported validation mode.")]
+        [InlineData("DELETE", "DELETE is not a supported validation mode.")]
+        [InlineData("invalid", "invalid is not a valid validation mode")]
+        public async void GivenAValidateRequest_WhenAModeIsPassed_ThenAnExceptionIsReturned(string mode, string message)
+        {
+            var payload = "{\"resourceType\": \"Patient\", \"id\": \"123\"}";
+
+            OperationOutcome outcome = await _client.ValidateAsync("Patient/$validate?mode=" + mode, payload);
+
+            Assert.Single(outcome.Issue);
+            CheckOperationOutcomeIssue(
+                outcome.Issue[0],
+                OperationOutcome.IssueSeverity.Error,
+                OperationOutcome.IssueType.Invalid,
+                message);
+        }
+
+        [Theory]
+        [InlineData("", "")]
+        public async void GivenAValidateByIdRequest_WhenAModeIsPassed_ThenAnExceptionIsReturned(string mode, string message)
+        {
+
+        }
+
+        [Fact]
+        public async void GivenAValidateByIdRequest_WhenAModeOfDeleteIsPassed_ThenAnOkMessageIsReturned()
+        {
+        }
+
+        [Theory]
+        [InlineData("", "")]
+        public async void GivenAValidateRequest_WhenAModeIsPassedAsAParameter_ThenAnExceptionIsReturned(string mode, string message)
+        {
+
+        }
+
+        [Theory]
+        [InlineData("", "")]
+        public async void GivenAValidateByIdRequest_WhenAModeIsPassedAsAParameter_ThenAnExceptionIsReturned(string mode, string message)
+        {
+
+        }
+
+        [Fact]
+        public async void GivenAValidateByIdRequest_WhenAModeOfDeleteIsPassedAsAParameter_ThenAnOkMessageIsReturned()
+        {
+
+        }
+
+        [Fact]
+        public async void GivenAValidateRequest_WhenAProfileIsPassed_ThenAnUnsuportedExceptionIsReturned()
+        {
+
+        }
+
+        [Fact]
+        public async void GivenAValidateRequest_WhenAProfileIsPassedAsAParameter_ThenAnUnsuportedExceptionIsReturned()
+        {
+
+        }
+
+        // (maybe a validation unsupported test too)
 
         private void CheckOperationOutcomeIssue(
             OperationOutcome.IssueComponent issue,
