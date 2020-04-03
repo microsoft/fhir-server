@@ -39,7 +39,7 @@ docker run --net fhir_network --name fhir_sql -e SA_PASSWORD=<SA_PASSWORD> -e AC
 5. Run the command: 
 
 ```bash
-docker run --net fhir_network -e FhirServer__Security__Enabled="false" -e SqlServer__ConnectionString="Server=tcp:fhir_sql,1433;Initial Catalog=FHIR;Persist Security Info=False;User ID=sa;Password=<SA_PASSWORD>;MultipleActiveResultSets=False;Connection Timeout=30;" -e SqlServer__AllowDatabaseCreation="true" -e SqlServer__Initialize="true" -e DataStore="SqlServer" -p 80:80 -d healthplatformregistry.azurecr.io/r4_fhir-server azure-fhir-api
+docker run --net fhir_network -e FhirServer__Security__Enabled="false" -e SqlServer__ConnectionString="Server=tcp:fhir_sql,1433;Initial Catalog=FHIR;Persist Security Info=False;User ID=sa;Password=<SA_PASSWORD>;MultipleActiveResultSets=False;Connection Timeout=30;" -e SqlServer__AllowDatabaseCreation="true" -e SqlServer__Initialize="true" -e DataStore="SqlServer" -p 8080:8080 -d healthplatformregistry.azurecr.io/r4_fhir-server azure-fhir-api
 ```
 
 6. After giving the container a minute to start up it should be accessible at http://localhost/metadata.
@@ -81,6 +81,6 @@ docker run -d \
     -e SqlServer__AllowDatabaseCreation="true" \
     -e SqlServer__Initialize="true" \
     -e DataStore="SqlServer" \
-    -p 80:80
+    -p 8080:8080
     azure-fhir-api azure-fhir-api
 ```
