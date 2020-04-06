@@ -23,7 +23,6 @@ steps:
       zipAfterPublish: false
 
   # Package nugets
-
   - task: DotNetCoreCLI@2
     displayName: 'dotnet pack nugets'
     inputs:
@@ -38,7 +37,6 @@ steps:
       nuget_version: 1.0.0-$(build.buildNumber)
 
   # Publish artifacts
-
   - task: PublishBuildArtifacts@1
     displayName: 'publish web artifacts'
     inputs:
@@ -94,3 +92,14 @@ steps:
       pathToPublish: '$(build.binariesdirectory)/IntegrationTests'
       artifactName: 'IntegrationTests'
       artifactType: 'container'
+      parallel: true
+      parallelCount: 8
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'publish Source'
+    inputs:
+      pathToPublish: './src/'
+      artifactName: 'src'
+      artifactType: 'container'
+      parallel: true
+      parallelCount: 8
