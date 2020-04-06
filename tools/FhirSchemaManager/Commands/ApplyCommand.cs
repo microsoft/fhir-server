@@ -33,14 +33,12 @@ namespace FhirSchemaManager.Commands
                           Console.WindowHeight,
                           true);
             string script;
-            List<CurrentVersion> currentVersions = null;
-            CompatibleVersion compatibleVersion = null;
             IInvokeAPI invokeAPI = new InvokeAPI();
 
             try
             {
                 script = await invokeAPI.GetScript(fhirServer, version);
-                compatibleVersion = await invokeAPI.GetCompatibility(fhirServer);
+                CompatibleVersion compatibleVersion = await invokeAPI.GetCompatibility(fhirServer);
 
                 // check if version lies in the compatibility range
                 if (!Enumerable.Range(compatibleVersion.Min, compatibleVersion.Max).Contains(version))
@@ -49,7 +47,14 @@ namespace FhirSchemaManager.Commands
                     return;
                 }
 
-                currentVersions = await invokeAPI.GetCurrentVersionInformation(fhirServer);
+                List<CurrentVersion> currentVersions = await invokeAPI.GetCurrentVersionInformation(fhirServer);
+
+                // check if any instance is not running on the previous version
+                if (currentVersions.Any(currentVersion => currentVersion.Id != (version - 1) && currentVersion.Servers.Count > 0))
+                {
+                    CommandUtils.PrintError(Resources.InvalidVersionMessage);
+                    return;
+                }
             }
             catch (SchemaOperationFailedException ex)
             {
@@ -59,13 +64,6 @@ namespace FhirSchemaManager.Commands
             catch (HttpRequestException)
             {
                 CommandUtils.PrintError(Resources.RequestFailedMessage);
-                return;
-            }
-
-            // check if any instance is not running on the previous version
-            if (currentVersions.Any(currentVersion => currentVersion.Id != (version - 1) && currentVersion.Servers.Count > 0))
-            {
-                CommandUtils.PrintError(Resources.InvalidVersionMessage);
                 return;
             }
 
@@ -91,7 +89,7 @@ namespace FhirSchemaManager.Commands
                 return;
             }
 
-            Console.WriteLine($"Schema Migration is completed successfully for the version : {version}");
+            Console.WriteLine(string.Format(Resources.SuccessMessage, version));
         }
 
         private static void ExecuteQuery(string connectionString, string queryString)

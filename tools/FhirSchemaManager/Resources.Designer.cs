@@ -205,6 +205,15 @@ namespace FhirSchemaManager {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Schema Migration is completed successfully for the version {0}..
+        /// </summary>
+        internal static string SuccessMessage {
+            get {
+                return ResourceManager.GetString("SuccessMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The schema version is not compatbile..
         /// </summary>
         internal static string VersionIncompatibilityMessage {

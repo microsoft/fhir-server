@@ -165,6 +165,9 @@
   <data name="ScriptNotFound" xml:space="preserve">
     <value>The script is not found for the given version.</value>
   </data>
+  <data name="SuccessMessage" xml:space="preserve">
+    <value>Schema Migration is completed successfully for the version {0}.</value>
+  </data>
   <data name="VersionIncompatibilityMessage" xml:space="preserve">
     <value>The schema version is not compatbile.</value>
   </data>
