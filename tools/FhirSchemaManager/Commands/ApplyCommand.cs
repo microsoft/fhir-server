@@ -40,8 +40,16 @@ namespace FhirSchemaManager.Commands
             try
             {
                 script = await invokeAPI.GetScript(fhirServer, version);
-                currentVersions = await invokeAPI.GetCurrentVersionInformation(fhirServer);
                 compatibleVersion = await invokeAPI.GetCompatibility(fhirServer);
+
+                // check if version lies in the compatibility range
+                if (!Enumerable.Range(compatibleVersion.Min, compatibleVersion.Max).Contains(version))
+                {
+                    CommandUtils.PrintError(Resources.VersionIncompatibilityMessage);
+                    return;
+                }
+
+                currentVersions = await invokeAPI.GetCurrentVersionInformation(fhirServer);
             }
             catch (SchemaOperationFailedException ex)
             {
@@ -54,29 +62,23 @@ namespace FhirSchemaManager.Commands
                 return;
             }
 
-            // check if version lies in the compatibility range
-            if (!Enumerable.Range(compatibleVersion.Min, compatibleVersion.Max).Contains(version))
-            {
-                CommandUtils.PrintError(Resources.VersionIncompatibilityMessage);
-                return;
-            }
-
             // check if any instance is not running on the previous version
-            bool isInValidVersion = currentVersions.Any(currentVersion => currentVersion.Id != (version - 1) && currentVersion.Servers.Count > 0);
-            if (isInValidVersion)
+            if (currentVersions.Any(currentVersion => currentVersion.Id != (version - 1) && currentVersion.Servers.Count > 0))
             {
                 CommandUtils.PrintError(Resources.InvalidVersionMessage);
                 return;
             }
 
-            // check if entry for schema version exists in failed status
+            // check if the record for given version exists in failed status
             string deleteQuery = $"DELETE FROM dbo.SchemaVersion WHERE Version = {version} AND Status = 'failed'";
             ExecuteQuery(connectionString, deleteQuery);
 
-            // Execute script
             try
             {
+                // Execute script
                 ExecuteQuery(connectionString, script);
+
+                // Update version status to complete statue
                 ExecuteUpsertQuery(connectionString, version, "complete");
             }
             catch (SqlException ex)
