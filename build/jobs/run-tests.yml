@@ -64,13 +64,6 @@ jobs:
       downloadPath: '$(System.ArtifactsDirectory)'
       artifactName: 'IntegrationTests'
 
-  - task: DownloadBuildArtifacts@0
-    inputs:
-      buildType: 'current'
-      downloadType: 'single'
-      downloadPath: '$(System.ArtifactsDirectory)'
-      artifactName: 'src'
-
   - task: UseDotNet@2
     inputs:
       useGlobalJson: true
