@@ -21,8 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly Assembly _resourceAssembly;
         private readonly string _unsupportedParamsEmbeddedResourceName;
-        private WeakReference<ResourceSearchParameterStatus[]> _statusResults;
-        private object sync = new object();
+        private ResourceSearchParameterStatus[] _statusResults;
 
         public FilebasedSearchParameterRegistry(
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
@@ -40,58 +39,51 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
         public Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses()
         {
-            ResourceSearchParameterStatus[] statusResults = null;
-
-            if (_statusResults?.TryGetTarget(out statusResults) != true)
+            if (_statusResults == null)
             {
-                lock (sync)
-                {
-                    if (_statusResults?.TryGetTarget(out statusResults) != true)
+                using Stream stream =
+                    _resourceAssembly.GetManifestResourceStream(_unsupportedParamsEmbeddedResourceName);
+                using TextReader reader = new StreamReader(stream);
+                UnsupportedSearchParameters unsupportedParams =
+                    JsonConvert.DeserializeObject<UnsupportedSearchParameters>(reader.ReadToEnd());
+
+                // Loads unsupported parameters
+                var support = unsupportedParams.Unsupported
+                    .Select(x => new ResourceSearchParameterStatus
                     {
-                        using Stream stream = _resourceAssembly.GetManifestResourceStream(_unsupportedParamsEmbeddedResourceName);
-                        using TextReader reader = new StreamReader(stream);
-                        var unsupportedParams = JsonConvert.DeserializeObject<UnsupportedSearchParameters>(reader.ReadToEnd());
+                        Uri = x,
+                        Status = SearchParameterStatus.Disabled,
+                        LastUpdated = Clock.UtcNow,
+                    })
+                    .Concat(unsupportedParams.PartialSupport
+                        .Select(x => new ResourceSearchParameterStatus
+                        {
+                            Uri = x,
+                            Status = SearchParameterStatus.Enabled,
+                            IsPartiallySupported = true,
+                            LastUpdated = Clock.UtcNow,
+                        }))
+                    .ToDictionary(x => x.Uri);
 
-                        // Loads unsupported parameters
-                        var support = unsupportedParams.Unsupported
-                            .Select(x => new ResourceSearchParameterStatus
-                            {
-                                Uri = x,
-                                Status = SearchParameterStatus.Disabled,
-                                LastUpdated = Clock.UtcNow,
-                            })
-                            .Concat(unsupportedParams.PartialSupport
-                                .Select(x => new ResourceSearchParameterStatus
-                                {
-                                    Uri = x,
-                                    Status = SearchParameterStatus.Enabled,
-                                    IsPartiallySupported = true,
-                                    LastUpdated = Clock.UtcNow,
-                                }))
-                            .ToDictionary(x => x.Uri);
-
-                        // Merge with supported list
-                        statusResults = _searchParameterDefinitionManager.AllSearchParameters
-                            .Where(x => !support.ContainsKey(x.Url))
-                            .Select(x => new ResourceSearchParameterStatus
-                            {
-                                Uri = x.Url,
-                                Status = SearchParameterStatus.Enabled,
-                                LastUpdated = Clock.UtcNow,
-                            })
-                            .Concat(support.Values)
-                            .ToArray();
-
-                        _statusResults = new WeakReference<ResourceSearchParameterStatus[]>(statusResults);
-                    }
-                }
+                // Merge with supported list
+                _statusResults = _searchParameterDefinitionManager.AllSearchParameters
+                    .Where(x => !support.ContainsKey(x.Url))
+                    .Select(x => new ResourceSearchParameterStatus
+                    {
+                        Uri = x.Url,
+                        Status = SearchParameterStatus.Enabled,
+                        LastUpdated = Clock.UtcNow,
+                    })
+                    .Concat(support.Values)
+                    .ToArray();
             }
 
-            return Task.FromResult<IReadOnlyCollection<ResourceSearchParameterStatus>>(statusResults);
+            return Task.FromResult<IReadOnlyCollection<ResourceSearchParameterStatus>>(_statusResults);
         }
 
         public Task UpdateStatuses(IEnumerable<ResourceSearchParameterStatus> statuses)
         {
+            // File based registry does not persist runtime updates
             return Task.CompletedTask;
         }
     }
