@@ -126,20 +126,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf();
 
-            return fhirServerBuilder;
-        }
-
-        /// <summary>
-        /// Adds the Schema worker background service.
-        /// </summary>
-        /// <param name="fhirServerBuilder">The FHIR server builder.</param>
-        /// <returns>The builder.</returns>
-        public static IFhirServerBuilder AddSchemaWorker(
-            this IFhirServerBuilder fhirServerBuilder)
-        {
-            EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
-
-            fhirServerBuilder.Services.AddHostedService<SchemaJobWorkerBackgroundService>();
+            services.AddHostedService<SchemaJobWorkerBackgroundService>();
 
             return fhirServerBuilder;
         }

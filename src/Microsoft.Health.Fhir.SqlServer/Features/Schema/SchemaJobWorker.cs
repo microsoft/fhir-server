@@ -54,8 +54,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
 
                         await store.Value.DeleteExpiredRecords();
                     }
-
-                    await Task.Delay(_sqlServerDataStoreConfiguration.SchemaUpdatesJobPollingFrequency, cancellationToken);
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
@@ -65,6 +63,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
                 {
                     // The job failed.
                     _logger.LogError(ex, "Unhandled exception in the worker.");
+                }
+                finally
+                {
+                    await Task.Delay(_sqlServerDataStoreConfiguration.SchemaUpdatesJobPollingFrequency, cancellationToken);
                 }
             }
         }
