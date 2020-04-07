@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 options.ModelValidatorProviders.Clear();
             });
 
-            services.TypesInSameAssembly(KnownAssemblies.Core, KnownAssemblies.CoreVersionSpecific)
+            services.TypesInSameAssembly(KnownAssemblies.All)
                 .AssignableTo<IValidator>()
                 .Singleton()
                 .AsSelf()

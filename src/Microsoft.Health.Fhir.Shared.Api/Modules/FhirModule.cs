@@ -51,12 +51,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
         {
             EnsureArg.IsNotNull(services, nameof(services));
 
-            AddMediatrServices(services);
-            AddFhirServices(services);
-        }
-
-        private static void AddFhirServices(IServiceCollection services)
-        {
             var jsonParser = new FhirJsonParser(DefaultParserSettings.Settings);
             var jsonSerializer = new FhirJsonSerializer();
 
@@ -144,7 +138,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsSelf()
                 .AsService<IProvideCapability>();
 
-            services.TypesInSameAssembly(KnownAssemblies.Core, KnownAssemblies.CoreVersionSpecific)
+            services.TypesInSameAssembly(KnownAssemblies.All)
                 .AssignableTo<IProvideCapability>()
                 .Transient()
                 .AsService<IProvideCapability>();
@@ -159,31 +153,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.AddLazy();
             services.AddScoped();
-        }
-
-        private static void AddMediatrServices(IServiceCollection services)
-        {
-            EnsureArg.IsNotNull(services, nameof(services));
-
-            services.AddMediatR(KnownAssemblies.Core, KnownAssemblies.CoreVersionSpecific);
-
-            Predicate<Type> isPipelineBehavior = y => y.IsGenericType && y.GetGenericTypeDefinition() == typeof(IPipelineBehavior<,>);
-
-            services.TypesInSameAssembly(KnownAssemblies.Core, KnownAssemblies.CoreVersionSpecific)
-                .Transient()
-                .AsImplementedInterfaces(isPipelineBehavior);
-
-            // Allows handlers to provide capabilities
-            var openRequestInterfaces = new[]
-            {
-                typeof(IRequestHandler<,>),
-                typeof(INotificationHandler<>),
-            };
-
-            services.TypesInSameAssembly(KnownAssemblies.Core, KnownAssemblies.CoreVersionSpecific)
-                .Where(y => y.Type.IsGenericType && openRequestInterfaces.Contains(y.Type.GetGenericTypeDefinition()))
-                .Transient()
-                .AsImplementedInterfaces(x => x == typeof(IProvideCapability));
         }
     }
 }
