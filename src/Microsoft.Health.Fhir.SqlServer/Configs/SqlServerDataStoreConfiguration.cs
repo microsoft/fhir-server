@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+
 namespace Microsoft.Health.Fhir.SqlServer.Configs
 {
     public class SqlServerDataStoreConfiguration
@@ -24,5 +26,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Configs
         /// Allows the experimental schema initializer to attempt to create the database if not present.
         /// </summary>
         public bool AllowDatabaseCreation { get; set; }
+
+        /// <summary>
+        /// If set, allows the automatic schema updates
+        /// </summary>
+        public bool SchemaUpdatesEnabled { get; set; }
+
+        /// <summary>
+        /// Allows the polling frequency for the schema updates
+        /// </summary>
+        public TimeSpan SchemaUpdatesJobPollingFrequency { get; set; } = TimeSpan.FromMinutes(1);
     }
 }

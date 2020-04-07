@@ -59,6 +59,69 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
+        public async Task InsertInstanceSchemaInformation(string name, SchemaInformation schemaInformation, CancellationToken cancellationToken)
+        {
+            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper())
+            using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
+            {
+                VLatest.CreateInstanceSchema.PopulateCommand(
+                     sqlCommand,
+                     name,
+                     schemaInformation.Current.GetValueOrDefault(),
+                     schemaInformation.MaximumSupportedVersion,
+                     schemaInformation.MinimumSupportedVersion);
+                try
+                {
+                    await sqlCommand.ExecuteNonQueryAsync();
+                }
+                catch (SqlException e)
+                {
+                    _logger.LogError(e, "Error from SQL database on insert");
+                    throw;
+                }
+            }
+        }
+
+        public async Task<int> UpsertInstanceSchemaInformation(string name, SchemaInformation schemaInformation, CancellationToken cancellationToken)
+        {
+            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper())
+            using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
+            {
+                VLatest.UpsertInstanceSchema.PopulateCommand(
+                     sqlCommand,
+                     name,
+                     schemaInformation.MaximumSupportedVersion,
+                     schemaInformation.MinimumSupportedVersion);
+                try
+                {
+                    return (int)await sqlCommand.ExecuteScalarAsync();
+                }
+                catch (SqlException e)
+                {
+                    _logger.LogError(e, "Error from SQL database on Upsert");
+                    throw;
+                }
+            }
+        }
+
+        public async Task DeleteExpiredRecords()
+        {
+            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper())
+            using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
+            {
+                VLatest.DeleteInstanceSchema.PopulateCommand(sqlCommand);
+                try
+                {
+                    await sqlCommand.ExecuteNonQueryAsync();
+                }
+                catch (SqlException e)
+                {
+                    _logger.LogError(e, "Error from SQL database on Delete");
+                    throw;
+                }
+            }
+        }
+
         public async Task<GetCurrentVersionResponse> GetCurrentVersionAsync(CancellationToken cancellationToken)
         {
             var currentVersions = new List<CurrentVersionInformation>();
@@ -116,7 +179,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
             else
             {
-               return Convert.ToInt32(o);
+                return Convert.ToInt32(o);
             }
         }
     }

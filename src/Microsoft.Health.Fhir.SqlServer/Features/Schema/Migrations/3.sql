@@ -88,7 +88,6 @@ GO
 --
 --  DESCRIPTION
 --      Selects the compatible schema versions
---      The returning max compatible version is not greater than the most recent, complete schema version
 --
 --  RETURNS
 --      The maximum and minimum compatible versions
@@ -99,17 +98,9 @@ AS
 BEGIN
     SET NOCOUNT ON
 
-    DECLARE @maxSchemaVersion int,
-            @minSchemaVersion int
-
-    Select @maxSchemaVersion = MIN(MaxVersion), @minSchemaVersion = MAX(MinVersion)
+    Select MAX(MinVersion), MIN(MaxVersion)
     FROM dbo.InstanceSchema
     WHERE Timeout > SYSUTCDATETIME()
-
-    SELECT @minSchemaVersion, MAX(Version)
-    FROM dbo.SchemaVersion
-    WHERE Status = 'complete' AND Version <= @maxSchemaVersion
-
 END
 GO
 
@@ -147,6 +138,7 @@ AS
         VALUES
             (@version, @status)
     END
+
 GO
 
 
@@ -2105,7 +2097,7 @@ GO
 
 --
 -- STORED PROCEDURE
---     Updates an instance schema.
+--     Update an instance schema.
 --
 -- DESCRIPTION
 --     Modifies an existing record in the InstanceSchema table.
@@ -2113,8 +2105,6 @@ GO
 -- PARAMETERS
 --    @name
 --         * The unique name for a particular instance
---     @currentVersion
---         * The current version of the schema that the given instance is using
 --     @maxVersion
 --         * The maximum supported schema version for the given instance
 --     @minVersion
@@ -2122,7 +2112,6 @@ GO
 --
 CREATE PROCEDURE dbo.UpsertInstanceSchema
     @name varchar(64),
-    @currentVersion int,
     @maxVersion int,
     @minVersion int
     
@@ -2130,13 +2119,18 @@ AS
     SET NOCOUNT ON
 
     DECLARE @timeout datetime2(0) = DATEADD(minute, 2, SYSUTCDATETIME())
-    IF EXISTS(SELECT *
+    DECLARE @currentVersion int = (SELECT COALESCE(MAX(Version), 0)
+                                  FROM dbo.SchemaVersion
+                                  WHERE  Status = 'complete')
+   IF EXISTS(SELECT *
         FROM dbo.InstanceSchema
         WHERE Name = @name)
     BEGIN
         UPDATE dbo.InstanceSchema
         SET CurrentVersion = @currentVersion, MaxVersion = @maxVersion, Timeout = @timeout
         WHERE Name = @name
+        
+        SELECT @currentVersion
     END
     ELSE
     BEGIN
@@ -2144,28 +2138,25 @@ AS
             (Name, CurrentVersion, MaxVersion, MinVersion, Timeout)
         VALUES
             (@name, @currentVersion, @maxVersion, @minVersion, @timeout)
+
+        SELECT @currentVersion
     END
 GO
 
 --
 -- STORED PROCEDURE
---     Deletes an instance schema.
+--     Delete instance schema information.
 --
 -- DESCRIPTION
---     Deletes an existing record in the InstanceSchema table.
+--     Delete all the expired records in the InstanceSchema table.
 --
--- PARAMETERS
---     @name
---         * The unique name for a particular instance
---
-CREATE PROCEDURE dbo.DeleteInstanceSchemaByName
-    @name varchar(64)
+CREATE PROCEDURE dbo.DeleteInstanceSchema
     
 AS
     SET NOCOUNT ON
 
     DELETE FROM dbo.InstanceSchema
-    WHERE Name = @name
+    WHERE Timeout < SYSUTCDATETIME()
 
 GO
 
