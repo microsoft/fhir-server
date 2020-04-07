@@ -18,7 +18,7 @@ Using docker-compose this image can be started with the following steps:
 docker-compose up -d .
 ```
 
-5. After giving the container a minute to start up it should be accessable at http://localhost/metadata.
+5. After giving the container a minute to start up it should be accessable at http://localhost:8080/metadata.
 
 
 Using just docker this image can be started with the following steps. Replace the `<SA_PASSWORD>` below with your chosen SQL connection password, following the complexity rules linked above.
@@ -42,7 +42,7 @@ docker run --net fhir_network --name fhir_sql -e SA_PASSWORD=<SA_PASSWORD> -e AC
 docker run --net fhir_network -e FhirServer__Security__Enabled="false" -e SqlServer__ConnectionString="Server=tcp:fhir_sql,1433;Initial Catalog=FHIR;Persist Security Info=False;User ID=sa;Password=<SA_PASSWORD>;MultipleActiveResultSets=False;Connection Timeout=30;" -e SqlServer__AllowDatabaseCreation="true" -e SqlServer__Initialize="true" -e DataStore="SqlServer" -p 8080:8080 -d healthplatformregistry.azurecr.io/r4_fhir-server azure-fhir-api
 ```
 
-6. After giving the container a minute to start up it should be accessible at http://localhost/metadata.
+6. After giving the container a minute to start up it should be accessible at http://localhost:8080/metadata.
 
 ## Build and run with SQL Server using Docker Compose
 
@@ -54,7 +54,7 @@ env SAPASSWORD='<SA_PASSWORD>' docker-compose -f samples/docker/docker-compose.y
 
 Given the FHIR API is likely to start before the SQL server is ready, you may need to restart the API container once the SQL server is healty. This can be done using `docker restart <container-name>`, i.e. docker restart `docker restart docker_fhir-api_1`.
 
-Once deployed the FHIR Server metadata endpoint should be avaialble at `http://localhost/metadata/`.
+Once deployed the FHIR Server metadata endpoint should be avaialble at `http://localhost:8080/metadata/`.
 
 ## Run in Docker with a custom configuration
 
