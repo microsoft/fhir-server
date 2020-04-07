@@ -85,6 +85,8 @@ jobs:
     inputs:
       azureSubscription: '${{ parameters.subscription }}'
       appType: 'app'
-      WebAppName: '${{ parameters.webAppName }}'
-      Package: '$(Build.ArtifactStagingDirectory)/deploy/*${{ parameters.version }}*.zip'
-      TakeAppOfflineFlag: true
+      webAppName: '${{ parameters.webAppName }}'
+      package: '$(Build.ArtifactStagingDirectory)/deploy/*${{ parameters.version }}*.zip'
+      takeAppOfflineFlag: true
+      enableCustomDeployment: true
+      deploymentType: webDeploy
