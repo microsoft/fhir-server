@@ -94,12 +94,3 @@ steps:
       artifactType: 'container'
       parallel: true
       parallelCount: 8
-
-  - task: PublishBuildArtifacts@1
-    displayName: 'publish Source'
-    inputs:
-      pathToPublish: './src/'
-      artifactName: 'src'
-      artifactType: 'container'
-      parallel: true
-      parallelCount: 8
