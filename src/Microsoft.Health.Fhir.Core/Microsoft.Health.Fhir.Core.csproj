@@ -28,10 +28,10 @@
     <PackageReference Include="Ensure.That" Version="8.1.2" />
     <PackageReference Include="FluentValidation" Version="8.6.1" />
     <PackageReference Include="MediatR" Version="8.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="3.1.0" />
-    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="3.1.0" />
-    <PackageReference Include="Microsoft.Extensions.Http" Version="3.1.0" />
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="3.1.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="3.1.1" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="3.1.1" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="3.1.1" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="3.1.1" />
     <PackageReference Include="Microsoft.Health.Abstractions" Version="1.0.0-master-20200406-1" />
     <PackageReference Include="Microsoft.Health.Core" Version="1.0.0-master-20200406-1" />
     <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection" Version="1.0.0-master-20200406-1" />
