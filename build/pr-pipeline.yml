@@ -11,6 +11,7 @@ variables:
 stages:
 - stage: BuildUnitTests
   displayName: 'Build and run unit tests'
+  dependsOn: []
   jobs:
   - job: Windows
     pool:
@@ -26,9 +27,13 @@ stages:
       parameters:
         packageArtifacts: false
 
+- stage: DockerBuild  
+  displayName: 'Build images'
+  dependsOn: []
+  jobs:
   - template: docker-build-all.yml
     parameters: 
-      tag: pr$(system.pullRequest.pullRequestNumber)
+      tag: $(ImageTag)
 
 - stage: provisionEnvironment
   displayName: Provision Environment
@@ -49,7 +54,7 @@ stages:
   displayName: Setup AAD Test Environment
   dependsOn:
   - provisionEnvironment
-  - BuildUnitTests
+  - DockerBuild
   jobs:
   - template: ./jobs/add-aad-test-environment.yml
 
@@ -57,23 +62,24 @@ stages:
   displayName: 'Deploy STU3 Site'
   dependsOn:
   - provisionEnvironment
-  - BuildUnitTests
+  - DockerBuild
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
       version: Stu3
       webAppName: $(DeploymentEnvironmentName)
       appServicePlanName: $(appServicePlanName)
-      appServicePlanResourceGroup: $(resourceGroupRoot)
+      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(DeploymentEnvironmentName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
+      imageTag: $(ImageTag)
 
 - stage: deployStu3Sql
   displayName: 'Deploy STU3 SQL Site'
   dependsOn:
   - provisionEnvironment
-  - BuildUnitTests
+  - DockerBuild
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -81,32 +87,34 @@ stages:
       sql: true
       webAppName: $(DeploymentEnvironmentNameSql)
       appServicePlanName: $(appServicePlanName)
-      appServicePlanResourceGroup: $(resourceGroupRoot)
+      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(DeploymentEnvironmentName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
+      imageTag: $(ImageTag)
 
 - stage: deployR4
   displayName: 'Deploy R4 Site'
   dependsOn:
   - provisionEnvironment
-  - BuildUnitTests
+  - DockerBuild
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
       version: R4
       webAppName: $(DeploymentEnvironmentNameR4)
       appServicePlanName: $(appServicePlanName)
-      appServicePlanResourceGroup: $(resourceGroupRoot)
+      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(DeploymentEnvironmentName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
+      imageTag: $(ImageTag)
 
 - stage: deployR4Sql
   displayName: 'Deploy R4 SQL Site'
   dependsOn:
   - provisionEnvironment
-  - BuildUnitTests
+  - DockerBuild
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -114,32 +122,34 @@ stages:
       sql: true
       webAppName: $(DeploymentEnvironmentNameR4Sql)
       appServicePlanName: $(appServicePlanName)
-      appServicePlanResourceGroup: $(resourceGroupRoot)
+      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(DeploymentEnvironmentName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
+      imageTag: $(ImageTag)
 
 - stage: deployR5
   displayName: 'Deploy R5 Site'
   dependsOn:
   - provisionEnvironment
-  - BuildUnitTests
+  - DockerBuild
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
       version: R5
       webAppName: $(DeploymentEnvironmentNameR5)
       appServicePlanName: $(appServicePlanName)
-      appServicePlanResourceGroup: $(resourceGroupRoot)
+      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(DeploymentEnvironmentName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
+      imageTag: $(ImageTag)
 
 - stage: deployR5Sql
   displayName: 'Deploy R5 SQL Site'
   dependsOn:
   - provisionEnvironment
-  - BuildUnitTests
+  - DockerBuild
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
@@ -147,14 +157,16 @@ stages:
       sql: true
       webAppName: $(DeploymentEnvironmentNameR5Sql)
       appServicePlanName: $(appServicePlanName)
-      appServicePlanResourceGroup: $(resourceGroupRoot)
+      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(DeploymentEnvironmentName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
+      imageTag: $(ImageTag)
   
 - stage: testStu3
   displayName: 'Run Stu3 Tests'
   dependsOn:
+  - BuildUnitTests
   - aadTestEnvironment
   - deployStu3
   - deployStu3Sql
@@ -167,6 +179,7 @@ stages:
 - stage: testR4
   displayName: 'Run R4 Tests'
   dependsOn:
+  - BuildUnitTests
   - aadTestEnvironment
   - deployR4
   - deployR4Sql
@@ -179,6 +192,7 @@ stages:
 - stage: testR5
   displayName: 'Run R5 Tests'
   dependsOn:
+  - BuildUnitTests
   - aadTestEnvironment
   - deployR5
   - deployR5Sql

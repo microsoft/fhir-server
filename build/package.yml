@@ -1,6 +1,7 @@
 steps:
 
   # Package web
+  # ------Can be removed once CI uses docker---------------
   - template: package-web.yml
     parameters:
       csproj: '**/Microsoft.Health.Fhir.Stu3.Web.csproj'
@@ -12,7 +13,7 @@ steps:
   - template: package-web.yml
     parameters:
       csproj: '**/Microsoft.Health.Fhir.R5.Web.csproj'
-
+  # -------------------------------------------------------
   - task: DotNetCoreCLI@2
     displayName: 'dotnet publish Integration Tests'
     inputs:
@@ -37,6 +38,7 @@ steps:
       nuget_version: 1.0.0-$(build.buildNumber)
 
   # Publish artifacts
+  # ------Can be removed once CI uses docker---------------
   - task: PublishBuildArtifacts@1
     displayName: 'publish web artifacts'
     inputs:
@@ -64,7 +66,7 @@ steps:
       pathToPublish: './global.json'
       artifactName: 'deploy'
       artifactType: 'container'
-      
+
   - task: PublishBuildArtifacts@1
     displayName: 'publish test configuration jsons'
     inputs:
@@ -78,6 +80,7 @@ steps:
       pathToPublish: './release/'
       artifactName: 'deploy'
       artifactType: 'container'
+  # -------------------------------------------------------
 
   - task: PublishBuildArtifacts@1
     displayName: 'publish nuget artifacts'

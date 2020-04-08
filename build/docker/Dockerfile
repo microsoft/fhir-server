@@ -1,6 +1,6 @@
 FROM mcr.microsoft.com/dotnet/core/sdk:3.1.100-bionic AS build
 
-ARG FHIR_VERSION=R4
+ARG FHIR_VERSION
 
 WORKDIR /src
 
@@ -11,7 +11,7 @@ RUN dotnet publish "./src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.He
 
 FROM mcr.microsoft.com/dotnet/core/aspnet:3.1-alpine AS runtime
 
-ARG FHIR_VERSION=R4
+ARG FHIR_VERSION
 
 RUN set -x && \
     # See https://www.abhith.net/blog/docker-sql-error-on-aspnet-core-alpine/
