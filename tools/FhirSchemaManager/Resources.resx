@@ -123,6 +123,12 @@
   <data name="AvailableCommandDescription" xml:space="preserve">
     <value>Returns the available SQL schema versions for the given FHIR server.</value>
   </data>
+  <data name="AvailableVersionsDefaultErrorMessage" xml:space="preserve">
+    <value>The available versions information is not available.</value>
+  </data>
+  <data name="AvailableVersionsNotFound" xml:space="preserve">
+    <value>The available versions are not found.</value>
+  </data>
   <data name="CompatibilityDefaultErrorMessage" xml:space="preserve">
     <value>The compatible versions information is not available.</value>
   </data>

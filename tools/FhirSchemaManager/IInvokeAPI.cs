@@ -14,8 +14,10 @@ namespace FhirSchemaManager
     {
         Task<List<CurrentVersion>> GetCurrentVersionInformation(Uri serverUri);
 
-        Task<string> GetScript(Uri serverUri, int version);
+        Task<string> GetScript(Uri scriptUri);
 
         Task<CompatibleVersion> GetCompatibility(Uri serverUri);
+
+        Task<List<AvailableVersion>> GetAvailability(Uri serverUri);
     }
 }

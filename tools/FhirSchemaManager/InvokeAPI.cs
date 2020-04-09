@@ -42,14 +42,11 @@ namespace FhirSchemaManager
             }
         }
 
-        public async Task<string> GetScript(Uri serverUri, int version)
+        public async Task<string> GetScript(Uri scriptUri)
         {
-            var httpClient = new HttpClient
-            {
-                BaseAddress = serverUri,
-            };
+            var httpClient = new HttpClient();
 
-            var response = await httpClient.GetAsync(new Uri(string.Format("/_schema/versions/{0}/script", version), UriKind.Relative));
+            var response = await httpClient.GetAsync(scriptUri);
             if (response.IsSuccessStatusCode)
             {
                 return await response.Content.ReadAsStringAsync();
@@ -89,6 +86,32 @@ namespace FhirSchemaManager
 
                     default:
                         throw new SchemaOperationFailedException(response.StatusCode, Resources.CompatibilityDefaultErrorMessage);
+                }
+            }
+        }
+
+        public async Task<List<AvailableVersion>> GetAvailability(Uri serverUri)
+        {
+            var httpClient = new HttpClient
+            {
+                BaseAddress = serverUri,
+            };
+
+            var response = await httpClient.GetAsync(new Uri("/_schema/versions", UriKind.Relative));
+            if (response.IsSuccessStatusCode)
+            {
+                var responseBodyAsString = await response.Content.ReadAsStringAsync();
+                return JsonConvert.DeserializeObject<List<AvailableVersion>>(responseBodyAsString);
+            }
+            else
+            {
+                switch (response.StatusCode)
+                {
+                    case HttpStatusCode.NotFound:
+                        throw new SchemaOperationFailedException(response.StatusCode, Resources.AvailableVersionsNotFound);
+
+                    default:
+                        throw new SchemaOperationFailedException(response.StatusCode, Resources.AvailableVersionsDefaultErrorMessage);
                 }
             }
         }

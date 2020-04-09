@@ -79,6 +79,24 @@ namespace FhirSchemaManager {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The available versions information is not available..
+        /// </summary>
+        internal static string AvailableVersionsDefaultErrorMessage {
+            get {
+                return ResourceManager.GetString("AvailableVersionsDefaultErrorMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The available versions are not found..
+        /// </summary>
+        internal static string AvailableVersionsNotFound {
+            get {
+                return ResourceManager.GetString("AvailableVersionsNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The compatible versions information is not available..
         /// </summary>
         internal static string CompatibilityDefaultErrorMessage {

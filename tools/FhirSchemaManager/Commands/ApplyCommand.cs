@@ -37,7 +37,50 @@ namespace FhirSchemaManager.Commands
 
             try
             {
-                script = await invokeAPI.GetScript(fhirServer, version);
+                List<AvailableVersion> availableVersions = await invokeAPI.GetAvailability(fhirServer);
+
+                foreach (AvailableVersion availableVersion in availableVersions)
+                {
+                    script = await invokeAPI.GetScript(availableVersion.ScriptUri);
+
+                    await CheckPreconditions(fhirServer, availableVersion.Version);
+
+                    // check if the record for given version exists in failed status
+                    string deleteQuery = $"DELETE FROM dbo.SchemaVersion WHERE Version = {version} AND Status = 'failed'";
+                    ExecuteQuery(connectionString, deleteQuery);
+
+                    ExecuteScript(connectionString, script, version);
+                }
+            }
+            catch (SchemaOperationFailedException ex)
+            {
+                CommandUtils.RenderError(new ErrorDescription((int)ex.StatusCode, ex.Message), invocationContext, region);
+                return;
+            }
+            catch (HttpRequestException)
+            {
+                CommandUtils.PrintError(Resources.RequestFailedMessage);
+                return;
+            }
+            catch (SqlException ex)
+            {
+                // update version status to failed state
+                string updateQuery = $"UPDATE dbo.SchemaVersion SET status = 'failed' WHERE Version = {version} AND Status = 'started'";
+                ExecuteQuery(connectionString, updateQuery);
+
+                CommandUtils.PrintError(string.Format(Resources.QueryExecutionExceptionMessage, ex.Message));
+                return;
+            }
+
+            Console.WriteLine(string.Format(Resources.SuccessMessage, version));
+        }
+
+        private static async Task CheckPreconditions(Uri fhirServer, int version)
+        {
+            IInvokeAPI invokeAPI = new InvokeAPI();
+
+            try
+            {
                 CompatibleVersion compatibleVersion = await invokeAPI.GetCompatibility(fhirServer);
 
                 // check if version lies in the compatibility range
@@ -56,21 +99,14 @@ namespace FhirSchemaManager.Commands
                     return;
                 }
             }
-            catch (SchemaOperationFailedException ex)
+            catch (Exception)
             {
-                CommandUtils.RenderError(new ErrorDescription((int)ex.StatusCode, ex.Message), invocationContext, region);
-                return;
+                throw;
             }
-            catch (HttpRequestException)
-            {
-                CommandUtils.PrintError(Resources.RequestFailedMessage);
-                return;
-            }
+        }
 
-            // check if the record for given version exists in failed status
-            string deleteQuery = $"DELETE FROM dbo.SchemaVersion WHERE Version = {version} AND Status = 'failed'";
-            ExecuteQuery(connectionString, deleteQuery);
-
+        private static void ExecuteScript(string connectionString, string script, int version)
+        {
             try
             {
                 // Execute script
@@ -79,17 +115,10 @@ namespace FhirSchemaManager.Commands
                 // Update version status to complete statue
                 ExecuteUpsertQuery(connectionString, version, "complete");
             }
-            catch (SqlException ex)
+            catch (SqlException)
             {
-                // update version status to failed state
-                string updateQuery = $"UPDATE dbo.SchemaVersion SET status = 'failed' WHERE Version = {version} AND Status = 'started'";
-                ExecuteQuery(connectionString, updateQuery);
-
-                CommandUtils.PrintError(string.Format(Resources.QueryExecutionExceptionMessage, ex.Message));
-                return;
+                throw;
             }
-
-            Console.WriteLine(string.Format(Resources.SuccessMessage, version));
         }
 
         private static void ExecuteQuery(string connectionString, string queryString)
