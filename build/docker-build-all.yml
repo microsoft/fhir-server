@@ -5,7 +5,7 @@ parameters:
 - name: tag
   type: string
 
-jobs:            
+steps:            
 - template: docker-build-push.yml
   parameters: 
     version: "R4"

@@ -11,44 +11,51 @@ variables:
 stages:
 - stage: BuildUnitTests
   displayName: 'Build and run unit tests'
-  dependsOn: []
   jobs:
   - job: Windows
     pool:
       vmImage: $(WindowsVmImage)
     steps:
-    - template: build.yml
+    - template: build-type.yml
+    - ${{ if ne(variables['IsDocumentation'], 'True') }}:
+      - template: build.yml
 
   - job: Linux
     pool:
       vmImage: 'ubuntu-latest'
     steps:
-    - template: build.yml
-      parameters:
-        packageArtifacts: false
+    - template: build-type.yml
+    - ${{ if ne(variables['IsDocumentation'], 'True') }}:
+      - template: build.yml
+        parameters:
+          packageArtifacts: false
 
 - stage: DockerBuild  
   displayName: 'Build images'
-  dependsOn: []
   jobs:
-  - template: docker-build-all.yml
-    parameters: 
-      tag: $(ImageTag)
+  - job: Docker
+    steps:
+    - template: build-type.yml
+    - ${{ if ne(variables['IsDocumentation'], 'True') }}:
+      - template: docker-build-all.yml
+        parameters: 
+          tag: $(ImageTag)
 
 - stage: provisionEnvironment
   displayName: Provision Environment
-  dependsOn: []
   jobs:
   - job: provision
     steps:
-    - task: AzurePowerShell@4
-      displayName: Provision Resource Group
-      inputs:
-        azureSubscription: $(ConnectedServiceName)
-        azurePowerShellVersion: latestVersion
-        ScriptType: inlineScript
-        Inline: |
-          New-AzResourceGroup -Name "$(DeploymentEnvironmentName)" -Location "$(ResourceGroupRegion)" -Force
+    - template: build-type.yml
+    - ${{ if ne(variables['IsDocumentation'], 'True') }}:
+      - task: AzurePowerShell@4
+        displayName: Provision Resource Group
+        inputs:
+          azureSubscription: $(ConnectedServiceName)
+          azurePowerShellVersion: latestVersion
+          ScriptType: inlineScript
+          Inline: |
+            New-AzResourceGroup -Name "$(DeploymentEnvironmentName)" -Location "$(ResourceGroupRegion)" -Force
 
 - stage: aadTestEnvironment
   displayName: Setup AAD Test Environment

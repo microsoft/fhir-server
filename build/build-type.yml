@@ -1,0 +1,27 @@
+steps:
+- powershell: |
+    $files=$(git diff refs/remotes/origin/personal/bkowitz/test-md-change..refs/remotes/origin/master --name-only)
+    $temp=$files -split ' '
+    $count=$temp.Length
+    echo "Total changed $count files"
+    $onlyDocs = $true
+    For ($i=0; $i -lt $temp.Length; $i++)
+    {
+      $name=$temp[$i]
+      echo "$name was changed..."
+      if ($name -notLike "*.md")
+      {
+        $onlyDocs = $false
+      }
+    }
+    if ($onlyDocs)
+    {
+      echo "This PR is documentation only."
+      Write-Host "##vso[task.setvariable variable=IsDocumentation;isOutput=true]True"
+    }
+    else
+    {
+      echo "A full build should run for this PR."
+    }
+  name: PrType
+  displayName: 'PowerShell - Determine Changed Files'
