@@ -16,14 +16,20 @@ namespace FhirSchemaManager
 {
     internal class InvokeAPI : IInvokeAPI
     {
+        private const string CurrentUrl = "/_schema/versions/current";
+
+        private static HttpClient _httpClient;
+
+        public InvokeAPI()
+        {
+            _httpClient = new HttpClient();
+        }
+
         public async Task<List<CurrentVersion>> GetCurrentVersionInformation(Uri serverUri)
         {
-            var httpClient = new HttpClient
-            {
-                BaseAddress = serverUri,
-            };
+            _httpClient.BaseAddress = serverUri;
 
-            var response = await httpClient.GetAsync(new Uri("/_schema/versions/current", UriKind.Relative));
+            var response = await _httpClient.GetAsync(new Uri(CurrentUrl, UriKind.Relative));
             if (response.IsSuccessStatusCode)
             {
                 var responseBodyAsString = await response.Content.ReadAsStringAsync();

@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using System.CommandLine.Invocation;
 using System.CommandLine.Rendering;
 using System.CommandLine.Rendering.Views;
-using FhirSchemaManager.Model;
+using FhirSchemaManager.Exceptions;
 
 namespace FhirSchemaManager.Utils
 {
@@ -21,20 +21,20 @@ namespace FhirSchemaManager.Utils
             Console.ResetColor();
         }
 
-        public static void RenderError(ErrorDescription errorDescription, InvocationContext invocationContext, Region region)
+        public static void RenderError(SchemaManagerException schemaException, InvocationContext invocationContext, Region region)
         {
-            var tableView = new TableView<ErrorDescription>
+            var tableView = new TableView<SchemaManagerException>
             {
-                Items = new List<ErrorDescription>() { errorDescription },
+                Items = new List<SchemaManagerException>() { schemaException },
             };
 
             tableView.AddColumn(
-               cellValue: errorDescription => errorDescription.StatusCode,
+               cellValue: schemaManagerException => schemaManagerException.StatusCode,
                header: new ContentView("HttpStatusCode"));
 
             tableView.AddColumn(
-               cellValue: errorDescription => errorDescription.Message,
-               header: new ContentView("ErrorMessage"));
+                cellValue: schemaManagerException => schemaManagerException.Message,
+                header: new ContentView("ErrorMessage"));
 
             Console.ForegroundColor = ConsoleColor.Red;
 

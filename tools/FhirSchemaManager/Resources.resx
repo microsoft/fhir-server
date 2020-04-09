@@ -148,7 +148,7 @@
     <value>No connection could be made to the target machine.</value>
   </data>
   <data name="RequestFailedMessage" xml:space="preserve">
-    <value>Request has failed due to fhirServerUrl is invalid or inactive.</value>
+    <value>Request has failed due to {0} is inactive.</value>
   </data>
   <data name="VersionOptionDescription" xml:space="preserve">
     <value>The version of the schema to apply.</value>

@@ -3,24 +3,22 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Net;
 using EnsureThat;
 
-namespace FhirSchemaManager.Model
+namespace FhirSchemaManager.Exceptions
 {
-    public class ErrorDescription
+    public class SchemaManagerException : Exception
     {
-        public ErrorDescription(int statusCode, string message)
+        public SchemaManagerException(HttpStatusCode statusCode, string message)
+            : base(message)
         {
-            EnsureArg.IsNotNull<int>(statusCode, nameof(statusCode));
-            EnsureArg.IsNotNull(message, nameof(message));
+            EnsureArg.IsNotNullOrWhiteSpace(message, nameof(message));
 
             StatusCode = statusCode;
-            Message = message;
         }
 
-        public int StatusCode { get; }
-
-        public string Message { get; }
+        public HttpStatusCode StatusCode { get; }
     }
 }

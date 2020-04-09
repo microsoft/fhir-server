@@ -35,12 +35,12 @@ namespace FhirSchemaManager.Commands
             }
             catch (SchemaOperationFailedException ex)
             {
-                CommandUtils.RenderError(new ErrorDescription((int)ex.StatusCode, ex.Message), invocationContext, region);
+                CommandUtils.RenderError(ex, invocationContext, region);
                 return;
             }
             catch (HttpRequestException)
             {
-                CommandUtils.PrintError(Resources.RequestFailedMessage);
+                CommandUtils.PrintError(string.Format(Resources.RequestFailedMessage, fhirServer));
                 return;
             }
 
