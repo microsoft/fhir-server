@@ -1,0 +1,157 @@
+# DESCRIPTION: 	
+# Builds, tests, and packages the solution for all PR requests.	
+
+name: $(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:-r)
+
+variables:
+- template: build-variables.yml
+- template: pr-variables.yml
+
+stages:
+- template: build-deploy.yml
+
+- stage: securityScan
+  displayName: Security Scan
+  dependsOn: []
+  jobs:
+  - job: runScan
+    pool:
+      vmImage: $(WindowsVmImage)
+    steps:
+    - task: securedevelopmentteam.vss-secure-development-tools.build-task-antimalware.AntiMalware@3
+      displayName: 'Run MpCmdRun.exe'
+      inputs:
+        FileDirPath: '$(System.ArtifactsDirectory)'
+        EnableServices: true
+        SignatureFreshness: OneDay
+        TreatStaleSignatureAs: Warning
+
+- stage: publishNuGet
+  displayName: Publish Assets Internal
+  dependsOn:
+  - testStu3
+  - testR4
+  - testR5
+  jobs:
+  - job: publish
+    pool:
+      vmImage: $(WindowsVmImage)
+    steps:
+    - task: NuGetToolInstaller@1
+      displayName: 'Use NuGet'
+    
+    - task: NuGetCommand@2
+      displayName: 'NuGet push Internal'
+      inputs:
+        command: push
+        packagesToPush: '$(System.ArtifactsDirectory)/**/*.nupkg'
+        publishVstsFeed: '749ee777-54da-4e3a-81b2-f045c993a66a'
+
+    - task: NuGetCommand@2
+      displayName: 'NuGet push Public Daily Builds'
+      inputs:
+        command: push
+        packagesToPush: '$(System.ArtifactsDirectory)/**/*.nupkg'
+        publishVstsFeed: '7621b231-1a7d-4364-935b-2f72b911c43d/a60b7c8b-c6ae-4a8e-bd15-a526b603a1f2'
+
+- stage: publishMyGet
+  displayName: Publish Assets MyGet
+  dependsOn:
+  - publishNuGet
+  jobs:
+  - job: publish
+    pool:
+      vmImage: $(WindowsVmImage)
+    steps:
+    - task: NuGetCommand@2
+      displayName: 'Nuget Push MyGet'
+      inputs:
+        command: push
+        packagesToPush: '$(System.ArtifactsDirectory)/**/*.nupkg'
+        nuGetFeedType: external
+        publishFeedCredentials: 'Microsoft FHIR Server MyGet'
+
+- stage: githubRelease
+  displayName: Create Github Release
+  dependsOn:
+  - publishMyGet
+  jobs:
+  - job: release
+    pool:
+      vmImage: $(WindowsVmImage)
+    steps:
+    - powershell: |
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        $github_owner = 'Microsoft'
+        $github_repo = 'fhir-server'
+        $baseUrl = "https://api.github.com/repos/$github_owner/$github_repo"
+   
+        $build = "$(Build.BuildNumber)"
+        $version = $build.Substring($build.IndexOf('-')+1)
+        $tag = "build/$version"
+   
+        $githubFunctions = New-Module -ScriptBlock {
+            function GetLatestRelease {
+                param()
+                $response = Invoke-RestMethod -Uri "$baseUrl/releases?access_token=$(GithubToken)"
+                return $response[0].tag_name
+            }
+   
+            function GetCommits {
+                param([string] $base, [string] $head)
+                $url = "$baseUrl/compare/" + $base + "..." + $head + "?access_token=$(GithubToken)"
+                $response =  Invoke-RestMethod -Uri $url -Verbose
+                return $response.commits | Sort-Object -Property @{Expression={$_.commit.author.date}; Ascending=$false} -Descending
+            }
+   
+            function CreateRelease {
+                param([string] $name, [string] $releaseNotes, [string] $tagName, [string] $targetCommit)
+   
+                $releaseData = @{
+                    tag_name = $tagName;
+                    target_commitish = $targetCommit;
+                    name = $name;
+                    body = $releaseNotes;
+                    draft = $false;
+                    prerelease = $true;
+                }
+   
+                $releaseParams = @{
+                Uri = "$baseUrl/releases";
+                Method = 'POST';
+                Headers = @{
+                    Authorization = 'Bearer $(GithubToken)';
+                }
+                ContentType = 'application/json';
+                Body = (ConvertTo-Json $releaseData -Compress)
+                }
+   
+                return Invoke-RestMethod @releaseParams
+            }
+   
+            Export-ModuleMember -Function GetCommits, GetLatestRelease, CreateRelease
+        } -AsCustomObject
+      
+        $prevTag = $githubFunctions.GetLatestRelease()
+        $commits = $githubFunctions.GetCommits($prevTag, "$(Build.SourceVersion)")
+   
+        $nl = [Environment]::NewLine
+        $releaseNotes = "Automatic release created from build $version"
+   
+        if ($null -ne $commits) {
+            $releaseNotes = $releaseNotes + "$nl$nl## Work in this release$nl$nl"
+   
+            foreach ($commit in $commits) {
+                $releaseNotes = $releaseNotes + "[" + $commit.sha.Substring(0, 10) + "](https://github.com/$github_owner/$github_repo/commit/" + $commit.sha + ") - " + $commit.commit.message + "<br/>$nl$nl"
+            }
+        }
+        else {
+            $releaseNotes = $releaseNotes + "There are no new items for this release.<br/>$nl"
+        }
+   
+        $release = $githubFunctions.CreateRelease("Build $version", $releaseNotes, $tag, "$(Build.SourceVersion)")
+   
+        Write-Host $release
+
+      failOnStderr: true
+      displayName: 'Create Github Release'
