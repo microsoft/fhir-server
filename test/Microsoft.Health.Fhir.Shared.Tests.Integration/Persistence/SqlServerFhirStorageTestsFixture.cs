@@ -11,6 +11,7 @@ using Hl7.Fhir.Model;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -45,14 +46,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             string masterConnectionString = new SqlConnectionStringBuilder(initialConnectionString) { InitialCatalog = "master" }.ToString();
             TestConnectionString = new SqlConnectionStringBuilder(initialConnectionString) { InitialCatalog = _databaseName }.ToString();
 
-            var config = new SqlServerDataStoreConfiguration { ConnectionString = TestConnectionString, Initialize = true };
-            var sqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(config, new SqlTransactionHandler());
+            SqlServerDataStoreConfiguration = new SqlServerDataStoreConfiguration { ConnectionString = TestConnectionString, Initialize = true };
+            var sqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(SqlServerDataStoreConfiguration, new SqlTransactionHandler());
 
-            var schemaUpgradeRunner = new SchemaUpgradeRunner(config, NullLogger<SchemaUpgradeRunner>.Instance);
+            var schemaUpgradeRunner = new SchemaUpgradeRunner(SqlServerDataStoreConfiguration, NullLogger<SchemaUpgradeRunner>.Instance);
 
             var schemaInformation = new SchemaInformation();
 
-            _schemaInitializer = new SchemaInitializer(config, schemaUpgradeRunner, schemaInformation, NullLogger<SchemaInitializer>.Instance);
+            _schemaInitializer = new SchemaInitializer(SqlServerDataStoreConfiguration, schemaUpgradeRunner, schemaInformation, NullLogger<SchemaInitializer>.Instance);
 
             var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
             searchParameterDefinitionManager.AllSearchParameters.Returns(new[]
@@ -63,7 +64,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var securityConfiguration = new SecurityConfiguration { PrincipalClaims = { "oid" } };
 
-            var sqlServerFhirModel = new SqlServerFhirModel(config, schemaInformation, () => searchParameterDefinitionManager, Options.Create(securityConfiguration), NullLogger<SqlServerFhirModel>.Instance);
+            var sqlServerFhirModel = new SqlServerFhirModel(SqlServerDataStoreConfiguration, schemaInformation, () => searchParameterDefinitionManager, Options.Create(securityConfiguration), NullLogger<SqlServerFhirModel>.Instance);
 
             var serviceCollection = new ServiceCollection();
             serviceCollection.AddSqlServerTableRowParameterGenerators();
@@ -75,9 +76,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var searchParameterToSearchValueTypeMap = new SearchParameterToSearchValueTypeMap(() => searchParameterDefinitionManager);
 
             SqlTransactionHandler = new SqlTransactionHandler();
-            SqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(config, SqlTransactionHandler);
+            SqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(SqlServerDataStoreConfiguration, SqlTransactionHandler);
 
-            _fhirDataStore = new SqlServerFhirDataStore(config, sqlServerFhirModel, searchParameterToSearchValueTypeMap, upsertResourceTvpGenerator, Options.Create(new CoreFeatureConfiguration()), SqlConnectionWrapperFactory, NullLogger<SqlServerFhirDataStore>.Instance);
+            _fhirDataStore = new SqlServerFhirDataStore(SqlServerDataStoreConfiguration, sqlServerFhirModel, searchParameterToSearchValueTypeMap, upsertResourceTvpGenerator, Options.Create(new CoreFeatureConfiguration()), SqlConnectionWrapperFactory, NullLogger<SqlServerFhirDataStore>.Instance);
 
             _fhirOperationDataStore = new SqlServerFhirOperationDataStore(sqlConnectionWrapperFactory, NullLogger<SqlServerFhirOperationDataStore>.Instance);
 
@@ -89,6 +90,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         internal SqlTransactionHandler SqlTransactionHandler { get; }
 
         internal SqlConnectionWrapperFactory SqlConnectionWrapperFactory { get; }
+
+        public SqlServerDataStoreConfiguration SqlServerDataStoreConfiguration { get; }
+
+        public SqlServerDataStoreConfiguration SchemaJobConfiguration { get; }
 
         public async Task InitializeAsync()
         {

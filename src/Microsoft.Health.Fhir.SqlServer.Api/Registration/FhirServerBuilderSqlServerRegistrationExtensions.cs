@@ -13,6 +13,7 @@ using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.SqlServer;
 using Microsoft.Health.Fhir.SqlServer.Api.Controllers;
 using Microsoft.Health.Fhir.SqlServer.Api.Features;
+using Microsoft.Health.Fhir.SqlServer.Api.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Configs;
 using Microsoft.Health.Fhir.SqlServer.Features.Health;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
@@ -47,6 +48,10 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf();
 
+            services.Add<SchemaJobWorker>()
+                .Singleton()
+                .AsSelf();
+
             services.Add<SchemaInformation>()
                 .Singleton()
                 .AsSelf();
@@ -69,9 +74,9 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsImplementedInterfaces();
 
             services.Add<SqlTransactionHandler>()
-                .Scoped()
-                .AsSelf()
-                .AsImplementedInterfaces();
+               .Scoped()
+               .AsSelf()
+               .AsImplementedInterfaces();
 
             services.Add<SqlConnectionWrapperFactory>()
                 .Scoped()
@@ -120,6 +125,8 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add<StringOverflowRewriter>()
                 .Singleton()
                 .AsSelf();
+
+            services.AddHostedService<SchemaJobWorkerBackgroundService>();
 
             return fhirServerBuilder;
         }

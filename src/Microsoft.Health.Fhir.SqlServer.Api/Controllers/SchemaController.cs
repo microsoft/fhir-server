@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
@@ -50,10 +49,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Api.Controllers
             _logger.LogInformation("Attempting to get available schemas");
 
             var availableSchemas = new List<object>();
-            var currentVersion = _schemaInformation.Current ?? 0;
-            foreach (var version in Enum.GetValues(typeof(SchemaVersion)).Cast<SchemaVersion>().Where(sv => sv >= currentVersion))
+            var currentVersion = _schemaInformation.Current ?? 1;
+            for (var version = currentVersion; version <= _schemaInformation.MaximumSupportedVersion; version++)
             {
-                var routeValues = new Dictionary<string, object> { { "id", (int)version } };
+                var routeValues = new Dictionary<string, object> { { "id", version } };
                 Uri scriptUri = _urlResolver.ResolveRouteNameUrl(RouteNames.Script, routeValues);
                 availableSchemas.Add(new { id = version, script = scriptUri });
             }

@@ -37,6 +37,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
             _logger = logger;
         }
 
+        public void Start()
+        {
+            if (!string.IsNullOrWhiteSpace(_sqlServerDataStoreConfiguration.ConnectionString))
+            {
+                Initialize();
+            }
+            else
+            {
+                _logger.LogCritical("There was no connection string supplied. Schema initialization can not be completed.");
+            }
+        }
+
         internal void Initialize(bool forceIncrementalSchemaUpgrade = false)
         {
             if (!CanInitialize())
@@ -44,7 +56,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
                 return;
             }
 
-            GetCurrentSchemaVersion();
+            GetAndUpdateCurrentSchemaVersion();
 
             _logger.LogInformation("Schema version is {version}", _schemaInformation.Current?.ToString() ?? "NULL");
 
@@ -59,27 +71,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
                 else
                 {
                     // Apply the maximum supported version. This won't consider the .diff.sql files.
-                    _schemaUpgradeRunner.ApplySchema((int)_schemaInformation.MaximumSupportedVersion, applyFullSchemaSnapshot: true);
+                    _schemaUpgradeRunner.ApplySchema(_schemaInformation.MaximumSupportedVersion, applyFullSchemaSnapshot: true);
                 }
 
-                GetCurrentSchemaVersion();
+                GetAndUpdateCurrentSchemaVersion();
             }
 
             // If the current schema version needs to be upgraded
-            if (_schemaInformation.Current < _schemaInformation.MaximumSupportedVersion)
+            if (_sqlServerDataStoreConfiguration.SchemaUpdatesEnabled && _schemaInformation.Current < _schemaInformation.MaximumSupportedVersion)
             {
                 // Apply each .diff.sql file one by one.
-                int current = (int?)_schemaInformation.Current ?? 0;
-                for (int i = current + 1; i <= (int)_schemaInformation.MaximumSupportedVersion; i++)
+                for (int i = (int)_schemaInformation.Current + 1; i <= _schemaInformation.MaximumSupportedVersion; i++)
                 {
                     _schemaUpgradeRunner.ApplySchema(version: i, applyFullSchemaSnapshot: false);
                 }
             }
 
-            GetCurrentSchemaVersion();
+            GetAndUpdateCurrentSchemaVersion();
         }
 
-        private void GetCurrentSchemaVersion()
+        private void GetAndUpdateCurrentSchemaVersion()
         {
             using (var connection = new SqlConnection(_sqlServerDataStoreConfiguration.ConnectionString))
             {
@@ -114,7 +125,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
                         command.CommandType = CommandType.StoredProcedure;
 
                         object current = command.ExecuteScalar();
-                        _schemaInformation.Current = (current == null || Convert.IsDBNull(current)) ? null : (SchemaVersion?)(int?)current;
+                        _schemaInformation.Current = (current == null || Convert.IsDBNull(current)) ? null : (int?)current;
                     }
                 }
             }
@@ -200,18 +211,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
                 }
 
                 return canInitialize;
-            }
-        }
-
-        public void Start()
-        {
-            if (!string.IsNullOrWhiteSpace(_sqlServerDataStoreConfiguration.ConnectionString))
-            {
-                Initialize();
-            }
-            else
-            {
-                _logger.LogCritical("There was no connection string supplied. Schema initialization can not be completed.");
             }
         }
     }
