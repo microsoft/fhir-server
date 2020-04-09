@@ -21,4 +21,4 @@ variables:
     TestClientUrl: 'https://$(DeploymentEnvironmentName)-client/'
     TestEnvironmentName: 'OSS PR$(prNumber)'
     WindowsVmImage: 'windows-latest'
-    ImageTag: 'pr$(prNumber)'
+    ImageTag: 'pr$(prNumber)-$(Date:yyyyMMdd)$(Rev:-r)'
