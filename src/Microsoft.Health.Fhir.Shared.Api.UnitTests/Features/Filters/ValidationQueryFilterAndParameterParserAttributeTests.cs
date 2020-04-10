@@ -33,7 +33,6 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Filters
             SupportsValidate = true,
         };
 
-
         [Theory]
         [InlineData("CREATE", "CREATE is not a supported validation mode.", typeof(OperationNotImplementedException))]
         [InlineData("UPDATE", "Resources can not be validated for update or delete at the default endpoint. An id must be provided in the URL.", typeof(BadRequestException))]
