@@ -14,7 +14,7 @@ services:
       SqlServer__Initialize: "true"
       DataStore: "SqlServer"
     ports:     
-      - "80:80"
+      - "8080:8080"
     depends_on:
       - sql
   sql:

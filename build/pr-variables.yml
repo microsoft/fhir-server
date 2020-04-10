@@ -2,7 +2,8 @@ variables:
     ConnectedServiceName: 'Microsoft Health Open Source Subscription'
     ResourceGroupRegion: 'southcentralus'
     resourceGroupRoot: 'msh-fhir-pr'
-    appServicePlanName: '$(resourceGroupRoot)-southcentralus'
+    appServicePlanResourceGroup: '$(resourceGroupRoot)-linux'
+    appServicePlanName: '$(resourceGroupRoot)-southcentralus-linux'
     prNumber: $(system.pullRequest.pullRequestNumber)
     DeploymentEnvironmentName: '$(resourceGroupRoot)-$(prNumber)'
     DeploymentEnvironmentNameSql: '$(DeploymentEnvironmentName)-sql'
@@ -20,3 +21,4 @@ variables:
     TestClientUrl: 'https://$(DeploymentEnvironmentName)-client/'
     TestEnvironmentName: 'OSS PR$(prNumber)'
     WindowsVmImage: 'windows-latest'
+    ImageTag: 'pr$(prNumber)'

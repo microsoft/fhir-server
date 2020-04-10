@@ -64,13 +64,6 @@ jobs:
       downloadPath: '$(System.ArtifactsDirectory)'
       artifactName: 'IntegrationTests'
 
-  - task: DownloadBuildArtifacts@0
-    inputs:
-      buildType: 'current'
-      downloadType: 'single'
-      downloadPath: '$(System.ArtifactsDirectory)'
-      artifactName: 'src'
-
   - task: UseDotNet@2
     inputs:
       useGlobalJson: true
@@ -128,5 +121,6 @@ jobs:
         **\*${{ parameters.version }}.Tests.E2E*.dll
       searchFolder: '$(System.ArtifactsDirectory)'
       rerunFailedTests: true
+      rerunType: 'basedOnTestFailurePercentage'
+      rerunFailedThreshold: '95'
       rerunMaxAttempts: 3
-      runInParallel: true

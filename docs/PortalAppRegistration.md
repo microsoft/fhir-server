@@ -9,7 +9,7 @@ This document explains how to create these application registrations using the A
 Please consult the Azure Active Directory Documentation for details on the steps below:
 
 1. [Register an AAD Application](https://docs.microsoft.com/en-us/azure/active-directory/develop/quickstart-v1-add-azure-ad-app)
-2. [Add application roles to the application](https://docs.microsoft.com/en-us/azure/active-directory/develop/howto-add-app-roles-in-azure-ad-apps). You should add at least one role, say `admin`.
+2. [Add application roles to the application](https://docs.microsoft.com/en-us/azure/active-directory/develop/howto-add-app-roles-in-azure-ad-apps). You should add at least one role, say `globalAdmin`.
 
 Make a note of the application id and/or the identifier URI of the of the API application. This will be used as the `audience` when deploying the FHIR server.  
 
