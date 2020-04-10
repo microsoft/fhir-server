@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     [ServiceFilter(typeof(OperationOutcomeExceptionFilterAttribute))]
     [ServiceFilter(typeof(ValidateContentTypeFilterAttribute))]
     [ServiceFilter(typeof(ValidationQueryFilterAndParameterParserAttribute))]
-    [ValidateResourceTypeFilter]
+    [ValidateResourceTypeFilter(true)]
     [ValidateModelState]
     public class ValidateController : Controller
     {
@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpPost]
         [Route(KnownRoutes.ValidateResourceTypeById)]
         [AuditEventType(AuditEventSubType.Read)]
-        [ValidateResourceIdFilter]
+        [ValidateResourceIdFilter(true)]
         public async Task<IActionResult> ValidateById([FromBody] Resource resource)
         {
             return await RunValidationAsync(resource);

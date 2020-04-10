@@ -15,8 +15,13 @@ using Microsoft.Health.Fhir.Core.Features.Validation;
 namespace Microsoft.Health.Fhir.Api.Features.Filters
 {
     [AttributeUsage(AttributeTargets.Class)]
-    internal class ValidateResourceTypeFilterAttribute : ActionFilterAttribute
+    internal class ValidateResourceTypeFilterAttribute : ParameterCompatibleFilter
     {
+        public ValidateResourceTypeFilterAttribute(bool allowParametersResource = false)
+            : base(allowParametersResource)
+        {
+        }
+
         public override void OnActionExecuting(ActionExecutingContext context)
         {
             EnsureArg.IsNotNull(context, nameof(context));
@@ -24,7 +29,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             if (context.RouteData.Values.TryGetValue(KnownActionParameterNames.ResourceType, out var actionModelType) &&
                 context.ActionArguments.TryGetValue(KnownActionParameterNames.Resource, out var parsedModel))
             {
-                ValidateType((Resource)parsedModel, (string)actionModelType);
+                var resource = ParseResource((Resource)parsedModel);
+                ValidateType(resource, (string)actionModelType);
             }
         }
 

@@ -67,14 +67,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 profile = profiles[0];
             }
 
-            if (context.RouteData.Values.TryGetValue(KnownActionParameterNames.ResourceType, out var actionModelType) &&
-               context.ActionArguments.TryGetValue(KnownActionParameterNames.Resource, out var parsedModel))
+            if (context.ActionArguments.TryGetValue(KnownActionParameterNames.Resource, out var parsedModel))
             {
                 if (((Resource)parsedModel).ResourceType == ResourceType.Parameters)
                 {
-                    var resource = ParseParameters((Parameters)parsedModel, ref profile, ref mode);
-
-                    context.ActionArguments[KnownActionParameterNames.Resource] = resource;
+                    ParseParameters((Parameters)parsedModel, ref profile, ref mode);
                 }
             }
 
@@ -86,7 +83,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             }
         }
 
-        private static Resource ParseParameters(Parameters resource, ref string profile, ref string mode)
+        private static void ParseParameters(Parameters resource, ref string profile, ref string mode)
         {
             var paramMode = resource.Parameter.Find(param => param.Name.Equals("mode", System.StringComparison.OrdinalIgnoreCase));
             if (paramMode != null && mode != null)
@@ -107,8 +104,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             {
                 profile = paramProfile.Value.ToString();
             }
-
-            return resource.Parameter.Find(param => param.Name.Equals("resource", System.StringComparison.OrdinalIgnoreCase)).Resource;
         }
 
         private static void ParseMode(string mode, bool idMode)
