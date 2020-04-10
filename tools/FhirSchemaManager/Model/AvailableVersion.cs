@@ -10,17 +10,16 @@ namespace FhirSchemaManager.Model
 {
     public class AvailableVersion
     {
-        public AvailableVersion(int version, Uri scriptUri)
+        public AvailableVersion(int id, Uri script)
         {
-            EnsureArg.IsNotNull<int>(version, nameof(version));
-            EnsureArg.IsNotNull(scriptUri, nameof(scriptUri));
+            EnsureArg.IsNotNull(script, nameof(script));
 
-            Version = version;
-            ScriptUri = scriptUri;
+            Id = id;
+            Script = script;
         }
 
-        public int Version { get; }
+        public int Id { get; }
 
-        public Uri ScriptUri { get; }
+        public Uri Script { get; }
     }
 }

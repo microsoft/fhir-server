@@ -20,6 +20,8 @@ namespace FhirSchemaManager.Commands
 {
     public static class ApplyCommand
     {
+        private static IInvokeAPI invokeAPI = new InvokeAPI();
+
         public static async Task HandlerAsync(InvocationContext invocationContext, string connectionString, Uri fhirServer, int version)
         {
             Console.WriteLine($"--connection-string {connectionString}");
@@ -32,29 +34,45 @@ namespace FhirSchemaManager.Commands
                           Console.WindowWidth,
                           Console.WindowHeight,
                           true);
-            string script;
-            IInvokeAPI invokeAPI = new InvokeAPI();
 
             try
             {
                 List<AvailableVersion> availableVersions = await invokeAPI.GetAvailability(fhirServer);
 
+                if (availableVersions?.Any() != true || availableVersions.Count == 1)
+                {
+                    CommandUtils.PrintError(Resources.AvailableVersionsDefaultErrorMessage);
+                    return;
+                }
+                else
+                {
+                    availableVersions.RemoveAt(0);
+                }
+
+                availableVersions = availableVersions.Where(availableVersion => availableVersion.Id <= version)
+                    .ToList();
+
                 foreach (AvailableVersion availableVersion in availableVersions)
                 {
-                    script = await invokeAPI.GetScript(availableVersion.ScriptUri);
+                    string script = await invokeAPI.GetScript(availableVersion.Script);
 
-                    await CheckPreconditions(fhirServer, availableVersion.Version);
+                    await CheckPreconditions(fhirServer, availableVersion.Id);
 
                     // check if the record for given version exists in failed status
-                    string deleteQuery = $"DELETE FROM dbo.SchemaVersion WHERE Version = {version} AND Status = 'failed'";
-                    ExecuteQuery(connectionString, deleteQuery);
+                    SchemaDataStore.ExecuteQuery(connectionString, string.Join(SchemaDataStore.DeleteQuery, availableVersion.Id));
 
-                    ExecuteScript(connectionString, script, version);
+                    // Execute script
+                    SchemaDataStore.ExecuteQuery(connectionString, script);
+
+                    // Update version status to complete state
+                    SchemaDataStore.ExecuteUpsertQuery(connectionString, availableVersion.Id, "complete");
+
+                    Console.WriteLine(string.Format(Resources.SuccessMessage, availableVersion.Id));
                 }
             }
             catch (SchemaOperationFailedException ex)
             {
-                CommandUtils.RenderError(new ErrorDescription((int)ex.StatusCode, ex.Message), invocationContext, region);
+                CommandUtils.PrintError(ex.Message);
                 return;
             }
             catch (HttpRequestException)
@@ -65,20 +83,15 @@ namespace FhirSchemaManager.Commands
             catch (SqlException ex)
             {
                 // update version status to failed state
-                string updateQuery = $"UPDATE dbo.SchemaVersion SET status = 'failed' WHERE Version = {version} AND Status = 'started'";
-                ExecuteQuery(connectionString, updateQuery);
+                SchemaDataStore.ExecuteQuery(connectionString, string.Join(SchemaDataStore.UpdateQuery, version));
 
                 CommandUtils.PrintError(string.Format(Resources.QueryExecutionExceptionMessage, ex.Message));
                 return;
             }
-
-            Console.WriteLine(string.Format(Resources.SuccessMessage, version));
         }
 
         private static async Task CheckPreconditions(Uri fhirServer, int version)
         {
-            IInvokeAPI invokeAPI = new InvokeAPI();
-
             try
             {
                 CompatibleVersion compatibleVersion = await invokeAPI.GetCompatibility(fhirServer);
@@ -86,8 +99,7 @@ namespace FhirSchemaManager.Commands
                 // check if version lies in the compatibility range
                 if (!Enumerable.Range(compatibleVersion.Min, compatibleVersion.Max).Contains(version))
                 {
-                    CommandUtils.PrintError(Resources.VersionIncompatibilityMessage);
-                    return;
+                    throw new SchemaOperationFailedException(Resources.VersionIncompatibilityMessage);
                 }
 
                 List<CurrentVersion> currentVersions = await invokeAPI.GetCurrentVersionInformation(fhirServer);
@@ -95,59 +107,12 @@ namespace FhirSchemaManager.Commands
                 // check if any instance is not running on the previous version
                 if (currentVersions.Any(currentVersion => currentVersion.Id != (version - 1) && currentVersion.Servers.Count > 0))
                 {
-                    CommandUtils.PrintError(Resources.InvalidVersionMessage);
-                    return;
+                    throw new SchemaOperationFailedException(Resources.InvalidVersionMessage);
                 }
             }
             catch (Exception)
             {
                 throw;
-            }
-        }
-
-        private static void ExecuteScript(string connectionString, string script, int version)
-        {
-            try
-            {
-                // Execute script
-                ExecuteQuery(connectionString, script);
-
-                // Update version status to complete statue
-                ExecuteUpsertQuery(connectionString, version, "complete");
-            }
-            catch (SqlException)
-            {
-                throw;
-            }
-        }
-
-        private static void ExecuteQuery(string connectionString, string queryString)
-        {
-            using (var connection = new SqlConnection(connectionString))
-            {
-                connection.Open();
-                SqlCommand command = connection.CreateCommand();
-                command.CommandText = queryString;
-                command.CommandType = CommandType.Text;
-
-                command.ExecuteNonQueryAsync();
-            }
-        }
-
-        private static void ExecuteUpsertQuery(string connectionString, int version, string status)
-        {
-            using (var connection = new SqlConnection(connectionString))
-            {
-                var upsertCommand = new SqlCommand("dbo.UpsertSchemaVersion", connection)
-                {
-                    CommandType = CommandType.StoredProcedure,
-                };
-
-                upsertCommand.Parameters.AddWithValue("@version", version);
-                upsertCommand.Parameters.AddWithValue("@status", status);
-
-                connection.Open();
-                upsertCommand.ExecuteNonQuery();
             }
         }
     }

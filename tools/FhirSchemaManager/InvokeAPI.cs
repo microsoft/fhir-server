@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using FhirSchemaManager.Exceptions;
@@ -31,14 +30,7 @@ namespace FhirSchemaManager
             }
             else
             {
-                switch (response.StatusCode)
-                {
-                    case HttpStatusCode.NotFound:
-                        throw new SchemaOperationFailedException(response.StatusCode, Resources.CurrentInformationNotFound);
-
-                    default:
-                        throw new SchemaOperationFailedException(response.StatusCode, Resources.CurrentDefaultErrorDescription);
-                }
+                throw new SchemaOperationFailedException(string.Format(Resources.CurrentDefaultErrorDescription, response.StatusCode));
             }
         }
 
@@ -53,14 +45,7 @@ namespace FhirSchemaManager
             }
             else
             {
-                switch (response.StatusCode)
-                {
-                    case HttpStatusCode.NotFound:
-                        throw new SchemaOperationFailedException(response.StatusCode, Resources.ScriptNotFound);
-
-                    default:
-                        throw new SchemaOperationFailedException(response.StatusCode, Resources.CurrentDefaultErrorDescription);
-                }
+                throw new SchemaOperationFailedException(string.Format(Resources.ScriptNotFound, response.StatusCode));
             }
         }
 
@@ -79,14 +64,7 @@ namespace FhirSchemaManager
             }
             else
             {
-                switch (response.StatusCode)
-                {
-                    case HttpStatusCode.NotFound:
-                        throw new SchemaOperationFailedException(response.StatusCode, Resources.CompatibilityNotFound);
-
-                    default:
-                        throw new SchemaOperationFailedException(response.StatusCode, Resources.CompatibilityDefaultErrorMessage);
-                }
+                throw new SchemaOperationFailedException(string.Format(Resources.CompatibilityDefaultErrorMessage, response.StatusCode));
             }
         }
 
@@ -105,14 +83,7 @@ namespace FhirSchemaManager
             }
             else
             {
-                switch (response.StatusCode)
-                {
-                    case HttpStatusCode.NotFound:
-                        throw new SchemaOperationFailedException(response.StatusCode, Resources.AvailableVersionsNotFound);
-
-                    default:
-                        throw new SchemaOperationFailedException(response.StatusCode, Resources.AvailableVersionsDefaultErrorMessage);
-                }
+                throw new SchemaOperationFailedException(string.Format(Resources.AvailableVersionsDefaultErrorMessage, response.StatusCode));
             }
         }
     }

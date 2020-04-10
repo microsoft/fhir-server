@@ -79,20 +79,11 @@ namespace FhirSchemaManager {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The available versions information is not available..
+        ///   Looks up a localized string similar to There are no available versions..
         /// </summary>
         internal static string AvailableVersionsDefaultErrorMessage {
             get {
                 return ResourceManager.GetString("AvailableVersionsDefaultErrorMessage", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to The available versions are not found..
-        /// </summary>
-        internal static string AvailableVersionsNotFound {
-            get {
-                return ResourceManager.GetString("AvailableVersionsNotFound", resourceCulture);
             }
         }
         
@@ -102,15 +93,6 @@ namespace FhirSchemaManager {
         internal static string CompatibilityDefaultErrorMessage {
             get {
                 return ResourceManager.GetString("CompatibilityDefaultErrorMessage", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to The compatible versions information is not found..
-        /// </summary>
-        internal static string CompatibilityNotFound {
-            get {
-                return ResourceManager.GetString("CompatibilityNotFound", resourceCulture);
             }
         }
         
@@ -142,20 +124,11 @@ namespace FhirSchemaManager {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The current version information is not available..
+        ///   Looks up a localized string similar to The current version information is not available due to HttpStatusCode {0}..
         /// </summary>
         internal static string CurrentDefaultErrorDescription {
             get {
                 return ResourceManager.GetString("CurrentDefaultErrorDescription", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Thee current version information is not found..
-        /// </summary>
-        internal static string CurrentInformationNotFound {
-            get {
-                return ResourceManager.GetString("CurrentInformationNotFound", resourceCulture);
             }
         }
         

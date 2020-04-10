@@ -35,7 +35,7 @@ namespace FhirSchemaManager.Commands
             }
             catch (SchemaOperationFailedException ex)
             {
-                CommandUtils.RenderError(new ErrorDescription((int)ex.StatusCode, ex.Message), invocationContext, region);
+                CommandUtils.PrintError(ex.Message);
                 return;
             }
             catch (HttpRequestException)

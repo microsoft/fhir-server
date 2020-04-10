@@ -124,16 +124,10 @@
     <value>Returns the available SQL schema versions for the given FHIR server.</value>
   </data>
   <data name="AvailableVersionsDefaultErrorMessage" xml:space="preserve">
-    <value>The available versions information is not available.</value>
-  </data>
-  <data name="AvailableVersionsNotFound" xml:space="preserve">
-    <value>The available versions are not found.</value>
+    <value>There are no available versions.</value>
   </data>
   <data name="CompatibilityDefaultErrorMessage" xml:space="preserve">
     <value>The compatible versions information is not available.</value>
-  </data>
-  <data name="CompatibilityNotFound" xml:space="preserve">
-    <value>The compatible versions information is not found.</value>
   </data>
   <data name="ConnectionStringOptionDescription" xml:space="preserve">
     <value>The connection string of the SQL server to apply the schema update.</value>
@@ -145,10 +139,7 @@
     <value>Returns the current SQL schema version(s) from the given FHIR server.</value>
   </data>
   <data name="CurrentDefaultErrorDescription" xml:space="preserve">
-    <value>The current version information is not available.</value>
-  </data>
-  <data name="CurrentInformationNotFound" xml:space="preserve">
-    <value>Thee current version information is not found.</value>
+    <value>The current version information is not available due to HttpStatusCode {0}.</value>
   </data>
   <data name="FhirServerOptionDescription" xml:space="preserve">
     <value>The root URL of the FHIR server to connect to.</value>

@@ -4,21 +4,16 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Net;
 using EnsureThat;
 
 namespace FhirSchemaManager.Exceptions
 {
     public class SchemaOperationFailedException : Exception
     {
-        public SchemaOperationFailedException(HttpStatusCode statusCode, string message)
+        public SchemaOperationFailedException(string message)
             : base(message)
         {
             EnsureArg.IsNotNullOrWhiteSpace(message, nameof(message));
-
-            StatusCode = statusCode;
         }
-
-        public HttpStatusCode StatusCode { get; }
     }
 }
