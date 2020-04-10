@@ -9,20 +9,25 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using FhirSchemaManager.Exceptions;
 using FhirSchemaManager.Model;
+using FhirSchemaManager.Utils;
 using Newtonsoft.Json;
 
 namespace FhirSchemaManager
 {
     internal class InvokeAPI : IInvokeAPI
     {
+        private static HttpClient _httpClient;
+
+        public InvokeAPI()
+        {
+            _httpClient = new HttpClient();
+        }
+
         public async Task<List<CurrentVersion>> GetCurrentVersionInformation(Uri serverUri)
         {
-            var httpClient = new HttpClient
-            {
-                BaseAddress = serverUri,
-            };
+            _httpClient.BaseAddress = serverUri;
 
-            var response = await httpClient.GetAsync(new Uri("/_schema/versions/current", UriKind.Relative));
+            var response = await _httpClient.GetAsync(RelativeUrl(UrlConstants.Current));
             if (response.IsSuccessStatusCode)
             {
                 var responseBodyAsString = await response.Content.ReadAsStringAsync();
@@ -30,33 +35,28 @@ namespace FhirSchemaManager
             }
             else
             {
-                throw new SchemaOperationFailedException(string.Format(Resources.CurrentDefaultErrorDescription, response.StatusCode));
+                throw new SchemaManagerException(string.Format(Resources.CurrentDefaultErrorDescription, response.StatusCode));
             }
         }
 
         public async Task<string> GetScript(Uri scriptUri)
         {
-            var httpClient = new HttpClient();
-
-            var response = await httpClient.GetAsync(scriptUri);
+            var response = await _httpClient.GetAsync(scriptUri);
             if (response.IsSuccessStatusCode)
             {
                 return await response.Content.ReadAsStringAsync();
             }
             else
             {
-                throw new SchemaOperationFailedException(string.Format(Resources.ScriptNotFound, response.StatusCode));
+                throw new SchemaManagerException(string.Format(Resources.ScriptNotFound, response.StatusCode));
             }
         }
 
         public async Task<CompatibleVersion> GetCompatibility(Uri serverUri)
         {
-            var httpClient = new HttpClient
-            {
-                BaseAddress = serverUri,
-            };
+            _httpClient.BaseAddress = serverUri;
 
-            var response = await httpClient.GetAsync(new Uri("/_schema/compatibility", UriKind.Relative));
+            var response = await _httpClient.GetAsync(RelativeUrl(UrlConstants.Compatibility));
             if (response.IsSuccessStatusCode)
             {
                 var responseBodyAsString = await response.Content.ReadAsStringAsync();
@@ -64,18 +64,15 @@ namespace FhirSchemaManager
             }
             else
             {
-                throw new SchemaOperationFailedException(string.Format(Resources.CompatibilityDefaultErrorMessage, response.StatusCode));
+                throw new SchemaManagerException(string.Format(Resources.CompatibilityDefaultErrorMessage, response.StatusCode));
             }
         }
 
         public async Task<List<AvailableVersion>> GetAvailability(Uri serverUri)
         {
-            var httpClient = new HttpClient
-            {
-                BaseAddress = serverUri,
-            };
+            _httpClient.BaseAddress = serverUri;
 
-            var response = await httpClient.GetAsync(new Uri("/_schema/versions", UriKind.Relative));
+            var response = await _httpClient.GetAsync(RelativeUrl(UrlConstants.Availability));
             if (response.IsSuccessStatusCode)
             {
                 var responseBodyAsString = await response.Content.ReadAsStringAsync();
@@ -83,8 +80,13 @@ namespace FhirSchemaManager
             }
             else
             {
-                throw new SchemaOperationFailedException(string.Format(Resources.AvailableVersionsDefaultErrorMessage, response.StatusCode));
+                throw new SchemaManagerException(string.Format(Resources.AvailableVersionsDefaultErrorMessage, response.StatusCode));
             }
+        }
+
+        private Uri RelativeUrl(string url)
+        {
+            return new Uri(url, UriKind.Relative);
         }
     }
 }

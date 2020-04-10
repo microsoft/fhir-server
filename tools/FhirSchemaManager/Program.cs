@@ -44,7 +44,7 @@ namespace FhirSchemaManager
                 fhirServerOption,
                 versionOption,
             };
-            applyCommand.Handler = CommandHandler.Create<InvocationContext, string, Uri, int>(ApplyCommand.HandlerAsync);
+            applyCommand.Handler = CommandHandler.Create<string, Uri, int>(ApplyCommand.HandlerAsync);
             applyCommand.Argument.AddValidator(symbol => Validators.RequiredOptionValidator.Validate(symbol, connectionStringOption, Resources.ConnectionStringRequiredValidation));
             applyCommand.Argument.AddValidator(symbol => Validators.RequiredOptionValidator.Validate(symbol, fhirServerOption, Resources.FhirServerRequiredValidation));
             applyCommand.Argument.AddValidator(symbol => Validators.RequiredOptionValidator.Validate(symbol, versionOption, Resources.VersionRequiredValidation));

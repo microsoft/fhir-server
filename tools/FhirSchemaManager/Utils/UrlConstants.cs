@@ -3,17 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-using EnsureThat;
-
-namespace FhirSchemaManager.Exceptions
+namespace FhirSchemaManager.Utils
 {
-    public class SchemaOperationFailedException : Exception
+    public static class UrlConstants
     {
-        public SchemaOperationFailedException(string message)
-            : base(message)
-        {
-            EnsureArg.IsNotNullOrWhiteSpace(message, nameof(message));
-        }
+        public const string Current = "/_schema/versions/current";
+        public const string Compatibility = "/_schema/compatibility";
+        public const string Availability = "/_schema/versions";
     }
 }
