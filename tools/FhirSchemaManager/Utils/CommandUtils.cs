@@ -4,11 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
-using System.CommandLine.Invocation;
-using System.CommandLine.Rendering;
-using System.CommandLine.Rendering.Views;
-using FhirSchemaManager.Exceptions;
 
 namespace FhirSchemaManager.Utils
 {
@@ -18,34 +13,6 @@ namespace FhirSchemaManager.Utils
         {
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine(errorMessage);
-            Console.ResetColor();
-        }
-
-        public static void RenderError(SchemaManagerException schemaException, InvocationContext invocationContext, Region region)
-        {
-            var tableView = new TableView<SchemaManagerException>
-            {
-                Items = new List<SchemaManagerException>() { schemaException },
-            };
-
-            tableView.AddColumn(
-               cellValue: schemaManagerException => schemaManagerException.StatusCode,
-               header: new ContentView("HttpStatusCode"));
-
-            tableView.AddColumn(
-                cellValue: schemaManagerException => schemaManagerException.Message,
-                header: new ContentView("ErrorMessage"));
-
-            Console.ForegroundColor = ConsoleColor.Red;
-
-            var consoleRenderer = new ConsoleRenderer(
-                invocationContext.Console,
-                mode: invocationContext.BindingContext.OutputMode(),
-                resetAfterRender: true);
-
-            var screen = new ScreenView(renderer: consoleRenderer) { Child = tableView };
-            screen.Render(region);
-
             Console.ResetColor();
         }
     }

@@ -115,15 +115,6 @@ namespace FhirSchemaManager {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Current version information is not found..
-        /// </summary>
-        internal static string CurrentInformationNotFound {
-            get {
-                return ResourceManager.GetString("CurrentInformationNotFound", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to The root URL of the FHIR server to connect to..
         /// </summary>
         internal static string FhirServerOptionDescription {

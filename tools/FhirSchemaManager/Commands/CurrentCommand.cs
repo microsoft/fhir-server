@@ -33,9 +33,9 @@ namespace FhirSchemaManager.Commands
             {
                 currentVersions = await invokeAPI.GetCurrentVersionInformation(fhirServer);
             }
-            catch (SchemaOperationFailedException ex)
+            catch (SchemaManagerException ex)
             {
-                CommandUtils.RenderError(ex, invocationContext, region);
+                CommandUtils.PrintError(ex.Message);
                 return;
             }
             catch (HttpRequestException)

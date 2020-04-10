@@ -135,9 +135,6 @@
   <data name="CurrentDefaultErrorDescription" xml:space="preserve">
     <value>Current version information is not available.</value>
   </data>
-  <data name="CurrentInformationNotFound" xml:space="preserve">
-    <value>Current version information is not found.</value>
-  </data>
   <data name="FhirServerOptionDescription" xml:space="preserve">
     <value>The root URL of the FHIR server to connect to.</value>
   </data>
