@@ -100,7 +100,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
 
             Assert.True(list[0].IsSearchable);
             Assert.True(list[0].IsSupported);
-            Assert.Null(list[0].IsPartiallySupported);
+            Assert.False(list[0].IsPartiallySupported);
 
             Assert.True(list[1].IsSearchable);
             Assert.True(list[1].IsSupported);
@@ -108,15 +108,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
 
             Assert.False(list[2].IsSearchable);
             Assert.False(list[2].IsSupported);
-            Assert.Null(list[2].IsPartiallySupported);
+            Assert.False(list[2].IsPartiallySupported);
 
             Assert.False(list[3].IsSearchable);
             Assert.True(list[3].IsSupported);
-            Assert.Null(list[3].IsPartiallySupported);
+            Assert.False(list[3].IsPartiallySupported);
 
             Assert.False(list[4].IsSearchable);
             Assert.True(list[4].IsSupported);
-            Assert.Null(list[4].IsPartiallySupported);
+            Assert.False(list[4].IsPartiallySupported);
         }
 
         [Fact]

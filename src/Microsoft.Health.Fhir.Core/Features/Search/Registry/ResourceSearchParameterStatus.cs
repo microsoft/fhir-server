@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
         public SearchParameterStatus Status { get; set; }
 
-        public bool? IsPartiallySupported { get; set; }
+        public bool IsPartiallySupported { get; set; }
 
         public DateTimeOffset LastUpdated { get; set; }
     }

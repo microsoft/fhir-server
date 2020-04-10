@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                     bool isSearchable = result.Status == SearchParameterStatus.Enabled;
                     bool isSupported = result.Status != SearchParameterStatus.Disabled;
 
-                    // Re-check if this parameter is now supported.
+                    // TODO: Re-check if this parameter is now supported.
 
                     if (p.IsSearchable != isSearchable ||
                         p.IsSupported != isSupported ||
@@ -75,6 +75,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                     });
 
                     p.IsSearchable = false;
+
+                    // TODO: Check if this parameter is now supported.
                     p.IsSupported = true;
 
                     updated.Add(p);
