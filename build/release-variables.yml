@@ -1,8 +1,9 @@
 variables:
     ResourceGroupRegion: 'westus'
-    resourceGroupRoot: 'msh-fhir-ci'
+    resourceGroupRoot: 'msh-fhir-release'
     appServicePlanResourceGroup: '$(resourceGroupRoot)-linux'
     appServicePlanName: '$(resourceGroupRoot)-linux'
     DeploymentEnvironmentName: '$(resourceGroupRoot)'
-    TestEnvironmentName: 'OSS CI'
-    ImageTag: '$(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:-r)'
+    TestEnvironmentName: 'OSS Release'
+    ReleaseTag: 'build/$(Date:yyyyMMdd)$(Rev:-r)'
+    ImageTag: '$(ReleaseTag)-candidate'

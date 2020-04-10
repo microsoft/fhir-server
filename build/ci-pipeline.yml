@@ -4,8 +4,8 @@
 name: $(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:-r)
 
 variables:
+- template: ci-variables.yml
 - template: build-variables.yml
-- template: pr-variables.yml
 
 stages:
 - template: build-deploy.yml
@@ -25,40 +25,3 @@ stages:
         EnableServices: true
         SignatureFreshness: OneDay
         TreatStaleSignatureAs: Warning
-
-- stage: publishMyGet
-  displayName: Publish Assets MyGet
-  dependsOn:
-  - testStu3
-  - testR4
-  - testR5
-  jobs:
-  - job: publish
-    pool:
-      vmImage: $(WindowsVmImage)
-    steps:
-    - task: NuGetCommand@2
-      displayName: 'Nuget Push MyGet'
-      inputs:
-        command: push
-        packagesToPush: '$(System.ArtifactsDirectory)/**/*.nupkg'
-        nuGetFeedType: external
-        publishFeedCredentials: 'Microsoft FHIR Server MyGet'
-
-- stage: githubRelease
-  displayName: Create Github Release
-  dependsOn:
-  - publishMyGet
-  jobs:
-  - job: release
-    pool:
-      vmImage: $(WindowsVmImage)
-    steps:
-    - task: GitHubRelease@1
-      displayName: 'GitHub release (create)'
-      inputs:
-        gitHubConnection: 'GitHub (mshsvc)'
-        repositoryName: '$(build.Repository.Name)'
-        tagSource: userSpecifiedTag
-        tag: 'build/$(Date:yyyyMMdd)$(Rev:-r)'
-        changeLogCompareToRelease: lastNonDraftRelease

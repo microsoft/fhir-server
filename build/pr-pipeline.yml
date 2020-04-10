@@ -5,8 +5,8 @@ name: pr$(system.pullRequest.pullRequestNumber)-$(Date:yyyyMMdd)$(Rev:-r)
 trigger: none
 
 variables:
-- template: build-variables.yml
 - template: pr-variables.yml
+- template: build-variables.yml
 
 stages:
 - template: build-deploy.yml
