@@ -27,8 +27,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
         public ValidationQueryFilterAndParameterParserAttribute(IOptions<FeatureConfiguration> features)
         {
-            EnsureArg.IsNotNull(features, nameof(features));
-            EnsureArg.IsNotNull(features.Value, nameof(features));
+            EnsureArg.IsNotNull(features?.Value, nameof(features));
 
             _features = features.Value;
         }

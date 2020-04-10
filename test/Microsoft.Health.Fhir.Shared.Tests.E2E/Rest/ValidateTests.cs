@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Xunit;
@@ -155,7 +156,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
-        public async void GivenAValidateRequest_WhenAnInvlaidResourceIsPassedByParameter_ThenADetailedErrorIsReturned()
+        public async void GivenAValidateRequest_WhenAnInvalidResourceIsPassedByParameter_ThenADetailedErrorIsReturned()
         {
             var payload = "{\"resourceType\": \"Parameters\", \"parameter\": [{\"name\": \"resource\", \"resource\": {\"resourceType\":\"Patient\",\"name\":{\"family\":\"test\",\"given\":\"one\"}}}]}";
 
@@ -179,24 +180,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             var payload = "{\"resourceType\": \"Patient\", \"id\": \"123\"}";
 
-            try
-            {
-                await _client.ValidateAsync("Patient/$validate?mode=" + mode, payload);
-            }
-            catch (Common.FhirException ex)
-            {
-                OperationOutcome outcome = ex.OperationOutcome;
+            var exception = await Assert.ThrowsAsync<Common.FhirException>(() => _client.ValidateAsync("Patient/$validate?mode=" + mode, payload));
+            OperationOutcome outcome = exception.OperationOutcome;
 
-                Assert.Single(outcome.Issue);
-                CheckOperationOutcomeIssue(
-                    outcome.Issue[0],
-                    OperationOutcome.IssueSeverity.Error,
-                    issueType,
-                    message);
-                return;
-            }
-
-            Assert.True(false);
+            Assert.Single(outcome.Issue);
+            CheckOperationOutcomeIssue(
+                outcome.Issue[0],
+                OperationOutcome.IssueSeverity.Error,
+                issueType,
+                message);
         }
 
         [Theory]
@@ -207,24 +199,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             var payload = "{\"resourceType\": \"Patient\", \"id\": \"123\"}";
 
-            try
-            {
-                await _client.ValidateAsync("Patient/123/$validate?mode=" + mode, payload);
-            }
-            catch (Common.FhirException ex)
-            {
-                OperationOutcome outcome = ex.OperationOutcome;
+            var exception = await Assert.ThrowsAsync<Common.FhirException>(() => _client.ValidateAsync("Patient/123/$validate?mode=" + mode, payload));
+            OperationOutcome outcome = exception.OperationOutcome;
 
-                Assert.Single(outcome.Issue);
-                CheckOperationOutcomeIssue(
-                    outcome.Issue[0],
-                    OperationOutcome.IssueSeverity.Error,
-                    issueType,
-                    message);
-                return;
-            }
-
-            Assert.True(false);
+            Assert.Single(outcome.Issue);
+            CheckOperationOutcomeIssue(
+                outcome.Issue[0],
+                OperationOutcome.IssueSeverity.Error,
+                issueType,
+                message);
         }
 
         [Fact]
@@ -253,24 +236,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 + "{\"name\": \"mode\", \"valueCode\": \"" + mode + "\"},"
                 + "{\"name\": \"resource\", \"resource\": {\"resourceType\": \"Patient\", \"id\": \"123\"}}]}";
 
-            try
-            {
-                await _client.ValidateAsync("Patient/$validate", payload);
-            }
-            catch (Common.FhirException ex)
-            {
-                OperationOutcome outcome = ex.OperationOutcome;
+            var exception = await Assert.ThrowsAsync<Common.FhirException>(() => _client.ValidateAsync("Patient/$validate", payload));
+            OperationOutcome outcome = exception.OperationOutcome;
 
-                Assert.Single(outcome.Issue);
-                CheckOperationOutcomeIssue(
-                    outcome.Issue[0],
-                    OperationOutcome.IssueSeverity.Error,
-                    issueType,
-                    message);
-                return;
-            }
-
-            Assert.True(false);
+            Assert.Single(outcome.Issue);
+            CheckOperationOutcomeIssue(
+                outcome.Issue[0],
+                OperationOutcome.IssueSeverity.Error,
+                issueType,
+                message);
         }
 
         [Theory]
@@ -283,24 +257,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 + "{\"name\": \"mode\", \"valueCode\": \"" + mode + "\"},"
                 + "{\"name\": \"resource\", \"resource\": {\"resourceType\": \"Patient\", \"id\": \"123\"}}]}";
 
-            try
-            {
-                await _client.ValidateAsync("Patient/123/$validate", payload);
-            }
-            catch (Common.FhirException ex)
-            {
-                OperationOutcome outcome = ex.OperationOutcome;
+            var exception = await Assert.ThrowsAsync<Common.FhirException>(() => _client.ValidateAsync("Patient/123/$validate", payload));
+            OperationOutcome outcome = exception.OperationOutcome;
 
-                Assert.Single(outcome.Issue);
-                CheckOperationOutcomeIssue(
-                    outcome.Issue[0],
-                    OperationOutcome.IssueSeverity.Error,
-                    issueType,
-                    message);
-                return;
-            }
-
-            Assert.True(false);
+            Assert.Single(outcome.Issue);
+            CheckOperationOutcomeIssue(
+                outcome.Issue[0],
+                OperationOutcome.IssueSeverity.Error,
+                issueType,
+                message);
         }
 
         [Fact]
@@ -325,24 +290,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             var payload = "{\"resourceType\": \"Patient\", \"id\": \"123\"}";
 
-            try
-            {
-                await _client.ValidateAsync("Patient/$validate?profile=test", payload);
-            }
-            catch (Common.FhirException ex)
-            {
-                OperationOutcome outcome = ex.OperationOutcome;
+            var exception = await Assert.ThrowsAsync<Common.FhirException>(() => _client.ValidateAsync("Patient/$validate?profile=test", payload));
+            OperationOutcome outcome = exception.OperationOutcome;
 
-                Assert.Single(outcome.Issue);
-                CheckOperationOutcomeIssue(
-                    outcome.Issue[0],
-                    OperationOutcome.IssueSeverity.Error,
-                    OperationOutcome.IssueType.NotSupported,
-                    "Validation against a profile is not supported.");
-                return;
-            }
-
-            Assert.True(false);
+            Assert.Single(outcome.Issue);
+            CheckOperationOutcomeIssue(
+                outcome.Issue[0],
+                OperationOutcome.IssueSeverity.Error,
+                OperationOutcome.IssueType.NotSupported,
+                "Validation against a profile is not supported.");
         }
 
         [Fact]
@@ -352,24 +308,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 + "{\"name\": \"profile\", \"valueUri\": \"test\"},"
                 + "{\"name\": \"resource\", \"resource\": {\"resourceType\": \"Patient\", \"id\": \"123\"}}]}";
 
-            try
-            {
-                await _client.ValidateAsync("Patient/$validate", payload);
-            }
-            catch (Common.FhirException ex)
-            {
-                OperationOutcome outcome = ex.OperationOutcome;
+            var exception = await Assert.ThrowsAsync<Common.FhirException>(() => _client.ValidateAsync("Patient/$validate", payload));
+            OperationOutcome outcome = exception.OperationOutcome;
 
-                Assert.Single(outcome.Issue);
-                CheckOperationOutcomeIssue(
-                    outcome.Issue[0],
-                    OperationOutcome.IssueSeverity.Error,
-                    OperationOutcome.IssueType.NotSupported,
-                    "Validation against a profile is not supported.");
-                return;
-            }
-
-            Assert.True(false);
+            Assert.Single(outcome.Issue);
+            CheckOperationOutcomeIssue(
+                outcome.Issue[0],
+                OperationOutcome.IssueSeverity.Error,
+                OperationOutcome.IssueType.NotSupported,
+                "Validation against a profile is not supported.");
         }
 
         // multiple modes and profiles? (maybe a validation unsupported test too)
