@@ -124,10 +124,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
         {
             await _manager.EnsureInitialized();
 
+            // Id should not be modified in this test case
+            var modifiedItems = _searchParameterInfos.Skip(1).ToArray();
+
             await _mediator
                 .Received()
                 .Publish(
-                    Arg.Is<SearchParametersUpdated>(x => _searchParameterInfos.Except(x.SearchParameters).Any() == false),
+                    Arg.Is<SearchParametersUpdated>(x => modifiedItems.Except(x.SearchParameters).Any() == false),
                     Arg.Any<CancellationToken>());
         }
 

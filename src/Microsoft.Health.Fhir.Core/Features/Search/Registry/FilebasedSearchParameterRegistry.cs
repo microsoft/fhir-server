@@ -41,11 +41,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         {
             if (_statusResults == null)
             {
-                using Stream stream =
-                    _resourceAssembly.GetManifestResourceStream(_unsupportedParamsEmbeddedResourceName);
+                using Stream stream = _resourceAssembly.GetManifestResourceStream(_unsupportedParamsEmbeddedResourceName);
                 using TextReader reader = new StreamReader(stream);
-                UnsupportedSearchParameters unsupportedParams =
-                    JsonConvert.DeserializeObject<UnsupportedSearchParameters>(reader.ReadToEnd());
+                UnsupportedSearchParameters unsupportedParams = JsonConvert.DeserializeObject<UnsupportedSearchParameters>(reader.ReadToEnd());
 
                 // Loads unsupported parameters
                 var support = unsupportedParams.Unsupported

@@ -47,11 +47,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             // Set states of known parameters
             foreach (var p in _searchParameterDefinitionManager.AllSearchParameters)
             {
-                if (parameters.TryGetValue(p.Url, out var result))
+                if (parameters.TryGetValue(p.Url, out ResourceSearchParameterStatus result))
                 {
-                    p.IsSearchable = result.Status == SearchParameterStatus.Enabled;
-                    p.IsSupported = result.Status != SearchParameterStatus.Disabled;
-                    p.IsPartiallySupported = result.IsPartiallySupported;
+                    bool isSearchable = result.Status == SearchParameterStatus.Enabled;
+                    bool isSupported = result.Status != SearchParameterStatus.Disabled;
+
+                    // Re-check if this parameter is now supported.
+
+                    if (p.IsSearchable != isSearchable ||
+                        p.IsSupported != isSupported ||
+                        p.IsPartiallySupported != result.IsPartiallySupported)
+                    {
+                        p.IsSearchable = isSearchable;
+                        p.IsSupported = isSupported;
+                        p.IsPartiallySupported = result.IsPartiallySupported;
+
+                        updated.Add(p);
+                    }
                 }
                 else
                 {
@@ -64,9 +76,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
                     p.IsSearchable = false;
                     p.IsSupported = true;
-                }
 
-                updated.Add(p);
+                    updated.Add(p);
+                }
             }
 
             if (newParameters.Any())

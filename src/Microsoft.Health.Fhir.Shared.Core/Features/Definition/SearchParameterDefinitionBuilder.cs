@@ -44,6 +44,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             EnsureArg.IsNotNull(fhirJsonParser, nameof(fhirJsonParser));
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(assembly, nameof(assembly));
+            EnsureArg.IsNotNullOrWhiteSpace(embeddedResourceName, nameof(embeddedResourceName));
 
             _fhirJsonParser = fhirJsonParser;
             _modelInfoProvider = modelInfoProvider;
