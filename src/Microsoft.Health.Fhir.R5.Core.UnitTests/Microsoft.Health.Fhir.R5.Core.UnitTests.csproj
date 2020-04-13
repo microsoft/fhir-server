@@ -4,6 +4,9 @@
     <TargetFramework>netcoreapp3.1</TargetFramework>
     <NoWarn>$(NoWarn);NU1603</NoWarn>
   </PropertyGroup>
+  <PropertyGroup>
+    <DefineConstants>R5</DefineConstants>
+  </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.3.0" />
