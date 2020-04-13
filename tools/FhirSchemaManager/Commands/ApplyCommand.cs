@@ -23,10 +23,6 @@ namespace FhirSchemaManager.Commands
 
         public static async Task HandlerAsync(string connectionString, Uri fhirServer, int version)
         {
-            Console.WriteLine($"--connection-string {connectionString}");
-            Console.WriteLine($"--fhir-server {fhirServer}");
-            Console.WriteLine($"--version {version}");
-
             var region = new Region(
                           0,
                           0,
@@ -59,10 +55,10 @@ namespace FhirSchemaManager.Commands
                     await ValidateVersion(fhirServer, availableVersion.Id);
 
                     // check if the record for given version exists in failed status
-                    SchemaDataStore.ExecuteQuery(connectionString, string.Join(SchemaDataStore.DeleteQuery, availableVersion.Id));
+                    SchemaDataStore.ExecuteQuery(connectionString, string.Join(SchemaDataStore.DeleteQuery, availableVersion.Id), availableVersion.Id);
 
                     // Execute script
-                    SchemaDataStore.ExecuteQuery(connectionString, script);
+                    SchemaDataStore.ExecuteQuery(connectionString, script, availableVersion.Id);
 
                     // Update version status to complete state
                     SchemaDataStore.ExecuteUpsertQuery(connectionString, availableVersion.Id, "complete");
@@ -82,9 +78,6 @@ namespace FhirSchemaManager.Commands
             }
             catch (SqlException ex)
             {
-                // update version status to failed state
-                SchemaDataStore.ExecuteQuery(connectionString, string.Join(SchemaDataStore.UpdateQuery, version));
-
                 CommandUtils.PrintError(string.Format(Resources.QueryExecutionExceptionMessage, ex.Message));
                 return;
             }
