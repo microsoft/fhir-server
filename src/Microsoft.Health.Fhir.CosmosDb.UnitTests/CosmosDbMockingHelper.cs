@@ -68,18 +68,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests
                 null);
         }
 
-        internal static FeedResponse<T> CreateFeedResponse<T>(IEnumerable<T> result, NameValueCollection responseHeaders)
-        {
-            return (FeedResponse<T>)CreateInstance( // internal FeedResponse(IEnumerable<T> result, int count, INameValueCollection responseHeaders, bool useETagAsContinuation = false, IReadOnlyDictionary<string, Microsoft.Azure.Documents.QueryMetrics> queryMetrics = null, ClientSideRequestStatistics requestStats = null, string disallowContinuationTokenMessage = null)
-                typeof(FeedResponse<T>),
-                result,
-                result.Count(),
-                CreateInstance( // public DictionaryNameValueCollection(NameValueCollection c)
-                    typeof(IDocumentClient).Assembly.GetType("Microsoft.Azure.Documents.Collections.DictionaryNameValueCollection"),
-                    responseHeaders),
-                1024 /* responseLengthBytes - required, but not used */);
-        }
-
         private static object CreateInstance(Type type, params object[] args)
         {
             return Activator.CreateInstance(type, BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public, null, args, CultureInfo.InvariantCulture);
