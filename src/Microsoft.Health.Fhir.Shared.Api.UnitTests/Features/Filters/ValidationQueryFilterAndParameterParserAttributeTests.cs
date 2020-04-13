@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Filters
 
             var exception = Assert.Throws<ResourceNotValidException>(() => filter.OnActionExecuting(context));
 
-            Assert.Equal("All OK", exception.Message);
+            Assert.True(exception.Issues.Contains(ValidateOperationHandler.ValidationPassed));
         }
 
         [Theory]
@@ -144,7 +144,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Filters
             httpContext.Request.Returns(httpRequest);
 
             var parameters = new Parameters();
-            parameters.Add(KnownQueryParameterNames.Mode, new FhirUri("otherTest"));
+            parameters.Add(KnownQueryParameterNames.Profile, new FhirUri("otherTest"));
 
             var actionContext = new ActionExecutingContext(
                 new ActionContext(
