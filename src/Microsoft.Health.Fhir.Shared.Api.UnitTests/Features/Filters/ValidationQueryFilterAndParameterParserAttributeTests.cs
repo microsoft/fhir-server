@@ -119,7 +119,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Filters
                 new ActionContext(
                     httpContext,
                     new RouteData { Values = { [KnownActionParameterNames.ResourceType] = "Observation" } },
-                    new ActionDescriptor()),
+                    new ActionDescriptor() { DisplayName = string.Empty }),
                 new List<IFilterMetadata>(),
                 new Dictionary<string, object> { { "resource", parameters } },
                 FilterTestsHelper.CreateMockFhirController());
@@ -128,7 +128,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Filters
 
             var exception = Assert.Throws<BadRequestException>(() => filter.OnActionExecuting(actionContext));
 
-            Assert.Equal("Validation against a profile is not supported.", exception.Message);
+            Assert.Equal("Only one mode can be provided between a Parameters resource and the URL", exception.Message);
         }
 
         [Fact]
@@ -150,7 +150,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Filters
                 new ActionContext(
                     httpContext,
                     new RouteData { Values = { [KnownActionParameterNames.ResourceType] = "Observation" } },
-                    new ActionDescriptor()),
+                    new ActionDescriptor() { DisplayName = string.Empty }),
                 new List<IFilterMetadata>(),
                 new Dictionary<string, object> { { "resource", parameters } },
                 FilterTestsHelper.CreateMockFhirController());
@@ -159,7 +159,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Filters
 
             var exception = Assert.Throws<BadRequestException>(() => filter.OnActionExecuting(actionContext));
 
-            Assert.Equal("Validation against a profile is not supported.", exception.Message);
+            Assert.Equal("Only one profile can be provided between a Parameters resource and the URL", exception.Message);
         }
 
         [Fact]
@@ -174,7 +174,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Filters
             var context = CreateContext();
             var exception = Assert.Throws<OperationNotImplementedException>(() => filter.OnActionExecuting(context));
 
-            Assert.Equal("Validation against a profile is not supported.", exception.Message);
+            Assert.Equal("$validate is not a supported endpoint.", exception.Message);
         }
 
         private static ActionExecutingContext CreateContext(string mode = null, string profile = null, bool idMode = false, bool isParameters = false)
