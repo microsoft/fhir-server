@@ -1,9 +1,0 @@
-variables:
-    ResourceGroupRegion: 'westus'
-    resourceGroupRoot: 'msh-fhir-release'
-    appServicePlanResourceGroup: '$(resourceGroupRoot)-linux'
-    appServicePlanName: '$(resourceGroupRoot)-linux'
-    DeploymentEnvironmentName: '$(resourceGroupRoot)'
-    TestEnvironmentName: 'OSS Release'
-    ReleaseTag: 'build/$(Date:yyyyMMdd)$(Rev:-r)'
-    ImageTag: '$(ReleaseTag)-candidate'
