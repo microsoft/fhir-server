@@ -575,7 +575,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             "resourcetest_processrequest/X067_ProcessRequest",
             "resourcetest_processresponse/X067_ProcessResponse",
             "resourcetest_provenance/X067_Provenance",
-            "resourcetest_questionnaire/X067_Questionnaire",
             "resourcetest_questionnaireresponse/X067_QuestionnaireResponse",
             "resourcetest_referralrequest/X067_ReferralRequest",
             "resourcetest_relatedperson/X067_RelatedPerson",
@@ -679,6 +678,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             "resourcetest_devicerequest/X030_DeviceRequest", // Open issue: https://github.com/fhir-crucible/plan_executor/issues/136
             "resourcetest_questionnaire/X010_Questionnaire", // Open issue: https://github.com/fhir-crucible/plan_executor/issues/138
             "resourcetest_questionnaire/X020_Questionnaire", // Same issue as: https://github.com/fhir-crucible/plan_executor/issues/138
+            "resourcetest_questionnaire/X067_Questionnaire",
             "connectathon-15-patient-base-client-id-json/Step5-PatientDelete",
             "connectathon-15-patient-base-client-id-xml/Step5-PatientDelete",
             "connectathon-15-patient-base-server-id-json/Step5-PatientDelete",
