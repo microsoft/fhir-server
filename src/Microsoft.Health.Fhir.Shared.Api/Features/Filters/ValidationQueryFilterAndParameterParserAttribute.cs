@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
         {
             EnsureArg.IsNotNull(features?.Value, nameof(features));
 
-            _features = features.Value;
+            _features = features?.Value;
         }
 
         public override void OnActionExecuting(ActionExecutingContext context)

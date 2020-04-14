@@ -526,7 +526,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             "resourcetest_processrequest/X067_ProcessRequest",
             "resourcetest_processresponse/X067_ProcessResponse",
             "resourcetest_provenance/X067_Provenance",
-            "resourcetest_questionnaire/X067_Questionnaire",
             "resourcetest_questionnaireresponse/X067_QuestionnaireResponse",
             "resourcetest_referralrequest/X067_ReferralRequest",
             "resourcetest_relatedperson/X067_RelatedPerson",
@@ -623,6 +622,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             "format001/FT07",
             "format001/FT08",
             "resourcetest_questionnaire/X030_Questionnaire",
+            "resourcetest_questionnaire/X067_Questionnaire",
         };
 
         public static string BundleCountFilter => "Search bundle returned does not report a total entry count";
