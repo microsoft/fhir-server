@@ -6,4 +6,4 @@ variables:
     prNumber: $(system.pullRequest.pullRequestNumber)
     DeploymentEnvironmentName: '$(resourceGroupRoot)-$(prNumber)'
     TestEnvironmentName: 'OSS PR$(prNumber)'
-    ImageTag: 'pr$(prNumber)-$(Date:yyyyMMdd)$(Rev:-r)'
+    ImageTag: '$(build.BuildNumber)'

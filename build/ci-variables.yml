@@ -5,4 +5,4 @@ variables:
     appServicePlanName: '$(resourceGroupRoot)-linux'
     DeploymentEnvironmentName: '$(resourceGroupRoot)'
     TestEnvironmentName: 'OSS CI'
-    ImageTag: '$(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:-r)'
+    ImageTag: '$(build.BuildNumber)'
