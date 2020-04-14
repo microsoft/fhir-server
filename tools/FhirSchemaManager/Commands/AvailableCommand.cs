@@ -31,7 +31,7 @@ namespace FhirSchemaManager.Commands
                 BaseAddress = fhirServer,
             };
 
-            var jsonResult = await httpClient.GetStringAsync(new Uri("/_schema/versions"));
+            var jsonResult = await httpClient.GetStringAsync(new Uri("/_schema/versions", UriKind.Relative));
 
             List<JToken> resultsJson = JArray.Parse(jsonResult).ToList();
 

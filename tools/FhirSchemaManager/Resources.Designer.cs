@@ -19,7 +19,7 @@ namespace FhirSchemaManager {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "15.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     internal class Resources {
@@ -106,6 +106,15 @@ namespace FhirSchemaManager {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Current version information is not available..
+        /// </summary>
+        internal static string CurrentDefaultErrorDescription {
+            get {
+                return ResourceManager.GetString("CurrentDefaultErrorDescription", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The root URL of the FHIR server to connect to..
         /// </summary>
         internal static string FhirServerOptionDescription {
@@ -120,6 +129,24 @@ namespace FhirSchemaManager {
         internal static string FhirServerRequiredValidation {
             get {
                 return ResourceManager.GetString("FhirServerRequiredValidation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to No connection could be made to the target machine..
+        /// </summary>
+        internal static string HttpRequestExceptionMessage {
+            get {
+                return ResourceManager.GetString("HttpRequestExceptionMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Request has failed due to {0} is inactive..
+        /// </summary>
+        internal static string RequestFailedMessage {
+            get {
+                return ResourceManager.GetString("RequestFailedMessage", resourceCulture);
             }
         }
         
