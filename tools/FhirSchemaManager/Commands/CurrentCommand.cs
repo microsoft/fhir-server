@@ -27,11 +27,11 @@ namespace FhirSchemaManager.Commands
                           Console.WindowHeight,
                           true);
             List<CurrentVersion> currentVersions = null;
-            IInvokeAPI invokeAPI = new InvokeAPI();
+            ISchemaClient schemaClient = new SchemaClient(fhirServer);
 
             try
             {
-                currentVersions = await invokeAPI.GetCurrentVersionInformation(fhirServer);
+                currentVersions = await schemaClient.GetCurrentVersionInformation();
             }
             catch (SchemaManagerException ex)
             {
@@ -40,7 +40,7 @@ namespace FhirSchemaManager.Commands
             }
             catch (HttpRequestException)
             {
-                CommandUtils.PrintError(Resources.RequestFailedMessage);
+                CommandUtils.PrintError(string.Join(Resources.RequestFailedMessage, fhirServer));
                 return;
             }
 

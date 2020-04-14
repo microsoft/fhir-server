@@ -14,19 +14,18 @@ using Newtonsoft.Json;
 
 namespace FhirSchemaManager
 {
-    internal class InvokeAPI : IInvokeAPI
+    internal class SchemaClient : ISchemaClient
     {
         private static HttpClient _httpClient;
 
-        public InvokeAPI()
+        public SchemaClient(Uri serverUri)
         {
             _httpClient = new HttpClient();
+            _httpClient.BaseAddress = serverUri;
         }
 
-        public async Task<List<CurrentVersion>> GetCurrentVersionInformation(Uri serverUri)
+        public async Task<List<CurrentVersion>> GetCurrentVersionInformation()
         {
-            _httpClient.BaseAddress = serverUri;
-
             var response = await _httpClient.GetAsync(RelativeUrl(UrlConstants.Current));
             if (response.IsSuccessStatusCode)
             {
@@ -52,10 +51,8 @@ namespace FhirSchemaManager
             }
         }
 
-        public async Task<CompatibleVersion> GetCompatibility(Uri serverUri)
+        public async Task<CompatibleVersion> GetCompatibility()
         {
-            _httpClient.BaseAddress = serverUri;
-
             var response = await _httpClient.GetAsync(RelativeUrl(UrlConstants.Compatibility));
             if (response.IsSuccessStatusCode)
             {
@@ -68,10 +65,8 @@ namespace FhirSchemaManager
             }
         }
 
-        public async Task<List<AvailableVersion>> GetAvailability(Uri serverUri)
+        public async Task<List<AvailableVersion>> GetAvailability()
         {
-            _httpClient.BaseAddress = serverUri;
-
             var response = await _httpClient.GetAsync(RelativeUrl(UrlConstants.Availability));
             if (response.IsSuccessStatusCode)
             {

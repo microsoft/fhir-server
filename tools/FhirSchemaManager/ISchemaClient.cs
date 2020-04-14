@@ -10,14 +10,14 @@ using FhirSchemaManager.Model;
 
 namespace FhirSchemaManager
 {
-    public interface IInvokeAPI
+    public interface ISchemaClient
     {
-        Task<List<CurrentVersion>> GetCurrentVersionInformation(Uri serverUri);
+        Task<List<CurrentVersion>> GetCurrentVersionInformation();
 
         Task<string> GetScript(Uri scriptUri);
 
-        Task<CompatibleVersion> GetCompatibility(Uri serverUri);
+        Task<CompatibleVersion> GetCompatibility();
 
-        Task<List<AvailableVersion>> GetAvailability(Uri serverUri);
+        Task<List<AvailableVersion>> GetAvailability();
     }
 }

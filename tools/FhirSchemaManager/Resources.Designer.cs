@@ -178,7 +178,7 @@ namespace FhirSchemaManager {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Request has failed due to fhirServerUrl is invalid or inactive..
+        ///   Looks up a localized string similar to Request has failed due to {0} is inactive..
         /// </summary>
         internal static string RequestFailedMessage {
             get {

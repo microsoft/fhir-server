@@ -19,10 +19,12 @@ namespace FhirSchemaManager.Commands
 {
     public static class ApplyCommand
     {
-        private static IInvokeAPI invokeAPI = new InvokeAPI();
+        private static ISchemaClient schemaClient;
 
         public static async Task HandlerAsync(string connectionString, Uri fhirServer, int version)
         {
+            schemaClient = new SchemaClient(fhirServer);
+
             var region = new Region(
                           0,
                           0,
@@ -32,7 +34,7 @@ namespace FhirSchemaManager.Commands
 
             try
             {
-                List<AvailableVersion> availableVersions = await invokeAPI.GetAvailability(fhirServer);
+                List<AvailableVersion> availableVersions = await schemaClient.GetAvailability();
 
                 if (availableVersions?.Any() != true || availableVersions.Count == 1)
                 {
@@ -50,9 +52,9 @@ namespace FhirSchemaManager.Commands
 
                 foreach (AvailableVersion availableVersion in availableVersions)
                 {
-                    string script = await invokeAPI.GetScript(availableVersion.Script);
+                    string script = await schemaClient.GetScript(availableVersion.Script);
 
-                    await ValidateVersion(fhirServer, availableVersion.Id);
+                    await ValidateVersion(availableVersion.Id);
 
                     // check if the record for given version exists in failed status
                     SchemaDataStore.ExecuteQuery(connectionString, string.Join(SchemaDataStore.DeleteQuery, availableVersion.Id), availableVersion.Id);
@@ -73,7 +75,7 @@ namespace FhirSchemaManager.Commands
             }
             catch (HttpRequestException)
             {
-                CommandUtils.PrintError(Resources.RequestFailedMessage);
+                CommandUtils.PrintError(string.Join(Resources.RequestFailedMessage, fhirServer));
                 return;
             }
             catch (SqlException ex)
@@ -83,9 +85,9 @@ namespace FhirSchemaManager.Commands
             }
         }
 
-        private static async Task ValidateVersion(Uri fhirServer, int version)
+        private static async Task ValidateVersion(int version)
         {
-            CompatibleVersion compatibleVersion = await invokeAPI.GetCompatibility(fhirServer);
+            CompatibleVersion compatibleVersion = await schemaClient.GetCompatibility();
 
             // check if version lies in the compatibility range
             if (!Enumerable.Range(compatibleVersion.Min, compatibleVersion.Max).Contains(version))
@@ -93,7 +95,7 @@ namespace FhirSchemaManager.Commands
                 throw new SchemaManagerException(Resources.VersionIncompatibilityMessage);
             }
 
-            List<CurrentVersion> currentVersions = await invokeAPI.GetCurrentVersionInformation(fhirServer);
+            List<CurrentVersion> currentVersions = await schemaClient.GetCurrentVersionInformation();
 
             // check if any instance is not running on the previous version
             if (currentVersions.Any(currentVersion => currentVersion.Id != (version - 1) && currentVersion.Servers.Count > 0))

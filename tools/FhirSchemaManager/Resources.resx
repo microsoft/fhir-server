@@ -157,7 +157,7 @@
     <value>Script execution has failed due to {0}.</value>
   </data>
   <data name="RequestFailedMessage" xml:space="preserve">
-    <value>Request has failed due to fhirServerUrl is invalid or inactive.</value>
+    <value>Request has failed due to {0} is inactive.</value>
   </data>
   <data name="ScriptNotFound" xml:space="preserve">
     <value>The script is not found for the given version.</value>
