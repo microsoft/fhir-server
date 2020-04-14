@@ -101,6 +101,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton<OperationOutcomeExceptionFilterAttribute>();
             services.AddSingleton<ValidateContentTypeFilterAttribute>();
             services.AddSingleton<ValidateExportRequestFilterAttribute>();
+            services.AddSingleton<ValidationQueryFilterAndParameterParserAttribute>();
 
             FhirPathCompiler.DefaultSymbolTable.AddFhirExtensions();
 
