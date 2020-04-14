@@ -4,7 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using EnsureThat;
+using System.Diagnostics;
 
 namespace FhirSchemaManager.Exceptions
 {
@@ -13,7 +13,7 @@ namespace FhirSchemaManager.Exceptions
         public SchemaManagerException(string message)
             : base(message)
         {
-            EnsureArg.IsNotNullOrWhiteSpace(message, nameof(message));
+            Debug.Assert(!string.IsNullOrEmpty(message), "Exception message should not be empty");
         }
     }
 }
