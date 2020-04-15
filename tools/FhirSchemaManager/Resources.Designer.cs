@@ -169,6 +169,24 @@ namespace FhirSchemaManager {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to You must include only one of the option from [version, next, latest]..
+        /// </summary>
+        internal static string MutuallyExclusiveValidation {
+            get {
+                return ResourceManager.GetString("MutuallyExclusiveValidation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The next version to apply..
+        /// </summary>
+        internal static string NextOptionDescritpion {
+            get {
+                return ResourceManager.GetString("NextOptionDescritpion", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Script execution has failed due to {0}..
         /// </summary>
         internal static string QueryExecutionExceptionMessage {
@@ -219,15 +237,6 @@ namespace FhirSchemaManager {
         internal static string VersionOptionDescription {
             get {
                 return ResourceManager.GetString("VersionOptionDescription", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to You must include a version..
-        /// </summary>
-        internal static string VersionRequiredValidation {
-            get {
-                return ResourceManager.GetString("VersionRequiredValidation", resourceCulture);
             }
         }
     }

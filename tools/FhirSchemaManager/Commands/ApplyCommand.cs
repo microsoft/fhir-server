@@ -21,7 +21,7 @@ namespace FhirSchemaManager.Commands
     {
         private static ISchemaClient schemaClient;
 
-        public static async Task HandlerAsync(string connectionString, Uri fhirServer, int version)
+        public static async Task HandlerAsync(string connectionString, Uri fhirServer, int version, bool next)
         {
             schemaClient = new SchemaClient(fhirServer);
 
@@ -47,7 +47,7 @@ namespace FhirSchemaManager.Commands
                     availableVersions.RemoveAt(0);
                 }
 
-                availableVersions = availableVersions.Where(availableVersion => availableVersion.Id <= version)
+                availableVersions = availableVersions.Where(availableVersion => availableVersion.Id <= (next == true ? availableVersions.First().Id : version))
                     .ToList();
 
                 foreach (AvailableVersion availableVersion in availableVersions)

@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.CommandLine;
 using System.CommandLine.Invocation;
 using FhirSchemaManager.Commands;
@@ -29,6 +30,11 @@ namespace FhirSchemaManager
                 Resources.VersionOptionDescription,
                 new Argument<int> { Arity = ArgumentArity.ExactlyOne });
 
+            var nextOption = new Option(
+               OptionAliases.Next,
+               Resources.NextOptionDescritpion,
+               new Argument<bool> { Arity = ArgumentArity.ZeroOrOne });
+
             var rootCommand = new RootCommand();
 
             var currentCommand = new Command(CommandNames.Current, Resources.CurrentCommandDescription)
@@ -43,11 +49,12 @@ namespace FhirSchemaManager
                 connectionStringOption,
                 fhirServerOption,
                 versionOption,
+                nextOption,
             };
-            applyCommand.Handler = CommandHandler.Create<string, Uri, int>(ApplyCommand.HandlerAsync);
+            applyCommand.Handler = CommandHandler.Create<string, Uri, int, bool>(ApplyCommand.HandlerAsync);
             applyCommand.Argument.AddValidator(symbol => Validators.RequiredOptionValidator.Validate(symbol, connectionStringOption, Resources.ConnectionStringRequiredValidation));
             applyCommand.Argument.AddValidator(symbol => Validators.RequiredOptionValidator.Validate(symbol, fhirServerOption, Resources.FhirServerRequiredValidation));
-            applyCommand.Argument.AddValidator(symbol => Validators.RequiredOptionValidator.Validate(symbol, versionOption, Resources.VersionRequiredValidation));
+            applyCommand.Argument.AddValidator(symbol => Validators.MutuallyExclusiveOptionValidator.Validate(symbol, new List<Option> { versionOption, nextOption }, Resources.MutuallyExclusiveValidation));
 
             var availableCommand = new Command(CommandNames.Available, Resources.AvailableCommandDescription)
             {
