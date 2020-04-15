@@ -19,11 +19,9 @@ namespace FhirSchemaManager.Commands
 {
     public static class ApplyCommand
     {
-        private static ISchemaClient schemaClient;
-
         public static async Task HandlerAsync(string connectionString, Uri fhirServer, int version, bool next)
         {
-            schemaClient = new SchemaClient(fhirServer);
+            ISchemaClient schemaClient = new SchemaClient(fhirServer);
 
             var region = new Region(
                           0,
@@ -54,10 +52,10 @@ namespace FhirSchemaManager.Commands
                 {
                     string script = await schemaClient.GetScript(availableVersion.Script);
 
-                    await ValidateVersion(availableVersion.Id);
+                    await ValidateVersion(schemaClient, availableVersion.Id);
 
                     // check if the record for given version exists in failed status
-                    SchemaDataStore.ExecuteQuery(connectionString, string.Join(SchemaDataStore.DeleteQuery, availableVersion.Id), availableVersion.Id);
+                    SchemaDataStore.ExecuteQuery(connectionString, string.Join(SchemaDataStore.DeleteQuery, availableVersion.Id, SchemaDataStore.Failed), availableVersion.Id);
 
                     // Execute script
                     SchemaDataStore.ExecuteQuery(connectionString, script, availableVersion.Id);
@@ -75,7 +73,7 @@ namespace FhirSchemaManager.Commands
             }
             catch (HttpRequestException)
             {
-                CommandUtils.PrintError(string.Join(Resources.RequestFailedMessage, fhirServer));
+                CommandUtils.PrintError(string.Format(Resources.RequestFailedMessage, fhirServer));
                 return;
             }
             catch (SqlException ex)
@@ -85,12 +83,12 @@ namespace FhirSchemaManager.Commands
             }
         }
 
-        private static async Task ValidateVersion(int version)
+        private static async Task ValidateVersion(ISchemaClient schemaClient, int version)
         {
             CompatibleVersion compatibleVersion = await schemaClient.GetCompatibility();
 
             // check if version lies in the compatibility range
-            if (!Enumerable.Range(compatibleVersion.Min, compatibleVersion.Max).Contains(version))
+            if (version < compatibleVersion.Min || version > compatibleVersion.Max)
             {
                 throw new SchemaManagerException(Resources.VersionIncompatibilityMessage);
             }
