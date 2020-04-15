@@ -12,7 +12,8 @@ namespace FhirSchemaManager.Model
     {
         public CurrentVersion(int id, string status, List<string> servers)
         {
-            EnsureArg.IsNotNull(status, nameof(status));
+            EnsureArg.IsNotNullOrWhiteSpace(status, nameof(status));
+            EnsureArg.IsNotNull(servers, nameof(servers));
 
             Id = id;
             Status = status;

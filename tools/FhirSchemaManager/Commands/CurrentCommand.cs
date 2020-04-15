@@ -40,7 +40,7 @@ namespace FhirSchemaManager.Commands
             }
             catch (HttpRequestException)
             {
-                CommandUtils.PrintError(string.Join(Resources.RequestFailedMessage, fhirServer));
+                CommandUtils.PrintError(string.Format(Resources.RequestFailedMessage, fhirServer));
                 return;
             }
 

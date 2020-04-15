@@ -139,7 +139,7 @@
     <value>Returns the current SQL schema version(s) from the given FHIR server.</value>
   </data>
   <data name="CurrentDefaultErrorDescription" xml:space="preserve">
-    <value>The current version information is not available due to HttpStatusCode {0}.</value>
+    <value>Current version information is not available.</value>
   </data>
   <data name="FhirServerOptionDescription" xml:space="preserve">
     <value>The root URL of the FHIR server to connect to.</value>
