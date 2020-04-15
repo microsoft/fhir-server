@@ -10,7 +10,8 @@ namespace FhirSchemaManager
 {
     public static class SchemaDataStore
     {
-        public const string DeleteQuery = "DELETE FROM dbo.SchemaVersion WHERE Version = {0} AND Status = 'failed'";
+        public const string DeleteQuery = "DELETE FROM dbo.SchemaVersion WHERE Version = {0} AND Status = {1}";
+        public const string Failed = "failed";
 
         public static void ExecuteQuery(string connectionString, string queryString, int version)
         {
@@ -27,7 +28,7 @@ namespace FhirSchemaManager
                 }
                 catch (SqlException)
                 {
-                    ExecuteUpsertQuery(connectionString, version, "failed");
+                    ExecuteUpsertQuery(connectionString, version, Failed);
                     throw;
                 }
             }

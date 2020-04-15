@@ -19,11 +19,9 @@ namespace FhirSchemaManager.Commands
 {
     public static class ApplyCommand
     {
-        private static ISchemaClient schemaClient;
-
         public static async Task HandlerAsync(string connectionString, Uri fhirServer, int version)
         {
-            schemaClient = new SchemaClient(fhirServer);
+            ISchemaClient schemaClient = new SchemaClient(fhirServer);
 
             var region = new Region(
                           0,
@@ -54,10 +52,10 @@ namespace FhirSchemaManager.Commands
                 {
                     string script = await schemaClient.GetScript(availableVersion.Script);
 
-                    await ValidateVersion(availableVersion.Id);
+                    await ValidateVersion(schemaClient, availableVersion.Id);
 
                     // check if the record for given version exists in failed status
-                    SchemaDataStore.ExecuteQuery(connectionString, string.Join(SchemaDataStore.DeleteQuery, availableVersion.Id), availableVersion.Id);
+                    SchemaDataStore.ExecuteQuery(connectionString, string.Join(SchemaDataStore.DeleteQuery, availableVersion.Id, SchemaDataStore.Failed), availableVersion.Id);
 
                     // Execute script
                     SchemaDataStore.ExecuteQuery(connectionString, script, availableVersion.Id);
@@ -85,12 +83,12 @@ namespace FhirSchemaManager.Commands
             }
         }
 
-        private static async Task ValidateVersion(int version)
+        private static async Task ValidateVersion(ISchemaClient schemaClient, int version)
         {
             CompatibleVersion compatibleVersion = await schemaClient.GetCompatibility();
 
-            // check if version lies in the compatibility range
-            if (!Enumerable.Range(compatibleVersion.Min, compatibleVersion.Max).Contains(version))
+            // check if version doesn't lies in the compatibility range
+            if (version < compatibleVersion.Min || version > compatibleVersion.Max)
             {
                 throw new SchemaManagerException(Resources.VersionIncompatibilityMessage);
             }
