@@ -1,7 +1,3 @@
-parameters:
-- name: runCleanup
-  type: boolean
-  default: true
 
 stages:
 - stage: BuildUnitTests
@@ -199,7 +195,6 @@ stages:
 
 - stage: cleanup
   displayName: 'Cleanup Azure Environment'
-  condition: eq('${{ parameters.runCleanup }}', true)
   dependsOn:
   - testStu3
   - testR4
