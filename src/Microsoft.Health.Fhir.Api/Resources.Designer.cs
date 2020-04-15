@@ -250,6 +250,24 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Only one mode can be provided between a Parameters resource and the URL.
+        /// </summary>
+        public static string MultipleModesProvided {
+            get {
+                return ResourceManager.GetString("MultipleModesProvided", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Only one profile can be provided between a Parameters resource and the URL.
+        /// </summary>
+        public static string MultipleProfilesProvided {
+            get {
+                return ResourceManager.GetString("MultipleProfilesProvided", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The requested route was not found..
         /// </summary>
         public static string NotFoundException {
@@ -457,15 +475,6 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Resources of type &apos;Parameters&apos; are not supported by this endpoint..
-        /// </summary>
-        public static string ValidateWithParametersNotSupported {
-            get {
-                return ResourceManager.GetString("ValidateWithParametersNotSupported", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Validation against a profile is not supported..
         /// </summary>
         public static string ValidateWithProfileNotSupported {
@@ -475,11 +484,29 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Validation modes are not supported..
+        ///   Looks up a localized string similar to Resources can not be validated for update or delete at the default endpoint. An id must be provided in the URL..
         /// </summary>
-        public static string ValidationModesNotSupported {
+        public static string ValidationForUpdateAndDeleteNotSupported {
             get {
-                return ResourceManager.GetString("ValidationModesNotSupported", resourceCulture);
+                return ResourceManager.GetString("ValidationForUpdateAndDeleteNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} is not a valid validation mode..
+        /// </summary>
+        public static string ValidationModeNotRecognized {
+            get {
+                return ResourceManager.GetString("ValidationModeNotRecognized", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} is not a supported validation mode..
+        /// </summary>
+        public static string ValidationModeNotSupported {
+            get {
+                return ResourceManager.GetString("ValidationModeNotSupported", resourceCulture);
             }
         }
         
