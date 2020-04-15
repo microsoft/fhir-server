@@ -35,6 +35,11 @@ namespace FhirSchemaManager
                Resources.NextOptionDescritpion,
                new Argument<bool> { Arity = ArgumentArity.ZeroOrOne });
 
+            var latestOption = new Option(
+               OptionAliases.Latest,
+               Resources.LatestOptionDescription,
+               new Argument<bool> { Arity = ArgumentArity.ZeroOrOne });
+
             var rootCommand = new RootCommand();
 
             var currentCommand = new Command(CommandNames.Current, Resources.CurrentCommandDescription)
@@ -50,11 +55,12 @@ namespace FhirSchemaManager
                 fhirServerOption,
                 versionOption,
                 nextOption,
+                latestOption,
             };
-            applyCommand.Handler = CommandHandler.Create<string, Uri, int, bool>(ApplyCommand.HandlerAsync);
+            applyCommand.Handler = CommandHandler.Create<string, Uri, int, bool, bool>(ApplyCommand.HandlerAsync);
             applyCommand.Argument.AddValidator(symbol => Validators.RequiredOptionValidator.Validate(symbol, connectionStringOption, Resources.ConnectionStringRequiredValidation));
             applyCommand.Argument.AddValidator(symbol => Validators.RequiredOptionValidator.Validate(symbol, fhirServerOption, Resources.FhirServerRequiredValidation));
-            applyCommand.Argument.AddValidator(symbol => Validators.MutuallyExclusiveOptionValidator.Validate(symbol, new List<Option> { versionOption, nextOption }, Resources.MutuallyExclusiveValidation));
+            applyCommand.Argument.AddValidator(symbol => Validators.MutuallyExclusiveOptionValidator.Validate(symbol, new List<Option> { versionOption, nextOption, latestOption }, Resources.MutuallyExclusiveValidation));
 
             var availableCommand = new Command(CommandNames.Available, Resources.AvailableCommandDescription)
             {

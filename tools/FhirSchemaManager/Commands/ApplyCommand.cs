@@ -19,7 +19,7 @@ namespace FhirSchemaManager.Commands
 {
     public static class ApplyCommand
     {
-        public static async Task HandlerAsync(string connectionString, Uri fhirServer, int version, bool next)
+        public static async Task HandlerAsync(string connectionString, Uri fhirServer, int version, bool next, bool latest)
         {
             ISchemaClient schemaClient = new SchemaClient(fhirServer);
 
@@ -45,7 +45,11 @@ namespace FhirSchemaManager.Commands
                     availableVersions.RemoveAt(0);
                 }
 
-                availableVersions = availableVersions.Where(availableVersion => availableVersion.Id <= (next == true ? availableVersions.First().Id : version))
+                availableVersions = availableVersions.Where(availableVersion => availableVersion.Id <= (next == true ?
+                                                                                                        availableVersions.First().Id :
+                                                                                                        latest == true ?
+                                                                                                        availableVersions.Last().Id :
+                                                                                                        version))
                     .ToList();
 
                 foreach (AvailableVersion availableVersion in availableVersions)
@@ -53,6 +57,8 @@ namespace FhirSchemaManager.Commands
                     string script = await schemaClient.GetScript(availableVersion.Script);
 
                     await ValidateVersion(schemaClient, availableVersion.Id);
+
+                    Console.WriteLine(string.Format(Resources.SchemaMigrationStartedMessage, availableVersion.Id));
 
                     // check if the record for given version exists in failed status
                     SchemaDataStore.ExecuteQuery(connectionString, string.Join(SchemaDataStore.DeleteQuery, availableVersion.Id, SchemaDataStore.Failed), availableVersion.Id);
@@ -63,7 +69,7 @@ namespace FhirSchemaManager.Commands
                     // Update version status to complete state
                     SchemaDataStore.ExecuteUpsertQuery(connectionString, availableVersion.Id, "complete");
 
-                    Console.WriteLine(string.Format(Resources.SuccessMessage, availableVersion.Id));
+                    Console.WriteLine(string.Format(Resources.SchemaMigrationSuccessMessage, availableVersion.Id));
                 }
             }
             catch (SchemaManagerException ex)
@@ -90,7 +96,7 @@ namespace FhirSchemaManager.Commands
             // check if version lies in the compatibility range
             if (version < compatibleVersion.Min || version > compatibleVersion.Max)
             {
-                throw new SchemaManagerException(Resources.VersionIncompatibilityMessage);
+                throw new SchemaManagerException(string.Join(Resources.VersionIncompatibilityMessage, version));
             }
 
             List<CurrentVersion> currentVersions = await schemaClient.GetCurrentVersionInformation();
@@ -98,7 +104,7 @@ namespace FhirSchemaManager.Commands
             // check if any instance is not running on the previous version
             if (currentVersions.Any(currentVersion => currentVersion.Id != (version - 1) && currentVersion.Servers.Count > 0))
             {
-                throw new SchemaManagerException(Resources.InvalidVersionMessage);
+                throw new SchemaManagerException(string.Join(Resources.InvalidVersionMessage, version));
             }
         }
     }
