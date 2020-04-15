@@ -2,6 +2,7 @@
 # Builds, tests, and packages the solution for all PR requests.	
 
 name: $(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:-r)
+trigger: none
 
 variables:
 - template: ci-variables.yml
