@@ -153,7 +153,7 @@
   <data name="InvalidVersionMessage" xml:space="preserve">
     <value>The schema version cannot be applied because all the instances are not running the previous version.</value>
   </data>
-  <data name="QueryExecutionExceptionMessage" xml:space="preserve">
+  <data name="QueryExecutionErrorMessage" xml:space="preserve">
     <value>Script execution has failed due to {0}.</value>
   </data>
   <data name="RequestFailedMessage" xml:space="preserve">
