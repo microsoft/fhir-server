@@ -23,13 +23,6 @@ namespace FhirSchemaManager.Commands
         {
             ISchemaClient schemaClient = new SchemaClient(fhirServer);
 
-            var region = new Region(
-                          0,
-                          0,
-                          Console.WindowWidth,
-                          Console.WindowHeight,
-                          true);
-
             try
             {
                 List<AvailableVersion> availableVersions = await schemaClient.GetAvailability();
@@ -61,13 +54,11 @@ namespace FhirSchemaManager.Commands
                     Console.WriteLine(string.Format(Resources.SchemaMigrationStartedMessage, availableVersion.Id));
 
                     // check if the record for given version exists in failed status
-                    SchemaDataStore.ExecuteQuery(connectionString, string.Join(SchemaDataStore.DeleteQuery, availableVersion.Id, SchemaDataStore.Failed), availableVersion.Id);
+                    SchemaDataStore.ExecuteDelete(connectionString, availableVersion.Id, SchemaDataStore.Failed);
 
-                    // Execute script
-                    SchemaDataStore.ExecuteQuery(connectionString, script, availableVersion.Id);
+                    SchemaDataStore.ExecuteScript(connectionString, script, availableVersion.Id);
 
-                    // Update version status to complete state
-                    SchemaDataStore.ExecuteUpsertQuery(connectionString, availableVersion.Id, "complete");
+                    SchemaDataStore.ExecuteUpsert(connectionString, availableVersion.Id, "complete");
 
                     Console.WriteLine(string.Format(Resources.SchemaMigrationSuccessMessage, availableVersion.Id));
                 }

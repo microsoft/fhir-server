@@ -10,44 +10,61 @@ namespace FhirSchemaManager
 {
     public static class SchemaDataStore
     {
-        public const string DeleteQuery = "DELETE FROM dbo.SchemaVersion WHERE Version = {0} AND Status = {1}";
+        public const string DeleteQuery = "DELETE FROM dbo.SchemaVersion WHERE Version = @version AND Status = @status";
         public const string Failed = "failed";
 
-        public static void ExecuteQuery(string connectionString, string queryString, int version)
+        public static void ExecuteScript(string connectionString, string queryString, int version)
         {
             using (var connection = new SqlConnection(connectionString))
             {
                 connection.Open();
-                SqlCommand command = connection.CreateCommand();
-                command.CommandText = queryString;
-                command.CommandType = CommandType.Text;
 
-                try
+                using (var command = new SqlCommand(queryString, connection))
                 {
-                    command.ExecuteNonQueryAsync();
-                }
-                catch (SqlException)
-                {
-                    ExecuteUpsertQuery(connectionString, version, Failed);
-                    throw;
+                    try
+                    {
+                        command.ExecuteNonQuery();
+                    }
+                    catch (SqlException)
+                    {
+                        ExecuteUpsert(connectionString, version, Failed);
+                        throw;
+                    }
                 }
             }
         }
 
-        public static void ExecuteUpsertQuery(string connectionString, int version, string status)
+        public static void ExecuteDelete(string connectionString, int version, string status)
         {
             using (var connection = new SqlConnection(connectionString))
             {
-                var upsertCommand = new SqlCommand("dbo.UpsertSchemaVersion", connection)
-                {
-                    CommandType = CommandType.StoredProcedure,
-                };
-
-                upsertCommand.Parameters.AddWithValue("@version", version);
-                upsertCommand.Parameters.AddWithValue("@status", status);
-
                 connection.Open();
-                upsertCommand.ExecuteNonQuery();
+
+                using (var deleteCommand = new SqlCommand(DeleteQuery, connection))
+                {
+                    deleteCommand.Parameters.AddWithValue("@version", version);
+                    deleteCommand.Parameters.AddWithValue("@status", status);
+
+                    connection.Open();
+                    deleteCommand.ExecuteNonQuery();
+                }
+            }
+        }
+
+        public static void ExecuteUpsert(string connectionString, int version, string status)
+        {
+            using (var connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+
+                using (var upsertCommand = new SqlCommand("dbo.UpsertSchemaVersion", connection))
+                {
+                    upsertCommand.CommandType = CommandType.StoredProcedure;
+                    upsertCommand.Parameters.AddWithValue("@version", version);
+                    upsertCommand.Parameters.AddWithValue("@status", status);
+
+                    upsertCommand.ExecuteNonQuery();
+                }
             }
         }
     }
