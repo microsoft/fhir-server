@@ -51,7 +51,7 @@ stages:
 
 - stage: deployStu3Sql
   displayName: 'Deploy STU3 SQL Site'
-  dependsOn:[]
+  dependsOn: []
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
