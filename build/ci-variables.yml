@@ -1,8 +1,8 @@
 variables:
     ResourceGroupRegion: 'southcentralus'
     resourceGroupRoot: 'msh-fhir-ci'
-    appServicePlanResourceGroup: '$(resourceGroupRoot)-linux'
-    appServicePlanName: '$(resourceGroupRoot)-linux'
-    DeploymentEnvironmentName: '$(resourceGroupRoot)-d'
+    appServicePlanResourceGroup: '$(resourceGroupRoot)'
+    appServicePlanName: '$(resourceGroupRoot)'
+    DeploymentEnvironmentName: '$(resourceGroupRoot)'
     TestEnvironmentName: 'OSS CI'
     ImageTag: '$(build.BuildNumber)'
