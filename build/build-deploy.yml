@@ -51,9 +51,7 @@ stages:
 
 - stage: deployStu3Sql
   displayName: 'Deploy STU3 SQL Site'
-  dependsOn:
-  - provisionEnvironment
-  - DockerBuild
+  dependsOn:[]
   jobs:
   - template: ./jobs/provision-deploy.yml
     parameters: 
