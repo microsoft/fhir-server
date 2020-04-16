@@ -12,7 +12,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
     {
         public static Type GetElementType(this PropertyMapping mapping)
         {
+#if Stu3
             return mapping.ImplementingType;
+#else
+            return mapping.ElementType;
+#endif
         }
     }
 }

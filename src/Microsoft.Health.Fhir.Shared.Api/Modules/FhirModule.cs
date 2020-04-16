@@ -5,11 +5,13 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Hl7.FhirPath;
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.Extensions.DependencyInjection;
@@ -66,6 +68,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             {
                 resource.VersionId = versionId;
                 resource.Meta.LastUpdated = lastModified;
+
                 return resource.ToResourceElement();
             }
 
@@ -77,6 +80,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                         FhirResourceFormat.Json, (str, version, lastModified) =>
                         {
                             var resource = jsonParser.Parse<Resource>(str);
+
                             return SetMetadata(resource, version, lastModified);
                         }
                     },
@@ -84,6 +88,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                         FhirResourceFormat.Xml, (str, version, lastModified) =>
                         {
                             var resource = xmlParser.Parse<Resource>(str);
+
                             return SetMetadata(resource, version, lastModified);
                         }
                     },
@@ -103,6 +108,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton<ValidateExportRequestFilterAttribute>();
             services.AddSingleton<ValidationQueryFilterAndParameterParserAttribute>();
 
+            // Support for resolve()
             FhirPathCompiler.DefaultSymbolTable.AddFhirExtensions();
 
             services.Add<FhirJsonInputFormatter>()
@@ -133,7 +139,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsSelf()
                 .AsService<IProvideCapability>();
 
-            services.TypesInSameAssembly(KnownAssemblies.Core, KnownAssemblies.CoreVersionSpecific)
+            services.TypesInSameAssembly(KnownAssemblies.All)
                 .AssignableTo<IProvideCapability>()
                 .Transient()
                 .AsService<IProvideCapability>();

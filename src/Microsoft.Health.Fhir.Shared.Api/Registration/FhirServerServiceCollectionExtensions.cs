@@ -4,6 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Diagnostics;
+using System.Linq;
 using System.Reflection;
 using EnsureThat;
 using Microsoft.AspNetCore.Builder;
@@ -73,6 +75,19 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddFhirServerBase(fhirServerConfiguration);
 
             services.AddHttpClient();
+
+            var multipleRegisteredServices = services
+                .GroupBy(x => (x.ServiceType, x.ImplementationType, x.ImplementationInstance, x.ImplementationFactory))
+                .Where(x => x.Count() > 1)
+                .ToArray();
+
+            if (multipleRegisteredServices.Any())
+            {
+                foreach (var service in multipleRegisteredServices)
+                {
+                    Debug.WriteLine($"** IoC Config Warning: Service implementation '{service.Key.ImplementationType ?? service.Key.ImplementationInstance ?? service.Key.ImplementationFactory}' was registered multiple times.");
+                }
+            }
 
             return new FhirServerBuilder(services);
         }
