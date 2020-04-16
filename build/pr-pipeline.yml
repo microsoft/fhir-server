@@ -10,3 +10,12 @@ variables:
 
 stages:
 - template: build-deploy.yml
+
+- stage: cleanup
+  displayName: 'Cleanup Azure Environment'
+  dependsOn:
+  - testStu3
+  - testR4
+  - testR5
+  jobs:
+  - template: ./jobs/cleanup.yml
