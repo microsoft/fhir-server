@@ -5,20 +5,18 @@
 
 using System;
 using EnsureThat;
-using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Compartment;
-using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
-using Microsoft.Health.Fhir.Core.Messages.Search;
 
 namespace Microsoft.Health.Fhir.Api.Modules
 {
@@ -45,34 +43,32 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.Add<SearchableSearchParameterDefinitionManager>()
                 .Singleton()
-                .AsSelf();
+                .AsSelf()
+                .AsDelegate<ISearchParameterDefinitionManager.SearchableSearchParameterDefinitionManagerResolver>();
 
             services.Add<SupportedSearchParameterDefinitionManager>()
                 .Singleton()
-                .AsSelf();
-
-            services.Add<SearchableSearchParameterDefinitionManagerResolver>(c => c.GetRequiredService<SearchableSearchParameterDefinitionManager>)
-                .Singleton()
-                .AsSelf();
-
-            services.Add<SupportedSearchParameterDefinitionManagerResolver>(c => c.GetRequiredService<SupportedSearchParameterDefinitionManager>)
-                .Singleton()
-                .AsSelf();
+                .AsSelf()
+                .AsDelegate<ISearchParameterDefinitionManager.SupportedSearchParameterDefinitionManagerResolver>();
 
             services.Add<SearchParameterStatusManager>()
                 .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            // This will be replaced by datastore specific implementations
             Type searchDefinitionManagerType = typeof(SearchParameterDefinitionManager);
             services.Add(c => new FilebasedSearchParameterRegistry(
                     c.GetRequiredService<ISearchParameterDefinitionManager>(),
                     searchDefinitionManagerType.Assembly,
                     $"{searchDefinitionManagerType.Namespace}.unsupported-search-parameters.json"))
-                .Singleton()
+                .Transient()
                 .AsSelf()
-                .AsService<ISearchParameterRegistry>();
+                .AsService<ISearchParameterRegistry>()
+                .AsDelegate<FilebasedSearchParameterRegistry.Resolver>();
+
+            services.Add<SearchParameterSupportResolver>()
+                .Singleton()
+                .AsImplementedInterfaces();
 
             services.TypesInSameAssemblyAs<IFhirElementToSearchValueTypeConverter>()
                 .AssignableTo<IFhirElementToSearchValueTypeConverter>()

@@ -37,6 +37,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             _unsupportedParamsEmbeddedResourceName = unsupportedParamsEmbeddedResourceName;
         }
 
+        public delegate ISearchParameterRegistry Resolver();
+
         public Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses()
         {
             if (_statusResults == null)

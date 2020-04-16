@@ -12,6 +12,7 @@ using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.CosmosDb.Features.Storage.StoredProcedures;
 using Microsoft.Health.CosmosDb.Features.Storage.Versioning;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.CosmosDb;
@@ -20,6 +21,7 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Search;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning;
 
@@ -101,11 +103,15 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsService<ICollectionInitializer>();
 
             services.Add<FhirCollectionSettingsUpdater>()
-                .Singleton()
+                .Transient()
                 .AsService<IFhirCollectionUpdater>();
 
             services.Add<FhirStoredProcedureInstaller>()
-                .Singleton()
+                .Transient()
+                .AsService<IFhirCollectionUpdater>();
+
+            services.Add<CosmosDbStatusRegistryInitializer>()
+                .Transient()
                 .AsService<IFhirCollectionUpdater>();
 
             services.TypesInSameAssemblyAs<IFhirStoredProcedure>()
@@ -131,6 +137,11 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();
+
+            services.Add<CosmosDbStatusRegistry>()
+                .Singleton()
+                .AsSelf()
+                .ReplaceService<ISearchParameterRegistry>();
 
             return fhirServerBuilder;
         }

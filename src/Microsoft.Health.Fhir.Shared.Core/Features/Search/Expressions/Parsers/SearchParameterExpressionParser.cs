@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
         private readonly Dictionary<SearchParamType, Func<string, ISearchValue>> _parserDictionary;
 
         public SearchParameterExpressionParser(
-            SearchableSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
+            ISearchParameterDefinitionManager.SearchableSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
             IReferenceSearchValueParser referenceSearchValueParser)
         {
             EnsureArg.IsNotNull(searchParameterDefinitionManagerResolver, nameof(searchParameterDefinitionManagerResolver));

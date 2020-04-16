@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
         public SystemConformanceProvider(
             IModelInfoProvider modelInfoProvider,
-            SearchableSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
+            ISearchParameterDefinitionManager.SearchableSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
             Func<IScoped<IEnumerable<IProvideCapability>>> capabilityProviders)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));

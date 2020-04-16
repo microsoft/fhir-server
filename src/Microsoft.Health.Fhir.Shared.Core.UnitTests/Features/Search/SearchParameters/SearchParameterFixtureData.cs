@@ -10,6 +10,7 @@ using Hl7.FhirPath;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -21,8 +22,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
     {
         public SearchParameterFixtureData()
         {
-            Compiler = new FhirPathCompiler();
+            SearchDefinitionManager = CreateSearchParameterDefinitionManager();
+        }
 
+        public SearchParameterDefinitionManager SearchDefinitionManager { get; }
+
+        public static FhirElementToSearchValueTypeConverterManager Manager { get; } = CreateFhirElementToSearchValueTypeConverterManager();
+
+        public static FhirPathCompiler Compiler { get; } = new FhirPathCompiler();
+
+        public static FhirElementToSearchValueTypeConverterManager CreateFhirElementToSearchValueTypeConverterManager()
+        {
             var types = typeof(IFhirElementToSearchValueTypeConverter)
                 .Assembly
                 .GetTypes()
@@ -31,16 +41,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var fhirElementToSearchValueTypeConverters =
                 types.Select(x => (IFhirElementToSearchValueTypeConverter)Mock.TypeWithArguments(x));
 
-            Manager = new FhirElementToSearchValueTypeConverterManager(fhirElementToSearchValueTypeConverters);
-
-            SearchDefinitionManager = CreateSearchParameterDefinitionManager();
+            return new FhirElementToSearchValueTypeConverterManager(fhirElementToSearchValueTypeConverters);
         }
-
-        public SearchParameterDefinitionManager SearchDefinitionManager { get; set; }
-
-        public FhirElementToSearchValueTypeConverterManager Manager { get; set; }
-
-        public FhirPathCompiler Compiler { get; set; }
 
         public static SearchParameterDefinitionManager CreateSearchParameterDefinitionManager()
         {
@@ -52,7 +54,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 manager,
                 managerType.Assembly,
                 $"{managerType.Namespace}.unsupported-search-parameters.json");
-            var statusManager = new SearchParameterStatusManager(statusRegistry, manager, Substitute.For<IMediator>());
+            var statusManager = new SearchParameterStatusManager(
+                statusRegistry,
+                manager,
+                new SearchParameterSupportResolver(manager, Manager),
+                Substitute.For<IMediator>());
             statusManager.EnsureInitialized().GetAwaiter().GetResult();
 
             return manager;

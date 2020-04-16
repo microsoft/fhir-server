@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
@@ -33,16 +34,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
         private readonly IMediator _mediator;
         private readonly SearchParameterInfo[] _searchParameterInfos;
         private readonly SearchParameterInfo _queryParameter;
+        private readonly ISearchParameterSupportResolver _searchParameterSupportResolver;
 
         public SearchParameterStatusManagerTests()
         {
             _searchParameterRegistry = Substitute.For<ISearchParameterRegistry>();
             _searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
+            _searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
             _mediator = Substitute.For<IMediator>();
 
             _manager = new SearchParameterStatusManager(
                 _searchParameterRegistry,
                 _searchParameterDefinitionManager,
+                _searchParameterSupportResolver,
                 _mediator);
 
             _searchParameterRegistry.GetSearchParameterStatuses()
@@ -89,6 +93,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
 
             _searchParameterDefinitionManager.GetSearchParameter(new Uri(ResourceQuery))
                 .Returns(_queryParameter);
+
+            _searchParameterSupportResolver
+                .IsSearchParameterSupported(Arg.Any<SearchParameterInfo>())
+                .Returns(false);
+
+            _searchParameterSupportResolver
+                .IsSearchParameterSupported(Arg.Is(_searchParameterInfos[4]))
+                .Returns(true);
         }
 
         [Fact]

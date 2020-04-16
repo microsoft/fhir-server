@@ -21,6 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Models
             IReadOnlyList<SearchParameterComponentInfo> components = null,
             string expression = null,
             IReadOnlyCollection<string> targetResourceTypes = null,
+            IReadOnlyCollection<string> baseResourceTypes = null,
             string description = null)
             : this(
                 name,
@@ -29,6 +30,7 @@ namespace Microsoft.Health.Fhir.Core.Models
                 components,
                 expression,
                 targetResourceTypes,
+                baseResourceTypes,
                 description)
         {
         }
@@ -40,6 +42,7 @@ namespace Microsoft.Health.Fhir.Core.Models
             IReadOnlyList<SearchParameterComponentInfo> components = null,
             string expression = null,
             IReadOnlyCollection<string> targetResourceTypes = null,
+            IReadOnlyCollection<string> baseResourceTypes = null,
             string description = null)
             : this(name)
         {
@@ -48,6 +51,7 @@ namespace Microsoft.Health.Fhir.Core.Models
             Component = components;
             Expression = expression;
             TargetResourceTypes = targetResourceTypes;
+            BaseResourceTypes = baseResourceTypes;
             Description = description;
         }
 
@@ -67,6 +71,8 @@ namespace Microsoft.Health.Fhir.Core.Models
         public string Expression { get; }
 
         public IReadOnlyCollection<string> TargetResourceTypes { get; } = Array.Empty<string>();
+
+        public IReadOnlyCollection<string> BaseResourceTypes { get; } = Array.Empty<string>();
 
         public Uri Url { get; }
 
