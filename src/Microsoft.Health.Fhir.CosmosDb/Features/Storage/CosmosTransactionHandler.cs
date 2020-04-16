@@ -4,7 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Abstractions.Features.Transactions;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {

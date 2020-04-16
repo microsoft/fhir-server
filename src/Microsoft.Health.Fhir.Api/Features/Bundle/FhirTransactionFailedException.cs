@@ -9,11 +9,11 @@ using System.Net;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Models;
 
-namespace Microsoft.Health.Fhir.Core.Features.Persistence
+namespace Microsoft.Health.Fhir.Api.Features.Bundle
 {
-    public class TransactionFailedException : FhirException
+    public class FhirTransactionFailedException : FhirException
     {
-        public TransactionFailedException(string message, HttpStatusCode httpStatusCode, List<OperationOutcomeIssue> operationOutcomeIssues = null)
+        public FhirTransactionFailedException(string message, HttpStatusCode httpStatusCode, List<OperationOutcomeIssue> operationOutcomeIssues = null)
             : base(message)
         {
             Debug.Assert(!string.IsNullOrEmpty(message), "Exception message should not be empty");
@@ -21,9 +21,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             ResponseStatusCode = httpStatusCode;
 
             Issues.Add(new OperationOutcomeIssue(
-                    OperationOutcomeConstants.IssueSeverity.Error,
-                    OperationOutcomeConstants.IssueType.Processing,
-                    message));
+                OperationOutcomeConstants.IssueSeverity.Error,
+                OperationOutcomeConstants.IssueType.Processing,
+                message));
 
             if (operationOutcomeIssues != null)
             {
