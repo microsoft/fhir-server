@@ -67,15 +67,3 @@ stages:
       testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
   
-- stage: testStu3
-  displayName: 'Run Stu3 Tests'
-  dependsOn:
-  - BuildUnitTests
-  - aadTestEnvironment
-  - deployStu3
-  - deployStu3Sql
-  jobs:
-  - template: ./jobs/run-tests.yml
-    parameters:
-      version: Stu3
-      keyVaultName: $(DeploymentEnvironmentName)
