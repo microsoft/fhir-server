@@ -87,7 +87,7 @@ namespace FhirSchemaManager.Commands
             // check if version lies in the compatibility range
             if (version < compatibleVersion.Min || version > compatibleVersion.Max)
             {
-                throw new SchemaManagerException(string.Join(Resources.VersionIncompatibilityMessage, version));
+                throw new SchemaManagerException(string.Format(Resources.VersionIncompatibilityMessage, version));
             }
 
             List<CurrentVersion> currentVersions = await schemaClient.GetCurrentVersionInformation();
@@ -95,7 +95,7 @@ namespace FhirSchemaManager.Commands
             // check if any instance is not running on the previous version
             if (currentVersions.Any(currentVersion => currentVersion.Id != (version - 1) && currentVersion.Servers.Count > 0))
             {
-                throw new SchemaManagerException(string.Join(Resources.InvalidVersionMessage, version));
+                throw new SchemaManagerException(string.Format(Resources.InvalidVersionMessage, version));
             }
         }
     }

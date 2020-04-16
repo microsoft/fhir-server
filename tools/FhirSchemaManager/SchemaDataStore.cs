@@ -23,7 +23,7 @@ namespace FhirSchemaManager
                 {
                     try
                     {
-                        command.ExecuteNonQuery();
+                        command.ExecuteNonQueryAsync();
                     }
                     catch (SqlException)
                     {
@@ -45,7 +45,6 @@ namespace FhirSchemaManager
                     deleteCommand.Parameters.AddWithValue("@version", version);
                     deleteCommand.Parameters.AddWithValue("@status", status);
 
-                    connection.Open();
                     deleteCommand.ExecuteNonQuery();
                 }
             }
