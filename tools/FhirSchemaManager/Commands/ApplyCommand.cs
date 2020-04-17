@@ -70,7 +70,7 @@ namespace FhirSchemaManager.Commands
             }
             catch (SqlException ex)
             {
-                CommandUtils.PrintError(string.Format(Resources.QueryExecutionExceptionMessage, ex.Message));
+                CommandUtils.PrintError(string.Format(Resources.QueryExecutionErrorMessage, ex.Message));
                 return;
             }
         }
