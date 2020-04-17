@@ -15,7 +15,7 @@ namespace FhirSchemaManager.Validators
         /// Validates that only one of the option from given options is present in the symbol
         /// </summary>
         /// <param name="symbol">The symbol representing the execution of the tool</param>
-        /// <param name="mutuallyExclusiveOptions">The option that is required</param>
+        /// <param name="mutuallyExclusiveOptions">The list of mutually exclusive options</param>
         /// <param name="validationErrorMessage">The message to show if only one of the option is not present</param>
         /// <returns>A string to show the users if there is a validation error</returns>
         public static string Validate(SymbolResult symbol, List<Option> mutuallyExclusiveOptions, string validationErrorMessage)

@@ -12,6 +12,7 @@ namespace FhirSchemaManager
     {
         public const string DeleteQuery = "DELETE FROM dbo.SchemaVersion WHERE Version = @version AND Status = @status";
         public const string Failed = "failed";
+        public const string Complete = "complete";
 
         public static void ExecuteQuery(string connectionString, string queryString, int version)
         {

@@ -124,7 +124,7 @@ namespace FhirSchemaManager {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Current version information is not available..
+        ///   Looks up a localized string similar to The current version information is not available due to HttpStatusCode {0}..
         /// </summary>
         internal static string CurrentDefaultErrorDescription {
             get {
@@ -198,9 +198,9 @@ namespace FhirSchemaManager {
         /// <summary>
         ///   Looks up a localized string similar to Script execution has failed due to {0}..
         /// </summary>
-        internal static string QueryExecutionExceptionMessage {
+        internal static string QueryExecutionErrorMessage {
             get {
-                return ResourceManager.GetString("QueryExecutionExceptionMessage", resourceCulture);
+                return ResourceManager.GetString("QueryExecutionErrorMessage", resourceCulture);
             }
         }
         
