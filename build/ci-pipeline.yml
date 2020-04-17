@@ -22,7 +22,7 @@ stages:
         azurePowerShellVersion: latestVersion
         ScriptType: inlineScript
         Inline: |
-          New-AzResourceGroup -Name "$(DeploymentEnvironmentName)" -Location "$(ResourceGroupRegion)" -Force
+          New-AzResourceGroup -Name "$(resourceGroupRoot)" -Location "$(ResourceGroupRegion)" -Force
 
 - stage: deployStu3Sql
   displayName: 'Deploy STU3 SQL Site'
@@ -33,11 +33,11 @@ stages:
     parameters: 
       version: Stu3
       sql: true
-      webAppName: $(DeploymentEnvironmentName)
+      webAppName: $(DeploymentEnvironmentNameSql)
       appServicePlanName: $(appServicePlanName)
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
-      resourceGroup: $(DeploymentEnvironmentName)
+      resourceGroup: $(resourceGroupRoot)
       testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
 
