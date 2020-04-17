@@ -52,7 +52,6 @@ namespace FhirSchemaManager.Commands
                     // Execute script
                     SchemaDataStore.ExecuteQuery(connectionString, script, availableVersion.Id);
 
-                    // Update version status to complete state
                     SchemaDataStore.ExecuteUpsert(connectionString, availableVersion.Id, SchemaDataStore.Complete);
 
                     Console.WriteLine(string.Format(Resources.SuccessMessage, availableVersion.Id));
@@ -82,7 +81,7 @@ namespace FhirSchemaManager.Commands
 
             CompatibleVersion compatibleVersion = await schemaClient.GetCompatibility();
 
-            // check if version lies in the compatibility range
+            // check if version doesn't lies in the compatibility range
             if (version < compatibleVersion.Min || version > compatibleVersion.Max)
             {
                 throw new SchemaManagerException(Resources.VersionIncompatibilityMessage);
