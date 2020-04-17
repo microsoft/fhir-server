@@ -124,7 +124,7 @@ namespace FhirSchemaManager {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Current version information is not available..
+        ///   Looks up a localized string similar to The current version information is not available due to HttpStatusCode {0}..
         /// </summary>
         internal static string CurrentDefaultErrorDescription {
             get {
