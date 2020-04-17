@@ -92,5 +92,3 @@ steps:
       pathToPublish: '$(build.binariesdirectory)/IntegrationTests'
       artifactName: 'IntegrationTests'
       artifactType: 'container'
-      parallel: true
-      parallelCount: 8
