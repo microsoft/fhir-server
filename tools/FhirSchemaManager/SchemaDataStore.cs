@@ -13,7 +13,7 @@ namespace FhirSchemaManager
         public const string DeleteQuery = "DELETE FROM dbo.SchemaVersion WHERE Version = @version AND Status = @status";
         public const string Failed = "failed";
 
-        public static void ExecuteScript(string connectionString, string queryString, int version)
+        public static void ExecuteQuery(string connectionString, string queryString, int version)
         {
             using (var connection = new SqlConnection(connectionString))
             {

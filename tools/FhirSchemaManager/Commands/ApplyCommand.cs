@@ -53,7 +53,7 @@ namespace FhirSchemaManager.Commands
                     // check if the record for given version exists in failed status
                     SchemaDataStore.ExecuteDelete(connectionString, availableVersion.Id, SchemaDataStore.Failed);
 
-                    SchemaDataStore.ExecuteScript(connectionString, script, availableVersion.Id);
+                    SchemaDataStore.ExecuteQuery(connectionString, script, availableVersion.Id);
 
                     SchemaDataStore.ExecuteUpsert(connectionString, availableVersion.Id, "complete");
 
