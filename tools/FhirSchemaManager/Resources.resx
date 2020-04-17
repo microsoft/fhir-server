@@ -168,9 +168,6 @@
   <data name="RequestFailedMessage" xml:space="preserve">
     <value>Request has failed due to {0} is inactive.</value>
   </data>
-  <data name="SchemaMigrationStartedMessage" xml:space="preserve">
-    <value>The schema migration is started for the version {0}.</value>
-  </data>
   <data name="SchemaMigrationSuccessMessage" xml:space="preserve">
     <value>Schema Migration is completed successfully for the version {0}.</value>
   </data>

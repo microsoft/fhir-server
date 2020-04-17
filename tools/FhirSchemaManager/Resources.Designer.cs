@@ -214,15 +214,6 @@ namespace FhirSchemaManager {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The schema migration is started for the version {0}..
-        /// </summary>
-        internal static string SchemaMigrationStartedMessage {
-            get {
-                return ResourceManager.GetString("SchemaMigrationStartedMessage", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Schema Migration is completed successfully for the version {0}..
         /// </summary>
         internal static string SchemaMigrationSuccessMessage {

@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.CommandLine.Rendering;
 using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
@@ -51,8 +50,6 @@ namespace FhirSchemaManager.Commands
 
                     await ValidateVersion(schemaClient, availableVersion.Id);
 
-                    Console.WriteLine(string.Format(Resources.SchemaMigrationStartedMessage, availableVersion.Id));
-
                     // check if the record for given version exists in failed status
                     SchemaDataStore.ExecuteDelete(connectionString, availableVersion.Id, SchemaDataStore.Failed);
 
@@ -82,6 +79,9 @@ namespace FhirSchemaManager.Commands
 
         private static async Task ValidateVersion(ISchemaClient schemaClient, int version)
         {
+            // to ensure server side polling is completed
+            await Task.Delay(60000);
+
             CompatibleVersion compatibleVersion = await schemaClient.GetCompatibility();
 
             // check if version lies in the compatibility range
