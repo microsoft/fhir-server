@@ -76,20 +76,12 @@ jobs:
      
         Set-AzKeyVaultAccessPolicy -VaultName "${{ parameters.webAppName }}" -ObjectId 4d4d503d-9ca8-462e-9e18-b35fc8b5285b -PermissionsToSecrets list,get
 
-  - task: DownloadBuildArtifacts@0
-    inputs:
-      buildType: 'current'
-      downloadType: 'single'
-      downloadPath: '$(System.ArtifactsDirectory)'
-      artifactName: 'deploy'
-
   - task: AzureRmWebAppDeployment@4
     displayName: 'Azure App Service Deploy'
     inputs:
       azureSubscription: '${{ parameters.subscription }}'
-      appType: 'app'
-      webAppName: '${{ parameters.webAppName }}'
-      package: '$(Build.ArtifactStagingDirectory)/deploy/*${{ parameters.version }}*.zip'
-      takeAppOfflineFlag: true
-      enableCustomDeployment: true
-      deploymentType: webDeploy
+      appType: 'webAppContainer'
+      WebAppName: '${{ parameters.webAppName }}'
+      DockerNamespace: $(azureContainerRegistry)
+      DockerRepository: '${{ parameters.version }}_fhir-server'
+      DockerImageTag: ${{ parameters.imageTag }}
