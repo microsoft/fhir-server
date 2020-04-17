@@ -65,11 +65,11 @@ jobs:
             $templateParameters["sqlAdminPassword"] = [System.Web.Security.Membership]::GeneratePassword(15, 5).replace(";", "_").replace("$","!")
      
             # Deploy SQL Environment
-            New-AzResourceGroupDeployment -Name "${{ parameters.webAppName }}" -ResourceGroupName "${{ parameters.resourceGroup }}" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-docker-azuredeploy-sql.json -TemplateParameterObject $templateParameters -Verbose
+            New-AzResourceGroupDeployment -Name "${{ parameters.webAppName }}" -ResourceGroupName "${{ parameters.resourceGroup }}" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy-docker-sql.json -TemplateParameterObject $templateParameters -Verbose
         }
         else{
             # Deploy CosmosDb environment
-            New-AzResourceGroupDeployment -Name "${{ parameters.webAppName }}" -ResourceGroupName "${{ parameters.resourceGroup }}" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-docker-azuredeploy.json -TemplateParameterObject $templateParameters -Verbose
+            New-AzResourceGroupDeployment -Name "${{ parameters.webAppName }}" -ResourceGroupName "${{ parameters.resourceGroup }}" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy-docker.json -TemplateParameterObject $templateParameters -Verbose
         }
      
         Set-AzKeyVaultAccessPolicy -VaultName "${{ parameters.webAppName }}" -ObjectId 4d4d503d-9ca8-462e-9e18-b35fc8b5285b -PermissionsToSecrets list,get
