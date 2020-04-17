@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.CommandLine.Rendering;
 using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
@@ -22,13 +21,6 @@ namespace FhirSchemaManager.Commands
         public static async Task HandlerAsync(string connectionString, Uri fhirServer, int version, bool next)
         {
             ISchemaClient schemaClient = new SchemaClient(fhirServer);
-
-            var region = new Region(
-                          0,
-                          0,
-                          Console.WindowWidth,
-                          Console.WindowHeight,
-                          true);
 
             try
             {
@@ -55,13 +47,13 @@ namespace FhirSchemaManager.Commands
                     await ValidateVersion(schemaClient, availableVersion.Id);
 
                     // check if the record for given version exists in failed status
-                    SchemaDataStore.ExecuteQuery(connectionString, string.Join(SchemaDataStore.DeleteQuery, availableVersion.Id, SchemaDataStore.Failed), availableVersion.Id);
+                    SchemaDataStore.ExecuteDelete(connectionString, availableVersion.Id, SchemaDataStore.Failed);
 
                     // Execute script
                     SchemaDataStore.ExecuteQuery(connectionString, script, availableVersion.Id);
 
                     // Update version status to complete state
-                    SchemaDataStore.ExecuteUpsertQuery(connectionString, availableVersion.Id, "complete");
+                    SchemaDataStore.ExecuteUpsert(connectionString, availableVersion.Id, SchemaDataStore.Complete);
 
                     Console.WriteLine(string.Format(Resources.SuccessMessage, availableVersion.Id));
                 }
@@ -85,6 +77,9 @@ namespace FhirSchemaManager.Commands
 
         private static async Task ValidateVersion(ISchemaClient schemaClient, int version)
         {
+            // to ensure server side polling is completed
+            await Task.Delay(60000);
+
             CompatibleVersion compatibleVersion = await schemaClient.GetCompatibility();
 
             // check if version lies in the compatibility range
