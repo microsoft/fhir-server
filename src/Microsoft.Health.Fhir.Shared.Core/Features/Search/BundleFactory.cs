@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 return new Bundle.EntryComponent
                 {
                     FullUrlElement = new FhirUri(_urlResolver.ResolveResourceUrl(resource)),
-                    Resource = resource.Instance.ToPoco<Resource>(),
+                    Resource = resource.ToPoco<Resource>(),
                     Search = new Bundle.SearchComponent
                     {
                         Mode = r.SearchEntryMode == SearchEntryMode.Match ? Bundle.SearchEntryMode.Match : Bundle.SearchEntryMode.Include,
@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 return new Bundle.EntryComponent
                 {
                     FullUrlElement = new FhirUri(_urlResolver.ResolveResourceUrl(resource, true)),
-                    Resource = resource.Instance.ToPoco<Resource>(),
+                    Resource = resource.ToPoco<Resource>(),
                     Request = new Bundle.RequestComponent
                     {
                         Method = hasVerb ? (Bundle.HTTPVerb?)httpVerb : null,

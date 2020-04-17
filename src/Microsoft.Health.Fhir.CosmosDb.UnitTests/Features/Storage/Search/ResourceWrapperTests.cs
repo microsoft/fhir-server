@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
                 var wrapper = new ResourceWrapper(typedElement, _rawResourceFactory.Create(typedElement), new ResourceRequest(HttpMethod.Post, "http://fhir"), false, null, null, null);
                 var resource = Deserializers.ResourceDeserializer.Deserialize(wrapper);
 
-                var poco = resource.Instance.ToPoco<Observation>();
+                var poco = resource.ToPoco<Observation>();
 
                 Assert.Equal(observation.VersionId, poco.Meta.VersionId);
                 Assert.Equal(lastModified, poco.Meta.LastUpdated);
