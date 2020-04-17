@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
                 throw new UnauthorizedFhirActionException();
             }
 
-            Resource resource = message.Resource.Instance.ToPoco<Resource>();
+            Resource resource = message.Resource.ToPoco<Resource>();
 
             if (await ConformanceProvider.Value.RequireETag(resource.TypeName, cancellationToken) && message.WeakETag == null)
             {
