@@ -47,13 +47,11 @@ jobs:
      
         $additionalProperties = $flattenedCors
      
-        $additionalProperties["SqlServer__DeleteAllDataOnStartup"] = "true"
+        $additionalProperties["SqlServer__DeleteAllDataOnStartup"] = "false"
         $additionalProperties["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true"
 
         $templateParameters = @{
             fhirVersion = "${{ parameters.version }}"
-            appServicePlanResourceGroup = "${{ parameters.appServicePlanResourceGroup }}"
-            appServicePlanName = "${{ parameters.appServicePlanName }}"
             serviceName = "${{ parameters.webAppName }}"
             securityAuthenticationAuthority = "https://login.microsoftonline.com/$(tenant-id)"
             securityAuthenticationAudience = "${{ parameters.testEnvironmentUrl }}"
