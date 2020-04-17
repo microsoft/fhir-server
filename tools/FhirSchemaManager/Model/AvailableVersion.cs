@@ -4,20 +4,22 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using FhirSchemaManager.Model;
+using EnsureThat;
 
-namespace FhirSchemaManager
+namespace FhirSchemaManager.Model
 {
-    public interface ISchemaClient
+    public class AvailableVersion
     {
-        Task<List<CurrentVersion>> GetCurrentVersionInformation();
+        public AvailableVersion(int id, Uri script)
+        {
+            EnsureArg.IsNotNull(script, nameof(script));
 
-        Task<string> GetScript(Uri scriptUri);
+            Id = id;
+            Script = script;
+        }
 
-        Task<CompatibleVersion> GetCompatibility();
+        public int Id { get; }
 
-        Task<List<AvailableVersion>> GetAvailability();
+        public Uri Script { get; }
     }
 }

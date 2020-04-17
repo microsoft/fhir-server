@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "FhirSchemaManager": {
+      "commandName": "Project",
+      "commandLineArgs": "FhirSchemaManager apply --connection-string \"server=(local);Initial Catalog=FHIR_R4;Integrated Security=true\" --fhir-server https://localhost:44348 --version 3"
+    }
+  }
+}

@@ -79,6 +79,24 @@ namespace FhirSchemaManager {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to There are no available versions..
+        /// </summary>
+        internal static string AvailableVersionsDefaultErrorMessage {
+            get {
+                return ResourceManager.GetString("AvailableVersionsDefaultErrorMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The compatible versions information is not available..
+        /// </summary>
+        internal static string CompatibilityDefaultErrorMessage {
+            get {
+                return ResourceManager.GetString("CompatibilityDefaultErrorMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The connection string of the SQL server to apply the schema update..
         /// </summary>
         internal static string ConnectionStringOptionDescription {
@@ -106,7 +124,7 @@ namespace FhirSchemaManager {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Current version information is not available..
+        ///   Looks up a localized string similar to The current version information is not available due to HttpStatusCode {0}..
         /// </summary>
         internal static string CurrentDefaultErrorDescription {
             get {
@@ -142,11 +160,56 @@ namespace FhirSchemaManager {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The schema version cannot be applied because all the instances are not running the previous version..
+        /// </summary>
+        internal static string InvalidVersionMessage {
+            get {
+                return ResourceManager.GetString("InvalidVersionMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Script execution has failed due to {0}..
+        /// </summary>
+        internal static string QueryExecutionErrorMessage {
+            get {
+                return ResourceManager.GetString("QueryExecutionErrorMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Request has failed due to {0} is inactive..
         /// </summary>
         internal static string RequestFailedMessage {
             get {
                 return ResourceManager.GetString("RequestFailedMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The script is not found for the given version..
+        /// </summary>
+        internal static string ScriptNotFound {
+            get {
+                return ResourceManager.GetString("ScriptNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Schema Migration is completed successfully for the version {0}..
+        /// </summary>
+        internal static string SuccessMessage {
+            get {
+                return ResourceManager.GetString("SuccessMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The schema version is not compatbile..
+        /// </summary>
+        internal static string VersionIncompatibilityMessage {
+            get {
+                return ResourceManager.GetString("VersionIncompatibilityMessage", resourceCulture);
             }
         }
         
