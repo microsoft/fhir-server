@@ -29,6 +29,11 @@ namespace FhirSchemaManager
                 Resources.VersionOptionDescription,
                 new Argument<int> { Arity = ArgumentArity.ExactlyOne });
 
+            var forceOption = new Option(
+                OptionAliases.Force,
+                Resources.ForceOptionDescription,
+                new Argument<bool> { Arity = ArgumentArity.ZeroOrOne });
+
             var rootCommand = new RootCommand();
 
             var currentCommand = new Command(CommandNames.Current, Resources.CurrentCommandDescription)
@@ -43,8 +48,9 @@ namespace FhirSchemaManager
                 connectionStringOption,
                 fhirServerOption,
                 versionOption,
+                forceOption,
             };
-            applyCommand.Handler = CommandHandler.Create<string, Uri, int>(ApplyCommand.HandlerAsync);
+            applyCommand.Handler = CommandHandler.Create<string, Uri, int, bool>(ApplyCommand.HandlerAsync);
             applyCommand.Argument.AddValidator(symbol => Validators.RequiredOptionValidator.Validate(symbol, connectionStringOption, Resources.ConnectionStringRequiredValidation));
             applyCommand.Argument.AddValidator(symbol => Validators.RequiredOptionValidator.Validate(symbol, fhirServerOption, Resources.FhirServerRequiredValidation));
             applyCommand.Argument.AddValidator(symbol => Validators.RequiredOptionValidator.Validate(symbol, versionOption, Resources.VersionRequiredValidation));

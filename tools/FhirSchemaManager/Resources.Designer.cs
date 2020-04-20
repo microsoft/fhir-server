@@ -151,6 +151,24 @@ namespace FhirSchemaManager {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The schema migration is run without validating the schema verison..
+        /// </summary>
+        internal static string ForceOptionDescription {
+            get {
+                return ResourceManager.GetString("ForceOptionDescription", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Are you sure to apply command with force option? To discontinue, please enter No..
+        /// </summary>
+        internal static string ForceWarning {
+            get {
+                return ResourceManager.GetString("ForceWarning", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to No connection could be made to the target machine..
         /// </summary>
         internal static string HttpRequestExceptionMessage {

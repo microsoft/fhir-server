@@ -19,7 +19,7 @@ namespace FhirSchemaManager.Commands
 {
     public static class ApplyCommand
     {
-        public static async Task HandlerAsync(string connectionString, Uri fhirServer, int version)
+        public static async Task HandlerAsync(string connectionString, Uri fhirServer, int version, bool force)
         {
             ISchemaClient schemaClient = new SchemaClient(fhirServer);
 
@@ -45,7 +45,18 @@ namespace FhirSchemaManager.Commands
                 {
                     string script = await schemaClient.GetScript(availableVersion.Script);
 
-                    await ValidateVersion(schemaClient, availableVersion.Id);
+                    if (force == false)
+                    {
+                        await ValidateVersion(schemaClient, availableVersion.Id);
+                    }
+                    else
+                    {
+                        Console.WriteLine(Resources.ForceWarning);
+                        if (string.Equals(Console.ReadLine(), "no", StringComparison.OrdinalIgnoreCase))
+                        {
+                            return;
+                        }
+                    }
 
                     // check if the record for given version exists in failed status
                     SchemaDataStore.ExecuteDelete(connectionString, availableVersion.Id, SchemaDataStore.Failed);
