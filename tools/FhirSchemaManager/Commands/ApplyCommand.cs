@@ -80,6 +80,7 @@ namespace FhirSchemaManager.Commands
         private static async Task ValidateVersion(ISchemaClient schemaClient, int version)
         {
             // to ensure server side polling is completed
+            Console.WriteLine(Resources.WaitMessage);
             await Task.Delay(60000);
 
             CompatibleVersion compatibleVersion = await schemaClient.GetCompatibility();

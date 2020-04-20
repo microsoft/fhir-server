@@ -248,5 +248,14 @@ namespace FhirSchemaManager {
                 return ResourceManager.GetString("VersionOptionDescription", resourceCulture);
             }
         }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Waiting for a minute to ensure server side polling is completed....
+        /// </summary>
+        internal static string WaitMessage {
+            get {
+                return ResourceManager.GetString("WaitMessage", resourceCulture);
+            }
+        }
     }
 }

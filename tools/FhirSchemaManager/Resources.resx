@@ -180,4 +180,7 @@
   <data name="VersionOptionDescription" xml:space="preserve">
     <value>The versions between current version and specified version to apply.</value>
   </data>
+  <data name="WaitMessage" xml:space="preserve">
+    <value>Waiting for a minute to ensure server side polling is completed...</value>
+  </data>
 </root>
