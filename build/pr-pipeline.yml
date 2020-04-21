@@ -37,7 +37,8 @@ stages:
 
 - stage: provisionEnvironment
   displayName: Provision Environment
-  dependsOn: []
+  dependsOn:
+  - DockerBuild
   jobs:
   - job: provision
     steps:
