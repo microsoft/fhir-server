@@ -6,7 +6,7 @@
 using System.Collections.Generic;
 using System.Net;
 using Hl7.Fhir.Model;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
@@ -17,7 +17,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         {
             List<OperationOutcomeIssue> operationOutcomeIssues = GetOperationOutcomeIssues(operationOutcome.Issue);
 
-            throw new TransactionFailedException(errorMessage, statusCode, operationOutcomeIssues);
+            throw new FhirTransactionFailedException(errorMessage, statusCode, operationOutcomeIssues);
         }
 
         public static List<OperationOutcomeIssue> GetOperationOutcomeIssues(List<OperationOutcome.IssueComponent> operationOutcomeIssueList)

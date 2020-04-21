@@ -24,6 +24,8 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Abstractions.Exceptions;
+using Microsoft.Health.Abstractions.Features.Transactions;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
@@ -216,7 +218,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             catch (TransactionAbortedException)
             {
                 _logger.LogError("Failed to commit a transaction. Throwing BadRequest as a default exception.");
-                throw new TransactionFailedException(Api.Resources.GeneralTransactionFailedError, HttpStatusCode.BadRequest);
+                throw new FhirTransactionFailedException(Api.Resources.GeneralTransactionFailedError, HttpStatusCode.BadRequest);
             }
 
             return new BundleResponse(responseBundle.ToResourceElement());

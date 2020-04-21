@@ -6,8 +6,8 @@
 using System;
 using System.Data.SqlClient;
 using System.Threading.Tasks;
-using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+using Microsoft.Health.SqlServer.Features.Client;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
