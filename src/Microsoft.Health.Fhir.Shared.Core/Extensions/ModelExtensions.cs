@@ -94,6 +94,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
                 searchParam.Component?.Select(x => new SearchParameterComponentInfo(x.GetComponentDefinitionUri(), x.Expression)).ToArray(),
                 searchParam.Expression,
                 searchParam.Target?.Select(x => x?.ToString()).ToArray(),
+                searchParam.Base?.Select(x => x?.ToString()).ToArray(),
                 searchParam.Description?.Value);
         }
 

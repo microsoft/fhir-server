@@ -11,6 +11,7 @@ using MediatR;
 using Microsoft.Health.Core;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -20,19 +21,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
     {
         private readonly ISearchParameterRegistry _searchParameterRegistry;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
+        private readonly ISearchParameterSupportResolver _searchParameterSupportResolver;
         private readonly IMediator _mediator;
 
         public SearchParameterStatusManager(
             ISearchParameterRegistry searchParameterRegistry,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
+            ISearchParameterSupportResolver searchParameterSupportResolver,
             IMediator mediator)
         {
             EnsureArg.IsNotNull(searchParameterRegistry, nameof(searchParameterRegistry));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
+            EnsureArg.IsNotNull(searchParameterSupportResolver, nameof(searchParameterSupportResolver));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
 
             _searchParameterRegistry = searchParameterRegistry;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
+            _searchParameterSupportResolver = searchParameterSupportResolver;
             _mediator = mediator;
         }
 
@@ -52,7 +57,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                     bool isSearchable = result.Status == SearchParameterStatus.Enabled;
                     bool isSupported = result.Status != SearchParameterStatus.Disabled;
 
-                    // TODO: Re-check if this parameter is now supported.
+                    if (result.Status == SearchParameterStatus.Disabled)
+                    {
+                        // Re-check if this parameter is now supported.
+                        isSupported = _searchParameterSupportResolver.IsSearchParameterSupported(p);
+                    }
 
                     if (p.IsSearchable != isSearchable ||
                         p.IsSupported != isSupported ||
@@ -76,8 +85,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
                     p.IsSearchable = false;
 
-                    // TODO: Check if this parameter is now supported.
-                    p.IsSupported = true;
+                    // Check if this parameter is now supported.
+                    p.IsSupported = _searchParameterSupportResolver.IsSearchParameterSupported(p);
 
                     updated.Add(p);
                 }
