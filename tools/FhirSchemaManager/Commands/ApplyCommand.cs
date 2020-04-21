@@ -18,7 +18,7 @@ namespace FhirSchemaManager.Commands
 {
     public static class ApplyCommand
     {
-        public static async Task HandlerAsync(string connectionString, Uri fhirServer, int version, bool next, bool latest)
+        public static async Task HandlerAsync(string connectionString, Uri fhirServer, MutuallyExclusiveType exclusiveType)
         {
             ISchemaClient schemaClient = new SchemaClient(fhirServer);
 
@@ -37,11 +37,11 @@ namespace FhirSchemaManager.Commands
                     availableVersions.RemoveAt(0);
                 }
 
-                availableVersions = availableVersions.Where(availableVersion => availableVersion.Id <= (next == true ?
+                availableVersions = availableVersions.Where(availableVersion => availableVersion.Id <= (exclusiveType.Next == true ?
                                                                                                         availableVersions.First().Id :
-                                                                                                        latest == true ?
+                                                                                                        exclusiveType.Latest == true ?
                                                                                                         availableVersions.Last().Id :
-                                                                                                        version))
+                                                                                                        exclusiveType.Version))
                     .ToList();
 
                 foreach (AvailableVersion availableVersion in availableVersions)

@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.CommandLine;
 using System.CommandLine.Invocation;
 using FhirSchemaManager.Commands;
+using FhirSchemaManager.Model;
 
 namespace FhirSchemaManager
 {
@@ -57,7 +58,7 @@ namespace FhirSchemaManager
                 nextOption,
                 latestOption,
             };
-            applyCommand.Handler = CommandHandler.Create<string, Uri, int, bool, bool>(ApplyCommand.HandlerAsync);
+            applyCommand.Handler = CommandHandler.Create<string, Uri, MutuallyExclusiveType>(ApplyCommand.HandlerAsync);
             applyCommand.Argument.AddValidator(symbol => Validators.RequiredOptionValidator.Validate(symbol, connectionStringOption, Resources.ConnectionStringRequiredValidation));
             applyCommand.Argument.AddValidator(symbol => Validators.RequiredOptionValidator.Validate(symbol, fhirServerOption, Resources.FhirServerRequiredValidation));
             applyCommand.Argument.AddValidator(symbol => Validators.MutuallyExclusiveOptionValidator.Validate(symbol, new List<Option> { versionOption, nextOption, latestOption }, Resources.MutuallyExclusiveValidation));
