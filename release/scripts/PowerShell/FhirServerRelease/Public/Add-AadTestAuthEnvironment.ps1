@@ -109,6 +109,15 @@ function Add-AadTestAuthEnvironment {
         $application = Get-AzureAdApplicationByIdentifierUri $fhirServiceAudience
     }
 
+    Write-Host "Getting storage accounts in resource group"
+    $storageAccounts = Get-AzStorageAccount -ResourceGroupName $ResourceGroupName
+    foreacH ($storageAccount in $storageAccounts) {
+        $accKey = Get-AzStorageAccountKey -ResourceGroupName $ResourceGroupName -Name $storageAccount.StorageAccountName | Where-Object {$_.KeyName -eq "key1"}
+        $accKeySecureString = ConvertTo-SecureString -String $accKey.Value -AsPlainText -Force
+
+        Set-AzKeyVaultSecret -VaultName $KeyVaultName -Name "$($storageAccount.StorageAccountName)--secret" -SecretValue $accKeySecureString | Out-Null
+    }
+
     Write-Host "Setting roles on API Application"
     $appRoles = ($testAuthEnvironment.users.roles + $testAuthEnvironment.clientApplications.roles) | Select-Object -Unique
     Set-FhirServerApiApplicationRoles -ApiAppId $application.AppId -AppRoles $appRoles | Out-Null
