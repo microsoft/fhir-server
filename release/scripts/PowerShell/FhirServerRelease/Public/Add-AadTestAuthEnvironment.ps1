@@ -111,7 +111,7 @@ function Add-AadTestAuthEnvironment {
 
     Write-Host "Getting storage accounts in resource group"
     $storageAccounts = Get-AzStorageAccount -ResourceGroupName $ResourceGroupName
-    foreacH ($storageAccount in $storageAccounts) {
+    foreach ($storageAccount in $storageAccounts) {
         $accKey = Get-AzStorageAccountKey -ResourceGroupName $ResourceGroupName -Name $storageAccount.StorageAccountName | Where-Object {$_.KeyName -eq "key1"}
         $accKeySecureString = ConvertTo-SecureString -String $accKey.Value -AsPlainText -Force
 
