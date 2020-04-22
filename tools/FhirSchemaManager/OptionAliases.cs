@@ -10,6 +10,8 @@ namespace FhirSchemaManager
         public const string Version = "--version";
         public const string ConnectionString = "--connection-string";
         public const string FhirServer = "--fhir-server";
+        public const string Next = "--next";
+        public const string Latest = "--latest";
         public const string Force = "--force";
     }
 }

@@ -66,8 +66,11 @@ namespace FhirSchemaManager.Commands
                 mode: invocationContext.BindingContext.OutputMode(),
                 resetAfterRender: true);
 
-            var screen = new ScreenView(renderer: consoleRenderer) { Child = tableView };
-            screen.Render(region);
+            using (var screen = new ScreenView(renderer: consoleRenderer))
+            {
+                screen.Child = tableView;
+                screen.Render(region);
+            }
         }
     }
 }
