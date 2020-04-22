@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.CommandLine.Rendering;
 using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
@@ -19,7 +18,7 @@ namespace FhirSchemaManager.Commands
 {
     public static class ApplyCommand
     {
-        public static async Task HandlerAsync(string connectionString, Uri fhirServer, int version)
+        public static async Task HandlerAsync(string connectionString, Uri fhirServer, int version, bool next)
         {
             ISchemaClient schemaClient = new SchemaClient(fhirServer);
 
@@ -38,7 +37,7 @@ namespace FhirSchemaManager.Commands
                     availableVersions.RemoveAt(0);
                 }
 
-                availableVersions = availableVersions.Where(availableVersion => availableVersion.Id <= version)
+                availableVersions = availableVersions.Where(availableVersion => availableVersion.Id <= (next == true ? availableVersions.First().Id : version))
                     .ToList();
 
                 foreach (AvailableVersion availableVersion in availableVersions)

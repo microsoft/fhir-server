@@ -153,6 +153,12 @@
   <data name="InvalidVersionMessage" xml:space="preserve">
     <value>The schema version cannot be applied because all the instances are not running the previous version.</value>
   </data>
+  <data name="MutuallyExclusiveValidation" xml:space="preserve">
+    <value>You must include only one of the option from [version, next, latest].</value>
+  </data>
+  <data name="NextOptionDescritpion" xml:space="preserve">
+    <value>The next version to apply.</value>
+  </data>
   <data name="QueryExecutionErrorMessage" xml:space="preserve">
     <value>Script execution has failed due to {0}.</value>
   </data>
@@ -170,8 +176,5 @@
   </data>
   <data name="VersionOptionDescription" xml:space="preserve">
     <value>The version of the schema to apply.</value>
-  </data>
-  <data name="VersionRequiredValidation" xml:space="preserve">
-    <value>You must include a version.</value>
   </data>
 </root>
