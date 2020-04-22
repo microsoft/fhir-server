@@ -160,11 +160,20 @@ namespace FhirSchemaManager {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The schema version cannot be applied because all the instances are not running the previous version..
+        ///   Looks up a localized string similar to The schema version {0} cannot be applied because all the instances are not running the previous version..
         /// </summary>
         internal static string InvalidVersionMessage {
             get {
                 return ResourceManager.GetString("InvalidVersionMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The versions between current version and latest available version to apply..
+        /// </summary>
+        internal static string LatestOptionDescription {
+            get {
+                return ResourceManager.GetString("LatestOptionDescription", resourceCulture);
             }
         }
         
@@ -205,6 +214,15 @@ namespace FhirSchemaManager {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Schema Migration is completed successfully for the version {0}..
+        /// </summary>
+        internal static string SchemaMigrationSuccessMessage {
+            get {
+                return ResourceManager.GetString("SchemaMigrationSuccessMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The script is not found for the given version..
         /// </summary>
         internal static string ScriptNotFound {
@@ -214,16 +232,7 @@ namespace FhirSchemaManager {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Schema Migration is completed successfully for the version {0}..
-        /// </summary>
-        internal static string SuccessMessage {
-            get {
-                return ResourceManager.GetString("SuccessMessage", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to The schema version is not compatbile..
+        ///   Looks up a localized string similar to The schema version {0} is not compatbile..
         /// </summary>
         internal static string VersionIncompatibilityMessage {
             get {
@@ -232,11 +241,20 @@ namespace FhirSchemaManager {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The version of the schema to apply..
+        ///   Looks up a localized string similar to The versions between current version and specified version to apply..
         /// </summary>
         internal static string VersionOptionDescription {
             get {
                 return ResourceManager.GetString("VersionOptionDescription", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Waiting for a minute to ensure server side polling is completed....
+        /// </summary>
+        internal static string WaitMessage {
+            get {
+                return ResourceManager.GetString("WaitMessage", resourceCulture);
             }
         }
     }

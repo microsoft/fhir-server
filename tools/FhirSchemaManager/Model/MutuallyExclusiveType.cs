@@ -3,14 +3,14 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace FhirSchemaManager
+namespace FhirSchemaManager.Model
 {
-    public static class OptionAliases
+    public class MutuallyExclusiveType
     {
-        public const string Version = "--version";
-        public const string ConnectionString = "--connection-string";
-        public const string FhirServer = "--fhir-server";
-        public const string Next = "--next";
-        public const string Latest = "--latest";
+        public int Version { get; set; }
+
+        public bool Next { get; set; }
+
+        public bool Latest { get; set; }
     }
 }

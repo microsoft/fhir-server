@@ -151,7 +151,10 @@
     <value>No connection could be made to the target machine.</value>
   </data>
   <data name="InvalidVersionMessage" xml:space="preserve">
-    <value>The schema version cannot be applied because all the instances are not running the previous version.</value>
+    <value>The schema version {0} cannot be applied because all the instances are not running the previous version.</value>
+  </data>
+  <data name="LatestOptionDescription" xml:space="preserve">
+    <value>The versions between current version and latest available version to apply.</value>
   </data>
   <data name="MutuallyExclusiveValidation" xml:space="preserve">
     <value>You must include only one of the option from [version, next, latest].</value>
@@ -165,16 +168,19 @@
   <data name="RequestFailedMessage" xml:space="preserve">
     <value>Request has failed due to {0} is inactive.</value>
   </data>
+  <data name="SchemaMigrationSuccessMessage" xml:space="preserve">
+    <value>Schema Migration is completed successfully for the version {0}.</value>
+  </data>
   <data name="ScriptNotFound" xml:space="preserve">
     <value>The script is not found for the given version.</value>
   </data>
-  <data name="SuccessMessage" xml:space="preserve">
-    <value>Schema Migration is completed successfully for the version {0}.</value>
-  </data>
   <data name="VersionIncompatibilityMessage" xml:space="preserve">
-    <value>The schema version is not compatbile.</value>
+    <value>The schema version {0} is not compatbile.</value>
   </data>
   <data name="VersionOptionDescription" xml:space="preserve">
-    <value>The version of the schema to apply.</value>
+    <value>The versions between current version and specified version to apply.</value>
+  </data>
+  <data name="WaitMessage" xml:space="preserve">
+    <value>Waiting for a minute to ensure server side polling is completed...</value>
   </data>
 </root>
