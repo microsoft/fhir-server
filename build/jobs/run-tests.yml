@@ -97,9 +97,9 @@ jobs:
             Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($secretValue.SecretValueText)"
         }
 
-        $storageAccounts = Get-AzStorageAccount -ResourceGroupName $DeploymentEnvironmentName
+        $storageAccounts = Get-AzStorageAccount -ResourceGroupName $(DeploymentEnvironmentName)
         foreach ($storageAccount in $storageAccounts) {
-            $accKey = Get-AzStorageAccountKey -ResourceGroupName $DeploymentEnvironmentName -Name $storageAccount.StorageAccountName | Where-Object {$_.KeyName -eq "key1"}
+            $accKey = Get-AzStorageAccountKey -ResourceGroupName $(DeploymentEnvironmentName) -Name $storageAccount.StorageAccountName | Where-Object {$_.KeyName -eq "key1"}
 
             $storageSecretName = "$($storageAccount.StorageAccountName)_secret"
             Write-Host "##vso[task.setvariable variable=$($storageSecretName)]$($accKey.Value)"
