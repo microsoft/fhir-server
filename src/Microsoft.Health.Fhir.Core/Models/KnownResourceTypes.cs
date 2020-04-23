@@ -31,6 +31,8 @@ namespace Microsoft.Health.Fhir.Core.Models
 
         public const string Parameters = "Parameters";
 
+        public const string Resource = "Resource";
+
         public const string RiskAssessment = "RiskAssessment";
 
         public const string Patient = "Patient";

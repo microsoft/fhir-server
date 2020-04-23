@@ -41,8 +41,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         {
             Type type = GetType();
 
-            var builder = new SearchParameterDefinitionBuilder(
-                _fhirJsonParser,
+            var builder = new TypedElementSearchParameterDefinitionBuilder(
                 _modelInfoProvider,
                 type.Assembly,
                 $"{type.Namespace}.search-parameters.json");
