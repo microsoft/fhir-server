@@ -17,6 +17,8 @@ namespace Microsoft.Health.Fhir.Core.Models
 
         public const string DocumentReference = "DocumentReference";
 
+        public const string DomainResource = "DomainResource";
+
         public const string Encounter = "Encounter";
 
         public const string Immunization = "Immunization";

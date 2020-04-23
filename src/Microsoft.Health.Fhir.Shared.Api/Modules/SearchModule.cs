@@ -70,6 +70,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .Singleton()
                 .AsImplementedInterfaces();
 
+            // Existing model-based converters
             services.TypesInSameAssemblyAs<IFhirElementToSearchValueTypeConverter>()
                 .AssignableTo<IFhirElementToSearchValueTypeConverter>()
                 .Singleton()
@@ -80,6 +81,18 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .Singleton()
                 .AsSelf()
                 .AsService<IFhirElementToSearchValueTypeConverterManager>();
+
+            // TypedElement based converters
+            services.TypesInSameAssemblyAs<IFhirNodeToSearchValueTypeConverter>()
+                .AssignableTo<IFhirNodeToSearchValueTypeConverter>()
+                .Singleton()
+                .AsSelf()
+                .AsService<IFhirNodeToSearchValueTypeConverter>();
+
+            services.Add<FhirNodeToSearchValueTypeConverterManager>()
+                .Singleton()
+                .AsSelf()
+                .AsService<IFhirNodeToSearchValueTypeConverterManager>();
 
             services.AddSingleton<ISearchIndexer, SearchIndexer>();
             services.AddSingleton<ISearchParameterExpressionParser, SearchParameterExpressionParser>();

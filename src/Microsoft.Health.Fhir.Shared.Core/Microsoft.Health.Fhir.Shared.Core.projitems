@@ -69,10 +69,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\ResourceReferenceToReferenceSearchValueTypeConverter.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\SimpleQuantityToQuantitySearchValueTypeConverter.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\UnsignedIntToNumberSearchValueTypeConverter.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Expressions\Parsers\ExpressionParser.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Expressions\Parsers\ISearchParameterExpressionParser.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Expressions\Parsers\SearchParameterExpressionParser.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Expressions\Parsers\SearchValueExpressionBuilderHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Parameters\PropertyMappingExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Parameters\SearchParameterSupportResolver.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Parameters\SearchParameterToTypeResolver.cs" />
