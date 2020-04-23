@@ -208,6 +208,6 @@ stages:
   - testStu3
   - testR4
   - testR5
-  conditions: always()
+  condition: always()
   jobs:
   - template: ./jobs/cleanup.yml
