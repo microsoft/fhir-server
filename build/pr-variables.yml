@@ -5,7 +5,7 @@ variables:
     appServicePlanResourceGroup: '$(resourceGroupRoot)-linux'
     appServicePlanName: '$(resourceGroupRoot)-southcentralus-linux'
     prNumber: $(system.pullRequest.pullRequestNumber)
-    count: $[counter($(prNumber), 1)]
+    count: $[counter('$(prNumber)', 1)]
     DeploymentEnvironmentName: '$(resourceGroupRoot)-$(prNumber)-$(count)'
     DeploymentEnvironmentNameSql: '$(DeploymentEnvironmentName)-sql'
     DeploymentEnvironmentNameR4: '$(DeploymentEnvironmentName)-r4'
