@@ -151,7 +151,7 @@
     <value>The schema migration is run without validating the schema verison.</value>
   </data>
   <data name="ForceWarning" xml:space="preserve">
-    <value>Are you sure to apply command with force option? To discontinue, please enter No.</value>
+    <value>Are you sure to apply command with force option? Type 'yes' to confirm.</value>
   </data>
   <data name="HttpRequestExceptionMessage" xml:space="preserve">
     <value>No connection could be made to the target machine.</value>

@@ -160,7 +160,7 @@ namespace FhirSchemaManager {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Are you sure to apply command with force option? To discontinue, please enter No..
+        ///   Looks up a localized string similar to Are you sure to apply command with force option? Type &apos;yes&apos; to confirm..
         /// </summary>
         internal static string ForceWarning {
             get {

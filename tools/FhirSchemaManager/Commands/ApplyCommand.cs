@@ -48,17 +48,17 @@ namespace FhirSchemaManager.Commands
                 {
                     string script = await schemaClient.GetScript(availableVersion.Script);
 
-                    if (force == false)
-                    {
-                        await ValidateVersion(schemaClient, availableVersion.Id);
-                    }
-                    else
+                    if (force)
                     {
                         Console.WriteLine(Resources.ForceWarning);
-                        if (string.Equals(Console.ReadLine(), "no", StringComparison.OrdinalIgnoreCase))
+                        if (!string.Equals(Console.ReadLine(), "yes", StringComparison.OrdinalIgnoreCase))
                         {
                             return;
                         }
+                    }
+                    else
+                    {
+                        await ValidateVersion(schemaClient, availableVersion.Id);
                     }
 
                     // check if the record for given version exists in failed status
