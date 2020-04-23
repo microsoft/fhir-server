@@ -4,7 +4,7 @@ variables:
     resourceGroupRoot: 'msh-fhir-pr'
     appServicePlanResourceGroup: '$(resourceGroupRoot)-linux'
     appServicePlanName: '$(resourceGroupRoot)-southcentralus-linux'
-    prNumber: $(system.pullRequest.pullRequestNumber)
+    prNumber: $(build.buildNumber)
     DeploymentEnvironmentName: '$(resourceGroupRoot)-$(prNumber)'
     DeploymentEnvironmentNameSql: '$(DeploymentEnvironmentName)-sql'
     DeploymentEnvironmentNameR4: '$(DeploymentEnvironmentName)-r4'
