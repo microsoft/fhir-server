@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <param name="modelInfoProvider">Model info provider</param>
         /// <param name="logger">The logger.</param>
         public TypedElementSearchIndexer(
-            SupportedSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
+            ISearchParameterDefinitionManager.SupportedSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
             IFhirNodeToSearchValueTypeConverterManager fhirElementTypeConverterManager,
             IReferenceToElementResolver referenceToElementResolver,
             IModelInfoProvider modelInfoProvider,

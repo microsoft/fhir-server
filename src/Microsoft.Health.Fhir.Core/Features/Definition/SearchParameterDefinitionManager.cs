@@ -19,17 +19,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
     /// </summary>
     public class SearchParameterDefinitionManager : ISearchParameterDefinitionManager, IStartable
     {
-        private readonly FhirJsonParser _fhirJsonParser;
         private readonly IModelInfoProvider _modelInfoProvider;
 
         private IDictionary<string, IDictionary<string, SearchParameterInfo>> _typeLookup;
 
-        public SearchParameterDefinitionManager(FhirJsonParser fhirJsonParser, IModelInfoProvider modelInfoProvider)
+        public SearchParameterDefinitionManager(IModelInfoProvider modelInfoProvider)
         {
-            EnsureArg.IsNotNull(fhirJsonParser, nameof(fhirJsonParser));
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
 
-            _fhirJsonParser = fhirJsonParser;
             _modelInfoProvider = modelInfoProvider;
         }
 
@@ -39,12 +36,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public void Start()
         {
-            Type type = GetType();
-
-            var builder = new TypedElementSearchParameterDefinitionBuilder(
+            var builder = new SearchParameterDefinitionBuilder(
                 _modelInfoProvider,
-                type.Assembly,
-                $"{type.Namespace}.search-parameters.json");
+                "search-parameters.json");
 
             builder.Build();
 

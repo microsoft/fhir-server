@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
                 return Enumerable.Empty<ISearchValue>();
             }
 
-            EnsureArg.Matches(FhirNodeType, value.InstanceType, nameof(value));
+            EnsureArg.IsEqualTo(value.InstanceType, FhirNodeType, StringComparison.Ordinal, nameof(value));
 
             return Convert(value);
         }

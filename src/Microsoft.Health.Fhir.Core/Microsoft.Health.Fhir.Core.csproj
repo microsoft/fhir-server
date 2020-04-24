@@ -18,8 +18,18 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Features\Conformance\R4\BaseCapabilities.json" />
-    <EmbeddedResource Include="Features\Conformance\Stu3\BaseCapabilities.json" />
+    <EmbeddedResource Include="Data\R4\BaseCapabilities.json" />
+    <EmbeddedResource Include="Data\R4\compartment.json" />
+    <EmbeddedResource Include="Data\R4\search-parameters.json" />
+    <EmbeddedResource Include="Data\R4\unsupported-search-parameters.json" />
+    <EmbeddedResource Include="Data\R5\BaseCapabilities.json" />
+    <EmbeddedResource Include="Data\R5\compartment.json" />
+    <EmbeddedResource Include="Data\R5\search-parameters.json" />
+    <EmbeddedResource Include="Data\R5\unsupported-search-parameters.json" />
+    <EmbeddedResource Include="Data\Stu3\BaseCapabilities.json" />
+    <EmbeddedResource Include="Data\Stu3\compartment.json" />
+    <EmbeddedResource Include="Data\Stu3\search-parameters.json" />
+    <EmbeddedResource Include="Data\Stu3\unsupported-search-parameters.json" />
     <EmbeddedResource Include="Features\Security\roles.schema.json" />
   </ItemGroup>
 
@@ -45,10 +55,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.ValueSets\Microsoft.Health.Fhir.ValueSets.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <EmbeddedResource Include="Features\Conformance\R5\BaseCapabilities.json" />
   </ItemGroup>
 
   <ItemGroup>

@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.Core
 
         public EvaluationContext GetEvaluationContext(ITypedElement element, Func<string, ITypedElement> elementResolver = null)
         {
-            return new FhirEvaluationContext(element)
+            return new FhirEvaluationContext
             {
                 ElementResolver = elementResolver,
             };

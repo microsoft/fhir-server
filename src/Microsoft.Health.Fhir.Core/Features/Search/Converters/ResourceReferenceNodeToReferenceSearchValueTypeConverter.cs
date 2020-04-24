@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
             _referenceSearchValueParser = referenceSearchValueParser;
         }
 
-        public override string FhirNodeType { get; } = "ResourceReference";
+        public override string FhirNodeType { get; } = "Reference";
 
         protected override IEnumerable<ISearchValue> Convert(ITypedElement value)
         {

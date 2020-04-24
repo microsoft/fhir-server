@@ -22,6 +22,8 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// </summary>
         public bool SupportsTransaction { get; set; }
 
+        public bool UseTypedElementIndexer { get; set; }
+
         /// <summary>
         /// Gets or sets the default value for IncludeTotal in search bundles
         /// </summary>

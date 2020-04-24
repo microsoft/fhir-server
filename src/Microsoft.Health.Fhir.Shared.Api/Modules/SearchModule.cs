@@ -7,6 +7,7 @@ using System;
 using EnsureThat;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Compartment;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -25,6 +26,15 @@ namespace Microsoft.Health.Fhir.Api.Modules
     /// </summary>
     public class SearchModule : IStartupModule
     {
+        private readonly FhirServerConfiguration _configuration;
+
+        public SearchModule(FhirServerConfiguration configuration)
+        {
+            EnsureArg.IsNotNull(configuration, nameof(configuration));
+
+            _configuration = configuration;
+        }
+
         /// <inheritdoc />
         public void Load(IServiceCollection services)
         {
@@ -56,12 +66,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            Type searchDefinitionManagerType = typeof(SearchParameterDefinitionManager);
-            services.Add(c => new FilebasedSearchParameterRegistry(
-                    c.GetRequiredService<ISearchParameterDefinitionManager>(),
-                    searchDefinitionManagerType.Assembly,
-                    $"{searchDefinitionManagerType.Namespace}.unsupported-search-parameters.json"))
-                .Transient()
+            services.Add<FilebasedSearchParameterRegistry>()
+                .Singleton()
                 .AsSelf()
                 .AsService<ISearchParameterRegistry>()
                 .AsDelegate<FilebasedSearchParameterRegistry.Resolver>();
@@ -70,31 +76,39 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .Singleton()
                 .AsImplementedInterfaces();
 
-            // Existing model-based converters
-            services.TypesInSameAssemblyAs<IFhirElementToSearchValueTypeConverter>()
-                .AssignableTo<IFhirElementToSearchValueTypeConverter>()
-                .Singleton()
-                .AsSelf()
-                .AsService<IFhirElementToSearchValueTypeConverter>();
+            if (_configuration.CoreFeatures.UseTypedElementIndexer)
+            {
+                // TypedElement based converters
+                services.TypesInSameAssemblyAs<IFhirNodeToSearchValueTypeConverter>()
+                    .AssignableTo<IFhirNodeToSearchValueTypeConverter>()
+                    .Singleton()
+                    .AsSelf()
+                    .AsService<IFhirNodeToSearchValueTypeConverter>();
 
-            services.Add<FhirElementToSearchValueTypeConverterManager>()
-                .Singleton()
-                .AsSelf()
-                .AsService<IFhirElementToSearchValueTypeConverterManager>();
+                services.Add<FhirNodeToSearchValueTypeConverterManager>()
+                    .Singleton()
+                    .AsSelf()
+                    .AsService<IFhirNodeToSearchValueTypeConverterManager>();
 
-            // TypedElement based converters
-            services.TypesInSameAssemblyAs<IFhirNodeToSearchValueTypeConverter>()
-                .AssignableTo<IFhirNodeToSearchValueTypeConverter>()
-                .Singleton()
-                .AsSelf()
-                .AsService<IFhirNodeToSearchValueTypeConverter>();
+                services.AddSingleton<ISearchIndexer, TypedElementSearchIndexer>();
+            }
+            else
+            {
+                // Existing model-based converters
+                services.TypesInSameAssemblyAs<IFhirElementToSearchValueTypeConverter>()
+                    .AssignableTo<IFhirElementToSearchValueTypeConverter>()
+                    .Singleton()
+                    .AsSelf()
+                    .AsService<IFhirElementToSearchValueTypeConverter>();
 
-            services.Add<FhirNodeToSearchValueTypeConverterManager>()
-                .Singleton()
-                .AsSelf()
-                .AsService<IFhirNodeToSearchValueTypeConverterManager>();
+                services.Add<FhirElementToSearchValueTypeConverterManager>()
+                    .Singleton()
+                    .AsSelf()
+                    .AsService<IFhirElementToSearchValueTypeConverterManager>();
 
-            services.AddSingleton<ISearchIndexer, SearchIndexer>();
+                services.AddSingleton<ISearchIndexer, SearchIndexer>();
+            }
+
             services.AddSingleton<ISearchParameterExpressionParser, SearchParameterExpressionParser>();
             services.AddSingleton<IExpressionParser, ExpressionParser>();
             services.AddSingleton<ISearchOptionsFactory, SearchOptionsFactory>();

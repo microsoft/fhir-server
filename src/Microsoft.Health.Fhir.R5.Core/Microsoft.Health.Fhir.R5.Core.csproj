@@ -12,12 +12,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Features\Definition\search-parameters.json" />
-    <EmbeddedResource Include="Features\Definition\compartment.json" />
-    <EmbeddedResource Include="Features\Definition\unsupported-search-parameters.json" />
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="AngleSharp" Version="0.13.0" />
     <PackageReference Include="Ensure.That" Version="8.1.2" />
     <PackageReference Include="FluentValidation" Version="8.6.1" />

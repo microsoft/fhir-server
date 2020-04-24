@@ -4,10 +4,13 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Definition.BundleNavigators;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Xunit;
 
@@ -20,8 +23,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         public CompartmentDefinitionManagerTests()
         {
             var validCompartmentBundle = Samples.GetJsonSample<Bundle>("ValidCompartmentDefinition");
-            _validBuiltCompartment = new CompartmentDefinitionManager(new FhirJsonParser());
-            _validBuiltCompartment.Build(validCompartmentBundle);
+            _validBuiltCompartment = new CompartmentDefinitionManager(ModelInfoProvider.Instance);
+            _validBuiltCompartment.Build(new BundleWrapper(validCompartmentBundle.ToTypedElement()));
         }
 
         [Theory]
@@ -39,8 +42,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         public void GivenAnInvalidCompartmentDefinitionBundle_Issues_MustBeReturned()
         {
             var invalidCompartmentBundle = Samples.GetJsonSample<Bundle>("InvalidCompartmentDefinition");
-            var invalidBuiltCompartment = new CompartmentDefinitionManager(new FhirJsonParser());
-            var exception = Assert.Throws<InvalidDefinitionException>(() => invalidBuiltCompartment.Build(invalidCompartmentBundle));
+            var invalidBuiltCompartment = new CompartmentDefinitionManager(ModelInfoProvider.Instance);
+            var exception = Assert.Throws<InvalidDefinitionException>(() => invalidBuiltCompartment.Build(new BundleWrapper(invalidCompartmentBundle.ToTypedElement())));
             Assert.Contains("invalid entries", exception.Message);
             Assert.Equal(3, exception.Issues.Count);
             Assert.Contains(exception.Issues, ic => ic.Severity == OperationOutcome.IssueSeverity.Fatal.ToString() && ic.Code == OperationOutcome.IssueType.Invalid.ToString() && ic.Diagnostics.Contains("not a CompartmentDefinition"));

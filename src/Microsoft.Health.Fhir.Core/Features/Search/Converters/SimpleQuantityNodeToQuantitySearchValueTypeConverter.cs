@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     /// </summary>
     public class SimpleQuantityNodeToQuantitySearchValueTypeConverter : FhirNodeToSearchValueTypeConverter<QuantitySearchValue>
     {
-        public override string FhirNodeType { get; } = "SimpleQuantity";
+        public override string FhirNodeType { get; } = "Quantity";
 
         protected override IEnumerable<ISearchValue> Convert(ITypedElement value)
         {
