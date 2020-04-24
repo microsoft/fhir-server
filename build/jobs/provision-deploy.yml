@@ -60,7 +60,7 @@ jobs:
             additionalFhirServerConfigProperties = $additionalProperties 
             enableAadSmartOnFhirProxy = $true
             enableExport = $true
-            imageTag = '${{ parameters.version }}_fhir-server'
+            imageTag = '${{ parameters.imageTag }}'
         }
      
         if("${{ parameters.sql }}" -eq "true"){
