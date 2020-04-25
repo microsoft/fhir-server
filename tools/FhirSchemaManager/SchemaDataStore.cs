@@ -5,6 +5,8 @@
 
 using System.Data;
 using System.Data.SqlClient;
+using Microsoft.SqlServer.Management.Common;
+using Microsoft.SqlServer.Management.Smo;
 
 namespace FhirSchemaManager
 {
@@ -20,17 +22,16 @@ namespace FhirSchemaManager
             {
                 connection.Open();
 
-                using (var command = new SqlCommand(queryString, connection))
+                try
                 {
-                    try
-                    {
-                        command.ExecuteNonQueryAsync();
-                    }
-                    catch (SqlException)
-                    {
-                        ExecuteUpsert(connectionString, version, Failed);
-                        throw;
-                    }
+                    var server = new Server(new ServerConnection(connection));
+
+                    server.ConnectionContext.ExecuteNonQuery(queryString);
+                }
+                catch (SqlException)
+                {
+                    ExecuteUpsert(connectionString, version, Failed);
+                    throw;
                 }
             }
         }
