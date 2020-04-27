@@ -32,9 +32,9 @@
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="3.1.3" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="3.1.3" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="3.1.3" />
-    <PackageReference Include="Microsoft.Health.Abstractions" Version="1.0.0-master-20200416-1" />
-    <PackageReference Include="Microsoft.Health.Core" Version="1.0.0-master-20200416-1" />
-    <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection" Version="1.0.0-master-20200416-1" />
+    <PackageReference Include="Microsoft.Health.Abstractions" Version="1.0.0-master-20200427-1" />
+    <PackageReference Include="Microsoft.Health.Core" Version="1.0.0-master-20200427-1" />
+    <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection" Version="1.0.0-master-20200427-1" />
     <PackageReference Include="Hl7.Fhir.Serialization" Version="1.5.0" />
     <PackageReference Include="Hl7.FhirPath" Version="1.5.0" />
     <PackageReference Include="Newtonsoft.Json.Schema" Version="3.0.11" />
