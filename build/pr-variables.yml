@@ -14,6 +14,7 @@ variables:
     DeploymentEnvironmentNameR5: '$(DeploymentEnvironmentName)-r5'
     DeploymentEnvironmentNameR5Sql: '$(DeploymentEnvironmentNameR5)-sql'
     CrucibleEnvironmentUrl: 'https://crucible.mshapis.com/'
+    TestEnvironmentUrl: 'https://$(DeploymentEnvironmentNameStu3).azurewebsites.net'
     TestClientUrl: 'https://$(DeploymentEnvironmentName)-client/'
     TestEnvironmentName: 'OSS PR$(prNumber)'
     WindowsVmImage: 'windows-latest'

@@ -3,8 +3,6 @@ parameters:
   type: string
 - name: keyVaultName
   type: string
-- name: webAppName
-  type: string
 - name: runIntegration
   type: boolean
   default: true
@@ -90,16 +88,17 @@ jobs:
       ScriptType: inlineScript
       Inline: |
         $secrets = Get-AzKeyVaultSecret -VaultName $(DeploymentEnvironmentName)-ts
-
+        Write-Host "From TS"
         foreach($secret in $secrets)
         {
             $environmentVariableName = $secret.Name.Replace("--","_")
 
             $secretValue = Get-AzKeyVaultSecret -VaultName $(DeploymentEnvironmentName)-ts -Name $secret.Name
+            Write-Host "Overwriting $environmentVariableName with value $secretValue"
             Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($secretValue.SecretValueText)"
         }
 
-        Write-Host "##vso[task.setvariable variable=Resource]https://${{ parameters.webAppName }}.azurewebsites.net"
+        Write-Host "##vso[task.setvariable variable=Resource]$(TestEnvironmentUrl)"
         
         $secrets = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info
  
