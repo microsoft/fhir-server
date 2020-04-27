@@ -3,6 +3,8 @@ parameters:
   type: string
 - name: keyVaultName
   type: string
+- name: webAppName
+  type: string
 - name: runIntegration
   type: boolean
   default: true
@@ -97,9 +99,8 @@ jobs:
             Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($secretValue.SecretValueText)"
         }
 
-        Write-Host "##vso[task.setvariable variable=Resource]$(TestEnvironmentUrl)"
+        Write-Host "##vso[task.setvariable variable=Resource]https://${{ parameters.webAppName }}.azurewebsites.net"
         
-        # Do not know if this is needed...
         $secrets = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info
  
         foreach($secret in $secrets)

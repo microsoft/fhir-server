@@ -72,7 +72,6 @@ stages:
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(DeploymentEnvironmentName)
-      testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
 
 - stage: deployStu3Sql
@@ -90,7 +89,6 @@ stages:
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(DeploymentEnvironmentName)
-      testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
 
 - stage: deployR4
@@ -107,7 +105,6 @@ stages:
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(DeploymentEnvironmentName)
-      testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
 
 - stage: deployR4Sql
@@ -125,7 +122,6 @@ stages:
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(DeploymentEnvironmentName)
-      testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
 
 - stage: deployR5
@@ -142,7 +138,6 @@ stages:
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(DeploymentEnvironmentName)
-      testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
 
 - stage: deployR5Sql
@@ -160,7 +155,6 @@ stages:
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(DeploymentEnvironmentName)
-      testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
   
 - stage: testStu3
@@ -175,6 +169,7 @@ stages:
     parameters:
       version: Stu3
       keyVaultName: $(DeploymentEnvironmentNameStu3)
+      webAppName: $(DeploymentEnvironmentNameStu3)
 
 - stage: testR4
   displayName: 'Run R4 Tests'
@@ -188,6 +183,7 @@ stages:
     parameters:
       version: R4
       keyVaultName: $(DeploymentEnvironmentNameR4)
+      webAppName: $(DeploymentEnvironmentNameR4)
 
 - stage: testR5
   displayName: 'Run R5 Tests'
@@ -201,6 +197,7 @@ stages:
     parameters:
       version: R5
       keyVaultName: $(DeploymentEnvironmentNameR5)
+      webAppName: $(DeploymentEnvironmentNameR5)
 
 - stage: cleanup
   displayName: 'Cleanup Azure Environment'

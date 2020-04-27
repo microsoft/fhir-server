@@ -15,8 +15,6 @@ parameters:
   type: string
 - name: resourceGroup
   type: string
-- name: testEnvironmentUrl
-  type: string
 - name: imageTag
   type: string
 
@@ -56,7 +54,7 @@ jobs:
             appServicePlanName = "${{ parameters.appServicePlanName }}"
             serviceName = "${{ parameters.webAppName }}"
             securityAuthenticationAuthority = "https://login.microsoftonline.com/$(tenant-id)"
-            securityAuthenticationAudience = "${{ parameters.testEnvironmentUrl }}"
+            securityAuthenticationAudience = "https://${{ parameters.webAppName }}.azurewebsites.net"
             additionalFhirServerConfigProperties = $additionalProperties 
             enableAadSmartOnFhirProxy = $true
             enableExport = $true
