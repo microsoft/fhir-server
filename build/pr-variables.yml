@@ -7,14 +7,20 @@ variables:
     prNumber: $(system.pullRequest.pullRequestNumber)
     count: $[counter('$(prNumber)', 1)]
     DeploymentEnvironmentName: '$(resourceGroupRoot)-$(prNumber)-$(count)'
-    DeploymentEnvironmentNameStu3: '$(DeploymentEnvironmentName)-s3'
-    DeploymentEnvironmentNameStu3Sql: '$(DeploymentEnvironmentNameStu3)-sql'
+    DeploymentEnvironmentNameSql: '$(DeploymentEnvironmentName)-sql'
     DeploymentEnvironmentNameR4: '$(DeploymentEnvironmentName)-r4'
     DeploymentEnvironmentNameR4Sql: '$(DeploymentEnvironmentNameR4)-sql'
     DeploymentEnvironmentNameR5: '$(DeploymentEnvironmentName)-r5'
     DeploymentEnvironmentNameR5Sql: '$(DeploymentEnvironmentNameR5)-sql'
     CrucibleEnvironmentUrl: 'https://crucible.mshapis.com/'
-    TestEnvironmentUrl: 'https://$(DeploymentEnvironmentNameStu3).azurewebsites.net'
+    TestEnvironmentUrl: 'https://$(DeploymentEnvironmentName).azurewebsites.net'
+    # These variables are not used in the deployment scripts, but are used in the E2E tests files.
+    TestEnvironmentUrl_Sql: 'https://$(DeploymentEnvironmentName)-sql.azurewebsites.net'
+    TestEnvironmentUrl_R4: 'https://$(DeploymentEnvironmentName)-r4.azurewebsites.net'
+    TestEnvironmentUrl_R4_Sql: 'https://$(DeploymentEnvironmentName)-r4-sql.azurewebsites.net'
+    TestEnvironmentUrl_R5: 'https://$(DeploymentEnvironmentName)-r5.azurewebsites.net'
+    TestEnvironmentUrl_R5_Sql: 'https://$(DeploymentEnvironmentName)-r5-sql.azurewebsites.net'
+    #-----------------------------------------------------------------------------------------
     TestClientUrl: 'https://$(DeploymentEnvironmentName)-client/'
     TestEnvironmentName: 'OSS PR$(prNumber)'
     WindowsVmImage: 'windows-latest'
