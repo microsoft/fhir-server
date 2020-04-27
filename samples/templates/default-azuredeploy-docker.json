@@ -173,6 +173,7 @@
     },
     "resources": [
         {
+            "condition": "[empty(parameters('appServicePlanResourceGroup'))]",
             "apiVersion": "2019-08-01",
             "name": "[variables('appServicePlanName')]",
             "type": "Microsoft.Web/serverfarms",

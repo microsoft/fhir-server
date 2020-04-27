@@ -7,11 +7,12 @@ variables:
     prNumber: $(system.pullRequest.pullRequestNumber)
     count: $[counter('$(prNumber)', 1)]
     DeploymentEnvironmentName: '$(resourceGroupRoot)-$(prNumber)-$(count)'
-    DeploymentEnvironmentNameSql: '$(DeploymentEnvironmentName)-sql'
+    DeploymentEnvironmentNameStu3: '$(DeploymentEnvironmentName)-s3'
+    DeploymentEnvironmentNameStu3Sql: '$(DeploymentEnvironmentNameStu3)-sql'
     DeploymentEnvironmentNameR4: '$(DeploymentEnvironmentName)-r4'
-    DeploymentEnvironmentNameR4Sql: '$(DeploymentEnvironmentName)-r4-sql'
+    DeploymentEnvironmentNameR4Sql: '$(DeploymentEnvironmentNameR4)-sql'
     DeploymentEnvironmentNameR5: '$(DeploymentEnvironmentName)-r5'
-    DeploymentEnvironmentNameR5Sql: '$(DeploymentEnvironmentName)-r5-sql'
+    DeploymentEnvironmentNameR5Sql: '$(DeploymentEnvironmentNameR5)-sql'
     CrucibleEnvironmentUrl: 'https://crucible.mshapis.com/'
     TestEnvironmentUrl: 'https://$(DeploymentEnvironmentName).azurewebsites.net'
     TestClientUrl: 'https://$(DeploymentEnvironmentName)-client/'
