@@ -72,7 +72,6 @@ stages:
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(DeploymentEnvironmentName)
-      testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
 
 - stage: deployStu3Sql
@@ -90,7 +89,6 @@ stages:
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(DeploymentEnvironmentName)
-      testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
 
 - stage: deployR4
@@ -107,7 +105,6 @@ stages:
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(DeploymentEnvironmentName)
-      testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
 
 - stage: deployR4Sql
@@ -125,7 +122,6 @@ stages:
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(DeploymentEnvironmentName)
-      testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
 
 - stage: deployR5
@@ -142,7 +138,6 @@ stages:
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(DeploymentEnvironmentName)
-      testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
 
 - stage: deployR5Sql
@@ -160,7 +155,6 @@ stages:
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
       resourceGroup: $(DeploymentEnvironmentName)
-      testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
   
 - stage: testStu3
