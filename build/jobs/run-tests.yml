@@ -88,13 +88,12 @@ jobs:
       ScriptType: inlineScript
       Inline: |
         $secrets = Get-AzKeyVaultSecret -VaultName $(DeploymentEnvironmentName)-ts
-        Write-Host "From TS"
+        
         foreach($secret in $secrets)
         {
             $environmentVariableName = $secret.Name.Replace("--","_")
 
             $secretValue = Get-AzKeyVaultSecret -VaultName $(DeploymentEnvironmentName)-ts -Name $secret.Name
-            Write-Host "Overwriting $environmentVariableName with value $secretValue"
             Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($secretValue.SecretValueText)"
         }
 
