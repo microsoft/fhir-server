@@ -20,6 +20,7 @@ using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Operations.Export;
+using Microsoft.Health.Fhir.Api.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Cors;
 using Microsoft.Health.Fhir.Core.Registration;
@@ -93,16 +94,17 @@ namespace Microsoft.Extensions.DependencyInjection
         }
 
         /// <summary>
-        /// Adds the export worker background service.
+        /// Adds background worker services.
         /// </summary>
         /// <param name="fhirServerBuilder">The FHIR server builder.</param>
         /// <returns>The builder.</returns>
-        public static IFhirServerBuilder AddExportWorker(
+        public static IFhirServerBuilder AddBackgroundWorkers(
             this IFhirServerBuilder fhirServerBuilder)
         {
             EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
 
             fhirServerBuilder.Services.AddHostedService<ExportJobWorkerBackgroundService>();
+            fhirServerBuilder.Services.AddHostedService<ReindexJobWorkerBackgroundService>();
 
             return fhirServerBuilder;
         }
