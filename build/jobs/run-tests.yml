@@ -88,7 +88,7 @@ jobs:
       ScriptType: inlineScript
       Inline: |
         $secrets = Get-AzKeyVaultSecret -VaultName $(DeploymentEnvironmentName)-ts
-
+        
         foreach($secret in $secrets)
         {
             $environmentVariableName = $secret.Name.Replace("--","_")
@@ -107,7 +107,6 @@ jobs:
 
         Write-Host "##vso[task.setvariable variable=Resource]$(TestEnvironmentUrl)"
         
-        # Do not know if this is needed...
         $secrets = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info
  
         foreach($secret in $secrets)

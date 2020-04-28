@@ -60,6 +60,7 @@ jobs:
             additionalFhirServerConfigProperties = $additionalProperties 
             enableAadSmartOnFhirProxy = $true
             enableExport = $true
+            imageTag = '${{ parameters.imageTag }}'
         }
      
         if("${{ parameters.sql }}" -eq "true"){
@@ -75,13 +76,3 @@ jobs:
         }
      
         Set-AzKeyVaultAccessPolicy -VaultName "${{ parameters.webAppName }}" -ObjectId 4d4d503d-9ca8-462e-9e18-b35fc8b5285b -PermissionsToSecrets list,get
-
-  - task: AzureRmWebAppDeployment@4
-    displayName: 'Azure App Service Deploy'
-    inputs:
-      azureSubscription: '${{ parameters.subscription }}'
-      appType: 'webAppContainer'
-      WebAppName: '${{ parameters.webAppName }}'
-      DockerNamespace: $(azureContainerRegistry)
-      DockerRepository: '${{ parameters.version }}_fhir-server'
-      DockerImageTag: ${{ parameters.imageTag }}
