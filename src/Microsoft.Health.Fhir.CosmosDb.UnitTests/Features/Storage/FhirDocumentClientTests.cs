@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         {
             _innerClient
                 .ReadDatabaseFeedAsync(Arg.Is<FeedOptions>(o => o.ConsistencyLevel == ConsistencyLevel.Session && o.SessionToken == "1"))
-                .Returns(CosmosDbMockingHelper.CreateFeedResponse(Enumerable.Empty<Database>(), new NameValueCollection { { CosmosDbHeaders.SessionToken, "2" } }));
+                .Returns(new FeedResponse<Database>(Enumerable.Empty<Database>()));
 
             _requestHeaders.Add(CosmosDbHeaders.ConsistencyLevel, "Session");
             _requestHeaders.Add(CosmosDbHeaders.SessionToken, "1");
@@ -100,7 +100,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         public async Task GivenAFeedRequest_WithWithNoConsistencySpecifiedAndNoRequestOptions_ThenNoRequestOptionsAreCreated()
         {
             _innerClient.ReadDatabaseFeedAsync()
-                .ReturnsForAnyArgs(CosmosDbMockingHelper.CreateFeedResponse(Enumerable.Empty<Database>(), new NameValueCollection()));
+                .ReturnsForAnyArgs(new FeedResponse<Database>(Enumerable.Empty<Database>()));
             await _fhirClient.ReadDatabaseFeedAsync();
             await _innerClient.Received().ReadDatabaseFeedAsync();
 
@@ -170,7 +170,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
 
             _innerClient
                 .ReadDatabaseFeedAsync(Arg.Is<FeedOptions>(o => o.ResponseContinuationTokenLimitInKb == 5))
-                .Returns(CosmosDbMockingHelper.CreateFeedResponse(Enumerable.Empty<Database>(), new NameValueCollection()));
+                .Returns(new FeedResponse<Database>(Enumerable.Empty<Database>()));
 
             await client.ReadDatabaseFeedAsync();
 
@@ -182,7 +182,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         {
             _innerClient
                 .ReadDatabaseFeedAsync(Arg.Any<FeedOptions>())
-                .Returns(CosmosDbMockingHelper.CreateFeedResponse(Enumerable.Empty<Database>(), new NameValueCollection { { CosmosDbHeaders.RequestCharge, "10" } }));
+                .Returns(new FeedResponse<Database>(Enumerable.Empty<Database>()));
 
             await _fhirClient.ReadDatabaseFeedAsync();
             await _fhirClient.ReadDatabaseFeedAsync();

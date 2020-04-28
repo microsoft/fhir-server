@@ -88,7 +88,7 @@ jobs:
       ScriptType: inlineScript
       Inline: |
         $secrets = Get-AzKeyVaultSecret -VaultName $(DeploymentEnvironmentName)-ts
-
+        
         foreach($secret in $secrets)
         {
             $environmentVariableName = $secret.Name.Replace("--","_")
@@ -97,9 +97,16 @@ jobs:
             Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($secretValue.SecretValueText)"
         }
 
+        $storageAccounts = Get-AzStorageAccount -ResourceGroupName $(DeploymentEnvironmentName)
+        foreach ($storageAccount in $storageAccounts) {
+            $accKey = Get-AzStorageAccountKey -ResourceGroupName $(DeploymentEnvironmentName) -Name $storageAccount.StorageAccountName | Where-Object {$_.KeyName -eq "key1"}
+
+            $storageSecretName = "$($storageAccount.StorageAccountName)_secret"
+            Write-Host "##vso[task.setvariable variable=$($storageSecretName)]$($accKey.Value)"
+        }
+
         Write-Host "##vso[task.setvariable variable=Resource]$(TestEnvironmentUrl)"
         
-        # Do not know if this is needed...
         $secrets = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info
  
         foreach($secret in $secrets)

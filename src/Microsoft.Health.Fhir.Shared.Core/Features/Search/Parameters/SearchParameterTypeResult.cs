@@ -7,9 +7,9 @@ using System;
 using Hl7.Fhir.Introspection;
 using Microsoft.Health.Fhir.ValueSets;
 
-namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
+namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 {
-    public class SearchParameterTypeResult
+    internal class SearchParameterTypeResult
     {
         public SearchParameterTypeResult(ClassMapping classMapping, SearchParamType searchParamType, string path, Uri definition)
         {

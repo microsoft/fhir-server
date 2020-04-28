@@ -6,13 +6,13 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Core.Models;
 using Xunit;
 
-namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
+namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Bundle
 {
-    public class TransactionFailedExceptionTests
+    public class FhirTransactionFailedExceptionTests
     {
         [Fact]
         public void GivenAListOfOperationOutComeIssues_WhenInitialized_ThenCorrectOperationOutcomeIssuesShouldBeAdded()
@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
             HttpStatusCode statusCode = HttpStatusCode.Processing;
             var operationOutComeIssues = GetOperationOutcomeIssues(message);
 
-            var exception = new TransactionFailedException(message, statusCode, operationOutComeIssues);
+            var exception = new FhirTransactionFailedException(message, statusCode, operationOutComeIssues);
 
             Assert.NotNull(exception.Issues);
             Assert.Equal(3, exception.Issues.Count);
@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
             string message = "message";
             HttpStatusCode statusCode = HttpStatusCode.Processing;
 
-            var exception = new TransactionFailedException(message, statusCode, new List<OperationOutcomeIssue>());
+            var exception = new FhirTransactionFailedException(message, statusCode, new List<OperationOutcomeIssue>());
 
             Assert.NotNull(exception.Issues);
             Assert.Single(exception.Issues);
@@ -56,8 +56,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
         {
             return new List<OperationOutcomeIssue>()
             {
-            new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.NotFound, message),
-            new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Invalid, message),
+                new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.NotFound, message),
+                new OperationOutcomeIssue(OperationOutcomeConstants.IssueSeverity.Error, OperationOutcomeConstants.IssueType.Invalid, message),
             };
         }
     }

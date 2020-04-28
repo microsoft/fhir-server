@@ -3,12 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-
-namespace Microsoft.Health.Fhir.Core.Features.Persistence
+namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 {
-    public interface ITransactionScope : IDisposable
+    public enum SearchParameterStatus
     {
-        void Complete();
+        Disabled = 1,
+        Supported = 2,
+        Enabled = 3,
     }
 }

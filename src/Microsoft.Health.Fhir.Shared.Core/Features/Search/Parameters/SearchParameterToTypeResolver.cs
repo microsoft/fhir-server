@@ -6,20 +6,25 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
 using Hl7.Fhir.Introspection;
 using Hl7.Fhir.Model;
 using Hl7.FhirPath.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
-using EnumerableReturnType = System.Collections.Generic.IEnumerable<Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchParameterTypeResult>;
+using EnumerableReturnType = System.Collections.Generic.IEnumerable<Microsoft.Health.Fhir.Core.Features.Search.Parameters.SearchParameterTypeResult>;
 using Expression = Hl7.FhirPath.Expressions.Expression;
 using Range = Hl7.Fhir.Model.Range;
 using SearchParamType = Microsoft.Health.Fhir.ValueSets.SearchParamType;
 
-namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
+namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 {
-    public static class SearchParameterToTypeResolver
+    /// <summary>
+    /// Resolves the POCO types from a FHIR Path query
+    /// </summary>
+    [SuppressMessage("Design", "CA1801", Justification = "Visitor overloads are resolved dynamically so method signature should remain the same.")]
+    internal static class SearchParameterToTypeResolver
     {
         private static readonly ModelInspector ModelInspector = new ModelInspector();
 

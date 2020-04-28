@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
         public SearchOptionsFactory(
             IExpressionParser expressionParser,
-            SearchableSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
+            ISearchParameterDefinitionManager.SearchableSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
             ILogger<SearchOptionsFactory> logger)
         {
             EnsureArg.IsNotNull(expressionParser, nameof(expressionParser));

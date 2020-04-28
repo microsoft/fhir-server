@@ -13,6 +13,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Health.Abstractions.Features.Transactions;
 using Microsoft.Health.Core.Internal;
 using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -128,7 +129,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.NotNull(getResult);
             Assert.Equal(saveResult.Id, getResult.Id);
 
-            var observation = getResult.Instance.ToPoco<Observation>();
+            var observation = getResult.ToPoco<Observation>();
             Assert.NotNull(observation);
             Assert.NotNull(observation.Value);
 
@@ -253,7 +254,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
 
-            var newResourceValues = Samples.GetJsonSample("WeightInGrams").Instance.ToPoco<Resource>();
+            var newResourceValues = Samples.GetJsonSample("WeightInGrams").ToPoco<Resource>();
             newResourceValues.Id = saveResult.Resource.Id;
 
             var list = new List<Task<SaveOutcome>>();
@@ -278,7 +279,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 Assert.Equal(SaveOutcomeType.Updated, item.Result.Outcome);
             }
 
-            var allObservations = list.Select(x => ((Quantity)x.Result.Resource.Instance.ToPoco<Observation>().Value).Value.GetValueOrDefault()).Distinct();
+            var allObservations = list.Select(x => ((Quantity)x.Result.Resource.ToPoco<Observation>().Value).Value.GetValueOrDefault()).Distinct();
             Assert.Equal(itemsToCreate, allObservations.Count());
         }
 

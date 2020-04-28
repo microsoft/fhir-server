@@ -16,8 +16,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\LightweightReferenceToElementResolverTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchConverterForAllSearchTypes.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterFixtureData.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterToTypeResolver.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterTypeResult.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterSupportResolverTests.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Core.UnitTests\Features\Conformance\ProfileReferenceConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\DefaultOptionHashSetJsonConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\EnumLiteralJsonConverterTests.cs" />

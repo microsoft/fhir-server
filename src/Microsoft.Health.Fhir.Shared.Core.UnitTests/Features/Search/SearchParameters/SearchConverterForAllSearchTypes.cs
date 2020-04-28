@@ -10,6 +10,7 @@ using Hl7.FhirPath.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
 using Newtonsoft.Json;
@@ -57,7 +58,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
                 foreach (var result in converters.Where(x => x.hasConverter || !parameterInfo.IsPartiallySupported))
                 {
-                    var found = _fixtureData.Manager.TryGetConverter(result.result.ClassMapping.NativeType, SearchIndexer.GetSearchValueTypeForSearchParamType(result.result.SearchParamType), out var converter);
+                    var found = SearchParameterFixtureData.Manager.TryGetConverter(result.result.ClassMapping.NativeType, SearchIndexer.GetSearchValueTypeForSearchParamType(result.result.SearchParamType), out var converter);
 
                     var converterText = found ? converter.GetType().Name : "None";
                     string searchTermMapping = $"Search term '{parameterName}' ({result.result.SearchParamType}) mapped to '{result.result.ClassMapping.NativeType.Name}', converter: {converterText}";
@@ -129,11 +130,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             string resourceType,
             SearchParameterInfo parameterInfo)
         {
-            var parsed = _fixtureData.Compiler.Parse(parameterInfo.Expression);
+            var parsed = SearchParameterFixtureData.Compiler.Parse(parameterInfo.Expression);
 
             (SearchParamType Type, Expression, Uri DefinitionUrl)[] componentExpressions = parameterInfo.Component
                 .Select(x => (_fixtureData.SearchDefinitionManager.UrlLookup[x.DefinitionUrl].Type,
-                    _fixtureData.Compiler.Parse(x.Expression),
+                    SearchParameterFixtureData.Compiler.Parse(x.Expression),
                     x.DefinitionUrl))
                 .ToArray();
 
@@ -145,7 +146,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var converters = results
                 .Select(result => (
                     result,
-                    hasConverter: _fixtureData.Manager.TryGetConverter(
+                    hasConverter: SearchParameterFixtureData.Manager.TryGetConverter(
                         result.ClassMapping.NativeType,
                         SearchIndexer.GetSearchValueTypeForSearchParamType(result.SearchParamType),
                         out IFhirElementToSearchValueTypeConverter converter),

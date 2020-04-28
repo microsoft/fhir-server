@@ -3,12 +3,15 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
+using Microsoft.Health.Fhir.Core.Models;
 
-namespace Microsoft.Health.Fhir.Core.Features.Persistence
+namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 {
-    public interface ITransactionHandler : IDisposable
+    public interface ISearchParameterSupportResolver
     {
-        ITransactionScope BeginTransaction();
+        /// <summary>
+        /// Determines if the given search parameter is able to be indexed
+        /// </summary>
+        bool IsSearchParameterSupported(SearchParameterInfo info);
     }
 }

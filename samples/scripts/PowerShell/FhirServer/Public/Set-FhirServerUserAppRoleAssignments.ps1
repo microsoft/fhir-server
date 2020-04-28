@@ -5,7 +5,7 @@ function Set-FhirServerUserAppRoleAssignments {
     .DESCRIPTION
     Set AppRoles for a given user. Requires Azure AD admin privileges.
     .EXAMPLE
-    Set-FhirServerUserAppRoleAssignments -UserPrincipalName <User Principal Name> -ApiAppId <Resource Api Id> -AppRoles admin,nurse
+    Set-FhirServerUserAppRoleAssignments -UserPrincipalName <User Principal Name> -ApiAppId <Resource Api Id> -AppRoles globalReader,globalExporter
     .PARAMETER UserPrincipalName
     The user principal name (e.g. myalias@contoso.com) of the of the user
     .PARAMETER ApiAppId

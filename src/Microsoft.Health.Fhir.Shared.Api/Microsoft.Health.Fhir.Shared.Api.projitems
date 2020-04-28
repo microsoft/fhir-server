@@ -17,9 +17,12 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\ActionResults\OperationOutcomeResult.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ActionResults\OperationVersionsResult.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ContentTypes\ContentTypeService.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ParameterCompatibleFilter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidationQueryFilterAndParameterParserAttribute.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Routing\QueryStringParser.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\FeatureFlags\Validate\ValidateFeatureModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\FeatureFlags\Validate\ValidatePostConfigureOptions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Modules\MediationModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\MvcModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Exceptions\BaseExceptionMiddleware.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Exceptions\BaseExceptionMiddlewareExtensions.cs" />
@@ -55,7 +58,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Modules\HealthChecks\HealthCheckConfiguration.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\HealthChecks\HealthCheckModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\KnownAssemblies.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Modules\MediationModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\OperationsModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\PersistenceModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\SearchModule.cs" />

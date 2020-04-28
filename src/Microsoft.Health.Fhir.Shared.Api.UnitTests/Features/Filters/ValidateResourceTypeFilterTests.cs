@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using EnsureThat;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -37,6 +38,42 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             var context = CreateContext(new Observation());
 
             filter.OnActionExecuting(context);
+        }
+
+        [Fact]
+        public void GivenAnObservationAction_WhenPostingAParametersPatientObject_ThenATypeMistatchExceptionShouldBeThrown()
+        {
+            var filter = new ValidateResourceTypeFilterAttribute(true);
+
+            var parameters = new Parameters();
+            parameters.Add("resource", new Patient());
+            var context = CreateContext(parameters);
+
+            Assert.Throws<ResourceNotValidException>(() => filter.OnActionExecuting(context));
+        }
+
+        [Fact]
+        public void GivenAnObservationAction_WhenPostingAParametersObservationObject_ThenTheResultIsSuccessful()
+        {
+            var filter = new ValidateResourceTypeFilterAttribute(true);
+
+            var parameters = new Parameters();
+            parameters.Add("resource", new Observation());
+            var context = CreateContext(parameters);
+
+            filter.OnActionExecuting(context);
+        }
+
+        [Fact]
+        public void GivenAnObservationAction_WhenPostingAParametersObject_AndNotParsingParameters_ThenATypeMistatchExceptionShouldBeThrown()
+        {
+            var filter = new ValidateResourceTypeFilterAttribute();
+
+            var parameters = new Parameters();
+            parameters.Add("resource", new Observation());
+            var context = CreateContext(parameters);
+
+            Assert.Throws<ResourceNotValidException>(() => filter.OnActionExecuting(context));
         }
 
         private static ActionExecutingContext CreateContext(Base type)

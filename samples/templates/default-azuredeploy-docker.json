@@ -125,6 +125,13 @@
                 "description": "Only applies when MsdeployPackageUrl is not specified."
             }
         },
+        "imageTag": {
+            "type": "string",
+            "defaultValue": "latest",
+            "metadata": {
+                "description": "Tag of the docker image to deploy."
+            }
+        },
         "enableExport": {
             "type": "bool",
             "defaultValue": false,
@@ -166,6 +173,7 @@
     },
     "resources": [
         {
+            "condition": "[empty(parameters('appServicePlanResourceGroup'))]",
             "apiVersion": "2019-08-01",
             "name": "[variables('appServicePlanName')]",
             "type": "Microsoft.Web/serverfarms",
@@ -214,7 +222,7 @@
                             "value": "true"
                         }
                     ],
-                    "linuxFxVersion": "[concat('DOCKER|', variables('registryName'), '/fhirserverr4_fhir-api:latest')]",
+                    "linuxFxVersion": "[concat('DOCKER|', variables('registryName'), '/', toLower(parameters('fhirVersion')), '_fhir-server',':', parameters('imageTag'))]",
                     "appCommandLine": "azure-fhir-api",
                     "alwaysOn": true
                 },

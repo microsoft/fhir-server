@@ -29,11 +29,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly Assembly _assembly;
         private readonly string _embeddedResourceName;
-        private readonly string _unsupportedParamsEmbeddedResourceName;
 
         private readonly Dictionary<Uri, SearchParameterInfo> _uriDictionary = new Dictionary<Uri, SearchParameterInfo>();
         private readonly Dictionary<string, IDictionary<string, SearchParameterInfo>> _resourceTypeDictionary = new Dictionary<string, IDictionary<string, SearchParameterInfo>>();
-        private UnsupportedSearchParameters _unsupportedParams = new UnsupportedSearchParameters();
 
         private bool _initialized;
 
@@ -41,8 +39,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             FhirJsonParser fhirJsonParser,
             IModelInfoProvider modelInfoProvider,
             Assembly assembly,
-            string embeddedResourceName,
-            string unsupportedParamsEmbeddedResourceName = null)
+            string embeddedResourceName)
         {
             EnsureArg.IsNotNull(fhirJsonParser, nameof(fhirJsonParser));
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
@@ -53,7 +50,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             _modelInfoProvider = modelInfoProvider;
             _assembly = assembly;
             _embeddedResourceName = embeddedResourceName;
-            _unsupportedParamsEmbeddedResourceName = unsupportedParamsEmbeddedResourceName;
         }
 
         internal IDictionary<Uri, SearchParameterInfo> UriDictionary
@@ -125,13 +121,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             Bundle bundle = null;
 
-            if (!string.IsNullOrWhiteSpace(_unsupportedParamsEmbeddedResourceName))
-            {
-                using Stream stream = _assembly.GetManifestResourceStream(_unsupportedParamsEmbeddedResourceName);
-                using TextReader reader = new StreamReader(stream);
-                _unsupportedParams = JsonConvert.DeserializeObject<UnsupportedSearchParameters>(reader.ReadToEnd());
-            }
-
             using (Stream stream = _assembly.GetManifestResourceStream(_embeddedResourceName))
             {
                 using TextReader reader = new StreamReader(stream);
@@ -165,7 +154,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
                 try
                 {
-                    _uriDictionary.Add(new Uri(searchParameter.Url), CreateSearchParameterInfo(searchParameter));
+                    SearchParameterInfo searchParameterInfo = CreateSearchParameterInfo(searchParameter);
+                    _uriDictionary.Add(new Uri(searchParameter.Url), searchParameterInfo);
                 }
                 catch (FormatException)
                 {
@@ -292,21 +282,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         private SearchParameterInfo CreateSearchParameterInfo(SearchParameter searchParameter)
         {
-            SearchParameterInfo info = searchParameter.ToInfo();
-
-            var uri = new Uri(searchParameter.Url);
-            if (_unsupportedParams.Unsupported.Contains(uri))
+            // Return SearchParameterInfo that has already been created for this Uri
+            if (_uriDictionary.TryGetValue(new Uri(searchParameter.Url), out var spi))
             {
-                info.IsSupported = false;
-                info.IsSearchable = false;
+                return spi;
             }
 
-            if (_unsupportedParams.PartialSupport.Contains(uri))
+            // Return SearchParameterInfo that has already been created for this Resource
+            if (_resourceTypeDictionary.TryGetValue(searchParameter.ResourceType.ToString(), out var spDictionary) &&
+                spDictionary.TryGetValue(searchParameter.Name, out var resourceSpi) &&
+                resourceSpi.Url == new Uri(searchParameter.Url))
             {
-                info.IsPartiallySupported = true;
+                return resourceSpi;
             }
 
-            return info;
+            return searchParameter.ToInfo();
         }
 
         private IEnumerable<SearchParameterInfo> BuildSearchParameterDefinition(

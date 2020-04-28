@@ -4,15 +4,17 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using Hl7.Fhir.Introspection;
 
-namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
+namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 {
-    public static class PropertyMappingExtensions
+    public class ResourceSearchParameterStatus
     {
-        public static Type GetElementType(this PropertyMapping mapping)
-        {
-            return mapping.ElementType;
-        }
+        public Uri Uri { get; set; }
+
+        public SearchParameterStatus Status { get; set; }
+
+        public bool IsPartiallySupported { get; set; }
+
+        public DateTimeOffset LastUpdated { get; set; }
     }
 }

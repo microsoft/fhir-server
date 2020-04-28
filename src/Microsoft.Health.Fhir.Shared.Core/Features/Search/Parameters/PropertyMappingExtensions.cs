@@ -6,13 +6,17 @@
 using System;
 using Hl7.Fhir.Introspection;
 
-namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
+namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 {
-    public static class PropertyMappingExtensions
+    internal static class PropertyMappingExtensions
     {
         public static Type GetElementType(this PropertyMapping mapping)
         {
+#if Stu3
             return mapping.ImplementingType;
+#else
+            return mapping.ElementType;
+#endif
         }
     }
 }

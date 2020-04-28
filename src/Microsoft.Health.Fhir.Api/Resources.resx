@@ -275,10 +275,6 @@
     <value>Resource type '{0}' in the reference '{1}' is not supported.</value>
     <comment>{0} is the resource type. {1} is the reference.</comment>
   </data>
-  <data name="ValidateWithParametersNotSupported" xml:space="preserve">
-    <value>Resources of type 'Parameters' are not supported by this endpoint.</value>
-    <comment>{NumberedPlaceHolder="Parameters"}</comment>
-  </data>
   <data name="ValidationNotSupported" xml:space="preserve">
     <value>$validate is not a supported endpoint.</value>
     <comment>{NumberedPlaceHolder="$validate"}</comment>
@@ -286,14 +282,28 @@
   <data name="ValidateWithProfileNotSupported" xml:space="preserve">
     <value>Validation against a profile is not supported.</value>
   </data>
-  <data name="ValidationModesNotSupported" xml:space="preserve">
-    <value>Validation modes are not supported.</value>
-  </data>
   <data name="BundleEntryLimitExceeded" xml:space="preserve">
     <value>The number of entries in the bundle exceeded the configured limit of {0}.</value>
     <comment>{0} is the number of entries allowed.</comment>
   </data>
   <data name="ParsingError" xml:space="preserve">
     <value>Error occurred when parsing model.</value>
+  </data>
+  <data name="ValidationForUpdateAndDeleteNotSupported" xml:space="preserve">
+    <value>Resources can not be validated for update or delete at the default endpoint. An id must be provided in the URL.</value>
+  </data>
+  <data name="MultipleModesProvided" xml:space="preserve">
+    <value>Only one mode can be provided between a Parameters resource and the URL</value>
+  </data>
+  <data name="MultipleProfilesProvided" xml:space="preserve">
+    <value>Only one profile can be provided between a Parameters resource and the URL</value>
+  </data>
+  <data name="ValidationModeNotRecognized" xml:space="preserve">
+    <value>{0} is not a valid validation mode.</value>
+    <comment>Error message for invalid parameter value, {0} is the value</comment>
+  </data>
+  <data name="ValidationModeNotSupported" xml:space="preserve">
+    <value>{0} is not a supported validation mode.</value>
+    <comment>{0} is the validation mode.</comment>
   </data>
 </root>
