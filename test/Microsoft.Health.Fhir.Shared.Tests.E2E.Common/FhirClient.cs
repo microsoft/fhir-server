@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -298,9 +297,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 
         public async Task<HttpResponseMessage> CheckExportAsync(Uri contentLocation)
         {
-            // We have to remove the host component becase our HttpClient is already setup with the base address of the server.
-            Uri relativeUri = contentLocation.MakeRelativeUri(HttpClient.BaseAddress);
-            var message = new HttpRequestMessage(HttpMethod.Get, relativeUri);
+            var message = new HttpRequestMessage(HttpMethod.Get, contentLocation);
 
             HttpResponseMessage response = await HttpClient.SendAsync(message);
 
