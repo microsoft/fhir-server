@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -57,16 +58,16 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             bool result = true;
             if (dataFromStorageAccount.Count != dataFromServer.Count)
             {
-                Console.WriteLine($"Count differs. Exported data count: {dataFromStorageAccount.Count} Fhir Server Count: {dataFromServer.Count}");
+                Trace.WriteLine($"Count differs. Exported data count: {dataFromStorageAccount.Count} Fhir Server Count: {dataFromServer.Count}");
                 return false;
             }
 
             int wrongCount = 0;
-            foreach (var kvp in dataFromServer)
+            foreach (KeyValuePair<string, string> kvp in dataFromServer)
             {
                 if (!dataFromStorageAccount.ContainsKey(kvp.Key))
                 {
-                    Console.WriteLine($"Missing resource from exported data: {kvp.Key}");
+                    Trace.WriteLine($"Missing resource from exported data: {kvp.Key}");
                     result = false;
                     wrongCount++;
                     continue;
@@ -76,14 +77,14 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
                 string serverEntry = kvp.Value;
                 if (serverEntry.Equals(exportEntry))
                 {
-                    Console.WriteLine($"Exported resource does not match server resource: {kvp.Key}");
+                    Trace.WriteLine($"Exported resource does not match server resource: {kvp.Key}");
                     result = false;
                     wrongCount++;
                     continue;
                 }
             }
 
-            Console.WriteLine($"Missing or wrong match count: {wrongCount}");
+            Trace.WriteLine($"Missing or wrong match count: {wrongCount}");
             return result;
         }
 
@@ -121,7 +122,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             }
 
             // Extract storage account name from blob uri in order to get corresponding access token.
-            var sampleUri = blobUri[0];
+            Uri sampleUri = blobUri[0];
             string storageAccountName = sampleUri.Host.Split('.')[0];
 
             string storageSecret = Environment.GetEnvironmentVariable(storageAccountName + "_secret");
@@ -131,11 +132,11 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             }
 
             StorageCredentials storageCredentials = new StorageCredentials(storageAccountName, storageSecret);
-            var cloudAccount = new CloudStorageAccount (storageCredentials, useHttps: true);
+            var cloudAccount = new CloudStorageAccount(storageCredentials, useHttps: true);
             CloudBlobClient blobClient = cloudAccount.CreateCloudBlobClient();
             Dictionary<string, string> resourceIdToResourceMapping = new Dictionary<string, string>();
 
-            foreach (var uri in blobUri)
+            foreach (Uri uri in blobUri)
             {
                 var blob = new CloudBlockBlob(uri, blobClient);
                 string allData = await blob.DownloadTextAsync();
@@ -181,7 +182,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
                 JObject result = JObject.Parse(responseString);
 
                 JArray entries = (JArray)result["entry"];
-                foreach (var entry in entries)
+                foreach (JToken entry in entries)
                 {
                     string id = entry["resource"]["id"].ToString();
                     string resource = entry["resource"].ToString().Trim();
@@ -195,7 +196,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
                 string nextUri = null;
                 if (links != null && links.Count > 1)
                 {
-                    foreach (var link in links)
+                    foreach (JToken link in links)
                     {
                         if (link["relation"].ToString() == "next")
                         {
