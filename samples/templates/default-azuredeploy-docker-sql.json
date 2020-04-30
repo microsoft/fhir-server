@@ -382,7 +382,7 @@
         {
             "type": "Microsoft.Storage/storageAccounts/providers/roleAssignments",
             "apiVersion": "2018-09-01-preview",
-            "name": "[concat(variables('storageAccountName'), '/Microsoft.Authorization/', guid(uniqueString(variables('storageAccountName'), parameters('fhirVersion'), variables('serviceName'))))]",
+            "name": "[concat(variables('storageAccountName'), '/Microsoft.Authorization/', guid(variables('storageAccountName'), parameters('fhirVersion'), variables('serviceName')))]",
             "condition": "[parameters('enableExport')]",
             "dependsOn": [
                 "[variables('storageAccountName')]",
