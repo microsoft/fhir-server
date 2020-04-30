@@ -37,7 +37,7 @@
                 string compartmentTypeLiteral = compartmentType.ToString();
                 compartmentTypeToResourceIds[compartmentTypeLiteral] = null;
 
-                if (_compartmentDefinitionManager.TryGetSearchParams(resourceType, compartmentTypeLiteral, out HashSet<string> searchParams) && searchIndicesByCompartmentType.TryGetValue(compartmentTypeLiteral, out List<SearchIndexEntry> searchIndicesForCompartment))
+                if (_compartmentDefinitionManager.TryGetSearchParams(resourceType, compartmentType, out HashSet<string> searchParams) && searchIndicesByCompartmentType.TryGetValue(compartmentTypeLiteral, out List<SearchIndexEntry> searchIndicesForCompartment))
                 {
                     var searchEntries = searchIndicesForCompartment.Where(si => searchParams.Contains(si.SearchParameter.Name));
 
@@ -74,12 +74,13 @@
                 {
                     string key = compartmentType.ToString();
 
-                    if (!retDict.ContainsKey(key))
+                    if (!retDict.TryGetValue(key, out List<SearchIndexEntry> searchIndexEntries))
                     {
-                        retDict[key] = new List<SearchIndexEntry>();
+                        searchIndexEntries = new List<SearchIndexEntry>();
+                        retDict[key] = searchIndexEntries;
                     }
 
-                    retDict[key].Add(indexEntry);
+                    searchIndexEntries.Add(indexEntry);
                 }
             }
 

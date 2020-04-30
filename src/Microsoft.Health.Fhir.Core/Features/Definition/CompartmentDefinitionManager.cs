@@ -3,26 +3,26 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-﻿using System;
-﻿using System.Collections.Generic;
-﻿using System.Globalization;
-﻿using System.IO;
-﻿using System.Linq;
-﻿using EnsureThat;
-﻿using Hl7.Fhir.ElementModel;
-﻿using Hl7.Fhir.Serialization;
-﻿using Hl7.Fhir.Utility;
-﻿using Hl7.FhirPath;
-﻿using Microsoft.Health.Extensions.DependencyInjection;
-﻿using Microsoft.Health.Fhir.Core.Data;
-﻿using Microsoft.Health.Fhir.Core.Exceptions;
-﻿using Microsoft.Health.Fhir.Core.Features.Definition.BundleNavigators;
-﻿using Microsoft.Health.Fhir.Core.Features.Search.Converters;
-﻿using Microsoft.Health.Fhir.Core.Models;
-﻿using Newtonsoft.Json;
-﻿using CompartmentType = Microsoft.Health.Fhir.ValueSets.CompartmentType;
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using EnsureThat;
+using Hl7.Fhir.ElementModel;
+using Hl7.Fhir.Serialization;
+using Hl7.Fhir.Utility;
+using Hl7.FhirPath;
+using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Data;
+using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features.Definition.BundleNavigators;
+using Microsoft.Health.Fhir.Core.Features.Search.Converters;
+using Microsoft.Health.Fhir.Core.Models;
+using Newtonsoft.Json;
+using CompartmentType = Microsoft.Health.Fhir.ValueSets.CompartmentType;
 
-﻿namespace Microsoft.Health.Fhir.Core.Features.Definition
+namespace Microsoft.Health.Fhir.Core.Features.Definition
 {
     /// <summary>
     /// Manager to access compartment definitions.
@@ -61,10 +61,10 @@
             Build(bundle);
         }
 
-        public bool TryGetSearchParams(string resourceType, string compartment, out HashSet<string> searchParams)
+        public bool TryGetSearchParams(string resourceType, CompartmentType compartment, out HashSet<string> searchParams)
         {
             if (_compartmentSearchParamsLookup.TryGetValue(resourceType, out Dictionary<CompartmentType, HashSet<string>> compartmentSearchParams)
-                && compartmentSearchParams.TryGetValue(Enum.Parse<CompartmentType>(compartment), out searchParams))
+                && compartmentSearchParams.TryGetValue(compartment, out searchParams))
             {
                 return true;
             }

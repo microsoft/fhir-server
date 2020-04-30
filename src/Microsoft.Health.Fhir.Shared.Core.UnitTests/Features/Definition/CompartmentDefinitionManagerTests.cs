@@ -6,13 +6,13 @@
 using System.Collections.Generic;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
-using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleNavigators;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Xunit;
+using CompartmentType = Microsoft.Health.Fhir.ValueSets.CompartmentType;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
 {
@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         [InlineData(ResourceType.Observation, CompartmentType.Encounter, 1)]
         public void GivenAValidCompartmentDefinitionBundle_WhenValidated_ThenValidSearchParams(ResourceType resourceType, CompartmentType compartmentType, int testCount)
         {
-            Assert.True(_validBuiltCompartment.TryGetSearchParams(resourceType.ToString(), compartmentType.ToString(), out HashSet<string> searchParams));
+            Assert.True(_validBuiltCompartment.TryGetSearchParams(resourceType.ToString(), compartmentType, out HashSet<string> searchParams));
             Assert.Equal(testCount, searchParams.Count);
         }
 
