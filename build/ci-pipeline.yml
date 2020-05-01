@@ -96,7 +96,7 @@ stages:
       imageTag: $(ImageTag)
 
 - stage: redeployR5Sql
-  displayName: 'Redeploy STU3 Site'
+  displayName: 'Redeploy R5 SQL Site'
   dependsOn:
   - DockerBuild
   jobs:
