@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -127,6 +128,23 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             await _exportJobWorker.ExecuteAsync(_cancellationToken);
 
             Assert.True(isSecondJobCalled);
+        }
+
+        [Fact]
+        public async Task GivenAcquireExportJobThrowsException_WhenExecuted_ThenWeHaveADelayBeforeWeRetry()
+        {
+            _fhirOperationDataStore.AcquireExportJobsAsync(
+                DefaultMaximumNumberOfConcurrentJobAllowed,
+                DefaultJobHeartbeatTimeoutThreshold,
+                _cancellationToken)
+                .Returns<IReadOnlyCollection<ExportJobOutcome>>(x => throw new Exception("Failed to acquire job"));
+
+            _cancellationTokenSource.CancelAfter(DefaultJobPollingFrequency * 1.25);
+
+            await _exportJobWorker.ExecuteAsync(_cancellationToken);
+
+            // Assert that we received only one call to AcquireExportJobsAsync
+            await _fhirOperationDataStore.ReceivedWithAnyArgs(1).AcquireExportJobsAsync(Arg.Any<ushort>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>());
         }
 
         private void SetupOperationDataStore(
