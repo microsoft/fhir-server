@@ -71,7 +71,7 @@ stages:
       subscription: $(ConnectedServiceName)
       imageTag: $(ImageTag)
 
-- stage: redeployR$4Sql
+- stage: redeployR4Sql
   displayName: 'Redeploy R4 SQL Site'
   dependsOn:
   - DockerBuild
@@ -95,7 +95,7 @@ stages:
       subscription: $(ConnectedServiceName)
       imageTag: $(ImageTag)
 
-- stage: redeployStu3
+- stage: redeployR5Sql
   displayName: 'Redeploy STU3 Site'
   dependsOn:
   - DockerBuild
