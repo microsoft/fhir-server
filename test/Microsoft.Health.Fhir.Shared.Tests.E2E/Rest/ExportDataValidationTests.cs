@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             Dictionary<string, string> dataFromExport = await DownloadBlobAndParse(blobUris);
 
             // Download all resources from fhir server
-            Dictionary<string, string> dataFromFhirServer = await GetResourcesFromFhirServer(new Uri("/"));
+            Dictionary<string, string> dataFromFhirServer = await GetResourcesFromFhirServer(_fhirClient.HttpClient.BaseAddress);
 
             // Assert both data are equal
             Assert.True(ValidateDataFromBothSources(dataFromFhirServer, dataFromExport));
