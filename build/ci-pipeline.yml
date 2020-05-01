@@ -62,7 +62,6 @@ stages:
 - stage: aadTestEnvironment
   displayName: Setup AAD Test Environment
   dependsOn:
-  - provisionEnvironment
   - DockerBuild
   jobs:
   - template: ./jobs/add-aad-test-environment.yml
@@ -87,7 +86,6 @@ stages:
 - stage: deployStu3Sql
   displayName: 'Deploy STU3 SQL Site'
   dependsOn:
-  - provisionEnvironment
   - DockerBuild
   jobs:
   - template: ./jobs/provision-deploy.yml
@@ -105,7 +103,6 @@ stages:
 - stage: deployR4
   displayName: 'Deploy R4 Site'
   dependsOn:
-  - provisionEnvironment
   - DockerBuild
   jobs:
   - template: ./jobs/provision-deploy.yml
@@ -122,7 +119,6 @@ stages:
 - stage: deployR4Sql
   displayName: 'Deploy R4 SQL Site'
   dependsOn:
-  - provisionEnvironment
   - DockerBuild
   jobs:
   - template: ./jobs/provision-deploy.yml
@@ -140,7 +136,6 @@ stages:
 - stage: deployR5
   displayName: 'Deploy R5 Site'
   dependsOn:
-  - provisionEnvironment
   - DockerBuild
   jobs:
   - template: ./jobs/provision-deploy.yml
@@ -157,7 +152,6 @@ stages:
 - stage: deployR5Sql
   displayName: 'Deploy R5 SQL Site'
   dependsOn:
-  - provisionEnvironment
   - DockerBuild
   jobs:
   - template: ./jobs/provision-deploy.yml
@@ -176,8 +170,8 @@ stages:
   displayName: 'Run Stu3 Tests'
   dependsOn:
   - BuildUnitTests
-  - redeployStu3
-  - redeployStu3Sql
+  - deployStu3
+  - deployStu3Sql
   jobs:
   - template: ./jobs/run-tests.yml
     parameters:
@@ -188,8 +182,8 @@ stages:
   displayName: 'Run R4 Tests'
   dependsOn:
   - BuildUnitTests
-  - redeployR4
-  - redeployR4Sql
+  - deployR4
+  - deployR4Sql
   jobs:
   - template: ./jobs/run-tests.yml
     parameters:
@@ -200,8 +194,8 @@ stages:
   displayName: 'Run R5 Tests'
   dependsOn:
   - BuildUnitTests
-  - redeployR5
-  - redeployR5Sql
+  - deployR5
+  - deployR5Sql
   jobs:
   - template: ./jobs/run-tests.yml
     parameters:
