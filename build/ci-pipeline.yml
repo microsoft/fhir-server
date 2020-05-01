@@ -69,7 +69,6 @@ stages:
 - stage: deployStu3
   displayName: 'Deploy STU3 Site'
   dependsOn:
-  - provisionEnvironment
   - DockerBuild
   jobs:
   - template: ./jobs/provision-deploy.yml
