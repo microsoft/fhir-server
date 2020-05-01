@@ -45,11 +45,6 @@ namespace Microsoft.Health.Fhir.Api.Modules.FeatureFlags.XmlFormatter
                     .Singleton()
                     .AsSelf()
                     .AsService<TextOutputFormatter>();
-
-                services.Add<XmlFormatterConfiguration>()
-                    .Singleton()
-                    .AsSelf()
-                    .AsImplementedInterfaces();
             }
         }
     }
