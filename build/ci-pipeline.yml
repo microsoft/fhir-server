@@ -59,119 +59,60 @@ stages:
       subscription: $(ConnectedServiceName)
       imageTag: $(ImageTag)
 
-- stage: aadTestEnvironment
-  displayName: Setup AAD Test Environment
+- stage: redeployR4
+  displayName: 'Redeploy R4 Site'
   dependsOn:
   - DockerBuild
   jobs:
-  - template: ./jobs/add-aad-test-environment.yml
-
-- stage: deployStu3
-  displayName: 'Deploy STU3 Site'
-  dependsOn:
-  - provisionEnvironment
-  - DockerBuild
-  jobs:
-  - template: ./jobs/provision-deploy.yml
-    parameters: 
-      version: Stu3
-      webAppName: $(DeploymentEnvironmentName)
-      appServicePlanName: $(appServicePlanName)
-      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
-      subscription: $(ConnectedServiceName)
-      resourceGroup: $(DeploymentEnvironmentName)
-      testEnvironmentUrl: $(TestEnvironmentUrl)
-      imageTag: $(ImageTag)
-
-- stage: deployStu3Sql
-  displayName: 'Deploy STU3 SQL Site'
-  dependsOn:
-  - DockerBuild
-  jobs:
-  - template: ./jobs/provision-deploy.yml
-    parameters: 
-      version: Stu3
-      sql: true
-      webAppName: $(DeploymentEnvironmentNameSql)
-      appServicePlanName: $(appServicePlanName)
-      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
-      subscription: $(ConnectedServiceName)
-      resourceGroup: $(DeploymentEnvironmentName)
-      testEnvironmentUrl: $(TestEnvironmentUrl)
-      imageTag: $(ImageTag)
-
-- stage: deployR4
-  displayName: 'Deploy R4 Site'
-  dependsOn:
-  - DockerBuild
-  jobs:
-  - template: ./jobs/provision-deploy.yml
+  - template: ./jobs/redeploy-webapp.yml
     parameters: 
       version: R4
       webAppName: $(DeploymentEnvironmentNameR4)
-      appServicePlanName: $(appServicePlanName)
-      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
-      resourceGroup: $(DeploymentEnvironmentName)
-      testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
 
-- stage: deployR4Sql
-  displayName: 'Deploy R4 SQL Site'
+- stage: redeployR4Sql
+  displayName: 'Redeploy R4 SQL Site'
   dependsOn:
   - DockerBuild
   jobs:
-  - template: ./jobs/provision-deploy.yml
+  - template: ./jobs/redeploy-webapp.yml
     parameters: 
       version: R4
-      sql: true
       webAppName: $(DeploymentEnvironmentNameR4Sql)
-      appServicePlanName: $(appServicePlanName)
-      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
-      resourceGroup: $(DeploymentEnvironmentName)
-      testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
 
-- stage: deployR5
-  displayName: 'Deploy R5 Site'
+- stage: redeployR5
+  displayName: 'Redeploy R5 Site'
   dependsOn:
   - DockerBuild
   jobs:
-  - template: ./jobs/provision-deploy.yml
+  - template: ./jobs/redeploy-webapp.yml
     parameters: 
       version: R5
       webAppName: $(DeploymentEnvironmentNameR5)
-      appServicePlanName: $(appServicePlanName)
-      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
-      resourceGroup: $(DeploymentEnvironmentName)
-      testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
 
-- stage: deployR5Sql
-  displayName: 'Deploy R5 SQL Site'
+- stage: redeployR5Sql
+  displayName: 'Redeploy STU3 Site'
   dependsOn:
   - DockerBuild
   jobs:
-  - template: ./jobs/provision-deploy.yml
+  - template: ./jobs/redeploy-webapp.yml
     parameters: 
       version: R5
-      sql: true
       webAppName: $(DeploymentEnvironmentNameR5Sql)
-      appServicePlanName: $(appServicePlanName)
-      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
-      resourceGroup: $(DeploymentEnvironmentName)
-      testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
 
 - stage: testStu3
   displayName: 'Run Stu3 Tests'
   dependsOn:
   - BuildUnitTests
-  - deployStu3
-  - deployStu3Sql
+  - redeployStu3
+  - redeployStu3Sql
   jobs:
   - template: ./jobs/run-tests.yml
     parameters:
@@ -182,8 +123,8 @@ stages:
   displayName: 'Run R4 Tests'
   dependsOn:
   - BuildUnitTests
-  - deployR4
-  - deployR4Sql
+  - redeployR4
+  - redeployR4Sql
   jobs:
   - template: ./jobs/run-tests.yml
     parameters:
@@ -194,8 +135,8 @@ stages:
   displayName: 'Run R5 Tests'
   dependsOn:
   - BuildUnitTests
-  - deployR5
-  - deployR5Sql
+  - redeployR5
+  - redeployR5Sql
   jobs:
   - template: ./jobs/run-tests.yml
     parameters:
