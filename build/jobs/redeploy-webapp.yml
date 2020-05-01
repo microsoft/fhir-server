@@ -1,4 +1,4 @@
-  parameters:
+parameters:
 - name: version
   type: string
 - name: webAppName
