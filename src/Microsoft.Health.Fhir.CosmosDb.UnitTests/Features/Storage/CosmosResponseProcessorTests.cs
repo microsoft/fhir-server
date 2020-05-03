@@ -52,14 +52,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         public async Task GivenAResourceResponse_WhenProcessResponseCalled_ThenHeadersShouldBeSetAndMetricNotificationShouldHappen()
         {
             var resourceResponse = Substitute.For<IResourceResponse<Document>>();
-            resourceResponse.SessionToken.Returns("2");
+            resourceResponse.SessionToken.Returns("3");
             resourceResponse.RequestCharge.Returns(37.37);
             resourceResponse.CollectionSizeUsage.Returns(1234L);
             resourceResponse.StatusCode.Returns(HttpStatusCode.OK);
 
             await _cosmosResponseProcessor.ProcessResponse(resourceResponse);
 
-            ValidateExecution("2", 37.37, false);
+            ValidateExecution("3", 37.37, false);
         }
 
         [Fact]
