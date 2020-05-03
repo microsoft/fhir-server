@@ -167,7 +167,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
 
         [Theory]
         [InlineData("")]
-        [InlineData("4006")]
+        [InlineData("3999")]
         public async Task GivenADocumentClientExceptionWithForbiddenStatusCodeAndNotKeyInaccessibleSubStatus_WhenProcessing_ThenNothingElseShouldOccur(string subsStatusCode)
         {
             DocumentClientException documentClientException = CreateDocumentClientException("12.4", "fail", HttpStatusCode.Forbidden, subsStatusCode);
