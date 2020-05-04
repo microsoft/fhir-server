@@ -68,6 +68,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 {
                     throw new Core.Exceptions.RequestEntityTooLargeException();
                 }
+                else if (dce.StatusCode == HttpStatusCode.Forbidden && dce.GetSubStatusValue() == CosmosDbSubStatusValues.CustomerManagedKeyInaccessible)
+                {
+                    throw new Core.Exceptions.CustomerManagedKeyInaccessibleException();
+                }
             }
         }
 

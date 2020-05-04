@@ -200,6 +200,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         }
 
         [Fact]
+        public void GivenACustomerManagedKeyInaccessibleException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
+        {
+            ValidateOperationOutcome(new CustomerManagedKeyInaccessibleException(), HttpStatusCode.Forbidden);
+        }
+
+        [Fact]
         public void GivenABundleEntryLimitExceededException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
             ValidateOperationOutcome(new BundleEntryLimitExceededException("Bundle entry limit exceeded."), HttpStatusCode.BadRequest);

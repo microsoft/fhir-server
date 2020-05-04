@@ -111,6 +111,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         break;
                     case InvalidSearchOperationException _:
                     case SearchOperationNotSupportedException _:
+                    case CustomerManagedKeyInaccessibleException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.Forbidden;
                         break;
                     case UnsupportedConfigurationException _:
