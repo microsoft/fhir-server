@@ -5,10 +5,10 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.Azure.Storage;
 using Microsoft.Azure.Storage.Auth;
@@ -16,24 +16,26 @@ using Microsoft.Azure.Storage.Blob;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
-using Microsoft.Health.Fhir.Tests.E2E.Rest;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Xunit;
+using Xunit.Abstractions;
 using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Common.FhirClient;
 using Task = System.Threading.Tasks.Task;
 
-namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
+namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     [Trait(Traits.Category, Categories.ExportDataValidation)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class ExportDataValidationTests : IClassFixture<HttpIntegrationTestFixture>
     {
         private readonly FhirClient _fhirClient;
+        private readonly ITestOutputHelper _outputHelper;
 
-        public ExportDataValidationTests(HttpIntegrationTestFixture fixture)
+        public ExportDataValidationTests(HttpIntegrationTestFixture fixture, ITestOutputHelper testOutputHelper)
         {
             _fhirClient = fixture.FhirClient;
+            _outputHelper = testOutputHelper;
         }
 
         [Fact]
@@ -58,7 +60,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             bool result = true;
             if (dataFromStorageAccount.Count != dataFromServer.Count)
             {
-                Trace.WriteLine($"Count differs. Exported data count: {dataFromStorageAccount.Count} Fhir Server Count: {dataFromServer.Count}");
+                _outputHelper.WriteLine($"Count differs. Exported data count: {dataFromStorageAccount.Count} Fhir Server Count: {dataFromServer.Count}");
                 return false;
             }
 
@@ -67,7 +69,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             {
                 if (!dataFromStorageAccount.ContainsKey(kvp.Key))
                 {
-                    Trace.WriteLine($"Missing resource from exported data: {kvp.Key}");
+                    _outputHelper.WriteLine($"Missing resource from exported data: {kvp.Key}");
                     result = false;
                     wrongCount++;
                     continue;
@@ -77,14 +79,14 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
                 string serverEntry = kvp.Value;
                 if (serverEntry.Equals(exportEntry))
                 {
-                    Trace.WriteLine($"Exported resource does not match server resource: {kvp.Key}");
+                    _outputHelper.WriteLine($"Exported resource does not match server resource: {kvp.Key}");
                     result = false;
                     wrongCount++;
                     continue;
                 }
             }
 
-            Trace.WriteLine($"Missing or wrong match count: {wrongCount}");
+            _outputHelper.WriteLine($"Missing or wrong match count: {wrongCount}");
             return result;
         }
 
@@ -107,7 +109,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
                 throw new Exception($"Export request failed with status code {resultCode}");
             }
 
-            // we have got the result. deserialize into output response
+            // we have got the result. Deserialize into output response.
             var contentString = await response.Content.ReadAsStringAsync();
 
             ExportJobResult exportJobResult = JsonConvert.DeserializeObject<ExportJobResult>(contentString);
@@ -125,14 +127,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             Uri sampleUri = blobUri[0];
             string storageAccountName = sampleUri.Host.Split('.')[0];
 
-            string storageSecret = Environment.GetEnvironmentVariable(storageAccountName + "_secret");
-            if (string.IsNullOrWhiteSpace(storageSecret))
-            {
-                return new Dictionary<string, string>();
-            }
-
-            StorageCredentials storageCredentials = new StorageCredentials(storageAccountName, storageSecret);
-            var cloudAccount = new CloudStorageAccount(storageCredentials, useHttps: true);
+            CloudStorageAccount cloudAccount = GetCloudStorageAccountHelper(storageAccountName);
             CloudBlobClient blobClient = cloudAccount.CreateCloudBlobClient();
             Dictionary<string, string> resourceIdToResourceMapping = new Dictionary<string, string>();
 
@@ -156,8 +151,9 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             }
 
             // Delete the container since we have downloaded the data.
-            string containerId = blobUri[0].PathAndQuery.Split('/')[1];
-            CloudBlobContainer container = blobClient.GetContainerReference(containerId);
+            Regex regex = new Regex(@"(?<guid>[a-f0-9]{8}(?:\-[a-f0-9]{4}){3}\-[a-f0-9]{12})");
+            var guidMatch = regex.Match(blobUri[0].ToString());
+            CloudBlobContainer container = blobClient.GetContainerReference(guidMatch.Value);
             await container.DeleteIfExistsAsync();
 
             return resourceIdToResourceMapping;
@@ -210,6 +206,40 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             }
 
             return resourceIdToResourceMapping;
+        }
+
+        private CloudStorageAccount GetCloudStorageAccountHelper(string storageAccountName)
+        {
+            if (string.IsNullOrWhiteSpace(storageAccountName))
+            {
+                throw new Exception("StorageAccountName cannot be empty");
+            }
+
+            CloudStorageAccount cloudAccount = null;
+
+            // If we are running locally, then we need to connect to the Azure Storage Emulator.
+            // Else we need to connect to a proper Azure Storage Account.
+            if (storageAccountName.Equals("127", StringComparison.OrdinalIgnoreCase))
+            {
+                string emulatorConnectionString = "UseDevelopmentStorage=true";
+                CloudStorageAccount.TryParse(emulatorConnectionString, out cloudAccount);
+            }
+            else
+            {
+                string storageSecret = Environment.GetEnvironmentVariable(storageAccountName + "_secret");
+                if (!string.IsNullOrWhiteSpace(storageSecret))
+                {
+                    StorageCredentials storageCredentials = new StorageCredentials(storageAccountName, storageSecret);
+                    cloudAccount = new CloudStorageAccount(storageCredentials, useHttps: true);
+                }
+            }
+
+            if (cloudAccount == null)
+            {
+                throw new Exception("Unable to create a cloud storage account");
+            }
+
+            return cloudAccount;
         }
     }
 }
