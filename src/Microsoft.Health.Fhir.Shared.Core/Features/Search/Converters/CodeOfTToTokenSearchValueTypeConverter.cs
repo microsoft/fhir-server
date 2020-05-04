@@ -31,9 +31,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
 
             EnsureArg.IsTrue(type.IsGenericType && type.GetGenericTypeDefinition() == FhirElementType, nameof(value));
 
-            ISystemAndCode systemAndCode = (ISystemAndCode)value;
+            var systemAndCode = value as ISystemAndCode;
 
-            yield return new TokenSearchValue(systemAndCode.System, systemAndCode.Code, null);
+            if (systemAndCode == null || string.IsNullOrEmpty(systemAndCode.Code))
+            {
+                yield return null;
+            }
+            else
+            {
+                yield return new TokenSearchValue(systemAndCode.System, systemAndCode.Code, null);
+            }
         }
     }
 }

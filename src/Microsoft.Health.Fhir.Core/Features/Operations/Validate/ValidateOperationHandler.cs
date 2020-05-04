@@ -17,6 +17,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 {
     public class ValidateOperationHandler : IRequestHandler<ValidateOperationRequest, ValidateOperationResponse>
     {
+        public static readonly OperationOutcomeIssue ValidationPassed = new OperationOutcomeIssue(
+                    OperationOutcomeConstants.IssueSeverity.Information,
+                    OperationOutcomeConstants.IssueType.Informational,
+                    Resources.ValidationPassed);
+
         private readonly IFhirAuthorizationService _authorizationService;
 
         public ValidateOperationHandler(IFhirAuthorizationService authorizationService)
@@ -38,11 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 throw new UnauthorizedFhirActionException();
             }
 
-            return new ValidateOperationResponse(
-                new OperationOutcomeIssue(
-                    OperationOutcomeConstants.IssueSeverity.Information,
-                    OperationOutcomeConstants.IssueType.Informational,
-                    Resources.ValidationPassed));
+            return new ValidateOperationResponse(ValidationPassed);
         }
     }
 }

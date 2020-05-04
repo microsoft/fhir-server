@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <param name="referenceToElementResolver">Used for parsing reference strings</param>
         /// <param name="logger">The logger.</param>
         public SearchIndexer(
-            SupportedSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
+            ISearchParameterDefinitionManager.SupportedSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
             IFhirElementToSearchValueTypeConverterManager fhirElementTypeConverterManager,
             IReferenceToElementResolver referenceToElementResolver,
             ILogger<SearchIndexer> logger)

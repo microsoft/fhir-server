@@ -1,0 +1,212 @@
+# DESCRIPTION: 	
+# Builds, tests, and packages the solution for all PR requests.	
+
+name: pr$(system.pullRequest.pullRequestNumber)-$(Date:yyyyMMdd)$(Rev:-r)
+trigger: none
+
+variables:
+- template: build-variables.yml
+- template: pr-variables.yml
+
+stages:
+- stage: BuildUnitTests
+  displayName: 'Build and run unit tests'
+  dependsOn: []
+  jobs:
+  - job: Windows
+    pool:
+      vmImage: $(WindowsVmImage)
+    steps:
+    - template: build.yml
+
+  - job: Linux
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - template: build.yml
+      parameters:
+        packageArtifacts: false
+
+- stage: DockerBuild  
+  displayName: 'Build images'
+  dependsOn: []
+  jobs:
+  - template: docker-build-all.yml
+    parameters: 
+      tag: $(ImageTag)
+
+- stage: provisionEnvironment
+  displayName: Provision Environment
+  dependsOn: []
+  jobs:
+  - job: provision
+    steps:
+    - task: AzurePowerShell@4
+      displayName: Provision Resource Group
+      inputs:
+        azureSubscription: $(ConnectedServiceName)
+        azurePowerShellVersion: latestVersion
+        ScriptType: inlineScript
+        Inline: |
+          New-AzResourceGroup -Name "$(DeploymentEnvironmentName)" -Location "$(ResourceGroupRegion)" -Force
+
+- stage: aadTestEnvironment
+  displayName: Setup AAD Test Environment
+  dependsOn:
+  - provisionEnvironment
+  - DockerBuild
+  jobs:
+  - template: ./jobs/add-aad-test-environment.yml
+
+- stage: deployStu3
+  displayName: 'Deploy STU3 Site'
+  dependsOn:
+  - provisionEnvironment
+  - DockerBuild
+  jobs:
+  - template: ./jobs/provision-deploy.yml
+    parameters: 
+      version: Stu3
+      webAppName: $(DeploymentEnvironmentName)
+      appServicePlanName: $(appServicePlanName)
+      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(DeploymentEnvironmentName)
+      testEnvironmentUrl: $(TestEnvironmentUrl)
+      imageTag: $(ImageTag)
+
+- stage: deployStu3Sql
+  displayName: 'Deploy STU3 SQL Site'
+  dependsOn:
+  - provisionEnvironment
+  - DockerBuild
+  jobs:
+  - template: ./jobs/provision-deploy.yml
+    parameters: 
+      version: Stu3
+      sql: true
+      webAppName: $(DeploymentEnvironmentNameSql)
+      appServicePlanName: $(appServicePlanName)
+      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(DeploymentEnvironmentName)
+      testEnvironmentUrl: $(TestEnvironmentUrl)
+      imageTag: $(ImageTag)
+
+- stage: deployR4
+  displayName: 'Deploy R4 Site'
+  dependsOn:
+  - provisionEnvironment
+  - DockerBuild
+  jobs:
+  - template: ./jobs/provision-deploy.yml
+    parameters: 
+      version: R4
+      webAppName: $(DeploymentEnvironmentNameR4)
+      appServicePlanName: $(appServicePlanName)
+      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(DeploymentEnvironmentName)
+      testEnvironmentUrl: $(TestEnvironmentUrl)
+      imageTag: $(ImageTag)
+
+- stage: deployR4Sql
+  displayName: 'Deploy R4 SQL Site'
+  dependsOn:
+  - provisionEnvironment
+  - DockerBuild
+  jobs:
+  - template: ./jobs/provision-deploy.yml
+    parameters: 
+      version: R4
+      sql: true
+      webAppName: $(DeploymentEnvironmentNameR4Sql)
+      appServicePlanName: $(appServicePlanName)
+      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(DeploymentEnvironmentName)
+      testEnvironmentUrl: $(TestEnvironmentUrl)
+      imageTag: $(ImageTag)
+
+- stage: deployR5
+  displayName: 'Deploy R5 Site'
+  dependsOn:
+  - provisionEnvironment
+  - DockerBuild
+  jobs:
+  - template: ./jobs/provision-deploy.yml
+    parameters: 
+      version: R5
+      webAppName: $(DeploymentEnvironmentNameR5)
+      appServicePlanName: $(appServicePlanName)
+      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(DeploymentEnvironmentName)
+      testEnvironmentUrl: $(TestEnvironmentUrl)
+      imageTag: $(ImageTag)
+
+- stage: deployR5Sql
+  displayName: 'Deploy R5 SQL Site'
+  dependsOn:
+  - provisionEnvironment
+  - DockerBuild
+  jobs:
+  - template: ./jobs/provision-deploy.yml
+    parameters: 
+      version: R5
+      sql: true
+      webAppName: $(DeploymentEnvironmentNameR5Sql)
+      appServicePlanName: $(appServicePlanName)
+      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(DeploymentEnvironmentName)
+      testEnvironmentUrl: $(TestEnvironmentUrl)
+      imageTag: $(ImageTag)
+  
+- stage: testStu3
+  displayName: 'Run Stu3 Tests'
+  dependsOn:
+  - BuildUnitTests
+  - aadTestEnvironment
+  - deployStu3
+  - deployStu3Sql
+  jobs:
+  - template: ./jobs/run-tests.yml
+    parameters:
+      version: Stu3
+      keyVaultName: $(DeploymentEnvironmentName)
+
+- stage: testR4
+  displayName: 'Run R4 Tests'
+  dependsOn:
+  - BuildUnitTests
+  - aadTestEnvironment
+  - deployR4
+  - deployR4Sql
+  jobs:
+  - template: ./jobs/run-tests.yml
+    parameters:
+      version: R4
+      keyVaultName: $(DeploymentEnvironmentNameR4)
+
+- stage: testR5
+  displayName: 'Run R5 Tests'
+  dependsOn:
+  - BuildUnitTests
+  - aadTestEnvironment
+  - deployR5
+  - deployR5Sql
+  jobs:
+  - template: ./jobs/run-tests.yml
+    parameters:
+      version: R5
+      keyVaultName: $(DeploymentEnvironmentNameR5)
+
+- stage: cleanup
+  displayName: 'Cleanup Azure Environment'
+  dependsOn:
+  - testStu3
+  - testR4
+  - testR5
+  jobs:
+  - template: ./jobs/cleanup.yml

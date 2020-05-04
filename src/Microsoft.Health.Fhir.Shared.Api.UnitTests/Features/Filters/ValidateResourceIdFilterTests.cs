@@ -81,6 +81,57 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             Assert.Equal("Observation.id", exception.Issues.First<OperationOutcomeIssue>().Location.First());
         }
 
+        [Fact]
+        public void GivenAnObservationAction_WhenPuttingAParametersObservationObjectWithNonMatchingId_ThenAResourceNotValidExceptionShouldBeThrown()
+        {
+            var filter = new ValidateResourceIdFilterAttribute(true);
+
+            var observation = new Observation
+            {
+                Id = Guid.NewGuid().ToString(),
+            };
+
+            var parameters = new Parameters();
+            parameters.Add("resource", observation);
+            var context = CreateContext(parameters, Guid.NewGuid().ToString());
+
+            Assert.Throws<ResourceNotValidException>(() => filter.OnActionExecuting(context));
+        }
+
+        [Fact]
+        public void GivenAnObservationAction_WhenPuttingAParametersObservationObject_ThenTheResultIsSuccessful()
+        {
+            var filter = new ValidateResourceIdFilterAttribute(true);
+
+            var observation = new Observation
+            {
+                Id = Guid.NewGuid().ToString(),
+            };
+
+            var parameters = new Parameters();
+            parameters.Add("resource", observation);
+            var context = CreateContext(parameters, observation.Id);
+
+            filter.OnActionExecuting(context);
+        }
+
+        [Fact]
+        public void GivenAnObservationAction_WhenPuttingAParametersObject_AndParametersAreNotParsed_ThenTheResultIsSuccessful()
+        {
+            var filter = new ValidateResourceIdFilterAttribute();
+
+            var observation = new Observation
+            {
+                Id = Guid.NewGuid().ToString(),
+            };
+
+            var parameters = new Parameters();
+            parameters.Add("resource", observation);
+            var context = CreateContext(parameters, observation.Id);
+
+            Assert.Throws<ResourceNotValidException>(() => filter.OnActionExecuting(context));
+        }
+
         private static ActionExecutingContext CreateContext(Resource type, string id)
         {
             return new ActionExecutingContext(

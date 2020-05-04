@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
         /// <param name="searchParameterDefinitionManagerResolver">The search parameter definition manager.</param>
         /// <param name="searchParameterExpressionParser">The parser used to parse the search value into a search expression.</param>
         public ExpressionParser(
-            SearchableSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
+            ISearchParameterDefinitionManager.SearchableSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
             ISearchParameterExpressionParser searchParameterExpressionParser)
         {
             EnsureArg.IsNotNull(searchParameterDefinitionManagerResolver, nameof(searchParameterDefinitionManagerResolver));

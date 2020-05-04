@@ -9,7 +9,7 @@
     <PackageReference Include="IdentityServer4" Version="3.1.0" />
     <PackageReference Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.12.0" />
     <PackageReference Include="Microsoft.Azure.Services.AppAuthentication" Version="1.3.1" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.AzureKeyVault" Version="3.1.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.AzureKeyVault" Version="3.1.3" />
     <PackageReference Include="Microsoft.Extensions.Logging.ApplicationInsights" Version="2.12.0" />
   </ItemGroup>
 
@@ -17,7 +17,7 @@
     <ProjectReference Include="..\Microsoft.Health.Fhir.Azure\Microsoft.Health.Fhir.Azure.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.CosmosDb\Microsoft.Health.Fhir.CosmosDb.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.Stu3.Api\Microsoft.Health.Fhir.Stu3.Api.csproj" />
-    <ProjectReference Include="..\Microsoft.Health.Fhir.SqlServer.Api\Microsoft.Health.Fhir.SqlServer.Api.csproj" />
+    <ProjectReference Include="..\Microsoft.Health.Fhir.SqlServer\Microsoft.Health.Fhir.SqlServer.csproj" />
   </ItemGroup>
 
   <Import Project="..\Microsoft.Health.Fhir.Shared.Web\Microsoft.Health.Fhir.Shared.Web.projitems" Label="Shared" />

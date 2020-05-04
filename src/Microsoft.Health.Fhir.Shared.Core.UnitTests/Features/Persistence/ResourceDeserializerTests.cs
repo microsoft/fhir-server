@@ -6,6 +6,7 @@
 using System;
 using System.Net.Http;
 using Hl7.Fhir.Serialization;
+using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;

@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.Core {
     [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-    internal class Resources {
+    public class Resources {
         
         private static global::System.Resources.ResourceManager resourceMan;
         
@@ -440,6 +440,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The &apos;_total&apos; parameter value &apos;{0}&apos; is invalid. The supported values are: {1}..
+        /// </summary>
+        public static string InvalidTotalParameter {
+            get {
+                return ResourceManager.GetString("InvalidTotalParameter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Invalid value for :missing modifier. Valid values are: true, false..
         /// </summary>
         internal static string InvalidValueTypeForMissingModifier {
@@ -782,15 +791,6 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The operation could not be completed, because the service was unable to accept new requests. It is safe to retry the operation. If the issue persists, please contact support..
-        /// </summary>
-        internal static string ServiceUnavailable {
-            get {
-                return ResourceManager.GetString("ServiceUnavailable", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to The _sort parameter is not supported..
         /// </summary>
         internal static string SortNotSupported {
@@ -854,9 +854,9 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The requested &quot;_total&quot; parameter is not supported..
+        ///   Looks up a localized string similar to The &apos;_total&apos; parameter value &apos;{0}&apos; is not supported. The supported values are: {1}..
         /// </summary>
-        internal static string UnsupportedTotalParameter {
+        public static string UnsupportedTotalParameter {
             get {
                 return ResourceManager.GetString("UnsupportedTotalParameter", resourceCulture);
             }

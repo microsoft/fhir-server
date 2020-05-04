@@ -6,8 +6,8 @@
 using System.Collections.Generic;
 using System.Net;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
@@ -21,11 +21,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             HttpStatusCode statusCode = HttpStatusCode.Processing;
             var operationOutcome = GetOperationOutcome();
 
-            Assert.Throws<TransactionFailedException>(() => TransactionExceptionHandler.ThrowTransactionException(message, statusCode, operationOutcome));
+            Assert.Throws<FhirTransactionFailedException>(() => TransactionExceptionHandler.ThrowTransactionException(message, statusCode, operationOutcome));
         }
 
         [Fact]
-        public void GivenAnOperationOutcome_WhenParsed_ThenACorrectListOfOPerationOutComeIssuesIsReturned()
+        public void GivenAnOperationOutcome_WhenParsed_ThenACorrectListOfOperationOutComeIssuesIsReturned()
         {
             var operationOutcomeIssues = GetOperationOutcome().Issue;
             var parsedOperationOutcomeIssueList = TransactionExceptionHandler.GetOperationOutcomeIssues(operationOutcomeIssues);

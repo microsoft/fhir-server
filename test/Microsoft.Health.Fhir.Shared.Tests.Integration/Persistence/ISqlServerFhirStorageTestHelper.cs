@@ -6,6 +6,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
+using Microsoft.Health.SqlServer.Features.Schema;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {

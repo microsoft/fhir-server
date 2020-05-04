@@ -27,10 +27,10 @@ Register an AAD Application for the FHIR server API:
 
 ```PowerShell
 $fhirServiceName = "myfhirservice"
-$apiAppReg = New-FhirServerApiApplicationRegistration -FhirServiceName $fhirServiceName -AppRoles admin,nurse,patient
+$apiAppReg = New-FhirServerApiApplicationRegistration -FhirServiceName $fhirServiceName -AppRoles globalAdmin
 ```
 
-The `-AppRoles` defines a set of roles that can be granted to users or service principals (service accounts) interacting with the FHIR server API. Configuration settings for the FHIR server will determine which privileges (Read, Write, etc.) that are assosiated with each role. 
+The `-AppRoles` defines a set of roles that can be granted to users or service principals (service accounts) interacting with the FHIR server API. Configuration settings for the FHIR server will determine which privileges (Read, Write, etc.) that are assosiated with each role. The allowed roles are enumerated in [roles.json](../src/Microsoft.Health.Fhir.Shared.Web/roles.json).
 
 To access the FHIR server from a client, you will also need a client AAD Application registration with a client secret. This client AAD Application registration will need to have appropriate application permissions and reply URLs configured. Here is how to register a client AAD Application for use with [Postman](https://getpostman.com):
 
@@ -41,24 +41,24 @@ $clientAppReg = New-FhirServerClientApplicationRegistration -ApiAppId $apiAppReg
 If you would like a client application to be able to act as a service account, you can assign roles to the client application:
 
 ```PowerShell
-Set-FhirServerClientAppRoleAssignments -AppId $clientAppReg.AppId -ApiAppId $apiAppReg.AppId -AppRoles admin,patient
+Set-FhirServerClientAppRoleAssignments -AppId $clientAppReg.AppId -ApiAppId $apiAppReg.AppId -AppRoles globalAdmin
 ```
 
 To assign roles to a specific user in Azure Active Directory:
 
 ```PowerShell
-Set-FhirServerUserAppRoleAssignments -UserPrincipalName myuser@mydomain.com -ApiAppId $apiAppReg.AppId -AppRoles admin,nurse
+Set-FhirServerUserAppRoleAssignments -UserPrincipalName myuser@mydomain.com -ApiAppId $apiAppReg.AppId -AppRoles globalAdmin
 ```
 
 ## Deploying the FHIR Server Template
 
-To deploy the backend Cosmos DB, Azure Web App, and FHIR server code, use the buttons below to deploy through the Azure Portal. If you would like to protect the FHIR API with token authorization, you will need to supply application registration details as described above.
+To deploy the backend SQL Server, Azure Web App, and FHIR server code, use the buttons below to deploy through the Azure Portal. If you would like to protect the FHIR API with token authorization, you will need to supply application registration details as described above.
 
-<a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FMicrosoft%2Ffhir-server%2Fmaster%2Fsamples%2Ftemplates%2Fdefault-azuredeploy.json" target="_blank">
+<a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FMicrosoft%2Ffhir-server%2Fmaster%2Fsamples%2Ftemplates%2Fdefault-azuredeploy-sql.json" target="_blank">
     <img src="https://azuredeploy.net/deploybutton.png"/>
 </a>
 
-<a href="https://portal.azure.us/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FMicrosoft%2Ffhir-server%2Fmaster%2Fsamples%2Ftemplates%2Fdefault-azuredeploy.json" target="_blank"> 
+<a href="https://portal.azure.us/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FMicrosoft%2Ffhir-server%2Fmaster%2Fsamples%2Ftemplates%2Fdefault-azuredeploy-sql.json" target="_blank"> 
     <img src="https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/1-CONTRIBUTION-GUIDE/images/deploytoazuregov.png">
 </a>
 
@@ -85,7 +85,7 @@ New-AzResourceGroupDeployment `
 -ResourceGroupName $rg.ResourceGroupName -serviceName $fhirServiceName
 ```
 
-The default deployment will have a single role (`admin`) defined. To define more roles when deploying the server, see [details on specifying roles](Roles.md).
+The default deployment will have a number of roles as defined in the [roles.json](../src/Microsoft.Health.Fhir.Shared.Web/roles.json) file. To define more roles when deploying the server, see [details on specifying roles](Roles.md).
 
 You can use [Postman to test the FHIR server](PostmanTesting.md). 
 

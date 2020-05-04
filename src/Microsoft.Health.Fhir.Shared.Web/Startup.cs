@@ -5,6 +5,7 @@
 
 using System;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -38,7 +39,22 @@ namespace Microsoft.Health.Fhir.Web
             }
             else if (dataStore.Equals(KnownDataStores.SqlServer, StringComparison.InvariantCultureIgnoreCase))
             {
-                fhirServerBuilder.AddExperimentalSqlServer();
+                fhirServerBuilder.AddSqlServer();
+            }
+
+            if (string.Equals(Configuration["ASPNETCORE_FORWARDEDHEADERS_ENABLED"], "true", StringComparison.OrdinalIgnoreCase))
+            {
+                services.Configure<ForwardedHeadersOptions>(options =>
+                {
+                    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor |
+                        ForwardedHeaders.XForwardedProto;
+
+                    // Only loopback proxies are allowed by default.
+                    // Clear that restriction because forwarders are enabled by explicit
+                    // configuration.
+                    options.KnownNetworks.Clear();
+                    options.KnownProxies.Clear();
+                });
             }
 
             AddApplicationInsightsTelemetry(services);
@@ -47,8 +63,12 @@ namespace Microsoft.Health.Fhir.Web
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public virtual void Configure(IApplicationBuilder app)
         {
-            app.UseFhirServer();
+            if (string.Equals(Configuration["ASPNETCORE_FORWARDEDHEADERS_ENABLED"], "true", StringComparison.OrdinalIgnoreCase))
+            {
+                app.UseForwardedHeaders();
+            }
 
+            app.UseFhirServer();
             app.UseDevelopmentIdentityProviderIfConfigured();
         }
 

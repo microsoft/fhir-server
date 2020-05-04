@@ -12,6 +12,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Health.Core.Internal;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -158,7 +159,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             DateTime baseDate = DateTimeOffset.Now.Date;
             var instant = new DateTimeOffset(baseDate.AddTicks((6 * TimeSpan.TicksPerMillisecond) + (long)(0.7 * TimeSpan.TicksPerMillisecond)), TimeSpan.Zero);
 
-            using (Mock.Property(() => Clock.UtcNowFunc, () => instant))
+            using (Mock.Property(() => ClockResolver.UtcNowFunc, () => instant))
             {
                 _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true, Arg.Any<CancellationToken>())
                     .Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapper>(0), SaveOutcomeType.Created));

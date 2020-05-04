@@ -10,15 +10,15 @@ using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Features.Definition
 {
-    public delegate ISearchParameterDefinitionManager SearchableSearchParameterDefinitionManagerResolver();
-
-    public delegate ISearchParameterDefinitionManager SupportedSearchParameterDefinitionManagerResolver();
-
     /// <summary>
     /// Provides mechanism to access search parameter definition.
     /// </summary>
     public interface ISearchParameterDefinitionManager
     {
+        public delegate ISearchParameterDefinitionManager SearchableSearchParameterDefinitionManagerResolver();
+
+        public delegate ISearchParameterDefinitionManager SupportedSearchParameterDefinitionManagerResolver();
+
         /// <summary>
         /// Gets the list of all search parameters.
         /// </summary>

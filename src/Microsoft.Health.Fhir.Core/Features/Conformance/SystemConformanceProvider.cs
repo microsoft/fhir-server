@@ -9,16 +9,18 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using MediatR;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Conformance
 {
     public sealed class SystemConformanceProvider
-        : ConformanceProviderBase, IConfiguredConformanceProvider, IDisposable
+        : ConformanceProviderBase, IConfiguredConformanceProvider, INotificationHandler<SearchParametersUpdated>, IDisposable
     {
         private readonly IModelInfoProvider _modelInfoProvider;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
@@ -29,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
 
         public SystemConformanceProvider(
             IModelInfoProvider modelInfoProvider,
-            SearchableSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
+            ISearchParameterDefinitionManager.SearchableSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
             Func<IScoped<IEnumerable<IProvideCapability>>> capabilityProviders)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
@@ -104,6 +106,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
         {
             _sem?.Dispose();
             _sem = null;
+        }
+
+        public Task Handle(SearchParametersUpdated notification, CancellationToken cancellationToken)
+        {
+            // If search parameters change, rebuild the capability statement
+            _listedCapabilityStatement = null;
+
+            return Task.CompletedTask;
         }
     }
 }

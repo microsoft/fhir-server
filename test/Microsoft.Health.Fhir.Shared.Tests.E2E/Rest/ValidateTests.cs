@@ -55,9 +55,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Theory]
         [InlineData(
             "Patient/$validate",
-            "{\"resourceType\":\"Patient\",\"name\":\"test, one\"}",
-            "Type checking the data: Since type HumanName is not a primitive, it cannot have a value (at Resource.name[0])")]
-        public async void GivenAValidateRequest_WhenTheResourceIsInvalid_ThenADetailedErrorIsReturned(string path, string payload, string expectedIssue)
+            "{\"resourceType\":\"Patient\",\"name\":\"test, one\"}")]
+        public async void GivenAValidateRequest_WhenTheResourceIsInvalid_ThenADetailedErrorIsReturned(string path, string payload)
         {
             OperationOutcome outcome = await _client.ValidateAsync(path, payload);
 
@@ -66,7 +65,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     outcome.Issue[0],
                     OperationOutcome.IssueSeverity.Error,
                     OperationOutcome.IssueType.Invalid,
-                    expectedIssue);
+                    Api.Resources.ParsingError);
         }
 
         [Theory]
@@ -138,6 +137,37 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 OperationOutcome.IssueType.Invalid,
                 "Id must be specified in the resource.",
                 "Patient.id");
+        }
+
+        [Fact]
+        public async void GivenAValidateRequest_WhenAValidResourceIsPassedByParameter_ThenAnOkMessageIsReturned()
+        {
+            var payload = "{\"resourceType\": \"Parameters\", \"parameter\": [{\"name\": \"resource\", \"resource\": {\"resourceType\": \"Patient\", \"id\": \"123\"}}]}";
+
+            OperationOutcome outcome = await _client.ValidateAsync("Patient/$validate", payload);
+
+            Assert.Single(outcome.Issue);
+            CheckOperationOutcomeIssue(
+                outcome.Issue[0],
+                OperationOutcome.IssueSeverity.Information,
+                OperationOutcome.IssueType.Informational,
+                Success);
+        }
+
+        [Fact]
+        public async void GivenAValidateRequest_WhenAnInvalidResourceIsPassedByParameter_ThenADetailedErrorIsReturned()
+        {
+            var payload = "{\"resourceType\": \"Parameters\", \"parameter\": [{\"name\": \"resource\", \"resource\": {\"resourceType\":\"Patient\",\"name\":{\"family\":\"test\",\"given\":\"one\"}}}]}";
+
+            OperationOutcome outcome = await _client.ValidateAsync("Observation/$validate", payload);
+
+            Assert.Single(outcome.Issue);
+            CheckOperationOutcomeIssue(
+                outcome.Issue[0],
+                OperationOutcome.IssueSeverity.Error,
+                OperationOutcome.IssueType.Invalid,
+                "Resource type in the URL must match resourceType in the resource.",
+                "TypeName");
         }
 
         private void CheckOperationOutcomeIssue(

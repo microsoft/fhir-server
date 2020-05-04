@@ -10,6 +10,8 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.SqlServer;
+using Microsoft.Health.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
 {

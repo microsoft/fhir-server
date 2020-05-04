@@ -1,0 +1,133 @@
+parameters:
+- name: version
+  type: string
+- name: keyVaultName
+  type: string
+- name: runIntegration
+  type: boolean
+  default: true
+- name: runE2E
+  type: boolean
+  default: true
+
+jobs:
+- job: "integrationTests"
+  condition: eq('${{ parameters.runIntegration }}', true)
+  pool:
+    vmImage: $(WindowsVmImage)
+  steps:
+  - task: DownloadBuildArtifacts@0
+    inputs:
+      buildType: 'current'
+      downloadType: 'single'
+      downloadPath: '$(System.ArtifactsDirectory)'
+      artifactName: 'IntegrationTests'
+
+  - task: UseDotNet@2
+    inputs:
+      useGlobalJson: true
+
+  - task: AzureKeyVault@1
+    displayName: 'Azure Key Vault: ${{ parameters.keyVaultName }}'
+    inputs:
+      azureSubscription: $(ConnectedServiceName)
+      KeyVaultName: '${{ parameters.keyVaultName }}'
+
+  - task: AzureKeyVault@1
+    displayName: 'Azure Key Vault: ${{ parameters.keyVaultName }}-sql'
+    inputs:
+      azureSubscription: $(ConnectedServiceName)
+      KeyVaultName: '${{ parameters.keyVaultName }}-sql'
+
+  - task: VSTest@2
+    displayName: 'Run Integration Tests'
+    inputs:
+      testSelector: testAssemblies
+      testAssemblyVer2: |
+        **\*${{ parameters.version }}.Tests.Integration*.dll
+      searchFolder: '$(System.ArtifactsDirectory)'
+    env:
+      'CosmosDb:Host': $(CosmosDb--Host)
+      'CosmosDb:Key': $(CosmosDb--Key)
+      'SqlServer:ConnectionString': $(SqlServer--ConnectionString)
+
+- job: 'e2eTests'
+  condition: eq('${{ parameters.runE2E }}', true)
+  dependsOn: []
+  pool:
+    vmImage: $(WindowsVmImage)
+  steps:
+  - task: DownloadBuildArtifacts@0
+    inputs:
+      buildType: 'current'
+      downloadType: 'single'
+      downloadPath: '$(System.ArtifactsDirectory)'
+      artifactName: 'IntegrationTests'
+
+  - task: UseDotNet@2
+    inputs:
+      useGlobalJson: true
+        
+  - task: AzureKeyVault@1
+    displayName: 'Azure Key Vault: resolute-oss-tenant-info'
+    inputs:
+      azureSubscription: $(ConnectedServiceName)
+      KeyVaultName: 'resolute-oss-tenant-info'
+
+  - task: AzureKeyVault@1
+    displayName: 'Azure Key Vault: $(DeploymentEnvironmentName)-ts'
+    inputs:
+      azureSubscription: $(ConnectedServiceName)
+      KeyVaultName: '$(DeploymentEnvironmentName)-ts'
+    
+  - task: AzurePowerShell@4
+    displayName: 'Set Variables'
+    inputs:
+      azureSubscription: $(ConnectedServiceName)
+      azurePowerShellVersion: latestVersion
+      ScriptType: inlineScript
+      Inline: |
+        $secrets = Get-AzKeyVaultSecret -VaultName $(DeploymentEnvironmentName)-ts
+        
+        foreach($secret in $secrets)
+        {
+            $environmentVariableName = $secret.Name.Replace("--","_")
+
+            $secretValue = Get-AzKeyVaultSecret -VaultName $(DeploymentEnvironmentName)-ts -Name $secret.Name
+            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($secretValue.SecretValueText)"
+        }
+
+        $storageAccounts = Get-AzStorageAccount -ResourceGroupName $(DeploymentEnvironmentName)
+        foreach ($storageAccount in $storageAccounts) {
+            $accKey = Get-AzStorageAccountKey -ResourceGroupName $(DeploymentEnvironmentName) -Name $storageAccount.StorageAccountName | Where-Object {$_.KeyName -eq "key1"}
+
+            $storageSecretName = "$($storageAccount.StorageAccountName)_secret"
+            Write-Host "##vso[task.setvariable variable=$($storageSecretName)]$($accKey.Value)"
+        }
+
+        Write-Host "##vso[task.setvariable variable=Resource]$(TestEnvironmentUrl)"
+        
+        $secrets = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info
+ 
+        foreach($secret in $secrets)
+        {
+            $environmentVariableName = $secret.Name.Replace("--","_")
+
+            $secretValue = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info -Name $secret.Name
+            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($secretValue.SecretValueText)"
+        }
+        # ----------------------------------------
+
+        dotnet dev-certs https
+
+  - task: VSTest@2
+    displayName: 'Run E2E Tests'
+    inputs:
+      testSelector: testAssemblies
+      testAssemblyVer2: |
+        **\*${{ parameters.version }}.Tests.E2E*.dll
+      searchFolder: '$(System.ArtifactsDirectory)'
+      rerunFailedTests: true
+      rerunType: 'basedOnTestFailurePercentage'
+      rerunFailedThreshold: '95'
+      rerunMaxAttempts: 3

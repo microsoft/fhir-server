@@ -10,7 +10,7 @@ using System.Net.Http;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using Microsoft.Health.Fhir.Core;
+using Microsoft.Health.Core.Internal;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
@@ -72,14 +72,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             observation.Meta.Profile = new List<string> { "test" };
 
             var lastModified = new DateTimeOffset(2017, 1, 1, 1, 1, 1, TimeSpan.Zero);
-            using (Mock.Property(() => Clock.UtcNowFunc, () => lastModified))
+            using (Mock.Property(() => ClockResolver.UtcNowFunc, () => lastModified))
             {
                 ResourceElement typedElement = observation.ToResourceElement();
 
                 var wrapper = new ResourceWrapper(typedElement, _rawResourceFactory.Create(typedElement), new ResourceRequest(HttpMethod.Post, "http://fhir"), false, null, null, null);
                 var resource = Deserializers.ResourceDeserializer.Deserialize(wrapper);
 
-                var poco = resource.Instance.ToPoco<Observation>();
+                var poco = resource.ToPoco<Observation>();
 
                 Assert.Equal(observation.VersionId, poco.Meta.VersionId);
                 Assert.Equal(lastModified, poco.Meta.LastUpdated);

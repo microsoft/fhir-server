@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
                 throw new UnauthorizedFhirActionException();
             }
 
-            var resource = message.Resource.Instance.ToPoco<Resource>();
+            var resource = message.Resource.ToPoco<Resource>();
 
             // If an Id is supplied on create it should be removed/ignored
             resource.Id = null;

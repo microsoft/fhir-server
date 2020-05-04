@@ -11,6 +11,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
     public class BadRequestException : FhirException
     {
         public BadRequestException(string errorMessage)
+            : base(errorMessage)
         {
             Issues.Add(new OperationOutcomeIssue(
                     OperationOutcomeConstants.IssueSeverity.Error,

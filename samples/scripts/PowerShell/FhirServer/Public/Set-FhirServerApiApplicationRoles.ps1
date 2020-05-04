@@ -5,7 +5,7 @@ function Set-FhirServerApiApplicationRoles {
     .DESCRIPTION
     Configures (create/update) the roles of the API Application registration, specifically, it populates the AppRoles field of the application manifest.
     .EXAMPLE
-    Set-FhirServerApiApplicationRoles -AppId <ID of API App> -AppRoles admin,nurse,patient
+    Set-FhirServerApiApplicationRoles -AppId <ID of API App> -AppRoles globalReader,globalExporter
     .PARAMETER ApiAppId
     ApiId for the API application
     .PARAMETER AppRoles

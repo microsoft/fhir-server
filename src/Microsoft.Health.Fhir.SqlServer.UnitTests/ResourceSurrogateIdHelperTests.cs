@@ -4,7 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Xunit;
 

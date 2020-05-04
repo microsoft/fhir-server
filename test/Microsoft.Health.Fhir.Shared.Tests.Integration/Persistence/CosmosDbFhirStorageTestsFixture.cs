@@ -8,8 +8,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Hl7.Fhir.Serialization;
+using MediatR;
 using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.CosmosDb.Configs;
@@ -18,10 +21,14 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning;
 using NSubstitute;
@@ -40,6 +47,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private IFhirDataStore _fhirDataStore;
         private IFhirOperationDataStore _fhirOperationDataStore;
         private IFhirStorageTestHelper _fhirStorageTestHelper;
+        private FilebasedSearchParameterRegistry _filebasedSearchParameterRegistry;
 
         public CosmosDbFhirStorageTestsFixture()
         {
@@ -70,10 +78,23 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             optionsMonitor.Get(CosmosDb.Constants.CollectionConfigurationName).Returns(_cosmosCollectionConfiguration);
 
+            Type searchDefinitionManagerType = typeof(SearchParameterDefinitionManager);
+            var searchParameterDefinitionManager = new SearchParameterDefinitionManager(new FhirJsonParser(), ModelInfoProvider.Instance);
+            searchParameterDefinitionManager.Start();
+            _filebasedSearchParameterRegistry = new FilebasedSearchParameterRegistry(
+                searchParameterDefinitionManager,
+                searchDefinitionManagerType.Assembly,
+                $"{searchDefinitionManagerType.Namespace}.unsupported-search-parameters.json");
+
             var updaters = new IFhirCollectionUpdater[]
             {
                 new FhirCollectionSettingsUpdater(_cosmosDataStoreConfiguration, optionsMonitor, NullLogger<FhirCollectionSettingsUpdater>.Instance),
                 new FhirStoredProcedureInstaller(fhirStoredProcs),
+                new CosmosDbStatusRegistryInitializer(
+                    () => _filebasedSearchParameterRegistry,
+                    new FhirCosmosDocumentQueryFactory(
+                        new CosmosResponseProcessor(Substitute.For<IFhirRequestContextAccessor>(), Substitute.For<IMediator>(), NullLogger<CosmosResponseProcessor>.Instance),
+                        NullFhirDocumentQueryLogger.Instance)),
             };
 
             var dbLock = new CosmosDbDistributedLockFactory(Substitute.For<Func<IScoped<IDocumentClient>>>(), NullLogger<CosmosDbDistributedLock>.Instance);

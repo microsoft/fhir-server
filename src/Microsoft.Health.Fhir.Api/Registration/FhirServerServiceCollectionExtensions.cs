@@ -5,6 +5,7 @@
 
 using System.Reflection;
 using EnsureThat;
+using Microsoft.Health.Api.Modules;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
 
@@ -18,6 +19,7 @@ namespace Microsoft.Extensions.DependencyInjection
             EnsureArg.IsNotNull(fhirServerConfiguration, nameof(fhirServerConfiguration));
 
             services.RegisterAssemblyModules(Assembly.GetExecutingAssembly(), fhirServerConfiguration);
+            services.RegisterAssemblyModules(typeof(InitializationModule).Assembly, fhirServerConfiguration);
 
             return services;
         }

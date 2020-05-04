@@ -19,7 +19,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Definition\CompartmentIndexer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Definition\SearchParameterDefinitionBuilder.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Definition\SearchParameterDefinitionManager.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Definition\UnsupportedSearchParameters.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Export\ResourceToNdjsonBytesSerializer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\RawResourceFactory.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\BaseResourceHandler.cs" />
@@ -74,6 +73,10 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Expressions\Parsers\ISearchParameterExpressionParser.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Expressions\Parsers\SearchParameterExpressionParser.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Expressions\Parsers\SearchValueExpressionBuilderHelper.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Parameters\PropertyMappingExtensions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Parameters\SearchParameterSupportResolver.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Parameters\SearchParameterToTypeResolver.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Parameters\SearchParameterTypeResult.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchIndexer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchOptionsFactory.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchResourceHandler.cs" />

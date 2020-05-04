@@ -9,6 +9,7 @@ using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -44,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 return new Bundle.EntryComponent
                 {
                     FullUrlElement = new FhirUri(_urlResolver.ResolveResourceUrl(resource)),
-                    Resource = resource.Instance.ToPoco<Resource>(),
+                    Resource = resource.ToPoco<Resource>(),
                     Search = new Bundle.SearchComponent
                     {
                         Mode = r.SearchEntryMode == SearchEntryMode.Match ? Bundle.SearchEntryMode.Match : Bundle.SearchEntryMode.Include,
@@ -63,7 +64,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 return new Bundle.EntryComponent
                 {
                     FullUrlElement = new FhirUri(_urlResolver.ResolveResourceUrl(resource, true)),
-                    Resource = resource.Instance.ToPoco<Resource>(),
+                    Resource = resource.ToPoco<Resource>(),
                     Request = new Bundle.RequestComponent
                     {
                         Method = hasVerb ? (Bundle.HTTPVerb?)httpVerb : null,

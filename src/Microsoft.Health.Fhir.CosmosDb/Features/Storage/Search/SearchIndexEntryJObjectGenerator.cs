@@ -6,7 +6,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 using EnsureThat;
-using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;

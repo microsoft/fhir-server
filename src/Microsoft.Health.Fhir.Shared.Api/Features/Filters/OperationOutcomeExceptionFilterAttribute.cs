@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Net;
+using System.Transactions;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Mvc.Controllers;
@@ -15,6 +16,7 @@ using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Audit;
+using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -81,7 +83,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     case MethodNotAllowedException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.MethodNotAllowed;
                         break;
-                    case ServiceUnavailableException _:
                     case OpenIdConfigurationException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.ServiceUnavailable;
                         break;
@@ -104,9 +105,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         break;
                     case ResourceConflictException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.Conflict;
-                        break;
-                    case UnsupportedMediaTypeException _:
-                        operationOutcomeResult.StatusCode = HttpStatusCode.UnsupportedMediaType;
                         break;
                     case PreconditionFailedException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.PreconditionFailed;
@@ -132,11 +130,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     case NotAcceptableException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.NotAcceptable;
                         break;
-                    case TransactionFailedException tfe:
-                        operationOutcomeResult.StatusCode = tfe.ResponseStatusCode;
-                        break;
                     case RequestEntityTooLargeException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.RequestEntityTooLarge;
+                        break;
+                    case FhirTransactionFailedException fhirTransactionFailedException:
+                        operationOutcomeResult.StatusCode = fhirTransactionFailedException.ResponseStatusCode;
                         break;
                 }
 
@@ -159,6 +157,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                                 ex.RetryAfter.Value.TotalMilliseconds.ToString(CultureInfo.InvariantCulture));
                         }
 
+                        break;
+                    case UnsupportedMediaTypeException unsupportedMediaTypeException:
+                        healthExceptionResult = CreateOperationOutcomeResult(unsupportedMediaTypeException.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.NotSupported, HttpStatusCode.UnsupportedMediaType);
+                        break;
+                    case ServiceUnavailableException serviceUnavailableException:
+                        healthExceptionResult = CreateOperationOutcomeResult(serviceUnavailableException.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Processing, HttpStatusCode.ServiceUnavailable);
+                        break;
+                    case TransactionFailedException transactionFailedException:
+                        healthExceptionResult = CreateOperationOutcomeResult(transactionFailedException.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Processing, HttpStatusCode.InternalServerError);
                         break;
                     default:
                         healthExceptionResult = new OperationOutcomeResult(

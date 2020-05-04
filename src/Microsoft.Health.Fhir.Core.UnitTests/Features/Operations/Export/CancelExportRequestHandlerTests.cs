@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Health.Core.Internal;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -65,7 +66,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var instant = new DateTimeOffset(2019, 5, 3, 22, 45, 15, TimeSpan.FromMinutes(-60));
 
-            using (Mock.Property(() => Clock.UtcNowFunc, () => instant))
+            using (Mock.Property(() => ClockResolver.UtcNowFunc, () => instant))
             {
                 outcome = await SetupAndExecuteCancelExportAsync(operationStatus, HttpStatusCode.Accepted);
             }
