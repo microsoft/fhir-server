@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -17,6 +16,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Export;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
@@ -137,9 +137,29 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 DefaultMaximumNumberOfConcurrentJobAllowed,
                 DefaultJobHeartbeatTimeoutThreshold,
                 _cancellationToken)
-                .Returns<IReadOnlyCollection<ExportJobOutcome>>(x => throw new Exception("Failed to acquire job"));
+                .ThrowsForAnyArgs<Exception>();
 
             _cancellationTokenSource.CancelAfter(DefaultJobPollingFrequency * 1.25);
+
+            await _exportJobWorker.ExecuteAsync(_cancellationToken);
+
+            // Assert that we received only one call to AcquireExportJobsAsync
+            await _fhirOperationDataStore.ReceivedWithAnyArgs(1).AcquireExportJobsAsync(Arg.Any<ushort>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenOperationIsCancelled_WhenExecuted_ThenWeExitTheLoop()
+        {
+            ExportJobOutcome job = CreateExportJobOutcome();
+            _fhirOperationDataStore.AcquireExportJobsAsync(
+                Arg.Any<ushort>(),
+                Arg.Any<TimeSpan>(),
+                _cancellationToken)
+                .Returns(x =>
+                    {
+                        _cancellationTokenSource.Cancel();
+                        return new[] { job };
+                    });
 
             await _exportJobWorker.ExecuteAsync(_cancellationToken);
 

@@ -96,6 +96,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 {
                     // Cancellation requested
                     _logger.LogInformation("ExportJobWorker: Cancellation requested.");
+                    break;
                 }
             }
         }
