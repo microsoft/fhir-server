@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private readonly Func<IExportJobTask> _exportJobTaskFactory;
         private readonly ILogger _logger;
 
-        private TimeSpan _delayBeforeNextPoll;
+        private readonly TimeSpan _maximumDelay = TimeSpan.FromSeconds(3600);
 
         public ExportJobWorker(Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory, IOptions<ExportJobConfiguration> exportJobConfiguration, Func<IExportJobTask> exportJobTaskFactory, ILogger<ExportJobWorker> logger)
         {
@@ -39,13 +39,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _exportJobConfiguration = exportJobConfiguration.Value;
             _exportJobTaskFactory = exportJobTaskFactory;
             _logger = logger;
-
-            _delayBeforeNextPoll = _exportJobConfiguration.JobPollingFrequency;
         }
 
         public async Task ExecuteAsync(CancellationToken cancellationToken)
         {
             var runningTasks = new List<Task>();
+            TimeSpan delayBeforeNextPoll = _exportJobConfiguration.JobPollingFrequency;
 
             while (!cancellationToken.IsCancellationRequested)
             {
@@ -73,8 +72,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         }
                     }
 
-                    // We successfully completed an attempt to acquire export jobs. Let us reset the polling frquency in case it has changed.
-                    _delayBeforeNextPoll = _exportJobConfiguration.JobPollingFrequency;
+                    // We successfully completed an attempt to acquire export jobs. Let us reset the polling frequency in case it has changed.
+                    delayBeforeNextPoll = _exportJobConfiguration.JobPollingFrequency;
                 }
                 catch (Exception ex)
                 {
@@ -82,16 +81,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     _logger.LogError(ex, "Unhandled exception in the worker.");
 
                     // Since acquiring jobs failed let us introduce a delay before we retry. We don't want to increase the delay between polls to more than an hour.
-                    _delayBeforeNextPoll *= 2;
-                    if (_delayBeforeNextPoll > TimeSpan.FromSeconds(3600))
+                    delayBeforeNextPoll *= 2;
+                    if (delayBeforeNextPoll > _maximumDelay)
                     {
-                        _delayBeforeNextPoll = TimeSpan.FromSeconds(3600);
+                        delayBeforeNextPoll = _maximumDelay;
                     }
                 }
 
                 try
                 {
-                    await Task.Delay(_delayBeforeNextPoll, cancellationToken);
+                    await Task.Delay(delayBeforeNextPoll, cancellationToken);
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
