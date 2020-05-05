@@ -27,6 +27,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         internal readonly static ResourceWriteClaimTable ResourceWriteClaim = new ResourceWriteClaimTable();
         internal readonly static SchemaVersionTable SchemaVersion = new SchemaVersionTable();
         internal readonly static SearchParamTable SearchParam = new SearchParamTable();
+        internal readonly static SearchParameterRegistryTable SearchParameterRegistry = new SearchParameterRegistryTable();
         internal readonly static StringSearchParamTable StringSearchParam = new StringSearchParamTable();
         internal readonly static SystemTable System = new SystemTable();
         internal readonly static TokenDateTimeCompositeSearchParamTable TokenDateTimeCompositeSearchParam = new TokenDateTimeCompositeSearchParamTable();
@@ -41,6 +42,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         internal readonly static CreateExportJobProcedure CreateExportJob = new CreateExportJobProcedure();
         internal readonly static GetExportJobByHashProcedure GetExportJobByHash = new GetExportJobByHashProcedure();
         internal readonly static GetExportJobByIdProcedure GetExportJobById = new GetExportJobByIdProcedure();
+        internal readonly static GetSearchParameterStatusesProcedure GetSearchParameterStatuses = new GetSearchParameterStatusesProcedure();
         internal readonly static HardDeleteResourceProcedure HardDeleteResource = new HardDeleteResourceProcedure();
         internal readonly static ReadResourceProcedure ReadResource = new ReadResourceProcedure();
         internal readonly static SelectCurrentSchemaVersionProcedure SelectCurrentSchemaVersion = new SelectCurrentSchemaVersionProcedure();
@@ -240,6 +242,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
 
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly VarCharColumn Uri = new VarCharColumn("Uri", 128, "Latin1_General_100_CS_AS");
+        }
+
+        internal class SearchParameterRegistryTable : Table
+        {
+            internal SearchParameterRegistryTable(): base("dbo.SearchParameterRegistry")
+            {
+            }
+
+            internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
+            internal readonly SmallIntColumn ResourceTypeId = new SmallIntColumn("ResourceTypeId");
+            internal readonly VarCharColumn Status = new VarCharColumn("Status", 10);
+            internal readonly NullableDateTimeOffsetColumn LastUpdated = new NullableDateTimeOffsetColumn("LastUpdated", 7);
         }
 
         internal class StringSearchParamTable : Table
@@ -460,6 +474,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
                 command.CommandType = global::System.Data.CommandType.StoredProcedure;
                 command.CommandText = "dbo.GetExportJobById";
                 _id.AddParameter(command.Parameters, id);
+            }
+        }
+
+        internal class GetSearchParameterStatusesProcedure : StoredProcedure
+        {
+            internal GetSearchParameterStatusesProcedure(): base("dbo.GetSearchParameterStatuses")
+            {
+            }
+
+            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command)
+            {
+                command.CommandType = global::System.Data.CommandType.StoredProcedure;
+                command.CommandText = "dbo.GetSearchParameterStatuses";
             }
         }
 
