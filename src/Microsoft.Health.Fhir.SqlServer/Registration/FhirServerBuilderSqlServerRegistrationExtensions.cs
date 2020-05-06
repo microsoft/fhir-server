@@ -12,6 +12,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
 using Microsoft.Health.SqlServer.Api.Registration;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Schema;
@@ -30,7 +31,7 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddSqlServerBase<SchemaVersion>(configureAction);
             services.AddSqlServerApi();
 
-            services.Add(provider => new SchemaInformation((int)SchemaVersion.V1, (int)SchemaVersion.V2))
+            services.Add(provider => new SchemaInformation((int)SchemaVersion.V1, (int)SchemaVersion.V3))
                 .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();
@@ -57,6 +58,12 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Scoped()
                 .AsSelf()
                 .AsImplementedInterfaces();
+
+            // TODO: Service shouldn't be registered as IStartable?
+            services.Add<SqlServerStatusRegistryInitializer>()
+                .Singleton()
+                .AsSelf()
+                .AsService<IStartable>();
 
             AddSqlServerTableRowParameterGenerators(services);
 
