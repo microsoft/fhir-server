@@ -38,6 +38,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Controls how many reindex jobs are allowed to be running at one time
         /// currently fixed at 1
         /// </summary>
-        public int MaximumNumberOfConcurrentJobsAllowed { get; internal set; } = 1;
+        public ushort MaximumNumberOfConcurrentJobsAllowed { get; internal set; } = 1;
     }
 }

@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
+using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations
@@ -56,5 +57,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>A list of acquired export job.</returns>
         Task<IReadOnlyCollection<ExportJobOutcome>> AcquireExportJobsAsync(ushort maximumNumberOfConcurrentJobsAllowed, TimeSpan jobHeartbeatTimeoutThreshold, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Acquires reindex jobs.
+        /// </summary>
+        /// <param name="maximumNumberOfConcurrentJobsAllowed">The maximum number of concurrent reindex jobs allowed.</param>
+        /// <param name="jobHeartbeatTimeoutThreshold">The job heartbeat timeout threshold.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>A list of acquired reindex jobs.</returns>
+        Task<IReadOnlyCollection<ReindexJobWrapper>> AcquireReindexJobsAsync(ushort maximumNumberOfConcurrentJobsAllowed, TimeSpan jobHeartbeatTimeoutThreshold, CancellationToken cancellationToken);
     }
 }

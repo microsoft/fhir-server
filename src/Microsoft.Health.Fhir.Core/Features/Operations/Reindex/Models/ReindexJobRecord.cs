@@ -16,7 +16,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
     /// </summary>
     public class ReindexJobRecord
     {
-        public ReindexJobRecord()
+        public ReindexJobRecord(string searchParametersHash)
         {
             // Default values
             SchemaVersion = 1;
@@ -25,6 +25,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
 
             QueuedTime = Clock.UtcNow;
             LastModified = Clock.UtcNow;
+
+            Hash = searchParametersHash;
         }
 
         [JsonProperty(JobRecordProperties.Id)]

@@ -21,6 +21,7 @@ using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
+using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Export;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.AcquireExportJobs;
@@ -260,6 +261,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
                 _logger.LogError(dce, "Failed to acquire export jobs.");
                 throw;
             }
+        }
+
+        public Task<IReadOnlyCollection<ReindexJobWrapper>> AcquireReindexJobsAsync(ushort maximumNumberOfConcurrentJobsAllowed, TimeSpan jobHeartbeatTimeoutThreshold, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
         }
     }
 }

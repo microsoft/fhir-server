@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using System.Threading;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
@@ -100,14 +99,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private async Task UpdateJobRecordAsync(CancellationToken cancellationToken)
         {
-            await Task.FromException(new NotImplementedException());
+            // TODO: Placeholder
+            await new Task(() => _reindexJobRecord.LastModified = Clock.UtcNow, cancellationToken);
             return;
         }
 
-        private async Task ProcessSearchResultsAsync(IEnumerable<SearchResultEntry> searchResults, uint partId, CancellationToken cancellationToken)
+        /* private async Task ProcessSearchResultsAsync(IEnumerable<SearchResultEntry> searchResults, uint partId, CancellationToken cancellationToken)
         {
-            await Task.FromException(new NotImplementedException());
-            return;
-        }
+
+        }*/
     }
 }

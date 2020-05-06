@@ -12,6 +12,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 {
@@ -55,6 +56,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         using (IScoped<IFhirOperationDataStore> store = _fhirOperationDataStoreFactory())
                         {
                             // Query reindex job records
+                            IReadOnlyCollection<ReindexJobWrapper> jobs = await store.Value.AcquireReindexJobsAsync(
+                                _reindexJobConfiguration.MaximumNumberOfConcurrentJobsAllowed,
+                                _reindexJobConfiguration.JobHeartbeatTimeoutThreshold,
+                                cancellationToken);
+
+                            foreach (ReindexJobWrapper job in jobs)
+                            {
+                                _logger.LogTrace($"Picked up job: {job.JobRecord.Id}.");
+
+                                runningTasks.Add(_reindexJobTaskFactory().ExecuteAsync(job.JobRecord, job.ETag, cancellationToken));
+                            }
                         }
                     }
 
