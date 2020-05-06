@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private readonly Func<IExportJobTask> _exportJobTaskFactory;
         private readonly ILogger _logger;
 
-        private readonly TimeSpan _maximumDelay = TimeSpan.FromSeconds(3600);
+        private const int MaximumDelayInSeconds = 3600;
 
         public ExportJobWorker(Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory, IOptions<ExportJobConfiguration> exportJobConfiguration, Func<IExportJobTask> exportJobTaskFactory, ILogger<ExportJobWorker> logger)
         {
@@ -82,9 +82,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                     // Since acquiring jobs failed let us introduce a delay before we retry. We don't want to increase the delay between polls to more than an hour.
                     delayBeforeNextPoll *= 2;
-                    if (delayBeforeNextPoll > _maximumDelay)
+                    if (delayBeforeNextPoll.TotalSeconds > MaximumDelayInSeconds)
                     {
-                        delayBeforeNextPoll = _maximumDelay;
+                        delayBeforeNextPoll = TimeSpan.FromSeconds(MaximumDelayInSeconds);
                     }
                 }
 
