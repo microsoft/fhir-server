@@ -95,10 +95,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
                     // Cancellation requested
-                    _logger.LogInformation("ExportJobWorker: Cancellation requested.");
                     break;
                 }
             }
+
+            _logger.LogInformation("ExportJobWorker: Cancellation requested.");
         }
     }
 }
