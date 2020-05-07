@@ -3,11 +3,14 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Data.SqlClient;
 using EnsureThat;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Configs;
+using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
 {
@@ -33,7 +36,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                 int rowCount = 0;
                 using (SqlCommand command = sqlConnection.CreateCommand())
                 {
-                    command.CommandText = "SELECT COUNT(*) FROM dbo.SearchParameterRegistry";
+                    command.CommandText = "SELECT COUNT(*) FROM dbo.SearchParamRegistry";
                     rowCount = (int)await command.ExecuteScalarAsync();
                 }
 
@@ -41,10 +44,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                 {
                     var statuses = await _filebasedRegistry.GetSearchParameterStatuses();
 
-                    foreach (ResourceSearchParameterStatus status in statuses)
+                    using (SqlCommand command = sqlConnection.CreateCommand())
                     {
-                        // TODO: Load into registry
-                        //// Cosmos implementation: await client.UpsertDocumentAsync(relativeCollectionUri, status);
+                        foreach (ResourceSearchParameterStatus status in statuses)
+                        {
+                            VLatest.InsertIntoSearchParamRegistry.PopulateCommand(
+                                command,
+                                status.Uri.ToString(),
+                                status.Status.ToString(),
+                                status.IsPartiallySupported);
+
+                            await command.ExecuteScalarAsync();
+
+                            // Clear the parameters for the next loop.
+                            command.Parameters.Clear();
+                        }
                     }
                 }
             }

@@ -2,22 +2,18 @@
     Search Parameter Registry
 **************************************************************/
 -- TODO: Update table and indices one usage of table is fully understood
-CREATE TABLE dbo.SearchParameterRegistry
+-- TODO: Comments for table?
+CREATE TABLE dbo.SearchParamRegistry
 (
-    SearchParamId smallint NOT NULL,
-    ResourceTypeId smallint NOT NULL, -- TODO: Should we be storing the uri instead?
-    Status varchar(10) NOT NULL, -- TODO: Can/should this be stored as an enum or number instead of a string?
-    LastUpdated datetimeoffset(7) NULL -- TODO: Should this just be datetime? What level of precision is needed?
+    Uri varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Status varchar(10) NOT NULL,
+    LastUpdated datetimeoffset(7) NULL, -- TODO: Should this just be datetime? What level of precision is needed?
+    IsPartiallySupported bit NOT NULL
 )
 
-CREATE UNIQUE CLUSTERED INDEX IXC_SearchParameterRegistry ON dbo.SearchParameterRegistry
+CREATE UNIQUE CLUSTERED INDEX IXC_SearchParamRegistry ON dbo.SearchParamRegistry
 (
-    SearchParamId
-)
-
-CREATE UNIQUE NONCLUSTERED INDEX IX_SearchParameterRegistry_ResourceTypeId ON dbo.SearchParameterRegistry
-(
-    ResourceTypeId
+    Uri
 )
 
 GO
@@ -32,9 +28,45 @@ GO
 -- RETURN VALUE
 --     The search parameters and their statuses.
 --
-CREATE PROCEDURE dbo.GetSearchParameterStatuses
+CREATE PROCEDURE dbo.GetSearchParamStatuses
 AS
     SET NOCOUNT ON
     
-    SELECT * FROM dbo.SearchParameterRegistry
+    SELECT * FROM dbo.SearchParamRegistry
 GO
+
+--
+-- STORED PROCEDURE
+--     Inserts a search parameter and its status into the search parameter registry.
+--
+-- DESCRIPTION
+--     Adds a row to the search parameter registry.
+--
+-- PARAMETERS
+--     @uri
+--         * The search parameter's identifying URI
+--     @status
+--         * The status of the search parameter
+--     @isPartiallySupported
+--         * True if the parameter resolves to more than one type (FhirString, FhirUri, etc) but not all types can be indexed
+--
+CREATE PROCEDURE dbo.InsertIntoSearchParamRegistry
+    @uri varchar(128),
+    @status varchar(10),
+    @isPartiallySupported bit
+AS
+    SET NOCOUNT ON
+
+    SET XACT_ABORT ON
+    BEGIN TRANSACTION
+
+    DECLARE @lastUpdated datetime2(7) = SYSUTCDATETIME()
+    
+    INSERT INTO dbo.SearchParamRegistry
+        (Uri, Status, LastUpdated, IsPartiallySupported)
+    VALUES
+        (@uri, @status, @lastUpdated, @isPartiallySupported)
+
+    COMMIT TRANSACTION
+GO
+

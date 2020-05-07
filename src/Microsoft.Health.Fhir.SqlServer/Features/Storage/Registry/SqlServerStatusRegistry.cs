@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
             using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
             {
-                VLatest.GetSearchParameterStatuses.PopulateCommand(sqlCommand);
+                VLatest.GetSearchParamStatuses.PopulateCommand(sqlCommand);
 
                 var parameterStatuses = new List<ResourceSearchParameterStatus>();
 
@@ -42,19 +42,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                     while (await sqlDataReader.ReadAsync())
                     {
                         // TODO: Fix data types, avoid weird conversions.
-                        (int uri, string stringStatus, DateTimeOffset? lastUpdated) = sqlDataReader.ReadRow(
-                            VLatest.SearchParameterRegistry.ResourceTypeId,
-                            VLatest.SearchParameterRegistry.Status,
-                            VLatest.SearchParameterRegistry.LastUpdated);
+                        (string uri, string stringStatus, DateTimeOffset? lastUpdated, bool isPartiallySupported) = sqlDataReader.ReadRow(
+                            VLatest.SearchParamRegistry.Uri,
+                            VLatest.SearchParamRegistry.Status,
+                            VLatest.SearchParamRegistry.LastUpdated,
+                            VLatest.SearchParamRegistry.IsPartiallySupported);
 
                         var status = Enum.Parse<SearchParameterStatus>(stringStatus, true);
 
                         var resourceSearchParameterStatus = new ResourceSearchParameterStatus()
                         {
-                            Uri = new Uri(uri.ToString()),
+                            Uri = new Uri(uri),
                             Status = status,
-                            IsPartiallySupported = status == SearchParameterStatus.Supported &&
-                                                   status != SearchParameterStatus.Enabled,
+                            IsPartiallySupported = isPartiallySupported,
                             LastUpdated = (DateTimeOffset)lastUpdated,
                         };
 
