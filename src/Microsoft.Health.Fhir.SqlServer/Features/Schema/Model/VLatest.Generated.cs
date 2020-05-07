@@ -48,6 +48,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         internal readonly static ReadResourceProcedure ReadResource = new ReadResourceProcedure();
         internal readonly static SelectCurrentSchemaVersionProcedure SelectCurrentSchemaVersion = new SelectCurrentSchemaVersionProcedure();
         internal readonly static UpdateExportJobProcedure UpdateExportJob = new UpdateExportJobProcedure();
+        internal readonly static UpdateSearchParamStatusProcedure UpdateSearchParamStatus = new UpdateSearchParamStatusProcedure();
         internal readonly static UpsertResourceProcedure UpsertResource = new UpsertResourceProcedure();
         internal readonly static UpsertSchemaVersionProcedure UpsertSchemaVersion = new UpsertSchemaVersionProcedure();
         internal class ClaimTypeTable : Table
@@ -577,6 +578,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
                 _status.AddParameter(command.Parameters, status);
                 _rawJobRecord.AddParameter(command.Parameters, rawJobRecord);
                 _jobVersion.AddParameter(command.Parameters, jobVersion);
+            }
+        }
+
+        internal class UpdateSearchParamStatusProcedure : StoredProcedure
+        {
+            internal UpdateSearchParamStatusProcedure(): base("dbo.UpdateSearchParamStatus")
+            {
+            }
+
+            private readonly ParameterDefinition<System.String> _uri = new ParameterDefinition<System.String>("@uri", global::System.Data.SqlDbType.VarChar, false, 128);
+            private readonly ParameterDefinition<System.String> _status = new ParameterDefinition<System.String>("@status", global::System.Data.SqlDbType.VarChar, false, 10);
+            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.String uri, System.String status)
+            {
+                command.CommandType = global::System.Data.CommandType.StoredProcedure;
+                command.CommandText = "dbo.UpdateSearchParamStatus";
+                _uri.AddParameter(command.Parameters, uri);
+                _status.AddParameter(command.Parameters, status);
             }
         }
 

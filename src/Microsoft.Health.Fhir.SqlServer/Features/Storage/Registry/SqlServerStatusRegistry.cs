@@ -66,9 +66,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             }
         }
 
-        public Task UpdateStatuses(IEnumerable<ResourceSearchParameterStatus> statuses)
+        public async Task UpdateStatuses(IEnumerable<ResourceSearchParameterStatus> statuses)
         {
-            throw new NotImplementedException();
+            EnsureArg.IsNotNull(statuses, nameof(statuses));
+            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
+            using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
+            {
+                foreach (ResourceSearchParameterStatus status in statuses)
+                {
+                    VLatest.UpdateSearchParamStatus.PopulateCommand(
+                        sqlCommand,
+                        status.Uri.ToString(),
+                        status.Status.ToString());
+
+                    await sqlCommand.ExecuteScalarAsync();
+
+                    // Clear the parameters for the next loop.
+                    sqlCommand.Parameters.Clear();
+                }
+            }
         }
     }
 }

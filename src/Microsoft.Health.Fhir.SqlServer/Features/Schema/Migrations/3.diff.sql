@@ -37,6 +37,30 @@ GO
 
 --
 -- STORED PROCEDURE
+--     Updates the status of a search parameter.
+--
+-- DESCRIPTION
+--     Given an identifying URI, sets the status of a search parameter.
+--
+-- PARAMETERS
+--     @uri
+--         * The search parameter's identifying URI
+--     @status
+--         * The new status of the search parameter
+--
+CREATE PROCEDURE dbo.UpdateSearchParamStatus
+    @uri varchar(128),
+    @status varchar(10)
+AS
+    SET NOCOUNT ON
+    
+    UPDATE dbo.SearchParamRegistry
+    SET Status = @status
+    WHERE Uri = @uri
+GO
+
+--
+-- STORED PROCEDURE
 --     Inserts a search parameter and its status into the search parameter registry.
 --
 -- DESCRIPTION
@@ -69,4 +93,3 @@ AS
 
     COMMIT TRANSACTION
 GO
-
