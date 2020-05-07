@@ -28,4 +28,4 @@ jobs:
         & build/Update-Packages.ps1 -PackageName "Hl7.Fhir.Stu3" -PackageVersion $packageStu3Version | Out-Null
         & build/Update-Packages.ps1 -PackageName "Hl7.Fhir.R4" -PackageVersion $packageR4Version | Out-Null
       workingDirectory: $(Build.SourcesDirectory)
-  - template: build.yml
+  - template: ./jobs/build.yml

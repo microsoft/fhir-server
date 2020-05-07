@@ -1,0 +1,160 @@
+# DESCRIPTION: 	
+# Builds, tests, and packages the solution for all PR requests.	
+
+name: $(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:-r)
+trigger: none
+
+variables:
+- template: ci-variables.yml
+- template: build-variables.yml
+
+stages:
+- stage: BuildUnitTests
+  displayName: 'Build and run unit tests'
+  dependsOn: []
+  jobs:
+  - job: Windows
+    pool:
+      vmImage: $(WindowsVmImage)
+    steps:
+    - template: ./jobs/build.yml
+
+  - job: Linux
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - template: ./jobs/build.yml
+      parameters:
+        packageArtifacts: false
+
+- stage: DockerBuild  
+  displayName: 'Build images'
+  dependsOn: []
+  jobs:
+  - template: ./jobs/docker-build-all.yml
+    parameters: 
+      tag: $(ImageTag)
+
+- stage: redeployStu3
+  displayName: 'Redeploy STU3 Site'
+  dependsOn:
+  - DockerBuild
+  jobs:
+  - template: ./jobs/redeploy-webapp.yml
+    parameters: 
+      version: Stu3
+      webAppName: $(DeploymentEnvironmentName)
+      subscription: $(ConnectedServiceName)
+      imageTag: $(ImageTag)
+
+- stage: redeployStu3Sql
+  displayName: 'Redeploy STU3 SQL Site'
+  dependsOn:
+  - DockerBuild
+  jobs:
+  - template: ./jobs/redeploy-webapp.yml
+    parameters: 
+      version: Stu3
+      webAppName: $(DeploymentEnvironmentNameSql)
+      subscription: $(ConnectedServiceName)
+      imageTag: $(ImageTag)
+
+- stage: redeployR4
+  displayName: 'Redeploy R4 Site'
+  dependsOn:
+  - DockerBuild
+  jobs:
+  - template: ./jobs/redeploy-webapp.yml
+    parameters: 
+      version: R4
+      webAppName: $(DeploymentEnvironmentNameR4)
+      subscription: $(ConnectedServiceName)
+      imageTag: $(ImageTag)
+
+- stage: redeployR4Sql
+  displayName: 'Redeploy R4 SQL Site'
+  dependsOn:
+  - DockerBuild
+  jobs:
+  - template: ./jobs/redeploy-webapp.yml
+    parameters: 
+      version: R4
+      webAppName: $(DeploymentEnvironmentNameR4Sql)
+      subscription: $(ConnectedServiceName)
+      imageTag: $(ImageTag)
+
+- stage: redeployR5
+  displayName: 'Redeploy R5 Site'
+  dependsOn:
+  - DockerBuild
+  jobs:
+  - template: ./jobs/redeploy-webapp.yml
+    parameters: 
+      version: R5
+      webAppName: $(DeploymentEnvironmentNameR5)
+      subscription: $(ConnectedServiceName)
+      imageTag: $(ImageTag)
+
+- stage: redeployR5Sql
+  displayName: 'Redeploy R5 SQL Site'
+  dependsOn:
+  - DockerBuild
+  jobs:
+  - template: ./jobs/redeploy-webapp.yml
+    parameters: 
+      version: R5
+      webAppName: $(DeploymentEnvironmentNameR5Sql)
+      subscription: $(ConnectedServiceName)
+      imageTag: $(ImageTag)
+
+- stage: testStu3
+  displayName: 'Run Stu3 Tests'
+  dependsOn:
+  - BuildUnitTests
+  - redeployStu3
+  - redeployStu3Sql
+  jobs:
+  - template: ./jobs/run-tests.yml
+    parameters:
+      version: Stu3
+      keyVaultName: $(DeploymentEnvironmentName)
+
+- stage: testR4
+  displayName: 'Run R4 Tests'
+  dependsOn:
+  - BuildUnitTests
+  - redeployR4
+  - redeployR4Sql
+  jobs:
+  - template: ./jobs/run-tests.yml
+    parameters:
+      version: R4
+      keyVaultName: $(DeploymentEnvironmentNameR4)
+
+- stage: testR5
+  displayName: 'Run R5 Tests'
+  dependsOn:
+  - BuildUnitTests
+  - redeployR5
+  - redeployR5Sql
+  jobs:
+  - template: ./jobs/run-tests.yml
+    parameters:
+      version: R5
+      keyVaultName: $(DeploymentEnvironmentNameR5)
+
+- stage: securityScan
+  displayName: Security Scan
+  dependsOn: []
+  jobs:
+  - job: runScan
+    pool:
+      vmImage: $(WindowsVmImage)
+    steps:
+    - task: securedevelopmentteam.vss-secure-development-tools.build-task-antimalware.AntiMalware@3
+      displayName: 'Run MpCmdRun.exe'
+      inputs:
+        FileDirPath: '$(System.ArtifactsDirectory)'
+        EnableServices: true
+        SignatureFreshness: OneDay
+        TreatStaleSignatureAs: Warning

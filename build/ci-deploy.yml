@@ -1,32 +1,14 @@
 # DESCRIPTION: 	
-# Builds, tests, and packages the solution for all PR requests.	
+# Deploys the CI environment in case the persistant resources are deleted or broken.
 
-name: pr$(system.pullRequest.pullRequestNumber)-$(Date:yyyyMMdd)$(Rev:-r)
+name: $(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:-r)
 trigger: none
 
 variables:
-- template: pr-variables.yml
+- template: ci-variables.yml
 - template: build-variables.yml
 
 stages:
-- stage: BuildUnitTests
-  displayName: 'Build and run unit tests'
-  dependsOn: []
-  jobs:
-  - job: Windows
-    pool:
-      vmImage: $(WindowsVmImage)
-    steps:
-    - template: ./jobs/build.yml
-
-  - job: Linux
-    pool:
-      vmImage: 'ubuntu-latest'
-    steps:
-    - template: ./jobs/build.yml
-      parameters:
-        packageArtifacts: false
-
 - stage: DockerBuild  
   displayName: 'Build images'
   dependsOn: []
@@ -39,7 +21,9 @@ stages:
   displayName: Provision Environment
   dependsOn: []
   jobs:
+  - template: ./jobs/cleanup.yml
   - job: provision
+    dependsOn: DeleteResourceGroup 
     steps:
     - task: AzurePowerShell@4
       displayName: Provision Resource Group
@@ -162,51 +146,3 @@ stages:
       resourceGroup: $(DeploymentEnvironmentName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
-  
-- stage: testStu3
-  displayName: 'Run Stu3 Tests'
-  dependsOn:
-  - BuildUnitTests
-  - aadTestEnvironment
-  - deployStu3
-  - deployStu3Sql
-  jobs:
-  - template: ./jobs/run-tests.yml
-    parameters:
-      version: Stu3
-      keyVaultName: $(DeploymentEnvironmentName)
-
-- stage: testR4
-  displayName: 'Run R4 Tests'
-  dependsOn:
-  - BuildUnitTests
-  - aadTestEnvironment
-  - deployR4
-  - deployR4Sql
-  jobs:
-  - template: ./jobs/run-tests.yml
-    parameters:
-      version: R4
-      keyVaultName: $(DeploymentEnvironmentNameR4)
-
-- stage: testR5
-  displayName: 'Run R5 Tests'
-  dependsOn:
-  - BuildUnitTests
-  - aadTestEnvironment
-  - deployR5
-  - deployR5Sql
-  jobs:
-  - template: ./jobs/run-tests.yml
-    parameters:
-      version: R5
-      keyVaultName: $(DeploymentEnvironmentNameR5)
-
-- stage: cleanup
-  displayName: 'Cleanup Azure Environment'
-  dependsOn:
-  - testStu3
-  - testR4
-  - testR5
-  jobs:
-  - template: ./jobs/cleanup.yml

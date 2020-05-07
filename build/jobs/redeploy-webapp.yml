@@ -1,0 +1,24 @@
+parameters:
+- name: version
+  type: string
+- name: webAppName
+  type: string
+- name: subscription
+  type: string
+- name: imageTag
+  type: string
+
+jobs:
+- job: provisionEnvironment
+  pool:
+    vmImage: $(WindowsVmImage)
+  steps:  
+  - task: AzureRmWebAppDeployment@4
+    displayName: 'Azure App Service Deploy'
+    inputs:
+      azureSubscription: '${{ parameters.subscription }}'
+      appType: 'webAppContainer'
+      WebAppName: '${{ parameters.webAppName }}'
+      DockerNamespace: $(azureContainerRegistry)
+      DockerRepository: '${{ parameters.version }}_fhir-server'
+      DockerImageTag: ${{ parameters.imageTag }}
