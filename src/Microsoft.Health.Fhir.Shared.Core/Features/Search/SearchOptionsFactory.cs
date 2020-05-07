@@ -12,6 +12,8 @@ using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -29,19 +31,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ILogger _logger;
         private readonly SearchParameterInfo _resourceTypeSearchParameter;
+        private CoreFeatureConfiguration _featureConfiguration;
 
         public SearchOptionsFactory(
             IExpressionParser expressionParser,
             ISearchParameterDefinitionManager.SearchableSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
+            IOptions<CoreFeatureConfiguration> featureConfiguration,
             ILogger<SearchOptionsFactory> logger)
         {
             EnsureArg.IsNotNull(expressionParser, nameof(expressionParser));
             EnsureArg.IsNotNull(searchParameterDefinitionManagerResolver, nameof(searchParameterDefinitionManagerResolver));
+            EnsureArg.IsNotNull(featureConfiguration?.Value, nameof(featureConfiguration));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _expressionParser = expressionParser;
             _searchParameterDefinitionManager = searchParameterDefinitionManagerResolver();
             _logger = logger;
+            _featureConfiguration = featureConfiguration.Value;
 
             _resourceTypeSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(ResourceType.Resource.ToString(), SearchParameterNames.ResourceType);
         }
@@ -59,6 +65,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             var searchParams = new SearchParams();
             var unsupportedSearchParameters = new List<Tuple<string, string>>();
+            searchOptions.IncludeTotal = _featureConfiguration.BundleIncludeTotal;
 
             // Extract the continuation token, filter out the other known query parameters that's not search related.
             foreach (Tuple<string, string> query in queryParameters ?? Enumerable.Empty<Tuple<string, string>>())

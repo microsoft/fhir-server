@@ -8,6 +8,8 @@ using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.Model;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -44,6 +46,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _factory = new SearchOptionsFactory(
                 _expressionParser,
                 () => searchParameterDefinitionManager,
+                new OptionsWrapper<CoreFeatureConfiguration>(new CoreFeatureConfiguration()),
                 NullLogger<SearchOptionsFactory>.Instance);
         }
 
