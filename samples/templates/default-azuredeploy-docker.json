@@ -127,7 +127,7 @@
         },
         "imageTag": {
             "type": "string",
-            "defaultValue": "latest",
+            "defaultValue": "release",
             "metadata": {
                 "description": "Tag of the docker image to deploy."
             }

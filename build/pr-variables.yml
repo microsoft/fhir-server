@@ -1,7 +1,6 @@
 variables:
     ResourceGroupRegion: 'southcentralus'
     resourceGroupRoot: 'msh-fhir-pr'
-    appServicePlanResourceGroup: '$(resourceGroupRoot)-$(prNumber)'
     appServicePlanName: '$(resourceGroupRoot)-$(prNumber)-asp'
     prNumber: $(system.pullRequest.pullRequestNumber)
     DeploymentEnvironmentName: '$(resourceGroupRoot)-$(prNumber)'
