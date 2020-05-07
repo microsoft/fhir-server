@@ -23,6 +23,7 @@ stages:
   jobs:
   - template: ./jobs/cleanup.yml
   - job: provision
+    dependsOn: DeleteResourceGroup 
     steps:
     - task: AzurePowerShell@4
       displayName: Provision Resource Group
