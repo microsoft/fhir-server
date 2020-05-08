@@ -54,16 +54,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public async Task<ExportJobOutcome> CreateExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken)
         {
             using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
-            using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
                 VLatest.CreateExportJob.PopulateCommand(
-                    sqlCommand,
+                    sqlCommandWrapper,
                     jobRecord.Id,
                     jobRecord.Hash,
                     jobRecord.Status.ToString(),
                     JsonConvert.SerializeObject(jobRecord, _jsonSerializerSettings));
 
-                var rowVersion = (int?)await sqlCommand.ExecuteScalarAsync(cancellationToken);
+                var rowVersion = (int?)await sqlCommandWrapper.ExecuteScalarAsync(cancellationToken);
 
                 if (rowVersion == null)
                 {
@@ -79,11 +79,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             EnsureArg.IsNotNullOrWhiteSpace(id, nameof(id));
 
             using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
-            using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
-                VLatest.GetExportJobById.PopulateCommand(sqlCommand, id);
+                VLatest.GetExportJobById.PopulateCommand(sqlCommandWrapper, id);
 
-                using (SqlDataReader sqlDataReader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
+                using (SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                 {
                     if (!sqlDataReader.Read())
                     {
@@ -102,11 +102,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             EnsureArg.IsNotNullOrWhiteSpace(hash, nameof(hash));
 
             using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
-            using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
-                VLatest.GetExportJobByHash.PopulateCommand(sqlCommand, hash);
+                VLatest.GetExportJobByHash.PopulateCommand(sqlCommandWrapper, hash);
 
-                using (SqlDataReader sqlDataReader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
+                using (SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                 {
                     if (!sqlDataReader.Read())
                     {
@@ -127,10 +127,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             byte[] rowVersionAsBytes = GetRowVersionAsBytes(eTag);
 
             using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
-            using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
                 VLatest.UpdateExportJob.PopulateCommand(
-                    sqlCommand,
+                    sqlCommandWrapper,
                     jobRecord.Id,
                     jobRecord.Status.ToString(),
                     JsonConvert.SerializeObject(jobRecord, _jsonSerializerSettings),
@@ -138,7 +138,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 try
                 {
-                    var rowVersion = (byte[])await sqlCommand.ExecuteScalarAsync(cancellationToken);
+                    var rowVersion = (byte[])await sqlCommandWrapper.ExecuteScalarAsync(cancellationToken);
 
                     if (rowVersion.NullIfEmpty() == null)
                     {
@@ -169,18 +169,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public async Task<IReadOnlyCollection<ExportJobOutcome>> AcquireExportJobsAsync(ushort maximumNumberOfConcurrentJobsAllowed, TimeSpan jobHeartbeatTimeoutThreshold, CancellationToken cancellationToken)
         {
             using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
-            using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
                 var jobHeartbeatTimeoutThresholdInSeconds = Convert.ToInt64(jobHeartbeatTimeoutThreshold.TotalSeconds);
 
                 VLatest.AcquireExportJobs.PopulateCommand(
-                    sqlCommand,
+                    sqlCommandWrapper,
                     jobHeartbeatTimeoutThresholdInSeconds,
                     maximumNumberOfConcurrentJobsAllowed);
 
                 var acquiredJobs = new List<ExportJobOutcome>();
 
-                using (SqlDataReader sqlDataReader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
+                using (SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                 {
                     while (await sqlDataReader.ReadAsync(cancellationToken))
                     {

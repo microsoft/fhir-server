@@ -50,7 +50,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             TestConnectionString = new SqlConnectionStringBuilder(initialConnectionString) { InitialCatalog = _databaseName }.ToString();
 
             var config = new SqlServerDataStoreConfiguration { ConnectionString = TestConnectionString, Initialize = true };
-            var sqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(config, new SqlTransactionHandler());
 
             var schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
             var scriptProvider = new ScriptProvider<SchemaVersion>();
@@ -79,11 +78,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var searchParameterToSearchValueTypeMap = new SearchParameterToSearchValueTypeMap(() => searchParameterDefinitionManager);
 
             SqlTransactionHandler = new SqlTransactionHandler();
-            SqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(config, SqlTransactionHandler);
+            SqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(config, SqlTransactionHandler, new SqlCommandWrapperFactory());
 
             _fhirDataStore = new SqlServerFhirDataStore(config, sqlServerFhirModel, searchParameterToSearchValueTypeMap, upsertResourceTvpGenerator, Options.Create(new CoreFeatureConfiguration()), SqlConnectionWrapperFactory, NullLogger<SqlServerFhirDataStore>.Instance);
 
-            _fhirOperationDataStore = new SqlServerFhirOperationDataStore(sqlConnectionWrapperFactory, NullLogger<SqlServerFhirOperationDataStore>.Instance);
+            _fhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, NullLogger<SqlServerFhirOperationDataStore>.Instance);
 
             _testHelper = new SqlServerFhirStorageTestHelper(TestConnectionString, initialConnectionString, masterConnectionString);
         }
