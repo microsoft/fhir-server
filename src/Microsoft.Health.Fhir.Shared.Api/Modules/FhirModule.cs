@@ -134,11 +134,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            services.Add<SecurityProvider>()
-                .Singleton()
-                .AsSelf()
-                .AsService<IProvideCapability>();
-
             services.TypesInSameAssembly(KnownAssemblies.All)
                 .AssignableTo<IProvideCapability>()
                 .Transient()

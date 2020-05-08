@@ -83,7 +83,7 @@
             "type": "bool",
             "defaultValue": true,
             "metadata": {
-                "description": "Deploy Application Insights for the FHIR server. Disabled for Microsoft Azure Government (MAG)"
+                "description": "Deploy Application Insights for the FHIR server."
             }
         },
         "applicationInsightsLocation": {
@@ -95,7 +95,9 @@
                 "westeurope",
                 "eastus",
                 "southcentralus",
-                "westus2"
+                "westus2",
+                "usgovvirginia",
+                "usgovarizona"
             ]
         },
         "additionalFhirServerConfigProperties": {
@@ -148,7 +150,7 @@
         "appServicePlanName": "[if(empty(parameters('appServicePlanName')),concat(variables('serviceName'),'-asp'),parameters('appServicePlanName'))]",
         "appServiceResourceId": "[resourceId('Microsoft.Web/sites', variables('serviceName'))]",
         "securityAuthenticationEnabled": "[and(not(empty(parameters('securityAuthenticationAuthority'))),not(empty(parameters('securityAuthenticationAudience'))))]",
-        "deployAppInsights": "[and(parameters('deployApplicationInsights'),not(variables('isMAG')))]",
+        "deployAppInsights": "[parameters('deployApplicationInsights')]",
         "appInsightsName": "[concat('AppInsights-', variables('serviceName'))]",
         "storageBlobDataContributerRoleId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]",
         "blobStorageUri": "[if(variables('isMAG'), '.blob.core.usgovcloudapi.net', '.blob.core.windows.net')]",

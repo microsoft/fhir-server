@@ -156,6 +156,28 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         }
 
         [Fact]
+        public async Task GivenADocumentClientExceptionWithCustomerManagedKeyInaccessibleSubStatus_WhenProcessing_ThenExceptionShouldThrow()
+        {
+            DocumentClientException documentClientException = CreateDocumentClientException("12.4", "fail", HttpStatusCode.Forbidden, CosmosDbSubStatusValues.CustomerManagedKeyInaccessible.ToString());
+
+            await Assert.ThrowsAsync<CustomerManagedKeyInaccessibleException>(async () => await _cosmosResponseProcessor.ProcessException(documentClientException));
+
+            ValidateExecution(expectedSessionToken: null, 12.4, false);
+        }
+
+        [Theory]
+        [InlineData("")]
+        [InlineData("3999")]
+        public async Task GivenADocumentClientExceptionWithForbiddenStatusCodeAndNotKeyInaccessibleSubStatus_WhenProcessing_ThenNothingElseShouldOccur(string subsStatusCode)
+        {
+            DocumentClientException documentClientException = CreateDocumentClientException("12.4", "fail", HttpStatusCode.Forbidden, subsStatusCode);
+
+            await _cosmosResponseProcessor.ProcessException(documentClientException);
+
+            ValidateExecution(expectedSessionToken: null, 12.4, false);
+        }
+
+        [Fact]
         public async Task GivenANullFhirRequestContext_WhenProcessing_ThenNothingAdditionalShouldOccur()
         {
             _fhirRequestContextAccessor.FhirRequestContext.Returns((IFhirRequestContext)null);
@@ -164,10 +186,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             await _cosmosResponseProcessor.ProcessException(documentClientException);
         }
 
-        private static DocumentClientException CreateDocumentClientException(string requestCharge, string exceptionMessage, HttpStatusCode httpStatusCode)
+        private static DocumentClientException CreateDocumentClientException(string requestCharge, string exceptionMessage, HttpStatusCode httpStatusCode, string subStatus = null)
         {
             var nameValueCollection = new NameValueCollection();
-            nameValueCollection.Add("x-ms-request-charge", requestCharge);
+            nameValueCollection.Add(CosmosDbHeaders.RequestCharge, requestCharge);
+            if (subStatus != null)
+            {
+                nameValueCollection.Add(CosmosDbHeaders.SubStatus, subStatus);
+            }
+
             DocumentClientException documentClientException = CosmosDbMockingHelper.CreateDocumentClientException(exceptionMessage, nameValueCollection, httpStatusCode);
             return documentClientException;
         }
