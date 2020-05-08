@@ -1,8 +1,14 @@
 /*************************************************************
     Search Parameter Registry
 **************************************************************/
--- TODO: Update table and indices one usage of table is fully understood
--- TODO: Comments for table?
+
+CREATE TYPE dbo.SearchParamRegistryTableType_1 AS TABLE
+(
+    Uri varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Status varchar(10) NOT NULL,
+    IsPartiallySupported bit NOT NULL
+)
+
 CREATE TABLE dbo.SearchParamRegistry
 (
     Uri varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
@@ -11,13 +17,17 @@ CREATE TABLE dbo.SearchParamRegistry
     IsPartiallySupported bit NOT NULL
 )
 
-CREATE UNIQUE CLUSTERED INDEX IXC_SearchParamRegistry ON dbo.SearchParamRegistry
+CREATE UNIQUE CLUSTERED INDEX IXC_SearchParamRegistry
+ON dbo.SearchParamRegistry
 (
     Uri
 )
 
 GO
 
+/*************************************************************
+    Stored procedures for the search parameter registry
+**************************************************************/
 --
 -- STORED PROCEDURE
 --     Gets all the search parameters and their statuses.
@@ -43,20 +53,25 @@ GO
 --     Given an identifying URI, sets the status of a search parameter.
 --
 -- PARAMETERS
---     @uri
---         * The search parameter's identifying URI
---     @status
---         * The new status of the search parameter
+--     @searchParamStatuses
+--         * The updated search parameter statuses
 --
 CREATE PROCEDURE dbo.UpdateSearchParamStatus
-    @uri varchar(128),
-    @status varchar(10)
+    @searchParamStatuses dbo.SearchParamRegistryTableType_1 READONLY
 AS
     SET NOCOUNT ON
-    
+
+    SET XACT_ABORT ON
+    BEGIN TRANSACTION
+
+    DECLARE @lastUpdated datetime2(7) = SYSUTCDATETIME()
+
     UPDATE dbo.SearchParamRegistry
-    SET Status = @status
-    WHERE Uri = @uri
+    SET Status = sps.Status, LastUpdated = @lastUpdated
+    FROM dbo.SearchParamRegistry INNER JOIN @searchParamStatuses as sps
+    ON dbo.SearchParamRegistry.Uri = sps.Uri
+
+    COMMIT TRANSACTION
 GO
 
 --

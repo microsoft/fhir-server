@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
+using System.Linq;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -19,12 +20,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
     public class SqlServerStatusRegistry : ISearchParameterRegistry
     {
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
+        private readonly VLatest.UpdateSearchParamStatusTvpGenerator<List<ResourceSearchParameterStatus>> _searchParamRegistryTvpGenerator;
 
-        public SqlServerStatusRegistry(SqlConnectionWrapperFactory sqlConnectionWrapperFactory)
+        internal SqlServerStatusRegistry(
+            SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
+            VLatest.UpdateSearchParamStatusTvpGenerator<List<ResourceSearchParameterStatus>> searchParamRegistryTvpGenerator)
         {
             EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
+            EnsureArg.IsNotNull(searchParamRegistryTvpGenerator, nameof(searchParamRegistryTvpGenerator));
 
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
+            _searchParamRegistryTvpGenerator = searchParamRegistryTvpGenerator;
         }
 
         public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses()
@@ -69,21 +75,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
         public async Task UpdateStatuses(IEnumerable<ResourceSearchParameterStatus> statuses)
         {
             EnsureArg.IsNotNull(statuses, nameof(statuses));
+
             using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
             using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
             {
-                foreach (ResourceSearchParameterStatus status in statuses)
-                {
-                    VLatest.UpdateSearchParamStatus.PopulateCommand(
-                        sqlCommand,
-                        status.Uri.ToString(),
-                        status.Status.ToString());
+                VLatest.UpdateSearchParamStatus.PopulateCommand(sqlCommand, _searchParamRegistryTvpGenerator.Generate(statuses.ToList()));
 
-                    await sqlCommand.ExecuteScalarAsync();
-
-                    // Clear the parameters for the next loop.
-                    sqlCommand.Parameters.Clear();
-                }
+                await sqlCommand.ExecuteScalarAsync();
             }
         }
     }
