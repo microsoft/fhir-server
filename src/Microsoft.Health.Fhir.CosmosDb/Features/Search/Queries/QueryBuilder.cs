@@ -3,10 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Text;
 using EnsureThat;
 using Microsoft.Azure.Documents;
 using Microsoft.Health.CosmosDb.Features.Queries;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -68,7 +70,31 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                    (KnownResourceWrapperProperties.IsHistory, false),
                    (KnownResourceWrapperProperties.IsDeleted, false));
 
-                SqlQuerySpec query = new SqlQuerySpec(
+                if (!searchOptions.CountOnly)
+                {
+                    var hasOrderBy = false;
+                    foreach (var sortOptions in searchOptions.Sort)
+                    {
+                        if (string.Equals(sortOptions.searchParameterInfo.Name, KnownQueryParameterNames.LastUpdated, StringComparison.OrdinalIgnoreCase))
+                        {
+                            if (!hasOrderBy)
+                            {
+                                _queryBuilder.Append("ORDER BY ");
+                                hasOrderBy = true;
+                            }
+
+                            _queryBuilder.Append(SearchValueConstants.RootAliasName).Append(".")
+                                .Append(KnownResourceWrapperProperties.LastModified).Append(" ")
+                                .AppendLine(sortOptions.sortOrder == SortOrder.Ascending ? "ASC" : "DESC");
+                        }
+                        else
+                        {
+                            throw new SearchParameterNotSupportedException(string.Format(Core.Resources.SearchSortParameterNotSupported, sortOptions.searchParameterInfo.Name));
+                        }
+                    }
+                }
+
+                var query = new SqlQuerySpec(
                     _queryBuilder.ToString(),
                     _queryParameterManager.ToSqlParameterCollection());
 
