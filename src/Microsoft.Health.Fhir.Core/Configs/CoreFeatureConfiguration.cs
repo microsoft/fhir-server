@@ -25,6 +25,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// <summary>
         /// Gets or sets the default value for IncludeTotal in search bundles
         /// </summary>
-        public TotalType BundleIncludeTotal { get; set; } = TotalType.None;
+        public TotalType IncludeTotalInBundle { get; set; } = TotalType.None;
     }
 }

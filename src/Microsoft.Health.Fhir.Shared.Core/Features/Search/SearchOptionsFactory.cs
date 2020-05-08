@@ -26,6 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     public class SearchOptionsFactory : ISearchOptionsFactory
     {
         private static readonly Regex Base64FormatRegex = new Regex("^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$", RegexOptions.Compiled | RegexOptions.Singleline);
+        private static readonly string SupportedTotalTypes = $"'{TotalType.Accurate}', '{TotalType.None}'".ToLower(CultureInfo.CurrentCulture);
 
         private readonly IExpressionParser _expressionParser;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
@@ -65,7 +66,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             var searchParams = new SearchParams();
             var unsupportedSearchParameters = new List<Tuple<string, string>>();
-            searchOptions.IncludeTotal = _featureConfiguration.BundleIncludeTotal;
+            bool setDefaultBundleTotal = true;
 
             // Extract the continuation token, filter out the other known query parameters that's not search related.
             foreach (Tuple<string, string> query in queryParameters ?? Enumerable.Empty<Tuple<string, string>>())
@@ -88,6 +89,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     {
                         continuationToken = query.Item2;
                     }
+
+                    setDefaultBundleTotal = false;
                 }
                 else if (query.Item1 == KnownQueryParameterNames.Format)
                 {
@@ -100,21 +103,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 }
                 else if (string.Compare(query.Item1, KnownQueryParameterNames.Total, StringComparison.OrdinalIgnoreCase) == 0)
                 {
-                    // Estimate is not yet supported.
-                    var supportedTotalTypes = new string($"'{TotalType.Accurate}', '{TotalType.None}'").ToLower(CultureInfo.CurrentCulture);
-
                     if (Enum.TryParse<TotalType>(query.Item2, true, out var totalType))
                     {
-                        if (totalType == TotalType.Estimate)
-                        {
-                            throw new SearchOperationNotSupportedException(string.Format(Core.Resources.UnsupportedTotalParameter, query.Item2, supportedTotalTypes));
-                        }
+                        ValidateTotalType(totalType);
 
                         searchOptions.IncludeTotal = totalType;
+                        setDefaultBundleTotal = false;
                     }
                     else
                     {
-                        throw new BadRequestException(string.Format(Core.Resources.InvalidTotalParameter, query.Item2, supportedTotalTypes));
+                        throw new BadRequestException(string.Format(Core.Resources.InvalidTotalParameter, query.Item2, SupportedTotalTypes));
                     }
                 }
                 else
@@ -133,6 +131,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
 
             searchOptions.ContinuationToken = continuationToken;
+
+            if (setDefaultBundleTotal)
+            {
+                ValidateTotalType(_featureConfiguration.IncludeTotalInBundle);
+                searchOptions.IncludeTotal = _featureConfiguration.IncludeTotalInBundle;
+            }
 
             // Check the item count.
             if (searchParams.Count != null)
@@ -245,6 +249,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
 
             return searchOptions;
+
+            void ValidateTotalType(TotalType totalType)
+            {
+                // Estimate is not yet supported.
+                if (totalType == TotalType.Estimate)
+                {
+                    throw new SearchOperationNotSupportedException(string.Format(Core.Resources.UnsupportedTotalParameter, totalType, SupportedTotalTypes));
+                }
+            }
         }
     }
 }

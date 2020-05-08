@@ -35,6 +35,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private readonly IExpressionParser _expressionParser = Substitute.For<IExpressionParser>();
         private readonly SearchOptionsFactory _factory;
         private readonly SearchParameterInfo _resourceTypeSearchParameterInfo;
+        private readonly CoreFeatureConfiguration _coreFeatures;
 
         public SearchOptionsFactoryTests()
         {
@@ -42,11 +43,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _resourceTypeSearchParameterInfo = new SearchParameter { Name = SearchParameterNames.ResourceType, Type = SearchParamType.String }.ToInfo();
             searchParameterDefinitionManager.GetSearchParameter(Arg.Any<string>(), Arg.Any<string>()).Throws(ci => new SearchParameterNotSupportedException(ci.ArgAt<string>(0), ci.ArgAt<string>(1)));
             searchParameterDefinitionManager.GetSearchParameter(Arg.Any<string>(), SearchParameterNames.ResourceType).Returns(_resourceTypeSearchParameterInfo);
+            _coreFeatures = new CoreFeatureConfiguration();
 
             _factory = new SearchOptionsFactory(
                 _expressionParser,
                 () => searchParameterDefinitionManager,
-                new OptionsWrapper<CoreFeatureConfiguration>(new CoreFeatureConfiguration()),
+                new OptionsWrapper<CoreFeatureConfiguration>(_coreFeatures),
                 NullLogger<SearchOptionsFactory>.Instance);
         }
 
@@ -350,6 +352,26 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 invalidCompartmentId));
 
             Assert.Equal("Compartment id is null or empty.", exception.Message);
+        }
+
+        [Theory]
+        [InlineData(TotalType.Accurate)]
+        [InlineData(TotalType.None)]
+        public void GivenNoTotalParameter_WhenCreated_ThenDefaultSearchOptionsShouldHaveCountWhenConfiguredByDefault(TotalType type)
+        {
+            _coreFeatures.IncludeTotalInBundle = type;
+
+            SearchOptions options = CreateSearchOptions(queryParameters: null);
+
+            Assert.Equal(type, options.IncludeTotal);
+        }
+
+        [Fact]
+        public void GivenNoTotalParameterWithInvalidDefault_WhenCreated_ThenDefaultSearchOptionsThrowException()
+        {
+            _coreFeatures.IncludeTotalInBundle = TotalType.Estimate;
+
+            Assert.Throws<SearchOperationNotSupportedException>(() => CreateSearchOptions(queryParameters: null));
         }
 
         private SearchOptions CreateSearchOptions(
