@@ -5,6 +5,7 @@
 
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
 {
@@ -20,6 +21,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
 
             JobRecord = jobRecord;
             ETag = eTag;
+        }
+
+        [JsonConstructor]
+        protected ReindexJobWrapper()
+        {
         }
 
         /// <summary>

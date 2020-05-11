@@ -50,6 +50,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         public async Task ExecuteAsync(ReindexJobRecord reindexJobRecord, WeakETag weakETag, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(reindexJobRecord, nameof(reindexJobRecord));
+            EnsureArg.IsNotNull(weakETag, nameof(weakETag));
 
             _reindexJobRecord = reindexJobRecord;
             _weakETag = weakETag;

@@ -29,6 +29,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
             Hash = searchParametersHash;
         }
 
+        [JsonConstructor]
+        protected ReindexJobRecord()
+        {
+        }
+
         [JsonProperty(JobRecordProperties.Id)]
         public string Id { get; private set; }
 

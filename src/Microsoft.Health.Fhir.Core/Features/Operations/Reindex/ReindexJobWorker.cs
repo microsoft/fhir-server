@@ -69,8 +69,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                             }
                         }
                     }
-
-                    await Task.Delay(_reindexJobConfiguration.JobPollingFrequency, cancellationToken);
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
@@ -80,6 +78,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 {
                     // The job failed.
                     _logger.LogError(ex, "Unhandled exception in the worker.");
+                }
+                finally
+                {
+                    await Task.Delay(_reindexJobConfiguration.JobPollingFrequency, cancellationToken);
                 }
             }
         }
