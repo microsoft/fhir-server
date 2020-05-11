@@ -47,29 +47,41 @@ GO
 
 --
 -- STORED PROCEDURE
---     Updates the status of a search parameter.
+--     Given a table of search parameters, upserts the registry.
 --
 -- DESCRIPTION
---     Given an identifying URI, sets the status of a search parameter.
+--     If a parameter with a matching URI already exists in the registry, it is updated.
+--     If not, a new entry is created.
 --
 -- PARAMETERS
 --     @searchParamStatuses
---         * The updated search parameter statuses
+--         * The updated or new search parameter statuses
 --
-CREATE PROCEDURE dbo.UpdateSearchParamStatus
+CREATE PROCEDURE dbo.UpsertSearchParamStatus
     @searchParamStatuses dbo.SearchParamRegistryTableType_1 READONLY
 AS
     SET NOCOUNT ON
-
     SET XACT_ABORT ON
+
+    SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
     BEGIN TRANSACTION
 
     DECLARE @lastUpdated datetime2(7) = SYSUTCDATETIME()
 
+    -- Acquire and hold an exclusive table lock for the entire transaction to prevent parameters from being added or modified during upsertion.
+    -- TODO: should this be an update lock?
     UPDATE dbo.SearchParamRegistry
-    SET Status = sps.Status, LastUpdated = @lastUpdated
+    WITH (TABLOCKX)
+    SET Status = sps.Status, LastUpdated = @lastUpdated, IsPartiallySupported = sps.IsPartiallySupported
     FROM dbo.SearchParamRegistry INNER JOIN @searchParamStatuses as sps
     ON dbo.SearchParamRegistry.Uri = sps.Uri
+
+    INSERT INTO dbo.SearchParamRegistry
+        (Uri, Status, LastUpdated, IsPartiallySupported)
+    SELECT sps.Uri, sps.Status, @lastUpdated, sps.IsPartiallySupported
+    FROM @searchParamStatuses AS sps
+    WHERE sps.Uri NOT IN
+        (SELECT Uri FROM dbo.SearchParamRegistry) 
 
     COMMIT TRANSACTION
 GO

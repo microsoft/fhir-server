@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
             if (newParameters.Any())
             {
-                await _searchParameterRegistry.UpdateStatuses(newParameters);
+                await _searchParameterRegistry.UpsertStatuses(newParameters);
             }
 
             await _mediator.Publish(new SearchParametersUpdated(updated));

@@ -49,9 +49,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         internal readonly static ReadResourceProcedure ReadResource = new ReadResourceProcedure();
         internal readonly static SelectCurrentSchemaVersionProcedure SelectCurrentSchemaVersion = new SelectCurrentSchemaVersionProcedure();
         internal readonly static UpdateExportJobProcedure UpdateExportJob = new UpdateExportJobProcedure();
-        internal readonly static UpdateSearchParamStatusProcedure UpdateSearchParamStatus = new UpdateSearchParamStatusProcedure();
         internal readonly static UpsertResourceProcedure UpsertResource = new UpsertResourceProcedure();
         internal readonly static UpsertSchemaVersionProcedure UpsertSchemaVersion = new UpsertSchemaVersionProcedure();
+        internal readonly static UpsertSearchParamStatusProcedure UpsertSearchParamStatus = new UpsertSearchParamStatusProcedure();
         internal class ClaimTypeTable : Table
         {
             internal ClaimTypeTable(): base("dbo.ClaimType")
@@ -623,53 +623,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
         }
 
-        internal class UpdateSearchParamStatusProcedure : StoredProcedure
-        {
-            internal UpdateSearchParamStatusProcedure(): base("dbo.UpdateSearchParamStatus")
-            {
-            }
-
-            private readonly SearchParamRegistryTableTypeTableValuedParameterDefinition _searchParamStatuses = new SearchParamRegistryTableTypeTableValuedParameterDefinition("@searchParamStatuses");
-            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, global::System.Collections.Generic.IEnumerable<SearchParamRegistryTableTypeRow> searchParamStatuses)
-            {
-                command.CommandType = global::System.Data.CommandType.StoredProcedure;
-                command.CommandText = "dbo.UpdateSearchParamStatus";
-                _searchParamStatuses.AddParameter(command.Parameters, searchParamStatuses);
-            }
-
-            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, UpdateSearchParamStatusTableValuedParameters tableValuedParameters)
-            {
-                PopulateCommand(command, searchParamStatuses: tableValuedParameters.SearchParamStatuses);
-            }
-        }
-
-        internal class UpdateSearchParamStatusTvpGenerator<TInput> : IStoredProcedureTableValuedParametersGenerator<TInput, UpdateSearchParamStatusTableValuedParameters>
-        {
-            public UpdateSearchParamStatusTvpGenerator(ITableValuedParameterRowGenerator<TInput, SearchParamRegistryTableTypeRow> SearchParamRegistryTableTypeRowGenerator)
-            {
-                this.SearchParamRegistryTableTypeRowGenerator = SearchParamRegistryTableTypeRowGenerator;
-            }
-
-            private readonly ITableValuedParameterRowGenerator<TInput, SearchParamRegistryTableTypeRow> SearchParamRegistryTableTypeRowGenerator;
-            public UpdateSearchParamStatusTableValuedParameters Generate(TInput input)
-            {
-                return new UpdateSearchParamStatusTableValuedParameters(SearchParamRegistryTableTypeRowGenerator.GenerateRows(input));
-            }
-        }
-
-        internal struct UpdateSearchParamStatusTableValuedParameters
-        {
-            internal UpdateSearchParamStatusTableValuedParameters(global::System.Collections.Generic.IEnumerable<SearchParamRegistryTableTypeRow> SearchParamStatuses)
-            {
-                this.SearchParamStatuses = SearchParamStatuses;
-            }
-
-            internal global::System.Collections.Generic.IEnumerable<SearchParamRegistryTableTypeRow> SearchParamStatuses
-            {
-                get;
-            }
-        }
-
         internal class UpsertResourceProcedure : StoredProcedure
         {
             internal UpsertResourceProcedure(): base("dbo.UpsertResource")
@@ -899,6 +852,53 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
                 command.CommandText = "dbo.UpsertSchemaVersion";
                 _version.AddParameter(command.Parameters, version);
                 _status.AddParameter(command.Parameters, status);
+            }
+        }
+
+        internal class UpsertSearchParamStatusProcedure : StoredProcedure
+        {
+            internal UpsertSearchParamStatusProcedure(): base("dbo.UpsertSearchParamStatus")
+            {
+            }
+
+            private readonly SearchParamRegistryTableTypeTableValuedParameterDefinition _searchParamStatuses = new SearchParamRegistryTableTypeTableValuedParameterDefinition("@searchParamStatuses");
+            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, global::System.Collections.Generic.IEnumerable<SearchParamRegistryTableTypeRow> searchParamStatuses)
+            {
+                command.CommandType = global::System.Data.CommandType.StoredProcedure;
+                command.CommandText = "dbo.UpsertSearchParamStatus";
+                _searchParamStatuses.AddParameter(command.Parameters, searchParamStatuses);
+            }
+
+            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, UpsertSearchParamStatusTableValuedParameters tableValuedParameters)
+            {
+                PopulateCommand(command, searchParamStatuses: tableValuedParameters.SearchParamStatuses);
+            }
+        }
+
+        internal class UpsertSearchParamStatusTvpGenerator<TInput> : IStoredProcedureTableValuedParametersGenerator<TInput, UpsertSearchParamStatusTableValuedParameters>
+        {
+            public UpsertSearchParamStatusTvpGenerator(ITableValuedParameterRowGenerator<TInput, SearchParamRegistryTableTypeRow> SearchParamRegistryTableTypeRowGenerator)
+            {
+                this.SearchParamRegistryTableTypeRowGenerator = SearchParamRegistryTableTypeRowGenerator;
+            }
+
+            private readonly ITableValuedParameterRowGenerator<TInput, SearchParamRegistryTableTypeRow> SearchParamRegistryTableTypeRowGenerator;
+            public UpsertSearchParamStatusTableValuedParameters Generate(TInput input)
+            {
+                return new UpsertSearchParamStatusTableValuedParameters(SearchParamRegistryTableTypeRowGenerator.GenerateRows(input));
+            }
+        }
+
+        internal struct UpsertSearchParamStatusTableValuedParameters
+        {
+            internal UpsertSearchParamStatusTableValuedParameters(global::System.Collections.Generic.IEnumerable<SearchParamRegistryTableTypeRow> SearchParamStatuses)
+            {
+                this.SearchParamStatuses = SearchParamStatuses;
+            }
+
+            internal global::System.Collections.Generic.IEnumerable<SearchParamRegistryTableTypeRow> SearchParamStatuses
+            {
+                get;
             }
         }
 
