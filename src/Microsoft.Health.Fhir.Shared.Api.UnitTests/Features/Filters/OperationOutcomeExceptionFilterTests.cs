@@ -200,9 +200,63 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         }
 
         [Fact]
-        public void GivenACustomerManagedKeyInaccessibleException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
+        public void GivenCmkAadClientCredentialsGrantFailureException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
-            ValidateOperationOutcome(new CustomerManagedKeyInaccessibleException(), HttpStatusCode.Forbidden);
+            ValidateOperationOutcome(new CmkAadClientCredentialsGrantFailureException(), HttpStatusCode.Forbidden);
+        }
+
+        [Fact]
+        public void GivenCmkAadServiceUnavailableException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
+        {
+            ValidateOperationOutcome(new CmkAadServiceUnavailableException(), HttpStatusCode.Forbidden);
+        }
+
+        [Fact]
+        public void GivenCmkKeyVaultAuthenticationFailureException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
+        {
+            ValidateOperationOutcome(new CmkKeyVaultAuthenticationFailureException(), HttpStatusCode.Forbidden);
+        }
+
+        [Fact]
+        public void GivenCmkKeyVaultKeyNotFoundException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
+        {
+            ValidateOperationOutcome(new CmkKeyVaultKeyNotFoundException(), HttpStatusCode.Forbidden);
+        }
+
+        [Fact]
+        public void GivenCmkKeyVaultServiceUnavailableException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
+        {
+            ValidateOperationOutcome(new CmkKeyVaultServiceUnavailableException(), HttpStatusCode.Forbidden);
+        }
+
+        [Fact]
+        public void GivenCmkKeyVaultWrapUnwrapFailureException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
+        {
+            ValidateOperationOutcome(new CmkKeyVaultWrapUnwrapFailureException(), HttpStatusCode.Forbidden);
+        }
+
+        [Fact]
+        public void GivenCmkInvalidKeyVaultKeyUriException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
+        {
+            ValidateOperationOutcome(new CmkInvalidKeyVaultKeyUriException(), HttpStatusCode.Forbidden);
+        }
+
+        [Fact]
+        public void GivenCmkInvalidInputBytesException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
+        {
+            ValidateOperationOutcome(new CmkInvalidInputBytesException(), HttpStatusCode.Forbidden);
+        }
+
+        [Fact]
+        public void GivenCmkKeyVaultInternalServerErrorException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
+        {
+            ValidateOperationOutcome(new CmkKeyVaultInternalServerErrorException(), HttpStatusCode.Forbidden);
+        }
+
+        [Fact]
+        public void GivenCmkKeyVaultDnsNotResolvedException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
+        {
+            ValidateOperationOutcome(new CmkKeyVaultDnsNotResolvedException(), HttpStatusCode.Forbidden);
         }
 
         [Fact]

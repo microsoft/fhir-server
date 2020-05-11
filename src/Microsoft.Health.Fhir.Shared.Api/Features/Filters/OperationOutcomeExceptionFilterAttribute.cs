@@ -8,7 +8,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Net;
-using System.Transactions;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Mvc.Controllers;
@@ -111,7 +110,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         break;
                     case InvalidSearchOperationException _:
                     case SearchOperationNotSupportedException _:
-                    case CustomerManagedKeyInaccessibleException _:
+                    case CmkAadClientCredentialsGrantFailureException _:
+                    case CmkAadServiceUnavailableException _:
+                    case CmkKeyVaultAuthenticationFailureException _:
+                    case CmkKeyVaultKeyNotFoundException _:
+                    case CmkKeyVaultServiceUnavailableException _:
+                    case CmkKeyVaultWrapUnwrapFailureException _:
+                    case CmkInvalidKeyVaultKeyUriException _:
+                    case CmkInvalidInputBytesException _:
+                    case CmkKeyVaultInternalServerErrorException _:
+                    case CmkKeyVaultDnsNotResolvedException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.Forbidden;
                         break;
                     case UnsupportedConfigurationException _:

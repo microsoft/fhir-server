@@ -7,14 +7,14 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Exceptions
 {
-    public class CustomerManagedKeyInaccessibleException : FhirException
+    public class CmkKeyVaultAuthenticationFailureException : FhirException
     {
-        public CustomerManagedKeyInaccessibleException()
+        public CmkKeyVaultAuthenticationFailureException()
         {
             Issues.Add(new OperationOutcomeIssue(
                     OperationOutcomeConstants.IssueSeverity.Error,
                     OperationOutcomeConstants.IssueType.Forbidden,
-                    Resources.CustomerManagedKeyInaccessible));
+                    Resources.CmkKeyVaultAuthenticationFailure));
         }
     }
 }
