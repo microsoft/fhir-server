@@ -367,6 +367,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
+        public void GivenTotalParameter_WhenCreated_ThenDefaultSearchOptionsShouldOverrideDefault()
+        {
+            _coreFeatures.IncludeTotalInBundle = TotalType.Accurate;
+
+            SearchOptions options = CreateSearchOptions(queryParameters: new[] { Tuple.Create<string, string>("_total", "none"),  });
+
+            Assert.Equal(TotalType.None, options.IncludeTotal);
+        }
+
+        [Fact]
         public void GivenNoTotalParameterWithInvalidDefault_WhenCreated_ThenDefaultSearchOptionsThrowException()
         {
             _coreFeatures.IncludeTotalInBundle = TotalType.Estimate;
