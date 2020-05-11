@@ -2067,23 +2067,34 @@ GO
 
 --
 -- STORED PROCEDURE
+--     Counts the number of search parameters.
+--
+-- DESCRIPTION
+--     Retrieves and returns the number of rows in the search parameter registry.
+--
+-- RETURN VALUE
+--     The number of search parameters in the registry.
+--
+CREATE PROCEDURE dbo.GetSearchParamRegistryCount
+AS
+    SET NOCOUNT ON
+    
+    SELECT COUNT(*) FROM dbo.SearchParamRegistry
+GO
+
+--
+-- STORED PROCEDURE
 --     Inserts a search parameter and its status into the search parameter registry.
 --
 -- DESCRIPTION
 --     Adds a row to the search parameter registry.
 --
 -- PARAMETERS
---     @uri
---         * The search parameter's identifying URI
---     @status
---         * The status of the search parameter
---     @isPartiallySupported
---         * True if the parameter resolves to more than one type (FhirString, FhirUri, etc) but not all types can be indexed
+--     @searchParamStatuses
+--         * The updated search parameter statuses
 --
 CREATE PROCEDURE dbo.InsertIntoSearchParamRegistry
-    @uri varchar(128),
-    @status varchar(10),
-    @isPartiallySupported bit
+    @searchParamStatuses dbo.SearchParamRegistryTableType_1 READONLY
 AS
     SET NOCOUNT ON
 
@@ -2094,8 +2105,8 @@ AS
     
     INSERT INTO dbo.SearchParamRegistry
         (Uri, Status, LastUpdated, IsPartiallySupported)
-    VALUES
-        (@uri, @status, @lastUpdated, @isPartiallySupported)
+    SELECT sps.Uri, sps.Status, @lastUpdated, sps.IsPartiallySupported
+    FROM searchParamStatuses AS sps
 
     COMMIT TRANSACTION
 GO

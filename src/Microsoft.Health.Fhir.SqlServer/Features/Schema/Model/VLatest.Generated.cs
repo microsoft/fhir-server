@@ -42,6 +42,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         internal readonly static CreateExportJobProcedure CreateExportJob = new CreateExportJobProcedure();
         internal readonly static GetExportJobByHashProcedure GetExportJobByHash = new GetExportJobByHashProcedure();
         internal readonly static GetExportJobByIdProcedure GetExportJobById = new GetExportJobByIdProcedure();
+        internal readonly static GetSearchParamRegistryCountProcedure GetSearchParamRegistryCount = new GetSearchParamRegistryCountProcedure();
         internal readonly static GetSearchParamStatusesProcedure GetSearchParamStatuses = new GetSearchParamStatusesProcedure();
         internal readonly static HardDeleteResourceProcedure HardDeleteResource = new HardDeleteResourceProcedure();
         internal readonly static InsertIntoSearchParamRegistryProcedure InsertIntoSearchParamRegistry = new InsertIntoSearchParamRegistryProcedure();
@@ -479,6 +480,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
         }
 
+        internal class GetSearchParamRegistryCountProcedure : StoredProcedure
+        {
+            internal GetSearchParamRegistryCountProcedure(): base("dbo.GetSearchParamRegistryCount")
+            {
+            }
+
+            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command)
+            {
+                command.CommandType = global::System.Data.CommandType.StoredProcedure;
+                command.CommandText = "dbo.GetSearchParamRegistryCount";
+            }
+        }
+
         internal class GetSearchParamStatusesProcedure : StoredProcedure
         {
             internal GetSearchParamStatusesProcedure(): base("dbo.GetSearchParamStatuses")
@@ -515,16 +529,44 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             {
             }
 
-            private readonly ParameterDefinition<System.String> _uri = new ParameterDefinition<System.String>("@uri", global::System.Data.SqlDbType.VarChar, false, 128);
-            private readonly ParameterDefinition<System.String> _status = new ParameterDefinition<System.String>("@status", global::System.Data.SqlDbType.VarChar, false, 10);
-            private readonly ParameterDefinition<System.Boolean> _isPartiallySupported = new ParameterDefinition<System.Boolean>("@isPartiallySupported", global::System.Data.SqlDbType.Bit, false);
-            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.String uri, System.String status, System.Boolean isPartiallySupported)
+            private readonly SearchParamRegistryTableTypeTableValuedParameterDefinition _searchParamStatuses = new SearchParamRegistryTableTypeTableValuedParameterDefinition("@searchParamStatuses");
+            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, global::System.Collections.Generic.IEnumerable<SearchParamRegistryTableTypeRow> searchParamStatuses)
             {
                 command.CommandType = global::System.Data.CommandType.StoredProcedure;
                 command.CommandText = "dbo.InsertIntoSearchParamRegistry";
-                _uri.AddParameter(command.Parameters, uri);
-                _status.AddParameter(command.Parameters, status);
-                _isPartiallySupported.AddParameter(command.Parameters, isPartiallySupported);
+                _searchParamStatuses.AddParameter(command.Parameters, searchParamStatuses);
+            }
+
+            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, InsertIntoSearchParamRegistryTableValuedParameters tableValuedParameters)
+            {
+                PopulateCommand(command, searchParamStatuses: tableValuedParameters.SearchParamStatuses);
+            }
+        }
+
+        internal class InsertIntoSearchParamRegistryTvpGenerator<TInput> : IStoredProcedureTableValuedParametersGenerator<TInput, InsertIntoSearchParamRegistryTableValuedParameters>
+        {
+            public InsertIntoSearchParamRegistryTvpGenerator(ITableValuedParameterRowGenerator<TInput, SearchParamRegistryTableTypeRow> SearchParamRegistryTableTypeRowGenerator)
+            {
+                this.SearchParamRegistryTableTypeRowGenerator = SearchParamRegistryTableTypeRowGenerator;
+            }
+
+            private readonly ITableValuedParameterRowGenerator<TInput, SearchParamRegistryTableTypeRow> SearchParamRegistryTableTypeRowGenerator;
+            public InsertIntoSearchParamRegistryTableValuedParameters Generate(TInput input)
+            {
+                return new InsertIntoSearchParamRegistryTableValuedParameters(SearchParamRegistryTableTypeRowGenerator.GenerateRows(input));
+            }
+        }
+
+        internal struct InsertIntoSearchParamRegistryTableValuedParameters
+        {
+            internal InsertIntoSearchParamRegistryTableValuedParameters(global::System.Collections.Generic.IEnumerable<SearchParamRegistryTableTypeRow> SearchParamStatuses)
+            {
+                this.SearchParamStatuses = SearchParamStatuses;
+            }
+
+            internal global::System.Collections.Generic.IEnumerable<SearchParamRegistryTableTypeRow> SearchParamStatuses
+            {
+                get;
             }
         }
 

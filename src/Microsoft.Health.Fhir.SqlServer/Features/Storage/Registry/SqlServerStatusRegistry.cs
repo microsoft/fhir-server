@@ -17,20 +17,24 @@ using Microsoft.Health.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
 {
-    public class SqlServerStatusRegistry : ISearchParameterRegistry
+    internal class SqlServerStatusRegistry : ISearchParameterRegistry
     {
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
-        private readonly VLatest.UpdateSearchParamStatusTvpGenerator<List<ResourceSearchParameterStatus>> _searchParamRegistryTvpGenerator;
+        private readonly VLatest.UpdateSearchParamStatusTvpGenerator<List<ResourceSearchParameterStatus>> _updateSearchParamRegistryTvpGenerator;
+        private readonly VLatest.InsertIntoSearchParamRegistryTvpGenerator<List<ResourceSearchParameterStatus>> _insertSearchParamRegistryTvpGenerator;
 
-        internal SqlServerStatusRegistry(
+        public SqlServerStatusRegistry(
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
-            VLatest.UpdateSearchParamStatusTvpGenerator<List<ResourceSearchParameterStatus>> searchParamRegistryTvpGenerator)
+            VLatest.UpdateSearchParamStatusTvpGenerator<List<ResourceSearchParameterStatus>> updateSearchParamRegistryTvpGenerator,
+            VLatest.InsertIntoSearchParamRegistryTvpGenerator<List<ResourceSearchParameterStatus>> insertSearchParamRegistryTvpGenerator)
         {
             EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
-            EnsureArg.IsNotNull(searchParamRegistryTvpGenerator, nameof(searchParamRegistryTvpGenerator));
+            EnsureArg.IsNotNull(updateSearchParamRegistryTvpGenerator, nameof(updateSearchParamRegistryTvpGenerator));
+            EnsureArg.IsNotNull(insertSearchParamRegistryTvpGenerator, nameof(insertSearchParamRegistryTvpGenerator));
 
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
-            _searchParamRegistryTvpGenerator = searchParamRegistryTvpGenerator;
+            _updateSearchParamRegistryTvpGenerator = updateSearchParamRegistryTvpGenerator;
+            _insertSearchParamRegistryTvpGenerator = insertSearchParamRegistryTvpGenerator;
         }
 
         public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses()
@@ -79,7 +83,31 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
             using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
             {
-                VLatest.UpdateSearchParamStatus.PopulateCommand(sqlCommand, _searchParamRegistryTvpGenerator.Generate(statuses.ToList()));
+                VLatest.UpdateSearchParamStatus.PopulateCommand(sqlCommand, _updateSearchParamRegistryTvpGenerator.Generate(statuses.ToList()));
+
+                await sqlCommand.ExecuteScalarAsync();
+            }
+        }
+
+        public async Task<bool> GetIsSearchParameterRegistryEmpty()
+        {
+            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
+            using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
+            {
+                VLatest.GetSearchParamRegistryCount.PopulateCommand(sqlCommand);
+
+                return (int)await sqlCommand.ExecuteScalarAsync() == 0;
+            }
+        }
+
+        public async Task BulkInsert(List<ResourceSearchParameterStatus> statuses)
+        {
+            EnsureArg.IsNotNull(statuses, nameof(statuses));
+
+            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
+            using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
+            {
+                VLatest.InsertIntoSearchParamRegistry.PopulateCommand(sqlCommand, _insertSearchParamRegistryTvpGenerator.Generate(statuses));
 
                 await sqlCommand.ExecuteScalarAsync();
             }

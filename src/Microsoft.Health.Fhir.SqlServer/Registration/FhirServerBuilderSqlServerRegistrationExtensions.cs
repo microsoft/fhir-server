@@ -15,8 +15,10 @@ using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
 using Microsoft.Health.SqlServer.Api.Registration;
 using Microsoft.Health.SqlServer.Configs;
+using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
+using Microsoft.Health.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer.Registration;
 
 namespace Microsoft.Extensions.DependencyInjection
@@ -32,6 +34,21 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddSqlServerApi();
 
             services.Add(provider => new SchemaInformation((int)SchemaVersion.V1, (int)SchemaVersion.V3))
+                .Singleton()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
+            services.Add<SqlServerStatusRegistry>()
+                .Singleton()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
+            services.Add<SqlConnectionWrapperFactory>()
+                .Singleton()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
+            services.Add<SqlTransactionHandler>()
                 .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();
@@ -59,13 +76,13 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            // TODO: Service shouldn't be registered as IStartable?
-            services.Add<SqlServerStatusRegistryInitializer>()
-                .Singleton()
-                .AsSelf()
-                .AsService<IStartable>();
-
             AddSqlServerTableRowParameterGenerators(services);
+
+            services.Add<SqlServerStatusRegistryInitializer>()
+                .Transient()
+                .AsImplementedInterfaces();
+            ////.Singleton()
+            ////;
 
             services.Add<NormalizedSearchParameterQueryGeneratorFactory>()
                 .Singleton()
