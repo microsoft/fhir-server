@@ -115,7 +115,7 @@ AS
     INSERT INTO dbo.SearchParamRegistry
         (Uri, Status, LastUpdated, IsPartiallySupported)
     SELECT sps.Uri, sps.Status, @lastUpdated, sps.IsPartiallySupported
-    FROM searchParamStatuses AS sps
+    FROM @searchParamStatuses AS sps
 
     COMMIT TRANSACTION
 GO
