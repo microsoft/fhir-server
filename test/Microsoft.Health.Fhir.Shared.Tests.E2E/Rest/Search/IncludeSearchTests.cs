@@ -122,7 +122,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAnIncludeSearchExpressionWithSimpleSearchAndCount_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
-            string query = $"_tag={Fixture.Tag}&_include=DiagnosticReport:patient:Patient&code=429858000&_count=1";
+            // Workaround for issue (https://github.com/microsoft/fhir-server/issues/1011) SQL DataProvider _total=accurate does not work with _include searches
+            string query = $"_tag={Fixture.Tag}&_include=DiagnosticReport:patient:Patient&code=429858000&_count=1&_total=none";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
 
