@@ -281,7 +281,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             return await CreateResponseAsync<Bundle>(response);
         }
 
-        public async Task<string> ExportAsync()
+        public async Task<Uri> ExportAsync()
         {
             var message = new HttpRequestMessage(HttpMethod.Get, "$export");
 
@@ -292,9 +292,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 
             await EnsureSuccessStatusCodeAsync(response);
 
-            IEnumerable<string> contentLocation = response.Content.Headers.GetValues(HeaderNames.ContentLocation);
+            return response.Content.Headers.ContentLocation;
+        }
 
-            return contentLocation.First();
+        public async Task<HttpResponseMessage> CheckExportAsync(Uri contentLocation)
+        {
+            var message = new HttpRequestMessage(HttpMethod.Get, contentLocation);
+
+            HttpResponseMessage response = await HttpClient.SendAsync(message);
+
+            return response;
         }
 
         public async Task<FhirResponse<Bundle>> PostBundleAsync(Resource bundle)

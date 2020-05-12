@@ -24,5 +24,7 @@ namespace Microsoft.Health.Fhir.Tests.Common
         public const string Validate = "Validate";
 
         public const string Xml = "Xml";
+
+        public const string ExportDataValidation = "ExportDataValidation";
     }
 }
