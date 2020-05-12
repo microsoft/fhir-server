@@ -35,5 +35,23 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
                 ValidateQuantity,
                 new Quantity(value, code, system));
         }
+
+        [Fact]
+        public void GivenASimpleQuantityWithValue_WhenConverted_ThenASimpleQuantityValueShouldBeCreated()
+        {
+            const string system = "s";
+            const string code = "g";
+            const decimal value = 0.123m;
+
+            Test(
+                sq =>
+                {
+                    sq.System = system;
+                    sq.Code = code;
+                    sq.Value = value;
+                },
+                ValidateQuantity,
+                new Quantity(value, code, system));
+        }
     }
 }

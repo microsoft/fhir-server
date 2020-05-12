@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
@@ -15,6 +16,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     /// </summary>
     public class CodeNodeToTokenSearchValueTypeConverter : FhirNodeToSearchValueTypeConverter<TokenSearchValue>
     {
+        private readonly ICodeSystemResolver _codeSystemResolver;
+
+        public CodeNodeToTokenSearchValueTypeConverter(ICodeSystemResolver codeSystemResolver)
+        {
+            EnsureArg.IsNotNull(codeSystemResolver, nameof(codeSystemResolver));
+
+            _codeSystemResolver = codeSystemResolver;
+        }
+
         public override string FhirNodeType { get; } = "code";
 
         protected override IEnumerable<ISearchValue> Convert(ITypedElement value)
@@ -26,6 +36,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
             // The instance represents the code only.
             // The system is implicit - it is defined as part of
             // the definition of the element, and not carried in the instance.
+            if (string.IsNullOrWhiteSpace(system))
+            {
+                var lookupSystem = _codeSystemResolver.ResolveSystem(value.Location);
+                if (!string.IsNullOrWhiteSpace(lookupSystem))
+                {
+                    system = lookupSystem;
+                }
+            }
 
             if (string.IsNullOrEmpty(code) && string.IsNullOrEmpty(system))
             {

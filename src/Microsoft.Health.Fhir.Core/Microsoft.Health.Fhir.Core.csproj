@@ -5,29 +5,23 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="Features\Specification\**" />
-    <EmbeddedResource Remove="Features\Specification\**" />
-    <None Remove="Features\Specification\**" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Remove="Features\Conformance\R4\BaseCapabilities.json" />
-    <None Remove="Features\Conformance\R5\BaseCapabilities.json" />
-    <None Remove="Features\Conformance\Stu3\BaseCapabilities.json" />
     <None Remove="Features\Security\roles.schema.json" />
   </ItemGroup>
 
   <ItemGroup>
     <EmbeddedResource Include="Data\R4\BaseCapabilities.json" />
     <EmbeddedResource Include="Data\R4\compartment.json" />
+    <EmbeddedResource Include="Data\R4\resourcepath-codesystem-mappings.json" />
     <EmbeddedResource Include="Data\R4\search-parameters.json" />
     <EmbeddedResource Include="Data\R4\unsupported-search-parameters.json" />
     <EmbeddedResource Include="Data\R5\BaseCapabilities.json" />
     <EmbeddedResource Include="Data\R5\compartment.json" />
+    <EmbeddedResource Include="Data\R5\resourcepath-codesystem-mappings.json" />
     <EmbeddedResource Include="Data\R5\search-parameters.json" />
     <EmbeddedResource Include="Data\R5\unsupported-search-parameters.json" />
     <EmbeddedResource Include="Data\Stu3\BaseCapabilities.json" />
     <EmbeddedResource Include="Data\Stu3\compartment.json" />
+    <EmbeddedResource Include="Data\Stu3\resourcepath-codesystem-mappings.json" />
     <EmbeddedResource Include="Data\Stu3\search-parameters.json" />
     <EmbeddedResource Include="Data\Stu3\unsupported-search-parameters.json" />
     <EmbeddedResource Include="Features\Security\roles.schema.json" />

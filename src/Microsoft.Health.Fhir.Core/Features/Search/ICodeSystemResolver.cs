@@ -7,6 +7,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 {
     public interface ICodeSystemResolver
     {
-        string ResolveSystem(string shortPath, string value);
+        string ResolveSystem(string shortPath);
     }
 }
