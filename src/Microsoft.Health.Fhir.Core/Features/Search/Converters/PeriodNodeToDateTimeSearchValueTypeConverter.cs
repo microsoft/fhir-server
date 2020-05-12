@@ -17,7 +17,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     /// </summary>
     public class PeriodNodeToDateTimeSearchValueTypeConverter : FhirNodeToSearchValueTypeConverter<DateTimeSearchValue>
     {
-        public override string FhirNodeType { get; } = "Period";
+        public PeriodNodeToDateTimeSearchValueTypeConverter()
+            : base("Period")
+        {
+        }
 
         protected override IEnumerable<ISearchValue> Convert(ITypedElement value)
         {

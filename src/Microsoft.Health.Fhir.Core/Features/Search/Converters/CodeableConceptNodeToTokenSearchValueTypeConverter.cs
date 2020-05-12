@@ -16,7 +16,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     /// </summary>
     public class CodeableConceptNodeToTokenSearchValueTypeConverter : FhirNodeToSearchValueTypeConverter<TokenSearchValue>
     {
-        public override string FhirNodeType { get; } = "CodeableConcept";
+        public CodeableConceptNodeToTokenSearchValueTypeConverter()
+            : base("CodeableConcept")
+        {
+        }
 
         protected override IEnumerable<ISearchValue> Convert(ITypedElement value)
         {

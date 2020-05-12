@@ -21,9 +21,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
         {
             EnsureArg.IsNotNull(converters, nameof(converters));
 
-            _converterDictionary = converters.ToDictionary(
-                converter => (converter.FhirNodeType, converter.SearchValueType),
-                converter => converter);
+            _converterDictionary = converters
+                .SelectMany(converter => converter.FhirNodeTypes.Select(type => new { FhirNodeType=type, converter.SearchValueType, Converter=converter }))
+                .ToDictionary(
+                    converter => (converter.FhirNodeType, converter.SearchValueType),
+                    converter => converter.Converter);
         }
 
         /// <inheritdoc />

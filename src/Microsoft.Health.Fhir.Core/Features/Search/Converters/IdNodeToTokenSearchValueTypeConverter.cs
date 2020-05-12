@@ -14,11 +14,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     /// </summary>
     public class IdNodeToTokenSearchValueTypeConverter : FhirNodeToSearchValueTypeConverter<TokenSearchValue>
     {
-        public override string FhirNodeType { get; } = "id";
+        public IdNodeToTokenSearchValueTypeConverter()
+            : base("id")
+        {
+        }
 
         protected override IEnumerable<ISearchValue> Convert(ITypedElement value)
         {
             string stringValue = value.Value as string;
+
             if (stringValue == null)
             {
                 yield break;

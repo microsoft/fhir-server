@@ -12,17 +12,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
 {
     public class StringNodeToStringSearchValueConverter : FhirNodeToSearchValueTypeConverter<StringSearchValue>
     {
-        public override string FhirNodeType { get; } = "string";
+        public StringNodeToStringSearchValueConverter()
+            : base("string")
+        {
+        }
 
         protected override IEnumerable<ISearchValue> Convert(ITypedElement value)
         {
-            if (value == null)
-            {
-                yield break;
-            }
-
-            EnsureArg.Matches(FhirNodeType, value.InstanceType, nameof(value));
-
             if (value.Value is string stringValue)
             {
                 yield return new StringSearchValue(stringValue);

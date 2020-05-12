@@ -15,7 +15,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     /// </summary>
     public class ContactPointNodeToTokenSearchValueTypeConverter : FhirNodeToSearchValueTypeConverter<TokenSearchValue>
     {
-        public override string FhirNodeType { get; } = "ContactPoint";
+        public ContactPointNodeToTokenSearchValueTypeConverter()
+            : base("ContactPoint")
+        {
+        }
 
         protected override IEnumerable<ISearchValue> Convert(ITypedElement value)
         {

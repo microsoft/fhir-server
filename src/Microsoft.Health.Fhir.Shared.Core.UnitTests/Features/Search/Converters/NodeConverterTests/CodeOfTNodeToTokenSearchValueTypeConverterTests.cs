@@ -3,7 +3,11 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Linq;
+using Hl7.Fhir.ElementModel;
+using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
+using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Models;
@@ -13,11 +17,24 @@ using static Microsoft.Health.Fhir.Tests.Common.Search.SearchValueValidationHelp
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
 {
-    public class CodeOfTNodeToTokenSearchValueTypeConverterTests : FhirNodeInstanceToSearchValueTypeConverterTests<Code<ResourceType>>
+    public class CodeOfTNodeToTokenSearchValueTypeConverterTests : FhirNodeInstanceToSearchValueTypeConverterTests<Code<ObservationStatus>>
     {
         public CodeOfTNodeToTokenSearchValueTypeConverterTests()
             : base(new CodeNodeToTokenSearchValueTypeConverter(CodeSystemResolver()))
         {
+        }
+
+        protected override ITypedElement TypedElement
+        {
+            get
+            {
+                var observation = new Observation
+                {
+                    StatusElement = Element,
+                }.ToTypedElement();
+
+                return observation.Select("Observation.status").Single();
+            }
         }
 
         private static CodeSystemResolver CodeSystemResolver()
@@ -28,21 +45,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
         }
 
         [Fact]
-        public void GivenACode_WhenConverted_ThenATokenSearchValueShouldBeCreated()
-        {
-            Test(
-                code => code.Value = ResourceType.Patient,
-                ValidateToken,
-                new Token(null, "Patient"));
-        }
-
-        [Fact]
         public void GivenACodeAndSystem_WhenConverted_ThenATokenSearchValueShouldBeCreated()
         {
             Test(
-                code => code.Value = ResourceType.Patient,
+                code => code.Value = ObservationStatus.Final,
                 ValidateToken,
-                new Token("http://hl7.org/fhir/resource-types", "Patient"));
+                new Token("http://hl7.org/fhir/observation-status", "final"));
         }
 
         [Fact]

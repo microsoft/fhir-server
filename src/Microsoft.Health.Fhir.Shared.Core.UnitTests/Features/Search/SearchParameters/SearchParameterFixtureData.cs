@@ -25,21 +25,21 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         public SearchParameterDefinitionManager SearchDefinitionManager { get; }
 
-        public static FhirElementToSearchValueTypeConverterManager Manager { get; } = CreateFhirElementToSearchValueTypeConverterManager();
+        public static FhirNodeToSearchValueTypeConverterManager Manager { get; } = CreateFhirElementToSearchValueTypeConverterManager();
 
         public static FhirPathCompiler Compiler { get; } = new FhirPathCompiler();
 
-        public static FhirElementToSearchValueTypeConverterManager CreateFhirElementToSearchValueTypeConverterManager()
+        public static FhirNodeToSearchValueTypeConverterManager CreateFhirElementToSearchValueTypeConverterManager()
         {
-            var types = typeof(IFhirElementToSearchValueTypeConverter)
+            var types = typeof(IFhirNodeToSearchValueTypeConverter)
                 .Assembly
                 .GetTypes()
-                .Where(x => typeof(IFhirElementToSearchValueTypeConverter).IsAssignableFrom(x) && !x.IsAbstract && !x.IsInterface);
+                .Where(x => typeof(IFhirNodeToSearchValueTypeConverter).IsAssignableFrom(x) && !x.IsAbstract && !x.IsInterface);
 
             var fhirElementToSearchValueTypeConverters =
-                types.Select(x => (IFhirElementToSearchValueTypeConverter)Mock.TypeWithArguments(x));
+                types.Select(x => (IFhirNodeToSearchValueTypeConverter)Mock.TypeWithArguments(x));
 
-            return new FhirElementToSearchValueTypeConverterManager(fhirElementToSearchValueTypeConverters);
+            return new FhirNodeToSearchValueTypeConverterManager(fhirElementToSearchValueTypeConverters);
         }
 
         public static SearchParameterDefinitionManager CreateSearchParameterDefinitionManager()

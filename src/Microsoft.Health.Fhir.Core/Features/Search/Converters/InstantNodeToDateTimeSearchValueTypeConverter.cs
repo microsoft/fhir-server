@@ -18,7 +18,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     /// </summary>
     public class InstantNodeToDateTimeSearchValueTypeConverter : FhirNodeToSearchValueTypeConverter<DateTimeSearchValue>
     {
-        public override string FhirNodeType { get; } = "instant";
+        public InstantNodeToDateTimeSearchValueTypeConverter()
+            : base("instant")
+        {
+        }
 
         protected override IEnumerable<ISearchValue> Convert(ITypedElement value)
         {

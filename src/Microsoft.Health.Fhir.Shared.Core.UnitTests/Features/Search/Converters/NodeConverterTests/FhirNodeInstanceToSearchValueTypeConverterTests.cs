@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters.NodeCo
 
         protected TElement Element { get; } = new TElement();
 
-        protected ITypedElement TypedElement => Element.ToTypedElement();
+        protected virtual ITypedElement TypedElement => Element.ToTypedElement();
 
         [Fact]
         public void GivenANullValue_WhenConverted_ThenNoSearchValueShouldBeCreated()

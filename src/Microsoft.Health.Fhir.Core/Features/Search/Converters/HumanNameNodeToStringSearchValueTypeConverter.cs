@@ -16,7 +16,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     /// </summary>
     public class HumanNameNodeToStringSearchValueTypeConverter : FhirNodeToSearchValueTypeConverter<StringSearchValue>
     {
-        public override string FhirNodeType { get; } = "HumanName";
+        public HumanNameNodeToStringSearchValueTypeConverter()
+            : base("HumanName")
+        {
+        }
 
         protected override IEnumerable<ISearchValue> Convert(ITypedElement value)
         {

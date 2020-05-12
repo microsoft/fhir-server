@@ -10,7 +10,7 @@ using static Microsoft.Health.Fhir.Tests.Common.Search.SearchValueValidationHelp
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
 {
-    public class UnsignedIntNodeToNumberSearchValueTypeConverterTests : FhirNodeToSearchValueTypeConverterTests<UnsignedIntNodeToNumberSearchValueTypeConverter, UnsignedInt>
+    public class UnsignedIntNodeToNumberSearchValueTypeConverterTests : FhirNodeToSearchValueTypeConverterTests<IntegerNodeToNumberSearchValueTypeConverter, UnsignedInt>
     {
         [Fact]
         public void GivenAUnsignedIntWithNoValue_WhenConverted_ThenNoSearchValueShouldBeCreated()

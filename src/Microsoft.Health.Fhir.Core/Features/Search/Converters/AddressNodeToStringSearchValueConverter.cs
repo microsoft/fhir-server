@@ -13,7 +13,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
 {
     public class AddressNodeToStringSearchValueConverter : FhirNodeToSearchValueTypeConverter<StringSearchValue>
     {
-        public override string FhirNodeType { get; } = "Address";
+        public AddressNodeToStringSearchValueConverter()
+            : base("Address")
+        {
+        }
 
         protected override IEnumerable<ISearchValue> Convert(ITypedElement value)
         {

@@ -20,13 +20,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
         private readonly IReferenceSearchValueParser _referenceSearchValueParser;
 
         public ResourceReferenceNodeToReferenceSearchValueTypeConverter(IReferenceSearchValueParser referenceSearchValueParser)
+            : base("Reference")
         {
             EnsureArg.IsNotNull(referenceSearchValueParser, nameof(referenceSearchValueParser));
 
             _referenceSearchValueParser = referenceSearchValueParser;
         }
-
-        public override string FhirNodeType { get; } = "Reference";
 
         protected override IEnumerable<ISearchValue> Convert(ITypedElement value)
         {
@@ -38,7 +37,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
             }
 
             // Contained resources will not be searchable.
-            if (reference.StartsWith("#", StringComparison.Ordinal))
+            if (reference.StartsWith("#", StringComparison.Ordinal)
+                || reference.StartsWith("urn:", StringComparison.Ordinal))
             {
                 yield break;
             }

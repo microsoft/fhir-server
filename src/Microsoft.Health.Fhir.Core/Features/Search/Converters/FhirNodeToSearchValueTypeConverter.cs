@@ -14,7 +14,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
 {
     public abstract class FhirNodeToSearchValueTypeConverter<T> : IFhirNodeToSearchValueTypeConverter
     {
-        public abstract string FhirNodeType { get; }
+        protected FhirNodeToSearchValueTypeConverter(params string[] fhirNodeTypes)
+        {
+            EnsureArg.HasItems(fhirNodeTypes, nameof(fhirNodeTypes));
+
+            FhirNodeTypes = fhirNodeTypes;
+        }
+
+        public virtual IReadOnlyList<string> FhirNodeTypes { get; }
 
         public Type SearchValueType { get; } = typeof(T);
 
@@ -25,7 +32,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
                 return Enumerable.Empty<ISearchValue>();
             }
 
-            EnsureArg.IsEqualTo(value.InstanceType, FhirNodeType, StringComparison.Ordinal, nameof(value));
+            if (!FhirNodeTypes.Contains(value.InstanceType))
+            {
+                throw new ArgumentOutOfRangeException(nameof(value));
+            }
 
             return Convert(value);
         }

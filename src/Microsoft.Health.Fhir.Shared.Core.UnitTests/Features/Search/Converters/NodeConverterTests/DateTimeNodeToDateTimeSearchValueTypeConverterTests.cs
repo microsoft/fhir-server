@@ -10,7 +10,7 @@ using static Microsoft.Health.Fhir.Tests.Common.Search.SearchValueValidationHelp
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
 {
-    public class DateTimeNodeToDateTimeSearchValueTypeConverterTests : FhirNodeToSearchValueTypeConverterTests<DateTimeNodeToDateTimeSearchValueTypeConverter, FhirDateTime>
+    public class DateTimeNodeToDateTimeSearchValueTypeConverterTests : FhirNodeToSearchValueTypeConverterTests<DateNodeToDateTimeSearchValueTypeConverter, FhirDateTime>
     {
         [Fact]
         public void GivenAFhirDateTimeWithNoValue_WhenConverted_ThenNoSearchValueShouldBeCreated()

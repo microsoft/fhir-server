@@ -15,7 +15,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     /// </summary>
     public class MarkdownNodeToStringSearchValueTypeConverter : FhirNodeToSearchValueTypeConverter<StringSearchValue>
     {
-        public override string FhirNodeType { get; } = "markdown";
+        public MarkdownNodeToStringSearchValueTypeConverter()
+            : base("markdown")
+        {
+        }
 
         protected override IEnumerable<ISearchValue> Convert(ITypedElement value)
         {

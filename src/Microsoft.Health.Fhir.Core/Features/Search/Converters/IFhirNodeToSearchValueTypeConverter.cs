@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
 {
     public interface IFhirNodeToSearchValueTypeConverter
     {
-        string FhirNodeType { get; }
+        IReadOnlyList<string> FhirNodeTypes { get; }
 
         Type SearchValueType { get; }
 

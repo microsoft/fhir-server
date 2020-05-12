@@ -19,13 +19,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
         private readonly ICodeSystemResolver _codeSystemResolver;
 
         public CodeNodeToTokenSearchValueTypeConverter(ICodeSystemResolver codeSystemResolver)
+            : base("code", "codeOfT")
         {
             EnsureArg.IsNotNull(codeSystemResolver, nameof(codeSystemResolver));
 
             _codeSystemResolver = codeSystemResolver;
         }
-
-        public override string FhirNodeType { get; } = "code";
 
         protected override IEnumerable<ISearchValue> Convert(ITypedElement value)
         {
@@ -36,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
             // The instance represents the code only.
             // The system is implicit - it is defined as part of
             // the definition of the element, and not carried in the instance.
-            if (string.IsNullOrWhiteSpace(system))
+            if (string.IsNullOrWhiteSpace(system) && !string.IsNullOrWhiteSpace(code))
             {
                 var lookupSystem = _codeSystemResolver.ResolveSystem(value.Location);
                 if (!string.IsNullOrWhiteSpace(lookupSystem))

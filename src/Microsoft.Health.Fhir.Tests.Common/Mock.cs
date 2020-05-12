@@ -12,6 +12,7 @@ using System.Reflection;
 using System.Threading;
 using EnsureThat;
 using NSubstitute;
+using NSubstitute.Core;
 
 namespace Microsoft.Health.Fhir.Tests.Common
 {
@@ -119,7 +120,12 @@ namespace Microsoft.Health.Fhir.Tests.Common
                 }
             }
 
-            return Substitute.For(new[] { type }, arguments.ToArray());
+            if (type.IsInterface)
+            {
+                return Substitute.For(new[] { type }, arguments.ToArray());
+            }
+
+            return SubstitutionContext.Current.SubstituteFactory.CreatePartial(new[] { type }, arguments.ToArray());
         }
     }
 }

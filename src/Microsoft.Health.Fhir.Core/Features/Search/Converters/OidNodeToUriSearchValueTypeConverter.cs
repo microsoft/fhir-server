@@ -14,7 +14,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     /// </summary>
     public class OidNodeToUriSearchValueTypeConverter : FhirNodeToSearchValueTypeConverter<UriSearchValue>
     {
-        public override string FhirNodeType { get; } = "oid";
+        public OidNodeToUriSearchValueTypeConverter()
+            : base("oid")
+        {
+        }
 
         protected override IEnumerable<ISearchValue> Convert(ITypedElement value)
         {

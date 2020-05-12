@@ -14,7 +14,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     /// </summary>
     public class IntegerNodeToNumberSearchValueTypeConverter : FhirNodeToSearchValueTypeConverter<NumberSearchValue>
     {
-        public override string FhirNodeType { get; } = "integer";
+        public IntegerNodeToNumberSearchValueTypeConverter()
+            : base("integer", "positiveInt", "unsignedInt")
+        {
+        }
 
         protected override IEnumerable<ISearchValue> Convert(ITypedElement value)
         {
