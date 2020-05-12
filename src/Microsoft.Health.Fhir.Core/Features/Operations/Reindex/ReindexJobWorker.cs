@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
-                    // Cancel requested.
+                    break; // This will skip the delay in the finally block and terminate the Task
                 }
                 catch (Exception ex)
                 {

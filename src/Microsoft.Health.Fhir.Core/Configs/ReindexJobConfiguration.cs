@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public bool Enabled { get; set; } = false;
 
         /// <summary>
-        /// Controls default number of threads applied to a reindex job is parameter is not specified in the POST
+        /// Controls default number of threads applied to a reindex job if parameter is not specified in the POST
         /// </summary>
         public ushort DefaultMaximumThreadsPerReindexJob { get; set; } = 1;
 
