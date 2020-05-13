@@ -13,6 +13,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
         public SearchParameterStatus Status { get; set; }
 
+        public string TypeConvertersHash { get; set; }
+
+        public DateTimeOffset? TypeConvertersBuildDate { get; set; }
+
         public bool IsPartiallySupported { get; set; }
 
         public DateTimeOffset LastUpdated { get; set; }

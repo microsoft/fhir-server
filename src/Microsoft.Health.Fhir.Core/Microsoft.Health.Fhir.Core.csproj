@@ -5,6 +5,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <AssemblyAttribute Include="Microsoft.Health.Fhir.Core.Properties.AssemblyBuildDateAttribute">
+      <_Parameter1>$([System.DateTime]::UtcNow.ToString("yyyyMMddHHmmss"))</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
     <Compile Remove="Features\Specification\**" />
     <EmbeddedResource Remove="Features\Specification\**" />
     <None Remove="Features\Specification\**" />

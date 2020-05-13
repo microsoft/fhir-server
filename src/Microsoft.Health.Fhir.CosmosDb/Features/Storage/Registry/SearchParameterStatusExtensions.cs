@@ -16,6 +16,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
                 Uri = status.Uri,
                 Status = status.Status,
                 LastUpdated = status.LastUpdated,
+                TypeConvertersHash = status.TypeConvertersHash,
+                TypeConvertersBuildDate = status.TypeConvertersBuildDate,
                 IsPartiallySupported = status.IsPartiallySupported ? true : (bool?)null,
             };
         }
@@ -26,6 +28,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
             {
                 Uri = wrapper.Uri,
                 Status = wrapper.Status,
+                TypeConvertersHash = wrapper.TypeConvertersHash,
+                TypeConvertersBuildDate = wrapper.TypeConvertersBuildDate,
                 LastUpdated = wrapper.LastUpdated,
                 IsPartiallySupported = wrapper.IsPartiallySupported.GetValueOrDefault(),
             };

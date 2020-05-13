@@ -20,5 +20,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <param name="resource">The resource to extract the search indices from.</param>
         /// <returns>An <see cref="IEnumerable{SearchIndex}"/> that contains the search index entries.</returns>
         IReadOnlyCollection<SearchIndexEntry> Extract(ResourceElement resource);
+
+        /// <summary>
+        /// Computers a hash of the currently supported FHIR to SearchValue types
+        /// </summary>
+        /// <returns>Hash as an encoded string</returns>
+        string ComputeTypeConvertersHash();
     }
 }

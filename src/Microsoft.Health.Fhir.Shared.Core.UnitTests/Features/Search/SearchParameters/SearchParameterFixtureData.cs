@@ -8,7 +8,9 @@ using System.Linq;
 using Hl7.Fhir.Serialization;
 using Hl7.FhirPath;
 using MediatR;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -54,11 +56,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 manager,
                 managerType.Assembly,
                 $"{managerType.Namespace}.unsupported-search-parameters.json");
+
             var statusManager = new SearchParameterStatusManager(
                 statusRegistry,
+                () => statusRegistry,
                 manager,
                 new SearchParameterSupportResolver(manager, Manager),
-                Substitute.For<IMediator>());
+                Substitute.For<ISearchIndexer>(),
+                Substitute.For<IMediator>(),
+                NullLogger<SearchParameterStatusManager>.Instance);
             statusManager.EnsureInitialized().GetAwaiter().GetResult();
 
             return manager;

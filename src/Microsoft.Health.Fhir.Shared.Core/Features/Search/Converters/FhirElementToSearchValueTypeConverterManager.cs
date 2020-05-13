@@ -7,6 +7,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
+using Microsoft.Health.Core.Extensions;
+using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
 {
@@ -37,6 +39,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
             }
 
             return _converterDictionary.TryGetValue((fhirElementType, searchValueType), out converter);
+        }
+
+        public string ComputeHash()
+        {
+            return JsonConvert.SerializeObject(_converterDictionary.Keys).ComputeHash();
         }
     }
 }

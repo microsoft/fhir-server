@@ -32,6 +32,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
         [JsonProperty("status")]
         public SearchParameterStatus Status { get; set; }
 
+        [JsonProperty("typeConvertersHash")]
+        public string TypeConvertersHash { get; set; }
+
+        [JsonProperty("typeConvertersBuildDate")]
+        public DateTimeOffset? TypeConvertersBuildDate { get; set; }
+
         [JsonProperty("isPartiallySupported")]
         public bool? IsPartiallySupported { get; set; }
 

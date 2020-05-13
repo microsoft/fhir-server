@@ -20,5 +20,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
         /// <param name="converter">When this method returns, contains the converter associated with the FHIR element type if the FHIR element type exists; otherwise, <c>null</c>.</param>
         /// <returns><c>true</c> if the converter exists; otherwise, <c>false</c>.</returns>
         bool TryGetConverter(Type fhirElementType, Type searchValueType, out IFhirElementToSearchValueTypeConverter converter);
+
+        /// <summary>
+        /// Computers a hash of the currently supported FHIR to SearchValue types
+        /// </summary>
+        /// <returns>Hash as an encoded string</returns>
+        string ComputeHash();
     }
 }

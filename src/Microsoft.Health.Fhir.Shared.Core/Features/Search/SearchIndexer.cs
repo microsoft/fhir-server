@@ -95,6 +95,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             return entries;
         }
 
+        public string ComputeTypeConvertersHash()
+        {
+            return _fhirElementTypeConverterManager.ComputeHash();
+        }
+
         private IEnumerable<SearchIndexEntry> ProcessCompositeSearchParameter(SearchParameterInfo searchParameter, Base resource, FhirEvaluationContext context)
         {
             Debug.Assert(searchParameter?.Type == SearchParamType.Composite, "The search parameter must be composite.");

@@ -9,7 +9,9 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Messages.Search;
@@ -35,45 +37,55 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
         private readonly SearchParameterInfo[] _searchParameterInfos;
         private readonly SearchParameterInfo _queryParameter;
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver;
+        private readonly ISearchIndexer _indexer;
 
         public SearchParameterStatusManagerTests()
         {
             _searchParameterRegistry = Substitute.For<ISearchParameterRegistry>();
             _searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
             _searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
+            _indexer = Substitute.For<ISearchIndexer>();
             _mediator = Substitute.For<IMediator>();
+            var fileResolver = Substitute.For<ISearchParameterRegistry>();
 
             _manager = new SearchParameterStatusManager(
                 _searchParameterRegistry,
+                () => fileResolver,
                 _searchParameterDefinitionManager,
                 _searchParameterSupportResolver,
-                _mediator);
+                _indexer,
+                _mediator,
+                NullLogger<SearchParameterStatusManager>.Instance);
 
-            _searchParameterRegistry.GetSearchParameterStatuses()
-                .Returns(new[]
+            ResourceSearchParameterStatus[] resourceSearchParameterStatuses = new[]
+            {
+                new ResourceSearchParameterStatus
                 {
-                    new ResourceSearchParameterStatus
-                    {
-                        Status = SearchParameterStatus.Enabled,
-                        Uri = new Uri(ResourceId),
-                    },
-                    new ResourceSearchParameterStatus
-                    {
-                        Status = SearchParameterStatus.Enabled,
-                        Uri = new Uri(ResourceLastupdated),
-                        IsPartiallySupported = true,
-                    },
-                    new ResourceSearchParameterStatus
-                    {
-                        Status = SearchParameterStatus.Disabled,
-                        Uri = new Uri(ResourceProfile),
-                    },
-                    new ResourceSearchParameterStatus
-                    {
-                        Status = SearchParameterStatus.Supported,
-                        Uri = new Uri(ResourceSecurity),
-                    },
-                });
+                    Status = SearchParameterStatus.Enabled,
+                    Uri = new Uri(ResourceId),
+                },
+                new ResourceSearchParameterStatus
+                {
+                    Status = SearchParameterStatus.Enabled,
+                    Uri = new Uri(ResourceLastupdated),
+                    IsPartiallySupported = true,
+                },
+                new ResourceSearchParameterStatus
+                {
+                    Status = SearchParameterStatus.Disabled,
+                    Uri = new Uri(ResourceProfile),
+                },
+                new ResourceSearchParameterStatus
+                {
+                    Status = SearchParameterStatus.Supported,
+                    Uri = new Uri(ResourceSecurity),
+                },
+            };
+            _searchParameterRegistry.GetSearchParameterStatuses()
+                .Returns(resourceSearchParameterStatuses);
+
+            fileResolver.GetSearchParameterStatuses()
+                .Returns(resourceSearchParameterStatuses);
 
             _queryParameter = new SearchParameterInfo("_query", SearchParamType.Token, new Uri(ResourceQuery));
             _searchParameterInfos = new[]
