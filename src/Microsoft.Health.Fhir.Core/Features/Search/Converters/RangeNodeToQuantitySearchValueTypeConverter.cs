@@ -27,14 +27,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
             var lowValue = (ITypedElement)value.Scalar("low");
 
             var quantityRepresentativeValue = lowValue ?? highValue;
-            var system = quantityRepresentativeValue.Scalar("system") as string;
-            var code = quantityRepresentativeValue.Scalar("code") as string;
 
             if (quantityRepresentativeValue != null)
             {
-                // FROM https://www.hl7.org/fhir/datatypes.html#Range: "The unit and code/system elements of the low or high elements SHALL match."
+                var system = quantityRepresentativeValue.Scalar("system") as string;
+                var code = quantityRepresentativeValue.Scalar("code") as string;
 
-                yield return new QuantitySearchValue(system, code, (decimal?)lowValue.Scalar("value"), (decimal?)highValue.Scalar("value"));
+                // FROM https://www.hl7.org/fhir/datatypes.html#Range: "The unit and code/system elements of the low or high elements SHALL match."
+                yield return new QuantitySearchValue(system, code, (decimal?)lowValue?.Scalar("value"), (decimal?)highValue?.Scalar("value"));
             }
         }
     }

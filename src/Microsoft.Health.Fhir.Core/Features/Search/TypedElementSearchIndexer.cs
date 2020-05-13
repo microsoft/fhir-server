@@ -150,7 +150,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
         private IEnumerable<SearchIndexEntry> ProcessNonCompositeSearchParameter(SearchParameterInfo searchParameter, ITypedElement resource, EvaluationContext context)
         {
-            Debug.Assert(searchParameter?.Type != SearchParamType.Composite, "The search parameter must be non-composite.");
+            EnsureArg.IsNotNull(searchParameter, nameof(searchParameter));
+            Debug.Assert(searchParameter.Type != SearchParamType.Composite, "The search parameter must be non-composite.");
 
             SearchParameterInfo searchParameterInfo = searchParameter;
 

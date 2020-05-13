@@ -39,7 +39,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\UnsignedIntNodeToNumberSearchValueTypeConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\FhirNodeToSearchValueTypeConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\StringNodeToStringSearchValueTypeConverterTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\NodeToStringSearchValueTypeConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\LightweightReferenceToElementResolverTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchConverterForAllSearchTypes.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterFixtureData.cs" />

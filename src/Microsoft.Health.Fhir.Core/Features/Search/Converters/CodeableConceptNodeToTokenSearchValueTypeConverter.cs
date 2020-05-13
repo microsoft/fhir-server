@@ -32,18 +32,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
 
             foreach (ITypedElement coding in value.Select("coding"))
             {
-                if (coding == null)
-                {
-                    continue;
-                }
-
-                TokenSearchValue searchValue = coding.ToTokenSearchValue();
+                TokenSearchValue searchValue = coding?.ToTokenSearchValue();
 
                 if (searchValue != null)
                 {
                     if (conceptTextNeedsToBeAdded)
                     {
-                        conceptTextNeedsToBeAdded = !text.Equals(searchValue.Text, StringComparison.OrdinalIgnoreCase);
+                        conceptTextNeedsToBeAdded = !string.Equals(text, searchValue.Text, StringComparison.OrdinalIgnoreCase);
                     }
 
                     yield return searchValue;
