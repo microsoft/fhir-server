@@ -57,14 +57,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             DotNetAttributeValidation.Validate(observation, true);
         }
 
-        [Fact]
+        [Theory]
+        [InlineData(2)]
+        [InlineData(5)]
         [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb)]
-        public async Task GivenALargeResource_WhenPostingToHttp_ThenServerShouldRespondWithRequestEntityTooLarge()
+        public async Task GivenALargeResource_WhenPostingToHttp_ThenServerShouldRespondWithRequestEntityTooLarge(int dataSizeMb)
         {
             var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
             StringBuilder largeStringBuilder = new StringBuilder();
 
-            for (int i = 0; i < 1024 * 1024 * 2; i++)
+            // At ~2mb the document makes it into the Upsert Stored Proc and fails on create
+            // At 5mb the request is rejected by CosmosDb with HttpStatusCode.RequestEntityTooLarge
+            for (int i = 0; i < 1024 * 1024 * dataSizeMb; i++)
             {
                 largeStringBuilder.Append('a');
             }
