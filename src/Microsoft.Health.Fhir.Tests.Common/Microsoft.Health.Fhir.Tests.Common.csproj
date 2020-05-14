@@ -210,6 +210,7 @@
     <EmbeddedResource Include="TestFiles\R5\DocumentReference-example-002.json" />
     <EmbeddedResource Include="TestFiles\R5\DocumentReference-example-003.json" />
     <EmbeddedResource Include="TestFiles\R5\DocumentReference-example.json" />
+    <EmbeddedResource Include="TestFiles\R5\DocumentReference-example.indexes.json" />
     <EmbeddedResource Include="TestFiles\R5\Encounter-For-Patient-f001.json" />
     <EmbeddedResource Include="TestFiles\R5\InvalidCompartmentDefinition.json" />
     <EmbeddedResource Include="TestFiles\R5\Location-example-hq.json" />
@@ -225,6 +226,7 @@
     <EmbeddedResource Include="TestFiles\R4\DocumentReference-example-002.json" />
     <EmbeddedResource Include="TestFiles\R4\DocumentReference-example-003.json" />
     <EmbeddedResource Include="TestFiles\R4\DocumentReference-example.json" />
+    <EmbeddedResource Include="TestFiles\R4\DocumentReference-example.indexes.json" />
     <EmbeddedResource Include="TestFiles\R4\Encounter-For-Patient-f001.json" />
     <EmbeddedResource Include="TestFiles\R4\InvalidCompartmentDefinition.json" />
     <EmbeddedResource Include="TestFiles\R4\Location-example-hq.json" />
@@ -257,6 +259,7 @@
     <EmbeddedResource Include="TestFiles\Stu3\DocumentReference-example-002.json" />
     <EmbeddedResource Include="TestFiles\Stu3\DocumentReference-example-003.json" />
     <EmbeddedResource Include="TestFiles\Stu3\DocumentReference-example.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\DocumentReference-example.indexes.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Encounter-For-Patient-f001.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Location-example-hq.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Observation-For-Patient-f001.json" />
