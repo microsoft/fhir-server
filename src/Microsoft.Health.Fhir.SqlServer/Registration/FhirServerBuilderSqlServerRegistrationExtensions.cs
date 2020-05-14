@@ -81,8 +81,6 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add<SqlServerStatusRegistryInitializer>()
                 .Transient()
                 .AsImplementedInterfaces();
-            ////.Singleton()
-            ////;
 
             services.Add<NormalizedSearchParameterQueryGeneratorFactory>()
                 .Singleton()

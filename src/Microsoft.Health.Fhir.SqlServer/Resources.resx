@@ -120,6 +120,9 @@
   <data name="InvalidContinuationToken" xml:space="preserve">
     <value>The provided continuation token is not valid.</value>
   </data>
+  <data name="SearchParameterInitializationTransactionFailedError" xml:space="preserve">
+    <value>Transaction was failed while initializing the search parameter registry.</value>
+  </data>
   <data name="TransactionProcessingException" xml:space="preserve">
     <value>There was an internal server error while processing the transaction.</value>
   </data>
