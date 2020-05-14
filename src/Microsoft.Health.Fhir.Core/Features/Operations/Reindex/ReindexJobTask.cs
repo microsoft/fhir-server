@@ -72,8 +72,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
             catch (JobConflictException)
             {
-                // The export job was updated externally. There might be some additional resources that were exported
-                // but we will not be updating the job record.
+                // The reindex job was updated externally.
                 _logger.LogTrace("The job was updated by another process.");
             }
             catch (Exception ex)
@@ -102,12 +101,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             // TODO: Placeholder
             await new Task(() => _reindexJobRecord.LastModified = Clock.UtcNow, cancellationToken);
-            return;
         }
-
-        /* private async Task ProcessSearchResultsAsync(IEnumerable<SearchResultEntry> searchResults, uint partId, CancellationToken cancellationToken)
-        {
-
-        }*/
     }
 }

@@ -17,7 +17,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 {
     /// <summary>
-    /// The worker responsible for running the export job tasks.
+    /// The worker responsible for running the reindex job tasks.
     /// </summary>
     public class ReindexJobWorker
     {
@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
-                    break; // This will skip the delay in the finally block and terminate the Task
+                    // End the execution of the task
                 }
                 catch (Exception ex)
                 {

@@ -14,6 +14,8 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// </summary>
         public bool Enabled { get; set; } = false;
 
+        public ushort ConsecutiveFailuresThreshold { get; set; } = 5;
+
         /// <summary>
         /// Controls default number of threads applied to a reindex job if parameter is not specified in the POST
         /// </summary>

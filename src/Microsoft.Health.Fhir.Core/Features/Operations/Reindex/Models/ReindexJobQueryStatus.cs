@@ -9,7 +9,7 @@ using Newtonsoft.Json;
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
 {
     /// <summary>
-    /// Class to hold metadata for an individual reindex job.
+    /// Class to hold metadata for one query of a reindex job
     /// </summary>
     public class ReindexJobQueryStatus
     {

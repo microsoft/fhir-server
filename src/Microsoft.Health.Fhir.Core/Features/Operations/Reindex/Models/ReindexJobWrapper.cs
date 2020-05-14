@@ -10,7 +10,7 @@ using Newtonsoft.Json;
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
 {
     /// <summary>
-    /// Class to wrap reindex document returneded from persistence layer
+    /// Class to wrap reindex document returned from persistence layer
     /// </summary>
     public class ReindexJobWrapper
     {
@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         }
 
         /// <summary>
-        /// Metadata for the export job.
+        /// Metadata for the reindex job.
         /// </summary>
         public ReindexJobRecord JobRecord { get; }
 
