@@ -13,7 +13,7 @@ CREATE TABLE dbo.SearchParamRegistry
 (
     Uri varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     Status varchar(10) NOT NULL,
-    LastUpdated datetimeoffset(7) NULL, -- TODO: Should this just be datetime? What level of precision is needed?
+    LastUpdated datetimeoffset(7) NULL,
     IsPartiallySupported bit NOT NULL
 )
 
@@ -66,7 +66,7 @@ AS
     SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
     BEGIN TRANSACTION
 
-    DECLARE @lastUpdated datetime2(7) = SYSUTCDATETIME()
+    DECLARE @lastUpdated datetimeoffset(7) = SYSDATETIMEOFFSET()
 
     -- Acquire and hold an exclusive table lock for the entire transaction to prevent parameters from being added or modified during upsertion.
     UPDATE dbo.SearchParamRegistry
@@ -121,7 +121,7 @@ AS
     SET XACT_ABORT ON
     BEGIN TRANSACTION
 
-    DECLARE @lastUpdated datetime2(7) = SYSUTCDATETIME()
+    DECLARE @lastUpdated datetimeoffset(7) = SYSDATETIMEOFFSET()
     
     INSERT INTO dbo.SearchParamRegistry
         (Uri, Status, LastUpdated, IsPartiallySupported)
