@@ -3,8 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 {
@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
     {
         Expression Parse(
             SearchParameterInfo searchParameter,
-            SearchParameter.SearchModifierCode? modifier,
+            SearchModifierCode? modifier,
             string value);
     }
 }

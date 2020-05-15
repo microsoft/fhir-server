@@ -7,10 +7,10 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Serialization;
+using Microsoft.Health.Fhir.Core.Data;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Serialization;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -44,15 +44,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
 
-            string manifestName = $"{typeof(CapabilityStatementBuilder).Namespace}.{modelInfoProvider.Version}.BaseCapabilities.json";
+            using Stream resourceStream = modelInfoProvider.OpenVersionedFileStream("BaseCapabilities.json");
+            using var reader = new StreamReader(resourceStream);
+            var statement = JsonConvert.DeserializeObject<ListedCapabilityStatement>(reader.ReadToEnd());
 
-            using (Stream resourceStream = Assembly.GetExecutingAssembly().GetManifestResourceStream(manifestName))
-            using (var reader = new StreamReader(resourceStream))
-            {
-                var statement = JsonConvert.DeserializeObject<ListedCapabilityStatement>(reader.ReadToEnd());
-
-                return new CapabilityStatementBuilder(statement, modelInfoProvider, searchParameterDefinitionManager);
-            }
+            return new CapabilityStatementBuilder(statement, modelInfoProvider, searchParameterDefinitionManager);
         }
 
         public ICapabilityStatementBuilder Update(Action<ListedCapabilityStatement> action)

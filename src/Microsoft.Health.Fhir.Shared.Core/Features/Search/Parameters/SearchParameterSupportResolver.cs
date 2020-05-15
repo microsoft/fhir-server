@@ -37,6 +37,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         {
             EnsureArg.IsNotNull(parameterInfo, nameof(parameterInfo));
 
+            if (string.IsNullOrWhiteSpace(parameterInfo.Expression))
+            {
+                return false;
+            }
+
             Expression parsed = _compiler.Parse(parameterInfo.Expression);
 
             (SearchParamType Type, Expression, Uri DefinitionUrl)[] componentExpressions = parameterInfo.Component

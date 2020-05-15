@@ -9,12 +9,11 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using EnsureThat;
-using Hl7.Fhir.Model;
 using Hl7.Fhir.Utility;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
-using static Hl7.Fhir.Model.SearchParameter;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 {
@@ -28,7 +27,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             .Select(e => Tuple.Create(e.GetLiteral(), e)).ToArray();
 
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
-        private readonly IReferenceSearchValueParser _referenceSearchValueParser;
 
         private readonly Dictionary<SearchParamType, Func<string, ISearchValue>> _parserDictionary;
 
@@ -40,14 +38,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             EnsureArg.IsNotNull(referenceSearchValueParser, nameof(referenceSearchValueParser));
 
             _searchParameterDefinitionManager = searchParameterDefinitionManagerResolver();
-            _referenceSearchValueParser = referenceSearchValueParser;
 
             _parserDictionary = new Dictionary<SearchParamType, Func<string, ISearchValue>>()
             {
                 { SearchParamType.Date, DateTimeSearchValue.Parse },
                 { SearchParamType.Number, NumberSearchValue.Parse },
                 { SearchParamType.Quantity, QuantitySearchValue.Parse },
-                { SearchParamType.Reference, _referenceSearchValueParser.Parse },
+                { SearchParamType.Reference, referenceSearchValueParser.Parse },
                 { SearchParamType.String, StringSearchValue.Parse },
                 { SearchParamType.Token, TokenSearchValue.Parse },
                 { SearchParamType.Uri, UriSearchValue.Parse },

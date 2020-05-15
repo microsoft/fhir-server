@@ -10,7 +10,7 @@ using EnsureThat;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
-using static Hl7.Fhir.Model.SearchParameter;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 {
@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 ThrowModifierNotSupported();
             }
 
-            // Based on spec here: http://hl7.org/fhir/STU3/search.html#prefix
+            // Based on spec here: http://hl7.org/fhir/search.html#prefix
             switch (_comparator)
             {
                 case SearchComparator.Eq:
