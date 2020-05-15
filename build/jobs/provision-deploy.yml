@@ -50,6 +50,7 @@ jobs:
         $additionalProperties["SqlServer__DeleteAllDataOnStartup"] = "false"
         $additionalProperties["SqlServer__AllowDatabaseCreation"] = "true"
         $additionalProperties["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true"
+        $additionalProperties["FhirServer__CoreFeatures__IncludeTotalInBundle"] = "Accurate"
 
         $templateParameters = @{
             fhirVersion = "${{ parameters.version }}"
