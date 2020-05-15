@@ -16,11 +16,12 @@ using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.ValueSets;
 using NSubstitute;
 using Xunit;
-using static Hl7.Fhir.Model.SearchParameter;
 using static Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchExpressionTestHelper;
 using Expression=Microsoft.Health.Fhir.Core.Features.Search.Expressions.Expression;
+using SearchParamType = Hl7.Fhir.Model.SearchParamType;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parsers
 {
@@ -112,7 +113,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
         [Fact]
         public void GivenACompositeExceedingNumberOfComponents_WhenBuilt_ThenInvalidSearchOperationExceptionShouldBeThrown()
         {
-            SearchParameterInfo searchParameter = CreateCompositeSearchParameter(new ComponentComponent());
+            SearchParameterInfo searchParameter = CreateCompositeSearchParameter(new SearchParameterComponentInfo());
 
             Assert.Throws<InvalidSearchOperationException>(() => _parser.Parse(searchParameter, null, "a$b$c"));
         }
@@ -130,14 +131,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             var quantityUri = new Uri("http://quantity");
 
             SearchParameterInfo searchParameter = CreateCompositeSearchParameter(
-                new ComponentComponent
-                {
-                    Definition = new ResourceReference(codeUri.ToString()).GetComponentDefinition(),
-                },
-                new ComponentComponent
-                {
-                    Definition = new ResourceReference(quantityUri.ToString()).GetComponentDefinition(),
-                });
+                new SearchParameterComponentInfo(codeUri),
+                new SearchParameterComponentInfo(quantityUri));
 
             _searchParameterDefinitionManager.GetSearchParameter(codeUri).Returns(
                 new SearchParameter
@@ -190,14 +185,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             var quantityUri = new Uri("http://quantity");
 
             SearchParameterInfo searchParameter = CreateCompositeSearchParameter(
-                new ComponentComponent
-                {
-                    Definition = new ResourceReference(quantityUri.ToString()).GetComponentDefinition(),
-                },
-                new ComponentComponent
-                {
-                    Definition = new ResourceReference(quantityUri.ToString()).GetComponentDefinition(),
-                });
+                new SearchParameterComponentInfo(quantityUri),
+                new SearchParameterComponentInfo(quantityUri));
 
             _searchParameterDefinitionManager.GetSearchParameter(quantityUri).Returns(
                 new SearchParameter
@@ -234,14 +223,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             var quantityUri = new Uri("http://quantity");
 
             SearchParameterInfo searchParameter = CreateCompositeSearchParameter(
-                new ComponentComponent
-                {
-                    Definition = new ResourceReference(quantityUri.ToString()).GetComponentDefinition(),
-                },
-                new ComponentComponent
-                {
-                    Definition = new ResourceReference(quantityUri.ToString()).GetComponentDefinition(),
-                });
+                new SearchParameterComponentInfo(quantityUri),
+                new SearchParameterComponentInfo(quantityUri));
 
             _searchParameterDefinitionManager.GetSearchParameter(quantityUri).Returns(
                 new SearchParameter
@@ -875,17 +858,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             }.ToInfo();
         }
 
-        private SearchParameterInfo CreateCompositeSearchParameter(params ComponentComponent[] components)
+        private SearchParameterInfo CreateCompositeSearchParameter(params SearchParameterComponentInfo[] components)
         {
-            var searchParameter = new SearchParameter
-            {
-                Name = DefaultParamName,
-                Type = SearchParamType.Composite,
-            };
+            var searchParameter = new SearchParameterInfo(
+                DefaultParamName,
+                Microsoft.Health.Fhir.ValueSets.SearchParamType.Composite,
+                components: components);
 
-            searchParameter.Component.AddRange(components);
-
-            return searchParameter.ToInfo();
+            return searchParameter;
         }
 
         private void Validate(

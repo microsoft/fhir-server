@@ -10,10 +10,12 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.ValueSets;
 using NSubstitute;
 using Xunit;
 using static Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchExpressionTestHelper;
 using Expression = Microsoft.Health.Fhir.Core.Features.Search.Expressions.Expression;
+using SearchParamType = Hl7.Fhir.Model.SearchParamType;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parsers
 {
@@ -212,7 +214,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
 
             Expression expression = Substitute.For<Expression>();
 
-            _searchParameterExpressionParser.Parse(searchParameter, SearchParameter.SearchModifierCode.Missing, value).Returns(expression);
+            _searchParameterExpressionParser.Parse(searchParameter, SearchModifierCode.Missing, value).Returns(expression);
 
             // Parse the expression.
             Expression actualExpression = _expressionParser.Parse(resourceType.ToString(), key, value);

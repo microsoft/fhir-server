@@ -3,17 +3,17 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using EnsureThat;
-using Hl7.Fhir.Model;
-using Microsoft.Health.Fhir.Core.Features.Compartment;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Search;
-using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+﻿using System;
+﻿using System.Collections.Generic;
+﻿using System.Linq;
+﻿using EnsureThat;
+﻿using Microsoft.Health.Fhir.Core.Features.Compartment;
+﻿using Microsoft.Health.Fhir.Core.Features.Persistence;
+﻿using Microsoft.Health.Fhir.Core.Features.Search;
+﻿using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+﻿using Microsoft.Health.Fhir.ValueSets;
 
-namespace Microsoft.Health.Fhir.Core.Features.Definition
+﻿namespace Microsoft.Health.Fhir.Core.Features.Definition
 {
     public class CompartmentIndexer : ICompartmentIndexer
     {
@@ -37,12 +37,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 string compartmentTypeLiteral = compartmentType.ToString();
                 compartmentTypeToResourceIds[compartmentTypeLiteral] = null;
 
-                if (_compartmentDefinitionManager.TryGetSearchParams(resourceType, compartmentTypeLiteral, out HashSet<string> searchParams) && searchIndicesByCompartmentType.TryGetValue(compartmentTypeLiteral, out List<SearchIndexEntry> searchIndicesForCompartment))
+                if (_compartmentDefinitionManager.TryGetSearchParams(resourceType, compartmentType, out HashSet<string> searchParams) && searchIndicesByCompartmentType.TryGetValue(compartmentTypeLiteral, out List<SearchIndexEntry> searchIndicesForCompartment))
                 {
                     var searchEntries = searchIndicesForCompartment.Where(si => searchParams.Contains(si.SearchParameter.Name));
 
                     var resourceIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                    string compartmentResourceType = CompartmentDefinitionManager.CompartmentTypeToResourceType(compartmentTypeLiteral).ToString();
+                    string compartmentResourceType = CompartmentDefinitionManager.CompartmentTypeToResourceType(compartmentTypeLiteral);
 
                     foreach (SearchIndexEntry entry in searchEntries)
                     {
@@ -76,10 +76,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
                     if (!retDict.TryGetValue(key, out List<SearchIndexEntry> searchIndexEntries))
                     {
-                        retDict[key] = new List<SearchIndexEntry>();
+                        searchIndexEntries = new List<SearchIndexEntry>();
+                        retDict[key] = searchIndexEntries;
                     }
 
-                    retDict[key].Add(indexEntry);
+                    searchIndexEntries.Add(indexEntry);
                 }
             }
 

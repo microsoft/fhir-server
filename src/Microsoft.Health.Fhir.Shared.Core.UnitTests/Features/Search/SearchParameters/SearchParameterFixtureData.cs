@@ -46,14 +46,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         public static SearchParameterDefinitionManager CreateSearchParameterDefinitionManager()
         {
-            var manager = new SearchParameterDefinitionManager(new FhirJsonParser(), ModelInfoProvider.Instance);
+            var manager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance);
             manager.Start();
 
-            Type managerType = typeof(SearchParameterDefinitionManager);
             var statusRegistry = new FilebasedSearchParameterRegistry(
                 manager,
-                managerType.Assembly,
-                $"{managerType.Namespace}.unsupported-search-parameters.json");
+                ModelInfoProvider.Instance);
             var statusManager = new SearchParameterStatusManager(
                 statusRegistry,
                 manager,

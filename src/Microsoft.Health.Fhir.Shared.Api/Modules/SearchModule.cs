@@ -56,11 +56,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            Type searchDefinitionManagerType = typeof(SearchParameterDefinitionManager);
-            services.Add(c => new FilebasedSearchParameterRegistry(
-                    c.GetRequiredService<ISearchParameterDefinitionManager>(),
-                    searchDefinitionManagerType.Assembly,
-                    $"{searchDefinitionManagerType.Namespace}.unsupported-search-parameters.json"))
+            services.Add<FilebasedSearchParameterRegistry>()
                 .Transient()
                 .AsSelf()
                 .AsService<ISearchParameterRegistry>()
