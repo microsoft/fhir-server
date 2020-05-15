@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Documents;
@@ -43,7 +44,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
 
         public Uri CollectionUri { get; set; }
 
-        public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses()
+        public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses(CancellationToken cancellationToken)
         {
             var parameterStatus = new List<ResourceSearchParameterStatus>();
             using var clientScope = _documentClientFactory.Invoke();
@@ -61,7 +62,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
 
             do
             {
-                FeedResponse<SearchParameterStatusWrapper> results = await query.ExecuteNextAsync<SearchParameterStatusWrapper>();
+                FeedResponse<SearchParameterStatusWrapper> results = await query.ExecuteNextAsync<SearchParameterStatusWrapper>(cancellationToken);
                 parameterStatus.AddRange(results
                     .Select(x => x.ToSearchParameterStatus()));
             }
@@ -70,7 +71,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
             return parameterStatus;
         }
 
-        public async Task UpdateStatuses(IEnumerable<ResourceSearchParameterStatus> statuses)
+        public async Task UpsertStatuses(IEnumerable<ResourceSearchParameterStatus> statuses, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(statuses, nameof(statuses));
 
@@ -78,7 +79,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
 
             foreach (var status in statuses.Select(x => x.ToSearchParameterStatusWrapper()))
             {
-                await clientScope.Value.UpsertDocumentAsync(CollectionUri, status);
+                await clientScope.Value.UpsertDocumentAsync(CollectionUri, status, null, false, cancellationToken);
             }
         }
     }

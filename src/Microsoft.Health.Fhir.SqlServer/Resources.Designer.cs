@@ -70,6 +70,15 @@ namespace Microsoft.Health.Fhir.SqlServer {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Transaction was failed while initializing the search parameter registry..
+        /// </summary>
+        internal static string SearchParameterInitializationTransactionFailedError {
+            get {
+                return ResourceManager.GetString("SearchParameterInitializationTransactionFailedError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to There was an internal server error while processing the transaction..
         /// </summary>
         internal static string TransactionProcessingException {

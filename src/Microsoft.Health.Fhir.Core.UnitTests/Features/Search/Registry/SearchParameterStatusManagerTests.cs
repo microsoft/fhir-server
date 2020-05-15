@@ -153,7 +153,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
 
             await _searchParameterRegistry
                 .Received()
-                .UpdateStatuses(Arg.Is<IEnumerable<ResourceSearchParameterStatus>>(x => x.Single().Uri == _queryParameter.Url));
+                .UpsertStatuses(Arg.Is<IEnumerable<ResourceSearchParameterStatus>>(x => x.Single().Uri == _queryParameter.Url));
         }
     }
 }

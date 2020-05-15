@@ -8,14 +8,18 @@
     <None Remove="Features\Schema\Migrations\1.sql" />
     <None Remove="Features\Schema\Migrations\2.diff.sql" />
     <None Remove="Features\Schema\Migrations\2.sql" />
+    <None Remove="Features\Schema\Migrations\3.diff.sql" />
+    <None Remove="Features\Schema\Migrations\3.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\1.sql" />
+    <EmbeddedResource Include="Features\Schema\Migrations\3.diff.sql" />
+    <EmbeddedResource Include="Features\Schema\Migrations\3.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\2.diff.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\2.sql" />
-    <GenerateFilesInputs Include="Features\Schema\Migrations\2.sql" />
+    <GenerateFilesInputs Include="Features\Schema\Migrations\3.sql" />
     <Generated Include="Features\Schema\Model\VLatest.Generated.cs">
       <Generator>SqlModelGenerator</Generator>
       <Namespace>Microsoft.Health.Fhir.SqlServer.Features.Schema.Model</Namespace>
-      <Args>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)\Features\Schema\Migrations\2.sql'))</Args>
+      <Args>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)\Features\Schema\Migrations\3.sql'))</Args>
     </Generated>
   </ItemGroup>
 
@@ -48,5 +52,9 @@
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Features\Schema\Model\" />
   </ItemGroup>
 </Project>

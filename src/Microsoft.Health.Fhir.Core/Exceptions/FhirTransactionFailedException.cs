@@ -6,10 +6,9 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Net;
-using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Models;
 
-namespace Microsoft.Health.Fhir.Api.Features.Bundle
+namespace Microsoft.Health.Fhir.Core.Exceptions
 {
     public class FhirTransactionFailedException : FhirException
     {
