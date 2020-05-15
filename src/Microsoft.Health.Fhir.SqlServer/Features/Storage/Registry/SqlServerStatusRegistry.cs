@@ -51,7 +51,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                 {
                     while (await sqlDataReader.ReadAsync())
                     {
-                        // TODO: Fix data types, avoid weird conversions.
                         (string uri, string stringStatus, DateTimeOffset? lastUpdated, bool isPartiallySupported) = sqlDataReader.ReadRow(
                             VLatest.SearchParamRegistry.Uri,
                             VLatest.SearchParamRegistry.Status,

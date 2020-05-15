@@ -2060,7 +2060,6 @@ AS
     DECLARE @lastUpdated datetime2(7) = SYSUTCDATETIME()
 
     -- Acquire and hold an exclusive table lock for the entire transaction to prevent parameters from being added or modified during upsertion.
-    -- TODO: should this be an update lock?
     UPDATE dbo.SearchParamRegistry
     WITH (TABLOCKX)
     SET Status = sps.Status, LastUpdated = @lastUpdated, IsPartiallySupported = sps.IsPartiallySupported
