@@ -1,4 +1,4 @@
-[
+﻿[
   {
     "name": "_id",
     "type": "Token",
@@ -188,7 +188,7 @@
       "kind": "InternalOrExternal",
       "baseUri": null,
       "resourceType": "DocumentReference",
-      "resourceId": "example-appends",
+      "resourceId": "example-transforms",
       "isValidAsCompositeComponent": true
     }
   },
@@ -197,7 +197,7 @@
     "type": "Token",
     "value": {
       "system": "http://hl7.org/fhir/document-relationship-type",
-      "code": "appends",
+      "code": "transforms",
       "text": null,
       "isValidAsCompositeComponent": true
     }
@@ -212,14 +212,14 @@
             "kind": "InternalOrExternal",
             "baseUri": null,
             "resourceType": "DocumentReference",
-            "resourceId": "example-appends",
+            "resourceId": "example-transforms",
             "isValidAsCompositeComponent": true
           }
         ],
         [
           {
             "system": "http://hl7.org/fhir/document-relationship-type",
-            "code": "appends",
+            "code": "transforms",
             "text": null,
             "isValidAsCompositeComponent": true
           }

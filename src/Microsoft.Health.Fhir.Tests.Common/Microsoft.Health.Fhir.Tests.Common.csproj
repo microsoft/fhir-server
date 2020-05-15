@@ -208,7 +208,9 @@
     <EmbeddedResource Include="TestFiles\R5\Condition-For-Patient-f001.json" />
     <EmbeddedResource Include="TestFiles\R5\Device-d1.json" />
     <EmbeddedResource Include="TestFiles\R5\DocumentReference-example-002.json" />
+    <EmbeddedResource Include="TestFiles\R5\DocumentReference-example-002.indexes.json" />
     <EmbeddedResource Include="TestFiles\R5\DocumentReference-example-003.json" />
+    <EmbeddedResource Include="TestFiles\R5\DocumentReference-example-003.indexes.json" />
     <EmbeddedResource Include="TestFiles\R5\DocumentReference-example.json" />
     <EmbeddedResource Include="TestFiles\R5\DocumentReference-example.indexes.json" />
     <EmbeddedResource Include="TestFiles\R5\Encounter-For-Patient-f001.json" />
@@ -224,7 +226,9 @@
     <EmbeddedResource Include="TestFiles\R4\Condition-For-Patient-f001.json" />
     <EmbeddedResource Include="TestFiles\R4\Device-d1.json" />
     <EmbeddedResource Include="TestFiles\R4\DocumentReference-example-002.json" />
+    <EmbeddedResource Include="TestFiles\R4\DocumentReference-example-002.indexes.json" />
     <EmbeddedResource Include="TestFiles\R4\DocumentReference-example-003.json" />
+    <EmbeddedResource Include="TestFiles\R4\DocumentReference-example-003.indexes.json" />
     <EmbeddedResource Include="TestFiles\R4\DocumentReference-example.json" />
     <EmbeddedResource Include="TestFiles\R4\DocumentReference-example.indexes.json" />
     <EmbeddedResource Include="TestFiles\R4\Encounter-For-Patient-f001.json" />
@@ -257,7 +261,9 @@
     <EmbeddedResource Include="TestFiles\Stu3\Device-d1.json" />
     <EmbeddedResource Include="TestFiles\Stu3\DeviceComponent-For-Device-d1.json" />
     <EmbeddedResource Include="TestFiles\Stu3\DocumentReference-example-002.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\DocumentReference-example-002.indexes.json" />
     <EmbeddedResource Include="TestFiles\Stu3\DocumentReference-example-003.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\DocumentReference-example-003.indexes.json" />
     <EmbeddedResource Include="TestFiles\Stu3\DocumentReference-example.json" />
     <EmbeddedResource Include="TestFiles\Stu3\DocumentReference-example.indexes.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Encounter-For-Patient-f001.json" />

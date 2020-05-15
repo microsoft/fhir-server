@@ -1,4 +1,4 @@
-[
+﻿[
   {
     "name": "_id",
     "type": "Token",
@@ -52,6 +52,15 @@
     }
   },
   {
+    "name": "creation",
+    "type": "Date",
+    "value": {
+      "start": "2005-12-23T22:35:00+00:00",
+      "end": "2005-12-23T22:35:00.9999999+00:00",
+      "isValidAsCompositeComponent": true
+    }
+  },
+  {
     "name": "custodian",
     "type": "Reference",
     "value": {
@@ -76,6 +85,16 @@
     "type": "String",
     "value": {
       "string": "Physical",
+      "isValidAsCompositeComponent": true
+    }
+  },
+  {
+    "name": "doc-status",
+    "type": "Token",
+    "value": {
+      "system": "http://hl7.org/fhir/composition-status",
+      "code": "preliminary",
+      "text": null,
       "isValidAsCompositeComponent": true
     }
   },
@@ -188,7 +207,7 @@
       "kind": "InternalOrExternal",
       "baseUri": null,
       "resourceType": "DocumentReference",
-      "resourceId": "example-appends",
+      "resourceId": "example-transforms",
       "isValidAsCompositeComponent": true
     }
   },
@@ -197,7 +216,7 @@
     "type": "Token",
     "value": {
       "system": "http://hl7.org/fhir/document-relationship-type",
-      "code": "appends",
+      "code": "transforms",
       "text": null,
       "isValidAsCompositeComponent": true
     }
@@ -212,14 +231,14 @@
             "kind": "InternalOrExternal",
             "baseUri": null,
             "resourceType": "DocumentReference",
-            "resourceId": "example-appends",
+            "resourceId": "example-transforms",
             "isValidAsCompositeComponent": true
           }
         ],
         [
           {
             "system": "http://hl7.org/fhir/document-relationship-type",
-            "code": "appends",
+            "code": "transforms",
             "text": null,
             "isValidAsCompositeComponent": true
           }

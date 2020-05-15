@@ -188,7 +188,18 @@
       "kind": "InternalOrExternal",
       "baseUri": null,
       "resourceType": "DocumentReference",
-      "resourceId": "example-appends",
+      "resourceId": "example-transforms",
+      "isValidAsCompositeComponent": true
+    }
+  },
+  {
+    "name": "relatesto",
+    "type": "Reference",
+    "value": {
+      "kind": "InternalOrExternal",
+      "baseUri": null,
+      "resourceType": "DocumentReference",
+      "resourceId": "example-replaces",
       "isValidAsCompositeComponent": true
     }
   },
@@ -197,7 +208,17 @@
     "type": "Token",
     "value": {
       "system": "http://hl7.org/fhir/document-relationship-type",
-      "code": "appends",
+      "code": "transforms",
+      "text": null,
+      "isValidAsCompositeComponent": true
+    }
+  },
+  {
+    "name": "relation",
+    "type": "Token",
+    "value": {
+      "system": "http://hl7.org/fhir/document-relationship-type",
+      "code": "replaces",
       "text": null,
       "isValidAsCompositeComponent": true
     }
@@ -212,14 +233,40 @@
             "kind": "InternalOrExternal",
             "baseUri": null,
             "resourceType": "DocumentReference",
-            "resourceId": "example-appends",
+            "resourceId": "example-transforms",
             "isValidAsCompositeComponent": true
           }
         ],
         [
           {
             "system": "http://hl7.org/fhir/document-relationship-type",
-            "code": "appends",
+            "code": "transforms",
+            "text": null,
+            "isValidAsCompositeComponent": true
+          }
+        ]
+      ],
+      "isValidAsCompositeComponent": false
+    }
+  },
+  {
+    "name": "relationship",
+    "type": "Composite",
+    "value": {
+      "components": [
+        [
+          {
+            "kind": "InternalOrExternal",
+            "baseUri": null,
+            "resourceType": "DocumentReference",
+            "resourceId": "example-replaces",
+            "isValidAsCompositeComponent": true
+          }
+        ],
+        [
+          {
+            "system": "http://hl7.org/fhir/document-relationship-type",
+            "code": "replaces",
             "text": null,
             "isValidAsCompositeComponent": true
           }
