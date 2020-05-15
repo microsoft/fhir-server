@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         public bool TryGetSearchParameter(string resourceType, string name, out SearchParameterInfo searchParameter)
         {
             searchParameter = null;
-            if (_inner.TryGetSearchParameter(resourceType, name, out var parameter) && parameter.IsSearchable)
+            if (_inner.TryGetSearchParameter(resourceType, name, out var parameter) && parameter.IsSupported)
             {
                 searchParameter = parameter;
 
