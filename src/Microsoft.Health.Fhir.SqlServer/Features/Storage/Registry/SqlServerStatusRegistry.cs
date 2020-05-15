@@ -47,7 +47,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
 
                 var parameterStatuses = new List<ResourceSearchParameterStatus>();
 
-                // TODO: Pass in cancellation token?
                 using (SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                 {
                     while (await sqlDataReader.ReadAsync())
