@@ -35,6 +35,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         private bool _initialized;
 
+        private readonly ISet<Uri> _knownBrokenR5 = new HashSet<Uri>
+        {
+            new Uri("http://hl7.org/fhir/SearchParameter/Subscription-url"),
+            new Uri("http://hl7.org/fhir/SearchParameter/ImagingStudy-reason"),
+            new Uri("http://hl7.org/fhir/SearchParameter/Medication-form"),
+            new Uri("http://hl7.org/fhir/SearchParameter/PackagedProductDefinition-device"),
+            new Uri("http://hl7.org/fhir/SearchParameter/PackagedProductDefinition-manufactured-item"),
+            new Uri("http://hl7.org/fhir/SearchParameter/Subscription-payload"),
+            new Uri("http://hl7.org/fhir/SearchParameter/Subscription-type"),
+        };
+
         internal SearchParameterDefinitionBuilder(
             FhirJsonParser fhirJsonParser,
             IModelInfoProvider modelInfoProvider,
@@ -240,7 +251,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
                     // Make sure the expression is not empty unless they are known to have empty expression.
                     // These are special search parameters that searches across all properties and needs to be handled specially.
-                    if (ShouldExcludeEntry(baseResourceType, searchParameter.Name))
+                    if (ShouldExcludeEntry(baseResourceType, searchParameter.Name)
+                    || (_modelInfoProvider.Version == FhirSpecification.R5 && _knownBrokenR5.Contains(new Uri(searchParameter.Url))))
                     {
                         continue;
                     }
