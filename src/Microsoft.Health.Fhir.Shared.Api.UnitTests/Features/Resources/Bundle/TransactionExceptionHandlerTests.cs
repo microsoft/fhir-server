@@ -6,8 +6,8 @@
 using System.Collections.Generic;
 using System.Net;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
-using Microsoft.Health.Fhir.Core.Exceptions;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
