@@ -110,16 +110,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         break;
                     case InvalidSearchOperationException _:
                     case SearchOperationNotSupportedException _:
-                    case CmkAadClientCredentialsGrantFailureException _:
-                    case CmkAadServiceUnavailableException _:
-                    case CmkKeyVaultAuthenticationFailureException _:
-                    case CmkKeyVaultKeyNotFoundException _:
-                    case CmkKeyVaultServiceUnavailableException _:
-                    case CmkKeyVaultWrapUnwrapFailureException _:
-                    case CmkInvalidKeyVaultKeyUriException _:
-                    case CmkInvalidInputBytesException _:
-                    case CmkKeyVaultInternalServerErrorException _:
-                    case CmkKeyVaultDnsNotResolvedException _:
+                    case CustomerManagedKeyException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.Forbidden;
                         break;
                     case UnsupportedConfigurationException _:

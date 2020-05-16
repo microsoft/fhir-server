@@ -61,6 +61,24 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to AAD failure getting a token to access the customer-managed key..
+        /// </summary>
+        internal static string AadClientCredentialsGrantFailure {
+            get {
+                return ResourceManager.GetString("AadClientCredentialsGrantFailure", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to AAD service unavailable to get access to the customer-managed key..
+        /// </summary>
+        internal static string AadServiceUnavailable {
+            get {
+                return ResourceManager.GetString("AadServiceUnavailable", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to {0} and {1} cannot both be specified..
         /// </summary>
         internal static string AtCannotBeSpecifiedWithBeforeOrSince {
@@ -106,92 +124,11 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to AAD failure getting a token to access the customer managed key..
+        ///   Looks up a localized string similar to There was an error using the customer-managed key..
         /// </summary>
-        internal static string CmkAadClientCredentialsGrantFailure {
+        internal static string CmkDefaultError {
             get {
-                return ResourceManager.GetString("CmkAadClientCredentialsGrantFailure", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to AAD service unavailable to get access to the customer managed key..
-        /// </summary>
-        internal static string CmkAadServiceUnavailable {
-            get {
-                return ResourceManager.GetString("CmkAadServiceUnavailable", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to The input bytes are not in base64 format..
-        /// </summary>
-        internal static string CmkInvalidInputBytes {
-            get {
-                return ResourceManager.GetString("CmkInvalidInputBytes", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to The customer managed key URI is invalid..
-        /// </summary>
-        internal static string CmkInvalidKeyVaultKeyUri {
-            get {
-                return ResourceManager.GetString("CmkInvalidKeyVaultKeyUri", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to The customer managed key is disabled, or the Key Vault does not grant permission to AAD..
-        /// </summary>
-        internal static string CmkKeyVaultAuthenticationFailure {
-            get {
-                return ResourceManager.GetString("CmkKeyVaultAuthenticationFailure", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Could resolve the DNS of the Key Vault of the customer managed key..
-        /// </summary>
-        internal static string CmkKeyVaultDnsNotResolved {
-            get {
-                return ResourceManager.GetString("CmkKeyVaultDnsNotResolved", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Unknown Key Vault error accessing the customer managed key..
-        /// </summary>
-        internal static string CmkKeyVaultInternalServerError {
-            get {
-                return ResourceManager.GetString("CmkKeyVaultInternalServerError", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to The customer managed key is not found..
-        /// </summary>
-        internal static string CmkKeyVaultKeyNotFound {
-            get {
-                return ResourceManager.GetString("CmkKeyVaultKeyNotFound", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to The Key Vault Service is unavailable to access the customer managed key..
-        /// </summary>
-        internal static string CmkKeyVaultServiceUnavailable {
-            get {
-                return ResourceManager.GetString("CmkKeyVaultServiceUnavailable", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Failure to Wrap or Unwrap the customer managed key..
-        /// </summary>
-        internal static string CmkKeyVaultWrapUnwrapFailure {
-            get {
-                return ResourceManager.GetString("CmkKeyVaultWrapUnwrapFailure", resourceCulture);
+                return ResourceManager.GetString("CmkDefaultError", resourceCulture);
             }
         }
         
@@ -512,6 +449,24 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The input bytes are not in base64 format..
+        /// </summary>
+        internal static string InvalidInputBytes {
+            get {
+                return ResourceManager.GetString("InvalidInputBytes", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The customer-managed key URI is invalid..
+        /// </summary>
+        internal static string InvalidKeyVaultKeyUri {
+            get {
+                return ResourceManager.GetString("InvalidKeyVaultKeyUri", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The count must be greater than zero..
         /// </summary>
         internal static string InvalidSearchCountSpecified {
@@ -544,6 +499,60 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string JobNotFound {
             get {
                 return ResourceManager.GetString("JobNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The customer-managed key is disabled, or the Key Vault does not grant permission to AAD..
+        /// </summary>
+        internal static string KeyVaultAuthenticationFailure {
+            get {
+                return ResourceManager.GetString("KeyVaultAuthenticationFailure", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Could resolve the DNS of the Key Vault of the customer-managed key..
+        /// </summary>
+        internal static string KeyVaultDnsNotResolved {
+            get {
+                return ResourceManager.GetString("KeyVaultDnsNotResolved", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Unknown Key Vault error accessing the customer-managed key..
+        /// </summary>
+        internal static string KeyVaultInternalServerError {
+            get {
+                return ResourceManager.GetString("KeyVaultInternalServerError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The customer-managed key is not found..
+        /// </summary>
+        internal static string KeyVaultKeyNotFound {
+            get {
+                return ResourceManager.GetString("KeyVaultKeyNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The Key Vault Service is unavailable to access the customer-managed key..
+        /// </summary>
+        internal static string KeyVaultServiceUnavailable {
+            get {
+                return ResourceManager.GetString("KeyVaultServiceUnavailable", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Failure to Wrap or Unwrap the customer-managed key..
+        /// </summary>
+        internal static string KeyVaultWrapUnwrapFailure {
+            get {
+                return ResourceManager.GetString("KeyVaultWrapUnwrapFailure", resourceCulture);
             }
         }
         

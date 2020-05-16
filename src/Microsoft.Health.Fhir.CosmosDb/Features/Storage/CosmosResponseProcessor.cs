@@ -70,28 +70,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 }
                 else if (dce.StatusCode == HttpStatusCode.Forbidden)
                 {
-                    switch (dce.GetSubStatusValue())
+                    int? subStatusValue = dce.GetSubStatusValue();
+                    if (subStatusValue.HasValue && Enum.IsDefined(typeof(KnownCosmosDbCmkSubStatusValue), subStatusValue))
                     {
-                        case CosmosDbSubStatusValues.CmkAadClientCredentialsGrantFailure:
-                            throw new Core.Exceptions.CmkAadClientCredentialsGrantFailureException();
-                        case CosmosDbSubStatusValues.CmkAadServiceUnavailable:
-                            throw new Core.Exceptions.CmkAadServiceUnavailableException();
-                        case CosmosDbSubStatusValues.CmkKeyVaultAuthenticationFailure:
-                            throw new Core.Exceptions.CmkKeyVaultAuthenticationFailureException();
-                        case CosmosDbSubStatusValues.CmkKeyVaultKeyNotFound:
-                            throw new Core.Exceptions.CmkKeyVaultKeyNotFoundException();
-                        case CosmosDbSubStatusValues.CmkKeyVaultServiceUnavailable:
-                            throw new Core.Exceptions.CmkKeyVaultServiceUnavailableException();
-                        case CosmosDbSubStatusValues.CmkKeyVaultWrapUnwrapFailure:
-                            throw new Core.Exceptions.CmkKeyVaultWrapUnwrapFailureException();
-                        case CosmosDbSubStatusValues.CmkInvalidKeyVaultKeyUri:
-                            throw new Core.Exceptions.CmkInvalidKeyVaultKeyUriException();
-                        case CosmosDbSubStatusValues.CmkInvalidInputBytes:
-                            throw new Core.Exceptions.CmkInvalidInputBytesException();
-                        case CosmosDbSubStatusValues.CmkKeyVaultInternalServerError:
-                            throw new Core.Exceptions.CmkKeyVaultInternalServerErrorException();
-                        case CosmosDbSubStatusValues.CmkKeyVaultDnsNotResolved:
-                            throw new Core.Exceptions.CmkKeyVaultDnsNotResolvedException();
+                        throw new Core.Exceptions.CustomerManagedKeyException(subStatusValue);
                     }
                 }
             }

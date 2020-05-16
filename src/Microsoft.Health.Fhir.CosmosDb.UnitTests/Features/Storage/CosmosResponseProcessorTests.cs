@@ -155,108 +155,29 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             ValidateExecution(expectedSessionToken: null, 12.4, false);
         }
 
-        [Fact]
-        public async Task GivenADocumentClientExceptionWithCmkAadClientCredentialsGrantFailureSubStatus_WhenProcessing_ThenExceptionShouldThrow()
+        [Theory]
+        [InlineData(KnownCosmosDbCmkSubStatusValue.AadClientCredentialsGrantFailure)]
+        [InlineData(KnownCosmosDbCmkSubStatusValue.AadServiceUnavailable)]
+        [InlineData(KnownCosmosDbCmkSubStatusValue.KeyVaultAuthenticationFailure)]
+        [InlineData(KnownCosmosDbCmkSubStatusValue.KeyVaultKeyNotFound)]
+        [InlineData(KnownCosmosDbCmkSubStatusValue.KeyVaultServiceUnavailable)]
+        [InlineData(KnownCosmosDbCmkSubStatusValue.KeyVaultWrapUnwrapFailure)]
+        [InlineData(KnownCosmosDbCmkSubStatusValue.InvalidKeyVaultKeyUri)]
+        [InlineData(KnownCosmosDbCmkSubStatusValue.InvalidInputBytes)]
+        [InlineData(KnownCosmosDbCmkSubStatusValue.KeyVaultInternalServerError)]
+        [InlineData(KnownCosmosDbCmkSubStatusValue.KeyVaultDnsNotResolved)]
+        public async Task GivenADocumentClientExceptionWithCmkSubStatus_WhenProcessing_ThenExceptionShouldThrow(KnownCosmosDbCmkSubStatusValue subStatusValue)
         {
-            DocumentClientException documentClientException = CreateDocumentClientException("12.4", "fail", HttpStatusCode.Forbidden, CosmosDbSubStatusValues.CmkAadClientCredentialsGrantFailure.ToString());
+            DocumentClientException documentClientException = CreateDocumentClientException("12.4", "fail", HttpStatusCode.Forbidden, Convert.ToString((int)subStatusValue));
 
-            await Assert.ThrowsAsync<CmkAadClientCredentialsGrantFailureException>(async () => await _cosmosResponseProcessor.ProcessException(documentClientException));
-
-            ValidateExecution(expectedSessionToken: null, 12.4, false);
-        }
-
-        [Fact]
-        public async Task GivenADocumentClientExceptionWithCmkAadServiceUnavailableSubStatus_WhenProcessing_ThenExceptionShouldThrow()
-        {
-            DocumentClientException documentClientException = CreateDocumentClientException("12.4", "fail", HttpStatusCode.Forbidden, CosmosDbSubStatusValues.CmkAadServiceUnavailable.ToString());
-
-            await Assert.ThrowsAsync<CmkAadServiceUnavailableException>(async () => await _cosmosResponseProcessor.ProcessException(documentClientException));
-
-            ValidateExecution(expectedSessionToken: null, 12.4, false);
-        }
-
-        [Fact]
-        public async Task GivenADocumentClientExceptionWithCmkKeyVaultAuthenticationFailureSubStatus_WhenProcessing_ThenExceptionShouldThrow()
-        {
-            DocumentClientException documentClientException = CreateDocumentClientException("12.4", "fail", HttpStatusCode.Forbidden, CosmosDbSubStatusValues.CmkKeyVaultAuthenticationFailure.ToString());
-
-            await Assert.ThrowsAsync<CmkKeyVaultAuthenticationFailureException>(async () => await _cosmosResponseProcessor.ProcessException(documentClientException));
-
-            ValidateExecution(expectedSessionToken: null, 12.4, false);
-        }
-
-        [Fact]
-        public async Task GivenADocumentClientExceptionWithCmkKeyVaultKeyNotFoundSubStatus_WhenProcessing_ThenExceptionShouldThrow()
-        {
-            DocumentClientException documentClientException = CreateDocumentClientException("12.4", "fail", HttpStatusCode.Forbidden, CosmosDbSubStatusValues.CmkKeyVaultKeyNotFound.ToString());
-
-            await Assert.ThrowsAsync<CmkKeyVaultKeyNotFoundException>(async () => await _cosmosResponseProcessor.ProcessException(documentClientException));
-
-            ValidateExecution(expectedSessionToken: null, 12.4, false);
-        }
-
-        [Fact]
-        public async Task GivenADocumentClientExceptionWithCmkKeyVaultServiceUnavailableSubStatus_WhenProcessing_ThenExceptionShouldThrow()
-        {
-            DocumentClientException documentClientException = CreateDocumentClientException("12.4", "fail", HttpStatusCode.Forbidden, CosmosDbSubStatusValues.CmkKeyVaultServiceUnavailable.ToString());
-
-            await Assert.ThrowsAsync<CmkKeyVaultServiceUnavailableException>(async () => await _cosmosResponseProcessor.ProcessException(documentClientException));
-
-            ValidateExecution(expectedSessionToken: null, 12.4, false);
-        }
-
-        [Fact]
-        public async Task GivenADocumentClientExceptionWithCmkKeyVaultWrapUnwrapFailureSubStatus_WhenProcessing_ThenExceptionShouldThrow()
-        {
-            DocumentClientException documentClientException = CreateDocumentClientException("12.4", "fail", HttpStatusCode.Forbidden, CosmosDbSubStatusValues.CmkKeyVaultWrapUnwrapFailure.ToString());
-
-            await Assert.ThrowsAsync<CmkKeyVaultWrapUnwrapFailureException>(async () => await _cosmosResponseProcessor.ProcessException(documentClientException));
-
-            ValidateExecution(expectedSessionToken: null, 12.4, false);
-        }
-
-        [Fact]
-        public async Task GivenADocumentClientExceptionWithCmkInvalidKeyVaultKeyUriSubStatus_WhenProcessing_ThenExceptionShouldThrow()
-        {
-            DocumentClientException documentClientException = CreateDocumentClientException("12.4", "fail", HttpStatusCode.Forbidden, CosmosDbSubStatusValues.CmkInvalidKeyVaultKeyUri.ToString());
-
-            await Assert.ThrowsAsync<CmkInvalidKeyVaultKeyUriException>(async () => await _cosmosResponseProcessor.ProcessException(documentClientException));
-
-            ValidateExecution(expectedSessionToken: null, 12.4, false);
-        }
-
-        [Fact]
-        public async Task GivenADocumentClientExceptionWithCmkInvalidInputBytesSubStatus_WhenProcessing_ThenExceptionShouldThrow()
-        {
-            DocumentClientException documentClientException = CreateDocumentClientException("12.4", "fail", HttpStatusCode.Forbidden, CosmosDbSubStatusValues.CmkInvalidInputBytes.ToString());
-
-            await Assert.ThrowsAsync<CmkInvalidInputBytesException>(async () => await _cosmosResponseProcessor.ProcessException(documentClientException));
-
-            ValidateExecution(expectedSessionToken: null, 12.4, false);
-        }
-
-        [Fact]
-        public async Task GivenADocumentClientExceptionWithCmkKeyVaultInternalServerErrorSubStatus_WhenProcessing_ThenExceptionShouldThrow()
-        {
-            DocumentClientException documentClientException = CreateDocumentClientException("12.4", "fail", HttpStatusCode.Forbidden, CosmosDbSubStatusValues.CmkKeyVaultInternalServerError.ToString());
-
-            await Assert.ThrowsAsync<CmkKeyVaultInternalServerErrorException>(async () => await _cosmosResponseProcessor.ProcessException(documentClientException));
-
-            ValidateExecution(expectedSessionToken: null, 12.4, false);
-        }
-
-        [Fact]
-        public async Task GivenADocumentClientExceptionWithCmkKeyVaultDnsNotResolvedSubStatus_WhenProcessing_ThenExceptionShouldThrow()
-        {
-            DocumentClientException documentClientException = CreateDocumentClientException("12.4", "fail", HttpStatusCode.Forbidden, CosmosDbSubStatusValues.CmkKeyVaultDnsNotResolved.ToString());
-
-            await Assert.ThrowsAsync<CmkKeyVaultDnsNotResolvedException>(async () => await _cosmosResponseProcessor.ProcessException(documentClientException));
+            await Assert.ThrowsAsync<CustomerManagedKeyException>(async () => await _cosmosResponseProcessor.ProcessException(documentClientException));
 
             ValidateExecution(expectedSessionToken: null, 12.4, false);
         }
 
         [Theory]
         [InlineData("")]
+        [InlineData(null)]
         [InlineData("3999")]
         public async Task GivenADocumentClientExceptionWithForbiddenStatusCodeAndUnknownSubStatus_WhenProcessing_ThenNothingElseShouldOccur(string subsStatusCode)
         {
