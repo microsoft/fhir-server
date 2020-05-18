@@ -80,6 +80,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 {
                     // The job failed.
                     _logger.LogError(ex, "Unhandled exception in the worker.");
+                    await Task.Delay(_reindexJobConfiguration.JobPollingFrequency, cancellationToken);
                 }
             }
         }
