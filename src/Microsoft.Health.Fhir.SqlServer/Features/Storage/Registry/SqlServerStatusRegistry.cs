@@ -88,7 +88,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             }
         }
 
-        internal async Task<bool> GetIsSearchParameterRegistryEmpty(CancellationToken cancellationToken)
+        internal async Task<bool> IsSearchParameterRegistryEmpty(CancellationToken cancellationToken)
         {
             using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())

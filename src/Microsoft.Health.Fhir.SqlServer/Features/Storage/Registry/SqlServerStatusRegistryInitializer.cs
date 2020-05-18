@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             // Wrap the SQL calls in a transaction to ensure the read and insert operations are atomic.
             using (var transaction = _transactionHandler.BeginTransaction())
             {
-                if (await _sqlServerStatusRegistry.GetIsSearchParameterRegistryEmpty(CancellationToken.None))
+                if (await _sqlServerStatusRegistry.IsSearchParameterRegistryEmpty(CancellationToken.None))
                 {
                     // The registry has yet to be initialized, so get the search parameter statuses from file and add them to the registry.
                     IReadOnlyCollection<ResourceSearchParameterStatus> readonlyStatuses = await _filebasedRegistry.GetSearchParameterStatuses();
