@@ -107,7 +107,8 @@ GO
 --     Inserts a search parameter and its status into the search parameter registry.
 --
 -- DESCRIPTION
---     Adds a row to the search parameter registry.
+--     Adds a row to the search parameter registry. This is intended to be called within
+--     a transaction that also queries if the table is empty and needs to be initialized.
 --
 -- PARAMETERS
 --     @searchParamStatuses
@@ -118,15 +119,10 @@ CREATE PROCEDURE dbo.InsertIntoSearchParamRegistry
 AS
     SET NOCOUNT ON
 
-    SET XACT_ABORT ON
-    BEGIN TRANSACTION
-
     DECLARE @lastUpdated datetimeoffset(7) = SYSDATETIMEOFFSET()
     
     INSERT INTO dbo.SearchParamRegistry
         (Uri, Status, LastUpdated, IsPartiallySupported)
     SELECT sps.Uri, sps.Status, @lastUpdated, sps.IsPartiallySupported
     FROM @searchParamStatuses AS sps
-
-    COMMIT TRANSACTION
 GO
