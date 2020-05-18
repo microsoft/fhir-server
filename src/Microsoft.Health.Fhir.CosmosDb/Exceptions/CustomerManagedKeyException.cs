@@ -5,9 +5,10 @@
 
 using System;
 using Microsoft.Health.CosmosDb.Features.Storage;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Models;
 
-namespace Microsoft.Health.Fhir.Core.Exceptions
+namespace Microsoft.Health.Fhir.CosmosDb.Exceptions
 {
     public class CustomerManagedKeyException : FhirException
     {

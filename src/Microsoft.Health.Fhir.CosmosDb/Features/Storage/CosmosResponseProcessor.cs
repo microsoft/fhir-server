@@ -17,6 +17,7 @@ using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.CosmosDb.Exceptions;
 using Microsoft.Health.Fhir.CosmosDb.Features.Metrics;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
@@ -73,7 +74,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     int? subStatusValue = dce.GetSubStatusValue();
                     if (subStatusValue.HasValue && Enum.IsDefined(typeof(KnownCosmosDbCmkSubStatusValue), subStatusValue))
                     {
-                        throw new Core.Exceptions.CustomerManagedKeyException(subStatusValue);
+                        throw new CustomerManagedKeyException(subStatusValue);
                     }
                 }
             }

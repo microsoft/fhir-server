@@ -24,6 +24,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Validation;
+using Microsoft.Health.Fhir.CosmosDb.Exceptions;
 using Microsoft.Net.Http.Headers;
 
 namespace Microsoft.Health.Fhir.Api.Features.Filters
