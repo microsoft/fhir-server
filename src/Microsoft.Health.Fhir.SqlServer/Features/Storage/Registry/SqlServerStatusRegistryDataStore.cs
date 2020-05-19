@@ -18,7 +18,7 @@ using Microsoft.Health.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
 {
-    internal class SqlServerStatusRegistryDataStore : ISearchParameterRegistry
+    internal class SqlServerStatusRegistryDataStore : ISearchParameterRegistryDataStore
     {
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private readonly VLatest.UpsertSearchParamStatusTvpGenerator<List<ResourceSearchParameterStatus>> _updateSearchParamRegistryTvpGenerator;

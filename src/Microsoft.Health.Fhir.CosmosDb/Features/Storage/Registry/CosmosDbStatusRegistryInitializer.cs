@@ -16,11 +16,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
 {
     public class CosmosDbStatusRegistryInitializer : IFhirCollectionUpdater
     {
-        private readonly ISearchParameterRegistry _filebasedRegistry;
+        private readonly ISearchParameterRegistryDataStore _filebasedRegistry;
         private readonly ICosmosDocumentQueryFactory _queryFactory;
 
         public CosmosDbStatusRegistryInitializer(
-            FilebasedSearchParameterRegistry.Resolver filebasedRegistry,
+            FilebasedSearchParameterRegistryDataStore.Resolver filebasedRegistry,
             ICosmosDocumentQueryFactory queryFactory)
         {
             EnsureArg.IsNotNull(filebasedRegistry, nameof(filebasedRegistry));

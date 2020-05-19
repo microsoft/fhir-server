@@ -19,13 +19,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 {
     public class SearchParameterStatusManager : IRequireInitializationOnFirstRequest
     {
-        private readonly ISearchParameterRegistry _searchParameterRegistry;
+        private readonly ISearchParameterRegistryDataStore _searchParameterRegistry;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver;
         private readonly IMediator _mediator;
 
         public SearchParameterStatusManager(
-            ISearchParameterRegistry searchParameterRegistry,
+            ISearchParameterRegistryDataStore searchParameterRegistry,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
             ISearchParameterSupportResolver searchParameterSupportResolver,
             IMediator mediator)

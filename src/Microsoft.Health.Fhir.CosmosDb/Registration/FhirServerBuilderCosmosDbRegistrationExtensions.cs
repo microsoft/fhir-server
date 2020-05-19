@@ -141,7 +141,7 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add<CosmosDbStatusRegistryDataStore>()
                 .Singleton()
                 .AsSelf()
-                .ReplaceService<ISearchParameterRegistry>();
+                .ReplaceService<ISearchParameterRegistryDataStore>();
 
             return fhirServerBuilder;
         }

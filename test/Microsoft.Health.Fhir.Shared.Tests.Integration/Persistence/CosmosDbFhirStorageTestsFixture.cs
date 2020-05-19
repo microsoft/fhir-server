@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private IFhirDataStore _fhirDataStore;
         private IFhirOperationDataStore _fhirOperationDataStore;
         private IFhirStorageTestHelper _fhirStorageTestHelper;
-        private FilebasedSearchParameterRegistry _filebasedSearchParameterRegistry;
+        private FilebasedSearchParameterRegistryDataStore _filebasedSearchParameterRegistry;
 
         public CosmosDbFhirStorageTestsFixture()
         {
@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Type searchDefinitionManagerType = typeof(SearchParameterDefinitionManager);
             var searchParameterDefinitionManager = new SearchParameterDefinitionManager(new FhirJsonParser(), ModelInfoProvider.Instance);
             searchParameterDefinitionManager.Start();
-            _filebasedSearchParameterRegistry = new FilebasedSearchParameterRegistry(
+            _filebasedSearchParameterRegistry = new FilebasedSearchParameterRegistryDataStore(
                 searchParameterDefinitionManager,
                 searchDefinitionManagerType.Assembly,
                 $"{searchDefinitionManagerType.Namespace}.unsupported-search-parameters.json");
