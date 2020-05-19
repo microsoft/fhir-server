@@ -6,7 +6,7 @@
 using Microsoft.Health.Extensions.DependencyInjection;
 using NSubstitute;
 
-namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions
+namespace Microsoft.Health.Fhir.Tests.Common.Extensions
 {
     public static class CreateMockedScopeExtensions
     {

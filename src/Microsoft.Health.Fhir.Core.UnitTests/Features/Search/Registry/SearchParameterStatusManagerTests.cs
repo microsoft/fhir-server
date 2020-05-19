@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -29,7 +30,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
         private static readonly string ResourceQuery = "http://hl7.org/fhir/SearchParameter/Resource-query";
 
         private readonly SearchParameterStatusManager _manager;
-        private readonly ISearchParameterRegistryDataStore _searchParameterRegistry;
+        private readonly Func<IScoped<ISearchParameterRegistryDataStore>> _searchParameterRegistryFactory;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly IMediator _mediator;
         private readonly SearchParameterInfo[] _searchParameterInfos;
@@ -38,42 +39,45 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
 
         public SearchParameterStatusManagerTests()
         {
-            _searchParameterRegistry = Substitute.For<ISearchParameterRegistryDataStore>();
+            _searchParameterRegistryFactory = Substitute.For<Func<IScoped<ISearchParameterRegistryDataStore>>>();
             _searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
             _searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
             _mediator = Substitute.For<IMediator>();
 
             _manager = new SearchParameterStatusManager(
-                _searchParameterRegistry,
+                _searchParameterRegistryFactory,
                 _searchParameterDefinitionManager,
                 _searchParameterSupportResolver,
                 _mediator);
 
-            _searchParameterRegistry.GetSearchParameterStatuses()
-                .Returns(new[]
-                {
-                    new ResourceSearchParameterStatus
+            using (IScoped<ISearchParameterRegistryDataStore> registry = _searchParameterRegistryFactory.Invoke())
+            {
+                registry.Value.GetSearchParameterStatuses()
+                    .Returns(new[]
                     {
-                        Status = SearchParameterStatus.Enabled,
-                        Uri = new Uri(ResourceId),
-                    },
-                    new ResourceSearchParameterStatus
-                    {
-                        Status = SearchParameterStatus.Enabled,
-                        Uri = new Uri(ResourceLastupdated),
-                        IsPartiallySupported = true,
-                    },
-                    new ResourceSearchParameterStatus
-                    {
-                        Status = SearchParameterStatus.Disabled,
-                        Uri = new Uri(ResourceProfile),
-                    },
-                    new ResourceSearchParameterStatus
-                    {
-                        Status = SearchParameterStatus.Supported,
-                        Uri = new Uri(ResourceSecurity),
-                    },
-                });
+                        new ResourceSearchParameterStatus
+                        {
+                            Status = SearchParameterStatus.Enabled,
+                            Uri = new Uri(ResourceId),
+                        },
+                        new ResourceSearchParameterStatus
+                        {
+                            Status = SearchParameterStatus.Enabled,
+                            Uri = new Uri(ResourceLastupdated),
+                            IsPartiallySupported = true,
+                        },
+                        new ResourceSearchParameterStatus
+                        {
+                            Status = SearchParameterStatus.Disabled,
+                            Uri = new Uri(ResourceProfile),
+                        },
+                        new ResourceSearchParameterStatus
+                        {
+                            Status = SearchParameterStatus.Supported,
+                            Uri = new Uri(ResourceSecurity),
+                        },
+                    });
+            }
 
             _queryParameter = new SearchParameterInfo("_query", SearchParamType.Token, new Uri(ResourceQuery));
             _searchParameterInfos = new[]
@@ -151,9 +155,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
         {
             await _manager.EnsureInitialized();
 
-            await _searchParameterRegistry
-                .Received()
-                .UpsertStatuses(Arg.Is<IEnumerable<ResourceSearchParameterStatus>>(x => x.Single().Uri == _queryParameter.Url));
+            using (IScoped<ISearchParameterRegistryDataStore> registry = _searchParameterRegistryFactory.Invoke())
+            {
+                await registry.Value
+                    .Received()
+                    .UpsertStatuses(Arg.Is<IEnumerable<ResourceSearchParameterStatus>>(x => x.Single().Uri == _queryParameter.Url));
+            }
         }
     }
 }

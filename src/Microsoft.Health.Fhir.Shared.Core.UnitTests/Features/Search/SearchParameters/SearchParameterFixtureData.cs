@@ -14,6 +14,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Fhir.Tests.Common.Extensions;
 using NSubstitute;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
@@ -50,12 +51,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             manager.Start();
 
             Type managerType = typeof(SearchParameterDefinitionManager);
-            var statusRegistry = new FilebasedSearchParameterRegistryDataStore(
+            ISearchParameterRegistryDataStore searchParameterRegistryFactory = new FilebasedSearchParameterRegistryDataStore(
                 manager,
                 managerType.Assembly,
                 $"{managerType.Namespace}.unsupported-search-parameters.json");
             var statusManager = new SearchParameterStatusManager(
-                statusRegistry,
+                () => searchParameterRegistryFactory.CreateMockScope(),
                 manager,
                 new SearchParameterSupportResolver(manager, Manager),
                 Substitute.For<IMediator>());

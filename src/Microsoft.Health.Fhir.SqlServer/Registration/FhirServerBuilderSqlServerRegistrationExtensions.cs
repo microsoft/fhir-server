@@ -7,6 +7,7 @@ using System;
 using System.Linq;
 using EnsureThat;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
@@ -15,7 +16,6 @@ using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
 using Microsoft.Health.SqlServer.Api.Registration;
 using Microsoft.Health.SqlServer.Configs;
-using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Storage;
@@ -39,14 +39,11 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsImplementedInterfaces();
 
             services.Add<SqlServerStatusRegistryDataStore>()
-                .Singleton()
+                .Scoped()
                 .AsSelf()
-                .AsImplementedInterfaces();
-
-            services.Add<SqlConnectionWrapperFactory>()
-                .Singleton()
-                .AsSelf()
-                .AsImplementedInterfaces();
+                .AsImplementedInterfaces()
+                .AsFactory<IScoped<ISearchParameterRegistryDataStore>>()
+                .AsFactory<IScoped<SqlServerStatusRegistryDataStore>>();
 
             services.Add<SqlTransactionHandler>()
                 .Singleton()
