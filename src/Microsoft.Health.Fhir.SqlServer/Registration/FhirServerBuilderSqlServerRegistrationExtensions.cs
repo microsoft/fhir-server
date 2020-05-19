@@ -38,7 +38,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            services.Add<SqlServerStatusRegistry>()
+            services.Add<SqlServerStatusRegistryDataStore>()
                 .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();

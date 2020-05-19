@@ -17,12 +17,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
     internal class SqlServerStatusRegistryInitializer : IStartable
     {
         private readonly ISearchParameterRegistry _filebasedRegistry;
-        private readonly SqlServerStatusRegistry _sqlServerStatusRegistry;
+        private readonly SqlServerStatusRegistryDataStore _sqlServerStatusRegistry;
         private readonly ITransactionHandler _transactionHandler;
 
         public SqlServerStatusRegistryInitializer(
             FilebasedSearchParameterRegistry.Resolver filebasedRegistry,
-            SqlServerStatusRegistry sqlServerStatusRegistry,
+            SqlServerStatusRegistryDataStore sqlServerStatusRegistry,
             ITransactionHandler transactionHandler)
         {
             EnsureArg.IsNotNull(filebasedRegistry, nameof(filebasedRegistry));
