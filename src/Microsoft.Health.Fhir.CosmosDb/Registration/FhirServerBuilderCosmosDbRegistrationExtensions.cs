@@ -139,9 +139,10 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsImplementedInterfaces();
 
             services.Add<CosmosDbStatusRegistryDataStore>()
-                .Singleton()
+                .Scoped()
                 .AsSelf()
-                .ReplaceService<ISearchParameterRegistryDataStore>();
+                .AsImplementedInterfaces()
+                .AsFactory<IScoped<ISearchParameterRegistryDataStore>>();
 
             return fhirServerBuilder;
         }
