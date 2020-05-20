@@ -36,9 +36,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 expression: "Condition.abatement.as(Range)",
                 baseResourceTypes: new[] { "Condition" });
 
-            bool supported = _resolver.IsSearchParameterSupported(sp);
+            var supported = _resolver.IsSearchParameterSupported(sp);
 
-            Assert.True(supported);
+            Assert.True(supported.Supported);
+            Assert.False(supported.IsPartialSupport);
         }
 
         [Fact]
@@ -52,13 +53,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 baseResourceTypes: new[] { "Condition" });
 
             // Can not convert Range => Uri
-            bool supported = _resolver.IsSearchParameterSupported(sp);
+            var supported = _resolver.IsSearchParameterSupported(sp);
 
-            Assert.False(supported);
+            Assert.False(supported.Supported);
+            Assert.False(supported.IsPartialSupport);
         }
 
         [Fact]
-        public void GivenAPartiallySupportedSearchParameter_WhenResolvingSupport_ThenFalseIsReturned()
+        public void GivenAPartiallySupportedSearchParameter_WhenResolvingSupport_ThenTrueIsReturned()
         {
             var sp = new SearchParameterInfo(
                 "Condition-abatement-age",
@@ -69,9 +71,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             // Condition.asserter cannot be translated to Quantity
             // Condition.abatement.as(Range) CAN be translated to Quantity
-            bool supported = _resolver.IsSearchParameterSupported(sp);
+            var supported = _resolver.IsSearchParameterSupported(sp);
 
-            Assert.False(supported);
+            Assert.True(supported.Supported);
+            Assert.True(supported.IsPartialSupport);
         }
     }
 }

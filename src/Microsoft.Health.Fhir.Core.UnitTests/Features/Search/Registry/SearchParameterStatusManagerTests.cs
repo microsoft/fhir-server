@@ -96,11 +96,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
 
             _searchParameterSupportResolver
                 .IsSearchParameterSupported(Arg.Any<SearchParameterInfo>())
-                .Returns(false);
+                .Returns((false, false));
 
             _searchParameterSupportResolver
                 .IsSearchParameterSupported(Arg.Is(_searchParameterInfos[4]))
-                .Returns(true);
+                .Returns((true, false));
         }
 
         [Fact]

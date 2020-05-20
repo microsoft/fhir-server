@@ -33,9 +33,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             _searchValueTypeConverterManager = searchValueTypeConverterManager;
         }
 
-        public bool IsSearchParameterSupported(SearchParameterInfo parameterInfo)
+        public (bool Supported, bool IsPartialSupport) IsSearchParameterSupported(SearchParameterInfo parameterInfo)
         {
             EnsureArg.IsNotNull(parameterInfo, nameof(parameterInfo));
+
+            if (string.IsNullOrWhiteSpace(parameterInfo.Expression))
+            {
+                return (false, false);
+            }
 
             Expression parsed = _compiler.Parse(parameterInfo.Expression);
 
@@ -71,11 +76,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
                 if (!converters.All(x => x.hasConverter))
                 {
-                    return false;
+                    bool partialSupport = converters.Any(x => x.hasConverter);
+                    return (partialSupport, partialSupport);
                 }
             }
 
-            return true;
+            return (true, false);
         }
     }
 }

@@ -56,11 +56,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 {
                     bool isSearchable = result.Status == SearchParameterStatus.Enabled;
                     bool isSupported = result.Status != SearchParameterStatus.Disabled;
+                    bool isPartiallySupported = result.IsPartiallySupported;
 
                     if (result.Status == SearchParameterStatus.Disabled)
                     {
                         // Re-check if this parameter is now supported.
-                        isSupported = _searchParameterSupportResolver.IsSearchParameterSupported(p);
+                        (bool Supported, bool IsPartialSupport) supportedResult = _searchParameterSupportResolver.IsSearchParameterSupported(p);
+                        isSupported = supportedResult.Supported;
+                        isPartiallySupported = supportedResult.IsPartialSupport;
                     }
 
                     if (p.IsSearchable != isSearchable ||
@@ -69,7 +72,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                     {
                         p.IsSearchable = isSearchable;
                         p.IsSupported = isSupported;
-                        p.IsPartiallySupported = result.IsPartiallySupported;
+                        p.IsPartiallySupported = isPartiallySupported;
 
                         updated.Add(p);
                     }
@@ -86,7 +89,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                     p.IsSearchable = false;
 
                     // Check if this parameter is now supported.
-                    p.IsSupported = _searchParameterSupportResolver.IsSearchParameterSupported(p);
+                    (bool Supported, bool IsPartialSupport) supportedResult = _searchParameterSupportResolver.IsSearchParameterSupported(p);
+                    p.IsSupported = supportedResult.Supported;
+                    p.IsPartiallySupported = supportedResult.IsPartialSupport;
 
                     updated.Add(p);
                 }
