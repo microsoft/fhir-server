@@ -26,7 +26,6 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.Fhir.CosmosDb.Exceptions;
 using Microsoft.Net.Http.Headers;
 using NSubstitute;
 using Xunit;
