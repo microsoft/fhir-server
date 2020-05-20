@@ -66,6 +66,7 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Cors));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations.Export));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations.Reindex));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Audit));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Bundle));
 
