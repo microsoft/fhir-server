@@ -6,7 +6,7 @@
 namespace Microsoft.Health.CosmosDb.Features.Storage
 {
     /// <summary>
-    /// Cosmos DB sustomer-managed key (CMK) sub status values
+    /// Cosmos DB customer-managed key (CMK) sub status values
     /// </summary>
     public enum KnownCosmosDbCmkSubStatusValue
     {

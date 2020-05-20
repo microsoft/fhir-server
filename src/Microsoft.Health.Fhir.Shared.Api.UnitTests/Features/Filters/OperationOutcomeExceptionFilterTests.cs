@@ -200,7 +200,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         }
 
         [Fact]
-        public void GivenAadClientCredentialsGrantFailureException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
+        public void GivenCustomerManagedKeyException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
             ValidateOperationOutcome(new CustomerManagedKeyException(subStatusCode: 123), HttpStatusCode.Forbidden);
         }
