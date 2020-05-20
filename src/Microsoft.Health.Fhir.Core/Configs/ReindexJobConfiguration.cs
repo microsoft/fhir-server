@@ -32,6 +32,11 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public TimeSpan JobPollingFrequency { get; set; } = TimeSpan.FromSeconds(10);
 
         /// <summary>
+        /// Controls the time between queries of resources to be reindexed
+        /// </summary>
+        public TimeSpan QueryDelayIntervalInMilliseconds { get; set; } = TimeSpan.FromMilliseconds(500);
+
+        /// <summary>
         /// Controls how many resources will be returned in a batch for reindexing
         /// </summary>
         public uint MaximumNumberOfResourcesPerQuery { get; set; } = 100;
