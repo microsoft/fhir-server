@@ -12,6 +12,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         /// <summary>
         /// Determines if the given search parameter is able to be indexed
         /// </summary>
-        (bool Supported, bool IsPartialSupport) IsSearchParameterSupported(SearchParameterInfo info);
+        (bool Supported, bool IsPartiallySupported) IsSearchParameterSupported(SearchParameterInfo info);
     }
 }

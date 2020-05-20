@@ -14,16 +14,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 {
     public class SearchParameterSupportResolverTests : IClassFixture<SearchParameterFixtureData>
     {
-        private readonly ITestOutputHelper _outputHelper;
-        private readonly SearchParameterFixtureData _fixtureData;
-        private SearchParameterSupportResolver _resolver;
+        private readonly SearchParameterSupportResolver _resolver;
 
-        public SearchParameterSupportResolverTests(ITestOutputHelper outputHelper, SearchParameterFixtureData fixtureData)
+        public SearchParameterSupportResolverTests(SearchParameterFixtureData fixtureData)
         {
-            _outputHelper = outputHelper;
-            _fixtureData = fixtureData;
-
-            _resolver = new SearchParameterSupportResolver(_fixtureData.SearchDefinitionManager, SearchParameterFixtureData.Manager);
+            _resolver = new SearchParameterSupportResolver(fixtureData.SearchDefinitionManager, SearchParameterFixtureData.Manager);
         }
 
         [Fact]
@@ -39,7 +34,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var supported = _resolver.IsSearchParameterSupported(sp);
 
             Assert.True(supported.Supported);
-            Assert.False(supported.IsPartialSupport);
+            Assert.False(supported.IsPartiallySupported);
         }
 
         [Fact]
@@ -56,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var supported = _resolver.IsSearchParameterSupported(sp);
 
             Assert.False(supported.Supported);
-            Assert.False(supported.IsPartialSupport);
+            Assert.False(supported.IsPartiallySupported);
         }
 
         [Fact]
@@ -74,7 +69,36 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var supported = _resolver.IsSearchParameterSupported(sp);
 
             Assert.True(supported.Supported);
-            Assert.True(supported.IsPartialSupport);
+            Assert.True(supported.IsPartiallySupported);
+        }
+
+        [Fact]
+        public void GivenASearchParameterWithBadType_WhenResolvingSupport_ThenFalseIsReturned()
+        {
+            var sp = new SearchParameterInfo(
+                "Condition-abatement-age",
+                SearchParamType.Quantity,
+                new Uri("http://hl7.org/fhir/SearchParameter/Condition-abatement-age"),
+                expression: "Condition.asserter | Condition.abatement.as(Range)",
+                baseResourceTypes: new[] { "UnknownType" });
+
+            var supported = _resolver.IsSearchParameterSupported(sp);
+
+            Assert.False(supported.Supported);
+            Assert.False(supported.IsPartiallySupported);
+        }
+
+        [Fact]
+        public void GivenASearchParameterWithNoBaseTypes_WhenResolvingSupport_ThenAnExceptionIsThrown()
+        {
+            var sp = new SearchParameterInfo(
+                "Condition-abatement-age",
+                SearchParamType.Quantity,
+                new Uri("http://hl7.org/fhir/SearchParameter/Condition-abatement-age"),
+                expression: "Condition.asserter | Condition.abatement.as(Range)",
+                baseResourceTypes: new string[0]);
+
+            Assert.Throws<NotSupportedException>(() => _resolver.IsSearchParameterSupported(sp));
         }
     }
 }
