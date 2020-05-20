@@ -39,6 +39,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
         {
             Type typeForFhirType = ModelInfoProvider.GetTypeForFhirType(resourceType);
 
+            if (typeForFhirType == null)
+            {
+                // Not a FHIR Type
+                yield break;
+            }
+
             if (componentExpressions?.Any() == true)
             {
                 foreach ((SearchParamType type, Expression expression, Uri definition) component in componentExpressions)
@@ -366,7 +372,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 var ctx = new Context
                 {
                     ParentExpression = parentExpression,
-                    ParentTypeMapping = ClassMapping.Create(type),
+                    ParentTypeMapping = GetMapping(type),
                     SearchParamType = paramType,
                     Definition = definition,
                 };
