@@ -49,7 +49,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             string masterConnectionString = new SqlConnectionStringBuilder(initialConnectionString) { InitialCatalog = "master" }.ToString();
             TestConnectionString = new SqlConnectionStringBuilder(initialConnectionString) { InitialCatalog = _databaseName }.ToString();
 
-            var config = new SqlServerDataStoreConfiguration { ConnectionString = TestConnectionString, Initialize = true };
+            var schemaOptions = new SqlServerSchemaOptions { AutomaticUpdatesEnabled = true };
+            var config = new SqlServerDataStoreConfiguration { ConnectionString = TestConnectionString, Initialize = true, SchemaOptions = schemaOptions };
 
             var schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
             var scriptProvider = new ScriptProvider<SchemaVersion>();
