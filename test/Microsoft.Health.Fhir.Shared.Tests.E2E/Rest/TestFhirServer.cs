@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     /// <summary>
     /// Represents a FHIR server for end-to-end testing.
-    /// Creates and caches <see cref="Hl7.Fhir.Rest.FhirClient"/> instances that target the server.
+    /// Creates and caches <see cref="TestFhirClient"/> instances that target the server.
     /// </summary>
     public abstract class TestFhirServer : IDisposable
     {
