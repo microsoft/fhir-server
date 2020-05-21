@@ -3,12 +3,12 @@ parameters:
   type: string
 
 jobs:
-- job: "Clean Storage Accounts"
+- job: "cleanStorageAccounts"
   pool:
     vmImage: $(WindowsVmImage)
   steps:
   - task: AzurePowerShell@4
-    displayName: 'Clean storage accounts'
+    displayName: 'Clean Storage Accounts'
     continueOnError: true
     inputs:
       azureSubscription: $(ConnectedServiceName)
