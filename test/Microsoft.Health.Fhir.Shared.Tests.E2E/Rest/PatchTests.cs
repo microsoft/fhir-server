@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Net;
+using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -17,10 +18,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     {
         public PatchTests(HttpIntegrationTestFixture fixture)
         {
-            Client = fixture.FhirClient;
+            Client = fixture.TestFhirClient;
         }
 
-        protected FhirClient Client { get; set; }
+        protected TestFhirClient Client { get; set; }
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]

@@ -26,14 +26,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
     public class MetricTests : IClassFixture<MetricTestFixture>
     {
         private readonly MetricTestFixture _fixture;
-        private readonly FhirClient _client;
+        private readonly TestFhirClient _client;
 
         private readonly MetricHandler _metricHandler;
 
         public MetricTests(MetricTestFixture fixture)
         {
             _fixture = fixture;
-            _client = fixture.FhirClient;
+            _client = fixture.TestFhirClient;
             _metricHandler = _fixture?.MetricHandler;
         }
 

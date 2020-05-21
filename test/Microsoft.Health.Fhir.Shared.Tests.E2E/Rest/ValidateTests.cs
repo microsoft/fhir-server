@@ -15,11 +15,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     public class ValidateTests : IClassFixture<HttpIntegrationTestFixture>
     {
         private const string Success = "All OK";
-        private readonly Common.FhirClient _client;
+        private readonly Common.TestFhirClient _client;
 
         public ValidateTests(HttpIntegrationTestFixture fixture)
         {
-            _client = fixture.FhirClient;
+            _client = fixture.TestFhirClient;
         }
 
         [Theory]

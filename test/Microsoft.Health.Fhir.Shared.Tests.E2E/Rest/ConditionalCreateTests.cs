@@ -6,13 +6,13 @@
 using System;
 using System.Net;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Fhir.Web;
 using Xunit;
-using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Common.FhirClient;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
@@ -23,10 +23,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     {
         public ConditionalCreateTests(HttpIntegrationTestFixture<Startup> fixture)
         {
-            Client = fixture.FhirClient;
+            Client = fixture.TestFhirClient;
         }
 
-        protected FhirClient Client { get; set; }
+        protected TestFhirClient Client { get; set; }
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]

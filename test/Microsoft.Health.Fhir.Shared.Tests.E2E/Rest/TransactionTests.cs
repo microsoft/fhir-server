@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -25,11 +26,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     {
         public TransactionTests(HttpIntegrationTestFixture fixture)
         {
-            Client = fixture.FhirClient;
+            Client = fixture.TestFhirClient;
             Client.DeleteAllResources(ResourceType.Patient).Wait();
         }
 
-        protected FhirClient Client { get; set; }
+        protected TestFhirClient Client { get; set; }
 
         [Fact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.CosmosDb)]
@@ -139,7 +140,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAValidBundleWithUnauthorizedUser_WhenSubmittingATransaction_ThenOperationOutcomeWithUnAuthorizedStatusIsReturned()
         {
-            FhirClient tempClient = Client.CreateClientForClientApplication(TestApplications.WrongAudienceClient);
+            TestFhirClient tempClient = Client.CreateClientForClientApplication(TestApplications.WrongAudienceClient);
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithValidBundleEntry");
 
             var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await tempClient.PostBundleAsync(requestBundle.ToPoco<Bundle>()));
@@ -154,7 +155,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAValidBundleWithForbiddenUser_WhenSubmittingATransaction_ThenOperationOutcomeWithForbiddenStatusIsReturned()
         {
-            FhirClient tempClient = Client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
+            TestFhirClient tempClient = Client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithValidBundleEntry");
 
             var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await tempClient.PostBundleAsync(requestBundle.ToPoco<Bundle>()));

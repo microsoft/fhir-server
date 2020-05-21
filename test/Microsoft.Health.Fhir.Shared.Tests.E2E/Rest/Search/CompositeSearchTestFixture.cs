@@ -6,9 +6,9 @@
 using System;
 using System.Collections.Generic;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
-using Microsoft.Health.Fhir.Tests.E2E.Common;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             {
                 string testFileName = files[i];
 
-                T result = FhirClient.CreateResourcesAsync<T>(() =>
+                T result = TestFhirClient.CreateResourcesAsync<T>(() =>
                 {
                     T resource = Samples.GetJsonSample<T>(testFileName);
 

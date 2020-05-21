@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         public HealthTests(HttpIntegrationTestFixture fixture)
         {
-            _client = fixture.FhirClient.HttpClient;
+            _client = fixture.TestFhirClient.HttpClient;
         }
 
         [Fact]

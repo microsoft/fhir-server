@@ -34,6 +34,7 @@
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.CosmosDb\Microsoft.Health.Fhir.CosmosDb.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.SqlServer\Microsoft.Health.Fhir.SqlServer.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Stu3.Api\Microsoft.Health.Fhir.Stu3.Api.csproj" />
+    <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Stu3.Client\Microsoft.Health.Fhir.Stu3.Client.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Stu3.Core\Microsoft.Health.Fhir.Stu3.Core.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Tests.Common\Microsoft.Health.Fhir.Tests.Common.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Stu3.Web\Microsoft.Health.Fhir.Stu3.Web.csproj" />

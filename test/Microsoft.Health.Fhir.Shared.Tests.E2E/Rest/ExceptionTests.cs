@@ -9,11 +9,11 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Validation;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Shared.Tests.E2E;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
-using Microsoft.Health.Fhir.Web;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -27,10 +27,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public ExceptionTests(HttpIntegrationTestFixture<StartupWithThrowingMiddleware> fixture)
         {
             _fixture = fixture;
-            Client = fixture.FhirClient;
+            Client = fixture.TestFhirClient;
         }
 
-        protected FhirClient Client { get; set; }
+        protected TestFhirClient Client { get; set; }
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]

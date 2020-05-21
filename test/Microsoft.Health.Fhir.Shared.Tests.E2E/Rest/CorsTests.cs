@@ -20,11 +20,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class CorsTests : IClassFixture<HttpIntegrationTestFixture>
     {
-        private readonly FhirClient _client;
+        private readonly TestFhirClient _client;
 
         public CorsTests(HttpIntegrationTestFixture fixture)
         {
-            _client = fixture.FhirClient;
+            _client = fixture.TestFhirClient;
         }
 
         [Fact]

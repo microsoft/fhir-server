@@ -8,16 +8,16 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
-using IdentityModel.Client;
 using Microsoft.Health.Fhir.Api.Features.Audit;
+using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
-using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Common.FhirClient;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
@@ -33,14 +33,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         private const string ExpectedClaimKey = "client_id";
 
         private readonly AuditTestFixture _fixture;
-        private readonly FhirClient _client;
+        private readonly TestFhirClient _client;
 
         private readonly TraceAuditLogger _auditLogger;
 
         public AuditTests(AuditTestFixture fixture)
         {
             _fixture = fixture;
-            _client = fixture.FhirClient;
+            _client = fixture.TestFhirClient;
             _auditLogger = _fixture.AuditLogger;
             _client.DeleteAllResources(ResourceType.Patient).Wait();
         }
@@ -289,7 +289,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             await ExecuteAndValidate(
                 () =>
                 {
-                    FhirClient newClient = _client.Clone();
+                    TestFhirClient newClient = _client.Clone();
 
                     newClient.HttpClient.DefaultRequestHeaders.Authorization = null;
 
@@ -305,9 +305,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             await ExecuteAndValidate(
                 () =>
                 {
-                    FhirClient newClient = _client.Clone();
+                    TestFhirClient newClient = _client.Clone();
 
-                    newClient.HttpClient.SetBearerToken("invalid");
+                    newClient.HttpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "invalid");
 
                     return newClient;
                 },
@@ -455,7 +455,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 ("search-type", "Patient?name=peter", HttpStatusCode.OK, ResourceType.Patient),
             };
 
-            FhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
+            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
 
             await ExecuteAndValidateBundle(
                 () => tempClient.PostBundleAsync(batch),
@@ -599,9 +599,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 ae => ValidateExecutedAuditEntry(ae, expectedAction, null, expectedUri, expectedStatusCode, correlationId, expectedClaimValue, expectedClaimKey, expectedCustomAuditHeaders));
         }
 
-        private async Task ExecuteAndValidate(Func<FhirClient> createClient, HttpStatusCode expectedStatusCode, string expectedAppId)
+        private async Task ExecuteAndValidate(Func<TestFhirClient> createClient, HttpStatusCode expectedStatusCode, string expectedAppId)
         {
-            if (!_fixture.IsUsingInProcTestServer || !_fixture.FhirClient.SecuritySettings.SecurityEnabled)
+            if (!_fixture.IsUsingInProcTestServer || !_fixture.TestFhirClient.SecurityEnabled)
             {
                 // This test only works with the in-proc server with customized middleware pipeline and when security is enabled.
                 return;

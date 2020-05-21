@@ -31,9 +31,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task InitializeAsync()
         {
             // Create various resources.
-            Device = await FhirClient.CreateAsync(Samples.GetJsonSample<Device>("Device-d1"));
+            Device = await TestFhirClient.CreateAsync(Samples.GetJsonSample<Device>("Device-d1"));
 
-            Patient = await FhirClient.CreateAsync(Samples.GetJsonSample<Patient>("Patient-f001"));
+            Patient = await TestFhirClient.CreateAsync(Samples.GetJsonSample<Patient>("Patient-f001"));
 
             string patientReference = $"Patient/{Patient.Id}";
 
@@ -43,19 +43,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             observationToCreate.Device = new ResourceReference($"Device/{Device.Id}");
 
-            Observation = await FhirClient.CreateAsync(observationToCreate);
+            Observation = await TestFhirClient.CreateAsync(observationToCreate);
 
             Encounter encounterToCreate = Samples.GetJsonSample<Encounter>("Encounter-For-Patient-f001");
 
             encounterToCreate.Subject.Reference = patientReference;
 
-            Encounter = await FhirClient.CreateAsync(encounterToCreate);
+            Encounter = await TestFhirClient.CreateAsync(encounterToCreate);
 
             Condition conditionToCreate = Samples.GetJsonSample<Condition>("Condition-For-Patient-f001");
 
             conditionToCreate.Subject.Reference = patientReference;
 
-            Condition = await FhirClient.CreateAsync(conditionToCreate);
+            Condition = await TestFhirClient.CreateAsync(conditionToCreate);
         }
 
         public Task DisposeAsync()

@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible.Client
             await _client.SendAsync(message);
         }
 
-        public async Task AuthorizeServerAsync(string authorizeUrl, string tokenUrl)
+        public async Task AuthorizeServerAsync(Uri authorizeUri, Uri tokenUri)
         {
             var message = new HttpRequestMessage(HttpMethod.Post, $"{_serverBase}/oauth_authorize_backend")
             {
@@ -66,9 +66,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible.Client
                     new KeyValuePair<string, string>("oauth_type", "client_credentials"),
                     new KeyValuePair<string, string>("client_id", TestApplications.GlobalAdminServicePrincipal.ClientId),
                     new KeyValuePair<string, string>("client_secret", TestApplications.GlobalAdminServicePrincipal.ClientSecret),
-                    new KeyValuePair<string, string>("authorize_url", authorizeUrl),
-                    new KeyValuePair<string, string>("token_url", tokenUrl),
-                    new KeyValuePair<string, string>("endpoint_params", $"resource={AuthenticationSettings.Resource}&scope={AuthenticationSettings.Scope}"),
+                    new KeyValuePair<string, string>("authorize_url", authorizeUri.ToString()),
+                    new KeyValuePair<string, string>("token_url", tokenUri.ToString()),
+                    new KeyValuePair<string, string>("endpoint_params", $"resource={AuthenticationSettings.Resource}&scope={AuthenticationSettings.Resource}"),
                 }),
             };
 

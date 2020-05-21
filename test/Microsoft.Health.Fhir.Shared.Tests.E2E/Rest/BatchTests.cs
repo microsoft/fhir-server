@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -33,10 +34,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         public BatchTests(HttpIntegrationTestFixture fixture)
         {
-            Client = fixture.FhirClient;
+            Client = fixture.TestFhirClient;
         }
 
-        protected FhirClient Client { get; set; }
+        protected TestFhirClient Client { get; set; }
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
@@ -69,7 +70,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Category, Categories.Authorization)]
         public async Task GivenAValidBundleWithReadonlyUser_WhenSubmittingABatch_ThenForbiddenAndOutcomeIsReturned()
         {
-            FhirClient tempClient = Client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
+            TestFhirClient tempClient = Client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
             Bundle requestBundle = Samples.GetDefaultBatch().ToPoco<Bundle>();
 
             FhirResponse<Bundle> fhirResponse = await tempClient.PostBundleAsync(requestBundle);
