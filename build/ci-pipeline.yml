@@ -145,6 +145,7 @@ stages:
 
 - stage: cleanStorageAccounts
   displayName: 'Clean Storage Accounts'
+  dependsOn: []
   jobs:
     - template: ./jobs/clean-storage-accounts.yml
       parameters:
