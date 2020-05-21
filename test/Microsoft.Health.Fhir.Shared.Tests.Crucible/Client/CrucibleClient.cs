@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible.Client
                     new KeyValuePair<string, string>("client_secret", TestApplications.GlobalAdminServicePrincipal.ClientSecret),
                     new KeyValuePair<string, string>("authorize_url", authorizeUri.ToString()),
                     new KeyValuePair<string, string>("token_url", tokenUri.ToString()),
-                    new KeyValuePair<string, string>("endpoint_params", $"resource={AuthenticationSettings.Resource}&scope={AuthenticationSettings.Resource}"),
+                    new KeyValuePair<string, string>("endpoint_params", $"resource={AuthenticationSettings.Resource}&scope={AuthenticationSettings.Scope}"),
                 }),
             };
 
