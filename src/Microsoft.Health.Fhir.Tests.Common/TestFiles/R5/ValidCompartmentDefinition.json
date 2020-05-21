@@ -678,9 +678,6 @@
                         "code": "TestScript"
                     },
                     {
-                        "code": "Topic"
-                    },
-                    {
                         "code": "ValueSet"
                     },
                     {
@@ -1210,9 +1207,6 @@
                     },
                     {
                         "code": "TestScript"
-                    },
-                    {
-                        "code": "Topic"
                     },
                     {
                         "code": "ValueSet"

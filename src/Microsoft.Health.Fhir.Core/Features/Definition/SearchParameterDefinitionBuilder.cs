@@ -17,9 +17,9 @@ using Hl7.Fhir.Utility;
 using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Core.Data;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleNavigators;
 using Microsoft.Health.Fhir.Core.Features.Search;
-using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
 using Newtonsoft.Json;
@@ -37,6 +37,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         private readonly Dictionary<string, IDictionary<string, SearchParameterInfo>> _resourceTypeDictionary = new Dictionary<string, IDictionary<string, SearchParameterInfo>>();
 
         private bool _initialized;
+
+        private readonly ISet<Uri> _knownBrokenR5 = new HashSet<Uri>
+        {
+            new Uri("http://hl7.org/fhir/SearchParameter/Subscription-url"),
+            new Uri("http://hl7.org/fhir/SearchParameter/ImagingStudy-reason"),
+            new Uri("http://hl7.org/fhir/SearchParameter/Medication-form"),
+            new Uri("http://hl7.org/fhir/SearchParameter/PackagedProductDefinition-device"),
+            new Uri("http://hl7.org/fhir/SearchParameter/PackagedProductDefinition-manufactured-item"),
+            new Uri("http://hl7.org/fhir/SearchParameter/Subscription-payload"),
+            new Uri("http://hl7.org/fhir/SearchParameter/Subscription-type"),
+        };
 
         internal SearchParameterDefinitionBuilder(
             IModelInfoProvider modelInfoProvider,
@@ -105,12 +116,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             _initialized = true;
         }
 
-        private static bool ShouldExcludeEntry(string resourceType, string searchParameterName)
+        private bool ShouldExcludeEntry(string resourceType, string searchParameterName)
         {
             return (resourceType == KnownResourceTypes.DomainResource && searchParameterName == "_text") ||
                    (resourceType == KnownResourceTypes.Resource && searchParameterName == "_content") ||
-                   (resourceType == KnownResourceTypes.Resource && searchParameterName == "_query")
-                   || (resourceType == "DataElement" && (searchParameterName == "objectClass" || searchParameterName == "objectClassProperty"));
+                   (resourceType == KnownResourceTypes.Resource && searchParameterName == "_query") ||
+                   ShouldExcludeEntryStu3(resourceType, searchParameterName);
+        }
+
+        private bool ShouldExcludeEntryStu3(string resourceType, string searchParameterName)
+        {
+            return _modelInfoProvider.Version == FhirSpecification.Stu3 &&
+                   (resourceType == "DataElement" &&
+                    (searchParameterName == "objectClass" || searchParameterName == "objectClassProperty"));
         }
 
         private List<(string ResourceType, SearchParameterInfo SearchParameter)> ValidateAndGetFlattenedList()
@@ -246,7 +264,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
                     // Make sure the expression is not empty unless they are known to have empty expression.
                     // These are special search parameters that searches across all properties and needs to be handled specially.
-                    if (ShouldExcludeEntry(baseResourceType, searchParameter.Scalar("name")?.ToString()))
+                    if (ShouldExcludeEntry(baseResourceType, searchParameter.Scalar("name")?.ToString())
+                    || (_modelInfoProvider.Version == FhirSpecification.R5 && _knownBrokenR5.Contains(new Uri(uriString))))
                     {
                         continue;
                     }
@@ -296,33 +315,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 return spi;
             }
 
-            SearchParameterInfo sp = null;
-            try
-            {
-                var components = searchParameter.Select("component")
-                    .Select(x => new SearchParameterComponentInfo(
-                        new Uri(GetComponentDefinition(x)),
-                        x.Scalar("expression")?.ToString()))
-                    .ToArray();
+            var components = searchParameter.Select("component")
+                .Select(x => new SearchParameterComponentInfo(
+                    new Uri(GetComponentDefinition(x)),
+                    x.Scalar("expression")?.ToString()))
+                .ToArray();
 
-                SearchParamType searchParamType = EnumUtility.ParseLiteral<SearchParamType>(
+            SearchParamType searchParamType = EnumUtility.ParseLiteral<SearchParamType>(
                     searchParameter.Scalar("type").ToString())
-                    .GetValueOrDefault();
+                .GetValueOrDefault();
 
-                sp = new SearchParameterInfo(
-                    searchParameter.Scalar("name")?.ToString(),
-                    searchParamType,
-                    new Uri(url),
-                    expression: searchParameter.Scalar("expression")?.ToString(),
-                    description: searchParameter.Scalar("description")?.ToString(),
-                    components: components,
-                    targetResourceTypes: searchParameter.Select("target").AsStringValues().ToArray(),
-                    baseResourceTypes: searchParameter.Select("base").AsStringValues().ToArray());
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine(ex);
-            }
+            var sp = new SearchParameterInfo(
+                searchParameter.Scalar("name")?.ToString(),
+                searchParamType,
+                new Uri(url),
+                expression: searchParameter.Scalar("expression")?.ToString(),
+                description: searchParameter.Scalar("description")?.ToString(),
+                components: components,
+                targetResourceTypes: searchParameter.Select("target").AsStringValues().ToArray(),
+                baseResourceTypes: searchParameter.Select("base").AsStringValues().ToArray());
 
             return sp;
         }

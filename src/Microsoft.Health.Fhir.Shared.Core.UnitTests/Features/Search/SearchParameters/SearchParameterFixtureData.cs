@@ -4,12 +4,15 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Linq;
+using Hl7.Fhir.FhirPath;
 using Hl7.FhirPath;
 using MediatR;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using NSubstitute;
@@ -21,6 +24,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public SearchParameterFixtureData()
         {
             SearchDefinitionManager = CreateSearchParameterDefinitionManager();
+            FhirPathCompiler.DefaultSymbolTable.AddFhirExtensions();
         }
 
         public SearchParameterDefinitionManager SearchDefinitionManager { get; }
@@ -36,10 +40,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 .GetTypes()
                 .Where(x => typeof(IFhirNodeToSearchValueTypeConverter).IsAssignableFrom(x) && !x.IsAbstract && !x.IsInterface);
 
-            var fhirElementToSearchValueTypeConverters =
-                types.Select(x => (IFhirNodeToSearchValueTypeConverter)Mock.TypeWithArguments(x));
+            var fhirNodeToSearchValueTypeConverters =
+                types.Select(x => (IFhirNodeToSearchValueTypeConverter)Mock.TypeWithArguments(x, new ReferenceSearchValueParser(new FhirRequestContextAccessor())));
 
-            return new FhirNodeToSearchValueTypeConverterManager(fhirElementToSearchValueTypeConverters);
+            return new FhirNodeToSearchValueTypeConverterManager(fhirNodeToSearchValueTypeConverters);
         }
 
         public static SearchParameterDefinitionManager CreateSearchParameterDefinitionManager()

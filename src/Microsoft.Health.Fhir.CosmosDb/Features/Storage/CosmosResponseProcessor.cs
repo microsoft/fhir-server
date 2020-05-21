@@ -64,8 +64,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 {
                     throw new Core.Exceptions.RequestNotValidException(Core.Resources.InvalidContinuationToken);
                 }
-                else if (dce.StatusCode == HttpStatusCode.BadRequest && dce.Message.Contains("Request size is too large", StringComparison.OrdinalIgnoreCase))
+                else if (dce.StatusCode == HttpStatusCode.RequestEntityTooLarge
+                         || (dce.StatusCode == HttpStatusCode.BadRequest && dce.Message.Contains("Request size is too large", StringComparison.OrdinalIgnoreCase)))
                 {
+                    // There are multiple known failures relating to RequestEntityTooLarge.
+                    // 1. When the document size is ~2mb (just under or at the limit) it can make it into the stored proc and fail on create
+                    // 2. Larger documents are rejected by CosmosDb with HttpStatusCode.RequestEntityTooLarge
                     throw new Core.Exceptions.RequestEntityTooLargeException();
                 }
                 else if (dce.StatusCode == HttpStatusCode.Forbidden && dce.GetSubStatusValue() == CosmosDbSubStatusValues.CustomerManagedKeyInaccessible)

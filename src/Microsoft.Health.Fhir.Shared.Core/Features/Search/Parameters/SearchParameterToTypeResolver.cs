@@ -8,9 +8,11 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using Hl7.Fhir.Introspection;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
 using Hl7.FhirPath.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
 using EnumerableReturnType = System.Collections.Generic.IEnumerable<Microsoft.Health.Fhir.Core.Features.Search.Parameters.SearchParameterTypeResult>;
@@ -26,7 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
     [SuppressMessage("Design", "CA1801", Justification = "Visitor overloads are resolved dynamically so method signature should remain the same.")]
     internal static class SearchParameterToTypeResolver
     {
-        private static readonly ModelInspector ModelInspector = new ModelInspector();
+        private static readonly ModelInspector ModelInspector = GetModelInspector();
 
         internal static Action<string> Log { get; set; } = s => Debug.WriteLine(s);
 
@@ -36,6 +38,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             (SearchParamType type, Expression expression, Uri definition)[] componentExpressions)
         {
             Type typeForFhirType = ModelInfoProvider.GetTypeForFhirType(resourceType);
+
+            if (typeForFhirType == null)
+            {
+                // Not a FHIR Type
+                yield break;
+            }
 
             if (componentExpressions?.Any() == true)
             {
@@ -308,6 +316,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             return returnValue;
         }
 
+        private static ModelInspector GetModelInspector()
+        {
+#if Stu3
+            // This method was internal in STU3
+            PropertyInfo inspector = typeof(BaseFhirParser).GetProperty("Inspector", BindingFlags.Static | BindingFlags.NonPublic);
+
+            if (inspector != null)
+            {
+                return (ModelInspector)inspector.GetValue(null);
+            }
+
+            throw new MissingMemberException($"{nameof(BaseFhirParser)}.Inspector property was not able to be accessed.");
+#else
+            return BaseFhirParser.Inspector;
+#endif
+        }
+
         private class Context
         {
             public Stack<(string, ClassMapping)> Path { get; set; } = new Stack<(string, ClassMapping)>();
@@ -347,7 +372,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 var ctx = new Context
                 {
                     ParentExpression = parentExpression,
-                    ParentTypeMapping = ClassMapping.Create(type),
+                    ParentTypeMapping = GetMapping(type),
                     SearchParamType = paramType,
                     Definition = definition,
                 };
