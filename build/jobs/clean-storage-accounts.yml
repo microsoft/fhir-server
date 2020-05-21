@@ -2,7 +2,7 @@ parameters:
 - name: environmentName
   type: string
 
-jobs:
+steps:
 - task: AzurePowerShell@4
   displayName: 'Clean storage account'
   continueOnError: true
