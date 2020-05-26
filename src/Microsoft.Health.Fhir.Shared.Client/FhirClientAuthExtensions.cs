@@ -62,9 +62,7 @@ namespace Microsoft.Health.Fhir.Client
                 new KeyValuePair<string, string>(OpenIdConnectParameterNames.Resource, resource),
             };
 
-            var formContent = new FormUrlEncodedContent(formData);
-
-            await ObtainTokenAndSetOnClient(fhirClient, formContent);
+            await ObtainTokenAndSetOnClient(fhirClient, formData);
         }
 
         /// <summary>
@@ -98,13 +96,12 @@ namespace Microsoft.Health.Fhir.Client
                 new KeyValuePair<string, string>(OpenIdConnectParameterNames.Password, password),
             };
 
-            var formContent = new FormUrlEncodedContent(formData);
-
-            await ObtainTokenAndSetOnClient(fhirClient, formContent);
+            await ObtainTokenAndSetOnClient(fhirClient, formData);
         }
 
-        private static async Task ObtainTokenAndSetOnClient(FhirClient fhirClient, FormUrlEncodedContent formContent)
+        private static async Task ObtainTokenAndSetOnClient(FhirClient fhirClient, List<KeyValuePair<string, string>> formData)
         {
+            using var formContent = new FormUrlEncodedContent(formData);
             HttpResponseMessage tokenResponse = await fhirClient.HttpClient.PostAsync(fhirClient.TokenUri, formContent);
 
             var openIdConnectMessage = new OpenIdConnectMessage(await tokenResponse.Content.ReadAsStringAsync());
