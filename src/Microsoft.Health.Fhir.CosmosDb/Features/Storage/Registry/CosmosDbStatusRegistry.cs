@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Documents;
@@ -45,10 +46,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
 
         public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses()
         {
+            using var cancellationSource = new CancellationTokenSource(TimeSpan.FromMinutes(1));
             var parameterStatus = new List<ResourceSearchParameterStatus>();
-            using var clientScope = _documentClientFactory.Invoke();
+            using IScoped<IDocumentClient> clientScope = _documentClientFactory.Invoke();
 
-            var query = _queryFactory.Create<SearchParameterStatusWrapper>(
+            do
+            {
+                var query = _queryFactory.Create<SearchParameterStatusWrapper>(
                     clientScope.Value,
                     new CosmosQueryContext(
                         CollectionUri,
@@ -59,13 +63,19 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
                                 new PartitionKey(SearchParameterStatusWrapper.SearchParameterStatusPartitionKey),
                         }));
 
-            do
-            {
-                FeedResponse<SearchParameterStatusWrapper> results = await query.ExecuteNextAsync<SearchParameterStatusWrapper>();
-                parameterStatus.AddRange(results
-                    .Select(x => x.ToSearchParameterStatus()));
+                do
+                {
+                    FeedResponse<SearchParameterStatusWrapper> results = await query.ExecuteNextAsync<SearchParameterStatusWrapper>();
+                    parameterStatus.AddRange(results.Select(x => x.ToSearchParameterStatus()));
+                }
+                while (query.HasMoreResults);
+
+                if (!parameterStatus.Any())
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(1), cancellationSource.Token);
+                }
             }
-            while (query.HasMoreResults);
+            while (!parameterStatus.Any() && !cancellationSource.IsCancellationRequested);
 
             return parameterStatus;
         }
