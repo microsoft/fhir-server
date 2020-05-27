@@ -10,11 +10,9 @@ using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Search;
-using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Tests.Common;
 using NSubstitute;
 using Xunit;
@@ -25,18 +23,20 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
     public class TransactionBundleValidatorTests
     {
         private readonly ISearchService _searchService = Substitute.For<ISearchService>();
-        private TransactionBundleValidator _transactionBundleValidator;
+        private readonly TransactionBundleValidator _transactionBundleValidator;
+        private readonly Dictionary<string, (string resourceId, string resourceType)> _idDictionary;
 
         public TransactionBundleValidatorTests()
         {
             _transactionBundleValidator = new TransactionBundleValidator(new ResourceReferenceResolver(_searchService, new QueryStringParser()));
+            _idDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
         }
 
         [Fact]
         public async Task GivenATransactionBundle_WhenContainsUniqueResources_NoExceptionShouldBeThrown()
         {
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithValidBundleEntry");
-            await _transactionBundleValidator.ValidateBundle(requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>(), CancellationToken.None);
+            await _transactionBundleValidator.ValidateBundle(requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>(), _idDictionary, CancellationToken.None);
         }
 
         [Theory]
@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             var expectedMessage = "Requested operation 'Patient?identifier=123456' is not supported using DELETE.";
 
             var requestBundle = Samples.GetDefaultTransaction();
-            var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => _transactionBundleValidator.ValidateBundle(requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>(), CancellationToken.None));
+            var exception = await Assert.ThrowsAsync<RequestNotValidException>(() => _transactionBundleValidator.ValidateBundle(requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>(), _idDictionary, CancellationToken.None));
             Assert.Equal(expectedMessage, exception.Message);
         }
 
@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             _searchService.SearchAsync("Patient", Arg.Any<IReadOnlyList<Tuple<string, string>>>(), CancellationToken.None).Returns(mockSearchResult);
 
-            await _transactionBundleValidator.ValidateBundle(bundle, CancellationToken.None);
+            await _transactionBundleValidator.ValidateBundle(bundle, _idDictionary, CancellationToken.None);
         }
     }
 }
