@@ -23,12 +23,12 @@ namespace Microsoft.Health.Fhir.Client
 {
     public class FhirClient
     {
-        public const string SmartOAuthUriExtension = "http://fhir-registry.smarthealthit.org/StructureDefinition/oauth-uris";
-        public const string SmartOAuthUriExtensionToken = "token";
-        public const string SmartOAuthUriExtensionAuthorize = "authorize";
+        private const string SmartOAuthUriExtension = "http://fhir-registry.smarthealthit.org/StructureDefinition/oauth-uris";
+        private const string SmartOAuthUriExtensionToken = "token";
+        private const string SmartOAuthUriExtensionAuthorize = "authorize";
 
-        private const string IfNoneExist = "If-None-Exist";
-        private const string IfMatch = "If-Match";
+        private const string IfNoneExistHeaderName = "If-None-Exist";
+        private const string IfMatchHeaderName = "If-Match";
 
         private readonly string _contentType;
 
@@ -138,10 +138,10 @@ namespace Microsoft.Health.Fhir.Client
 
             if (!string.IsNullOrEmpty(conditionalCreateCriteria))
             {
-                message.Headers.TryAddWithoutValidation(IfNoneExist, conditionalCreateCriteria);
+                message.Headers.TryAddWithoutValidation(IfNoneExistHeaderName, conditionalCreateCriteria);
             }
 
-            HttpResponseMessage response = await HttpClient.SendAsync(message);
+            using HttpResponseMessage response = await HttpClient.SendAsync(message);
 
             await EnsureSuccessStatusCodeAsync(response);
 
@@ -198,7 +198,7 @@ namespace Microsoft.Health.Fhir.Client
             {
                 var weakETag = $"W/\"{ifMatchVersion}\"";
 
-                request.Headers.Add(IfMatch, weakETag);
+                request.Headers.Add(IfMatchHeaderName, weakETag);
             }
 
             HttpResponseMessage response = await HttpClient.SendAsync(request);
@@ -391,7 +391,7 @@ namespace Microsoft.Health.Fhir.Client
 
         private void SetupSecurity()
         {
-            FhirResponse<CapabilityStatement> readResponse = ReadAsync<CapabilityStatement>("metadata").GetAwaiter().GetResult();
+            using FhirResponse<CapabilityStatement> readResponse = ReadAsync<CapabilityStatement>("metadata").GetAwaiter().GetResult();
             CapabilityStatement metadata = readResponse.Resource;
 
             foreach (var rest in metadata.Rest.Where(r => r.Mode == RestfulCapabilityMode.Server))

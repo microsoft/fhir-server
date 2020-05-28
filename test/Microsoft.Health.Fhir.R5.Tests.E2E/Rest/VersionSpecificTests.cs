@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public async Task GivenAResourceThatWasRenamed_WhenSearched_ThenExceptionShouldBeThrown()
         {
-            FhirException exception = await Assert.ThrowsAsync<FhirException>(() => _client.SearchAsync("Sequence"));
+            using FhirException exception = await Assert.ThrowsAsync<FhirException>(() => _client.SearchAsync("Sequence"));
 
             Assert.Equal(HttpStatusCode.NotFound, exception.StatusCode);
         }

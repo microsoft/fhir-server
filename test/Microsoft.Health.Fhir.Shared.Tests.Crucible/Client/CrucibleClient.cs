@@ -37,29 +37,30 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible.Client
             EnsureArg.IsNotNullOrEmpty(crucibleUrl, nameof(crucibleUrl));
             EnsureArg.IsNotNullOrEmpty(fhirServerUrl, nameof(fhirServerUrl));
 
-            var message = new HttpRequestMessage(HttpMethod.Post, $"{crucibleUrl}/servers");
-
-            message.Content = new FormUrlEncodedContent(new[]
+            using var message = new HttpRequestMessage(HttpMethod.Post, $"{crucibleUrl}/servers")
             {
-                new KeyValuePair<string, string>("server[url]", fhirServerUrl),
-                new KeyValuePair<string, string>("server[name]", fhirServerName),
-            });
+                Content = new FormUrlEncodedContent(new[]
+                {
+                    new KeyValuePair<string, string>("server[url]", fhirServerUrl),
+                    new KeyValuePair<string, string>("server[name]", fhirServerName),
+                }),
+            };
 
-            var response = await _client.SendAsync(message);
+            using HttpResponseMessage response = await _client.SendAsync(message);
 
             _serverBase = response.RequestMessage.RequestUri.ToString();
         }
 
         public async Task RefreshConformanceStatementAsync()
         {
-            var message = new HttpRequestMessage(HttpMethod.Get, $"{_serverBase}/conformance?refresh=true");
+            using var message = new HttpRequestMessage(HttpMethod.Get, $"{_serverBase}/conformance?refresh=true");
 
             await _client.SendAsync(message);
         }
 
         public async Task AuthorizeServerAsync(Uri authorizeUri, Uri tokenUri)
         {
-            var message = new HttpRequestMessage(HttpMethod.Post, $"{_serverBase}/oauth_authorize_backend")
+            using var message = new HttpRequestMessage(HttpMethod.Post, $"{_serverBase}/oauth_authorize_backend")
             {
                 Content = new FormUrlEncodedContent(new[]
                 {
@@ -77,18 +78,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible.Client
 
         public async Task<Test[]> GetSupportedTestsAsync()
         {
-            var message = new HttpRequestMessage(HttpMethod.Get, $"{_serverBase}/supported_tests.json");
+            using var message = new HttpRequestMessage(HttpMethod.Get, $"{_serverBase}/supported_tests.json");
 
-            var response = await _client.SendAsync(message);
+            using HttpResponseMessage response = await _client.SendAsync(message);
 
             return JsonConvert.DeserializeObject<SupportedTests>(await response.Content.ReadAsStringAsync()).Tests;
         }
 
         public async Task<PastTestRunResponse> PastTestRunsAsync()
         {
-            var message = new HttpRequestMessage(HttpMethod.Get, $"{_serverBase}/past_runs");
+            using var message = new HttpRequestMessage(HttpMethod.Get, $"{_serverBase}/past_runs");
 
-            var response = await _client.SendAsync(message);
+            using HttpResponseMessage response = await _client.SendAsync(message);
 
             return JsonConvert.DeserializeObject<PastTestRunResponse>(await response.Content.ReadAsStringAsync());
         }
@@ -97,13 +98,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible.Client
         {
             EnsureArg.IsNotNull(testIds, nameof(testIds));
 
-            var message = new HttpRequestMessage(HttpMethod.Post, $"{_serverBase}/test_runs.json");
+            using var message = new HttpRequestMessage(HttpMethod.Post, $"{_serverBase}/test_runs.json")
+            {
+                Content = new FormUrlEncodedContent(
+                    testIds.Select(x => new KeyValuePair<string, string>("test_ids[]", x))
+                        .Concat(new[] { new KeyValuePair<string, string>("supported_only", onlySupported.ToString().ToLowerInvariant()) })),
+            };
 
-            message.Content = new FormUrlEncodedContent(
-                testIds.Select(x => new KeyValuePair<string, string>("test_ids[]", x))
-                .Concat(new[] { new KeyValuePair<string, string>("supported_only", onlySupported.ToString().ToLowerInvariant()) }));
-
-            var response = await _client.SendAsync(message);
+            using HttpResponseMessage response = await _client.SendAsync(message);
 
             return JsonConvert.DeserializeObject<TestRunResponse>(await response.Content.ReadAsStringAsync()).TestRun;
         }
@@ -112,9 +114,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible.Client
         {
             EnsureArg.IsNotNullOrEmpty(testRunId, nameof(testRunId));
 
-            var message = new HttpRequestMessage(HttpMethod.Get, $"{_serverBase}/test_runs/{testRunId}");
+            using var message = new HttpRequestMessage(HttpMethod.Get, $"{_serverBase}/test_runs/{testRunId}");
 
-            var response = await _client.SendAsync(message);
+            using HttpResponseMessage response = await _client.SendAsync(message);
 
             var json = await response.Content.ReadAsStringAsync();
 

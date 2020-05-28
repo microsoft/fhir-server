@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             message.Headers.Add(HeaderNames.AccessControlRequestHeaders, "authorization");
             message.Headers.Add(HeaderNames.AccessControlRequestHeaders, "content-type");
 
-            HttpResponseMessage response = await _client.HttpClient.SendAsync(message);
+            using HttpResponseMessage response = await _client.HttpClient.SendAsync(message);
 
             Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
             Assert.Contains("https://localhost:6001", response.Headers.GetValues(HeaderNames.AccessControlAllowOrigin));

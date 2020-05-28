@@ -18,12 +18,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
     public class SearchProfileTests : IClassFixture<HttpIntegrationTestFixture>
     {
+        private readonly TestFhirClient _client;
+
         public SearchProfileTests(HttpIntegrationTestFixture fixture)
         {
-            Client = fixture.TestFhirClient;
+            _client = fixture.TestFhirClient;
         }
-
-        protected TestFhirClient Client { get; set; }
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
@@ -34,9 +34,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Observation observation = Samples.GetDefaultObservation().ToPoco<Observation>();
             observation.Meta = new Meta();
             observation.Meta.Profile = new[] { profile };
-            await Client.CreateAsync(observation);
+            await _client.CreateAsync(observation);
 
-            FhirResponse<Bundle> searchResult = await Client.SearchAsync(ResourceType.Observation, "_profile=" + profile);
+            using FhirResponse<Bundle> searchResult = await _client.SearchAsync(ResourceType.Observation, "_profile=" + profile);
 
             Assert.DoesNotContain("_profile", searchResult.Resource.SelfLink.ToString());
         }

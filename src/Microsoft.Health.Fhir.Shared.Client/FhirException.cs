@@ -12,26 +12,39 @@ using Hl7.Fhir.Model;
 
 namespace Microsoft.Health.Fhir.Client
 {
-    public class FhirException : Exception
+    public class FhirException : Exception, IDisposable
     {
-        private readonly FhirResponse<OperationOutcome> _response;
-
         public FhirException(FhirResponse<OperationOutcome> response)
         {
-            _response = response;
+            Response = response;
         }
 
-        public HttpStatusCode StatusCode => _response.StatusCode;
+        public HttpStatusCode StatusCode => Response.StatusCode;
 
-        public HttpResponseHeaders Headers => _response.Headers;
+        public HttpResponseHeaders Headers => Response.Headers;
 
-        public FhirResponse<OperationOutcome> Response => _response;
+        public FhirResponse<OperationOutcome> Response { get; }
 
-        public HttpContent Content => _response.Content;
+        public HttpContent Content => Response.Content;
 
-        public OperationOutcome OperationOutcome => _response.Resource;
+        public OperationOutcome OperationOutcome => Response.Resource;
 
         public override string Message
-            => $"{StatusCode}: {OperationOutcome?.Issue?.FirstOrDefault().Diagnostics}";
+            => $"{StatusCode}: {OperationOutcome?.Issue?.FirstOrDefault()?.Diagnostics}";
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                // free managed resources
+                Response?.Dispose();
+            }
+        }
     }
 }

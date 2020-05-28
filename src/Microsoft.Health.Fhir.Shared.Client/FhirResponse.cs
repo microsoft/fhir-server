@@ -3,27 +3,40 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 
 namespace Microsoft.Health.Fhir.Client
 {
-    public class FhirResponse
+    public class FhirResponse : IDisposable
     {
-        private readonly HttpResponseMessage _response;
-
         public FhirResponse(HttpResponseMessage response)
         {
-            _response = response;
+            Response = response;
         }
 
-        public HttpStatusCode StatusCode => _response.StatusCode;
+        public HttpStatusCode StatusCode => Response.StatusCode;
 
-        public HttpResponseHeaders Headers => _response.Headers;
+        public HttpResponseHeaders Headers => Response.Headers;
 
-        public HttpContent Content => _response.Content;
+        public HttpContent Content => Response.Content;
 
-        public HttpResponseMessage Response => _response;
+        public HttpResponseMessage Response { get; }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                Response?.Dispose();
+            }
+        }
     }
 }

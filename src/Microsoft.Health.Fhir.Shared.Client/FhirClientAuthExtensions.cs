@@ -102,10 +102,9 @@ namespace Microsoft.Health.Fhir.Client
         private static async Task ObtainTokenAndSetOnClient(FhirClient fhirClient, List<KeyValuePair<string, string>> formData)
         {
             using var formContent = new FormUrlEncodedContent(formData);
-            HttpResponseMessage tokenResponse = await fhirClient.HttpClient.PostAsync(fhirClient.TokenUri, formContent);
+            using HttpResponseMessage tokenResponse = await fhirClient.HttpClient.PostAsync(fhirClient.TokenUri, formContent);
 
             var openIdConnectMessage = new OpenIdConnectMessage(await tokenResponse.Content.ReadAsStringAsync());
-
             fhirClient.SetBearerToken(openIdConnectMessage.AccessToken);
         }
     }

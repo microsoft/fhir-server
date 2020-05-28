@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 return;
             }
 
-            FhirResponse response = await _client.ReadAsync<CapabilityStatement>("metadata");
+            using FhirResponse response = await _client.ReadAsync<CapabilityStatement>("metadata");
 
             string correlationId = response.Headers.GetValues(RequestIdHeaderName).FirstOrDefault();
 
@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             await ExecuteAndValidate(
                 async () =>
                 {
-                    FhirResponse<Patient> response = await _client.CreateAsync(Samples.GetDefaultPatient().ToPoco<Patient>());
+                    using FhirResponse<Patient> response = await _client.CreateAsync(Samples.GetDefaultPatient().ToPoco<Patient>());
 
                     return await _client.ReadAsync<Patient>(ResourceType.Patient, response.Resource.Id);
                 },
@@ -108,6 +108,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                     catch (FhirException ex)
                     {
                         result = ex.Response;
+                        ex.Dispose();
                     }
 
                     // The request should have failed.
@@ -127,7 +128,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             await ExecuteAndValidate(
                 async () =>
                 {
-                    FhirResponse<Organization> result = await _client.CreateAsync(Samples.GetDefaultOrganization().ToPoco<Organization>());
+                    using FhirResponse<Organization> result = await _client.CreateAsync(Samples.GetDefaultOrganization().ToPoco<Organization>());
 
                     return await _client.VReadAsync<Organization>(ResourceType.Organization, result.Resource.Id, result.Resource.Meta.VersionId);
                 },
@@ -143,7 +144,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             await ExecuteAndValidate(
                 async () =>
                 {
-                    FhirResponse<Patient> result = await _client.CreateAsync(Samples.GetDefaultPatient().ToPoco<Patient>());
+                    using FhirResponse<Patient> result = await _client.CreateAsync(Samples.GetDefaultPatient().ToPoco<Patient>());
 
                     result.Resource.Name.Add(new HumanName() { Family = "Anderson" });
 
@@ -164,9 +165,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 return;
             }
 
-            FhirResponse<Patient> result = await _client.CreateAsync(Samples.GetDefaultPatient().ToPoco<Patient>());
+            using FhirResponse<Patient> result = await _client.CreateAsync(Samples.GetDefaultPatient().ToPoco<Patient>());
 
-            FhirResponse deleteResult = await _client.DeleteAsync(result.Resource);
+            using FhirResponse deleteResult = await _client.DeleteAsync(result.Resource);
 
             string correlationId = deleteResult.Headers.GetValues(RequestIdHeaderName).First();
 
@@ -212,7 +213,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             await ExecuteAndValidate(
                 async () =>
                 {
-                    FhirResponse<Observation> result = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
+                    using FhirResponse<Observation> result = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
                     return await _client.SearchAsync($"Observation/{result.Resource.Id}/_history");
                 },
@@ -472,7 +473,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 return;
             }
 
-            FhirResponse<T> response = await action();
+            using FhirResponse<T> response = await action();
 
             string correlationId = response.Headers.GetValues(RequestIdHeaderName).FirstOrDefault();
             Assert.NotNull(correlationId);
@@ -544,7 +545,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             await ExecuteAndValidateBundle(
               async () =>
               {
-                  var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await _client.PostBundleAsync(requestBundle.ToPoco<Bundle>()));
+                  using var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await _client.PostBundleAsync(requestBundle.ToPoco<Bundle>()));
 
                   return fhirException.Response;
               },
@@ -561,7 +562,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 return;
             }
 
-            FhirResponse<T> response = await action();
+            using FhirResponse<T> response = await action();
 
             string correlationId = response.Headers.GetValues(RequestIdHeaderName).FirstOrDefault();
 
@@ -612,7 +613,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             // Create a new client with no token supplied.
             var client = createClient();
 
-            FhirResponse<OperationOutcome> response = (await Assert.ThrowsAsync<FhirException>(() => client.ReadAsync<Patient>(url))).Response;
+            using FhirResponse<OperationOutcome> response = (await Assert.ThrowsAsync<FhirException>(() => client.ReadAsync<Patient>(url))).Response;
 
             string correlationId = response.Headers.GetValues(RequestIdHeaderName).FirstOrDefault();
 

@@ -171,7 +171,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     Method = HttpMethod.Get,
                 };
 
-                HttpResponseMessage response = await _testFhirClient.HttpClient.SendAsync(request);
+                using HttpResponseMessage response = await _testFhirClient.HttpClient.SendAsync(request);
 
                 var responseString = await response.Content.ReadAsStringAsync();
 

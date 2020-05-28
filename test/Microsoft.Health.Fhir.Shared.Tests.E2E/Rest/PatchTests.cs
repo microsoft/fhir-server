@@ -16,18 +16,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
     public class PatchTests : IClassFixture<HttpIntegrationTestFixture>
     {
+        private readonly TestFhirClient _client;
+
         public PatchTests(HttpIntegrationTestFixture fixture)
         {
-            Client = fixture.TestFhirClient;
+            _client = fixture.TestFhirClient;
         }
-
-        protected TestFhirClient Client { get; set; }
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAServerThatDoesNotSupportIt_WhenSubmittingAPatch_ThenMethodNotAllowedIsReturned()
         {
-            FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.PatchAsync("Patient/1234", "patch content"));
+            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => _client.PatchAsync("Patient/1234", "patch content"));
 
             Assert.Equal(HttpStatusCode.MethodNotAllowed, ex.StatusCode);
         }

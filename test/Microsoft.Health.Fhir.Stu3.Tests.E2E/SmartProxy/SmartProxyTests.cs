@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
             // TODO: We are accepting insecure certs to make it practical to run on build systems. A valid cert should be on the build system.
             options.AcceptInsecureCertificates = true;
 
-            FhirResponse<Patient> response = await _fixture.TestFhirClient.CreateAsync(Samples.GetDefaultPatient().ToPoco<Patient>());
+            using FhirResponse<Patient> response = await _fixture.TestFhirClient.CreateAsync(Samples.GetDefaultPatient().ToPoco<Patient>());
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
             Patient patient = response.Resource;
 

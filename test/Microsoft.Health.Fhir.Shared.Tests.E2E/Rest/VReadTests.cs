@@ -19,20 +19,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
     public class VReadTests : IClassFixture<HttpIntegrationTestFixture>
     {
+        private readonly TestFhirClient _client;
+
         public VReadTests(HttpIntegrationTestFixture fixture)
         {
-            Client = fixture.TestFhirClient;
+            _client = fixture.TestFhirClient;
         }
-
-        protected TestFhirClient Client { get; set; }
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAnIdAndVersionId_WhenGettingAResource_TheServerShouldReturnTheAppropriateResourceSuccessfully()
         {
-            Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
+            Observation createdResource = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
-            FhirResponse<Observation> vReadResponse = await Client.VReadAsync<Observation>(
+            using FhirResponse<Observation> vReadResponse = await _client.VReadAsync<Observation>(
                 ResourceType.Observation,
                 createdResource.Id,
                 createdResource.Meta.VersionId);
@@ -52,8 +52,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenANonExistingIdAndVersionId_WhenGettingAResource_TheServerShouldReturnANotFoundStatus()
         {
-            FhirException ex = await Assert.ThrowsAsync<FhirException>(
-                () => Client.VReadAsync<Observation>(ResourceType.Observation, Guid.NewGuid().ToString(), Guid.NewGuid().ToString()));
+            using FhirException ex = await Assert.ThrowsAsync<FhirException>(
+                () => _client.VReadAsync<Observation>(ResourceType.Observation, Guid.NewGuid().ToString(), Guid.NewGuid().ToString()));
 
             Assert.Equal(System.Net.HttpStatusCode.NotFound, ex.StatusCode);
         }
@@ -62,10 +62,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAIdAndNonExistingVersionId_WhenGettingAResource_TheServerShouldReturnANotFoundStatus()
         {
-            Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
+            Observation createdResource = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
-            FhirException ex = await Assert.ThrowsAsync<FhirException>(
-                () => Client.VReadAsync<Observation>(ResourceType.Observation, createdResource.Id, Guid.NewGuid().ToString()));
+            using FhirException ex = await Assert.ThrowsAsync<FhirException>(
+                () => _client.VReadAsync<Observation>(ResourceType.Observation, createdResource.Id, Guid.NewGuid().ToString()));
 
             Assert.Equal(System.Net.HttpStatusCode.NotFound, ex.StatusCode);
         }
@@ -74,14 +74,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenADeletedIdAndVersionId_WhenGettingAResource_TheServerShouldReturnAGoneStatus()
         {
-            Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
+            Observation createdResource = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
-            FhirResponse deleteResponse = await Client.DeleteAsync(createdResource);
+            using FhirResponse deleteResponse = await _client.DeleteAsync(createdResource);
 
             var deletedVersion = WeakETag.FromWeakETag(deleteResponse.Headers.ETag.ToString()).VersionId;
 
-            FhirException ex = await Assert.ThrowsAsync<FhirException>(
-                () => Client.VReadAsync<Observation>(ResourceType.Observation, createdResource.Id, deletedVersion));
+            using FhirException ex = await Assert.ThrowsAsync<FhirException>(
+                () => _client.VReadAsync<Observation>(ResourceType.Observation, createdResource.Id, deletedVersion));
 
             Assert.Equal(System.Net.HttpStatusCode.Gone, ex.StatusCode);
         }

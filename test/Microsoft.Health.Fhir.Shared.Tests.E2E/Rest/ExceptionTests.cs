@@ -23,14 +23,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     public class ExceptionTests : IClassFixture<HttpIntegrationTestFixture<ExceptionTests.StartupWithThrowingMiddleware>>
     {
         private readonly HttpIntegrationTestFixture<StartupWithThrowingMiddleware> _fixture;
+        private readonly TestFhirClient _client;
 
         public ExceptionTests(HttpIntegrationTestFixture<StartupWithThrowingMiddleware> fixture)
         {
             _fixture = fixture;
-            Client = fixture.TestFhirClient;
+            _client = fixture.TestFhirClient;
         }
-
-        protected TestFhirClient Client { get; set; }
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
@@ -42,7 +41,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 return;
             }
 
-            var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.ReadAsync<OperationOutcome>("?throw=internal"));
+            using var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await _client.ReadAsync<OperationOutcome>("?throw=internal"));
 
             Assert.Equal(HttpStatusCode.InternalServerError, fhirException.StatusCode);
 
@@ -67,7 +66,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 return;
             }
 
-            var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.ReadAsync<OperationOutcome>("?throw=middleware"));
+            using var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await _client.ReadAsync<OperationOutcome>("?throw=middleware"));
 
             Assert.Equal(HttpStatusCode.InternalServerError, fhirException.StatusCode);
 
@@ -86,7 +85,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAnUnknownRoute_WhenPostingToHttp_TheServerShouldReturnAnOperationOutcome()
         {
-            var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.ReadAsync<OperationOutcome>("unknownRoute"));
+            using var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await _client.ReadAsync<OperationOutcome>("unknownRoute"));
 
             Assert.Equal(HttpStatusCode.NotFound, fhirException.StatusCode);
 
