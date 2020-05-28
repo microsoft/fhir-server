@@ -9,7 +9,7 @@ using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.FhirPath;
 
-namespace Microsoft.Health.Fhir.Core.Features.Definition.BundleNavigators
+namespace Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers
 {
     internal class BundleWrapper
     {

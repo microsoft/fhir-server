@@ -17,7 +17,7 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Data;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Features.Definition.BundleNavigators;
+using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
 using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json;
 using CompartmentType = Microsoft.Health.Fhir.ValueSets.CompartmentType;
@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
     {
         private readonly IModelInfoProvider _modelInfoProvider;
 
-        // This data structure stores the lookup of compartmentsearchparams (in the hash set) by ResourceType and CompartmentType.
+        // This data structure stores the lookup of compartmentSearchParams (in the hash set) by ResourceType and CompartmentType.
         private Dictionary<string, Dictionary<CompartmentType, HashSet<string>>> _compartmentSearchParamsLookup;
 
         public CompartmentDefinitionManager(IModelInfoProvider modelInfoProvider)
@@ -61,10 +61,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             Build(bundle);
         }
 
-        public bool TryGetSearchParams(string resourceType, CompartmentType compartment, out HashSet<string> searchParams)
+        public bool TryGetSearchParams(string resourceType, CompartmentType compartmentType, out HashSet<string> searchParams)
         {
             if (_compartmentSearchParamsLookup.TryGetValue(resourceType, out Dictionary<CompartmentType, HashSet<string>> compartmentSearchParams)
-                && compartmentSearchParams.TryGetValue(compartment, out searchParams))
+                && compartmentSearchParams.TryGetValue(compartmentType, out searchParams))
             {
                 return true;
             }

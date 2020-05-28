@@ -18,7 +18,7 @@ using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Core.Data;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Features.Definition.BundleNavigators;
+using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
@@ -127,8 +127,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         private bool ShouldExcludeEntryStu3(string resourceType, string searchParameterName)
         {
             return _modelInfoProvider.Version == FhirSpecification.Stu3 &&
-                   (resourceType == "DataElement" &&
-                    (searchParameterName == "objectClass" || searchParameterName == "objectClassProperty"));
+                   resourceType == "DataElement" && (searchParameterName == "objectClass" || searchParameterName == "objectClassProperty");
         }
 
         private List<(string ResourceType, SearchParameterInfo SearchParameter)> ValidateAndGetFlattenedList()
