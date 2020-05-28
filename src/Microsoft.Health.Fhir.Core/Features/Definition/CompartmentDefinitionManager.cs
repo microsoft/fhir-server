@@ -92,14 +92,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             var issues = new List<OperationOutcomeIssue>();
             var validatedCompartments = new Dictionary<CompartmentType, (CompartmentType, Uri, IList<(string, IList<string>)>)>();
 
-            IReadOnlyList<BundleEntryWrapper> entries = bundle.GetEntries();
+            IReadOnlyList<BundleEntryWrapper> entries = bundle.Entries;
 
             for (int entryIndex = 0; entryIndex < entries.Count; entryIndex++)
             {
                 // Make sure resources are not null and they are Compartment.
                 BundleEntryWrapper entry = entries[entryIndex];
 
-                var compartment = entry.GetResource();
+                var compartment = entry.Resource;
 
                 if (compartment == null || !string.Equals(KnownResourceTypes.CompartmentDefinition, compartment.InstanceType, StringComparison.Ordinal))
                 {

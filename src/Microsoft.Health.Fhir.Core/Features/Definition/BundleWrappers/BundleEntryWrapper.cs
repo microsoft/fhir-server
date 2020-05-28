@@ -22,9 +22,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers
             _entry = new Lazy<ITypedElement>(() => entry.Select("resource").FirstOrDefault());
         }
 
-        public ITypedElement GetResource()
+        public ITypedElement Resource
         {
-            return _entry.Value;
+            get => _entry.Value;
         }
     }
 }
