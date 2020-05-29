@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Task = System.Threading.Tasks.Task;
 
-namespace Microsoft.Health.Fhir.Tests.E2E.Common
+namespace Microsoft.Health.Fhir.Client
 {
     public static class FhirClientExtensions
     {

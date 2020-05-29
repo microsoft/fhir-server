@@ -7,16 +7,16 @@ using System;
 using System.Collections.Generic;
 using System.Net.Http.Headers;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
-using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Common.FhirClient;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     internal static class TestHelper
     {
-        internal static void AssertLocationHeaderIsCorrect(FhirClient fhirClient, Resource createdResource, Uri location)
+        internal static void AssertLocationHeaderIsCorrect(TestFhirClient testFhirClient, Resource createdResource, Uri location)
         {
-            Assert.Equal($"{fhirClient.HttpClient.BaseAddress}Observation/{createdResource.Id}/_history/{createdResource.Meta.VersionId}", location.OriginalString);
+            Assert.Equal($"{testFhirClient.HttpClient.BaseAddress}Observation/{createdResource.Id}/_history/{createdResource.Meta.VersionId}", location.OriginalString);
         }
 
         internal static void AssertLastUpdatedAndLastModifiedAreEqual(DateTimeOffset? lastUpdated, DateTimeOffset? lastModified)

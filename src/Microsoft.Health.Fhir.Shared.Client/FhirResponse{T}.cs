@@ -6,7 +6,7 @@
 using System.Net.Http;
 using Hl7.Fhir.Model;
 
-namespace Microsoft.Health.Fhir.Tests.E2E.Common
+namespace Microsoft.Health.Fhir.Client
 {
     public class FhirResponse<T> : FhirResponse
         where T : Resource
@@ -22,6 +22,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
         public static implicit operator T(FhirResponse<T> response)
         {
             return response.Resource;
+        }
+
+        public T ToT()
+        {
+            return Resource;
         }
     }
 }

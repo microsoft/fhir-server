@@ -6,6 +6,7 @@
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
@@ -15,11 +16,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     public class ValidateTests : IClassFixture<HttpIntegrationTestFixture>
     {
         private const string Success = "All OK";
-        private readonly Common.FhirClient _client;
+        private readonly TestFhirClient _client;
 
         public ValidateTests(HttpIntegrationTestFixture fixture)
         {
-            _client = fixture.FhirClient;
+            _client = fixture.TestFhirClient;
         }
 
         [Theory]

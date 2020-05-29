@@ -125,7 +125,6 @@
     <Rule Id="CA1500" Action="None" />
     <Rule Id="CA1726" Action="None" />
     <Rule Id="CA1821" Action="None" />
-    <Rule Id="CA2000" Action="None" />
     <Rule Id="CA2001" Action="None" />
     <Rule Id="CA2109" Action="None" />
     <Rule Id="CA2200" Action="None" />

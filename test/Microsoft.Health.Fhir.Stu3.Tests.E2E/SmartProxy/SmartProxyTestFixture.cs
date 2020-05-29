@@ -13,7 +13,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Fhir.Tests.E2E.Rest;
-using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Common.FhirClient;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
 {
@@ -47,7 +46,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
                 WebServer = builder.Build();
                 WebServer.Start();
 
-                FhirClient = testFhirServerFactory.GetTestFhirServer(DataStore.CosmosDb, null).GetFhirClient(ResourceFormat.Json);
+                TestFhirClient = testFhirServerFactory.GetTestFhirServer(DataStore.CosmosDb, null).GetTestFhirClient(ResourceFormat.Json);
             }
         }
 
@@ -57,7 +56,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
 
         public string SmartLauncherUrl { get; }
 
-        public FhirClient FhirClient { get; }
+        public TestFhirClient TestFhirClient { get; }
 
         public void Dispose()
         {

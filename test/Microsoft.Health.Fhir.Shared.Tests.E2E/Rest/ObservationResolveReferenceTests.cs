@@ -7,13 +7,13 @@ using System;
 using System.Linq;
 using System.Net;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
 using static Hl7.Fhir.Model.OperationOutcome;
-using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Common.FhirClient;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
@@ -21,12 +21,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
     public class ObservationResolveReferenceTests : IClassFixture<HttpIntegrationTestFixture>
     {
+        private readonly TestFhirClient _client;
+
         public ObservationResolveReferenceTests(HttpIntegrationTestFixture fixture)
         {
-            Client = fixture.FhirClient;
+            _client = fixture.TestFhirClient;
         }
-
-        protected FhirClient Client { get; set; }
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
@@ -39,11 +39,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             patient.Identifier.First().Value = uniqueIdentifier;
 
             // Create patient resource
-            await Client.CreateAsync(patient);
+            await _client.CreateAsync(patient);
 
             observation.Subject.Reference = $"Patient?identifier={uniqueIdentifier}";
 
-            FhirResponse<Observation> createResponse = await Client.CreateAsync(
+            using FhirResponse<Observation> createResponse = await _client.CreateAsync(
                 observation);
 
             Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             observation.Subject.Reference = $"Patient?identifier={uniqueIdentifier}";
 
-            var exception = await Assert.ThrowsAsync<FhirException>(() => Client.CreateAsync(observation));
+            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.CreateAsync(observation));
             var issue = exception.Response.Resource.Issue.First();
             Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
             Assert.Equal(IssueSeverity.Error, issue.Severity.Value);
