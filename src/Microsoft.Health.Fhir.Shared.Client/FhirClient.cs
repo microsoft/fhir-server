@@ -97,13 +97,15 @@ namespace Microsoft.Health.Fhir.Client
             }
 
             _mediaType = MediaTypeWithQualityHeaderValue.Parse(_contentType);
-
-            SetupSecurity();
         }
 
         public ResourceFormat Format { get; }
 
-        public bool SecurityEnabled { get; private set; }
+        /// <summary>
+        /// Value representing if the FHIR server has security options present in the metadata.
+        /// <remarks><value>null</value> indicates that the <see cref="ConfigureSecurityOptions"/> method has not been called.</remarks>
+        /// </summary>
+        public bool? SecurityEnabled { get; private set; }
 
         public Uri AuthorizeUri { get; private set; }
 
@@ -389,8 +391,15 @@ namespace Microsoft.Health.Fhir.Client
                 string.IsNullOrWhiteSpace(content) ? null : (T)_deserialize(content));
         }
 
-        private void SetupSecurity()
+        /// <summary>
+        /// Set the security options on the <see cref="FhirClient"/>.
+        /// <remarks>Examines the metadata endpoint to determine if there's a token and authorize url exposed and sets the property <see cref="SecurityEnabled"/> to <value>true</value> or <value>false</value> based on this.
+        /// Additionally, the <see cref="TokenUri"/> and <see cref="AuthorizeUri"/> are set if they are found.</remarks>
+        /// </summary>
+        public void ConfigureSecurityOptions()
         {
+            bool localSecurityEnabled = false;
+
             using FhirResponse<CapabilityStatement> readResponse = ReadAsync<CapabilityStatement>("metadata").GetAwaiter().GetResult();
             CapabilityStatement metadata = readResponse.Resource;
 
@@ -402,13 +411,15 @@ namespace Microsoft.Health.Fhir.Client
                     var tokenUrl = oauth.GetExtensionValue<FhirUri>(SmartOAuthUriExtensionToken).Value;
                     var authorizeUrl = oauth.GetExtensionValue<FhirUri>(SmartOAuthUriExtensionAuthorize).Value;
 
-                    SecurityEnabled = true;
+                    localSecurityEnabled = true;
                     TokenUri = new Uri(tokenUrl);
                     AuthorizeUri = new Uri(authorizeUrl);
 
                     break;
                 }
             }
+
+            SecurityEnabled = localSecurityEnabled;
         }
     }
 }

@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     throw new ArgumentOutOfRangeException(nameof(format), format, null);
             }
 
-            TestFhirClient = TestFhirServer.GetFhirClient(resourceFormat);
+            TestFhirClient = TestFhirServer.GetTestFhirClient(resourceFormat);
 
             IsUsingInProcTestServer = TestFhirServer is InProcTestFhirServer;
         }

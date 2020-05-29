@@ -602,7 +602,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 
         private async Task ExecuteAndValidate(Func<TestFhirClient> createClient, HttpStatusCode expectedStatusCode, string expectedAppId)
         {
-            if (!_fixture.IsUsingInProcTestServer || !_fixture.TestFhirClient.SecurityEnabled)
+            if (!_fixture.IsUsingInProcTestServer || _fixture.TestFhirClient.SecurityEnabled == false)
             {
                 // This test only works with the in-proc server with customized middleware pipeline and when security is enabled.
                 return;

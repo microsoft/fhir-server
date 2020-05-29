@@ -37,12 +37,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         public Uri BaseAddress { get; }
 
-        public TestFhirClient GetFhirClient(ResourceFormat format, bool reusable = true)
+        public TestFhirClient GetTestFhirClient(ResourceFormat format, bool reusable = true)
         {
-            return GetFhirClient(format, TestApplications.GlobalAdminServicePrincipal, null, reusable);
+            return GetTestFhirClient(format, TestApplications.GlobalAdminServicePrincipal, null, reusable);
         }
 
-        public TestFhirClient GetFhirClient(ResourceFormat format, TestApplication clientApplication, TestUser user, bool reusable = true)
+        public TestFhirClient GetTestFhirClient(ResourceFormat format, TestApplication clientApplication, TestUser user, bool reusable = true)
         {
             if (_asyncLocalSessionTokenContainer.Value == null)
             {

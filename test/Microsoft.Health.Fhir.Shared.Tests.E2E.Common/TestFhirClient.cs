@@ -34,6 +34,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             _clientApplication = clientApplication;
             _user = user;
 
+            ConfigureSecurityOptions();
             SetupAuthenticationAsync(clientApplication, user).GetAwaiter().GetResult();
         }
 
@@ -41,23 +42,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
         {
             EnsureArg.IsNotNull(user, nameof(user));
             EnsureArg.IsNotNull(clientApplication, nameof(clientApplication));
-            return _testFhirServer.GetFhirClient(Format, clientApplication, user);
+            return _testFhirServer.GetTestFhirClient(Format, clientApplication, user);
         }
 
         public TestFhirClient CreateClientForClientApplication(TestApplication clientApplication)
         {
             EnsureArg.IsNotNull(clientApplication, nameof(clientApplication));
-            return _testFhirServer.GetFhirClient(Format, clientApplication, null);
+            return _testFhirServer.GetTestFhirClient(Format, clientApplication, null);
         }
 
         public TestFhirClient Clone()
         {
-            return _testFhirServer.GetFhirClient(Format, _clientApplication, _user, reusable: false);
+            return _testFhirServer.GetTestFhirClient(Format, _clientApplication, _user, reusable: false);
         }
 
         private async Task SetupAuthenticationAsync(TestApplication clientApplication, TestUser user = null)
         {
-            if (SecurityEnabled)
+            if (SecurityEnabled == true)
             {
                 var tokenKey = $"{clientApplication.ClientId}:{(user == null ? string.Empty : user.UserId)}";
 
