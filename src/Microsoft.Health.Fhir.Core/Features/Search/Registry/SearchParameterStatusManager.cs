@@ -44,7 +44,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         public async Task EnsureInitialized()
         {
             var updated = new List<SearchParameterInfo>();
-            var newParameters = new List<ResourceSearchParameterStatus>();
 
             var parameters = (await _searchParameterRegistry.GetSearchParameterStatuses())
                 .ToDictionary(x => x.Uri);
@@ -79,13 +78,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 }
                 else
                 {
-                    newParameters.Add(new ResourceSearchParameterStatus
-                    {
-                        Uri = p.Url,
-                        LastUpdated = Clock.UtcNow,
-                        Status = SearchParameterStatus.Supported,
-                    });
-
                     p.IsSearchable = false;
 
                     // Check if this parameter is now supported.
@@ -95,11 +87,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
                     updated.Add(p);
                 }
-            }
-
-            if (newParameters.Any())
-            {
-                await _searchParameterRegistry.UpdateStatuses(newParameters);
             }
 
             await _mediator.Publish(new SearchParametersUpdated(updated));
