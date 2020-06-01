@@ -24,6 +24,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Export;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Reindex;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.AcquireExportJobs;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
@@ -31,9 +32,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
     public sealed class CosmosFhirOperationDataStore : IFhirOperationDataStore
     {
         private const string HashParameterName = "@hash";
+        private const string StatusParameterName = "@status";
 
         private static readonly string GetJobByHashQuery =
             $"SELECT TOP 1 * FROM ROOT r WHERE r.{JobRecordProperties.JobRecord}.{JobRecordProperties.Hash} = {HashParameterName} AND r.{JobRecordProperties.JobRecord}.{JobRecordProperties.Status} IN ('{OperationStatus.Queued}', '{OperationStatus.Running}') ORDER BY r.{KnownDocumentProperties.Timestamp} ASC";
+
+        private static readonly string CheckActiveJobsByStatusQuery =
+            $"SELECT TOP 1 * FROM ROOT r WHERE r.{JobRecordProperties.JobRecord}.{JobRecordProperties.Status} IN ('{OperationStatus.Queued}', '{OperationStatus.Running}', '{OperationStatus.Paused}')";
 
         private readonly IScoped<IDocumentClient> _documentClientScope;
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
@@ -119,7 +124,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
                     new RequestOptions { PartitionKey = new PartitionKey(CosmosDbExportConstants.ExportJobPartitionKey) },
                     cancellationToken);
 
-                var outcome = new ExportJobOutcome(cosmosExportJobRecord.Document.JobRecord, WeakETag.FromVersionId(cosmosExportJobRecord.Document.ETag));
+                var outcome = new ExportJobOutcome(cosmosExportJobRecord.Document.ExportJobRecord, WeakETag.FromVersionId(cosmosExportJobRecord.Document.ETag));
 
                 return outcome;
             }
@@ -163,7 +168,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
                     // We found an existing job that matches the hash.
                     CosmosExportJobRecordWrapper wrapper = result.First();
 
-                    return new ExportJobOutcome(wrapper.JobRecord, WeakETag.FromVersionId(wrapper.ETag));
+                    return new ExportJobOutcome(wrapper.ExportJobRecord, WeakETag.FromVersionId(wrapper.ETag));
                 }
 
                 return null;
@@ -249,7 +254,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
                         ct),
                     cancellationToken);
 
-                return response.Response.Select(wrapper => new ExportJobOutcome(wrapper.JobRecord, WeakETag.FromVersionId(wrapper.ETag))).ToList();
+                return response.Response.Select(wrapper => new ExportJobOutcome(wrapper.ExportJobRecord, WeakETag.FromVersionId(wrapper.ETag))).ToList();
             }
             catch (DocumentClientException dce)
             {
@@ -263,7 +268,72 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             }
         }
 
+        public async Task<ReindexJobWrapper> CreateReindexJobAsync(ReindexJobRecord jobRecord, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(jobRecord, nameof(jobRecord));
+
+            var cosmosReindexJob = new CosmosReindexJobRecordWrapper(jobRecord);
+
+            try
+            {
+                ResourceResponse<Document> result = await _documentClientScope.Value.CreateDocumentAsync(
+                    CollectionUri,
+                    cosmosReindexJob,
+                    new RequestOptions() { PartitionKey = new PartitionKey(CosmosDbReindexConstants.ReindexJobPartitionKey) },
+                    disableAutomaticIdGeneration: true,
+                    cancellationToken: cancellationToken);
+
+                return new ReindexJobWrapper(jobRecord, WeakETag.FromVersionId(result.Resource.ETag));
+            }
+            catch (DocumentClientException dce)
+            {
+                if (dce.StatusCode == HttpStatusCode.TooManyRequests)
+                {
+                    throw new RequestRateExceededException(dce.RetryAfter);
+                }
+
+                _logger.LogError(dce, "Failed to create an reindex job.");
+                throw;
+            }
+        }
+
         public Task<IReadOnlyCollection<ReindexJobWrapper>> AcquireReindexJobsAsync(ushort maximumNumberOfConcurrentJobsAllowed, TimeSpan jobHeartbeatTimeoutThreshold, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
+
+        public async Task<bool> CheckActiveReindexJobsAsync(CancellationToken cancellationToken)
+        {
+            try
+            {
+                IDocumentQuery<int> query = _documentClientScope.Value.CreateDocumentQuery<int>(
+                    CollectionUri,
+                    new SqlQuerySpec(CheckActiveJobsByStatusQuery),
+                    new FeedOptions { PartitionKey = new PartitionKey(CosmosDbReindexConstants.ReindexJobPartitionKey) })
+                    .AsDocumentQuery();
+
+                FeedResponse<CosmosReindexJobRecordWrapper> result = await query.ExecuteNextAsync<CosmosReindexJobRecordWrapper>();
+
+                if (result.Count == 1)
+                {
+                    return true;
+                }
+
+                return false;
+            }
+            catch (DocumentClientException dce)
+            {
+                if (dce.StatusCode == HttpStatusCode.TooManyRequests)
+                {
+                    throw new RequestRateExceededException(dce.RetryAfter);
+                }
+
+                _logger.LogError(dce, "Failed to check if any reindex jobs are active.");
+                throw;
+            }
+        }
+
+        public Task<ReindexJobWrapper> GetReindexJobByIdAsync(object jobId, CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }

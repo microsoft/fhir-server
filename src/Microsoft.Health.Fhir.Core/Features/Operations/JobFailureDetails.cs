@@ -7,11 +7,11 @@ using System.Net;
 using EnsureThat;
 using Newtonsoft.Json;
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
+namespace Microsoft.Health.Fhir.Core.Features.Operations
 {
-    public class ExportJobFailureDetails
+    public class JobFailureDetails
     {
-        public ExportJobFailureDetails(string failureReason, HttpStatusCode statusCode)
+        public JobFailureDetails(string failureReason, HttpStatusCode statusCode)
         {
             EnsureArg.IsNotNullOrWhiteSpace(failureReason, nameof(failureReason));
 
@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         }
 
         [JsonConstructor]
-        private ExportJobFailureDetails()
+        private JobFailureDetails()
         {
         }
 

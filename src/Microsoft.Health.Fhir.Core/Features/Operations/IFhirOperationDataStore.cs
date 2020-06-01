@@ -66,5 +66,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>A list of acquired reindex jobs.</returns>
         Task<IReadOnlyCollection<ReindexJobWrapper>> AcquireReindexJobsAsync(ushort maximumNumberOfConcurrentJobsAllowed, TimeSpan jobHeartbeatTimeoutThreshold, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Gets a reindex job by id
+        /// </summary>
+        /// <param name="jobId">The id of the job.</param>
+        /// <param name="cancellationToken">The cancellation token</param>
+        /// <returns>The reindex job details.</returns>
+        Task<ReindexJobWrapper> GetReindexJobByIdAsync(object jobId, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Queries the datastore for any reindex job documents with a status of active, queued or paused
+        /// </summary>
+        /// <param name="cancellationToken">The cancellation token</param>
+        /// <returns>True if any found</returns>
+        Task<bool> CheckActiveReindexJobsAsync(CancellationToken cancellationToken);
     }
 }

@@ -3,16 +3,17 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations
+using System.Net;
+
+namespace Microsoft.Health.Fhir.Core.Messages.Reindex
 {
-    public enum OperationStatus
+    public class CancelReindexResponse
     {
-        Unknown,
-        Queued,
-        Running,
-        Completed,
-        Failed,
-        Canceled,
-        Paused,
+        public CancelReindexResponse(HttpStatusCode statusCode)
+        {
+            StatusCode = statusCode;
+        }
+
+        public HttpStatusCode StatusCode { get; }
     }
 }

@@ -123,7 +123,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             if ((jobStatus == OperationStatus.Canceled || jobStatus == OperationStatus.Failed) && addFailureDetails)
             {
-                jobRecord.FailureDetails = new ExportJobFailureDetails(_failureReason, _failureStatusCode);
+                jobRecord.FailureDetails = new JobFailureDetails(_failureReason, _failureStatusCode);
             }
             else if (jobStatus == OperationStatus.Completed)
             {

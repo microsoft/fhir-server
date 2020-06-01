@@ -11,16 +11,16 @@ using EnsureThat;
 using MediatR;
 using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
+using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
-using Microsoft.Health.Fhir.Core.Messages.Export;
+using Microsoft.Health.Fhir.Core.Messages.Reindex;
 using Polly;
 using Polly.Retry;
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
+namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 {
-    public class CancelExportRequestHandler : IRequestHandler<CancelExportRequest, CancelExportResponse>
+    public class CancelReindexRequestHandler : IRequestHandler<CancelReindexRequest, CancelReindexResponse>
     {
         private const int DefaultRetryCount = 3;
         private static readonly Func<int, TimeSpan> DefaultSleepDurationProvider = new Func<int, TimeSpan>(retryCount => TimeSpan.FromSeconds(Math.Pow(2, retryCount)));
@@ -29,12 +29,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private readonly IFhirAuthorizationService _authorizationService;
         private readonly AsyncRetryPolicy _retryPolicy;
 
-        public CancelExportRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IFhirAuthorizationService authorizationService)
+        public CancelReindexRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IFhirAuthorizationService authorizationService)
             : this(fhirOperationDataStore, authorizationService, DefaultRetryCount, DefaultSleepDurationProvider)
         {
         }
 
-        public CancelExportRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IFhirAuthorizationService authorizationService, int retryCount, Func<int, TimeSpan> sleepDurationProvider)
+        public CancelReindexRequestHandler(IFhirOperationDataStore fhirOperationDataStore, IFhirAuthorizationService authorizationService, int retryCount, Func<int, TimeSpan> sleepDurationProvider)
         {
             EnsureArg.IsNotNull(fhirOperationDataStore, nameof(fhirOperationDataStore));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
@@ -47,34 +47,34 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 .WaitAndRetryAsync(retryCount, sleepDurationProvider);
         }
 
-        public async Task<CancelExportResponse> Handle(CancelExportRequest request, CancellationToken cancellationToken)
+        public async Task<CancelReindexResponse> Handle(CancelReindexRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
 
-            if (await _authorizationService.CheckAccess(DataActions.Export) != DataActions.Export)
+            if (await _authorizationService.CheckAccess(DataActions.Reindex) != DataActions.Reindex)
             {
                 throw new UnauthorizedFhirActionException();
             }
 
             return await _retryPolicy.ExecuteAsync(async () =>
             {
-                ExportJobOutcome outcome = await _fhirOperationDataStore.GetExportJobByIdAsync(request.JobId, cancellationToken);
+                ReindexJobWrapper outcome = await _fhirOperationDataStore.GetReindexJobByIdAsync(request.JobId, cancellationToken);
 
                 // If the job is already completed for any reason, return conflict status.
                 if (outcome.JobRecord.Status.IsFinished())
                 {
-                    return new CancelExportResponse(HttpStatusCode.Conflict);
+                    return new CancelReindexResponse(HttpStatusCode.Conflict);
                 }
 
                 // Try to cancel the job.
                 outcome.JobRecord.Status = OperationStatus.Canceled;
                 outcome.JobRecord.CanceledTime = Clock.UtcNow;
 
-                outcome.JobRecord.FailureDetails = new JobFailureDetails(Resources.UserRequestedCancellation, HttpStatusCode.NoContent);
+                outcome.JobRecord.FailureDetails = new ExportJobFailureDetails(Resources.UserRequestedCancellation, HttpStatusCode.NoContent);
 
                 await _fhirOperationDataStore.UpdateExportJobAsync(outcome.JobRecord, outcome.ETag, cancellationToken);
 
-                return new CancelExportResponse(HttpStatusCode.Accepted);
+                return new CancelReindexResponse(HttpStatusCode.Accepted);
             });
         }
     }

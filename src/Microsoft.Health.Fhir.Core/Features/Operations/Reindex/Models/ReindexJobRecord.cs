@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
     /// <summary>
     /// Class to hold metadata for an individual reindex job.
     /// </summary>
-    public class ReindexJobRecord
+    public class ReindexJobRecord : JobRecord
     {
         public ReindexJobRecord(string searchParametersHash)
         {
@@ -34,9 +34,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         {
         }
 
-        [JsonProperty(JobRecordProperties.Id)]
-        public string Id { get; private set; }
-
         /// <summary>
         ///  The input should be a Parameters FHIR Resource
         ///  TODO: We don't want to add a dependency on the FHIR model here
@@ -45,26 +42,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         [JsonProperty(JobRecordProperties.Input)]
         public string Input { get; private set; }
 
-        [JsonProperty(JobRecordProperties.QueuedTime)]
-        public DateTimeOffset QueuedTime { get; private set; }
-
-        [JsonProperty(JobRecordProperties.SchemaVersion)]
-        public int SchemaVersion { get; private set; }
-
         [JsonProperty(JobRecordProperties.Error)]
         public IList<OperationOutcomeIssue> Error { get; private set; } = new List<OperationOutcomeIssue>();
-
-        [JsonProperty(JobRecordProperties.Status)]
-        public OperationStatus Status { get; set; }
-
-        [JsonProperty(JobRecordProperties.StartTime)]
-        public DateTimeOffset? StartTime { get; set; }
-
-        [JsonProperty(JobRecordProperties.EndTime)]
-        public DateTimeOffset? EndTime { get; set; }
-
-        [JsonProperty(JobRecordProperties.CanceledTime)]
-        public DateTimeOffset? CanceledTime { get; set; }
 
         [JsonProperty(JobRecordProperties.Progress)]
         public IList<ReindexJobQueryStatus> Progress { get; private set; } = new List<ReindexJobQueryStatus>();

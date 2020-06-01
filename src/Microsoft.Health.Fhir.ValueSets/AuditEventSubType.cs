@@ -56,5 +56,7 @@ namespace Microsoft.Health.Fhir.ValueSets
         // that is defined by an OperationDefinition. And export does not fall under that list as
         // of 2019/03/19. So we have to use our own sub-type.
         public const string Export = "export";
+
+        public const string Reindex = "reindex";
     }
 }
