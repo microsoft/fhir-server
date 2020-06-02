@@ -77,17 +77,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.Export)]
         public async Task<IActionResult> Export([FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since)
         {
-            if (!_exportConfig.Enabled)
-            {
-                throw new RequestNotValidException(string.Format(Resources.OperationNotEnabled, OperationsConstants.Export));
-            }
-
-            CreateExportResponse response = await _mediator.ExportAsync(_fhirRequestContextAccessor.FhirRequestContext.Uri, null, since, HttpContext.RequestAborted);
-
-            var exportResult = ExportResult.Accepted();
-            exportResult.SetContentLocationHeader(_urlResolver, OperationsConstants.Export, response.JobId);
-
-            return exportResult;
+            CheckIfExportIsEnabled();
+            return await CreateExportJob(since);
         }
 
         [HttpGet]
@@ -96,23 +87,15 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.Export)]
         public async Task<IActionResult> ExportResourceType([FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since, string typeParameter)
         {
+            CheckIfExportIsEnabled();
+
             // Export by ResourceType is supported only for Patient resource type.
             if (!string.Equals(typeParameter, ResourceType.Patient.ToString(), StringComparison.Ordinal))
             {
                 throw new RequestNotValidException(string.Format(Resources.UnsupportedResourceType, typeParameter));
             }
 
-            if (!_exportConfig.Enabled)
-            {
-                throw new RequestNotValidException(string.Format(Resources.OperationNotEnabled, OperationsConstants.Export));
-            }
-
-            CreateExportResponse response = await _mediator.ExportAsync(_fhirRequestContextAccessor.FhirRequestContext.Uri, typeParameter, since, HttpContext.RequestAborted);
-
-            var exportResult = ExportResult.Accepted();
-            exportResult.SetContentLocationHeader(_urlResolver, OperationsConstants.Export, response.JobId);
-
-            return exportResult;
+            return await CreateExportJob(since, typeParameter);
         }
 
         [HttpGet]
@@ -166,16 +149,31 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return new ExportResult(response.StatusCode);
         }
 
+        private async Task<IActionResult> CreateExportJob(PartialDateTime since, string type = null)
+        {
+            CreateExportResponse response = await _mediator.ExportAsync(_fhirRequestContextAccessor.FhirRequestContext.Uri, type, since, HttpContext.RequestAborted);
+
+            var exportResult = ExportResult.Accepted();
+            exportResult.SetContentLocationHeader(_urlResolver, OperationsConstants.Export, response.JobId);
+
+            return exportResult;
+        }
+
+        private void CheckIfExportIsEnabled()
+        {
+            if (!_exportConfig.Enabled)
+            {
+                throw new RequestNotValidException(string.Format(Resources.OperationNotEnabled, OperationsConstants.Export));
+            }
+        }
+
         /// <summary>
         /// Currently we don't have any export functionality. We will send the appropriate
         /// response based on whether export is enabled or not.
         /// </summary>
         private FhirResult CheckIfExportIsEnabledAndRespond()
         {
-            if (!_exportConfig.Enabled)
-            {
-                throw new RequestNotValidException(string.Format(Resources.OperationNotEnabled, OperationsConstants.Export));
-            }
+            CheckIfExportIsEnabled();
 
             throw new OperationNotImplementedException(string.Format(Resources.OperationNotImplemented, OperationsConstants.Export));
         }
