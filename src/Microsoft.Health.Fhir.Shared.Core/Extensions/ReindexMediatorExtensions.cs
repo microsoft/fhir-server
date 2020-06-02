@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 {
     public static class ReindexMediatorExtensions
     {
-        public static async Task<CreateReindexResponse> CreateReindexJobAsync(
+        public static async Task<ResourceElement> CreateReindexJobAsync(
             this IMediator mediator,
             int? maximumConcurrency,
             string scope,
@@ -26,27 +26,34 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             var request = new CreateReindexRequest(maximumConcurrency, scope);
 
             CreateReindexResponse response = await mediator.Send(request, cancellationToken);
-            return response;
+            return response.Job.JobRecord.ToParametersResourceElement();
         }
 
-        public static async Task<GetReindexResponse> GetReindexStatusAsync(this IMediator mediator, string jobId, CancellationToken cancellationToken)
+        public static async Task<ResourceElement> GetReindexJobAsync(this IMediator mediator, string jobId, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
 
             var request = new GetReindexRequest(jobId);
 
             GetReindexResponse response = await mediator.Send(request, cancellationToken);
-            return response;
+            return response.Job.JobRecord.ToParametersResourceElement();
         }
 
-        public static async Task<CancelReindexResponse> CancelReindexAsync(this IMediator mediator, string jobId, CancellationToken cancellationToken)
+        public static async Task<ResourceElement> CancelReindexAsync(this IMediator mediator, string jobId, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNullOrWhiteSpace(jobId, nameof(jobId));
 
             var request = new CancelReindexRequest(jobId);
 
-            return await mediator.Send(request, cancellationToken);
+            var response = await mediator.Send(request, cancellationToken);
+
+            return response.Job.JobRecord.ToParametersResourceElement();
+        }
+
+        public static Task<ResourceElement> GetReindexJobsAsync(this IMediator mediator)
+        {
+            throw new NotImplementedException();
         }
     }
 }

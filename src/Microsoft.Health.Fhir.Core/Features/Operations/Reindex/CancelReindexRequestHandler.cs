@@ -63,18 +63,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 // If the job is already completed for any reason, return conflict status.
                 if (outcome.JobRecord.Status.IsFinished())
                 {
-                    return new CancelReindexResponse(HttpStatusCode.Conflict);
+                    return new CancelReindexResponse(HttpStatusCode.Conflict, null);
                 }
 
                 // Try to cancel the job.
                 outcome.JobRecord.Status = OperationStatus.Canceled;
                 outcome.JobRecord.CanceledTime = Clock.UtcNow;
 
-                outcome.JobRecord.FailureDetails = new ExportJobFailureDetails(Resources.UserRequestedCancellation, HttpStatusCode.NoContent);
+                await _fhirOperationDataStore.UpdateReindexJobAsync(outcome.JobRecord, outcome.ETag, cancellationToken);
 
-                await _fhirOperationDataStore.UpdateExportJobAsync(outcome.JobRecord, outcome.ETag, cancellationToken);
-
-                return new CancelReindexResponse(HttpStatusCode.Accepted);
+                return new CancelReindexResponse(HttpStatusCode.Conflict, outcome);
             });
         }
     }

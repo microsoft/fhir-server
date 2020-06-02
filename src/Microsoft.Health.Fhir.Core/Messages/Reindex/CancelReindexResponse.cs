@@ -4,16 +4,20 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Net;
+using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Reindex
 {
     public class CancelReindexResponse
     {
-        public CancelReindexResponse(HttpStatusCode statusCode)
+        public CancelReindexResponse(HttpStatusCode statusCode, ReindexJobWrapper job)
         {
             StatusCode = statusCode;
+            Job = job;
         }
 
         public HttpStatusCode StatusCode { get; }
+
+        public ReindexJobWrapper Job { get; }
     }
 }

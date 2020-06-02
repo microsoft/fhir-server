@@ -32,7 +32,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
     public sealed class CosmosFhirOperationDataStore : IFhirOperationDataStore
     {
         private const string HashParameterName = "@hash";
-        private const string StatusParameterName = "@status";
 
         private static readonly string GetJobByHashQuery =
             $"SELECT TOP 1 * FROM ROOT r WHERE r.{JobRecordProperties.JobRecord}.{JobRecordProperties.Hash} = {HashParameterName} AND r.{JobRecordProperties.JobRecord}.{JobRecordProperties.Status} IN ('{OperationStatus.Queued}', '{OperationStatus.Running}') ORDER BY r.{KnownDocumentProperties.Timestamp} ASC";
@@ -297,9 +296,20 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             }
         }
 
-        public Task<IReadOnlyCollection<ReindexJobWrapper>> AcquireReindexJobsAsync(ushort maximumNumberOfConcurrentJobsAllowed, TimeSpan jobHeartbeatTimeoutThreshold, CancellationToken cancellationToken)
+        public async Task<IReadOnlyCollection<ReindexJobWrapper>> AcquireReindexJobsAsync(ushort maximumNumberOfConcurrentJobsAllowed, TimeSpan jobHeartbeatTimeoutThreshold, CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            // TODO: Shell for testing
+            IDocumentQuery<int> query = _documentClientScope.Value.CreateDocumentQuery<int>(
+                    CollectionUri,
+                    new SqlQuerySpec(CheckActiveJobsByStatusQuery),
+                    new FeedOptions { PartitionKey = new PartitionKey(CosmosDbReindexConstants.ReindexJobPartitionKey) })
+                    .AsDocumentQuery();
+
+            FeedResponse<CosmosReindexJobRecordWrapper> result = await query.ExecuteNextAsync<CosmosReindexJobRecordWrapper>();
+            var jobList = new List<ReindexJobWrapper>();
+            CosmosReindexJobRecordWrapper cosmosJob = result.FirstOrDefault();
+            jobList.Add(new ReindexJobWrapper(cosmosJob.ReindexJobRecord, WeakETag.FromVersionId(cosmosJob.ETag)));
+            return new List<ReindexJobWrapper>();
         }
 
         public async Task<bool> CheckActiveReindexJobsAsync(CancellationToken cancellationToken)
@@ -336,6 +346,59 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
         public Task<ReindexJobWrapper> GetReindexJobByIdAsync(object jobId, CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
+        }
+
+        public async Task<ReindexJobWrapper> UpdateReindexJobAsync(ReindexJobRecord jobRecord, WeakETag eTag, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(jobRecord, nameof(jobRecord));
+
+            var cosmosReindexJob = new CosmosReindexJobRecordWrapper(jobRecord);
+
+            var requestOptions = new RequestOptions()
+            {
+                PartitionKey = new PartitionKey(CosmosDbReindexConstants.ReindexJobPartitionKey),
+            };
+
+            // Create access condition so that record is replaced only if eTag matches.
+            if (eTag != null)
+            {
+                requestOptions.AccessCondition = new AccessCondition()
+                {
+                    Type = AccessConditionType.IfMatch,
+                    Condition = eTag.VersionId,
+                };
+            }
+
+            try
+            {
+                ResourceResponse<Document> replaceResult = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
+                    () => _documentClientScope.Value.ReplaceDocumentAsync(
+                        UriFactory.CreateDocumentUri(DatabaseId, CollectionId, jobRecord.Id),
+                        cosmosReindexJob,
+                        requestOptions,
+                        cancellationToken));
+
+                var latestETag = replaceResult.Resource.ETag;
+                return new ReindexJobWrapper(jobRecord, WeakETag.FromVersionId(latestETag));
+            }
+            catch (DocumentClientException dce)
+            {
+                if (dce.StatusCode == HttpStatusCode.TooManyRequests)
+                {
+                    throw new RequestRateExceededException(dce.RetryAfter);
+                }
+                else if (dce.StatusCode == HttpStatusCode.PreconditionFailed)
+                {
+                    throw new JobConflictException();
+                }
+                else if (dce.StatusCode == HttpStatusCode.NotFound)
+                {
+                    throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, jobRecord.Id));
+                }
+
+                _logger.LogError(dce, "Failed to update a reindex job.");
+                throw;
+            }
         }
     }
 }

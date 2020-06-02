@@ -4,20 +4,15 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
-using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
-using Microsoft.Health.Fhir.Core.Messages.Export;
 using Microsoft.Health.Fhir.Core.Messages.Reindex;
-using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 {
@@ -49,18 +44,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             if (await _fhirOperationDataStore.CheckActiveReindexJobsAsync(cancellationToken))
             {
-                throw new InvalidOperationException("Only one reindex job allowed.  Cancel any previous jobs before submitting a new job.");
+                throw new InvalidOperationException(Resources.OnlyOneResourceJobAllowed);
             }
 
-            // Get hash from parameters file
+            // TODO: determine new parameters to index
 
-            // determine
-
+            // TODO: Get hash from parameters file
             string hash = "hash";
-            var jobRecord = new ReindexJobRecord(hash);
-            outcome = await _fhirOperationDataStore.CreateExportJobAsync(jobRecord, cancellationToken);
 
-            return new CreateReindexResponse(outcome.JobRecord.Id);
+            var jobRecord = new ReindexJobRecord(hash);
+            var outcome = await _fhirOperationDataStore.CreateReindexJobAsync(jobRecord, cancellationToken);
+
+            return new CreateReindexResponse(outcome);
         }
     }
 }

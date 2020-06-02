@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,7 +11,6 @@ using EnsureThat;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Reindex;
@@ -48,11 +46,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
             else
             {
-                return await GetListOfReindexJobs(cancellationToken);
+                return await GetListOfReindexJobs();
             }
         }
 
-        private Task<GetReindexResponse> GetListOfReindexJobs(CancellationToken cancellationToken)
+        private Task<GetReindexResponse> GetListOfReindexJobs()
         {
             // TODO: build list of reindex jobs
             throw new OperationNotImplementedException("Get list of Reindex jobs not yet implemented.");
@@ -67,7 +65,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
             catch (Exception ex)
             {
-                throw new OperationFailedException(@"Unable to read reindex job with id {jobId}", HttpStatusCode.BadRequest);
+                throw new OperationFailedException($"Unable to read reindex job with id {jobId}, error: {ex.Message}", HttpStatusCode.BadRequest);
             }
         }
     }

@@ -45,8 +45,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         [JsonProperty(JobRecordProperties.Error)]
         public IList<OperationOutcomeIssue> Error { get; private set; } = new List<OperationOutcomeIssue>();
 
+        [JsonProperty(JobRecordProperties.QueryList)]
+        public IList<ReindexJobQueryStatus> QueryList { get; private set; } = new List<ReindexJobQueryStatus>();
+
+        [JsonProperty(JobRecordProperties.Count)]
+        public int Count { get; set; }
+
         [JsonProperty(JobRecordProperties.Progress)]
-        public IList<ReindexJobQueryStatus> Progress { get; private set; } = new List<ReindexJobQueryStatus>();
+        public int Progress { get; set; }
 
         [JsonProperty(JobRecordProperties.Hash)]
         public string Hash { get; private set; }
@@ -56,5 +62,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
 
         [JsonProperty(JobRecordProperties.FailureCount)]
         public ushort FaiureCount { get; set; }
+
+        [JsonIgnore]
+        public int PercentComplete
+        {
+            get
+            {
+                if (Count > 0 && Progress > 0)
+                {
+                    return (int)((double)Progress / Count * 100);
+                }
+                else
+                {
+                    return 0;
+                }
+            }
+        }
     }
 }

@@ -4,18 +4,19 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
+using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Reindex
 {
     public class CreateReindexResponse
     {
-        public CreateReindexResponse(string jobId)
+        public CreateReindexResponse(ReindexJobWrapper job)
         {
-            EnsureArg.IsNotNullOrWhiteSpace(jobId, nameof(jobId));
+            EnsureArg.IsNotNull(job, nameof(job));
 
-            JobId = jobId;
+            Job = job;
         }
 
-        public string JobId { get; }
+        public ReindexJobWrapper Job { get; }
     }
 }
