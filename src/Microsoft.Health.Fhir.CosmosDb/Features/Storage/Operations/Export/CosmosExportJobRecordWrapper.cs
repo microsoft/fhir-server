@@ -5,6 +5,7 @@
 
 using EnsureThat;
 using Microsoft.Health.CosmosDb.Features.Storage;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Newtonsoft.Json;
 
@@ -31,9 +32,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Export
         [JsonProperty(KnownDocumentProperties.PartitionKey)]
         public override string PartitionKey { get; } = CosmosDbExportConstants.ExportJobPartitionKey;
 
-        public ExportJobRecord ExportJobRecord
-        {
-            get { return JobRecord as ExportJobRecord; }
-        }
+        [JsonProperty(JobRecordProperties.JobRecord)]
+        public ExportJobRecord JobRecord { get; private set; }
     }
 }

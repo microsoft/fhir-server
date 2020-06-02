@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             var request = new CreateReindexRequest(maximumConcurrency, scope);
 
             CreateReindexResponse response = await mediator.Send(request, cancellationToken);
-            return response.Job.JobRecord.ToParametersResourceElement();
+            return response.Job.ToParametersResourceElement();
         }
 
         public static async Task<ResourceElement> GetReindexJobAsync(this IMediator mediator, string jobId, CancellationToken cancellationToken)
@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             var request = new GetReindexRequest(jobId);
 
             GetReindexResponse response = await mediator.Send(request, cancellationToken);
-            return response.Job.JobRecord.ToParametersResourceElement();
+            return response.Job.ToParametersResourceElement();
         }
 
         public static async Task<ResourceElement> CancelReindexAsync(this IMediator mediator, string jobId, CancellationToken cancellationToken)
@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             var response = await mediator.Send(request, cancellationToken);
 
-            return response.Job.JobRecord.ToParametersResourceElement();
+            return response.Job.ToParametersResourceElement();
         }
 
         public static Task<ResourceElement> GetReindexJobsAsync(this IMediator mediator)

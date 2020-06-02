@@ -20,6 +20,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         public const string StartTime = "startTime";
 
+        public const string EndTime = "endTime";
+
         public const string Progress = "progress";
     }
 }

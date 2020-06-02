@@ -11,7 +11,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
     /// <summary>
     /// Base class for metadata of a background job.
     /// </summary>
-    public abstract class JobRecord
+    public class JobRecord
     {
         [JsonConstructor]
         protected JobRecord()

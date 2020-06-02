@@ -80,6 +80,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     case JobNotFoundException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.NotFound;
                         break;
+                    case JobConflictException _:
+                        operationOutcomeResult.StatusCode = HttpStatusCode.Conflict;
+                        break;
                     case MethodNotAllowedException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.MethodNotAllowed;
                         break;

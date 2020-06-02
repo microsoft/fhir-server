@@ -123,7 +123,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
                     new RequestOptions { PartitionKey = new PartitionKey(CosmosDbExportConstants.ExportJobPartitionKey) },
                     cancellationToken);
 
-                var outcome = new ExportJobOutcome(cosmosExportJobRecord.Document.ExportJobRecord, WeakETag.FromVersionId(cosmosExportJobRecord.Document.ETag));
+                var outcome = new ExportJobOutcome(cosmosExportJobRecord.Document.JobRecord, WeakETag.FromVersionId(cosmosExportJobRecord.Document.ETag));
 
                 return outcome;
             }
@@ -167,7 +167,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
                     // We found an existing job that matches the hash.
                     CosmosExportJobRecordWrapper wrapper = result.First();
 
-                    return new ExportJobOutcome(wrapper.ExportJobRecord, WeakETag.FromVersionId(wrapper.ETag));
+                    return new ExportJobOutcome(wrapper.JobRecord, WeakETag.FromVersionId(wrapper.ETag));
                 }
 
                 return null;
@@ -253,7 +253,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
                         ct),
                     cancellationToken);
 
-                return response.Response.Select(wrapper => new ExportJobOutcome(wrapper.ExportJobRecord, WeakETag.FromVersionId(wrapper.ETag))).ToList();
+                return response.Response.Select(wrapper => new ExportJobOutcome(wrapper.JobRecord, WeakETag.FromVersionId(wrapper.ETag))).ToList();
             }
             catch (DocumentClientException dce)
             {
@@ -308,8 +308,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             FeedResponse<CosmosReindexJobRecordWrapper> result = await query.ExecuteNextAsync<CosmosReindexJobRecordWrapper>();
             var jobList = new List<ReindexJobWrapper>();
             CosmosReindexJobRecordWrapper cosmosJob = result.FirstOrDefault();
-            jobList.Add(new ReindexJobWrapper(cosmosJob.ReindexJobRecord, WeakETag.FromVersionId(cosmosJob.ETag)));
-            return new List<ReindexJobWrapper>();
+            if (cosmosJob != null)
+            {
+                jobList.Add(new ReindexJobWrapper(cosmosJob.JobRecord, WeakETag.FromVersionId(cosmosJob.ETag)));
+            }
+
+            return jobList;
         }
 
         public async Task<bool> CheckActiveReindexJobsAsync(CancellationToken cancellationToken)

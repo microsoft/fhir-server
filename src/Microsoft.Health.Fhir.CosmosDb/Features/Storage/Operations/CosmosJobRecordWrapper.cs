@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using Microsoft.Health.CosmosDb.Features.Storage;
-using Microsoft.Health.Fhir.Core.Features.Operations;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
@@ -24,9 +23,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 
         [JsonProperty(KnownDocumentProperties.Id)]
         public string Id { get; set; }
-
-        [JsonProperty(JobRecordProperties.JobRecord)]
-        public JobRecord JobRecord { get; protected set; }
 
         [JsonProperty(KnownDocumentProperties.ETag)]
         public string ETag { get; protected set; }

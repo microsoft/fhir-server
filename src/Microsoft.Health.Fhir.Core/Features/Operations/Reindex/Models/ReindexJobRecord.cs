@@ -34,13 +34,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         {
         }
 
-        /// <summary>
-        ///  The input should be a Parameters FHIR Resource
-        ///  TODO: We don't want to add a dependency on the FHIR model here
-        ///  but need a method to handle this type
-        /// </summary>
-        [JsonProperty(JobRecordProperties.Input)]
-        public string Input { get; private set; }
+        [JsonProperty(JobRecordProperties.Scope)]
+        public string Scope { get; private set; }
 
         [JsonProperty(JobRecordProperties.Error)]
         public IList<OperationOutcomeIssue> Error { get; private set; } = new List<OperationOutcomeIssue>();

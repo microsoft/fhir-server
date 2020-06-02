@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             if (await _fhirOperationDataStore.CheckActiveReindexJobsAsync(cancellationToken))
             {
-                throw new InvalidOperationException(Resources.OnlyOneResourceJobAllowed);
+                throw new JobConflictException(Resources.OnlyOneResourceJobAllowed);
             }
 
             // TODO: determine new parameters to index

@@ -67,8 +67,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string Since = "since";
 
-        public const string Input = "input";
-
         public const string FailureCount = "failureCount";
+
+        public const string Scope = "scope";
     }
 }

@@ -539,7 +539,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Only one active/paused reindex job allowed.  Cancel any previous jobs before submitting a new job..
+        ///   Looks up a localized string similar to Only one active or paused reindex job allowed.  Cancel any previous jobs before submitting a new job..
         /// </summary>
         internal static string OnlyOneResourceJobAllowed {
             get {

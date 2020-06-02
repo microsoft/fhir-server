@@ -5,6 +5,7 @@
 
 using EnsureThat;
 using Microsoft.Health.CosmosDb.Features.Storage;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Newtonsoft.Json;
 
@@ -31,9 +32,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Reindex
         [JsonProperty(KnownDocumentProperties.PartitionKey)]
         public override string PartitionKey { get; } = CosmosDbReindexConstants.ReindexJobPartitionKey;
 
-        public ReindexJobRecord ReindexJobRecord
-        {
-            get { return JobRecord as ReindexJobRecord; }
-        }
+        [JsonProperty(JobRecordProperties.JobRecord)]
+        public ReindexJobRecord JobRecord { get; private set; }
     }
 }
