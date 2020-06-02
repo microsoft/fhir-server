@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new RequestNotValidException(string.Format(Resources.OperationNotEnabled, OperationsConstants.Export));
             }
 
-            CreateExportResponse response = await _mediator.ExportAsync(_fhirRequestContextAccessor.FhirRequestContext.Uri, since, HttpContext.RequestAborted);
+            CreateExportResponse response = await _mediator.ExportAsync(_fhirRequestContextAccessor.FhirRequestContext.Uri, null, since, HttpContext.RequestAborted);
 
             var exportResult = ExportResult.Accepted();
             exportResult.SetContentLocationHeader(_urlResolver, OperationsConstants.Export, response.JobId);
@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.ExportResourceType)]
         [ServiceFilter(typeof(ValidateExportRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.Export)]
-        public IActionResult ExportResourceType(string typeParameter)
+        public async Task<IActionResult> ExportResourceType([FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since, string typeParameter)
         {
             // Export by ResourceType is supported only for Patient resource type.
             if (!string.Equals(typeParameter, ResourceType.Patient.ToString(), StringComparison.Ordinal))
@@ -102,7 +102,17 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new RequestNotValidException(string.Format(Resources.UnsupportedResourceType, typeParameter));
             }
 
-            return CheckIfExportIsEnabledAndRespond();
+            if (!_exportConfig.Enabled)
+            {
+                throw new RequestNotValidException(string.Format(Resources.OperationNotEnabled, OperationsConstants.Export));
+            }
+
+            CreateExportResponse response = await _mediator.ExportAsync(_fhirRequestContextAccessor.FhirRequestContext.Uri, typeParameter, since, HttpContext.RequestAborted);
+
+            var exportResult = ExportResult.Accepted();
+            exportResult.SetContentLocationHeader(_urlResolver, OperationsConstants.Export, response.JobId);
+
+            return exportResult;
         }
 
         [HttpGet]
