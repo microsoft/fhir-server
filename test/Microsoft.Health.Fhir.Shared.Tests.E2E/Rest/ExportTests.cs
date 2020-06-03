@@ -29,15 +29,26 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _client = fixture.HttpClient;
         }
 
+        [Fact]
+        public async Task GivenExportIsEnabled_WhenRequestingExportForResourceWithId_ThenServerShouldReturnMethodNotAllowed()
+        {
+            using HttpRequestMessage request = GenerateExportRequest("Group/id/$export");
+
+            using HttpResponseMessage response = await _client.SendAsync(request);
+
+            Assert.Equal(HttpStatusCode.MethodNotAllowed, response.StatusCode);
+        }
+
         [Theory]
-        [InlineData("Group/id/$export")]
-        public async Task GivenExportIsEnabled_WhenRequestingExportForResourceWithCorrectHeaders_ThenServerShouldReturnMethodNotAllowed(string path)
+        [InlineData("Observation/$export")]
+        [InlineData("Patient/id/$export")]
+        public async Task GivenExportIsEnabled_WhenRequestingExportByTypeWithAnInvalidResourceTyep_ThenServerShouldReturnBadRequest(string path)
         {
             using HttpRequestMessage request = GenerateExportRequest(path);
 
             using HttpResponseMessage response = await _client.SendAsync(request);
 
-            Assert.Equal(HttpStatusCode.MethodNotAllowed, response.StatusCode);
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         }
 
         [Theory]
