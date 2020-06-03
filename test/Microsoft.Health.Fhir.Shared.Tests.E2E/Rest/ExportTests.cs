@@ -34,9 +34,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("Group/id/$export")]
         public async Task GivenExportIsEnabled_WhenRequestingExportForResourceWithCorrectHeaders_ThenServerShouldReturnMethodNotAllowed(string path)
         {
-            HttpRequestMessage request = GenerateExportRequest(path);
+            using HttpRequestMessage request = GenerateExportRequest(path);
 
-            HttpResponseMessage response = await _client.SendAsync(request);
+            using HttpResponseMessage response = await _client.SendAsync(request);
 
             Assert.Equal(HttpStatusCode.MethodNotAllowed, response.StatusCode);
         }
@@ -44,9 +44,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public async Task GivenExportIsEnabled_WhenRequestingExportWithCorrectHeaders_ThenServerShouldReturnAcceptedAndNonEmptyContentLocationHeader()
         {
-            HttpRequestMessage request = GenerateExportRequest();
+            using HttpRequestMessage request = GenerateExportRequest();
 
-            HttpResponseMessage response = await _client.SendAsync(request);
+            using HttpResponseMessage response = await _client.SendAsync(request);
 
             Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
 
@@ -63,9 +63,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             {
                 { "anyQueryParam", "anyValue" },
             };
-            HttpRequestMessage request = GenerateExportRequest(queryParams: queryParam);
+            using HttpRequestMessage request = GenerateExportRequest(queryParams: queryParam);
 
-            HttpResponseMessage response = await _client.SendAsync(request);
+            using HttpResponseMessage response = await _client.SendAsync(request);
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         }
@@ -77,9 +77,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             {
                 { KnownQueryParameterNames.Since, DateTimeOffset.UtcNow.ToString() },
             };
-            HttpRequestMessage request = GenerateExportRequest(queryParams: queryParam);
+            using HttpRequestMessage request = GenerateExportRequest(queryParams: queryParam);
 
-            HttpResponseMessage response = await _client.SendAsync(request);
+            using HttpResponseMessage response = await _client.SendAsync(request);
 
             Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
 
@@ -93,21 +93,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenExportJobExists_WhenRequestingExportStatus_ThenServerShouldReturnAccepted()
         {
             // Sending an export request so that a job record will be created in the system.
-            HttpRequestMessage request = GenerateExportRequest();
+            using HttpRequestMessage request = GenerateExportRequest();
 
-            HttpResponseMessage response = await _client.SendAsync(request);
+            using HttpResponseMessage response = await _client.SendAsync(request);
 
             Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
 
             // Prepare get export status request.
             var uri = response.Content.Headers.ContentLocation;
-            HttpRequestMessage getStatusRequest = new HttpRequestMessage()
+            using HttpRequestMessage getStatusRequest = new HttpRequestMessage()
             {
                 Method = HttpMethod.Get,
                 RequestUri = uri,
             };
 
-            var getStatusResponse = await _client.SendAsync(getStatusRequest);
+            using HttpResponseMessage getStatusResponse = await _client.SendAsync(getStatusRequest);
 
             Assert.Equal(HttpStatusCode.Accepted, getStatusResponse.StatusCode);
 
@@ -118,13 +118,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenExportJobDoesNotExist_WhenRequestingExportStatus_ThenServerShouldReturnNotFound()
         {
             string getPath = OperationsConstants.Operations + "/" + OperationsConstants.Export + "/" + Guid.NewGuid();
-            HttpRequestMessage getStatusRequest = new HttpRequestMessage()
+            using HttpRequestMessage getStatusRequest = new HttpRequestMessage()
             {
                 Method = HttpMethod.Get,
                 RequestUri = new Uri(_client.BaseAddress, getPath),
             };
 
-            var getStatusResponse = await _client.SendAsync(getStatusRequest);
+            using HttpResponseMessage getStatusResponse = await _client.SendAsync(getStatusRequest);
             Assert.Equal(HttpStatusCode.NotFound, getStatusResponse.StatusCode);
         }
 
@@ -135,9 +135,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("")]
         public async Task GivenExportIsEnabled_WhenRequestingExportWithInvalidAcceptHeader_ThenServerShouldReturnBadRequest(string acceptHeaderValue)
         {
-            HttpRequestMessage request = GenerateExportRequest(acceptHeader: acceptHeaderValue);
+            using HttpRequestMessage request = GenerateExportRequest(acceptHeader: acceptHeaderValue);
 
-            HttpResponseMessage response = await _client.SendAsync(request);
+            using HttpResponseMessage response = await _client.SendAsync(request);
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         }
@@ -149,9 +149,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("")]
         public async Task GivenExportIsEnabled_WhenRequestingExportWithInvalidPreferHeader_ThenServerShouldReturnBadRequest(string preferHeaderValue)
         {
-            HttpRequestMessage request = GenerateExportRequest(preferHeader: preferHeaderValue);
+            using HttpRequestMessage request = GenerateExportRequest(preferHeader: preferHeaderValue);
 
-            HttpResponseMessage response = await _client.SendAsync(request);
+            using HttpResponseMessage response = await _client.SendAsync(request);
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         }

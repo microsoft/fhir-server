@@ -10,11 +10,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)AuthenticationSettings.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)FhirClient.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)FhirClientExtensions.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)FhirException.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)FhirResponse.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)FhirResponse{T}.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)TestFhirClient.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)TestApplication.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)TestApplications.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)TestUser.cs" />

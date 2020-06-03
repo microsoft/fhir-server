@@ -5,12 +5,12 @@
 
 using System;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
-using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Common.FhirClient;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
@@ -18,20 +18,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
     public partial class UpdateTests : IClassFixture<HttpIntegrationTestFixture>
     {
+        private readonly TestFhirClient _client;
+
         public UpdateTests(HttpIntegrationTestFixture fixture)
         {
-            Client = fixture.FhirClient;
+            _client = fixture.TestFhirClient;
         }
-
-        protected FhirClient Client { get; set; }
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenTheResource_WhenUpdatingAnExistingResource_TheServerShouldReturnTheUpdatedResourceSuccessfully()
         {
-            Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
+            Observation createdResource = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
-            FhirResponse<Observation> updateResponse = await Client.UpdateAsync(createdResource);
+            using FhirResponse<Observation> updateResponse = await _client.UpdateAsync(createdResource);
 
             Assert.Equal(System.Net.HttpStatusCode.OK, updateResponse.StatusCode);
 
@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var resourceToCreate = Samples.GetDefaultObservation().ToPoco<Observation>();
             resourceToCreate.Id = Guid.NewGuid().ToString();
 
-            FhirResponse<Observation> createResponse = await Client.UpdateAsync(resourceToCreate);
+            using FhirResponse<Observation> createResponse = await _client.UpdateAsync(resourceToCreate);
 
             Assert.Equal(System.Net.HttpStatusCode.Created, createResponse.StatusCode);
 
@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.NotNull(createResponse.Content.Headers.LastModified);
 
             Assert.Contains(createdResource.Meta.VersionId, createResponse.Headers.ETag.Tag);
-            TestHelper.AssertLocationHeaderIsCorrect(Client, createdResource, createResponse.Headers.Location);
+            TestHelper.AssertLocationHeaderIsCorrect(_client, createdResource, createResponse.Headers.Location);
             TestHelper.AssertLastUpdatedAndLastModifiedAreEqual(createdResource.Meta.LastUpdated, createResponse.Content.Headers.LastModified);
         }
 
@@ -84,7 +84,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 LastUpdated = DateTimeOffset.UtcNow.AddMilliseconds(-1),
             };
 
-            FhirResponse<Observation> createResponse = await Client.UpdateAsync(resourceToCreate);
+            using FhirResponse<Observation> createResponse = await _client.UpdateAsync(resourceToCreate);
 
             Assert.Equal(System.Net.HttpStatusCode.Created, createResponse.StatusCode);
 
@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.NotNull(createResponse.Content.Headers.LastModified);
 
             Assert.Contains(createdResource.Meta.VersionId, createResponse.Headers.ETag.Tag);
-            TestHelper.AssertLocationHeaderIsCorrect(Client, createdResource, createResponse.Headers.Location);
+            TestHelper.AssertLocationHeaderIsCorrect(_client, createdResource, createResponse.Headers.Location);
             TestHelper.AssertLastUpdatedAndLastModifiedAreEqual(createdResource.Meta.LastUpdated, createResponse.Content.Headers.LastModified);
         }
 
@@ -107,10 +107,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAMismatchedId_WhenUpdatingAResource_TheServerShouldReturnABadRequestResponse()
         {
-            Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
+            Observation createdResource = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
-            FhirException ex = await Assert.ThrowsAsync<FhirException>(
-                () => Client.UpdateAsync($"Observation/{Guid.NewGuid()}", createdResource));
+            using FhirException ex = await Assert.ThrowsAsync<FhirException>(
+                () => _client.UpdateAsync($"Observation/{Guid.NewGuid()}", createdResource));
 
             Assert.Equal(System.Net.HttpStatusCode.BadRequest, ex.StatusCode);
         }
@@ -121,8 +121,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             var resourceToCreate = Samples.GetDefaultObservation().ToPoco<Observation>();
 
-            FhirException ex = await Assert.ThrowsAsync<FhirException>(
-                () => Client.UpdateAsync($"Observation/{Guid.NewGuid()}", resourceToCreate));
+            using FhirException ex = await Assert.ThrowsAsync<FhirException>(
+                () => _client.UpdateAsync($"Observation/{Guid.NewGuid()}", resourceToCreate));
 
             Assert.Equal(System.Net.HttpStatusCode.BadRequest, ex.StatusCode);
         }
@@ -131,9 +131,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAnETagHeader_WhenUpdatingAResource_TheServerShouldReturnTheUpdatedResourceSuccessfully()
         {
-            Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
+            Observation createdResource = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
-            FhirResponse<Observation> updateResponse = await Client.UpdateAsync(createdResource, createdResource.Meta.VersionId);
+            using FhirResponse<Observation> updateResponse = await _client.UpdateAsync(createdResource, createdResource.Meta.VersionId);
 
             Assert.Equal(System.Net.HttpStatusCode.OK, updateResponse.StatusCode);
 

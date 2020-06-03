@@ -9,11 +9,11 @@ using System.Globalization;
 using System.Linq;
 using System.Net;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
-using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -250,7 +250,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public async Task GivenResources_WhenSearchedWithIncorrectSummaryParams_ThenExceptionShouldBeThrown(string key, string val)
         {
             Patient[] patients = await Client.CreateResourcesAsync<Patient>(3);
-            FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync($"Patient?{key}={val}"));
+            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync($"Patient?{key}={val}"));
 
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
@@ -357,7 +357,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             var totalType = TotalType.Estimate.ToString();
 
-            FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync($"Patient?_total={totalType}"));
+            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync($"Patient?_total={totalType}"));
 
             var expectedStatusCode = HttpStatusCode.Forbidden;
             Assert.Equal(expectedStatusCode, ex.StatusCode);
@@ -375,7 +375,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public async Task GivenListOfResources_WhenSearchedWithInvalidTotalType_ThenExceptionShouldBeThrown(string key, string val)
         {
             Patient[] patients = await Client.CreateResourcesAsync<Patient>(3);
-            FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync($"Patient?{key}={val}"));
+            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync($"Patient?{key}={val}"));
 
             var expectedStatusCode = HttpStatusCode.BadRequest;
             Assert.Equal(expectedStatusCode, ex.StatusCode);

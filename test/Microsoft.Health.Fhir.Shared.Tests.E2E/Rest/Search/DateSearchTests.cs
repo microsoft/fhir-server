@@ -6,8 +6,8 @@
 using System.Linq;
 using System.Net;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
-using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -158,7 +158,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [InlineData("!")]
         public async Task GivenAnInvalidDateTimeSearchParam_WhenSearched_ThenExceptionShouldBeThrown(string queryValue)
         {
-            var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.SearchAsync(ResourceType.Patient, $"birthdate={queryValue}"));
+            using var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.SearchAsync(ResourceType.Patient, $"birthdate={queryValue}"));
 
             Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
         }
@@ -168,7 +168,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [InlineData("1973-02-28T01:01:09.999999999999999999")]
         public async Task GivenAnOutOfRangeDateTimeSearchParam_WhenSearched_ThenExceptionShouldBeThrown(string queryValue)
         {
-            var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.SearchAsync(ResourceType.Patient, $"birthdate={queryValue}"));
+            using var fhirException = await Assert.ThrowsAsync<FhirException>(async () => await Client.SearchAsync(ResourceType.Patient, $"birthdate={queryValue}"));
 
             Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
         }

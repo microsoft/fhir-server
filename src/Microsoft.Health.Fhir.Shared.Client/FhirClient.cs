@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -14,42 +13,59 @@ using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
-using IdentityModel.Client;
-using Microsoft.Health.Fhir.Api.Features.Headers;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Tests.E2E.Rest;
-using Microsoft.Net.Http.Headers;
-using Newtonsoft.Json.Linq;
+using Microsoft.IdentityModel.JsonWebTokens;
 using Task = System.Threading.Tasks.Task;
+#if !R5
+using RestfulCapabilityMode = Hl7.Fhir.Model.CapabilityStatement.RestfulCapabilityMode;
+#endif
 
-namespace Microsoft.Health.Fhir.Tests.E2E.Common
+namespace Microsoft.Health.Fhir.Client
 {
     public class FhirClient
     {
-        private readonly TestFhirServer _testFhirServer;
-        private readonly TestApplication _clientApplication;
-        private readonly TestUser _user;
-        private readonly Dictionary<string, string> _bearerTokens = new Dictionary<string, string>();
+        private const string SmartOAuthUriExtension = "http://fhir-registry.smarthealthit.org/StructureDefinition/oauth-uris";
+        private const string SmartOAuthUriExtensionToken = "token";
+        private const string SmartOAuthUriExtensionAuthorize = "authorize";
+
+        private const string IfNoneExistHeaderName = "If-None-Exist";
+        private const string IfMatchHeaderName = "If-Match";
+
         private readonly string _contentType;
 
         private readonly Func<Base, SummaryType, string> _serialize;
         private readonly Func<string, Resource> _deserialize;
         private readonly MediaTypeWithQualityHeaderValue _mediaType;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="FhirClient"/> class.
+        /// </summary>
+        /// <param name="baseAddress">The address of the FHIR server to communicate with.</param>
+        /// <param name="format">The format to communicate with the FHIR server.</param>
+        /// <exception cref="InvalidOperationException">Returned if the format specified is invalid.</exception>
+        public FhirClient(Uri baseAddress, ResourceFormat format)
+            : this(new HttpClient { BaseAddress = baseAddress }, format)
+        {
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="FhirClient"/> class.
+        /// </summary>
+        /// <param name="httpClient">The HttpClient to use for communication. It must have a BaseAddress specified.</param>
+        /// <param name="format">The format to communicate with the FHIR server.</param>
+        /// <exception cref="InvalidOperationException">Returned if the format specified is invalid.</exception>
         public FhirClient(
             HttpClient httpClient,
-            TestFhirServer testFhirServer,
-            ResourceFormat format,
-            TestApplication clientApplication,
-            TestUser user,
-            (bool SecurityEnabled, string AuthorizeUrl, string TokenUrl) securitySettings)
+            ResourceFormat format)
         {
-            _testFhirServer = testFhirServer;
-            _clientApplication = clientApplication;
-            _user = user;
+            EnsureArg.IsNotNull(httpClient, nameof(httpClient));
+
+            if (httpClient.BaseAddress == null)
+            {
+                throw new ArgumentException(Resources.BaseAddressMustBeSpecified);
+            }
+
             HttpClient = httpClient;
             Format = format;
-            SecuritySettings = securitySettings;
 
             if (format == ResourceFormat.Json)
             {
@@ -81,31 +97,32 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             }
 
             _mediaType = MediaTypeWithQualityHeaderValue.Parse(_contentType);
-            SetupAuthenticationAsync(clientApplication, user).GetAwaiter().GetResult();
         }
 
         public ResourceFormat Format { get; }
 
-        public (bool SecurityEnabled, string AuthorizeUrl, string TokenUrl) SecuritySettings { get; }
+        /// <summary>
+        /// Value representing if the FHIR server has security options present in the metadata.
+        /// <remarks><value>null</value> indicates that the <see cref="ConfigureSecurityOptions"/> method has not been called.</remarks>
+        /// </summary>
+        public bool? SecurityEnabled { get; private set; }
+
+        public Uri AuthorizeUri { get; private set; }
+
+        public Uri TokenUri { get; private set; }
 
         public HttpClient HttpClient { get; }
 
-        public FhirClient CreateClientForUser(TestUser user, TestApplication clientApplication)
-        {
-            EnsureArg.IsNotNull(user, nameof(user));
-            EnsureArg.IsNotNull(clientApplication, nameof(clientApplication));
-            return _testFhirServer.GetFhirClient(Format, clientApplication, user);
-        }
+        public DateTime TokenExpiration { get; private set; }
 
-        public FhirClient CreateClientForClientApplication(TestApplication clientApplication)
+        public void SetBearerToken(string token)
         {
-            EnsureArg.IsNotNull(clientApplication, nameof(clientApplication));
-            return _testFhirServer.GetFhirClient(Format, clientApplication, null);
-        }
+            EnsureArg.IsNotNullOrWhiteSpace(token, nameof(token));
 
-        public FhirClient Clone()
-        {
-            return _testFhirServer.GetFhirClient(Format, _clientApplication, _user, reusable: false);
+            var decodedToken = new JsonWebToken(token);
+            TokenExpiration = decodedToken.ValidTo;
+
+            HttpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         }
 
         public Task<FhirResponse<T>> CreateAsync<T>(T resource, string conditionalCreateCriteria = null)
@@ -123,10 +140,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 
             if (!string.IsNullOrEmpty(conditionalCreateCriteria))
             {
-                message.Headers.TryAddWithoutValidation(KnownFhirHeaders.IfNoneExist, conditionalCreateCriteria);
+                message.Headers.TryAddWithoutValidation(IfNoneExistHeaderName, conditionalCreateCriteria);
             }
 
-            HttpResponseMessage response = await HttpClient.SendAsync(message);
+            using HttpResponseMessage response = await HttpClient.SendAsync(message);
 
             await EnsureSuccessStatusCodeAsync(response);
 
@@ -181,9 +198,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 
             if (ifMatchVersion != null)
             {
-                WeakETag weakETag = WeakETag.FromVersionId(ifMatchVersion);
+                var weakETag = $"W/\"{ifMatchVersion}\"";
 
-                request.Headers.Add(HeaderNames.IfMatch, weakETag.ToString());
+                request.Headers.Add(IfMatchHeaderName, weakETag);
             }
 
             HttpResponseMessage response = await HttpClient.SendAsync(request);
@@ -374,67 +391,35 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
                 string.IsNullOrWhiteSpace(content) ? null : (T)_deserialize(content));
         }
 
-        private async Task SetupAuthenticationAsync(TestApplication clientApplication, TestUser user = null)
+        /// <summary>
+        /// Set the security options on the <see cref="FhirClient"/>.
+        /// <remarks>Examines the metadata endpoint to determine if there's a token and authorize url exposed and sets the property <see cref="SecurityEnabled"/> to <value>true</value> or <value>false</value> based on this.
+        /// Additionally, the <see cref="TokenUri"/> and <see cref="AuthorizeUri"/> are set if they are found.</remarks>
+        /// </summary>
+        public void ConfigureSecurityOptions()
         {
-            if (SecuritySettings.SecurityEnabled)
-            {
-                var tokenKey = $"{clientApplication.ClientId}:{(user == null ? string.Empty : user.UserId)}";
+            bool localSecurityEnabled = false;
 
-                if (!_bearerTokens.TryGetValue(tokenKey, out string bearerToken))
+            using FhirResponse<CapabilityStatement> readResponse = ReadAsync<CapabilityStatement>("metadata").GetAwaiter().GetResult();
+            CapabilityStatement metadata = readResponse.Resource;
+
+            foreach (var rest in metadata.Rest.Where(r => r.Mode == RestfulCapabilityMode.Server))
+            {
+                var oauth = rest.Security?.GetExtension(SmartOAuthUriExtension);
+                if (oauth != null)
                 {
-                    bearerToken = await GetBearerToken(clientApplication, user);
-                    _bearerTokens[tokenKey] = bearerToken;
+                    var tokenUrl = oauth.GetExtensionValue<FhirUri>(SmartOAuthUriExtensionToken).Value;
+                    var authorizeUrl = oauth.GetExtensionValue<FhirUri>(SmartOAuthUriExtensionAuthorize).Value;
+
+                    localSecurityEnabled = true;
+                    TokenUri = new Uri(tokenUrl);
+                    AuthorizeUri = new Uri(authorizeUrl);
+
+                    break;
                 }
-
-                HttpClient.SetBearerToken(bearerToken);
-            }
-        }
-
-        private async Task<string> GetBearerToken(TestApplication clientApplication, TestUser user)
-        {
-            if (clientApplication.Equals(TestApplications.InvalidClient))
-            {
-                return null;
             }
 
-            var formContent = new FormUrlEncodedContent(user == null ? GetAppSecuritySettings(clientApplication) : GetUserSecuritySettings(clientApplication, user));
-
-            HttpResponseMessage tokenResponse = await HttpClient.PostAsync(SecuritySettings.TokenUrl, formContent);
-
-            var tokenJson = JObject.Parse(await tokenResponse.Content.ReadAsStringAsync());
-
-            var bearerToken = tokenJson["access_token"].Value<string>();
-
-            return bearerToken;
-        }
-
-        private List<KeyValuePair<string, string>> GetAppSecuritySettings(TestApplication clientApplication)
-        {
-            string scope = clientApplication == TestApplications.WrongAudienceClient ? clientApplication.ClientId : AuthenticationSettings.Scope;
-            string resource = clientApplication == TestApplications.WrongAudienceClient ? clientApplication.ClientId : AuthenticationSettings.Resource;
-
-            return new List<KeyValuePair<string, string>>
-            {
-                new KeyValuePair<string, string>("client_id", clientApplication.ClientId),
-                new KeyValuePair<string, string>("client_secret", clientApplication.ClientSecret),
-                new KeyValuePair<string, string>("grant_type", clientApplication.GrantType),
-                new KeyValuePair<string, string>("scope", scope),
-                new KeyValuePair<string, string>("resource", resource),
-            };
-        }
-
-        private List<KeyValuePair<string, string>> GetUserSecuritySettings(TestApplication clientApplication, TestUser user)
-        {
-            return new List<KeyValuePair<string, string>>
-            {
-                new KeyValuePair<string, string>("client_id", clientApplication.ClientId),
-                new KeyValuePair<string, string>("client_secret", clientApplication.ClientSecret),
-                new KeyValuePair<string, string>("grant_type", user.GrantType),
-                new KeyValuePair<string, string>("scope", AuthenticationSettings.Scope),
-                new KeyValuePair<string, string>("resource", AuthenticationSettings.Resource),
-                new KeyValuePair<string, string>("username", user.UserId),
-                new KeyValuePair<string, string>("password", user.Password),
-            };
+            SecurityEnabled = localSecurityEnabled;
         }
     }
 }

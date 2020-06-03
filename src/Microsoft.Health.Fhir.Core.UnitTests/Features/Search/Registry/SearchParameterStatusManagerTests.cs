@@ -147,13 +147,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
         }
 
         [Fact]
-        public async Task GivenASPStatusManager_WhenInitializing_ThenRegistryShouldGetNewlyFoundParameters()
+        public async Task GivenASPStatusManager_WhenInitializing_ThenRegistryShouldNotUpdateNewlyFoundParameters()
         {
             await _manager.EnsureInitialized();
 
             await _searchParameterRegistry
-                .Received()
-                .UpdateStatuses(Arg.Is<IEnumerable<ResourceSearchParameterStatus>>(x => x.Single().Uri == _queryParameter.Url));
+                .DidNotReceive()
+                .UpdateStatuses(Arg.Any<IEnumerable<ResourceSearchParameterStatus>>());
         }
     }
 }

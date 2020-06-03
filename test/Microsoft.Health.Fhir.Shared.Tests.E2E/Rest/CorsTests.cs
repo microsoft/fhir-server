@@ -20,11 +20,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class CorsTests : IClassFixture<HttpIntegrationTestFixture>
     {
-        private readonly FhirClient _client;
+        private readonly TestFhirClient _client;
 
         public CorsTests(HttpIntegrationTestFixture fixture)
         {
-            _client = fixture.FhirClient;
+            _client = fixture.TestFhirClient;
         }
 
         [Fact]
@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             message.Headers.Add(HeaderNames.AccessControlRequestHeaders, "authorization");
             message.Headers.Add(HeaderNames.AccessControlRequestHeaders, "content-type");
 
-            HttpResponseMessage response = await _client.HttpClient.SendAsync(message);
+            using HttpResponseMessage response = await _client.HttpClient.SendAsync(message);
 
             Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
             Assert.Contains("https://localhost:6001", response.Headers.GetValues(HeaderNames.AccessControlAllowOrigin));
