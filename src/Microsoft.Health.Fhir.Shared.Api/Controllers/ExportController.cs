@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         public async Task<IActionResult> Export([FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since)
         {
             CheckIfExportIsEnabled();
-            return await CreateExportJob(since);
+            return await SendExportRequest(since);
         }
 
         [HttpGet]
@@ -95,7 +95,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new RequestNotValidException(string.Format(Resources.UnsupportedResourceType, typeParameter));
             }
 
-            return await CreateExportJob(since, typeParameter);
+            return await SendExportRequest(since, typeParameter);
         }
 
         [HttpGet]
@@ -149,7 +149,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return new ExportResult(response.StatusCode);
         }
 
-        private async Task<IActionResult> CreateExportJob(PartialDateTime since, string type = null)
+        private async Task<IActionResult> SendExportRequest(PartialDateTime since, string type = null)
         {
             CreateExportResponse response = await _mediator.ExportAsync(_fhirRequestContextAccessor.FhirRequestContext.Uri, type, since, HttpContext.RequestAborted);
 
