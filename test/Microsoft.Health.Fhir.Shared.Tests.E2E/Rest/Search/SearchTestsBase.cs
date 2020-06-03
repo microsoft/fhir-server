@@ -8,6 +8,7 @@ using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
 using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Common.FhirClient;
 
@@ -46,11 +47,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         protected async Task<Bundle> ExecuteAndValidateBundle(string searchUrl, string selfLink, bool sort, params Resource[] expectedResources)
         {
-            Bundle bundle = await Client.SearchAsync(searchUrl);
+            FhirResponse<Bundle> firstBundle = await Client.SearchAsync(searchUrl);
 
-            ValidateBundle(bundle, selfLink, sort, expectedResources);
+            var firstExpectedResources = expectedResources.Length > 10 ? expectedResources.ToList().GetRange(0, 10).ToArray() : expectedResources;
+            ValidateBundle(firstBundle, selfLink, sort, firstExpectedResources);
 
-            return bundle;
+            var nextLink = (firstBundle.Resource.NextLink == null) ? null : firstBundle.Resource.NextLink.ToString();
+
+            if (nextLink != null)
+            {
+                FhirResponse<Bundle> secondBundle = await Client.SearchAsync(nextLink);
+                ValidateBundle(secondBundle, nextLink.Substring(17), sort, expectedResources.ToList().GetRange(10, expectedResources.Length - 10).ToArray());
+            }
+
+            return firstBundle;
         }
 
         protected void ValidateBundle(Bundle bundle, string selfLink, params Resource[] expectedResources)
