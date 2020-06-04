@@ -246,7 +246,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             throw new NotImplementedException();
         }
 
-        public Task<ReindexJobWrapper> GetReindexJobByIdAsync(object jobId, CancellationToken cancellationToken)
+        public Task<ReindexJobWrapper> GetReindexJobByIdAsync(string jobId, CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }

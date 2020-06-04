@@ -11,7 +11,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
     /// <summary>
     /// A base wrapper for job record wrapper classes that contain metadata specific to CosmosDb.
     /// </summary>
-    internal abstract class CosmosJobRecordWrapper
+    internal abstract class CosmosJobRecordWrapper : SystemData
     {
         [JsonConstructor]
         protected CosmosJobRecordWrapper()
@@ -20,14 +20,5 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 
         [JsonProperty(KnownDocumentProperties.PartitionKey)]
         public abstract string PartitionKey { get; }
-
-        [JsonProperty(KnownDocumentProperties.Id)]
-        public string Id { get; set; }
-
-        [JsonProperty(KnownDocumentProperties.ETag)]
-        public string ETag { get; protected set; }
-
-        [JsonProperty(KnownDocumentProperties.IsSystem)]
-        public bool IsSystem { get; } = true;
     }
 }

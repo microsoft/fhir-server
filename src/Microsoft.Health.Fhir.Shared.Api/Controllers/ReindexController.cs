@@ -27,7 +27,6 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
-using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Api.Controllers
 {
@@ -39,6 +38,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly ReindexJobConfiguration _config;
         private readonly ILogger<ReindexController> _logger;
+        private static Dictionary<string, HashSet<string>> _supportedParams = InitSupportedParams();
 
         public ReindexController(
             IMediator mediator,
@@ -63,6 +63,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.Reindex)]
         public async Task<IActionResult> CreateReindexJob([FromBody] string body)
         {
+            CheckIfReindexIsEnabledAndRespond();
+
             var parameters = ValidateBody(body);
 
             int? maximumConcurrency = ReadNumericParameter(parameters, JobRecordProperties.MaximumConcurrency);
@@ -125,17 +127,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     var parser = new FhirJsonParser();
                     var parameters = parser.Parse<Parameters>(body);
 
-                    var supportedParams = new HashSet<string>();
-                    if (HttpMethods.IsPost(Request.Method))
-                    {
-                        supportedParams.Add(JobRecordProperties.MaximumConcurrency);
-                        supportedParams.Add(JobRecordProperties.Scope);
-                    }
-                    else if (HttpMethods.IsPatch(Request.Method))
-                    {
-                        supportedParams.Add(JobRecordProperties.MaximumConcurrency);
-                        supportedParams.Add(JobRecordProperties.Status);
-                    }
+                    var supportedParams = _supportedParams[Request.Method];
 
                     foreach (var param in parameters.Parameter)
                     {
@@ -148,16 +140,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
                     return parameters;
                 }
-                catch (JsonException jex)
+                catch (FormatException ex)
                 {
-                    _logger.LogInformation("Failed to deserialize reindex job request body as Parameters resource. Error: {0}", jex.Message);
+                    _logger.LogInformation("Failed to deserialize reindex job request body as Parameters resource. Error: {0}", ex.Message);
                     throw new RequestNotValidException(Resources.ReindexParametersNotValid);
                 }
             }
-            else
-            {
-                return null;
-            }
+
+            return null;
         }
 
         private int? ReadNumericParameter(Parameters parameters, string paramName)
@@ -191,6 +181,27 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
 
             return param.Value?.ToString();
+        }
+
+        private static Dictionary<string, HashSet<string>> InitSupportedParams()
+        {
+            var postParams = new HashSet<string>()
+            {
+                JobRecordProperties.MaximumConcurrency,
+                JobRecordProperties.Scope,
+            };
+
+            var patchParams = new HashSet<string>()
+            {
+                JobRecordProperties.MaximumConcurrency,
+                JobRecordProperties.Status,
+            };
+
+            var supportedParams = new Dictionary<string, HashSet<string>>();
+            supportedParams.Add(HttpMethods.Post, postParams);
+            supportedParams.Add(HttpMethods.Patch, patchParams);
+
+            return supportedParams;
         }
     }
 }
