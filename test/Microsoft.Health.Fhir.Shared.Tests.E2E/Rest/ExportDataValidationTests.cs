@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 return false;
             }
 
-            // Enable this check when creating/updating data validation tests to ensure there is data to export.
+            // Enable this check when creating/updating data validation tests to ensure there is data to export
             /*
             if (dataFromStorageAccount.Count == 0)
             {
