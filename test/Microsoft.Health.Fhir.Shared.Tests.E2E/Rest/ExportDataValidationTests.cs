@@ -68,11 +68,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 return false;
             }
 
+            // Enable this check when creating/updating data validation tests to ensure there is data to export.
+            /*
             if (dataFromStorageAccount.Count == 0)
             {
                 _outputHelper.WriteLine("No data exported. This test expects data to be present.");
                 return false;
             }
+            */
 
             int wrongCount = 0;
             foreach (KeyValuePair<string, string> kvp in dataFromServer)
