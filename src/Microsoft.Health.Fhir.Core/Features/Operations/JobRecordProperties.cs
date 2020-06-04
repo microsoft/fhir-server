@@ -68,5 +68,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public const string Input = "input";
 
         public const string FailureCount = "failureCount";
+
+        public const string StorageAccountConnectionHash = "storageAccountConnectionHash";
+
+        public const string StorageAccountUri = "storageAccountUri";
     }
 }

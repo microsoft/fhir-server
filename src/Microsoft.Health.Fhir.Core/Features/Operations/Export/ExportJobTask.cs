@@ -72,8 +72,35 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             try
             {
+                ExportJobConfiguration exportJobConfiguration = _exportJobConfiguration;
+
+                string connectionHash = string.Empty;
+                if (!string.IsNullOrEmpty(_exportJobConfiguration.StorageAccountConnection))
+                {
+                    connectionHash = System.Text.Encoding.UTF8.GetString(
+                        System.Security.Cryptography.SHA512.Create().ComputeHash(
+                            System.Text.Encoding.UTF8.GetBytes(_exportJobConfiguration.StorageAccountConnection)));
+                }
+
+                if (string.IsNullOrEmpty(exportJobRecord.StorageAccountUri) && string.IsNullOrEmpty(_exportJobConfiguration.StorageAccountUri))
+                {
+                    if (!string.Equals(exportJobRecord.StorageAccountConnectionHash, connectionHash, StringComparison.Ordinal))
+                    {
+                        throw new DestinationConnectionException("Storage account connection string was updated during an export job.", HttpStatusCode.BadRequest);
+                    }
+                }
+                else
+                {
+                    if (!string.Equals(exportJobRecord.StorageAccountUri, _exportJobConfiguration.StorageAccountUri, StringComparison.Ordinal))
+                    {
+                        exportJobConfiguration = new ExportJobConfiguration();
+                        exportJobConfiguration.Enabled = _exportJobConfiguration.Enabled;
+                        exportJobConfiguration.StorageAccountUri = exportJobRecord.StorageAccountUri;
+                    }
+                }
+
                 // Connect to export destination using appropriate client.
-                await _exportDestinationClient.ConnectAsync(cancellationToken, _exportJobRecord.Id);
+                await _exportDestinationClient.ConnectAsync(exportJobConfiguration, cancellationToken, _exportJobRecord.Id);
 
                 // If we are resuming a job, we can detect that by checking the progress info from the job record.
                 // If it is null, then we know we are processing a new job.
@@ -139,7 +166,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     if (progress.Page % _exportJobConfiguration.NumberOfPagesPerCommit == 0)
                     {
                         // Commit the changes.
-                        await _exportDestinationClient.CommitAsync(cancellationToken);
+                        await _exportDestinationClient.CommitAsync(exportJobConfiguration, cancellationToken);
 
                         // Update the job record.
                         await UpdateJobRecordAsync(cancellationToken);
@@ -149,7 +176,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 }
 
                 // Commit one last time for any pending changes.
-                await _exportDestinationClient.CommitAsync(cancellationToken);
+                await _exportDestinationClient.CommitAsync(exportJobConfiguration, cancellationToken);
 
                 await CompleteJobAsync(OperationStatus.Completed, cancellationToken);
 
