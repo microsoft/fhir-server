@@ -9,6 +9,7 @@ using System.Net;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -24,7 +25,6 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
-using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
 using Newtonsoft.Json;
@@ -65,8 +65,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             var parameters = ValidateBody(body);
 
-            int? maximumConcurrency = ReadNumericParameter(parameters, ReindexJobParameters.MaximumConcurrency);
-            string scope = ReadStringParameter(parameters, ReindexJobParameters.Scope);
+            int? maximumConcurrency = ReadNumericParameter(parameters, JobRecordProperties.MaximumConcurrency);
+            string scope = ReadStringParameter(parameters, JobRecordProperties.Scope);
 
             ResourceElement response = await _mediator.CreateReindexJobAsync(maximumConcurrency, scope, HttpContext.RequestAborted);
 
@@ -122,18 +122,19 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             {
                 try
                 {
-                    var parameters = JsonConvert.DeserializeObject<Parameters>(body);
+                    var parser = new FhirJsonParser();
+                    var parameters = parser.Parse<Parameters>(body);
 
                     var supportedParams = new HashSet<string>();
                     if (HttpMethods.IsPost(Request.Method))
                     {
-                        supportedParams.Add(ReindexJobParameters.MaximumConcurrency);
-                        supportedParams.Add(ReindexJobParameters.Scope);
+                        supportedParams.Add(JobRecordProperties.MaximumConcurrency);
+                        supportedParams.Add(JobRecordProperties.Scope);
                     }
-                    else if (HttpMethods.IsPost(Request.Method))
+                    else if (HttpMethods.IsPatch(Request.Method))
                     {
-                        supportedParams.Add(ReindexJobParameters.MaximumConcurrency);
-                        supportedParams.Add(ReindexJobParameters.Status);
+                        supportedParams.Add(JobRecordProperties.MaximumConcurrency);
+                        supportedParams.Add(JobRecordProperties.Status);
                     }
 
                     foreach (var param in parameters.Parameter)

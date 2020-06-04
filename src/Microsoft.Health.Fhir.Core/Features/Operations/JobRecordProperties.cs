@@ -70,5 +70,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public const string FailureCount = "failureCount";
 
         public const string Scope = "scope";
+
+        public const string MaximumConcurrency = "maximumConcurrency";
     }
 }

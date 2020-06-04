@@ -37,6 +37,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         [JsonProperty(JobRecordProperties.Scope)]
         public string Scope { get; private set; }
 
+        [JsonProperty(JobRecordProperties.MaximumConcurrency)]
+        public ushort MaximumConcurrency { get; private set; }
+
         [JsonProperty(JobRecordProperties.Error)]
         public IList<OperationOutcomeIssue> Error { get; private set; } = new List<OperationOutcomeIssue>();
 
