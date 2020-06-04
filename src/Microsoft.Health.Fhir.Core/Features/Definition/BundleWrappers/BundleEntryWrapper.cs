@@ -3,27 +3,28 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.FhirPath;
 
-namespace Microsoft.Health.Fhir.Core.Features.Definition.BundleNavigators
+namespace Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers
 {
     internal class BundleEntryWrapper
     {
-        private readonly ITypedElement _entry;
+        private readonly Lazy<ITypedElement> _entry;
 
         public BundleEntryWrapper(ITypedElement entry)
         {
             EnsureArg.IsNotNull(entry, nameof(entry));
 
-            _entry = entry;
+            _entry = new Lazy<ITypedElement>(() => entry.Select("resource").FirstOrDefault());
         }
 
-        public ITypedElement GetResource()
+        public ITypedElement Resource
         {
-            return _entry.Select("resource").FirstOrDefault();
+            get => _entry.Value;
         }
     }
 }

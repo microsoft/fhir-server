@@ -66,7 +66,7 @@
 
         private static Dictionary<string, List<SearchIndexEntry>> ExtractSearchIndexByCompartmentType(IReadOnlyCollection<SearchIndexEntry> searchIndices)
         {
-            var retDict = new Dictionary<string, List<SearchIndexEntry>>();
+            var searchIndexEntriesByCompartmentType = new Dictionary<string, List<SearchIndexEntry>>();
 
             foreach (var indexEntry in searchIndices)
             {
@@ -74,17 +74,17 @@
                 {
                     string key = compartmentType.ToString();
 
-                    if (!retDict.TryGetValue(key, out List<SearchIndexEntry> searchIndexEntries))
+                    if (!searchIndexEntriesByCompartmentType.TryGetValue(key, out List<SearchIndexEntry> searchIndexEntries))
                     {
                         searchIndexEntries = new List<SearchIndexEntry>();
-                        retDict[key] = searchIndexEntries;
+                        searchIndexEntriesByCompartmentType[key] = searchIndexEntries;
                     }
 
                     searchIndexEntries.Add(indexEntry);
                 }
             }
 
-            return retDict;
+            return searchIndexEntriesByCompartmentType;
         }
     }
 }

@@ -5,12 +5,12 @@
 
 using System;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
-using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Common.FhirClient;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
@@ -18,20 +18,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
     public class ReadTests : IClassFixture<HttpIntegrationTestFixture>
     {
+        private readonly TestFhirClient _client;
+
         public ReadTests(HttpIntegrationTestFixture fixture)
         {
-            Client = fixture.FhirClient;
+            _client = fixture.TestFhirClient;
         }
-
-        protected FhirClient Client { get; set; }
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAnId_WhenGettingAResource_TheServerShouldReturnTheAppropriateResourceSuccessfully()
         {
-            Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
+            Observation createdResource = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
-            FhirResponse<Observation> readResponse = await Client.ReadAsync<Observation>(ResourceType.Observation, createdResource.Id);
+            using FhirResponse<Observation> readResponse = await _client.ReadAsync<Observation>(ResourceType.Observation, createdResource.Id);
 
             Observation readResource = readResponse.Resource;
 
@@ -49,8 +49,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenANonExistantId_WhenGettingAResource_TheServerShouldReturnANotFoundStatus()
         {
-            FhirException ex = await Assert.ThrowsAsync<FhirException>(
-                () => Client.ReadAsync<Observation>(ResourceType.Observation, Guid.NewGuid().ToString()));
+            using FhirException ex = await Assert.ThrowsAsync<FhirException>(
+                () => _client.ReadAsync<Observation>(ResourceType.Observation, Guid.NewGuid().ToString()));
 
             Assert.Equal(System.Net.HttpStatusCode.NotFound, ex.StatusCode);
         }
@@ -59,12 +59,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenADeletedId_WhenGettingAResource_TheServerShouldReturnAGoneStatus()
         {
-            Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
+            Observation createdResource = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
-            await Client.DeleteAsync(createdResource);
+            await _client.DeleteAsync(createdResource);
 
-            FhirException ex = await Assert.ThrowsAsync<FhirException>(
-                () => Client.ReadAsync<Observation>(ResourceType.Observation, createdResource.Id));
+            using FhirException ex = await Assert.ThrowsAsync<FhirException>(
+                () => _client.ReadAsync<Observation>(ResourceType.Observation, createdResource.Id));
 
             Assert.Equal(System.Net.HttpStatusCode.Gone, ex.StatusCode);
         }

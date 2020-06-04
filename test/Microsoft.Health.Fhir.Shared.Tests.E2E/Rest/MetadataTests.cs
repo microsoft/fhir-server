@@ -5,11 +5,11 @@
 
 using System.Net;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
-using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Common.FhirClient;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
@@ -17,18 +17,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
     public class MetadataTests : IClassFixture<HttpIntegrationTestFixture>
     {
+        private readonly TestFhirClient _client;
+
         public MetadataTests(HttpIntegrationTestFixture fixture)
         {
-            Client = fixture.FhirClient;
+            _client = fixture.TestFhirClient;
         }
-
-        protected FhirClient Client { get; set; }
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenInvalidFormatParameter_WhenGettingMetadata_TheServerShouldReturnNotAcceptable()
         {
-            FhirException ex = await Assert.ThrowsAsync<FhirException>(async () => await Client.ReadAsync<CapabilityStatement>("metadata?_format=blah"));
+            using FhirException ex = await Assert.ThrowsAsync<FhirException>(async () => await _client.ReadAsync<CapabilityStatement>("metadata?_format=blah"));
             Assert.Equal(HttpStatusCode.NotAcceptable, ex.StatusCode);
         }
 
@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenInvalidPrettyParameter_WhenGettingMetadata_TheServerShouldReturnBadRequest(string value)
         {
-            FhirException ex = await Assert.ThrowsAsync<FhirException>(async () => await Client.ReadAsync<CapabilityStatement>($"metadata?_pretty={value}"));
+            using FhirException ex = await Assert.ThrowsAsync<FhirException>(async () => await _client.ReadAsync<CapabilityStatement>($"metadata?_pretty={value}"));
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
     }

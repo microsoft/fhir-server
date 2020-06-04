@@ -6,9 +6,9 @@
 using System.Collections.Generic;
 using System.Web;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
-using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -185,7 +185,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAnIncludeSearchExpressionWithMultipleDenormalizedParametersAndTableParameters_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
-            var newDiagnosticReportResponse = await Fixture.FhirClient.CreateAsync(
+            var newDiagnosticReportResponse = await Fixture.TestFhirClient.CreateAsync(
                 new DiagnosticReport
                 {
                     Meta = new Meta { Tag = new List<Coding> { new Coding("testTag", Fixture.Tag) } },
@@ -213,7 +213,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateSearchEntryMode(bundle, ResourceType.DiagnosticReport);
 
             // delete the extra entry added
-            await Fixture.FhirClient.DeleteAsync(newDiagnosticReportResponse.Resource);
+            await Fixture.TestFhirClient.DeleteAsync(newDiagnosticReportResponse.Resource);
         }
 
         [Fact]

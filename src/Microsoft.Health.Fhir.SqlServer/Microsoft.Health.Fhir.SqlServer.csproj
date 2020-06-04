@@ -8,23 +8,27 @@
     <None Remove="Features\Schema\Migrations\1.sql" />
     <None Remove="Features\Schema\Migrations\2.diff.sql" />
     <None Remove="Features\Schema\Migrations\2.sql" />
+    <None Remove="Features\Schema\Migrations\3.diff.sql" />
+    <None Remove="Features\Schema\Migrations\3.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\1.sql" />
+    <EmbeddedResource Include="Features\Schema\Migrations\3.diff.sql" />
+    <EmbeddedResource Include="Features\Schema\Migrations\3.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\2.diff.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\2.sql" />
     <GenerateFilesInputs Include="Features\Schema\Migrations\2.sql" />
     <Generated Include="Features\Schema\Model\VLatest.Generated.cs">
       <Generator>SqlModelGenerator</Generator>
       <Namespace>Microsoft.Health.Fhir.SqlServer.Features.Schema.Model</Namespace>
-      <Args>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)\Features\Schema\Migrations\2.sql'))</Args>
+      <Args>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)\Features\Schema\Migrations\3.sql'))</Args>
     </Generated>
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Ensure.That" Version="8.1.2" />
-    <PackageReference Include="Microsoft.Health.Abstractions" Version="1.0.0-master-20200507-1" />
-    <PackageReference Include="Microsoft.Health.SqlServer" Version="1.0.0-master-20200507-1" />
-    <PackageReference Include="Microsoft.Health.SqlServer.Api" Version="1.0.0-master-20200507-1" />
-    <PackageReference Include="Microsoft.Health.Extensions.BuildTimeCodeGenerator" Version="1.0.0-master-20200507-1" />
+    <PackageReference Include="Microsoft.Health.Abstractions" Version="1.0.0-master-20200528-2" />
+    <PackageReference Include="Microsoft.Health.SqlServer" Version="1.0.0-master-20200528-2" />
+    <PackageReference Include="Microsoft.Health.SqlServer.Api" Version="1.0.0-master-20200528-2" />
+    <PackageReference Include="Microsoft.Health.Extensions.BuildTimeCodeGenerator" Version="1.0.0-master-20200528-2" />
     <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" Version="1.3.2" />
     <PackageReference Include="Microsoft.SqlServer.SqlManagementObjects" Version="150.18208.0" />
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions" Version="3.1.3" />

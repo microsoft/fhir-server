@@ -5,8 +5,8 @@
 
 using System.Collections.Generic;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
-using Microsoft.Health.Fhir.Tests.E2E.Common;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
@@ -16,9 +16,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             : base(dataStore, format, testFhirServerFactory)
         {
             // Prepare the resources used for string search tests.
-            FhirClient.DeleteAllResources(ResourceType.Patient).Wait();
+            TestFhirClient.DeleteAllResources(ResourceType.Patient).Wait();
 
-            Patients = FhirClient.CreateResourcesAsync<Patient>(
+            Patients = TestFhirClient.CreateResourcesAsync<Patient>(
                 p => p.ManagingOrganization = new ResourceReference("Organization/123"),
                 p => p.ManagingOrganization = new ResourceReference("Organization/abc"))
                 .Result;

@@ -3,15 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
+using System.Resources;
 
-namespace FhirSchemaManager.Commands
-{
-    public static class CurrentCommand
-    {
-        public static void Handler(Uri fhirServer)
-        {
-            Console.WriteLine($"--fhir-server {fhirServer}");
-        }
-    }
-}
+[assembly: NeutralResourcesLanguage("en-us")]

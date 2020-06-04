@@ -54,7 +54,7 @@ jobs:
         $templateParameters = @{
             fhirVersion = "${{ parameters.version }}"
             appServicePlanName = "${{ parameters.appServicePlanName }}"
-            appServicePlanSku = "B2"
+            appServicePlanSku = "B3"
             serviceName = "${{ parameters.webAppName }}"
             securityAuthenticationAuthority = "https://login.microsoftonline.com/$(tenant-id)"
             securityAuthenticationAudience = "${{ parameters.testEnvironmentUrl }}"

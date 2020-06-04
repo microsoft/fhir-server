@@ -8,12 +8,12 @@ using System.Net.Http;
 using EnsureThat;
 using Hl7.Fhir.Rest;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
-using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Common.FhirClient;
+using Microsoft.Health.Fhir.Tests.E2E.Common;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     /// <summary>
-    /// A test fixture that is intended to provide a <see cref="FhirClient"/> to end-to-end FHIR test classes.
+    /// A test fixture that is intended to provide a <see cref="TestFhirClient"/> to end-to-end FHIR test classes.
     /// </summary>
     /// <typeparam name="TStartup">The type to use as the ASP.NET startup type when hosting the fhir server in-process</typeparam>
     public class HttpIntegrationTestFixture<TStartup>
@@ -37,16 +37,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     throw new ArgumentOutOfRangeException(nameof(format), format, null);
             }
 
-            FhirClient = TestFhirServer.GetFhirClient(resourceFormat);
+            TestFhirClient = TestFhirServer.GetTestFhirClient(resourceFormat);
 
             IsUsingInProcTestServer = TestFhirServer is InProcTestFhirServer;
         }
 
         public bool IsUsingInProcTestServer { get; }
 
-        public HttpClient HttpClient => FhirClient.HttpClient;
+        public HttpClient HttpClient => TestFhirClient.HttpClient;
 
-        public FhirClient FhirClient { get; }
+        public TestFhirClient TestFhirClient { get; }
 
         protected TestFhirServer TestFhirServer { get; }
 

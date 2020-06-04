@@ -4,9 +4,9 @@
 // -------------------------------------------------------------------------------------------------
 
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
-using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -21,9 +21,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenR4Server_WhenUpdatingAResourceWithInvalidETagHeader_TheServerShouldReturnAPreconditionFailedResponse(string versionId)
         {
-            Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
+            Observation createdResource = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
-            FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.UpdateAsync(createdResource, versionId));
+            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => _client.UpdateAsync(createdResource, versionId));
 
             Assert.Equal(System.Net.HttpStatusCode.PreconditionFailed, ex.StatusCode);
         }
@@ -32,11 +32,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenR4Server_WhenUpdatingAResourceWithIncorrectETagHeader_TheServerShouldReturnAPreconditionFailedResponse()
         {
-            Observation createdResource = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
+            Observation createdResource = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
             // Specify a version that is one off from the version of the existing resource
             var incorrectVersionId = int.Parse(createdResource.Meta.VersionId) + 1;
-            FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.UpdateAsync(createdResource, incorrectVersionId.ToString()));
+            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => _client.UpdateAsync(createdResource, incorrectVersionId.ToString()));
 
             Assert.Equal(System.Net.HttpStatusCode.PreconditionFailed, ex.StatusCode);
         }

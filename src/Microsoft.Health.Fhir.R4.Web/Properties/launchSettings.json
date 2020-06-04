@@ -25,6 +25,7 @@
             "environmentVariables": {
                 "SqlServer:Initialize": "true",
                 "SqlServer:AllowDatabaseCreation": "true",
+                "SqlServer:SchemaOptions:AutomaticUpdatesEnabled": "true",
                 "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
                 "SqlServer:ConnectionString": "server=(local);Initial Catalog=FHIR_R4;Integrated Security=true",
                 "DataStore": "SqlServer",
