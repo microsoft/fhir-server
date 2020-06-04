@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenFhirServer_WhenDataIsExported_ThenExportedDataIsSameAsDataInFhirServer(string path)
         {
             // Trigger export request and check for export status
-            Uri contentLocation = await _testFhirClient.ExportAsync(path + "$export");
+            Uri contentLocation = await _testFhirClient.ExportAsync(path);
             IList<Uri> blobUris = await CheckExportStatus(contentLocation);
 
             // Download exported data from storage account
