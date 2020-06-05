@@ -29,22 +29,34 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _client = fixture.HttpClient;
         }
 
-        [Theory]
-        [InlineData("Patient/$export")]
-        [InlineData("Group/id/$export")]
-        public async Task GivenExportIsEnabled_WhenRequestingExportForResourceWithCorrectHeaders_ThenServerShouldReturnMethodNotAllowed(string path)
+        [Fact]
+        public async Task GivenExportIsEnabled_WhenRequestingExportForResourceWithId_ThenServerShouldReturnMethodNotAllowed()
         {
-            using HttpRequestMessage request = GenerateExportRequest(path);
+            using HttpRequestMessage request = GenerateExportRequest("Group/id/$export");
 
             using HttpResponseMessage response = await _client.SendAsync(request);
 
             Assert.Equal(HttpStatusCode.MethodNotAllowed, response.StatusCode);
         }
 
-        [Fact]
-        public async Task GivenExportIsEnabled_WhenRequestingExportWithCorrectHeaders_ThenServerShouldReturnAcceptedAndNonEmptyContentLocationHeader()
+        [Theory]
+        [InlineData("Observation/$export")]
+        [InlineData("Patient/id/$export")]
+        public async Task GivenExportIsEnabled_WhenRequestingExportByTypeWithAnInvalidResourceTyep_ThenServerShouldReturnBadRequest(string path)
         {
-            using HttpRequestMessage request = GenerateExportRequest();
+            using HttpRequestMessage request = GenerateExportRequest(path);
+
+            using HttpResponseMessage response = await _client.SendAsync(request);
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        }
+
+        [Theory]
+        [InlineData("$export")]
+        [InlineData("Patient/$export")]
+        public async Task GivenExportIsEnabled_WhenRequestingExportWithCorrectHeaders_ThenServerShouldReturnAcceptedAndNonEmptyContentLocationHeader(string path)
+        {
+            using HttpRequestMessage request = GenerateExportRequest(path);
 
             using HttpResponseMessage response = await _client.SendAsync(request);
 
@@ -56,28 +68,32 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await GenerateAndSendCancelExportMessage(response.Content.Headers.ContentLocation);
         }
 
-        [Fact]
-        public async Task GivenExportIsEnabled_WhenRequestingExportWithUnsupportedQueryParam_ThenServerShouldReturnBadRequest()
+        [Theory]
+        [InlineData("$export")]
+        [InlineData("Patient/$export")]
+        public async Task GivenExportIsEnabled_WhenRequestingExportWithUnsupportedQueryParam_ThenServerShouldReturnBadRequest(string path)
         {
             var queryParam = new Dictionary<string, string>()
             {
                 { "anyQueryParam", "anyValue" },
             };
-            using HttpRequestMessage request = GenerateExportRequest(queryParams: queryParam);
+            using HttpRequestMessage request = GenerateExportRequest(path, queryParams: queryParam);
 
             using HttpResponseMessage response = await _client.SendAsync(request);
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         }
 
-        [Fact]
-        public async Task GivenExportIsEnabled_WhenRequestingExportWithSinceQueryParam_ThenServerShouldReturnAcceptedAndNonEmptyContentLocationHeader()
+        [Theory]
+        [InlineData("$export")]
+        [InlineData("Patient/$export")]
+        public async Task GivenExportIsEnabled_WhenRequestingExportWithSinceQueryParam_ThenServerShouldReturnAcceptedAndNonEmptyContentLocationHeader(string path)
         {
             var queryParam = new Dictionary<string, string>()
             {
                 { KnownQueryParameterNames.Since, DateTimeOffset.UtcNow.ToString() },
             };
-            using HttpRequestMessage request = GenerateExportRequest(queryParams: queryParam);
+            using HttpRequestMessage request = GenerateExportRequest(path, queryParams: queryParam);
 
             using HttpResponseMessage response = await _client.SendAsync(request);
 
