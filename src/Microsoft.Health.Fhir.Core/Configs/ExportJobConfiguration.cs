@@ -43,5 +43,17 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Number of pages to be iterated before committing the export progress.
         /// </summary>
         public uint NumberOfPagesPerCommit { get; set; } = 10;
+
+        public static string HashStorageAccountConnection(string connection)
+        {
+            if (string.IsNullOrEmpty(connection))
+            {
+                return string.Empty;
+            }
+
+            return System.Text.Encoding.UTF8.GetString(
+                        System.Security.Cryptography.SHA512.Create().ComputeHash(
+                            System.Text.Encoding.UTF8.GetBytes(connection)));
+        }
     }
 }

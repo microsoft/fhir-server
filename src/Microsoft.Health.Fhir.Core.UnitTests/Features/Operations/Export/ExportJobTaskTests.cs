@@ -13,7 +13,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Core;
 using Microsoft.Health.Core.Internal;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -97,10 +96,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             _exportJobConfiguration.MaximumNumberOfResourcesPerQuery = 1;
             var exportJobRecordWithSince = new ExportJobRecord(
-               new Uri("https://localhost/ExportJob/"),
-               "Patient",
-               "hash",
-               since: Core.Models.PartialDateTime.MinValue);
+                new Uri("https://localhost/ExportJob/"),
+                "Patient",
+                "hash",
+                since: Core.Models.PartialDateTime.MinValue,
+                storageAccountConnectionHash: ExportJobConfiguration.HashStorageAccountConnection(_exportJobConfiguration.StorageAccountConnection),
+                storageAccountUri: _exportJobConfiguration.StorageAccountUri);
 
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithSince);
 
@@ -161,10 +162,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             _exportJobConfiguration.MaximumNumberOfResourcesPerQuery = 1;
             var exportJobRecordWithSince = new ExportJobRecord(
-               new Uri("https://localhost/ExportJob/"),
-               "Patient",
-               "hash",
-               since: PartialDateTime.MinValue);
+                new Uri("https://localhost/ExportJob/"),
+                "Patient",
+                "hash",
+                since: PartialDateTime.MinValue,
+                storageAccountConnectionHash: ExportJobConfiguration.HashStorageAccountConnection(_exportJobConfiguration.StorageAccountConnection),
+                storageAccountUri: _exportJobConfiguration.StorageAccountUri);
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithSince);
 
             // First search returns a search result with continuation token.
@@ -249,10 +252,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             _exportJobConfiguration.MaximumNumberOfResourcesPerQuery = 1;
             var exportJobRecordWithSince = new ExportJobRecord(
-               new Uri("https://localhost/ExportJob/"),
-               "Patient",
-               "hash",
-               since: PartialDateTime.MinValue);
+                new Uri("https://localhost/ExportJob/"),
+                "Patient",
+                "hash",
+                since: PartialDateTime.MinValue,
+                storageAccountConnectionHash: ExportJobConfiguration.HashStorageAccountConnection(_exportJobConfiguration.StorageAccountConnection),
+                storageAccountUri: _exportJobConfiguration.StorageAccountUri);
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithSince);
 
             // First search returns a search result with continuation token.
@@ -483,7 +488,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // Setup export destination client.
             string connectionFailure = "failedToConnectToDestination";
             IExportDestinationClient mockExportDestinationClient = Substitute.For<IExportDestinationClient>();
-            mockExportDestinationClient.ConnectAsync(Arg.Any<CancellationToken>(), Arg.Any<string>())
+            mockExportDestinationClient.ConnectAsync(Arg.Any<ExportJobConfiguration>(), Arg.Any<CancellationToken>(), Arg.Any<string>())
                 .Returns<Task>(x => throw new DestinationConnectionException(connectionFailure, HttpStatusCode.BadRequest));
 
             var exportJobTask = new ExportJobTask(
@@ -587,7 +592,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _exportJobRecord = exportJobRecord ?? new ExportJobRecord(
                 new Uri("https://localhost/ExportJob/"),
                 "Patient",
-                "hash");
+                "hash",
+                storageAccountConnectionHash: ExportJobConfiguration.HashStorageAccountConnection(_exportJobConfiguration.StorageAccountConnection),
+                storageAccountUri: _exportJobConfiguration.StorageAccountUri);
 
             _fhirOperationDataStore.UpdateExportJobAsync(_exportJobRecord, _weakETag, _cancellationToken).Returns(x =>
             {
