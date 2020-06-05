@@ -118,7 +118,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         private async Task<SearchResult> SearchImpl(SearchOptions searchOptions, bool historySearch, CancellationToken cancellationToken)
         {
-            await _model.EnsureInitialized();
+            await _model.StartAsync();
 
             Expression searchExpression = searchOptions.Expression;
 

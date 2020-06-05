@@ -9,20 +9,20 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
+using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Abstractions.Exceptions;
-using Microsoft.Health.Core;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Schema;
+using Microsoft.Health.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Storage;
 using Newtonsoft.Json;
-using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
@@ -32,8 +32,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     /// many many times in the database. For more compact storage, we use IDs instead of the strings when referencing these.
     /// Also, because the number of distinct values is small, we can maintain all values in memory and avoid joins when querying.
     /// </summary>
-    public sealed class SqlServerFhirModel : SqlServerModelInitializer
+    public sealed class SqlServerFhirModel : IStartable
     {
+        private readonly SqlServerDataStoreConfiguration _configuration;
+        private readonly SchemaInitializer _schemaInitializer;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly SecurityConfiguration _securityConfiguration;
         private readonly ILogger<SqlServerFhirModel> _logger;
@@ -47,94 +49,96 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public SqlServerFhirModel(
             SqlServerDataStoreConfiguration configuration,
-            SchemaInformation schemaInformation,
-            ISearchParameterDefinitionManager.SupportedSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
+            SchemaInitializer schemaInitializer,
+            ISearchParameterDefinitionManager searchParameterDefinitionManager,
             IOptions<SecurityConfiguration> securityConfiguration,
             ILogger<SqlServerFhirModel> logger)
-            : base(configuration, schemaInformation, logger)
         {
-            EnsureArg.IsNotNull(searchParameterDefinitionManagerResolver, nameof(searchParameterDefinitionManagerResolver));
+            EnsureArg.IsNotNull(configuration, nameof(configuration));
+            EnsureArg.IsNotNull(schemaInitializer, nameof(schemaInitializer));
+            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(securityConfiguration?.Value, nameof(securityConfiguration));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _searchParameterDefinitionManager = searchParameterDefinitionManagerResolver();
+            _configuration = configuration;
+            _schemaInitializer = schemaInitializer;
+            _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _securityConfiguration = securityConfiguration.Value;
             _logger = logger;
         }
 
         public short GetResourceTypeId(string resourceTypeName)
         {
-            ThrowIfNotInitialized();
             return _resourceTypeToId[resourceTypeName];
         }
 
         public bool TryGetResourceTypeId(string resourceTypeName, out short id)
         {
-            ThrowIfNotInitialized();
             return _resourceTypeToId.TryGetValue(resourceTypeName, out id);
         }
 
         public string GetResourceTypeName(short resourceTypeId)
         {
-            ThrowIfNotInitialized();
             return _resourceTypeIdToTypeName[resourceTypeId];
         }
 
         public byte GetClaimTypeId(string claimTypeName)
         {
-            ThrowIfNotInitialized();
             return _claimNameToId[claimTypeName];
         }
 
         public short GetSearchParamId(Uri searchParamUri)
         {
-            ThrowIfNotInitialized();
             return _searchParamUriToId[searchParamUri];
         }
 
         public byte GetCompartmentTypeId(string compartmentType)
         {
-            ThrowIfNotInitialized();
             return _compartmentTypeToId[compartmentType];
         }
 
         public bool TryGetSystemId(string system, out int systemId)
         {
-            ThrowIfNotInitialized();
             return _systemToId.TryGetValue(system, out systemId);
         }
 
         public int GetSystemId(string system)
         {
-            ThrowIfNotInitialized();
-
             VLatest.SystemTable systemTable = VLatest.System;
             return GetStringId(_systemToId, system, systemTable, systemTable.SystemId, systemTable.Value);
         }
 
         public int GetQuantityCodeId(string code)
         {
-            ThrowIfNotInitialized();
-
             VLatest.QuantityCodeTable quantityCodeTable = VLatest.QuantityCode;
             return GetStringId(_quantityCodeToId, code, quantityCodeTable, quantityCodeTable.QuantityCodeId, quantityCodeTable.Value);
         }
 
         public bool TryGetQuantityCodeId(string code, out int quantityCodeId)
         {
-            ThrowIfNotInitialized();
             return _quantityCodeToId.TryGetValue(code, out quantityCodeId);
         }
 
-        protected override async Task Initialize()
+        public void Start()
         {
-            var connectionStringBuilder = new SqlConnectionStringBuilder(SqlServerDataStoreConfiguration.ConnectionString);
+            StartAsync().GetAwaiter().GetResult();
+        }
+
+        // TODO: Add this to IStartable interface.
+        public async Task StartAsync()
+        {
+            _schemaInitializer.Start();
+
+            // TODO: Make the SPDM Start method idempotent.
+            _searchParameterDefinitionManager.Start();
+
+            var connectionStringBuilder = new SqlConnectionStringBuilder(_configuration.ConnectionString);
 
             _logger.LogInformation("Initializing {Server} {Database}", connectionStringBuilder.DataSource, connectionStringBuilder.InitialCatalog);
 
-            using (var connection = new SqlConnection(SqlServerDataStoreConfiguration.ConnectionString))
+            using (var connection = new SqlConnection(_configuration.ConnectionString))
             {
-                await connection.OpenAsync();
+                await connection.OpenAsync().ConfigureAwait(false);
 
                 using (SqlCommand sqlCommand = connection.CreateCommand())
                 {
@@ -189,7 +193,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     sqlCommand.Parameters.AddWithValue("@claimTypes", commaSeparatedClaimTypes);
                     sqlCommand.Parameters.AddWithValue("@compartmentTypes", commaSeparatedCompartmentTypes);
 
-                    using (SqlDataReader reader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess))
+                    using (SqlDataReader reader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess).ConfigureAwait(false))
                     {
                         var resourceTypeToId = new Dictionary<string, short>(StringComparer.Ordinal);
                         var resourceTypeIdToTypeName = new Dictionary<short, string>();
@@ -261,6 +265,49 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         _claimNameToId = claimNameToId;
                         _compartmentTypeToId = compartmentTypeToId;
                     }
+                }
+            }
+        }
+
+        private int GetStringId(ConcurrentDictionary<string, int> cache, string stringValue, Table table, Column<int> idColumn, Column<string> stringColumn)
+        {
+            if (cache.TryGetValue(stringValue, out int id))
+            {
+                return id;
+            }
+
+            _logger.LogInformation("Cache miss for string ID on {table}", table);
+
+            using (var connection = new SqlConnection(_configuration.ConnectionString))
+            {
+                connection.Open();
+
+                using (SqlCommand sqlCommand = connection.CreateCommand())
+                {
+                    sqlCommand.CommandText = $@"
+                        SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
+                        BEGIN TRANSACTION
+
+                        DECLARE @id int = (SELECT {idColumn} FROM {table} WITH (UPDLOCK) WHERE {stringColumn} = @stringValue)
+
+                        IF (@id IS NULL) BEGIN
+                            INSERT INTO {table} 
+                                ({stringColumn})
+                            VALUES 
+                                (@stringValue)
+                            SET @id = SCOPE_IDENTITY()
+                        END
+
+                        COMMIT TRANSACTION
+
+                        SELECT @id";
+
+                    sqlCommand.Parameters.AddWithValue("@stringValue", stringValue);
+
+                    id = (int)sqlCommand.ExecuteScalar();
+
+                    cache.TryAdd(stringValue, id);
+                    return id;
                 }
             }
         }

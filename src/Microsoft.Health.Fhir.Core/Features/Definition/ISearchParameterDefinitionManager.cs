@@ -63,5 +63,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         /// <param name="componentIndex">The optional component index if the search parameter is a composite</param>
         /// <returns>The search parameter type.</returns>
         SearchParamType GetSearchParameterType(SearchParameterInfo searchParameter, int? componentIndex);
+
+        /// <summary>
+        /// Starts the search parameter definition manager.
+        /// </summary>
+        /// <remarks>This method is idempotent and will only start up the manager once if called multiple times.</remarks>
+        void Start();
     }
 }
