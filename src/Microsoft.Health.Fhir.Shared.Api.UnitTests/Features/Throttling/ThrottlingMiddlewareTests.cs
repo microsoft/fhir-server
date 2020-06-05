@@ -18,7 +18,6 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
     {
         private readonly HttpContext _httpContext = new DefaultHttpContext();
         private readonly ThrottlingMiddleware _middleware;
-        private readonly RequestDelegate _next = async (x) => await Task.Delay(5000);
 
         public ThrottlingMiddlewareTests()
         {
@@ -42,10 +41,10 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
         {
             var tasks = SetupPreexistingRequests(numberOfConcurrentRequests);
 
-            await _middleware.InvokeAsync(_httpContext, async (x) =>
+            await _middleware.InvokeAsync(_httpContext, x =>
             {
                 x.Response.StatusCode = 200;
-                await Task.CompletedTask;
+                return Task.CompletedTask;
             });
 
             Assert.Equal(200, _httpContext.Response.StatusCode);
@@ -58,10 +57,10 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
         {
             var tasks = SetupPreexistingRequests(numberOfConcurrentRequests);
 
-            await _middleware.InvokeAsync(_httpContext, async (x) =>
+            await _middleware.InvokeAsync(_httpContext, (x) =>
             {
                 x.Response.StatusCode = 200;
-                await Task.CompletedTask;
+                return Task.CompletedTask;
             });
 
             Assert.Equal(429, _httpContext.Response.StatusCode);
@@ -75,7 +74,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
             while (count < numberOfConcurrentRequests)
             {
                 var context = new DefaultHttpContext();
-                tasks.Add(_middleware.InvokeAsync(context, _next));
+                tasks.Add(_middleware.InvokeAsync(context, x => Task.Delay(5000)));
             }
 
             return tasks;
