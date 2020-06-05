@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
             string message = "Can't initialize client";
             HttpStatusCode statusCode = HttpStatusCode.BadRequest;
 
-            _exportClientInitializer.GetAuthorizedClientAsync(Arg.Any<CancellationToken>()).Returns<CloudBlobClient>(x => throw new ExportClientInitializerException(message, statusCode));
+            _exportClientInitializer.GetAuthorizedClientAsync(Arg.Any<ExportJobConfiguration>(), Arg.Any<CancellationToken>()).Returns<CloudBlobClient>(x => throw new ExportClientInitializerException(message, statusCode));
 
             var exception = await Assert.ThrowsAsync<DestinationConnectionException>(() => _exportDestinationClient.ConnectAsync(CancellationToken.None));
 
