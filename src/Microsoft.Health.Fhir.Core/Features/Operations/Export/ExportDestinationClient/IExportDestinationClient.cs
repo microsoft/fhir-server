@@ -54,6 +54,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinatio
         Task WriteFilePartAsync(Uri fileUri, uint partId, byte[] bytes, CancellationToken cancellationToken);
 
         /// <summary>
+        /// Commits the written parts of the file.
+        /// </summary>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>A <see cref="Task"/> representing the asynchronous commit operation.</returns>
+        Task CommitAsync(CancellationToken cancellationToken);
+
+        /// <summary>
         /// Commits the written parts of the file to a specified location.  Must be used in tandom with the ConnectAsync that takes an ExportJobConfiguration.
         /// </summary>
         /// <param name="exportJobConfiguration">The job configuration to use for this call.</param>
