@@ -24,5 +24,7 @@ namespace Microsoft.Health.Fhir.Api.Configs
         public CoreFeatureConfiguration CoreFeatures { get; } = new CoreFeatureConfiguration();
 
         public BundleConfiguration Bundle { get; } = new BundleConfiguration();
+
+        public ThrottlingConfiguration Throttling { get; } = new ThrottlingConfiguration();
     }
 }

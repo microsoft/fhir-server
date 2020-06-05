@@ -22,6 +22,7 @@ using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Operations.Export;
 using Microsoft.Health.Fhir.Api.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Api.Features.Routing;
+using Microsoft.Health.Fhir.Api.Features.Throttling;
 using Microsoft.Health.Fhir.Core.Features.Cors;
 using Microsoft.Health.Fhir.Core.Registration;
 
@@ -69,7 +70,7 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations.Reindex));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Audit));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Bundle));
-
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Throttling));
             services.AddTransient<IStartupFilter, FhirServerStartupFilter>();
 
             services.RegisterAssemblyModules(Assembly.GetExecutingAssembly(), fhirServerConfiguration);
@@ -161,6 +162,9 @@ namespace Microsoft.Extensions.DependencyInjection
                     // The audit module needs to come after the exception handler because we need to catch the response before it gets converted to custom error.
                     app.UseAudit();
                     app.UseApiNotifications();
+
+                    // Throttling needs to come after Audit and ApiNotifications so we can audit it and track it for API metrics.
+                    app.UseThrottling();
 
                     app.UseFhirRequestContextAuthentication();
 

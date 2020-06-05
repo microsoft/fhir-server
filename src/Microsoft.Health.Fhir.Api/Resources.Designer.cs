@@ -394,6 +394,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The maximum number of concurrent API calls &apos;{0}&apos; was reached..
+        /// </summary>
+        public static string TooManyConcurrentRequests {
+            get {
+                return ResourceManager.GetString("TooManyConcurrentRequests", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The maximum number of custom audit headers allowed is {0}. The number of custom audit headers supplied is {1}..
         /// </summary>
         public static string TooManyCustomAuditHeaders {

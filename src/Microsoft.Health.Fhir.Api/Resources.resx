@@ -306,4 +306,8 @@
     <value>{0} is not a supported validation mode.</value>
     <comment>{0} is the validation mode.</comment>
   </data>
+  <data name="TooManyConcurrentRequests" xml:space="preserve">
+    <value>The maximum number of concurrent API calls '{0}' was reached.</value>
+    <comment>{0} is the maximum number of allowed concurrent requests by the server.</comment>
+  </data>
 </root>
