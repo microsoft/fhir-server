@@ -69,7 +69,6 @@ namespace Microsoft.Health.Fhir.Web
                 app.UseForwardedHeaders();
             }
 
-            app.UseThrottling();
             app.UseFhirServer();
             app.UseDevelopmentIdentityProviderIfConfigured();
         }

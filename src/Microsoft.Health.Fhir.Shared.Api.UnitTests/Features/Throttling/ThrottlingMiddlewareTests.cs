@@ -25,20 +25,19 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
         {
             _cts = new CancellationTokenSource();
             _httpContext.RequestAborted = _cts.Token;
+            var throttlingConfiguration = new ThrottlingConfiguration
+            {
+                ConcurrentRequestLimit = 5,
+            };
+            throttlingConfiguration.ExcludedEndpoints.Add("get:/health/check");
+
             _middleware = new ThrottlingMiddleware(
                 async x =>
                 {
                     x.Response.StatusCode = 200;
                     await Task.Delay(5000, _cts.Token);
                 },
-                Options.Create(new ThrottlingConfiguration
-                {
-                    ConcurrentRequestLimit = 5,
-                    ExcludedEndpoints = new HashSet<string>
-                    {
-                        "get:/health/check",
-                    },
-                }),
+                Options.Create(throttlingConfiguration),
                 NullLogger<ThrottlingMiddleware>.Instance);
         }
 
