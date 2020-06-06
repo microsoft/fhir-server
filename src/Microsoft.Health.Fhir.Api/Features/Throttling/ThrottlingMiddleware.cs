@@ -16,36 +16,35 @@ using Microsoft.Health.Fhir.Api.Configs;
 
 namespace Microsoft.Health.Fhir.Api.Features.Throttling
 {
-    public class ThrottlingMiddleware : IMiddleware, IDisposable
+    public class ThrottlingMiddleware
     {
         private readonly ILogger<ThrottlingMiddleware> _logger;
         private readonly ThrottlingConfiguration _configuration;
-        private SemaphoreSlim _sem;
         private int _requestsInFlight = 0;  // confirm mdidleware is singleton
+        private RequestDelegate _next;
 
-        public ThrottlingMiddleware(IOptions<ThrottlingConfiguration> configuration, ILogger<ThrottlingMiddleware> logger)
+        public ThrottlingMiddleware(RequestDelegate next, IOptions<ThrottlingConfiguration> configuration, ILogger<ThrottlingMiddleware> logger)
         {
+            _next = EnsureArg.IsNotNull(next, nameof(next));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             _configuration = EnsureArg.IsNotNull(configuration?.Value, nameof(configuration));
-
-            _sem = new SemaphoreSlim(0, configuration.Value.ConcurrentRequestLimit);
         }
 
-        public async Task InvokeAsync(HttpContext context, RequestDelegate next)
+        public async Task Invoke(HttpContext context)
         {
             if (_configuration.ExcludedEndpoints.Contains($"{context.Request.Method}:{context.Request.Path.Value?.Trim('/')}", StringComparer.OrdinalIgnoreCase))
             {
                 // Endpoint is exempt from concurrent request limits.
-                await next(context);
+                await _next(context);
                 return;
             }
 
             try
             {
-                if (Interlocked.Increment(ref _requestsInFlight) < _configuration.ConcurrentRequestLimit)
+                if (Interlocked.Increment(ref _requestsInFlight) <= _configuration.ConcurrentRequestLimit)
                 {
                     // Still within the concurrent request limit, let the request through.
-                    await next(context);
+                    await _next(context);
                 }
                 else
                 {
@@ -57,21 +56,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
             finally
             {
                 Interlocked.Decrement(ref _requestsInFlight);
-            }
-        }
-
-        public void Dispose()
-        {
-            Dispose(true);
-            GC.SuppressFinalize(this);
-        }
-
-        protected virtual void Dispose(bool disposing)
-        {
-            if (disposing)
-            {
-                _sem?.Dispose();
-                _sem = null;
             }
         }
     }

@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Api.Features.Throttling;
 using Microsoft.Health.Fhir.Azure;
 
 namespace Microsoft.Health.Fhir.Web
@@ -68,6 +69,7 @@ namespace Microsoft.Health.Fhir.Web
                 app.UseForwardedHeaders();
             }
 
+            app.UseThrottling();
             app.UseFhirServer();
             app.UseDevelopmentIdentityProviderIfConfigured();
         }

@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -18,10 +19,18 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
     {
         private readonly HttpContext _httpContext = new DefaultHttpContext();
         private readonly ThrottlingMiddleware _middleware;
+        private readonly CancellationTokenSource _cts;
 
         public ThrottlingMiddlewareTests()
         {
+            _cts = new CancellationTokenSource();
+            _httpContext.RequestAborted = _cts.Token;
             _middleware = new ThrottlingMiddleware(
+                async x =>
+                {
+                    x.Response.StatusCode = 200;
+                    await Task.Delay(5000, _cts.Token);
+                },
                 Options.Create(new ThrottlingConfiguration
                 {
                     ConcurrentRequestLimit = 5,
@@ -41,13 +50,11 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
         {
             var tasks = SetupPreexistingRequests(numberOfConcurrentRequests);
 
-            await _middleware.InvokeAsync(_httpContext, x =>
-            {
-                x.Response.StatusCode = 200;
-                return Task.CompletedTask;
-            });
+            await _middleware.Invoke(_httpContext);
 
             Assert.Equal(200, _httpContext.Response.StatusCode);
+            _cts.Cancel();
+            _cts.Dispose();
         }
 
         [Theory]
@@ -57,24 +64,21 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
         {
             var tasks = SetupPreexistingRequests(numberOfConcurrentRequests);
 
-            await _middleware.InvokeAsync(_httpContext, (x) =>
-            {
-                x.Response.StatusCode = 200;
-                return Task.CompletedTask;
-            });
+            await _middleware.Invoke(_httpContext);
 
             Assert.Equal(429, _httpContext.Response.StatusCode);
+            _cts.Cancel();
+            _cts.Dispose();
         }
 
         private List<Task> SetupPreexistingRequests(int numberOfConcurrentRequests)
         {
-            int count = 0;
             List<Task> tasks = new List<Task>();
 
-            while (count < numberOfConcurrentRequests)
+            for (int count = 0; count < numberOfConcurrentRequests; count++)
             {
                 var context = new DefaultHttpContext();
-                tasks.Add(_middleware.InvokeAsync(context, x => Task.Delay(5000)));
+                tasks.Add(_middleware.Invoke(context));
             }
 
             return tasks;
