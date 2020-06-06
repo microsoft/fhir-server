@@ -46,11 +46,11 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
         [InlineData(0)]
         [InlineData(1)]
         [InlineData(4)]
-        public async Task GivenRequestsBelowThreshold_WhenInvoked_Executes(int numberOfConcurrentRequests)
+        public void GivenRequestsBelowThreshold_WhenInvoked_Executes(int numberOfConcurrentRequests)
         {
             var tasks = SetupPreexistingRequests(numberOfConcurrentRequests);
 
-            await _middleware.Invoke(_httpContext);
+            tasks.Add(_middleware.Invoke(_httpContext));
 
             Assert.Equal(200, _httpContext.Response.StatusCode);
             _cts.Cancel();
