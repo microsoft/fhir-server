@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
     {
         private readonly ILogger<ThrottlingMiddleware> _logger;
         private readonly ThrottlingConfiguration _configuration;
-        private int _requestsInFlight = 0;  // confirm mdidleware is singleton
+        private int _requestsInFlight = 0;
         private RequestDelegate _next;
 
         public ThrottlingMiddleware(RequestDelegate next, IOptions<ThrottlingConfiguration> configuration, ILogger<ThrottlingMiddleware> logger)
