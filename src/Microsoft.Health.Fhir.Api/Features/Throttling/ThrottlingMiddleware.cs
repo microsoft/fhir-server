@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
 
         public async Task Invoke(HttpContext context)
         {
-            if (_configuration.ExcludedEndpoints.Contains($"{context.Request.Method}:{context.Request.Path.Value?.Trim('/')}", StringComparer.OrdinalIgnoreCase))
+            if (_configuration.ExcludedEndpoints.Contains($"{context.Request.Method}:{context.Request.Path.Value?.TrimEnd('/')}", StringComparer.OrdinalIgnoreCase))
             {
                 // Endpoint is exempt from concurrent request limits.
                 await _next(context);
