@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 ManagingOrganization = new ResourceReference($"Organization/{organizationResponse.Resource.Id}"),
             });
 
-            Bundle bundle = await Client.SearchPostAsync(ResourceType.Location.ToString(), ("_include", "Location:organization:Organization"));
+            Bundle bundle = await Client.SearchPostAsync(ResourceType.Location.ToString(), default, ("_include", "Location:organization:Organization"));
 
             ValidateBundle(
                 bundle,
