@@ -55,8 +55,10 @@ database:
     maxPoolSize: 100
   cosmosDb:
     initialCollectionThroughput: "400"
+
 appInsights:
-  secretName: "cluster-app-insights"
+  secretKey: "instrumentationKey"
+#  secretName: "cluster-app-insights"
 
 security:
   enabled: false

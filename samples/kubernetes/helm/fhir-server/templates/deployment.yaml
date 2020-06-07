@@ -29,11 +29,13 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
+            {{- if .Values.appInsights.secretName }}
             - name: ApplicationInsights__InstrumentationKey
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.appInsights.secretName }}
-                  key: instrumentationKey
+                  key: {{ .Values.appInsights.secretKey }}
+            {{- end }}
             - name: FhirServer__Security__Enabled
               value: {{ .Values.security.enabled | quote }}
             - name: FhirServer__Security__EnableAadSmartOnFhirProxy
