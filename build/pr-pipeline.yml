@@ -35,6 +35,20 @@ stages:
     parameters: 
       tag: $(ImageTag)
 
+- stage: deployAksR4
+  displayName: 'Deploy R4 in AKS'
+  dependsOn:
+  - DockerBuild
+  jobs:
+  - template: ./jobs/deploy-aks.yml
+    parameters: 
+      version: R4
+      clusterName: $(clusterName)
+      subscription: $(ConnectedServiceName)
+      clusterResourceGroup: $(DeploymentEnvironmentName)
+      testEnvironmentUrl: $(TestEnvironmentUrl)
+      imageTag: $(ImageTag)
+
 # - stage: provisionEnvironment
 #   displayName: Provision Environment
 #   dependsOn: []
