@@ -46,9 +46,9 @@ jobs:
         
         helm upgrade --install $releaseName $helmChartPath \
           --set image.repository=$repositoryName \
-          --set image.tag=${{parameters.imageTag}}
+          --set image.tag=${{parameters.imageTag}} \
           --set database.resourceGroup="${{parameters.clusterResourceGroup}}" \
-          --set database.location=${{parameters.clusterLocation}}
+          --set database.location=${{parameters.clusterLocation}} \
           --wait --timeout 10m
 
         helm list
