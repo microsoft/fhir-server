@@ -44,9 +44,10 @@ stages:
     parameters: 
       version: R4
       deploymentEnvironmentName: $(DeploymentEnvironmentName)
-      clusterName: $(clusterName)
       subscription: $(ConnectedServiceName)
-      clusterResourceGroup: $(cluesterResourceGroup)
+      clusterName: $(clusterName)
+      clusterResourceGroup: $(clusterResourceGroup)
+      clusterLocation: $(clusterLocation)
       testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
 

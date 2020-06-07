@@ -13,6 +13,8 @@ parameters:
   type: string
 - name: clusterResourceGroup
   type: string
+- name: clusterLocation
+  type: string
 - name: testEnvironmentUrl
   type: string
 - name: imageTag
@@ -37,5 +39,17 @@ jobs:
       scriptLocation: inlineScript
       inlineScript: |
         az aks get-credentials --name ${{parameters.clusterName}} --resource-group ${{parameters.clusterResourceGroup}}
-        kubectl get nodes
+
+        helmChartPath="$(System.DefaultWorkingDirectory)/samples/kubernetes/helm/fhir-server/"
+        repositoryName="$(azureContainerRegistry)/${{parameters.version}}_fhir-server"
+        releaseName="${{parameters.deploymentEnvironmentName}}-${{parameters.version}}"
+        
+        helm upgrade --install $releaseName $helmChartPath \
+          --set image.repository=$repositoryName \
+          --set image.tag=${{parameters.imageTag}}
+          --set database.resourceGroup="${{parameters.clusterResourceGroup}}" \
+          --set database.location=${{parameters.clusterLocation}}
+          --wait --timeout 10m
+
         helm list
+        kubectl get svc "$releaseName-fhir-server"

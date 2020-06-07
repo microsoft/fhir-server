@@ -26,4 +26,6 @@ variables:
   #-----------------------------------------------------------------------------------------
   # AKS details
   clusterName: "mshealth-oss-aks-cluster"
-  cluesterResourceGroup: "mshealth-oss-aks"
+  clusterResourceGroup: "mshealth-oss-aks"
+  clusterLocation: westus2
+  
