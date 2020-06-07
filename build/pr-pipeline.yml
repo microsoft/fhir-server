@@ -46,7 +46,7 @@ stages:
       deploymentEnvironmentName: $(DeploymentEnvironmentName)
       clusterName: $(clusterName)
       subscription: $(ConnectedServiceName)
-      clusterResourceGroup: $(DeploymentEnvironmentName)
+      clusterResourceGroup: $(cluesterResourceGroup)
       testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
 
