@@ -43,6 +43,7 @@ stages:
   - template: ./jobs/deploy-aks.yml
     parameters: 
       version: R4
+      deploymentEnvironmentName: $(DeploymentEnvironmentName)
       clusterName: $(clusterName)
       subscription: $(ConnectedServiceName)
       clusterResourceGroup: $(DeploymentEnvironmentName)
