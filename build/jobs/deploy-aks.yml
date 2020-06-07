@@ -19,6 +19,8 @@ parameters:
   type: string
 - name: imageTag
   type: string
+- name: dnsSuffix
+  type: string
 
 jobs:
 - job: provisionEnvironment
@@ -43,13 +45,38 @@ jobs:
         helmChartPath="$(System.DefaultWorkingDirectory)/samples/kubernetes/helm/fhir-server/"
         repositoryName=`echo $(azureContainerRegistry)/${{parameters.version}}_fhir-server | tr '[:upper:]' '[:lower:]'`
         releaseName=`echo "${{parameters.deploymentEnvironmentName}}-${{parameters.version}}" | tr '[:upper:]' '[:lower:]'`
+        hostName=`echo "${{parameters.deploymentEnvironmentName}}.{{parameters.dnsSuffix}}" | tr '[:upper:]' '[:lower:]'`
         
+        cat <<EOF > release-values.yaml
+        image:
+          repository: $repositoryName
+          tag: ${{parameters.imageTag}}
+        resources:
+          requests:
+            cpu: 500m
+        ingress:
+          enabled: true
+          annotations:
+            kubernetes.io/ingress.class: nginx
+            cert-manager.io/cluster-issuer: letsencrypt
+          hosts:
+            - host: $hostName
+              paths:
+                  - /
+          tls:
+            - secretName: ${hostName}-tls
+              hosts:
+                - $hostName
+        database:
+          resourceGroup: ${{parameters.clusterResourceGroup}}
+          location: ${{parameters.clusterLocation}}
+        EOF
+
+        # Debug output of release values
+        cat ingress-values.yaml
+
         helm upgrade --install $releaseName $helmChartPath \
-          --set image.repository=$repositoryName \
-          --set image.tag=${{parameters.imageTag}} \
-          --set resources.requests.cpu=500m \
-          --set database.resourceGroup="${{parameters.clusterResourceGroup}}" \
-          --set database.location=${{parameters.clusterLocation}} \
+          -f release-values.yaml
           --wait --timeout 10m
 
         helm list

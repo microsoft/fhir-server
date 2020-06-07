@@ -28,4 +28,4 @@ variables:
   clusterName: "mshealth-oss-aks-cluster"
   clusterResourceGroup: "mshealth-oss-aks"
   clusterLocation: westus2
-  
+  aksDnsSuffix: "aks-oss.mshapis.com"

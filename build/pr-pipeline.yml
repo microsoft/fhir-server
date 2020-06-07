@@ -50,6 +50,7 @@ stages:
       clusterLocation: $(clusterLocation)
       testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
+      dnsSuffix: $(aksDnsSuffix)
 
 # - stage: provisionEnvironment
 #   displayName: Provision Environment
