@@ -41,12 +41,13 @@ jobs:
         az aks get-credentials --name ${{parameters.clusterName}} --resource-group ${{parameters.clusterResourceGroup}}
 
         helmChartPath="$(System.DefaultWorkingDirectory)/samples/kubernetes/helm/fhir-server/"
-        repositoryName="$(azureContainerRegistry)/${{parameters.version}}_fhir-server"
-        releaseName="${{parameters.deploymentEnvironmentName}}-${{parameters.version}}"
+        repositoryName=`$(azureContainerRegistry)/${{parameters.version}}_fhir-server |  | tr '[:upper:]' '[:lower:]'`
+        releaseName=`echo "${{parameters.deploymentEnvironmentName}}-${{parameters.version}}" | tr '[:upper:]' '[:lower:]'`
         
         helm upgrade --install $releaseName $helmChartPath \
           --set image.repository=$repositoryName \
           --set image.tag=${{parameters.imageTag}} \
+          --set resources.requests.cpu=500m \
           --set database.resourceGroup="${{parameters.clusterResourceGroup}}" \
           --set database.location=${{parameters.clusterLocation}} \
           --wait --timeout 10m
