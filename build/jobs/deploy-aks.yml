@@ -2,9 +2,8 @@
 parameters:
 - name: version
   type: string
-- name: sql
-  type: boolean
-  default: false
+- name: dataStore
+  type: string
 - name: deploymentEnvironmentName
   type: string
 - name: subscription
@@ -44,12 +43,7 @@ jobs:
 
         helmChartPath="$(System.DefaultWorkingDirectory)/samples/kubernetes/helm/fhir-server/"
         repositoryName=`echo $(azureContainerRegistry)/${{parameters.version}}_fhir-server | tr '[:upper:]' '[:lower:]'`
-        if [ "{{parameters.sql}}" == "true" ]; then
-          dataStore="SqlServer"
-        else
-          dataStore="CosmosDb"
-        fi
-        releaseName=`echo "${{parameters.deploymentEnvironmentName}}-${{parameters.version}}-${dataStore}" | tr '[:upper:]' '[:lower:]'`
+        releaseName=`echo "${{parameters.deploymentEnvironmentName}}-${{parameters.version}}-${{parameters.dataStore}}" | tr '[:upper:]' '[:lower:]'`
         hostName=`echo "${releaseName}.${{parameters.dnsSuffix}}" | tr '[:upper:]' '[:lower:]'`
         tenantId="$(tenant-id)"
         
@@ -74,7 +68,7 @@ jobs:
               hosts:
                 - $hostName
         database:
-          dataStore: $dataStore
+          dataStore: ${{parameters.dataStore}}
           resourceGroup: ${{parameters.clusterResourceGroup}}
           location: ${{parameters.clusterLocation}}
         security:

@@ -43,6 +43,7 @@ stages:
   - template: ./jobs/deploy-aks.yml
     parameters: 
       version: R4
+      dataStore: CosmosDb
       deploymentEnvironmentName: $(DeploymentEnvironmentName)
       subscription: $(ConnectedServiceName)
       clusterName: $(clusterName)
@@ -60,7 +61,7 @@ stages:
   - template: ./jobs/deploy-aks.yml
     parameters: 
       version: R4
-      sql: true
+      dataStore: SqlServer
       deploymentEnvironmentName: $(DeploymentEnvironmentName)
       subscription: $(ConnectedServiceName)
       clusterName: $(clusterName)
