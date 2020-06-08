@@ -75,7 +75,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             return _inner.GetSearchParameterType(searchParameter, componentIndex);
         }
 
-        // TODO: Make interface implement IStartable, remove this.
         public void Start()
         {
         }

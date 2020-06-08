@@ -128,8 +128,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public async Task StartAsync()
         {
             _schemaInitializer.Start();
-
-            // TODO: Make the SPDM Start method idempotent.
             _searchParameterDefinitionManager.Start();
 
             var connectionStringBuilder = new SqlConnectionStringBuilder(_configuration.ConnectionString);

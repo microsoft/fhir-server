@@ -17,10 +17,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
     /// <summary>
     /// Provides mechanism to access search parameter definition.
     /// </summary>
-    public class SearchParameterDefinitionManager : ISearchParameterDefinitionManager, IStartable
+    public class SearchParameterDefinitionManager : ISearchParameterDefinitionManager
     {
         private readonly FhirJsonParser _fhirJsonParser;
         private readonly IModelInfoProvider _modelInfoProvider;
+        private bool _started;
 
         private IDictionary<string, IDictionary<string, SearchParameterInfo>> _typeLookup;
 
@@ -39,20 +40,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public void Start()
         {
-            Type type = GetType();
+            // Only start up the manager once even if Start is called multiple times.
+            if (!_started)
+            {
+                Type type = GetType();
 
-            var builder = new SearchParameterDefinitionBuilder(
-                _fhirJsonParser,
-                _modelInfoProvider,
-                type.Assembly,
-                $"{type.Namespace}.search-parameters.json");
+                var builder = new SearchParameterDefinitionBuilder(
+                    _fhirJsonParser,
+                    _modelInfoProvider,
+                    type.Assembly,
+                    $"{type.Namespace}.search-parameters.json");
 
-            builder.Build();
+                builder.Build();
 
-            _typeLookup = builder.ResourceTypeDictionary;
-            UrlLookup = builder.UriDictionary;
+                _typeLookup = builder.ResourceTypeDictionary;
+                UrlLookup = builder.UriDictionary;
 
-            List<string> list = UrlLookup.Values.Where(p => p.Type == ValueSets.SearchParamType.Composite).Select(p => string.Join("|", p.Component.Select(c => UrlLookup[c.DefinitionUrl].Type))).Distinct().ToList();
+                List<string> list = UrlLookup.Values.Where(p => p.Type == ValueSets.SearchParamType.Composite).Select(p => string.Join("|", p.Component.Select(c => UrlLookup[c.DefinitionUrl].Type))).Distinct().ToList();
+
+                _started = true;
+            }
         }
 
         public IEnumerable<SearchParameterInfo> GetSearchParameters(string resourceType)
