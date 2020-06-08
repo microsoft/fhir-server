@@ -8,6 +8,7 @@ using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
 
@@ -27,33 +28,67 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         protected async Task<Bundle> ExecuteAndValidateBundle(string searchUrl, params Resource[] expectedResources)
         {
-            return await ExecuteAndValidateBundle(searchUrl, searchUrl, expectedResources);
+            return await ExecuteAndValidateBundle(searchUrl, searchUrl, true, expectedResources);
+        }
+
+        protected async Task<Bundle> ExecuteAndValidateBundle(string searchUrl, bool sort, params Resource[] expectedResources)
+        {
+            return await ExecuteAndValidateBundle(searchUrl, searchUrl, sort, expectedResources);
         }
 
         protected async Task<Bundle> ExecuteAndValidateBundle(string searchUrl, string selfLink, params Resource[] expectedResources)
         {
             Bundle bundle = await Client.SearchAsync(searchUrl);
 
-            ValidateBundle(bundle, selfLink, expectedResources);
+            ValidateBundle(bundle, selfLink, true, expectedResources);
 
             return bundle;
         }
 
+        protected async Task<Bundle> ExecuteAndValidateBundle(string searchUrl, string selfLink, bool sort, params Resource[] expectedResources)
+        {
+            FhirResponse<Bundle> firstBundle = await Client.SearchAsync(searchUrl);
+
+            var firstExpectedResources = expectedResources.Length > 10 ? expectedResources.ToList().GetRange(0, 10).ToArray() : expectedResources;
+            ValidateBundle(firstBundle, selfLink, sort, firstExpectedResources);
+
+            var nextLink = (firstBundle.Resource.NextLink == null) ? null : firstBundle.Resource.NextLink.ToString();
+
+            if (nextLink != null)
+            {
+                FhirResponse<Bundle> secondBundle = await Client.SearchAsync(nextLink);
+                ValidateBundle(secondBundle, nextLink.Substring(17), sort, expectedResources.ToList().GetRange(10, expectedResources.Length - 10).ToArray());
+            }
+
+            return firstBundle;
+        }
+
         protected void ValidateBundle(Bundle bundle, string selfLink, params Resource[] expectedResources)
         {
-            ValidateBundle(bundle, expectedResources);
+            ValidateBundle(bundle, selfLink, true, expectedResources);
+        }
 
-            var actualUrl = WebUtility.UrlDecode(bundle.SelfLink.AbsoluteUri);
+        protected void ValidateBundle(Bundle bundle, string selfLink, bool sort, params Resource[] expectedResources)
+        {
+            ValidateBundle(bundle, sort, expectedResources);
 
-            Assert.Equal(Fixture.GenerateFullUrl(selfLink), actualUrl);
+            Assert.Equal(Fixture.GenerateFullUrl(selfLink), bundle.SelfLink.AbsoluteUri);
         }
 
         protected void ValidateBundle(Bundle bundle, params Resource[] expectedResources)
         {
+            ValidateBundle(bundle, true, expectedResources);
+        }
+
+        protected void ValidateBundle(Bundle bundle, bool sort, params Resource[] expectedResources)
+        {
             Assert.NotNull(bundle);
 
-            bundle.Entry.Sort((a, b) => string.CompareOrdinal(a.Resource.Id, b.Resource.Id));
-            Array.Sort(expectedResources, (a, b) => string.CompareOrdinal(a.Id, b.Id));
+            if (sort)
+            {
+                bundle.Entry.Sort((a, b) => string.CompareOrdinal(a.Resource.Id, b.Resource.Id));
+                Array.Sort(expectedResources, (a, b) => string.CompareOrdinal(a.Id, b.Id));
+            }
 
             Assert.Collection(
                 bundle.Entry.Select(e => e.Resource),

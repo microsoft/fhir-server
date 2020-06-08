@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using EnsureThat;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -122,7 +123,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             if (!searchOptions.CountOnly)
             {
-                StringBuilder.Append("ORDER BY ").Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).AppendLine(" ASC");
+                var sortOrder = SortUtils.GetSortOrderByParameterName(searchOptions, KnownQueryParameterNames.LastUpdated);
+
+                StringBuilder.Append("ORDER BY ")
+                    .Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).Append(" ")
+                    .AppendLine(sortOrder == SortOrder.Ascending ? "ASC" : "DESC");
             }
 
             StringBuilder.Append("OPTION(RECOMPILE)");
@@ -233,10 +238,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     break;
 
                 case TableExpressionKind.Top:
+                    var sortOrder = SortUtils.GetSortOrderByParameterName(context, KnownQueryParameterNames.LastUpdated);
+
                     // Everything in the top expression is considered a match
                     StringBuilder.Append("SELECT DISTINCT TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1)).AppendLine(") Sid1, 1 AS IsMatch ")
                         .Append("FROM ").AppendLine(TableExpressionName(_tableExpressionCounter - 1))
-                        .AppendLine("ORDER BY Sid1 ASC");
+                        .AppendLine($"ORDER BY Sid1 {(sortOrder == SortOrder.Ascending ? "ASC" : "DESC")}");
 
                     // For any includes, the source of the resource surrogate ids to join on is saved
                     _cteMainSelect = TableExpressionName(_tableExpressionCounter);

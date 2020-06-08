@@ -17,6 +17,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -31,6 +32,7 @@ using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Storage;
+using SortOrder = Microsoft.Health.Fhir.Core.Features.Search.SortOrder;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 {
@@ -127,7 +129,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             {
                 if (long.TryParse(searchOptions.ContinuationToken, NumberStyles.None, CultureInfo.InvariantCulture, out var token))
                 {
-                    var tokenExpression = Expression.SearchParameter(SqlSearchParameters.ResourceSurrogateIdParameter, Expression.GreaterThan(SqlFieldName.ResourceSurrogateId, null, token));
+                    var sortOrder = SortUtils.GetSortOrderByParameterName(searchOptions, KnownQueryParameterNames.LastUpdated);
+
+                    Expression lastUpdatedExpression = sortOrder == SortOrder.Ascending ? Expression.GreaterThan(SqlFieldName.ResourceSurrogateId, null, token)
+                                                                                                : Expression.LessThan(SqlFieldName.ResourceSurrogateId, null, token);
+
+                    var tokenExpression = Expression.SearchParameter(SqlSearchParameters.ResourceSurrogateIdParameter, lastUpdatedExpression);
                     searchExpression = searchExpression == null ? tokenExpression : (Expression)Expression.And(tokenExpression, searchExpression);
                 }
                 else
@@ -238,8 +245,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     IReadOnlyList<(string parameterName, string reason)> unsupportedSortingParameters;
                     if (searchOptions.Sort?.Count > 0)
                     {
-                        // we don't currently support sort
-                        unsupportedSortingParameters = searchOptions.UnsupportedSortingParams.Concat(searchOptions.Sort.Select(s => (s.searchParameterInfo.Name, Core.Resources.SortNotSupported))).ToList();
+                        unsupportedSortingParameters = searchOptions
+                            .UnsupportedSortingParams
+                            .Concat(searchOptions.Sort
+                                .Where(x => !string.Equals(x.searchParameterInfo.Name, KnownQueryParameterNames.LastUpdated, StringComparison.OrdinalIgnoreCase))
+                                .Select(s => (s.searchParameterInfo.Name, Core.Resources.SortNotSupported))).ToList();
                     }
                     else
                     {
