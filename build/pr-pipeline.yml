@@ -35,8 +35,8 @@ stages:
     parameters: 
       tag: $(ImageTag)
 
-- stage: deployAksR4
-  displayName: 'Deploy R4 in AKS'
+- stage: deployAksR4Cosmos
+  displayName: 'Deploy R4 Cosmos in AKS'
   dependsOn:
   - DockerBuild
   jobs:
@@ -52,28 +52,59 @@ stages:
       imageTag: $(ImageTag)
       dnsSuffix: $(aksDnsSuffix)
 
-# - stage: provisionEnvironment
-#   displayName: Provision Environment
-#   dependsOn: []
-#   jobs:
-#   - job: provision
-#     steps:
-#     - task: AzurePowerShell@4
-#       displayName: Provision Resource Group
-#       inputs:
-#         azureSubscription: $(ConnectedServiceName)
-#         azurePowerShellVersion: latestVersion
-#         ScriptType: inlineScript
-#         Inline: |
-#           New-AzResourceGroup -Name "$(DeploymentEnvironmentName)" -Location "$(ResourceGroupRegion)" -Force
+- stage: deployAksR4Sql
+  displayName: 'Deploy R4 Sql in AKS'
+  dependsOn:
+  - DockerBuild
+  jobs:
+  - template: ./jobs/deploy-aks.yml
+    parameters: 
+      version: R4
+      sql: true
+      deploymentEnvironmentName: $(DeploymentEnvironmentName)
+      subscription: $(ConnectedServiceName)
+      clusterName: $(clusterName)
+      clusterResourceGroup: $(clusterResourceGroup)
+      clusterLocation: $(clusterLocation)
+      testEnvironmentUrl: $(TestEnvironmentUrl)
+      imageTag: $(ImageTag)
+      dnsSuffix: $(aksDnsSuffix)
 
-# - stage: aadTestEnvironment
-#   displayName: Setup AAD Test Environment
-#   dependsOn:
-#   - provisionEnvironment
-#   - DockerBuild
-#   jobs:
-#   - template: ./jobs/add-aad-test-environment.yml
+- stage: testAksR4
+  displayName: 'Run R4 AKS Tests'
+  dependsOn:
+  - BuildUnitTests
+  - aadTestEnvironment
+  - deployAksR4Cosmos
+  - deployAksR4Sql
+  jobs:
+  - template: ./jobs/run-tests-aks.yml
+    parameters:
+      version: R4
+      dnsSuffix: $(aksDnsSuffix)
+
+- stage: provisionEnvironment
+  displayName: Provision Environment
+  dependsOn: []
+  jobs:
+  - job: provision
+    steps:
+    - task: AzurePowerShell@4
+      displayName: Provision Resource Group
+      inputs:
+        azureSubscription: $(ConnectedServiceName)
+        azurePowerShellVersion: latestVersion
+        ScriptType: inlineScript
+        Inline: |
+          New-AzResourceGroup -Name "$(DeploymentEnvironmentName)" -Location "$(ResourceGroupRegion)" -Force
+
+- stage: aadTestEnvironment
+  displayName: Setup AAD Test Environment
+  dependsOn:
+  - provisionEnvironment
+  - DockerBuild
+  jobs:
+  - template: ./jobs/add-aad-test-environment.yml
 
 # - stage: deployStu3
 #   displayName: 'Deploy STU3 Site'

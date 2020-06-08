@@ -1,0 +1,83 @@
+parameters:
+- name: version
+  type: string
+- name: dnsSuffix
+  type: string
+
+jobs:
+- job: 'e2eTests'
+  dependsOn: []
+  pool:
+    vmImage: $(WindowsVmImage)
+  steps:
+  - task: DownloadBuildArtifacts@0
+    inputs:
+      buildType: 'current'
+      downloadType: 'single'
+      downloadPath: '$(System.ArtifactsDirectory)'
+      artifactName: 'IntegrationTests'
+
+  - task: UseDotNet@2
+    inputs:
+      useGlobalJson: true
+        
+  - task: AzureKeyVault@1
+    displayName: 'Azure Key Vault: resolute-oss-tenant-info'
+    inputs:
+      azureSubscription: $(ConnectedServiceName)
+      KeyVaultName: 'resolute-oss-tenant-info'
+
+  - task: AzureKeyVault@1
+    displayName: 'Azure Key Vault: $(DeploymentEnvironmentName)-ts'
+    inputs:
+      azureSubscription: $(ConnectedServiceName)
+      KeyVaultName: '$(DeploymentEnvironmentName)-ts'
+    
+  - task: AzurePowerShell@4
+    displayName: 'Set Variables'
+    inputs:
+      azureSubscription: $(ConnectedServiceName)
+      azurePowerShellVersion: latestVersion
+      ScriptType: inlineScript
+      Inline: |
+        $secrets = Get-AzKeyVaultSecret -VaultName $(DeploymentEnvironmentName)-ts
+        
+        foreach($secret in $secrets)
+        {
+            $environmentVariableName = $secret.Name.Replace("--","_")
+
+            $secretValue = Get-AzKeyVaultSecret -VaultName $(DeploymentEnvironmentName)-ts -Name $secret.Name
+            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($secretValue.SecretValueText)"
+        }
+
+        Write-Host "##vso[task.setvariable variable=Resource]$(TestEnvironmentUrl)"      
+        Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl]$(DeploymentEnvironmentName)-stu3-cosmosdb.${{parameters.dnsSuffix}}"
+        Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_Sql]$(DeploymentEnvironmentName)-stu3-sqlserver.${{parameters.dnsSuffix}}"
+        Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_R4]$(DeploymentEnvironmentName)-r4-cosmosdb.${{parameters.dnsSuffix}}"
+        Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_R4_Sql]$(DeploymentEnvironmentName)-r4-sqlserver.${{parameters.dnsSuffix}}"
+        Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_R5]$(DeploymentEnvironmentName)-r5-cosmosdb.${{parameters.dnsSuffix}}"
+        Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_R5_Sql]$(DeploymentEnvironmentName)-r5-sqlserver.${{parameters.dnsSuffix}}"
+        
+        $secrets = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info
+ 
+        foreach($secret in $secrets)
+        {
+            $environmentVariableName = $secret.Name.Replace("--","_")
+
+            $secretValue = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info -Name $secret.Name
+            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($secretValue.SecretValueText)"
+        }
+        # ----------------------------------------
+
+  - task: VSTest@2
+    displayName: 'Run E2E Tests'
+    inputs:
+      testSelector: testAssemblies
+      testAssemblyVer2: |
+        **\*${{ parameters.version }}.Tests.E2E*.dll
+      testFiltercriteria: "Category!=Export&Category!=ExportDataValidation"
+      searchFolder: '$(System.ArtifactsDirectory)'
+      rerunFailedTests: true
+      rerunType: 'basedOnTestFailurePercentage'
+      rerunFailedThreshold: '95'
+      rerunMaxAttempts: 3
