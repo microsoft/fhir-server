@@ -75,7 +75,7 @@ jobs:
       testSelector: testAssemblies
       testAssemblyVer2: |
         **\*${{ parameters.version }}.Tests.E2E*.dll
-      testFiltercriteria: "Category!=Export&Category!=ExportDataValidation"
+      testFiltercriteria: "Category!=Export&Category!=ExportDataValidation&Category!=SmartOnFhir"
       searchFolder: '$(System.ArtifactsDirectory)'
       rerunFailedTests: true
       rerunType: 'basedOnTestFailurePercentage'
