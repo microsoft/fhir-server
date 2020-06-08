@@ -174,3 +174,28 @@ Then deploy the FHIR server with:
 ```bash
 helm install myfhirserverrelease deploy/helm/fhir-server/ -f ingress-values.yaml --set database.dataStore="SqlServer",database.location="westus2",database.resourceGroup="mydatabaseresourcegroup"
 ```
+
+## Configuring CORS
+
+The ingress controller can also be used to manage CORS settings, to enable CORS add the appropriate annotations, e.g. building on the `ingress-values.yaml` file from above:
+
+```yaml
+ingress:
+    enabled: true
+    annotations:
+      kubernetes.io/ingress.class: nginx
+      cert-manager.io/cluster-issuer: letsencrypt
+      nginx.ingress.kubernetes.io/enable-cors: "true"
+      nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+      nginx.ingress.kubernetes.io/cors-allow-methods: "*"
+      nginx.ingress.kubernetes.io/cors-allow-headers: "*"
+      nginx.ingress.kubernetes.io/cors-max-age: "1440"
+    hosts:
+      - host: mytestfhir.example.com
+        paths:
+            - /
+    tls:
+      - secretName: mytestfhir-tls
+        hosts:
+          - mytestfhir.example.com
+```
