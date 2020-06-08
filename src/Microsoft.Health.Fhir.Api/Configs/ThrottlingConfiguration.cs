@@ -9,6 +9,8 @@ namespace Microsoft.Health.Fhir.Api.Configs
 {
     public class ThrottlingConfiguration
     {
+        public bool Enabled { get; set; }
+
         public int ConcurrentRequestLimit { get; set; }
 
         public HashSet<string> ExcludedEndpoints { get; } = new HashSet<string>();

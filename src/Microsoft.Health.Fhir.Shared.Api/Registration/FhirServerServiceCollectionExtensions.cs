@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Api.Features.Headers;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
@@ -163,8 +164,13 @@ namespace Microsoft.Extensions.DependencyInjection
                     app.UseAudit();
                     app.UseApiNotifications();
 
-                    // Throttling needs to come after Audit and ApiNotifications so we can audit it and track it for API metrics.
-                    app.UseThrottling();
+                    var throttlingConfig = app.ApplicationServices.GetRequiredService<IOptions<ThrottlingConfiguration>>();
+
+                    if (throttlingConfig.Value.Enabled)
+                    {
+                        // Throttling needs to come after Audit and ApiNotifications so we can audit it and track it for API metrics.
+                        app.UseThrottling();
+                    }
 
                     app.UseFhirRequestContextAuthentication();
 
