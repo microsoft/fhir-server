@@ -45,7 +45,8 @@ jobs:
         helmChartPath="$(System.DefaultWorkingDirectory)/samples/kubernetes/helm/fhir-server/"
         repositoryName=`echo $(azureContainerRegistry)/${{parameters.version}}_fhir-server | tr '[:upper:]' '[:lower:]'`
         releaseName=`echo "${{parameters.deploymentEnvironmentName}}-${{parameters.version}}" | tr '[:upper:]' '[:lower:]'`
-        hostName=`echo "${{parameters.deploymentEnvironmentName}}.${{parameters.dnsSuffix}}" | tr '[:upper:]' '[:lower:]'`
+        hostName=`echo "${releaseName}.${{parameters.dnsSuffix}}" | tr '[:upper:]' '[:lower:]'`
+        tenantId="$(tenant-id)"
         
         cat <<EOF > release-values.yaml
         image:
@@ -70,6 +71,11 @@ jobs:
         database:
           resourceGroup: ${{parameters.clusterResourceGroup}}
           location: ${{parameters.clusterLocation}}
+        security:
+          enabled: true
+          enableAadSmartOnFhirProxy: false
+          authority: https://login.microsoftonline.com/${tenantId}
+          audience: ${{ parameters.testEnvironmentUrl }}
         EOF
 
         # Debug output of release values
