@@ -45,7 +45,7 @@ jobs:
         helmChartPath="$(System.DefaultWorkingDirectory)/samples/kubernetes/helm/fhir-server/"
         repositoryName=`echo $(azureContainerRegistry)/${{parameters.version}}_fhir-server | tr '[:upper:]' '[:lower:]'`
         releaseName=`echo "${{parameters.deploymentEnvironmentName}}-${{parameters.version}}" | tr '[:upper:]' '[:lower:]'`
-        hostName=`echo "${{parameters.deploymentEnvironmentName}}.{{parameters.dnsSuffix}}" | tr '[:upper:]' '[:lower:]'`
+        hostName=`echo "${{parameters.deploymentEnvironmentName}}.${{parameters.dnsSuffix}}" | tr '[:upper:]' '[:lower:]'`
         
         cat <<EOF > release-values.yaml
         image:
@@ -64,7 +64,7 @@ jobs:
               paths:
                   - /
           tls:
-            - secretName: ${hostName}-tls
+            - secretName: $releaseName-tls
               hosts:
                 - $hostName
         database:
@@ -73,10 +73,10 @@ jobs:
         EOF
 
         # Debug output of release values
-        cat ingress-values.yaml
+        cat release-values.yaml
 
         helm upgrade --install $releaseName $helmChartPath \
-          -f release-values.yaml
+          -f release-values.yaml \
           --wait --timeout 10m
 
         helm list
