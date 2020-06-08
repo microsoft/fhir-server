@@ -50,13 +50,13 @@ jobs:
             Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($secretValue.SecretValueText)"
         }
 
-        Write-Host "##vso[task.setvariable variable=Resource]$(TestEnvironmentUrl)"      
-        Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl]$(DeploymentEnvironmentName)-stu3-cosmosdb.${{parameters.dnsSuffix}}"
-        Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_Sql]$(DeploymentEnvironmentName)-stu3-sqlserver.${{parameters.dnsSuffix}}"
-        Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_R4]$(DeploymentEnvironmentName)-r4-cosmosdb.${{parameters.dnsSuffix}}"
-        Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_R4_Sql]$(DeploymentEnvironmentName)-r4-sqlserver.${{parameters.dnsSuffix}}"
-        Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_R5]$(DeploymentEnvironmentName)-r5-cosmosdb.${{parameters.dnsSuffix}}"
-        Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_R5_Sql]$(DeploymentEnvironmentName)-r5-sqlserver.${{parameters.dnsSuffix}}"
+        Write-Host "##vso[task.setvariable variable=Resource]$(TestEnvironmentUrl)"
+        Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl]https://$(DeploymentEnvironmentName)-stu3-cosmosdb.${{parameters.dnsSuffix}}"
+        Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_Sql]https://$(DeploymentEnvironmentName)-stu3-sqlserver.${{parameters.dnsSuffix}}"
+        Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_R4]https://$(DeploymentEnvironmentName)-r4-cosmosdb.${{parameters.dnsSuffix}}"
+        Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_R4_Sql]https://$(DeploymentEnvironmentName)-r4-sqlserver.${{parameters.dnsSuffix}}"
+        Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_R5]https://$(DeploymentEnvironmentName)-r5-cosmosdb.${{parameters.dnsSuffix}}"
+        Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_R5_Sql]https://$(DeploymentEnvironmentName)-r5-sqlserver.${{parameters.dnsSuffix}}"
         
         $secrets = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info
  

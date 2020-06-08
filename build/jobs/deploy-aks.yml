@@ -83,7 +83,7 @@ jobs:
 
         helm upgrade --install $releaseName $helmChartPath \
           -f release-values.yaml \
-          --wait --timeout 10m
+          --wait --timeout 20m
 
         helm list
         kubectl get svc "$releaseName-fhir-server"
