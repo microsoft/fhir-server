@@ -29,6 +29,8 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
+            - name: ASPNETCORE_FORWARDEDHEADERS_ENABLED
+              value: "true"
             {{- if .Values.appInsights.secretName }}
             - name: ApplicationInsights__InstrumentationKey
               valueFrom:
