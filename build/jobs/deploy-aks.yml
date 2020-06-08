@@ -42,7 +42,7 @@ jobs:
         az aks get-credentials --name ${{parameters.clusterName}} --resource-group ${{parameters.clusterResourceGroup}}
 
         helmChartPath="$(System.DefaultWorkingDirectory)/samples/kubernetes/helm/fhir-server/"
-        corsPath = "$(System.DefaultWorkingDirectory)/test/Configuration/corstestconfiguration.json"
+        corsPath="$(System.DefaultWorkingDirectory)/test/Configuration/corstestconfiguration.json"
         corsOrigins=`cat $corsPath | jq -r '.FhirServer.Cors.Origins | @csv' | tr -d '"'`
         corsMethods=`cat $corsPath | jq -r '.FhirServer.Cors.Methods | @csv' | tr -d '"'`
         corsHeaders=`cat $corsPath | jq -r '.FhirServer.Cors.Headers | @csv' | tr -d '"'`
