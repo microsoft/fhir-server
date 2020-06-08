@@ -115,14 +115,12 @@ namespace Microsoft.Health.Fhir.Tests.Common
                     }
                     else
                     {
-                        arguments.Add(Substitute.For(new[] { parameter.ParameterType }, null));
+                        object item = parameter.ParameterType.IsInterface ?
+                            Substitute.For(new[] { parameter.ParameterType }, null) :
+                            SubstitutionContext.Current.SubstituteFactory.CreatePartial(new[] { parameter.ParameterType }, null);
+                        arguments.Add(item);
                     }
                 }
-            }
-
-            if (type.IsInterface)
-            {
-                return Substitute.For(new[] { type }, arguments.ToArray());
             }
 
             return SubstitutionContext.Current.SubstituteFactory.CreatePartial(new[] { type }, arguments.ToArray());
