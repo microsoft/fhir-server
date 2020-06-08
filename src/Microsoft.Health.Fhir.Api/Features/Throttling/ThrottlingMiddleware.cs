@@ -10,9 +10,12 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Configs;
+using Microsoft.Health.Fhir.Api.Features.ActionResults;
 
 namespace Microsoft.Health.Fhir.Api.Features.Throttling
 {
@@ -50,7 +53,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
                 {
                     // Exceeded the concurrent request limit, return 429.
                     context.Response.StatusCode = (int)HttpStatusCode.TooManyRequests;
-                    _logger.LogWarning(Resources.TooManyConcurrentRequests, _configuration.ConcurrentRequestLimit);
+                    _logger.LogWarning($"{Resources.TooManyConcurrentRequests}. Limit is {_configuration.ConcurrentRequestLimit}.");
+
+                    // Output an OperationOutcome in the body.
+                    var result = TooManyRequestsActionResult.TooManyRequests;
+                    await result.ExecuteResultAsync(new ActionContext { HttpContext = context, RouteData = context.GetRouteData() ?? new RouteData() });
                 }
             }
             finally

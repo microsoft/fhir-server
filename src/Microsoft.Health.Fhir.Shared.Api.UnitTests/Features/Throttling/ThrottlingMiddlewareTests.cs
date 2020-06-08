@@ -9,10 +9,14 @@ using System.Threading;
 using System.Threading.Tasks;
 using AngleSharp.Io;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Throttling;
+using NSubstitute;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
@@ -22,6 +26,9 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
         private readonly HttpContext _httpContext = new DefaultHttpContext();
         private readonly ThrottlingMiddleware _middleware;
         private readonly CancellationTokenSource _cts;
+        private readonly IActionResultExecutor<ObjectResult> _executor;
+        private readonly ServiceCollection _collection = new ServiceCollection();
+        private readonly ServiceProvider _provider;
 
         public ThrottlingMiddlewareTests()
         {
@@ -47,6 +54,12 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
                 },
                 Options.Create(throttlingConfiguration),
                 NullLogger<ThrottlingMiddleware>.Instance);
+
+            _executor = Substitute.For<IActionResultExecutor<ObjectResult>>();
+            _executor.ExecuteAsync(Arg.Any<ActionContext>(), Arg.Any<ObjectResult>()).ReturnsForAnyArgs(Task.CompletedTask);
+            _collection.AddSingleton<IActionResultExecutor<ObjectResult>>(_executor);
+            _provider = _collection.BuildServiceProvider();
+            _httpContext.RequestServices = _provider;
         }
 
         [Theory]
@@ -116,6 +129,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
                 var context = new DefaultHttpContext();
                 context.Request.Path = $"/{path}";
                 context.Request.Method = HttpMethod.Get.ToString();
+                context.RequestServices = _provider;
                 output.Add((_middleware.Invoke(context), context));
             }
 
