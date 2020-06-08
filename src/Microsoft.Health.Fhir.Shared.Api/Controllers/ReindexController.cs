@@ -9,7 +9,6 @@ using System.Net;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
-using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -61,14 +60,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.Reindex)]
         [ServiceFilter(typeof(ValidateReindexRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.Reindex)]
-        public async Task<IActionResult> CreateReindexJob([FromBody] string body)
+        public async Task<IActionResult> CreateReindexJob([FromBody] Parameters inputParams)
         {
             CheckIfReindexIsEnabledAndRespond();
 
-            var parameters = ValidateBody(body);
+            ValidateParams(inputParams);
 
-            int? maximumConcurrency = ReadNumericParameter(parameters, JobRecordProperties.MaximumConcurrency);
-            string scope = ReadStringParameter(parameters, JobRecordProperties.Scope);
+            ushort? maximumConcurrency = ReadNumericParameter(inputParams, JobRecordProperties.MaximumConcurrency);
+            string scope = ReadStringParameter(inputParams, JobRecordProperties.Scope);
 
             ResourceElement response = await _mediator.CreateReindexJobAsync(maximumConcurrency, scope, HttpContext.RequestAborted);
 
@@ -118,39 +117,27 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return;
         }
 
-        private Parameters ValidateBody(string body)
+        private void ValidateParams(Parameters inputParams)
         {
-            if (!string.IsNullOrEmpty(body))
+            if (inputParams == null)
             {
-                try
-                {
-                    var parser = new FhirJsonParser();
-                    var parameters = parser.Parse<Parameters>(body);
-
-                    var supportedParams = _supportedParams[Request.Method];
-
-                    foreach (var param in parameters.Parameter)
-                    {
-                        var paramName = param.Name;
-                        if (!supportedParams.Contains(paramName))
-                        {
-                            throw new RequestNotValidException(string.Format(Resources.ReindexParameterNotValid, paramName, Request.Method));
-                        }
-                    }
-
-                    return parameters;
-                }
-                catch (FormatException ex)
-                {
-                    _logger.LogInformation("Failed to deserialize reindex job request body as Parameters resource. Error: {0}", ex.Message);
-                    throw new RequestNotValidException(Resources.ReindexParametersNotValid);
-                }
+                _logger.LogInformation("Failed to deserialize reindex job request body as Parameters resource.");
+                throw new RequestNotValidException(Resources.ReindexParametersNotValid);
             }
 
-            return null;
+            var supportedParams = _supportedParams[Request.Method];
+
+            foreach (var param in inputParams.Parameter)
+            {
+                var paramName = param.Name;
+                if (!supportedParams.Contains(paramName))
+                {
+                    throw new RequestNotValidException(string.Format(Resources.ReindexParameterNotValid, paramName, Request.Method));
+                }
+            }
         }
 
-        private int? ReadNumericParameter(Parameters parameters, string paramName)
+        private ushort? ReadNumericParameter(Parameters parameters, string paramName)
         {
             var param = parameters?.Parameter.Find(p =>
                 string.Equals(p.Name, paramName, StringComparison.OrdinalIgnoreCase));
@@ -160,7 +147,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 return null;
             }
 
-            if (int.TryParse(param.Value.ToString(), out var intValue))
+            if (ushort.TryParse(param.Value.ToString(), out var intValue))
             {
                 return intValue;
             }

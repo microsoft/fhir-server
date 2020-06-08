@@ -17,7 +17,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
     {
         public static async Task<ResourceElement> CreateReindexJobAsync(
             this IMediator mediator,
-            int? maximumConcurrency,
+            ushort? maximumConcurrency,
             string scope,
             CancellationToken cancellationToken)
         {

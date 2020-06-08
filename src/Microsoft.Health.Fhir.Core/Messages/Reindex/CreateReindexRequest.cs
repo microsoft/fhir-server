@@ -9,13 +9,13 @@ namespace Microsoft.Health.Fhir.Core.Messages.Reindex
 {
     public class CreateReindexRequest : IRequest<CreateReindexResponse>
     {
-        public CreateReindexRequest(int? maximumConcurrency = null, string scope = null)
+        public CreateReindexRequest(ushort? maximumConcurrency = null, string scope = null)
         {
             MaximumConcurrency = maximumConcurrency;
             Scope = scope;
         }
 
-        public int? MaximumConcurrency { get; }
+        public ushort? MaximumConcurrency { get; }
 
         public string Scope { get; }
     }

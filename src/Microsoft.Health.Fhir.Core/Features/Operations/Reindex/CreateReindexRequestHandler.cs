@@ -3,11 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Security;
@@ -21,16 +22,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly IClaimsExtractor _claimsExtractor;
         private readonly IFhirOperationDataStore _fhirOperationDataStore;
         private readonly IFhirAuthorizationService _authorizationService;
+        private readonly ReindexJobConfiguration _reindexJobConfiguration;
 
-        public CreateReindexRequestHandler(IClaimsExtractor claimsExtractor, IFhirOperationDataStore fhirOperationDataStore, IFhirAuthorizationService authorizationService)
+        public CreateReindexRequestHandler(
+            IClaimsExtractor claimsExtractor,
+            IFhirOperationDataStore fhirOperationDataStore,
+            IFhirAuthorizationService authorizationService,
+            IOptions<ReindexJobConfiguration> reindexJobConfiguration)
         {
             EnsureArg.IsNotNull(claimsExtractor, nameof(claimsExtractor));
             EnsureArg.IsNotNull(fhirOperationDataStore, nameof(fhirOperationDataStore));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
+            EnsureArg.IsNotNull(reindexJobConfiguration, nameof(reindexJobConfiguration));
 
             _claimsExtractor = claimsExtractor;
             _fhirOperationDataStore = fhirOperationDataStore;
             _authorizationService = authorizationService;
+            _reindexJobConfiguration = reindexJobConfiguration.Value;
         }
 
         public async Task<CreateReindexResponse> Handle(CreateReindexRequest request, CancellationToken cancellationToken)
@@ -52,7 +60,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             // TODO: Get hash from parameters file
             string hash = "hash";
 
-            var jobRecord = new ReindexJobRecord(hash);
+            var jobRecord = new ReindexJobRecord(
+                hash,
+                request.MaximumConcurrency ?? _reindexJobConfiguration.DefaultMaximumThreadsPerReindexJob,
+                request.Scope);
             var outcome = await _fhirOperationDataStore.CreateReindexJobAsync(jobRecord, cancellationToken);
 
             return new CreateReindexResponse(outcome);

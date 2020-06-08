@@ -16,7 +16,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
     /// </summary>
     public class ReindexJobRecord : JobRecord
     {
-        public ReindexJobRecord(string searchParametersHash)
+        public ReindexJobRecord(string searchParametersHash, ushort maxiumumConcurrency, string scope)
         {
             // Default values
             SchemaVersion = 1;
@@ -27,6 +27,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
             LastModified = Clock.UtcNow;
 
             Hash = searchParametersHash;
+            MaximumConcurrency = maxiumumConcurrency;
+            Scope = scope;
         }
 
         [JsonConstructor]

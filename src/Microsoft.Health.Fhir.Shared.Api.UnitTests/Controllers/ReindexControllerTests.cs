@@ -6,7 +6,6 @@
 using System.Collections.Generic;
 using System.Threading;
 using Hl7.Fhir.Model;
-using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -32,19 +31,28 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         private IMediator _mediator = Substitute.For<IMediator>();
         private IFhirRequestContextAccessor _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
         private HttpContext _httpContext = new DefaultHttpContext();
+        private static ReindexJobConfiguration _reindexJobConfig = new ReindexJobConfiguration() { Enabled = true };
 
         public ReindexControllerTests()
         {
-            _reindexEnabledController = GetController(new ReindexJobConfiguration() { Enabled = true });
+            _reindexEnabledController = GetController(_reindexJobConfig);
             var controllerContext = new ControllerContext() { HttpContext = _httpContext };
             _reindexEnabledController.ControllerContext = controllerContext;
         }
 
-        public static TheoryData<string> Body =>
-            new TheoryData<string>
+        public static TheoryData<Parameters> InvalidBody =>
+            new TheoryData<Parameters>
             {
-                "bad body",
+                GetParamsResourceWithTooManyParams(),
                 GetParamsResourceWithWrongNameParam(),
+                null,
+            };
+
+        public static TheoryData<Parameters> ValidBody =>
+            new TheoryData<Parameters>
+            {
+                GetValidReindexJobPostBody(2, "patient"),
+                GetValidReindexJobPostBody(null, null),
             };
 
         [Fact]
@@ -56,33 +64,26 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Theory]
-        [MemberData(nameof(Body), MemberType = typeof(ReindexControllerTests))]
-        public async Task GivenACreateReindexRequest_WhenInvalidBodySent_ThenRequestNotValidThrown(string body)
+        [MemberData(nameof(InvalidBody), MemberType = typeof(ReindexControllerTests))]
+        public async Task GivenACreateReindexRequest_WhenInvalidBodySent_ThenRequestNotValidThrown(Parameters body)
         {
             _reindexEnabledController.ControllerContext.HttpContext.Request.Method = HttpMethods.Post;
             await Assert.ThrowsAsync<RequestNotValidException>(() => _reindexEnabledController.CreateReindexJob(body));
         }
 
-        [Fact]
-        public async Task GivenACreateReindexRequest_WithEmptyBody_ThenCreateReindexJobCalled()
+        [Theory]
+        [MemberData(nameof(ValidBody), MemberType = typeof(ReindexControllerTests))]
+        public async Task GivenACreateReindexRequest_WithValidBody_ThenCreateReindexJobCalledWithCorrectParams(Parameters body)
         {
-            var body = GetValidReindexJobPostBody(2, "patient");
             _reindexEnabledController.ControllerContext.HttpContext.Request.Method = HttpMethods.Post;
             _mediator.Send(Arg.Any<CreateReindexRequest>()).Returns(Task.FromResult(GetCreateReindexResponse()));
             await _reindexEnabledController.CreateReindexJob(body);
             await _mediator.Received().Send(
-                Arg.Is<CreateReindexRequest>(r => r.MaximumConcurrency == 2 && r.Scope == "patient"),
+                Arg.Is<CreateReindexRequest>(
+                    r => r.MaximumConcurrency.ToString().Equals(body.Parameter.Find(p => p.Name.Equals(JobRecordProperties.MaximumConcurrency)).Value.ToString())
+                && r.Scope == body.Parameter.Find(p => p.Name.Equals(JobRecordProperties.Scope)).Value.ToString()),
                 Arg.Any<CancellationToken>());
-        }
-
-        [Fact]
-        public async Task GivenACreateReindexRequest_WithValidBody_ThenCreateReindexJobCalledWithCorrectParams()
-        {
-            _mediator.Send(Arg.Any<CreateReindexRequest>()).Returns(Task.FromResult(GetCreateReindexResponse()));
-            await _reindexEnabledController.CreateReindexJob(null);
-            await _mediator.Received().Send(
-                Arg.Is<CreateReindexRequest>(r => r.MaximumConcurrency == null && r.Scope == null),
-                Arg.Any<CancellationToken>());
+            _mediator.ClearReceivedCalls();
         }
 
         private ReindexController GetController(ReindexJobConfiguration reindexConfig)
@@ -104,26 +105,26 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
         private static CreateReindexResponse GetCreateReindexResponse()
         {
-            var jobRecord = new ReindexJobRecord("hash");
+            var jobRecord = new ReindexJobRecord("hash", 5, "patient");
             var jobWrapper = new ReindexJobWrapper(
                 jobRecord,
                 WeakETag.FromVersionId("33a64df551425fcc55e4d42a148795d9f25f89d4"));
             return new CreateReindexResponse(jobWrapper);
         }
 
-        private static string GetValidReindexJobPostBody(int maxConcurrency, string scope)
+        private static Parameters GetValidReindexJobPostBody(int? maxConcurrency, string scope)
         {
             var parametersResource = new Parameters();
             parametersResource.Parameter = new List<Parameters.ParameterComponent>();
 
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.MaximumConcurrency, Value = new FhirDecimal(maxConcurrency) });
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent()
+                { Name = JobRecordProperties.MaximumConcurrency, Value = new FhirDecimal(maxConcurrency ?? _reindexJobConfig.DefaultMaximumThreadsPerReindexJob) });
             parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.Scope, Value = new FhirString(scope) });
 
-            var serializer = new FhirJsonSerializer();
-            return serializer.SerializeToString(parametersResource);
+            return parametersResource;
         }
 
-        private static string GetParamsResourceWithWrongNameParam()
+        private static Parameters GetParamsResourceWithWrongNameParam()
         {
             var parametersResource = new Parameters();
             parametersResource.Parameter = new List<Parameters.ParameterComponent>();
@@ -131,8 +132,19 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = "foo", Value = new FhirDecimal(5) });
             parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.Scope, Value = new FhirString("scope") });
 
-            var serializer = new FhirJsonSerializer();
-            return serializer.SerializeToString(parametersResource);
+            return parametersResource;
+        }
+
+        private static Parameters GetParamsResourceWithTooManyParams()
+        {
+            var parametersResource = new Parameters();
+            parametersResource.Parameter = new List<Parameters.ParameterComponent>();
+
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.MaximumConcurrency, Value = new FhirDecimal(5) });
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.Scope, Value = new FhirString("scope") });
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = "foo", Value = new FhirDecimal(5) });
+
+            return parametersResource;
         }
     }
 }
