@@ -121,7 +121,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public void Start()
         {
-            StartAsync().GetAwaiter().GetResult();
+            StartAsync().Wait();
         }
 
         // TODO: Add this to IStartable interface.
