@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -50,8 +51,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.True(allowMethods.Any(x => x.Contains("PUT")));
 #pragma warning restore xUnit2012 // Do not use Enumerable.Any() to check if a value exists in a collection
 
-            Assert.Contains("authorization,content-type", response.Headers.GetValues(HeaderNames.AccessControlAllowHeaders));
-
+            Assert.Contains("authorization", response.Headers.GetValues(HeaderNames.AccessControlAllowHeaders), StringComparer.InvariantCultureIgnoreCase);
+            Assert.Contains("content-type", response.Headers.GetValues(HeaderNames.AccessControlAllowHeaders), StringComparer.InvariantCultureIgnoreCase);
             Assert.Equal("1440", response.Headers.GetValues(HeaderNames.AccessControlMaxAge).First());
         }
     }
