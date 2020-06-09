@@ -45,14 +45,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Contains("https://localhost:6001", response.Headers.GetValues(HeaderNames.AccessControlAllowOrigin));
 
             var allowMethods = response.Headers.GetValues(HeaderNames.AccessControlAllowMethods);
+            var accessControlAllowHeaders = response.Headers.GetValues(HeaderNames.AccessControlAllowHeaders);
 #pragma warning disable xUnit2012 // Do not use Enumerable.Any() to check if a value exists in a collection
 
             // The response can be in a single comma separated string, we want to check that it exists in any of them.
             Assert.True(allowMethods.Any(x => x.Contains("PUT")));
+            Assert.True(accessControlAllowHeaders.Any(x => x.Contains("authorization", StringComparison.OrdinalIgnoreCase)));
+            Assert.True(accessControlAllowHeaders.Any(x => x.Contains("content-type", StringComparison.OrdinalIgnoreCase)));
 #pragma warning restore xUnit2012 // Do not use Enumerable.Any() to check if a value exists in a collection
 
-            Assert.Contains("authorization", response.Headers.GetValues(HeaderNames.AccessControlAllowHeaders), StringComparer.InvariantCultureIgnoreCase);
-            Assert.Contains("content-type", response.Headers.GetValues(HeaderNames.AccessControlAllowHeaders), StringComparer.InvariantCultureIgnoreCase);
             Assert.Equal("1440", response.Headers.GetValues(HeaderNames.AccessControlMaxAge).First());
         }
     }
