@@ -307,6 +307,6 @@
     <comment>{0} is the validation mode.</comment>
   </data>
   <data name="TooManyConcurrentRequests" xml:space="preserve">
-    <value>The maximum number of concurrent API calls was reached.</value>
+    <value>The maximum number of concurrent API calls on this instance was reached.</value>
   </data>
 </root>

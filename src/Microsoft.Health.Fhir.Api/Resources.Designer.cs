@@ -394,7 +394,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The maximum number of concurrent API calls was reached..
+        ///   Looks up a localized string similar to The maximum number of concurrent API calls on this instance was reached..
         /// </summary>
         public static string TooManyConcurrentRequests {
             get {
