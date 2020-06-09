@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Collections.Generic;
 using System.Net.Http;
 using EnsureThat;
@@ -34,7 +33,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             _clientApplication = clientApplication;
             _user = user;
 
-            ConfigureSecurityOptions();
+            ConfigureSecurityOptions().GetAwaiter().GetResult();
             SetupAuthenticationAsync(clientApplication, user).GetAwaiter().GetResult();
         }
 

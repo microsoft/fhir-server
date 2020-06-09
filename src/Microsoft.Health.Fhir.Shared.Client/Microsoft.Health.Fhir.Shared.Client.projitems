@@ -15,6 +15,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)FhirException.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)FhirResponse.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)FhirResponse{T}.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)IFhirClient.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Resources.Designer.cs">
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>
