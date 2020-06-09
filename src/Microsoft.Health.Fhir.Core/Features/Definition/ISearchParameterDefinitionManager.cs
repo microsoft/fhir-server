@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
 
@@ -13,7 +14,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
     /// <summary>
     /// Provides mechanism to access search parameter definition.
     /// </summary>
-    public interface ISearchParameterDefinitionManager
+    public interface ISearchParameterDefinitionManager : IStartable
     {
         public delegate ISearchParameterDefinitionManager SearchableSearchParameterDefinitionManagerResolver();
 
