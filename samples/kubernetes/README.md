@@ -1,10 +1,10 @@
 # Running Microsoft FHIR server for Azure in Kubernetes
 
-The Microsoft FHIR server for Azure can be deployed in a Kubernetes cluster. This document describes how to deploy and configure [Azure Kubernetes Service (AKS)](https://azure.microsoft.com/services/kubernetes-service/). Specifically, it describes how to install [Azure Service Operator](https://github.com/Azure/azure-service-operator) in the cluster to allow easy deployment of managed databases (Azure SQL or Cosmos DB). The repo contains a [helm](https://helm.sh) chart that leverages the Azure Service Operator to deploy and configure both FHIR service and backend database. 
+The Microsoft FHIR server for Azure can be deployed in a Kubernetes cluster. This document describes how to deploy and configure [Azure Kubernetes Service (AKS)](https://azure.microsoft.com/services/kubernetes-service/) to be able to run the FHIR server in it. Specifically, it describes how to install [Azure Service Operator](https://github.com/Azure/azure-service-operator) in the cluster to allow easy deployment of managed databases (Azure SQL or Cosmos DB). The repo contains a [helm](https://helm.sh) chart that leverages the Azure Service Operator to deploy and configure both FHIR service and backend database. 
 
 ## Deploy and configure AKS cluster
 
-In order to provision the FHIR server in AKS, you need the following provisioned:
+In order to provision the FHIR server in AKS, you need the following:
 
 1. [AKS cluster](https://docs.microsoft.com/azure/aks/kubernetes-walkthrough)
 1. [Azure Service Operator](https://github.com/Azure/azure-service-operator)
@@ -17,15 +17,19 @@ You can use the [deploy-aks.sh](deploy-aks.sh) script included in this repo:
 ./deploy-aks.sh --environment-name <my-environment> --location westus2
 ```
 
+If you prefer to install the components manually, use the script as a guide for the installation steps.
+
 ## Deploying the FHIR service to AKS
 
 Once AKS has been deployed and configured, deploy the FHIR server with:
 
 ```bash
-helm install my-fhir-release samples/kubernetes/helm/fhir-server/ --set database.resourceGroup="my-database-resource-group",database.location="westus2"
+helm install my-fhir-release samples/kubernetes/helm/fhir-server/ \
+  --set database.resourceGroup="my-database-resource-group" \
+  --set database.location="westus2"
 ```
 
-You will need to supply a resource group and location for the database. The AKS cluster service principal must have provileges to create database resources in this resource group. The service principal will have contributor permissions on the resource group where the cluster is deployed, but you can also create a different group as long as you grant the service principal permissions. If you have provisioned your cluster with the `deploy-aks.sh` script (see above), the service principal id can be found in a keyvault in the AKS resource group.
+You will need to supply a resource group and location for the database. The AKS cluster service principal must have privileges (Contributor rights) to create database resources in this resource group. The service principal will have contributor permissions on the resource group where the cluster is deployed, but you can also create a different group as long as you grant the service principal permissions. If you have provisioned your cluster with the `deploy-aks.sh` script (see above), the service principal id can be found in a keyvault in the AKS resource group.
 
 The default settings will deploy the FHIR server with a cluster IP address, which is not accessible from the outside, but you can map a local port to the FHIR service with:
 
@@ -42,7 +46,10 @@ curl -s http://localhost:8080/Patient | jq .
 If you would like the FHIR service to have a public IP address, you can use a LoadBalancer service:
 
 ```bash
-helm install my-fhir-release samples/kubernetes/helm/fhir-server/ --set database.resourceGroup="my-database-resource-group",database.location="westus2",service.type=LoadBalancer
+helm install my-fhir-release samples/kubernetes/helm/fhir-server/ \
+  --set database.resourceGroup="my-database-resource-group" \
+  --set database.location="westus2" \
+  --set service.type=LoadBalancer
 ```
 
 and locate the public IP address with:
@@ -89,7 +96,11 @@ ingress:
 Then deploy the FHIR server with:
 
 ```bash
-helm install myfhirserverrelease deploy/helm/fhir-server/ -f ingress-values.yaml --set database.dataStore="SqlServer",database.location="westus2",database.resourceGroup="mydatabaseresourcegroup"
+helm install myfhirserverrelease deploy/helm/fhir-server/ \
+  -f ingress-values.yaml \
+  --set database.dataStore="SqlServer" \
+  --set database.location="westus2" \
+  --set database.resourceGroup="mydatabaseresourcegroup"
 ```
 
 ## Use Let's Encrypt
@@ -172,7 +183,11 @@ ingress:
 Then deploy the FHIR server with:
 
 ```bash
-helm install myfhirserverrelease deploy/helm/fhir-server/ -f ingress-values.yaml --set database.dataStore="SqlServer",database.location="westus2",database.resourceGroup="mydatabaseresourcegroup"
+helm install myfhirserverrelease deploy/helm/fhir-server/ \
+  -f ingress-values.yaml \
+  --set database.dataStore="SqlServer" \
+  --set database.location="westus2" \
+  --set database.resourceGroup="mydatabaseresourcegroup"
 ```
 
 ## Configuring CORS
