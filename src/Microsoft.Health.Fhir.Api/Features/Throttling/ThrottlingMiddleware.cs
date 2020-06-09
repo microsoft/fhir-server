@@ -4,7 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Linq;
+using System.Collections.Generic;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -23,6 +23,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
     {
         private readonly ILogger<ThrottlingMiddleware> _logger;
         private readonly ThrottlingConfiguration _configuration;
+        private readonly HashSet<(string method, string path)> _excludedEndpoints = new HashSet<(string method, string path)>();
         private int _requestsInFlight = 0;
         private RequestDelegate _next;
 
@@ -31,11 +32,27 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
             _next = EnsureArg.IsNotNull(next, nameof(next));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
             _configuration = EnsureArg.IsNotNull(configuration?.Value, nameof(configuration));
+            _excludedEndpoints = new HashSet<(string method, string path)>(new StringTupleOrdinalIgnoreCaseEqualityComparer());
+
+            if (_configuration?.ExcludedEndpoints != null)
+            {
+                foreach (var excludedEndpoint in _configuration.ExcludedEndpoints)
+                {
+                    var mapping = excludedEndpoint.Split(separator: ':', count: 2);
+
+                    if (mapping.Length != 2)
+                    {
+                        throw new ArgumentException($"Entry '{excludedEndpoint}' is invalid. It should be of the format [request method]:[request path].", nameof(configuration));
+                    }
+
+                    _excludedEndpoints.Add((mapping[0], mapping[1]));
+                }
+            }
         }
 
         public async Task Invoke(HttpContext context)
         {
-            if (_configuration.ExcludedEndpoints.Contains($"{context.Request.Method}:{context.Request.Path.Value?.TrimEnd('/')}", StringComparer.OrdinalIgnoreCase))
+            if (_excludedEndpoints.Contains((context.Request.Method, context.Request.Path.Value)))
             {
                 // Endpoint is exempt from concurrent request limits.
                 await _next(context);
@@ -63,6 +80,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
             finally
             {
                 Interlocked.Decrement(ref _requestsInFlight);
+            }
+        }
+
+        private class StringTupleOrdinalIgnoreCaseEqualityComparer : IEqualityComparer<ValueTuple<string, string>>
+        {
+            public bool Equals(ValueTuple<string, string> x, ValueTuple<string, string> y)
+            {
+                return StringComparer.OrdinalIgnoreCase.Equals(x.Item1, y.Item1) && StringComparer.OrdinalIgnoreCase.Equals(x.Item2, y.Item2);
+            }
+
+            public int GetHashCode(ValueTuple<string, string> obj)
+            {
+                return StringComparer.OrdinalIgnoreCase.GetHashCode(obj.Item1) ^ StringComparer.OrdinalIgnoreCase.GetHashCode(obj.Item2);
             }
         }
     }
