@@ -72,7 +72,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             ValidateBundle(bundle, sort, expectedResources);
 
-            Assert.Equal(Fixture.GenerateFullUrl(selfLink), bundle.SelfLink.AbsoluteUri);
+            var actualUrl = WebUtility.UrlDecode(bundle.SelfLink.AbsoluteUri);
+
+            Assert.Equal(Fixture.GenerateFullUrl(selfLink), actualUrl);
         }
 
         protected void ValidateBundle(Bundle bundle, params Resource[] expectedResources)
