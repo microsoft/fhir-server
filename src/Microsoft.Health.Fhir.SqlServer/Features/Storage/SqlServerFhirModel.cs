@@ -125,7 +125,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         }
 
         // TODO: Add this to IStartable interface.
-        public async Task StartAsync()
+        internal async Task StartAsync()
         {
             _schemaInitializer.Start();
             _searchParameterDefinitionManager.Start();
