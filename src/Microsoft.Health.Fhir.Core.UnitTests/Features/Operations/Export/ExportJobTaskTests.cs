@@ -508,6 +508,37 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         }
 
         [Fact]
+        public async Task GivenStorageAccountConnectionChanged_WhenExecuted_ThenJobStatusShouldBeUpdatedToFailed()
+        {
+            // Setup export destination client.
+            string connectionFailure = "Storage account connection string was updated during an export job.";
+
+            var exportJobRecordWithChangedConnection = new ExportJobRecord(
+                new Uri("https://localhost/ExportJob/"),
+                "Patient",
+                "hash",
+                since: PartialDateTime.MinValue,
+                storageAccountConnectionHash: ExportJobConfiguration.HashStorageAccountConnection("different connection"),
+                storageAccountUri: _exportJobConfiguration.StorageAccountUri);
+            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithChangedConnection);
+
+            var exportJobTask = new ExportJobTask(
+                () => _fhirOperationDataStore.CreateMockScope(),
+                Options.Create(_exportJobConfiguration),
+                () => _searchService.CreateMockScope(),
+                _resourceToByteArraySerializer,
+                _inMemoryDestinationClient,
+                NullLogger<ExportJobTask>.Instance);
+
+            await exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            Assert.NotNull(_lastExportJobOutcome);
+            Assert.Equal(OperationStatus.Failed, _lastExportJobOutcome.JobRecord.Status);
+            Assert.Equal(connectionFailure, _lastExportJobOutcome.JobRecord.FailureDetails.FailureReason);
+            Assert.Equal(HttpStatusCode.BadRequest, _lastExportJobOutcome.JobRecord.FailureDetails.FailureStatusCode);
+        }
+
+        [Fact]
         public async Task GivenAnExportJobToResume_WhenExecuted_ThenItShouldExportAllRecordsAsExpected()
         {
             // We are using the SearchService to throw an exception in order to simulate the export job task

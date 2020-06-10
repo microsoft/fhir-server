@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Security.Cryptography;
 
 namespace Microsoft.Health.Fhir.Core.Configs
 {
@@ -51,9 +52,15 @@ namespace Microsoft.Health.Fhir.Core.Configs
                 return string.Empty;
             }
 
-            return System.Text.Encoding.UTF8.GetString(
-                        System.Security.Cryptography.SHA512.Create().ComputeHash(
+            SHA512 hasher = System.Security.Cryptography.SHA512.Create();
+
+            string hash = System.Text.Encoding.UTF8.GetString(
+                        hasher.ComputeHash(
                             System.Text.Encoding.UTF8.GetBytes(connection)));
+
+            hasher.Dispose();
+
+            return hash;
         }
     }
 }
