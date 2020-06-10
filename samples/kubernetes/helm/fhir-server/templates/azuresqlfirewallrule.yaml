@@ -8,7 +8,6 @@ metadata:
     {{- include "fhir-server.labels" . | nindent 4 }}
 spec:
   resourceGroup: {{ .Values.database.resourceGroup }}
-  edition: {{ .Values.database.edition }}
   server:  {{ $fullName }}
     
   # this IP range enables Azure Service access

@@ -11,7 +11,8 @@ failure() {
 trap 'failure ${LINENO} "$BASH_COMMAND"' ERR
 
 usage() {
-    echo "deploy-aks.sh  --resource-group-name <group name>"
+    echo "deploy-aks.sh  --name <name>"
+    echo "              [--resource-group-name <group name>]"
     echo "              [--location <location>]"
     echo "              [--max-nodes <default 5> ]"
     echo "              [--vm-size <default Standard_DS2_v2>]"
@@ -28,13 +29,18 @@ command -v kubectl >/dev/null 2>&1 || { echo >&2 "'kubectl' is required but not 
 location="westus2"
 maxNodes=5
 vmSize="Standard_DS2_v2"
-environmentName=""
+name=""
+resourceGroupName=""
+
 
 # Parse command line arguments
 while [ "$1" != "" ]; do
     case $1 in
-        -e | --environment-name )                   shift
-                                                    environmentName=$1
+        -n | --name )                               shift
+                                                    name=$1
+                                                    ;;
+        -g | --resource-group-name )                shift
+                                                    resourceGroupName=$1
                                                     ;;
         -l | --location )                           shift
                                                     location=$1
@@ -54,17 +60,18 @@ while [ "$1" != "" ]; do
     shift
 done
 
-# Ensure environment file name exists
-if [ -z $environmentName ]; then
-    echo "Please provide an environment name"
+if [ -z "$name" ]; then
+    echo "Please provide a cluster environment name"
     usage
     exit 1
 fi
 
+if [ -z "$resourceGroupName"]; then
+    resourceGroupname=$name
+fi
 
-resourceGroupName="$environmentName"
-clusterName="${environmentName}-cluster"
-keyvaultName="${environmentName}-cluster"
+clusterName="${name}-cluster"
+keyvaultName="${name}-cluster"
 
 # First create a resource group
 az group create --name $resourceGroupName --location $location
@@ -72,7 +79,7 @@ az group create --name $resourceGroupName --location $location
 # Create a keyvault
 az keyvault create -n $keyvaultName -g $resourceGroupName --enable-soft-delete true
 
-sshKeyFile=~/.ssh/${environmentName}_rsa
+sshKeyFile=~/.ssh/${name}_rsa
 setKeyVaultSshSecrets=false
 sshPrivateKey=`az keyvault secret show --vault-name $keyvaultName --name ssh-private-key 2> /dev/null || true`
 
@@ -169,8 +176,8 @@ fi
 helm upgrade --install nginx-ingress stable/nginx-ingress \
     --namespace ingress-controller \
     --set controller.replicaCount=2 \
-    --set controller.nodeSelector."beta\.kubernetes\.io/os"=linux \
-    --set defaultBackend.nodeSelector."beta\.kubernetes\.io/os"=linux
+    --set controller.nodeSelector."kubernetes\.io/os"=linux \
+    --set defaultBackend.nodeSelector."kubernetes\.io/os"=linux
 
 # Set up cert-manager
 foundCertManagerNamespace=`kubectl get namespace -o json | jq '.items[] | select(.metadata.name == "cert-manager")'`

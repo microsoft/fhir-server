@@ -72,16 +72,14 @@ spec:
                 secretKeyRef:
                   name: {{ include "fhir-server.fullname" . }}
                   key: password
-            - name: DATABASECATALOG
+            - name: DATABASENAME
               value: {{ include "fhir-server.fullname" . }}
             - name: MAX_POOL_SIZE
               value: {{ .Values.database.sql.maxPoolSize | quote }}
             - name: SqlServer__ConnectionString
-              value: "Server=tcp:$(DATABASESERVERNAME),1433;Initial Catalog=$(DATABASECATALOG);Persist Security Info=False;User ID=$(DATABASEUSERNAME);Password=$(DATABASEPASSWORD);MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;Max Pool Size=$(MAX_POOL_SIZE)"
+              value: "Server=tcp:$(DATABASESERVERNAME),1433;Initial Catalog=$(DATABASENAME);Persist Security Info=False;User ID=$(DATABASEUSERNAME);Password=$(DATABASEPASSWORD);MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;Max Pool Size=$(MAX_POOL_SIZE)"
             {{- end }}
             {{- if eq .Values.database.dataStore "CosmosDb" }}
-            - name: COSMOSDBSERVER
-              value: {{ include "fhir-server.fullname" . }}
             - name: CosmosDb__Host
               valueFrom:
                 secretKeyRef:
@@ -94,6 +92,14 @@ spec:
                   key: primaryMasterKey
             - name: FhirServer__CosmosDb__InitialCollectionThroughput
               value: {{ .Values.database.cosmosDb.initialCollectionThroughput | quote }}
+            {{- if .Values.database.cosmosDb.databaseId }}
+            - name: CosmosDb__DatabaseId
+              value: {{ .Values.database.cosmosDb.databaseId }}
+            {{- end }}
+            {{- if .Values.database.cosmosDb.collectionId }}
+            - name: FhirServer__CosmosDb__CollectionId
+              value: {{ .Values.database.cosmosDb.collectionId }}
+            {{- end }}
             {{- end }}
           ports:
             - name: http

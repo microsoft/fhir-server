@@ -55,6 +55,8 @@ database:
     maxPoolSize: 100
   cosmosDb:
     initialCollectionThroughput: "400"
+    # databaseId: health
+    # collectionId: fhir
 
 appInsights:
   secretKey: "instrumentationKey"
