@@ -253,7 +253,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         public async Task GivenAServer_WhenSearchedByResourceTypeUsingPost_ThenAuditLogEntriesShouldBeCreated()
         {
             await ExecuteAndValidate(
-                () => _client.SearchPostAsync("Observation", ("_tag", "123")),
+                () => _client.SearchPostAsync("Observation", default, ("_tag", "123")),
                 "search-type",
                 ResourceType.Observation,
                 _ => "Observation/_search",
@@ -277,7 +277,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         public async Task GivenAServer_WhenSearchedUsingPost_ThenAuditLogEntriesShouldBeCreated()
         {
             await ExecuteAndValidate(
-                () => _client.SearchPostAsync(null, ("_tag", "123")),
+                () => _client.SearchPostAsync(null, default, ("_tag", "123")),
                 "search-system",
                 null,
                 _ => "_search",

@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
                             break;
                         default:
-                            newDenormalizedPredicates?.Add(expression);
+                            newDenormalizedPredicates?.Add(currentExpression);
                             break;
                     }
                 }
