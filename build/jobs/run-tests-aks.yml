@@ -10,8 +10,8 @@ jobs:
   pool:
     vmImage: $(WindowsVmImage)
   steps:
-  -template: e2e-setup.yml
-    
+  - template: e2e-setup.yml
+
   - task: AzurePowerShell@4
     displayName: 'Set Variables'
     inputs:
