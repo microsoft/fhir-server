@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             if (nextLink != null)
             {
                 FhirResponse<Bundle> secondBundle = await Client.SearchAsync(nextLink);
-                ValidateBundle(secondBundle, nextLink.Substring(17), sort, expectedResources.ToList().GetRange(10, expectedResources.Length - 10).ToArray());
+                ValidateBundle(secondBundle, nextLink.Substring(nextLink.IndexOf('?')), sort, expectedResources.ToList().GetRange(10, expectedResources.Length - 10).ToArray());
             }
 
             return firstBundle;
