@@ -14,7 +14,7 @@ In order to provision the FHIR server in AKS, you need the following:
 You can use the [deploy-aks.sh](deploy-aks.sh) script included in this repo:
 
 ```bash
-./deploy-aks.sh --environment-name <my-environment> --location westus2
+./deploy-aks.sh --name <my-environment> --resource-group-name <my-rg-name> --location westus2
 ```
 
 If you prefer to install the components manually, use the script as a guide for the installation steps.
