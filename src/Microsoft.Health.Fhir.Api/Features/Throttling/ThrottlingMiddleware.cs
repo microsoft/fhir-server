@@ -16,22 +16,36 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
+using Microsoft.Health.Fhir.Core.Configs;
 
 namespace Microsoft.Health.Fhir.Api.Features.Throttling
 {
+    /// <summary>
+    /// Middleware to limit the number of concurrent requests that an instance of the server handles simultaneously.
+    /// </summary>
     public class ThrottlingMiddleware
     {
         private readonly ILogger<ThrottlingMiddleware> _logger;
         private readonly ThrottlingConfiguration _configuration;
-        private readonly HashSet<(string method, string path)> _excludedEndpoints = new HashSet<(string method, string path)>();
+        private readonly HashSet<(string method, string path)> _excludedEndpoints;
+        private readonly bool _securityEnabled;
+
         private int _requestsInFlight = 0;
         private RequestDelegate _next;
 
-        public ThrottlingMiddleware(RequestDelegate next, IOptions<ThrottlingConfiguration> configuration, ILogger<ThrottlingMiddleware> logger)
+        public ThrottlingMiddleware(
+            RequestDelegate next,
+            IOptions<ThrottlingConfiguration> throttlingConfiguration,
+            IOptions<SecurityConfiguration> securityConfiguration,
+            ILogger<ThrottlingMiddleware> logger)
         {
             _next = EnsureArg.IsNotNull(next, nameof(next));
             _logger = EnsureArg.IsNotNull(logger, nameof(logger));
-            _configuration = EnsureArg.IsNotNull(configuration?.Value, nameof(configuration));
+            _configuration = EnsureArg.IsNotNull(throttlingConfiguration?.Value, nameof(throttlingConfiguration));
+            EnsureArg.IsNotNull(securityConfiguration?.Value, nameof(securityConfiguration));
+
+            _securityEnabled = securityConfiguration.Value.Enabled;
+
             _excludedEndpoints = new HashSet<(string method, string path)>(new StringTupleOrdinalIgnoreCaseEqualityComparer());
 
             if (_configuration?.ExcludedEndpoints != null)
@@ -42,7 +56,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
 
                     if (mapping.Length != 2)
                     {
-                        throw new ArgumentException($"Entry '{excludedEndpoint}' is invalid. It should be of the format [request method]:[request path].", nameof(configuration));
+                        throw new ArgumentException($"Entry '{excludedEndpoint}' is invalid. It should be of the format [request method]:[request path].", nameof(throttlingConfiguration));
                     }
 
                     _excludedEndpoints.Add((mapping[0], mapping[1]));
@@ -55,6 +69,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
             if (_excludedEndpoints.Contains((context.Request.Method, context.Request.Path.Value)))
             {
                 // Endpoint is exempt from concurrent request limits.
+                await _next(context);
+                return;
+            }
+
+            if (_securityEnabled && !context.User.Identity.IsAuthenticated)
+            {
+                // Ignore Unauthenticated users if security is enabled
                 await _next(context);
                 return;
             }
@@ -92,7 +113,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
 
             public int GetHashCode(ValueTuple<string, string> obj)
             {
-                return StringComparer.OrdinalIgnoreCase.GetHashCode(obj.Item1) ^ StringComparer.OrdinalIgnoreCase.GetHashCode(obj.Item2);
+                return HashCode.Combine(obj.Item1.GetHashCode(StringComparison.OrdinalIgnoreCase), obj.Item2.GetHashCode(StringComparison.OrdinalIgnoreCase));
             }
         }
     }
