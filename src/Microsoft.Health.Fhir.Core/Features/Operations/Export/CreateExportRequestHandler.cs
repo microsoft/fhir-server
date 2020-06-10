@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             string hash = JsonConvert.SerializeObject(hashObject).ComputeHash();
 
-            string storageAccountConnectionHash = ExportJobConfiguration.HashStorageAccountConnection(_exportJobConfiguration.StorageAccountConnection);
+            string storageAccountConnectionHash = Microsoft.Health.Core.Extensions.StringExtensions.ComputeHash(_exportJobConfiguration.StorageAccountConnection);
 
             // Check to see if a matching job exists or not. If a matching job exists, we will return that instead.
             // Otherwise, we will create a new export job. This will be a best effort since the likelihood of this happen should be small.

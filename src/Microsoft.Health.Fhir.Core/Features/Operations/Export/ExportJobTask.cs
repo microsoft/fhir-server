@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 string connectionHash = string.Empty;
                 if (!string.IsNullOrEmpty(_exportJobConfiguration.StorageAccountConnection))
                 {
-                    connectionHash = ExportJobConfiguration.HashStorageAccountConnection(_exportJobConfiguration.StorageAccountConnection);
+                    connectionHash = Microsoft.Health.Core.Extensions.StringExtensions.ComputeHash(_exportJobConfiguration.StorageAccountConnection);
                 }
 
                 if (string.IsNullOrEmpty(exportJobRecord.StorageAccountUri) && string.IsNullOrEmpty(_exportJobConfiguration.StorageAccountUri))

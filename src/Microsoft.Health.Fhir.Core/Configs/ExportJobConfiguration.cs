@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Security.Cryptography;
 
 namespace Microsoft.Health.Fhir.Core.Configs
 {
@@ -25,9 +24,11 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Determines the storage account connection that will be used to export data to.
         /// Should be a uri pointing to the required storage account.
         /// </summary>
-#pragma warning disable CA1056 // Uri properties should not be strings
+        [System.Diagnostics.CodeAnalysis.SuppressMessage(
+            "Usage",
+            "CA1056:Uri properties should not be strings",
+            Justification = "Set from an environment variable.")]
         public string StorageAccountUri { get; set; }
-#pragma warning restore CA1056 // Uri properties should not be strings
 
         public ushort MaximumNumberOfConcurrentJobsAllowed { get; set; } = 1;
 
@@ -44,23 +45,5 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Number of pages to be iterated before committing the export progress.
         /// </summary>
         public uint NumberOfPagesPerCommit { get; set; } = 10;
-
-        public static string HashStorageAccountConnection(string connection)
-        {
-            if (string.IsNullOrEmpty(connection))
-            {
-                return string.Empty;
-            }
-
-            SHA512 hasher = System.Security.Cryptography.SHA512.Create();
-
-            string hash = System.Text.Encoding.UTF8.GetString(
-                        hasher.ComputeHash(
-                            System.Text.Encoding.UTF8.GetBytes(connection)));
-
-            hasher.Dispose();
-
-            return hash;
-        }
     }
 }

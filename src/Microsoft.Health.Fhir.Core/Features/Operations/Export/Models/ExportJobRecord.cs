@@ -94,9 +94,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         [JsonProperty(JobRecordProperties.StorageAccountConnectionHash)]
         public string StorageAccountConnectionHash { get; private set; }
 
-#pragma warning disable CA1056 // Uri properties should not be strings
+        [System.Diagnostics.CodeAnalysis.SuppressMessage(
+            "Usage",
+            "CA1056:Uri properties should not be strings",
+            Justification = "Set from an ExportJobConfiguration where the value is a string and is never used as a URI.")]
         [JsonProperty(JobRecordProperties.StorageAccountUri)]
         public string StorageAccountUri { get; private set; }
-#pragma warning restore CA1056 // Uri properties should not be strings
     }
 }
