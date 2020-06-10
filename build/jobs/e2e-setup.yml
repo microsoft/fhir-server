@@ -1,22 +1,23 @@
-- task: DownloadBuildArtifacts@0
-inputs:
-  buildType: 'current'
-  downloadType: 'single'
-  downloadPath: '$(System.ArtifactsDirectory)'
-  artifactName: 'IntegrationTests'
+steps:
+  - task: DownloadBuildArtifacts@0
+    inputs:
+      buildType: 'current'
+      downloadType: 'single'
+      downloadPath: '$(System.ArtifactsDirectory)'
+      artifactName: 'IntegrationTests'
 
-- task: UseDotNet@2
-inputs:
-  useGlobalJson: true
-    
-- task: AzureKeyVault@1
-displayName: 'Azure Key Vault: resolute-oss-tenant-info'
-inputs:
-  azureSubscription: $(ConnectedServiceName)
-  KeyVaultName: 'resolute-oss-tenant-info'
+  - task: UseDotNet@2
+    inputs:
+      useGlobalJson: true
+        
+  - task: AzureKeyVault@1
+    displayName: 'Azure Key Vault: resolute-oss-tenant-info'
+    inputs:
+      azureSubscription: $(ConnectedServiceName)
+      KeyVaultName: 'resolute-oss-tenant-info'
 
-- task: AzureKeyVault@1
-displayName: 'Azure Key Vault: $(DeploymentEnvironmentName)-ts'
-inputs:
-  azureSubscription: $(ConnectedServiceName)
-  KeyVaultName: '$(DeploymentEnvironmentName)-ts'
+  - task: AzureKeyVault@1
+    displayName: 'Azure Key Vault: $(DeploymentEnvironmentName)-ts'
+    inputs:
+      azureSubscription: $(ConnectedServiceName)
+      KeyVaultName: '$(DeploymentEnvironmentName)-ts'
