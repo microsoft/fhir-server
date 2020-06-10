@@ -35,6 +35,29 @@ stages:
     parameters: 
       tag: $(ImageTag)
 
+- stage: provisionEnvironment
+  displayName: Provision Environment
+  dependsOn: []
+  jobs:
+  - job: provision
+    steps:
+    - task: AzurePowerShell@4
+      displayName: Provision Resource Group
+      inputs:
+        azureSubscription: $(ConnectedServiceName)
+        azurePowerShellVersion: latestVersion
+        ScriptType: inlineScript
+        Inline: |
+          New-AzResourceGroup -Name "$(DeploymentEnvironmentName)" -Location "$(ResourceGroupRegion)" -Force
+
+- stage: aadTestEnvironment
+  displayName: Setup AAD Test Environment
+  dependsOn:
+  - provisionEnvironment
+  - DockerBuild
+  jobs:
+  - template: ./jobs/add-aad-test-environment.yml
+
 - stage: deployAksR4Cosmos
   displayName: 'Deploy R4 Cosmos in AKS'
   dependsOn:
@@ -70,54 +93,6 @@ stages:
       testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
       dnsSuffix: $(aksDnsSuffix)
-
-- stage: testAksR4
-  displayName: 'Run R4 AKS Tests'
-  dependsOn:
-  - BuildUnitTests
-  - aadTestEnvironment
-  - deployAksR4Cosmos
-  - deployAksR4Sql
-  jobs:
-  - template: ./jobs/run-tests-aks.yml
-    parameters:
-      version: R4
-      dnsSuffix: $(aksDnsSuffix)
-
-- stage: cleanupAks
-  displayName: 'Cleanup AKS Deployments'
-  dependsOn:
-  - testAksR4
-  jobs:
-  - template: ./jobs/cleanup-aks.yml
-    parameters:
-      deploymentEnvironmentName: $(DeploymentEnvironmentName)
-      subscription: $(ConnectedServiceName)
-      clusterName: $(clusterName)
-      clusterResourceGroup: $(clusterResourceGroup)
-
-- stage: provisionEnvironment
-  displayName: Provision Environment
-  dependsOn: []
-  jobs:
-  - job: provision
-    steps:
-    - task: AzurePowerShell@4
-      displayName: Provision Resource Group
-      inputs:
-        azureSubscription: $(ConnectedServiceName)
-        azurePowerShellVersion: latestVersion
-        ScriptType: inlineScript
-        Inline: |
-          New-AzResourceGroup -Name "$(DeploymentEnvironmentName)" -Location "$(ResourceGroupRegion)" -Force
-
-- stage: aadTestEnvironment
-  displayName: Setup AAD Test Environment
-  dependsOn:
-  - provisionEnvironment
-  - DockerBuild
-  jobs:
-  - template: ./jobs/add-aad-test-environment.yml
 
 - stage: deployStu3
   displayName: 'Deploy STU3 Site'
@@ -223,7 +198,20 @@ stages:
       resourceGroup: $(DeploymentEnvironmentName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
-  
+
+- stage: testAksR4
+  displayName: 'Run R4 AKS Tests'
+  dependsOn:
+  - BuildUnitTests
+  - aadTestEnvironment
+  - deployAksR4Cosmos
+  - deployAksR4Sql
+  jobs:
+  - template: ./jobs/run-tests-aks.yml
+    parameters:
+      version: R4
+      dnsSuffix: $(aksDnsSuffix)
+      
 - stage: testStu3
   displayName: 'Run Stu3 Tests'
   dependsOn:
@@ -262,6 +250,18 @@ stages:
     parameters:
       version: R5
       keyVaultName: $(DeploymentEnvironmentNameR5)
+
+- stage: cleanupAks
+  displayName: 'Cleanup AKS Deployments'
+  dependsOn:
+  - testAksR4
+  jobs:
+  - template: ./jobs/cleanup-aks.yml
+    parameters:
+      deploymentEnvironmentName: $(DeploymentEnvironmentName)
+      subscription: $(ConnectedServiceName)
+      clusterName: $(clusterName)
+      clusterResourceGroup: $(clusterResourceGroup)
 
 - stage: cleanup
   displayName: 'Cleanup Azure Environment'
