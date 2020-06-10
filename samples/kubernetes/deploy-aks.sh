@@ -29,14 +29,14 @@ command -v kubectl >/dev/null 2>&1 || { echo >&2 "'kubectl' is required but not 
 location="westus2"
 maxNodes=5
 vmSize="Standard_DS2_v2"
-name=""
+clusterName=""
 resourceGroupName=""
 
 # Parse command line arguments
 while [ "$1" != "" ]; do
     case $1 in
         -n | --name )                               shift
-                                                    name=$1
+                                                    clusterName=$1
                                                     ;;
         -g | --resource-group-name )                shift
                                                     resourceGroupName=$1
@@ -59,18 +59,17 @@ while [ "$1" != "" ]; do
     shift
 done
 
-if [ -z "$name" ]; then
-    echo "Please provide a cluster environment name"
+if [ -z "$clusterName" ]; then
+    echo "Please provide a cluster name"
     usage
     exit 1
 fi
 
 if [ -z "$resourceGroupName" ]; then
-    resourceGroupName="$name"
+    resourceGroupName="$clusterName"
 fi
 
-clusterName="${name}-cluster"
-keyvaultName="${name}-cluster"
+keyvaultName="${clusterName}"
 
 # First create a resource group
 az group create --name $resourceGroupName --location $location
