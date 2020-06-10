@@ -32,7 +32,6 @@ vmSize="Standard_DS2_v2"
 name=""
 resourceGroupName=""
 
-
 # Parse command line arguments
 while [ "$1" != "" ]; do
     case $1 in
@@ -66,8 +65,8 @@ if [ -z "$name" ]; then
     exit 1
 fi
 
-if [ -z "$resourceGroupName"]; then
-    resourceGroupname=$name
+if [ -z "$resourceGroupName" ]; then
+    resourceGroupName="$name"
 fi
 
 clusterName="${name}-cluster"
