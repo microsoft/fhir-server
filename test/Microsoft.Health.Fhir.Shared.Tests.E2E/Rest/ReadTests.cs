@@ -10,6 +10,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
