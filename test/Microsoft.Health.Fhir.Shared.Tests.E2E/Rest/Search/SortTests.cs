@@ -27,109 +27,50 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
-        public async Task GivenPatientResources_WhenSearchedWithUnsupportedSortParams_ThenSortIsDroppedFromUrl()
+        public async Task GivenResources_WhenSearchedWithUnsupportedSortParams_ThenSortIsDroppedFromUrl()
         {
             var tag = Guid.NewGuid().ToString();
             var patients = await CreateResources(tag);
 
-            await Assert.ThrowsAsync<FhirException>(async () => await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=name", false, patients.Cast<Resource>().ToArray()));
+            await Assert.ThrowsAsync<EqualException>(async () => await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=name", false, patients.Cast<Resource>().ToArray()));
         }
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenPatientResources_WhenSearchedWithSortParams_ThenResourcesAreReturnedInTheCorrectOrder()
+        public async Task GivenResources_WhenSearchedWithSortParams_ThenResourcesAreReturnedInTheAscendingOrder()
         {
             var tag = Guid.NewGuid().ToString();
             var patients = await CreateResources(tag);
 
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=_lastUpdated", false, patients.Cast<Resource>().ToArray());
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenResources_WhenSearchedWithSortParamsWithHyphen_ThenResourcesAreReturnedInTheDescendingOrder()
+        {
+            var tag = Guid.NewGuid().ToString();
+            var patients = await CreateResources(tag);
+
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=-_lastUpdated", false, patients.Reverse().Cast<Resource>().ToArray());
-
-            await Assert.ThrowsAsync<CollectionException>(async () => await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=_lastUpdated", false, patients.Reverse().Cast<Resource>().ToArray()));
         }
 
         [Fact]
-        public async Task GivenResources_WhenSearchedWithLastUpdatedSortParam_ThenResourcesAreReturnedInAscendingOrder()
+        public async Task GivenMoreThanTenResources_WhenSearchedWithSortParam_ThenResourcesAreReturnedInAscendingOrder()
         {
-            var newResources = new List<Resource>();
             var tag = Guid.NewGuid().ToString();
+            var patients = await CreatePaginatedResources(tag);
 
-            newResources.Add(await Client.CreateAsync(AddTagToResource(Samples.GetDefaultPatient().ToPoco(), tag)));
-            newResources.Add(await Client.CreateAsync(AddTagToResource(Samples.GetDefaultOrganization().ToPoco(), tag)));
-            newResources.Add(await Client.CreateAsync(AddTagToResource(Samples.GetJsonSample("BloodGlucose").ToPoco(), tag)));
-            newResources.Add(await Client.CreateAsync(AddTagToResource(Samples.GetJsonSample("BloodPressure").ToPoco(), tag)));
-            newResources.Add(await Client.CreateAsync(AddTagToResource(Samples.GetJsonSample("Patient-f001").ToPoco(), tag)));
-            newResources.Add(await Client.CreateAsync(AddTagToResource(Samples.GetJsonSample("Condition-For-Patient-f001").ToPoco(), tag)));
-
-            await ExecuteAndValidateBundle($"?_tag={tag}&_sort=_lastUpdated", false, newResources.ToArray());
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=_lastUpdated", false, patients.Cast<Resource>().ToArray());
         }
 
         [Fact]
-        public async Task GivenResources_WhenSearchedWithLastUpdatedSortParamWithHyphen_ThenResourcesAreReturnedInDescendingOrder()
+        public async Task GivenMoreThanTenResources_WhenSearchedWithSortParamWithHyphen_ThenResourcesAreReturnedInDescendingOrder()
         {
-            var newResources = new List<Resource>();
             var tag = Guid.NewGuid().ToString();
+            var patients = await CreatePaginatedResources(tag);
 
-            newResources.Add(await Client.CreateAsync(AddTagToResource(Samples.GetDefaultPatient().ToPoco(), tag)));
-            newResources.Add(await Client.CreateAsync(AddTagToResource(Samples.GetDefaultOrganization().ToPoco(), tag)));
-            newResources.Add(await Client.CreateAsync(AddTagToResource(Samples.GetJsonSample("BloodGlucose").ToPoco(), tag)));
-            newResources.Add(await Client.CreateAsync(AddTagToResource(Samples.GetJsonSample("BloodPressure").ToPoco(), tag)));
-            newResources.Add(await Client.CreateAsync(AddTagToResource(Samples.GetJsonSample("Patient-f001").ToPoco(), tag)));
-            newResources.Add(await Client.CreateAsync(AddTagToResource(Samples.GetJsonSample("Condition-For-Patient-f001").ToPoco(), tag)));
-            newResources.Reverse();
-
-            await ExecuteAndValidateBundle($"?_tag={tag}&_sort=-_lastUpdated", false, newResources.ToArray());
-        }
-
-        [Fact]
-        public async Task GivenMoreThanTenResources_WhenSearchedWithLastUpdatedAsSortParam_ThenPaginatedResourcesReturnedInAscendingOrder()
-        {
-            var newResources = new List<Resource>();
-            var tag = Guid.NewGuid().ToString();
-
-            newResources.Add(await Client.CreateAsync(AddTagToResource(Samples.GetDefaultPatient().ToPoco(), tag)));
-            newResources.Add(await Client.CreateAsync(AddTagToResource(Samples.GetDefaultOrganization().ToPoco(), tag)));
-            newResources.Add(await Client.CreateAsync(AddTagToResource(Samples.GetJsonSample("BloodGlucose").ToPoco(), tag)));
-            newResources.Add(await Client.CreateAsync(AddTagToResource(Samples.GetJsonSample("BloodPressure").ToPoco(), tag)));
-            newResources.Add(await Client.CreateAsync(AddTagToResource(Samples.GetJsonSample("Patient-f001").ToPoco(), tag)));
-            newResources.Add(await Client.CreateAsync(AddTagToResource(Samples.GetJsonSample("Condition-For-Patient-f001").ToPoco(), tag)));
-            newResources.Add(await Client.CreateAsync(AddTagToResource(Samples.GetJsonSample("Encounter-For-Patient-f001").ToPoco(), tag)));
-            newResources.Add(await Client.CreateAsync(AddTagToResource(Samples.GetJsonSample("Observation-For-Patient-f001").ToPoco(), tag)));
-            newResources.Add(await Client.CreateAsync(AddTagToResource(Samples.GetJsonSample("ObservationWith1MinuteApgarScore").ToPoco(), tag)));
-            newResources.Add(await Client.CreateAsync(AddTagToResource(Samples.GetJsonSample("ObservationWith20MinuteApgarScore").ToPoco(), tag)));
-            newResources.Add(await Client.CreateAsync(AddTagToResource(Samples.GetJsonSample("ObservationWithEyeColor").ToPoco(), tag)));
-            newResources.Add(await Client.CreateAsync(AddTagToResource(Samples.GetJsonSample("ObservationWithTemperature").ToPoco(), tag)));
-
-            await ExecuteAndValidateBundle($"?_tag={tag}&_sort=_lastUpdated", false, newResources.ToArray());
-        }
-
-        [Fact]
-        public async Task GivenMoreThanTenResources_WhenSearchedWithLastUpdatedAsSortParamWithHyphen_ThenPaginatedResourcesReturnedInDescendingOrder()
-        {
-            var newResources = new List<Resource>();
-            var tag = Guid.NewGuid().ToString();
-
-            newResources.Add(await Client.CreateAsync(AddTagToResource(Samples.GetDefaultPatient().ToPoco(), tag)));
-            newResources.Add(await Client.CreateAsync(AddTagToResource(Samples.GetDefaultOrganization().ToPoco(), tag)));
-            newResources.Add(await Client.CreateAsync(AddTagToResource(Samples.GetJsonSample("BloodGlucose").ToPoco(), tag)));
-            newResources.Add(await Client.CreateAsync(AddTagToResource(Samples.GetJsonSample("BloodPressure").ToPoco(), tag)));
-            newResources.Add(await Client.CreateAsync(AddTagToResource(Samples.GetJsonSample("Patient-f001").ToPoco(), tag)));
-            newResources.Add(await Client.CreateAsync(AddTagToResource(Samples.GetJsonSample("Condition-For-Patient-f001").ToPoco(), tag)));
-            newResources.Add(await Client.CreateAsync(AddTagToResource(Samples.GetJsonSample("Encounter-For-Patient-f001").ToPoco(), tag)));
-            newResources.Add(await Client.CreateAsync(AddTagToResource(Samples.GetJsonSample("Observation-For-Patient-f001").ToPoco(), tag)));
-            newResources.Add(await Client.CreateAsync(AddTagToResource(Samples.GetJsonSample("ObservationWith1MinuteApgarScore").ToPoco(), tag)));
-            newResources.Add(await Client.CreateAsync(AddTagToResource(Samples.GetJsonSample("ObservationWith20MinuteApgarScore").ToPoco(), tag)));
-            newResources.Add(await Client.CreateAsync(AddTagToResource(Samples.GetJsonSample("ObservationWithEyeColor").ToPoco(), tag)));
-            newResources.Add(await Client.CreateAsync(AddTagToResource(Samples.GetJsonSample("ObservationWithTemperature").ToPoco(), tag)));
-            newResources.Reverse();
-
-            await ExecuteAndValidateBundle($"?_tag={tag}&_sort=-_lastUpdated", false, newResources.ToArray());
-        }
-
-        private Resource AddTagToResource(Resource resource, string tag)
-        {
-            resource.Meta = new Meta { Tag = new List<Coding> { new Coding(null, tag) }, };
-            return resource;
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=-_lastUpdated", false, patients.Reverse().Cast<Resource>().ToArray());
         }
 
         private async Task<Patient[]> CreateResources(string tag)
@@ -138,6 +79,26 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Patient[] patients = await Client.CreateResourcesAsync<Patient>(
                 p => SetPatientInfo(p, "Seattle", "Robinson", tag),
                 p => SetPatientInfo(p, "Portland", "Williamas", tag),
+                p => SetPatientInfo(p, "Seattle", "Jones", tag));
+
+            return patients;
+        }
+
+        private async Task<Patient[]> CreatePaginatedResources(string tag)
+        {
+            // Create various resources.
+            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
+                p => SetPatientInfo(p, "Seattle", "Robinson", tag),
+                p => SetPatientInfo(p, "Portland", "Williamas", tag),
+                p => SetPatientInfo(p, "Portland", "James", tag),
+                p => SetPatientInfo(p, "Seatt;e", "Alex", tag),
+                p => SetPatientInfo(p, "Portland", "Rock", tag),
+                p => SetPatientInfo(p, "Seattle", "Mike", tag),
+                p => SetPatientInfo(p, "Portland", "Christie", tag),
+                p => SetPatientInfo(p, "Portland", "Lone", tag),
+                p => SetPatientInfo(p, "Seattle", "Sophie", tag),
+                p => SetPatientInfo(p, "Portland", "Peter", tag),
+                p => SetPatientInfo(p, "Portland", "Cathy", tag),
                 p => SetPatientInfo(p, "Seattle", "Jones", tag));
 
             return patients;

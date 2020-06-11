@@ -17,6 +17,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
     public abstract class SearchTestsBase<TFixture> : IClassFixture<TFixture>
         where TFixture : HttpIntegrationTestFixture
     {
+        private const string ContinuationToken = "&ct";
+
         protected SearchTestsBase(TFixture fixture)
         {
             Fixture = fixture;
@@ -57,7 +59,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             if (nextLink != null)
             {
                 FhirResponse<Bundle> secondBundle = await Client.SearchAsync(nextLink);
-                ValidateBundle(secondBundle, nextLink.Substring(nextLink.IndexOf('?')), sort, expectedResources.ToList().GetRange(10, expectedResources.Length - 10).ToArray());
+
+                // Truncating host and appending continuation token
+                nextLink = selfLink + nextLink.Substring(nextLink.IndexOf(ContinuationToken));
+                ValidateBundle(secondBundle, nextLink, sort, expectedResources.ToList().GetRange(10, expectedResources.Length - 10).ToArray());
             }
 
             return firstBundle;
@@ -71,8 +76,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         protected void ValidateBundle(Bundle bundle, string selfLink, bool sort, params Resource[] expectedResources)
         {
             ValidateBundle(bundle, sort, expectedResources);
+            string actualUrl;
 
-            var actualUrl = WebUtility.UrlDecode(bundle.SelfLink.AbsoluteUri);
+            // checking if continuation token is present in the link
+            if (bundle.SelfLink.AbsoluteUri.Contains(ContinuationToken))
+            {
+                // avoiding url decode of continuation token
+                int tokenIndex = bundle.SelfLink.AbsoluteUri.IndexOf(ContinuationToken, StringComparison.Ordinal);
+                actualUrl = WebUtility.UrlDecode(bundle.SelfLink.AbsoluteUri.Substring(0, tokenIndex)) + bundle.SelfLink.AbsoluteUri.Substring(tokenIndex);
+            }
+            else
+            {
+                actualUrl = WebUtility.UrlDecode(bundle.SelfLink.AbsoluteUri);
+            }
 
             Assert.Equal(Fixture.GenerateFullUrl(selfLink), actualUrl);
         }

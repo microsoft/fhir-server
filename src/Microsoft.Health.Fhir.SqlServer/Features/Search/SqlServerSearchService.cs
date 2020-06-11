@@ -129,7 +129,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             {
                 if (long.TryParse(searchOptions.ContinuationToken, NumberStyles.None, CultureInfo.InvariantCulture, out var token))
                 {
-                    var sortOrder = SortUtils.GetSortOrderByParameterName(searchOptions, KnownQueryParameterNames.LastUpdated);
+                    var sortOrder = SortUtils.GetSortOrderForSupportedParam(searchOptions);
 
                     Expression lastUpdatedExpression = sortOrder == SortOrder.Ascending ? Expression.GreaterThan(SqlFieldName.ResourceSurrogateId, null, token)
                                                                                                 : Expression.LessThan(SqlFieldName.ResourceSurrogateId, null, token);
@@ -248,7 +248,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         unsupportedSortingParameters = searchOptions
                             .UnsupportedSortingParams
                             .Concat(searchOptions.Sort
-                                .Where(x => !string.Equals(x.searchParameterInfo.Name, KnownQueryParameterNames.LastUpdated, StringComparison.OrdinalIgnoreCase))
+                                .Where(x => !SortUtils.IsSearchParamterSupported(x.searchParameterInfo.Name))
                                 .Select(s => (s.searchParameterInfo.Name, Core.Resources.SortNotSupported))).ToList();
                     }
                     else
