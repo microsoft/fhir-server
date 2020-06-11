@@ -4,8 +4,6 @@ parameters:
   type: string
 - name: dataStore
   type: string
-- name: deploymentEnvironmentName
-  type: string
 - name: subscription
   type: string
 - name: clusterName
@@ -48,7 +46,7 @@ jobs:
         corsHeaders=`cat $corsPath | jq -r '.FhirServer.Cors.Headers | @csv' | tr -d '"'`
         corsMaxAge=`cat $corsPath | jq -r '.FhirServer.Cors.MaxAge'`        
         repositoryName=`echo $(azureContainerRegistry)/${{parameters.version}}_fhir-server | tr '[:upper:]' '[:lower:]'`
-        releaseName=`echo "${{parameters.deploymentEnvironmentName}}-${{parameters.version}}-${{parameters.dataStore}}" | tr '[:upper:]' '[:lower:]'`
+        releaseName=`echo "$(DeploymentEnvironmentName)-${{parameters.version}}-${{parameters.dataStore}}" | tr '[:upper:]' '[:lower:]'`
         hostName=`echo "${releaseName}.${{parameters.dnsSuffix}}" | tr '[:upper:]' '[:lower:]'`
         tenantId="$(tenant-id)"
         

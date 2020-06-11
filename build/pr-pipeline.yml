@@ -67,7 +67,6 @@ stages:
     parameters: 
       version: R4
       dataStore: CosmosDb
-      deploymentEnvironmentName: $(DeploymentEnvironmentName)
       subscription: $(ConnectedServiceName)
       clusterName: $(clusterName)
       clusterResourceGroup: $(clusterResourceGroup)
@@ -85,7 +84,6 @@ stages:
     parameters: 
       version: R4
       dataStore: SqlServer
-      deploymentEnvironmentName: $(DeploymentEnvironmentName)
       subscription: $(ConnectedServiceName)
       clusterName: $(clusterName)
       clusterResourceGroup: $(clusterResourceGroup)
@@ -258,7 +256,6 @@ stages:
   jobs:
   - template: ./jobs/cleanup-aks.yml
     parameters:
-      deploymentEnvironmentName: $(DeploymentEnvironmentName)
       subscription: $(ConnectedServiceName)
       clusterName: $(clusterName)
       clusterResourceGroup: $(clusterResourceGroup)
