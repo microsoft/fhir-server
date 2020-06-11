@@ -328,7 +328,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 
                 FeedResponse<CosmosReindexJobRecordWrapper> result = await query.ExecuteNextAsync<CosmosReindexJobRecordWrapper>();
 
-                if (result.Count == 1)
+                if (result.Any())
                 {
                     return true;
                 }
