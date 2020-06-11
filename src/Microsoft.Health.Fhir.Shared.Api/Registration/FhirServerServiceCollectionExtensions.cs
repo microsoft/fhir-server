@@ -164,9 +164,9 @@ namespace Microsoft.Extensions.DependencyInjection
                     app.UseAudit();
                     app.UseApiNotifications();
 
-                    var throttlingConfig = app.ApplicationServices.GetRequiredService<IOptions<ThrottlingConfiguration>>();
-
                     app.UseFhirRequestContextAuthentication();
+
+                    var throttlingConfig = app.ApplicationServices.GetRequiredService<IOptions<ThrottlingConfiguration>>();
 
                     if (throttlingConfig.Value.Enabled)
                     {
