@@ -38,18 +38,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _outputHelper = testOutputHelper;
         }
 
-        [Fact(Skip = "yes please")]
-        public async Task GivenFhirServer_WhenDataIsExported_ThenExportedDataIsSameAsDataInFhirServer()
+        [Theory]
+        [InlineData("")]
+        [InlineData("Patient/")]
+        public async Task GivenFhirServer_WhenDataIsExported_ThenExportedDataIsSameAsDataInFhirServer(string path)
         {
+            // NOTE: Azure Storage Emulator is required to run these tests locally.
+
             // Trigger export request and check for export status
-            Uri contentLocation = await _testFhirClient.ExportAsync();
+            Uri contentLocation = await _testFhirClient.ExportAsync(path);
             IList<Uri> blobUris = await CheckExportStatus(contentLocation);
 
             // Download exported data from storage account
             Dictionary<string, string> dataFromExport = await DownloadBlobAndParse(blobUris);
 
             // Download all resources from fhir server
-            Dictionary<string, string> dataFromFhirServer = await GetResourcesFromFhirServer(_testFhirClient.HttpClient.BaseAddress);
+            Uri address = new Uri(_testFhirClient.HttpClient.BaseAddress, path);
+            Dictionary<string, string> dataFromFhirServer = await GetResourcesFromFhirServer(address);
 
             // Assert both data are equal
             Assert.True(ValidateDataFromBothSources(dataFromFhirServer, dataFromExport));
@@ -58,11 +63,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         private bool ValidateDataFromBothSources(Dictionary<string, string> dataFromServer, Dictionary<string, string> dataFromStorageAccount)
         {
             bool result = true;
+
             if (dataFromStorageAccount.Count != dataFromServer.Count)
             {
                 _outputHelper.WriteLine($"Count differs. Exported data count: {dataFromStorageAccount.Count} Fhir Server Count: {dataFromServer.Count}");
                 return false;
             }
+
+            // Enable this check when creating/updating data validation tests to ensure there is data to export
+            /*
+            if (dataFromStorageAccount.Count == 0)
+            {
+                _outputHelper.WriteLine("No data exported. This test expects data to be present.");
+                return false;
+            }
+            */
 
             int wrongCount = 0;
             foreach (KeyValuePair<string, string> kvp in dataFromServer)
@@ -178,6 +193,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 JObject result = JObject.Parse(responseString);
 
                 JArray entries = (JArray)result["entry"];
+
+                // Fhir server has not returned any data. Return existing mapping.
+                if (entries == null)
+                {
+                    return resourceIdToResourceMapping;
+                }
+
                 foreach (JToken entry in entries)
                 {
                     string id = entry["resource"]["id"].ToString();
