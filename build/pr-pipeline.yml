@@ -58,6 +58,40 @@ stages:
   jobs:
   - template: ./jobs/add-aad-test-environment.yml
 
+- stage: deployAksR4Cosmos
+  displayName: 'Deploy R4 Cosmos in AKS'
+  dependsOn:
+  - DockerBuild
+  jobs:
+  - template: ./jobs/deploy-aks.yml
+    parameters: 
+      version: R4
+      dataStore: CosmosDb
+      subscription: $(ConnectedServiceName)
+      clusterName: $(clusterName)
+      clusterResourceGroup: $(clusterResourceGroup)
+      clusterLocation: $(clusterLocation)
+      testEnvironmentUrl: $(TestEnvironmentUrl)
+      imageTag: $(ImageTag)
+      dnsSuffix: $(aksDnsSuffix)
+
+- stage: deployAksR4Sql
+  displayName: 'Deploy R4 Sql in AKS'
+  dependsOn:
+  - DockerBuild
+  jobs:
+  - template: ./jobs/deploy-aks.yml
+    parameters: 
+      version: R4
+      dataStore: SqlServer
+      subscription: $(ConnectedServiceName)
+      clusterName: $(clusterName)
+      clusterResourceGroup: $(clusterResourceGroup)
+      clusterLocation: $(clusterLocation)
+      testEnvironmentUrl: $(TestEnvironmentUrl)
+      imageTag: $(ImageTag)
+      dnsSuffix: $(aksDnsSuffix)
+
 - stage: deployStu3
   displayName: 'Deploy STU3 Site'
   dependsOn:
@@ -162,7 +196,20 @@ stages:
       resourceGroup: $(DeploymentEnvironmentName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
-  
+
+- stage: testAksR4
+  displayName: 'Run R4 AKS Tests'
+  dependsOn:
+  - BuildUnitTests
+  - aadTestEnvironment
+  - deployAksR4Cosmos
+  - deployAksR4Sql
+  jobs:
+  - template: ./jobs/run-tests-aks.yml
+    parameters:
+      version: R4
+      dnsSuffix: $(aksDnsSuffix)
+      
 - stage: testStu3
   displayName: 'Run Stu3 Tests'
   dependsOn:
@@ -202,11 +249,23 @@ stages:
       version: R5
       keyVaultName: $(DeploymentEnvironmentNameR5)
 
+- stage: cleanupAks
+  displayName: 'Cleanup AKS Deployments'
+  dependsOn:
+  - testAksR4
+  jobs:
+  - template: ./jobs/cleanup-aks.yml
+    parameters:
+      subscription: $(ConnectedServiceName)
+      clusterName: $(clusterName)
+      clusterResourceGroup: $(clusterResourceGroup)
+
 - stage: cleanup
   displayName: 'Cleanup Azure Environment'
   dependsOn:
   - testStu3
   - testR4
   - testR5
+  - testAksR4
   jobs:
   - template: ./jobs/cleanup.yml

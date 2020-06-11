@@ -23,6 +23,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
 {
+    [Trait(Traits.Category, Categories.SmartOnFhir)]
     public class SmartProxyTests : IClassFixture<SmartProxyTestFixture>
     {
         private SmartProxyTestFixture _fixture;
