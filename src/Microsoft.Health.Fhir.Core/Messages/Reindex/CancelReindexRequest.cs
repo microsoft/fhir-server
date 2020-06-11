@@ -3,16 +3,20 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations
+using EnsureThat;
+using MediatR;
+
+namespace Microsoft.Health.Fhir.Core.Messages.Reindex
 {
-    public enum OperationStatus
+    public class CancelReindexRequest : IRequest<CancelReindexResponse>
     {
-        Unknown,
-        Queued,
-        Running,
-        Completed,
-        Failed,
-        Canceled,
-        Paused,
+        public CancelReindexRequest(string jobId)
+        {
+            EnsureArg.IsNotNullOrWhiteSpace(jobId, nameof(jobId));
+
+            JobId = jobId;
+        }
+
+        public string JobId { get; }
     }
 }

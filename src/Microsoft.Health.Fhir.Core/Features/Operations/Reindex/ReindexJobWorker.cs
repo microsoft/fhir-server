@@ -55,7 +55,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     {
                         using (IScoped<IFhirOperationDataStore> store = _fhirOperationDataStoreFactory())
                         {
-                            // Query reindex job records
+                            _logger.LogTrace("Querying datastore for reindex jobs.");
+
                             IReadOnlyCollection<ReindexJobWrapper> jobs = await store.Value.AcquireReindexJobsAsync(
                                 _reindexJobConfiguration.MaximumNumberOfConcurrentJobsAllowed,
                                 _reindexJobConfiguration.JobHeartbeatTimeoutThreshold,
@@ -63,7 +64,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                             foreach (ReindexJobWrapper job in jobs)
                             {
-                                _logger.LogTrace($"Picked up job: {job.JobRecord.Id}.");
+                                _logger.LogTrace($"Picked up reindex job: {job.JobRecord.Id}.");
 
                                 runningTasks.Add(_reindexJobTaskFactory().ExecuteAsync(job.JobRecord, job.ETag, cancellationToken));
                             }
