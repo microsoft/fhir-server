@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations
 {
@@ -12,6 +13,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public JobConflictException()
             : base()
         {
+        }
+
+        public JobConflictException(string message)
+            : base(message)
+        {
+            Issues.Add(new Models.OperationOutcomeIssue(
+                OperationOutcomeConstants.IssueSeverity.Error,
+                OperationOutcomeConstants.IssueType.Conflict,
+                message));
         }
     }
 }

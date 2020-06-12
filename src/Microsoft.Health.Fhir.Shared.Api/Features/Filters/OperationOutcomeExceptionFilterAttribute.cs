@@ -8,7 +8,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Net;
-using System.Transactions;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Mvc.Controllers;
@@ -79,6 +78,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     case ResourceNotFoundException _:
                     case JobNotFoundException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.NotFound;
+                        break;
+                    case JobConflictException _:
+                        operationOutcomeResult.StatusCode = HttpStatusCode.Conflict;
                         break;
                     case MethodNotAllowedException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.MethodNotAllowed;
