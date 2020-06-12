@@ -1,0 +1,60 @@
+{{- if eq .Values.database.dataStore "SqlContainer" }}
+{{- $fullName := include "fhir-server.fullname" . -}}
+{{- $dbservicename := printf "%s-mssql" $fullName }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $dbservicename }}
+  labels:
+    {{- include "fhir-server.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.database.sqlContainer.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "fhir-server.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "fhir-server.selectorLabels" . | nindent 8 }}
+    spec:
+    {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      serviceAccountName: {{ include "fhir-server.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: mssql
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.database.sqlContainer.image.repository }}:{{ .Values.database.sqlContainer.image.tag }}"
+          imagePullPolicy: {{ .Values.database.sqlContainer.image.pullPolicy }}
+          env:
+          - name: MSSQL_PID
+            value: "Developer"
+          - name: ACCEPT_EULA
+            value: "Y"
+          - name: SA_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ $dbservicename }}
+                key: sapassword
+          ports:
+            - containerPort: 1433
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.database.sqlContainer.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+{{- end }}

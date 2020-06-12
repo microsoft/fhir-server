@@ -38,6 +38,7 @@ service:
   port: 80
 
 database:
+  # options: SqlServer, SqlContainer, CosmosDb
   dataStore: "SqlServer"
   resourceGroup: ""
   location: ""
@@ -57,6 +58,15 @@ database:
     initialCollectionThroughput: "400"
     # databaseId: health
     # collectionId: fhir
+  sqlContainer:
+    image:
+      repository: mcr.microsoft.com/mssql/server
+      tag: 2019-latest
+      pullPolicy: IfNotPresent
+    replicaCount: 1
+    port: 1433
+    resource: {}
+    # existingSecret: mySqlSecret
 
 appInsights:
   secretKey: "instrumentationKey"
