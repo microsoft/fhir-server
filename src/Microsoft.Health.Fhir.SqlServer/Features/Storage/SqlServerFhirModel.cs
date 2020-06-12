@@ -128,7 +128,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         internal async Task StartAsync()
         {
             _schemaInitializer.Start();
-            _searchParameterDefinitionManager.Start();
+
+            if (_searchParameterDefinitionManager is IStartable startable)
+            {
+                startable.Start();
+            }
 
             var connectionStringBuilder = new SqlConnectionStringBuilder(_configuration.ConnectionString);
 

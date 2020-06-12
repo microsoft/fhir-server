@@ -74,9 +74,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         {
             return _inner.GetSearchParameterType(searchParameter, componentIndex);
         }
-
-        public void Start()
-        {
-        }
     }
 }
