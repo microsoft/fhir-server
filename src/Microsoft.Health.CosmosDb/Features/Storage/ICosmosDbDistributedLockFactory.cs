@@ -4,14 +4,14 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using Microsoft.Azure.Documents;
+using Microsoft.Azure.Cosmos;
 
 namespace Microsoft.Health.CosmosDb.Features.Storage
 {
     public interface ICosmosDbDistributedLockFactory
     {
-        ICosmosDbDistributedLock Create(Uri collectionUri, string lockId);
+        ICosmosDbDistributedLock Create(string lockId);
 
-        ICosmosDbDistributedLock Create(IDocumentClient client, Uri collectionUri, string lockId);
+        ICosmosDbDistributedLock Create(Container container, string lockId);
     }
 }

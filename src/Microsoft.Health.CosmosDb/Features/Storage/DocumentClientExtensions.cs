@@ -6,8 +6,7 @@
 using System;
 using System.Net;
 using System.Threading.Tasks;
-using Microsoft.Azure.Documents;
-using Microsoft.Azure.Documents.Client;
+using Microsoft.Azure.Cosmos;
 
 namespace Microsoft.Health.CosmosDb.Features.Storage
 {
@@ -17,7 +16,7 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
         /// IDocumentClient does not extend IDisposable, but DocumentClient is IDisposable.
         /// </summary>
         /// <param name="documentClient">The document client to dispose.</param>
-        public static void Dispose(this IDocumentClient documentClient)
+        public static void Dispose(this CosmosClient documentClient)
         {
             (documentClient as IDisposable)?.Dispose();
         }
@@ -26,56 +25,24 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
         /// Creates a Database if it does not exist. This functionality is defined in DocumentClient, but not IDocumentClient
         /// </summary>
         /// <param name="documentClient">The document client</param>
-        /// <param name="database">The database to create</param>
-        /// <param name="options">The request options</param>
+        /// <param name="databaseId">The database to create</param>
         /// <returns>The result</returns>
-        public static async Task<ResourceResponse<Database>> CreateDatabaseIfNotExistsAsync(this IDocumentClient documentClient, Database database, RequestOptions options = null)
+        public static async Task<DatabaseResponse> CreateDatabaseIfNotExistsAsync(
+            this CosmosClient documentClient,
+            string databaseId)
         {
-            var databaseUri = UriFactory.CreateDatabaseUri(database.Id);
-            return await CreateIfNotExists(
-                () => documentClient.ReadDatabaseAsync(databaseUri, options),
-                () => documentClient.CreateDatabaseAsync(database, options));
+            return await documentClient.CreateDatabaseIfNotExistsAsync(databaseId);
         }
 
-        /// <summary>
-        /// Creates a collection if it does not exist. This functionality is defined in DocumentClient, but not IDocumentClient.
-        /// </summary>
-        /// <param name="documentClient">The document client</param>
-        /// <param name="databaseUri">The database URI</param>
-        /// <param name="collectionUri">The collection URI</param>
-        /// <param name="documentCollection">The collection to create</param>
-        /// <param name="options">The request options</param>
-        /// <returns>The result</returns>
-        public static async Task<ResourceResponse<DocumentCollection>> CreateDocumentCollectionIfNotExistsAsync(
-            this IDocumentClient documentClient,
-            Uri databaseUri,
-            Uri collectionUri,
-            DocumentCollection documentCollection,
-            RequestOptions options = null)
-        {
-            return await CreateIfNotExists(
-                async () =>
-                {
-                    DocumentCollection existingDocumentCollection = await documentClient.ReadDocumentCollectionAsync(collectionUri, options);
-
-                    existingDocumentCollection.IndexingPolicy = documentCollection.IndexingPolicy;
-                    existingDocumentCollection.DefaultTimeToLive = documentCollection.DefaultTimeToLive;
-
-                    return await documentClient.ReplaceDocumentCollectionAsync(existingDocumentCollection, options);
-                },
-                () => documentClient.CreateDocumentCollectionAsync(databaseUri, documentCollection, options));
-        }
-
-        public static async Task<DocumentCollection> TryGetDocumentCollectionAsync(
-            this IDocumentClient documentClient,
-            Uri collectionUri,
-            RequestOptions options = null)
+        public static async Task<ContainerResponse> TryGetDocumentCollectionAsync(
+            this Database documentClient,
+            string collectionId)
         {
             try
             {
-                return await documentClient.ReadDocumentCollectionAsync(collectionUri, options);
+                return await documentClient.GetContainer(collectionId).ReadContainerAsync();
             }
-            catch (DocumentClientException readException) when (readException.StatusCode == HttpStatusCode.NotFound)
+            catch (CosmosException readException) when (readException.StatusCode == HttpStatusCode.NotFound)
             {
                 return null;
             }
@@ -87,13 +54,13 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
             {
                 return await read();
             }
-            catch (DocumentClientException readException) when (readException.StatusCode == HttpStatusCode.NotFound)
+            catch (CosmosException readException) when (readException.StatusCode == HttpStatusCode.NotFound)
             {
                 try
                 {
                     return await create();
                 }
-                catch (DocumentClientException createException) when (createException.StatusCode == HttpStatusCode.Conflict)
+                catch (CosmosException createException) when (createException.StatusCode == HttpStatusCode.Conflict)
                 {
                     return await read();
                 }

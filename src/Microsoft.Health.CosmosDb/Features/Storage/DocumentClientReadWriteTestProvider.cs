@@ -3,9 +3,9 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Reflection.Metadata;
 using System.Threading.Tasks;
-using Microsoft.Azure.Documents;
-using Microsoft.Azure.Documents.Client;
+using Microsoft.Azure.Cosmos;
 using Microsoft.Health.CosmosDb.Configs;
 using Newtonsoft.Json;
 
@@ -22,18 +22,18 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
             _partitionKey = new PartitionKey(_document.PartitionKey);
         }
 
-        public async Task PerformTest(IDocumentClient documentClient, CosmosDataStoreConfiguration configuration, CosmosCollectionConfiguration cosmosCollectionConfiguration)
+        public async Task PerformTest(Container documentClient, CosmosDataStoreConfiguration configuration, CosmosCollectionConfiguration cosmosCollectionConfiguration)
         {
-            var requestOptions = new RequestOptions { ConsistencyLevel = ConsistencyLevel.Session, PartitionKey = _partitionKey };
+            var requestOptions = new ItemRequestOptions { ConsistencyLevel = ConsistencyLevel.Session };
 
-            ResourceResponse<Document> resourceResponse = await documentClient.UpsertDocumentAsync(
-                configuration.GetRelativeCollectionUri(cosmosCollectionConfiguration.CollectionId),
+            var resourceResponse = await documentClient.UpsertItemAsync(
                 _document,
+                _partitionKey,
                 requestOptions);
 
-            requestOptions.SessionToken = resourceResponse.SessionToken;
+            requestOptions.SessionToken = resourceResponse.Headers.Session;
 
-            await documentClient.ReadDocumentAsync(resourceResponse.Resource.SelfLink, requestOptions);
+            await documentClient.ReadItemAsync<HealthCheckDocument>(resourceResponse.Resource.Id, _partitionKey, requestOptions);
         }
 
         private class HealthCheckDocument : SystemData

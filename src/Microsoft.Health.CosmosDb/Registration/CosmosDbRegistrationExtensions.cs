@@ -6,9 +6,10 @@
 using System;
 using System.Linq;
 using EnsureThat;
-using Microsoft.Azure.Documents;
+using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Health.CosmosDb.Configs;
+using Microsoft.Health.CosmosDb.Features.Queries;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Extensions.DependencyInjection;
 
@@ -27,7 +28,7 @@ namespace Microsoft.Extensions.DependencyInjection
         {
             EnsureArg.IsNotNull(services, nameof(services));
 
-            if (services.Any(x => x.ImplementationType == typeof(DocumentClientProvider)))
+            if (services.Any(x => x.ImplementationType == typeof(CosmosContainerProvider)))
             {
                 return services;
             }
@@ -49,7 +50,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf();
 
-            services.Add<DocumentClientProvider>()
+            services.Add<CosmosContainerProvider>()
                 .Singleton()
                 .AsSelf()
                 .AsService<IStartable>() // so that it starts initializing ASAP
@@ -66,14 +67,14 @@ namespace Microsoft.Extensions.DependencyInjection
             // container, which will automatically dispose it if exposed as a scoped
             // service or as transient but consumed from another scoped service.
 
-            services.Add<IScoped<IDocumentClient>>(sp => sp.GetService<DocumentClientProvider>().CreateDocumentClientScope())
+            services.Add<IScoped<Container>>(sp => sp.GetService<CosmosContainerProvider>().CreateContainerScope())
                 .Transient()
                 .AsSelf()
                 .AsFactory();
 
-            services.Add<CosmosDocumentQueryFactory>()
+            services.Add<CosmosQueryFactory>()
                 .Singleton()
-                .AsService<ICosmosDocumentQueryFactory>();
+                .AsService<ICosmosQueryFactory>();
 
             services.Add<CosmosDbDistributedLockFactory>()
                 .Singleton()

@@ -5,7 +5,7 @@
 
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Microsoft.Azure.Documents;
+using Microsoft.Azure.Cosmos;
 using Microsoft.Health.CosmosDb.Configs;
 
 namespace Microsoft.Health.CosmosDb.Features.Storage
@@ -13,14 +13,14 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
     /// <summary>
     /// Provides methods for creating a DocumentClient instance and initializing a collection.
     /// </summary>
-    public interface IDocumentClientInitializer
+    public interface ICosmosClientInitializer
     {
         /// <summary>
-        /// Creates am unopened <see cref="IDocumentClient"/> based on the given <see cref="CosmosDataStoreConfiguration"/>.
+        /// Creates am unopened <see cref="CosmosClient"/> based on the given <see cref="CosmosDataStoreConfiguration"/>.
         /// </summary>
         /// <param name="configuration">The endpoint and collection settings</param>
-        /// <returns>A <see cref="IDocumentClient"/> instance</returns>
-        IDocumentClient CreateDocumentClient(CosmosDataStoreConfiguration configuration);
+        /// <returns>A <see cref="CosmosClient"/> instance</returns>
+        CosmosClient CreateDocumentClient(CosmosDataStoreConfiguration configuration);
 
         /// <summary>
         /// Perform a trivial query to establish a connection.
@@ -29,15 +29,25 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
         /// <param name="client">The document client</param>
         /// <param name="configuration">The data store config</param>
         /// <param name="cosmosCollectionConfiguration">The collection configuration for the query to use</param>
-        Task OpenDocumentClient(IDocumentClient client, CosmosDataStoreConfiguration configuration, CosmosCollectionConfiguration cosmosCollectionConfiguration);
+        Task OpenDocumentClient(CosmosClient client, CosmosDataStoreConfiguration configuration, CosmosCollectionConfiguration cosmosCollectionConfiguration);
 
         /// <summary>
         /// Ensures that the necessary database and collection exist with the proper indexing policy and stored procedures
         /// </summary>
-        /// <param name="documentClient">The <see cref="IDocumentClient"/> instance to use for initialization.</param>
+        /// <param name="documentClient">The <see cref="CosmosClient"/> instance to use for initialization.</param>
         /// <param name="cosmosDataStoreConfiguration">The data store configuration.</param>
         /// <param name="collectionInitializers">The collection of collection initializers.</param>
         /// <returns>A task</returns>
-        Task InitializeDataStore(IDocumentClient documentClient, CosmosDataStoreConfiguration cosmosDataStoreConfiguration, IEnumerable<ICollectionInitializer> collectionInitializers);
+        Task InitializeDataStore(CosmosClient documentClient, CosmosDataStoreConfiguration cosmosDataStoreConfiguration, IEnumerable<ICollectionInitializer> collectionInitializers);
+
+        /// <summary>
+        /// Creates a new Container instance for access the Cosmos API
+        /// </summary>
+        /// <param name="client">The Cosmos Client</param>
+        /// <param name="databaseId">The database Id</param>
+        /// <param name="collectionId">The collection Id</param>
+        /// <param name="continuationTokenSizeLimitInKb">The max continuation token size</param>
+        /// <returns>An Container instance</returns>
+        Container CreateFhirContainer(CosmosClient client, string databaseId, string collectionId, int? continuationTokenSizeLimitInKb);
     }
 }

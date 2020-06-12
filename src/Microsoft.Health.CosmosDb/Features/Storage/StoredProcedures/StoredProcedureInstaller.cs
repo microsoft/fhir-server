@@ -8,24 +8,24 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
-using Microsoft.Azure.Documents;
+using Microsoft.Azure.Cosmos;
 using Microsoft.Health.CosmosDb.Features.Storage.Versioning;
 
 namespace Microsoft.Health.CosmosDb.Features.Storage.StoredProcedures
 {
     public class StoredProcedureInstaller : ICollectionUpdater
     {
-        public async Task ExecuteAsync(IDocumentClient client, DocumentCollection collection, Uri relativeCollectionUri)
+        public async Task ExecuteAsync(Container client)
         {
             foreach (IStoredProcedure storedProc in GetStoredProcedures())
             {
                 try
                 {
-                    await client.ReadStoredProcedureAsync(storedProc.GetUri(relativeCollectionUri));
+                    await client.Scripts.ReadStoredProcedureAsync(storedProc.FullName);
                 }
-                catch (DocumentClientException e) when (e.StatusCode == HttpStatusCode.NotFound)
+                catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
                 {
-                    await client.CreateStoredProcedureAsync(relativeCollectionUri, storedProc.AsStoredProcedure());
+                    await client.Scripts.CreateStoredProcedureAsync(storedProc.AsStoredProcedure());
                 }
             }
         }

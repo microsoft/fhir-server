@@ -6,7 +6,7 @@
 using System;
 using System.Net.Http;
 using System.Threading.Tasks;
-using Microsoft.Azure.Documents;
+using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -21,7 +21,7 @@ namespace Microsoft.Health.CosmosDb.UnitTests.Features.Health
 {
     public class CosmosHealthCheckTests
     {
-        private readonly IDocumentClient _documentClient = Substitute.For<IDocumentClient>();
+        private readonly Container _documentClient = Substitute.For<Container>();
         private readonly IDocumentClientTestProvider _testProvider = Substitute.For<IDocumentClientTestProvider>();
         private readonly CosmosDataStoreConfiguration _configuration = new CosmosDataStoreConfiguration { DatabaseId = "mydb" };
         private readonly CosmosCollectionConfiguration _cosmosCollectionConfiguration = new CosmosCollectionConfiguration { CollectionId = "mycoll" };

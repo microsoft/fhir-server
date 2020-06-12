@@ -4,14 +4,14 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using Microsoft.Azure.Documents;
+using Microsoft.Azure.Cosmos;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
+namespace Microsoft.Health.CosmosDb.Features.Queries
 {
     /// <summary>
     /// Logger used for logging <see cref="FhirDocumentQuery{T}"/>.
     /// </summary>
-    public interface IFhirDocumentQueryLogger
+    public interface IDocumentQueryLogger
     {
         /// <summary>
         /// Logs the query execution.
@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <param name="sqlQuerySpec">The SQL query.</param>
         /// <param name="continuationToken">The continuation token.</param>
         /// <param name="maxItemCount">The max item count.</param>
-        void LogQueryExecution(Guid queryId, SqlQuerySpec sqlQuerySpec, string continuationToken, int? maxItemCount);
+        void LogQueryExecution(Guid queryId, QueryDefinition sqlQuerySpec, string continuationToken, int? maxItemCount);
 
         /// <summary>
         /// Logs the query execution result.

@@ -5,16 +5,15 @@
 
 using System;
 using EnsureThat;
-using Microsoft.Azure.Documents;
-using Microsoft.Azure.Documents.Linq;
+using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
+namespace Microsoft.Health.CosmosDb.Features.Queries
 {
     /// <summary>
     /// Logger used for logging <see cref="FhirDocumentQuery{T}"/>.
     /// </summary>
-    public class FhirDocumentQueryLogger : IFhirDocumentQueryLogger
+    public class DocumentQueryLogger : IDocumentQueryLogger
     {
         private static readonly string QueryExecutingMessageFormat =
             "QueryId: {QueryId}" + Environment.NewLine +
@@ -43,14 +42,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 new EventId(EventIds.ExecutingQuery),
                 QueryExecutionResultMessageFormat);
 
-        private readonly ILogger<IDocumentQuery> _logger;
+        private readonly ILogger<DocumentQueryLogger> _logger;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="FhirDocumentQueryLogger"/> class.
+        /// Initializes a new instance of the <see cref="DocumentQueryLogger"/> class.
         /// </summary>
         /// <param name="logger">The logger.</param>
-        public FhirDocumentQueryLogger(
-            ILogger<IDocumentQuery> logger)
+        public DocumentQueryLogger(
+            ILogger<DocumentQueryLogger> logger)
         {
             EnsureArg.IsNotNull(logger, nameof(logger));
 
@@ -58,7 +57,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         /// <inheritdoc />
-        public void LogQueryExecution(Guid queryId, SqlQuerySpec sqlQuerySpec, string continuationToken, int? maxItemCount)
+        public void LogQueryExecution(Guid queryId, QueryDefinition sqlQuerySpec, string continuationToken, int? maxItemCount)
         {
             EnsureArg.IsNotNull(sqlQuerySpec, nameof(sqlQuerySpec));
 

@@ -9,8 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Microsoft.Azure.Documents;
-using Microsoft.Azure.Documents.Client;
+using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage;
@@ -21,25 +20,20 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
 {
     public class CosmosDbStatusRegistry : ISearchParameterRegistry
     {
-        private readonly Func<IScoped<IDocumentClient>> _documentClientFactory;
-        private readonly ICosmosDocumentQueryFactory _queryFactory;
+        private readonly Func<IScoped<Container>> _documentClientFactory;
+        private readonly ICosmosQueryFactory _queryFactory;
 
         public CosmosDbStatusRegistry(
-            Func<IScoped<IDocumentClient>> documentClientFactory,
+            Func<IScoped<Container>> documentClientFactory,
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
-            ICosmosDocumentQueryFactory queryFactory,
-            IOptionsMonitor<CosmosCollectionConfiguration> namedCosmosCollectionConfigurationAccessor)
+            ICosmosQueryFactory queryFactory)
         {
             EnsureArg.IsNotNull(documentClientFactory, nameof(documentClientFactory));
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
             EnsureArg.IsNotNull(queryFactory, nameof(queryFactory));
-            EnsureArg.IsNotNull(namedCosmosCollectionConfigurationAccessor, nameof(namedCosmosCollectionConfigurationAccessor));
 
             _documentClientFactory = documentClientFactory;
             _queryFactory = queryFactory;
-
-            CosmosCollectionConfiguration collectionConfiguration = namedCosmosCollectionConfigurationAccessor.Get(Constants.CollectionConfigurationName);
-            CollectionUri = cosmosDataStoreConfiguration.GetRelativeCollectionUri(collectionConfiguration.CollectionId);
         }
 
         public Uri CollectionUri { get; set; }
@@ -48,24 +42,23 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
         {
             using var cancellationSource = new CancellationTokenSource(TimeSpan.FromMinutes(1));
             var parameterStatus = new List<ResourceSearchParameterStatus>();
-            using IScoped<IDocumentClient> clientScope = _documentClientFactory.Invoke();
+            using IScoped<Container> clientScope = _documentClientFactory.Invoke();
 
             do
             {
                 var query = _queryFactory.Create<SearchParameterStatusWrapper>(
                     clientScope.Value,
                     new CosmosQueryContext(
-                        CollectionUri,
-                        new SqlQuerySpec("select * from c"),
-                        new FeedOptions
+                        new QueryDefinition("select * from c"),
+                        new QueryRequestOptions
                         {
-                            PartitionKey =
-                                new PartitionKey(SearchParameterStatusWrapper.SearchParameterStatusPartitionKey),
+                            PartitionKey = new PartitionKey(SearchParameterStatusWrapper.SearchParameterStatusPartitionKey),
                         }));
 
                 do
                 {
-                    FeedResponse<SearchParameterStatusWrapper> results = await query.ExecuteNextAsync<SearchParameterStatusWrapper>();
+                    FeedResponse<SearchParameterStatusWrapper> results = await query.ExecuteNextAsync();
+
                     parameterStatus.AddRange(results.Select(x => x.ToSearchParameterStatus()));
                 }
                 while (query.HasMoreResults);
@@ -85,11 +78,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
             EnsureArg.IsNotNull(statuses, nameof(statuses));
 
             using var clientScope = _documentClientFactory.Invoke();
+            var batch = clientScope.Value.CreateTransactionalBatch(new PartitionKey(SearchParameterStatusWrapper.SearchParameterStatusPartitionKey));
 
             foreach (var status in statuses.Select(x => x.ToSearchParameterStatusWrapper()))
             {
-                await clientScope.Value.UpsertDocumentAsync(CollectionUri, status);
+                batch.UpsertItem(status);
             }
+
+            await batch.ExecuteAsync();
         }
     }
 }

@@ -4,20 +4,20 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
-using Microsoft.Azure.Documents;
+using Microsoft.Azure.Cosmos;
 using Microsoft.Health.Extensions.DependencyInjection;
 
 namespace Microsoft.Health.CosmosDb.Features.Storage
 {
-    public sealed class NonDisposingScope : IScoped<IDocumentClient>
+    public sealed class NonDisposingScope : IScoped<Container>
     {
-        public NonDisposingScope(IDocumentClient documentClient)
+        public NonDisposingScope(Container documentClient)
         {
             EnsureArg.IsNotNull(documentClient, nameof(documentClient));
             Value = documentClient;
         }
 
-        public IDocumentClient Value { get; }
+        public Container Value { get; }
 
         public void Dispose()
         {

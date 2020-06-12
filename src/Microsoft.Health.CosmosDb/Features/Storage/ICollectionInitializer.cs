@@ -4,12 +4,12 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Threading.Tasks;
-using Microsoft.Azure.Documents;
+using Microsoft.Azure.Cosmos;
 
 namespace Microsoft.Health.CosmosDb.Features.Storage
 {
     public interface ICollectionInitializer
     {
-        Task<DocumentCollection> InitializeCollection(IDocumentClient documentClient);
+        Task<Container> InitializeCollection(CosmosClient documentClient);
     }
 }

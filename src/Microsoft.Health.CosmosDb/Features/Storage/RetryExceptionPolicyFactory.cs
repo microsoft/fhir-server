@@ -5,7 +5,7 @@
 
 using System;
 using EnsureThat;
-using Microsoft.Azure.Documents;
+using Microsoft.Azure.Cosmos;
 using Microsoft.Health.CosmosDb.Configs;
 using Polly;
 using Polly.Retry;
@@ -26,7 +26,7 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
         public AsyncRetryPolicy CreateRetryPolicy()
         {
             var policy = Policy
-                .Handle<DocumentClientException>(RetryExceptionPolicy.IsTransient)
+                .Handle<CosmosException>(RetryExceptionPolicy.IsTransient)
                 .WaitAndRetryAsync(
                     _maxNumberOfRetries,
                     retryAttempt =>

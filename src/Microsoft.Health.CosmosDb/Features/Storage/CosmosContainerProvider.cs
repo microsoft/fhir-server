@@ -7,8 +7,9 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using EnsureThat;
-using Microsoft.Azure.Documents;
+using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Core;
 using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -19,40 +20,49 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
     /// Provides an <see cref="IDocumentClient"/> instance that is opened and whose collection has been properly initialized for use.
     /// Initialization starts asynchronously during application startup and is guaranteed to complete before any web request is handled by a controller.
     /// </summary>
-    public class DocumentClientProvider : IStartable, IRequireInitializationOnFirstRequest, IDisposable
+    public class CosmosContainerProvider : IStartable, IRequireInitializationOnFirstRequest, IDisposable
     {
-        private IDocumentClient _documentClient;
+        private Lazy<Container> _documentClient;
         private readonly RetryableInitializationOperation _initializationOperation;
 
-        public DocumentClientProvider(
+        public CosmosContainerProvider(
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
-            IDocumentClientInitializer documentClientInitializer,
-            ILogger<DocumentClientProvider> logger,
+            IOptionsMonitor<CosmosCollectionConfiguration> collectionConfiguration,
+            ICosmosClientInitializer cosmosClientInitializer,
+            ILogger<CosmosContainerProvider> logger,
             IEnumerable<ICollectionInitializer> collectionInitializers)
         {
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
-            EnsureArg.IsNotNull(documentClientInitializer, nameof(documentClientInitializer));
+            EnsureArg.IsNotNull(collectionConfiguration, nameof(collectionConfiguration));
+            EnsureArg.IsNotNull(cosmosClientInitializer, nameof(cosmosClientInitializer));
             EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(collectionInitializers, nameof(collectionInitializers));
 
-            _documentClient = documentClientInitializer.CreateDocumentClient(cosmosDataStoreConfiguration);
+            CosmosClient client = cosmosClientInitializer.CreateDocumentClient(cosmosDataStoreConfiguration);
 
             _initializationOperation = new RetryableInitializationOperation(
-                () => documentClientInitializer.InitializeDataStore(_documentClient, cosmosDataStoreConfiguration, collectionInitializers));
+                () => cosmosClientInitializer.InitializeDataStore(client, cosmosDataStoreConfiguration, collectionInitializers));
+
+            _documentClient = new Lazy<Container>(() =>
+                cosmosClientInitializer.CreateFhirContainer(
+                    client,
+                    cosmosDataStoreConfiguration.DatabaseId,
+                    collectionConfiguration.Get("fhirCosmosDb").CollectionId,
+                    cosmosDataStoreConfiguration.ContinuationTokenSizeLimitInKb));
         }
 
-        public IDocumentClient DocumentClient
+        public Container Container
         {
             get
             {
                 if (!_initializationOperation.IsInitialized)
                 {
 #pragma warning disable CA1065
-                    throw new InvalidOperationException($"{nameof(DocumentClientProvider)} has not been initialized.");
+                    throw new InvalidOperationException($"{nameof(CosmosContainerProvider)} has not been initialized.");
 #pragma warning restore CA1065
                 }
 
-                return _documentClient;
+                return _documentClient.Value;
             }
         }
 
@@ -86,19 +96,18 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
         {
             if (disposing)
             {
-                _documentClient?.Dispose();
                 _documentClient = null;
             }
         }
 
-        public IScoped<IDocumentClient> CreateDocumentClientScope()
+        public IScoped<Container> CreateContainerScope()
         {
             if (!_initializationOperation.IsInitialized)
             {
                 _initializationOperation.EnsureInitialized().GetAwaiter().GetResult();
             }
 
-            return new NonDisposingScope(DocumentClient);
+            return new NonDisposingScope(Container);
         }
     }
 }

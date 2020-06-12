@@ -3,12 +3,11 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Microsoft.Azure.Documents;
-
-namespace Microsoft.Health.CosmosDb.Features.Storage.Versioning
+namespace Microsoft.Health.CosmosDb
 {
-    public interface IUpdateOperation
+    internal static class EventIds
     {
-        void Apply(Document resource);
+        internal const int ExecutingQuery = 51000;
+        internal const int ExecutionResult = 51001;
     }
 }

@@ -6,8 +6,7 @@
 using System;
 using System.Threading.Tasks;
 using EnsureThat;
-using Microsoft.Azure.Documents;
-using Microsoft.Azure.Documents.Client;
+using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage.Versioning;
@@ -17,8 +16,7 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
     public class CollectionInitializer : ICollectionInitializer
     {
         private readonly string _collectionId;
-        private readonly Uri _relativeDatabaseUri;
-        private readonly Uri _relativeCollectionUri;
+        private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
         private readonly int? _initialCollectionThroughput;
         private readonly IUpgradeManager _upgradeManager;
         private readonly ILogger<CollectionInitializer> _logger;
@@ -31,39 +29,40 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _collectionId = collectionId;
-            _relativeDatabaseUri = cosmosDataStoreConfiguration.RelativeDatabaseUri;
-            _relativeCollectionUri = cosmosDataStoreConfiguration.GetRelativeCollectionUri(collectionId);
+            _cosmosDataStoreConfiguration = cosmosDataStoreConfiguration;
             _initialCollectionThroughput = initialCollectionThroughput;
             _upgradeManager = upgradeManager;
             _logger = logger;
         }
 
-        public async Task<DocumentCollection> InitializeCollection(IDocumentClient documentClient)
+        public async Task<Container> InitializeCollection(CosmosClient documentClient)
         {
-            DocumentCollection existingDocumentCollection = await documentClient.TryGetDocumentCollectionAsync(_relativeCollectionUri);
+            Database database = documentClient.GetDatabase(_cosmosDataStoreConfiguration.DatabaseId);
+            Container containerClient = database.GetContainer(_collectionId);
+
+            var existingDocumentCollection = await database.TryGetDocumentCollectionAsync(_collectionId);
 
             if (existingDocumentCollection == null)
             {
                 _logger.LogDebug("Creating document collection if not exits: {collectionId}", _collectionId);
-                var documentCollection = new DocumentCollection
+
+                var containerResponse = await database.CreateContainerIfNotExistsAsync(
+                    _collectionId,
+                    $"/{KnownDocumentProperties.PartitionKey}",
+                    _initialCollectionThroughput);
+
+                containerResponse.Resource.DefaultTimeToLive = -1;
+
+                existingDocumentCollection = await database.GetContainer(_collectionId).ReplaceContainerAsync(containerResponse);
+
+                if (_initialCollectionThroughput.HasValue)
                 {
-                    Id = _collectionId,
-                    PartitionKey = new PartitionKeyDefinition
-                    {
-                        Paths =
-                        {
-                            $"/{KnownDocumentProperties.PartitionKey}",
-                        },
-                    },
-                };
-
-                var requestOptions = new RequestOptions { OfferThroughput = _initialCollectionThroughput };
-
-                existingDocumentCollection = await documentClient.CreateDocumentCollectionIfNotExistsAsync(
-                    _relativeDatabaseUri, _relativeCollectionUri, documentCollection, requestOptions);
+                    ThroughputProperties throughputProperties = ThroughputProperties.CreateManualThroughput(_initialCollectionThroughput.Value);
+                    await containerClient.ReplaceThroughputAsync(throughputProperties);
+                }
             }
 
-            await _upgradeManager.SetupCollectionAsync(documentClient, existingDocumentCollection);
+            await _upgradeManager.SetupContainerAsync(containerClient);
 
             return existingDocumentCollection;
         }

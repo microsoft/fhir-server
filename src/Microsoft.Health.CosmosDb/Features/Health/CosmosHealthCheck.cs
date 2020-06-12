@@ -7,7 +7,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Microsoft.Azure.Documents;
+using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -20,7 +20,7 @@ namespace Microsoft.Health.CosmosDb.Features.Health
 {
     public abstract class CosmosHealthCheck : IHealthCheck
     {
-        private readonly IScoped<IDocumentClient> _documentClient;
+        private readonly IScoped<Container> _documentClient;
         private readonly CosmosDataStoreConfiguration _configuration;
         private readonly CosmosCollectionConfiguration _cosmosCollectionConfiguration;
         private readonly IDocumentClientTestProvider _testProvider;
@@ -36,7 +36,7 @@ namespace Microsoft.Health.CosmosDb.Features.Health
         /// <param name="testProvider">The test provider</param>
         /// <param name="logger">The logger.</param>
         public CosmosHealthCheck(
-            IScoped<IDocumentClient> documentClient,
+            IScoped<Container> documentClient,
             CosmosDataStoreConfiguration configuration,
             IOptionsSnapshot<CosmosCollectionConfiguration> namedCosmosCollectionConfigurationAccessor,
             string collectionConfigurationName,

@@ -4,10 +4,12 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
+using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.CosmosDb.Configs;
+using Microsoft.Health.CosmosDb.Features.Queries;
 using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.CosmosDb.Features.Storage.StoredProcedures;
 using Microsoft.Health.CosmosDb.Features.Storage.Versioning;
@@ -80,9 +82,9 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsService<IUpgradeManager>();
 
-            services.Add<FhirDocumentQueryLogger>()
+            services.Add<DocumentQueryLogger>()
                 .Singleton()
-                .AsService<IFhirDocumentQueryLogger>();
+                .AsService<IDocumentQueryLogger>();
 
             services.Add<CollectionInitializer>(sp =>
                 {
@@ -120,7 +122,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsService<IFhirStoredProcedure>();
 
-            services.Add<FhirCosmosDocumentQueryFactory>()
+            services.Add<CosmosQueryFactory>()
                 .Singleton()
                 .AsSelf();
 
@@ -129,9 +131,9 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            services.Add<FhirDocumentClientInitializer>()
+            services.Add<FhirCosmosClientInitializer>()
                 .Singleton()
-                .AsService<IDocumentClientInitializer>();
+                .AsService<ICosmosClientInitializer>();
 
             services.Add<CosmosResponseProcessor>()
                 .Singleton()
@@ -142,6 +144,11 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf()
                 .ReplaceService<ISearchParameterRegistry>();
+
+            services.TypesInSameAssemblyAs<FhirCosmosClientInitializer>()
+                .AssignableTo<RequestHandler>()
+                .Singleton()
+                .AsService<RequestHandler>();
 
             return fhirServerBuilder;
         }

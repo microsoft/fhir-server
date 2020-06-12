@@ -4,16 +4,16 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using Microsoft.Azure.Documents;
-using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
+using Microsoft.Azure.Cosmos;
+using Microsoft.Health.CosmosDb.Features.Queries;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
-    public class NullFhirDocumentQueryLogger : IFhirDocumentQueryLogger
+    public class NullFhirDocumentQueryLogger : IDocumentQueryLogger
     {
-        public static IFhirDocumentQueryLogger Instance { get; } = new NullFhirDocumentQueryLogger();
+        public static IDocumentQueryLogger Instance { get; } = new NullFhirDocumentQueryLogger();
 
-        public void LogQueryExecution(Guid queryId, SqlQuerySpec sqlQuerySpec, string continuationToken, int? maxItemCount)
+        public void LogQueryExecution(Guid queryId, QueryDefinition sqlQuerySpec, string continuationToken, int? maxItemCount)
         {
         }
 

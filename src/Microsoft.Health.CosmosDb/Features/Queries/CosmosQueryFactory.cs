@@ -4,26 +4,25 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
-using Microsoft.Azure.Documents;
-using Microsoft.Azure.Documents.Linq;
+using Microsoft.Azure.Cosmos;
 using Microsoft.Health.CosmosDb.Features.Storage;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
+namespace Microsoft.Health.CosmosDb.Features.Queries
 {
     /// <summary>
-    /// Factory for creating the <see cref="FhirDocumentQuery{T}"/>.
+    /// Factory for creating the <see cref="CosmosQuery{T}"/>.
     /// </summary>
-    public class FhirCosmosDocumentQueryFactory : ICosmosDocumentQueryFactory
+    public class CosmosQueryFactory : ICosmosQueryFactory
     {
-        private readonly IFhirDocumentQueryLogger _logger;
+        private readonly IDocumentQueryLogger _logger;
         private readonly ICosmosResponseProcessor _cosmosResponseProcessor;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="FhirCosmosDocumentQueryFactory"/> class.
+        /// Initializes a new instance of the <see cref="CosmosQueryFactory"/> class.
         /// </summary>
         /// <param name="cosmosResponseProcessor">The cosmos response processor</param>
         /// <param name="logger">The logger.</param>
-        public FhirCosmosDocumentQueryFactory(ICosmosResponseProcessor cosmosResponseProcessor, IFhirDocumentQueryLogger logger)
+        public CosmosQueryFactory(ICosmosResponseProcessor cosmosResponseProcessor, IDocumentQueryLogger logger)
         {
             EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(cosmosResponseProcessor, nameof(cosmosResponseProcessor));
@@ -33,18 +32,18 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         /// <inheritdoc />
-        public IDocumentQuery<T> Create<T>(IDocumentClient documentClient, CosmosQueryContext context)
+        public ICosmosQuery<T> Create<T>(Container documentClient, CosmosQueryContext context)
         {
             EnsureArg.IsNotNull(documentClient, nameof(documentClient));
             EnsureArg.IsNotNull(context, nameof(context));
 
-            IDocumentQuery<T> documentQuery = documentClient.CreateDocumentQuery<T>(
-                context.CollectionUri,
-                context.SqlQuerySpec,
-                context.FeedOptions)
-                .AsDocumentQuery();
+            var documentQuery = documentClient
+                .GetItemQueryIterator<T>(
+                    context.SqlQuerySpec,
+                    continuationToken: context.ContinuationToken,
+                    requestOptions: context.FeedOptions);
 
-            return new FhirDocumentQuery<T>(
+            return new CosmosQuery<T>(
                 context,
                 documentQuery,
                 _cosmosResponseProcessor,

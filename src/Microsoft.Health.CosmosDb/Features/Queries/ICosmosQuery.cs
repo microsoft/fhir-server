@@ -3,11 +3,16 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.CosmosDb
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.Azure.Cosmos;
+
+namespace Microsoft.Health.CosmosDb.Features.Queries
 {
-    internal static class EventIds
+    public interface ICosmosQuery<TResult>
     {
-        internal const int ExecutingQuery = 51000;
-        internal const int ExecutionResult = 51001;
+        bool HasMoreResults { get; }
+
+        Task<FeedResponse<TResult>> ExecuteNextAsync(CancellationToken token = default);
     }
 }

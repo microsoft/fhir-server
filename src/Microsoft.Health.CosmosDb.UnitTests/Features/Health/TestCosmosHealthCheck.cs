@@ -3,7 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Microsoft.Azure.Documents;
+using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.CosmosDb.Configs;
@@ -18,7 +18,7 @@ namespace Microsoft.Health.CosmosDb.UnitTests.Features.Health
         public const string TestCosmosHealthCheckName = "TestCosmosHealthCheck";
 
         public TestCosmosHealthCheck(
-            IScoped<IDocumentClient> documentClient,
+            IScoped<Container> documentClient,
             CosmosDataStoreConfiguration configuration,
             IOptionsSnapshot<CosmosCollectionConfiguration> namedCosmosCollectionConfigurationAccessor,
             IDocumentClientTestProvider testProvider,

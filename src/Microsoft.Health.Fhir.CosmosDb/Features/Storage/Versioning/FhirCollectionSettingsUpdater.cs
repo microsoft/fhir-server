@@ -3,20 +3,15 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using EnsureThat;
-using Microsoft.Azure.Documents;
-using Microsoft.Azure.Documents.Client;
-using Microsoft.Azure.Documents.Linq;
+using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.CosmosDb.Configs;
 using Microsoft.Health.CosmosDb.Features.Storage.Versioning;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Index = Microsoft.Azure.Documents.Index;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
 {
@@ -45,61 +40,52 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
             _logger = logger;
         }
 
-        public async Task ExecuteAsync(IDocumentClient client, DocumentCollection collection, Uri relativeCollectionUri)
+        public async Task ExecuteAsync(Container client)
         {
             EnsureArg.IsNotNull(client, nameof(client));
-            EnsureArg.IsNotNull(collection, nameof(collection));
 
-            var thisVersion = await GetLatestCollectionVersion(client, collection);
+            var thisVersion = await GetLatestCollectionVersion(client);
 
             if (thisVersion.Version < CollectionSettingsVersion)
             {
-                _logger.LogDebug("Ensuring indexes are up-to-date {CollectionUri}", _configuration.GetAbsoluteCollectionUri(_collectionConfiguration.CollectionId));
+                _logger.LogDebug("Ensuring indexes are up-to-date {CollectionUri}");
 
-                collection.IndexingPolicy = new IndexingPolicy
+                var container = await client.ReadContainerAsync();
+
+                container.Resource.IndexingPolicy.IncludedPaths.Clear();
+                container.Resource.IndexingPolicy.IncludedPaths.Add(new IncludedPath
                 {
-                    IncludedPaths = new Collection<IncludedPath>
-                    {
-                        new IncludedPath
-                        {
-                            Path = "/*",
-                            Indexes = new Collection<Index>
-                            {
-                                new RangeIndex(DataType.Number, -1),
-                                new RangeIndex(DataType.String, -1),
-                            },
-                        },
-                    },
-                    ExcludedPaths = new Collection<ExcludedPath>
-                    {
-                        new ExcludedPath
-                        {
-                            Path = $"/{KnownResourceWrapperProperties.RawResource}/*",
-                        },
-                    },
-                };
+                    Path = "/*",
+                });
+
+                container.Resource.IndexingPolicy.ExcludedPaths.Clear();
+                container.Resource.IndexingPolicy.ExcludedPaths.Add(new ExcludedPath
+                {
+                    Path = $"/{KnownResourceWrapperProperties.RawResource}/*",
+                });
 
                 // Setting the DefaultTTL to -1 means that by default all documents in the collection will live forever
                 // but the Cosmos DB service should monitor this collection for documents that have overridden this default.
                 // See: https://docs.microsoft.com/en-us/azure/cosmos-db/time-to-live
-                collection.DefaultTimeToLive = -1;
+                container.Resource.DefaultTimeToLive = -1;
 
-                await client.ReplaceDocumentCollectionAsync(collection);
+                await client.ReplaceContainerAsync(container);
 
                 thisVersion.Version = CollectionSettingsVersion;
-                await client.UpsertDocumentAsync(relativeCollectionUri, thisVersion);
+                await client.UpsertItemAsync(thisVersion, new PartitionKey(thisVersion.PartitionKey));
             }
         }
 
-        private static async Task<CollectionVersion> GetLatestCollectionVersion(IDocumentClient documentClient, DocumentCollection collection)
+        private static async Task<CollectionVersion> GetLatestCollectionVersion(Container documentClient)
         {
-            var query = documentClient.CreateDocumentQuery<CollectionVersion>(
-                    collection.SelfLink,
-                    new SqlQuerySpec("SELECT * FROM root r"),
-                    new FeedOptions { PartitionKey = new PartitionKey(CollectionVersion.CollectionVersionPartition) })
-                .AsDocumentQuery();
+            FeedIterator<CollectionVersion> query = documentClient.GetItemQueryIterator<CollectionVersion>(
+                new QueryDefinition("SELECT * FROM root r"),
+                requestOptions: new QueryRequestOptions
+                {
+                    PartitionKey = new PartitionKey(CollectionVersion.CollectionVersionPartition),
+                });
 
-            var result = await query.ExecuteNextAsync<CollectionVersion>();
+            FeedResponse<CollectionVersion> result = await query.ReadNextAsync();
 
             return result.FirstOrDefault() ?? new CollectionVersion();
         }

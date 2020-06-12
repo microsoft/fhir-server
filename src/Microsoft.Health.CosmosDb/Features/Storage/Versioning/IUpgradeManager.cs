@@ -4,12 +4,12 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Threading.Tasks;
-using Microsoft.Azure.Documents;
+using Microsoft.Azure.Cosmos;
 
 namespace Microsoft.Health.CosmosDb.Features.Storage.Versioning
 {
     public interface IUpgradeManager
     {
-        Task SetupCollectionAsync(IDocumentClient documentClient, DocumentCollection collection);
+        Task SetupContainerAsync(Container container);
     }
 }

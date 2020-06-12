@@ -5,7 +5,7 @@
 
 using System;
 using EnsureThat;
-using Microsoft.Azure.Documents;
+using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Extensions.DependencyInjection;
 
@@ -13,10 +13,10 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
 {
     public class CosmosDbDistributedLockFactory : ICosmosDbDistributedLockFactory
     {
-        private readonly Func<IScoped<IDocumentClient>> _documentClientFactory;
+        private readonly Func<IScoped<Container>> _documentClientFactory;
         private readonly ILogger<CosmosDbDistributedLock> _logger;
 
-        public CosmosDbDistributedLockFactory(Func<IScoped<IDocumentClient>> documentClientFactory, ILogger<CosmosDbDistributedLock> logger)
+        public CosmosDbDistributedLockFactory(Func<IScoped<Container>> documentClientFactory, ILogger<CosmosDbDistributedLock> logger)
         {
             EnsureArg.IsNotNull(documentClientFactory, nameof(documentClientFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
@@ -25,21 +25,18 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
             _logger = logger;
         }
 
-        public ICosmosDbDistributedLock Create(Uri collectionUri, string lockId)
+        public ICosmosDbDistributedLock Create(string lockId)
         {
-            EnsureArg.IsNotNull(collectionUri, nameof(collectionUri));
             EnsureArg.IsNotNullOrEmpty(lockId, nameof(lockId));
 
-            return new CosmosDbDistributedLock(_documentClientFactory, collectionUri, lockId, _logger);
+            return new CosmosDbDistributedLock(_documentClientFactory, lockId, _logger);
         }
 
-        public ICosmosDbDistributedLock Create(IDocumentClient client, Uri collectionUri, string lockId)
+        public ICosmosDbDistributedLock Create(Container client, string lockId)
         {
-            EnsureArg.IsNotNull(collectionUri, nameof(collectionUri));
-            EnsureArg.IsNotNull(collectionUri, nameof(collectionUri));
             EnsureArg.IsNotNullOrEmpty(lockId, nameof(lockId));
 
-            return new CosmosDbDistributedLock(() => new NonDisposingScope(client), collectionUri, lockId, _logger);
+            return new CosmosDbDistributedLock(() => new NonDisposingScope(client), lockId, _logger);
         }
     }
 }

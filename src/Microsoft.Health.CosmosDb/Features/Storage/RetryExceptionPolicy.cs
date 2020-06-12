@@ -4,7 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Net;
-using Microsoft.Azure.Documents;
+using Microsoft.Azure.Cosmos;
 
 namespace Microsoft.Health.CosmosDb.Features.Storage
 {
@@ -17,7 +17,7 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
         /// <returns>
         /// true if the specified exception is considered as transient; otherwise, false.
         /// </returns>
-        public static bool IsTransient(DocumentClientException ex)
+        public static bool IsTransient(CosmosException ex)
         {
             // Detects "449 Retry With" - The operation encountered a transient error. This only occurs on write operations. It is safe to retry the operation.
             // Detects "429 Too Many Request" - The collection has exceeded the provisioned throughput limit. Retry the request after the server specified retry after duration.

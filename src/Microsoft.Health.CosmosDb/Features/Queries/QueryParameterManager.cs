@@ -5,7 +5,7 @@
 
 using System.Collections.Generic;
 using System.Linq;
-using Microsoft.Azure.Documents;
+using Microsoft.Azure.Cosmos;
 
 namespace Microsoft.Health.CosmosDb.Features.Queries
 {
@@ -13,7 +13,7 @@ namespace Microsoft.Health.CosmosDb.Features.Queries
     {
         private const string ParamPrefix = "param";
 
-        private Dictionary<object, string> _parameterMapping = new Dictionary<object, string>();
+        private readonly Dictionary<object, string> _parameterMapping = new Dictionary<object, string>();
 
         public string AddOrGetParameterMapping(object value)
         {
@@ -29,9 +29,17 @@ namespace Microsoft.Health.CosmosDb.Features.Queries
             return name;
         }
 
-        public SqlParameterCollection ToSqlParameterCollection()
+        public void AddToQuery(QueryDefinition query)
         {
-            return new SqlParameterCollection(_parameterMapping.Select(v => new SqlParameter(v.Value, v.Key)));
+            foreach ((string Key, object Value) item in ToSqlParameterCollection())
+            {
+                query.WithParameter(item.Key, item.Value);
+            }
+        }
+
+        public IEnumerable<(string Key, object Value)> ToSqlParameterCollection()
+        {
+            return _parameterMapping.Select(v => (v.Value, v.Key));
         }
     }
 }

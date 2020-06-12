@@ -5,11 +5,10 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Microsoft.Azure.Documents;
+using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.CosmosDb.Configs;
@@ -49,14 +48,13 @@ namespace Microsoft.Health.CosmosDb.Features.Storage.Versioning
         /// </summary>
         public abstract int CollectionSettingsVersion { get; }
 
-        public async Task SetupCollectionAsync(IDocumentClient documentClient, DocumentCollection collection)
+        public async Task SetupContainerAsync(Container container)
         {
-            EnsureArg.IsNotNull(documentClient, nameof(documentClient));
-            EnsureArg.IsNotNull(collection, nameof(collection));
+            EnsureArg.IsNotNull(container, nameof(container));
 
             using (var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromMinutes(5)))
             {
-                using (var distributedLock = _lockFactory.Create(documentClient, _configuration.GetRelativeCollectionUri(_collectionConfiguration.CollectionId), $"UpgradeLock:{CollectionSettingsVersion}"))
+                using (var distributedLock = _lockFactory.Create(container, $"UpgradeLock-{CollectionSettingsVersion}"))
                 {
                     _logger.LogDebug("Attempting to acquire upgrade lock");
 
@@ -64,9 +62,9 @@ namespace Microsoft.Health.CosmosDb.Features.Storage.Versioning
 
                     foreach (var updater in _collectionUpdater)
                     {
-                        _logger.LogDebug("Running {CollectionUpdater} on {CollectionUri}", updater.GetType().Name, _configuration.GetAbsoluteCollectionUri(_collectionConfiguration.CollectionId));
+                        _logger.LogDebug("Running {CollectionUpdater} on {CollectionId}", updater.GetType().Name, _collectionConfiguration.CollectionId);
 
-                        await updater.ExecuteAsync(documentClient, collection, _configuration.GetRelativeCollectionUri(_collectionConfiguration.CollectionId));
+                        await updater.ExecuteAsync(container);
                     }
 
                     await distributedLock.ReleaseLock();

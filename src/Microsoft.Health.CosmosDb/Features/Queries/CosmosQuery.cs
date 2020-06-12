@@ -7,38 +7,36 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Microsoft.Azure.Documents;
-using Microsoft.Azure.Documents.Client;
-using Microsoft.Azure.Documents.Linq;
+using Microsoft.Azure.Cosmos;
 using Microsoft.Health.CosmosDb.Features.Storage;
 
-namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
+namespace Microsoft.Health.CosmosDb.Features.Queries
 {
     /// <summary>
-    /// Wrapper on <see cref="IDocumentQuery"/> to provide common error status code to exceptions handling.
+    /// Wrapper on <see cref="CosmosQuery"/> to provide common error status code to exceptions handling.
     /// </summary>
     /// <typeparam name="T">The result type.</typeparam>
-    public class FhirDocumentQuery<T> : IDocumentQuery<T>
+    public class CosmosQuery<T> : ICosmosQuery<T>
     {
         private readonly ICosmosQueryContext _queryContext;
-        private IDocumentQuery<T> _documentQuery;
+        private readonly FeedIterator<T> _documentQuery;
         private readonly ICosmosResponseProcessor _cosmosResponseProcessor;
-        private readonly IFhirDocumentQueryLogger _logger;
+        private readonly IDocumentQueryLogger _logger;
 
         private string _continuationToken;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="FhirDocumentQuery{T}"/> class.
+        /// Initializes a new instance of the <see cref="CosmosQuery{T}"/> class.
         /// </summary>
         /// <param name="queryContext">The query context.</param>
         /// <param name="documentQuery">The document query to execute.</param>
         /// <param name="cosmosResponseProcessor">The cosmos response processor.</param>
         /// <param name="logger">The logger.</param>
-        public FhirDocumentQuery(
+        public CosmosQuery(
             ICosmosQueryContext queryContext,
-            IDocumentQuery<T> documentQuery,
+            FeedIterator<T> documentQuery,
             ICosmosResponseProcessor cosmosResponseProcessor,
-            IFhirDocumentQueryLogger logger)
+            IDocumentQueryLogger logger)
         {
             EnsureArg.IsNotNull(queryContext, nameof(queryContext));
             EnsureArg.IsNotNull(documentQuery, nameof(documentQuery));
@@ -50,7 +48,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _cosmosResponseProcessor = cosmosResponseProcessor;
             _logger = logger;
 
-            _continuationToken = _queryContext.FeedOptions?.RequestContinuation;
+            _continuationToken = _queryContext.ContinuationToken;
         }
 
         /// <summary>
@@ -58,24 +56,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// </summary>
         public bool HasMoreResults => _documentQuery.HasMoreResults;
 
-        protected virtual void Dispose(bool disposing)
-        {
-            if (disposing)
-            {
-                _documentQuery?.Dispose();
-                _documentQuery = null;
-            }
-        }
-
         /// <inheritdoc />
-        public void Dispose()
-        {
-            Dispose(true);
-            GC.SuppressFinalize(this);
-        }
-
-        /// <inheritdoc />
-        public async Task<FeedResponse<TResult>> ExecuteNextAsync<TResult>(CancellationToken token = default(CancellationToken))
+        public async Task<FeedResponse<T>> ExecuteNextAsync(CancellationToken token = default)
         {
             Guid queryId = Guid.NewGuid();
 
@@ -87,23 +69,21 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             try
             {
-                FeedResponse<TResult> response = await _documentQuery.ExecuteNextAsync<TResult>(token);
+                FeedResponse<T> response = await _documentQuery.ReadNextAsync(token);
 
-                await _cosmosResponseProcessor.ProcessResponse(response);
-
-                _continuationToken = response.ResponseContinuation;
+                _continuationToken = response.ContinuationToken;
 
                 _logger.LogQueryExecutionResult(
                     queryId,
                     response.ActivityId,
                     response.RequestCharge,
-                    response.ResponseContinuation,
+                    response.ContinuationToken,
                     response.ETag,
                     response.Count);
 
                 return response;
             }
-            catch (DocumentClientException ex)
+            catch (CosmosException ex)
             {
                 _logger.LogQueryExecutionResult(
                     queryId,
@@ -114,16 +94,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     0,
                     ex);
 
-                await _cosmosResponseProcessor.ProcessException(ex);
-
                 throw;
             }
-        }
-
-        /// <inheritdoc />
-        public Task<FeedResponse<dynamic>> ExecuteNextAsync(CancellationToken token = default(CancellationToken))
-        {
-            return ExecuteNextAsync<dynamic>(token);
         }
     }
 }

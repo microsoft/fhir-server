@@ -5,7 +5,7 @@
 
 using System.Text;
 using EnsureThat;
-using Microsoft.Azure.Documents;
+using Microsoft.Azure.Cosmos;
 using Microsoft.Health.CosmosDb.Features.Queries;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -15,12 +15,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 {
     public class QueryBuilder : IQueryBuilder
     {
-        public SqlQuerySpec BuildSqlQuerySpec(SearchOptions searchOptions)
+        public QueryDefinition BuildSqlQuerySpec(SearchOptions searchOptions)
         {
             return new QueryBuilderHelper().BuildSqlQuerySpec(searchOptions);
         }
 
-        public SqlQuerySpec GenerateHistorySql(SearchOptions searchOptions)
+        public QueryDefinition GenerateHistorySql(SearchOptions searchOptions)
         {
             return new QueryBuilderHelper().GenerateHistorySql(searchOptions);
         }
@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                 _queryHelper = new QueryHelper(_queryBuilder, _queryParameterManager, SearchValueConstants.RootAliasName);
             }
 
-            public SqlQuerySpec BuildSqlQuerySpec(SearchOptions searchOptions)
+            public QueryDefinition BuildSqlQuerySpec(SearchOptions searchOptions)
             {
                 EnsureArg.IsNotNull(searchOptions, nameof(searchOptions));
 
@@ -68,14 +68,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                    (KnownResourceWrapperProperties.IsHistory, false),
                    (KnownResourceWrapperProperties.IsDeleted, false));
 
-                SqlQuerySpec query = new SqlQuerySpec(
-                    _queryBuilder.ToString(),
-                    _queryParameterManager.ToSqlParameterCollection());
+                var query = new QueryDefinition(_queryBuilder.ToString());
+                _queryParameterManager.AddToQuery(query);
 
                 return query;
             }
 
-            public SqlQuerySpec GenerateHistorySql(SearchOptions searchOptions)
+            public QueryDefinition GenerateHistorySql(SearchOptions searchOptions)
             {
                 EnsureArg.IsNotNull(searchOptions, nameof(searchOptions));
 
@@ -100,14 +99,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
                 var sqlParameterCollection = _queryParameterManager.ToSqlParameterCollection();
 
-                var query = new SqlQuerySpec(
-                    _queryBuilder.ToString(),
-                    sqlParameterCollection);
+                var query = new QueryDefinition(_queryBuilder.ToString());
+                _queryParameterManager.AddToQuery(query);
 
                 return query;
             }
 
-            private void AppendSelectFromRoot(string selectList = SearchValueConstants.RootAliasName)
+            private void AppendSelectFromRoot(string selectList = SearchValueConstants.SelectedFields)
             {
                 _queryHelper.AppendSelectFromRoot(selectList);
             }

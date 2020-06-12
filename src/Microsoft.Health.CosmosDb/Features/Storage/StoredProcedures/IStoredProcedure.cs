@@ -3,8 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-using Microsoft.Azure.Documents;
+using Microsoft.Azure.Cosmos.Scripts;
 
 namespace Microsoft.Health.CosmosDb.Features.Storage.StoredProcedures
 {
@@ -12,8 +11,6 @@ namespace Microsoft.Health.CosmosDb.Features.Storage.StoredProcedures
     {
         string FullName { get; }
 
-        Uri GetUri(Uri collection);
-
-        StoredProcedure AsStoredProcedure();
+        StoredProcedureProperties AsStoredProcedure();
     }
 }

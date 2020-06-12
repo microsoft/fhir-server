@@ -8,8 +8,8 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Microsoft.Azure.Documents;
-using Microsoft.Azure.Documents.Client;
+using Microsoft.Azure.Cosmos;
+using Microsoft.Azure.Cosmos.Scripts;
 using Microsoft.Health.Core.Extensions;
 
 namespace Microsoft.Health.CosmosDb.Features.Storage.StoredProcedures
@@ -29,31 +29,25 @@ namespace Microsoft.Health.CosmosDb.Features.Storage.StoredProcedures
 
         public string FullName => _versionedName.Value;
 
-        public StoredProcedure AsStoredProcedure()
+        public StoredProcedureProperties AsStoredProcedure()
         {
-            return new StoredProcedure
+            return new StoredProcedureProperties
             {
                 Id = FullName,
                 Body = _body.Value,
             };
         }
 
-        protected async Task<StoredProcedureResponse<T>> ExecuteStoredProc<T>(IDocumentClient client, Uri collection, string partitionId, CancellationToken cancellationToken, params object[] parameters)
+        protected async Task<StoredProcedureExecuteResponse<T>> ExecuteStoredProc<T>(Scripts client, string partitionId, CancellationToken cancellationToken, params object[] parameters)
         {
             EnsureArg.IsNotNull(client, nameof(client));
-            EnsureArg.IsNotNull(collection, nameof(collection));
             EnsureArg.IsNotNull(partitionId, nameof(partitionId));
 
-            var partitionKey = new RequestOptions
-            {
-                PartitionKey = new PartitionKey(partitionId),
-            };
-
-            var results = await client.ExecuteStoredProcedureAsync<T>(
-                GetUri(collection),
-                partitionKey,
-                cancellationToken,
-                parameters);
+            StoredProcedureExecuteResponse<T> results = await client.ExecuteStoredProcedureAsync<T>(
+                    FullName,
+                    new PartitionKey(partitionId),
+                    parameters,
+                    cancellationToken: cancellationToken);
 
             return results;
         }

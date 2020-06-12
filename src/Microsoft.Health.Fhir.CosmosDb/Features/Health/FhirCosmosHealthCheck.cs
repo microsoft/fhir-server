@@ -3,7 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Microsoft.Azure.Documents;
+using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.CosmosDb.Configs;
@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
         /// <param name="testProvider">The test provider</param>
         /// <param name="logger">The logger.</param>
         public FhirCosmosHealthCheck(
-            IScoped<IDocumentClient> documentClient,
+            IScoped<Container> documentClient,
             CosmosDataStoreConfiguration configuration,
             IOptionsSnapshot<CosmosCollectionConfiguration> namedCosmosCollectionConfigurationAccessor,
             IDocumentClientTestProvider testProvider,

@@ -4,8 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using Microsoft.Azure.Documents;
-using Microsoft.Azure.Documents.Client;
+using Microsoft.Azure.Cosmos;
 
 namespace Microsoft.Health.CosmosDb.Features.Storage
 {
@@ -15,18 +14,18 @@ namespace Microsoft.Health.CosmosDb.Features.Storage
     public interface ICosmosQueryContext
     {
         /// <summary>
-        /// Gets the collection URI.
-        /// </summary>
-        Uri CollectionUri { get; }
-
-        /// <summary>
         /// Gets the SQL query.
         /// </summary>
-        SqlQuerySpec SqlQuerySpec { get; }
+        QueryDefinition SqlQuerySpec { get; }
 
         /// <summary>
         /// Gets the options.
         /// </summary>
-        FeedOptions FeedOptions { get; }
+        QueryRequestOptions FeedOptions { get; }
+
+        /// <summary>
+        /// Gets the continuation token.
+        /// </summary>
+        string ContinuationToken { get; }
     }
 }
