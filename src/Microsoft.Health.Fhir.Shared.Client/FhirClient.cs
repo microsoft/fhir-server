@@ -8,6 +8,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
@@ -21,7 +22,7 @@ using RestfulCapabilityMode = Hl7.Fhir.Model.CapabilityStatement.RestfulCapabili
 
 namespace Microsoft.Health.Fhir.Client
 {
-    public class FhirClient
+    public class FhirClient : IFhirClient
     {
         private const string SmartOAuthUriExtension = "http://fhir-registry.smarthealthit.org/StructureDefinition/oauth-uris";
         private const string SmartOAuthUriExtensionToken = "token";
@@ -125,13 +126,13 @@ namespace Microsoft.Health.Fhir.Client
             HttpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         }
 
-        public Task<FhirResponse<T>> CreateAsync<T>(T resource, string conditionalCreateCriteria = null)
+        public Task<FhirResponse<T>> CreateAsync<T>(T resource, string conditionalCreateCriteria = null, CancellationToken cancellationToken = default)
             where T : Resource
         {
-            return CreateAsync(resource.ResourceType.ToString(), resource, conditionalCreateCriteria);
+            return CreateAsync(resource.ResourceType.ToString(), resource, conditionalCreateCriteria, cancellationToken);
         }
 
-        public async Task<FhirResponse<T>> CreateAsync<T>(string uri, T resource, string conditionalCreateCriteria = null)
+        public async Task<FhirResponse<T>> CreateAsync<T>(string uri, T resource, string conditionalCreateCriteria = null, CancellationToken cancellationToken = default)
             where T : Resource
         {
             var message = new HttpRequestMessage(HttpMethod.Post, uri);
@@ -143,51 +144,51 @@ namespace Microsoft.Health.Fhir.Client
                 message.Headers.TryAddWithoutValidation(IfNoneExistHeaderName, conditionalCreateCriteria);
             }
 
-            using HttpResponseMessage response = await HttpClient.SendAsync(message);
+            using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
             await EnsureSuccessStatusCodeAsync(response);
 
             return await CreateResponseAsync<T>(response);
         }
 
-        public Task<FhirResponse<T>> ReadAsync<T>(ResourceType resourceType, string resourceId)
+        public Task<FhirResponse<T>> ReadAsync<T>(ResourceType resourceType, string resourceId, CancellationToken cancellationToken = default)
             where T : Resource
         {
-            return ReadAsync<T>($"{resourceType}/{resourceId}");
+            return ReadAsync<T>($"{resourceType}/{resourceId}", cancellationToken);
         }
 
-        public async Task<FhirResponse<T>> ReadAsync<T>(string uri)
+        public async Task<FhirResponse<T>> ReadAsync<T>(string uri, CancellationToken cancellationToken = default)
             where T : Resource
         {
             var message = new HttpRequestMessage(HttpMethod.Get, uri);
             message.Headers.Accept.Add(_mediaType);
 
-            HttpResponseMessage response = await HttpClient.SendAsync(message);
+            HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
             await EnsureSuccessStatusCodeAsync(response);
 
             return await CreateResponseAsync<T>(response);
         }
 
-        public Task<FhirResponse<T>> VReadAsync<T>(ResourceType resourceType, string resourceId, string versionId)
+        public Task<FhirResponse<T>> VReadAsync<T>(ResourceType resourceType, string resourceId, string versionId, CancellationToken cancellationToken = default)
             where T : Resource
         {
-            return ReadAsync<T>($"{resourceType}/{resourceId}/_history/{versionId}");
+            return ReadAsync<T>($"{resourceType}/{resourceId}/_history/{versionId}", cancellationToken);
         }
 
-        public Task<FhirResponse<T>> UpdateAsync<T>(T resource, string ifMatchVersion = null)
+        public Task<FhirResponse<T>> UpdateAsync<T>(T resource, string ifMatchVersion = null, CancellationToken cancellationToken = default)
             where T : Resource
         {
-            return UpdateAsync($"{resource.ResourceType}/{resource.Id}", resource, ifMatchVersion);
+            return UpdateAsync($"{resource.ResourceType}/{resource.Id}", resource, ifMatchVersion, cancellationToken);
         }
 
-        public Task<FhirResponse<T>> ConditionalUpdateAsync<T>(T resource, string searchCriteria, string ifMatchVersion = null)
+        public Task<FhirResponse<T>> ConditionalUpdateAsync<T>(T resource, string searchCriteria, string ifMatchVersion = null, CancellationToken cancellationToken = default)
             where T : Resource
         {
-            return UpdateAsync($"{resource.ResourceType}?{searchCriteria}", resource, ifMatchVersion);
+            return UpdateAsync($"{resource.ResourceType}?{searchCriteria}", resource, ifMatchVersion, cancellationToken);
         }
 
-        public async Task<FhirResponse<T>> UpdateAsync<T>(string uri, T resource, string ifMatchVersion = null)
+        public async Task<FhirResponse<T>> UpdateAsync<T>(string uri, T resource, string ifMatchVersion = null, CancellationToken cancellationToken = default)
             where T : Resource
         {
             HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Put, uri)
@@ -203,38 +204,38 @@ namespace Microsoft.Health.Fhir.Client
                 request.Headers.Add(IfMatchHeaderName, weakETag);
             }
 
-            HttpResponseMessage response = await HttpClient.SendAsync(request);
+            HttpResponseMessage response = await HttpClient.SendAsync(request, cancellationToken);
 
             await EnsureSuccessStatusCodeAsync(response);
 
             return await CreateResponseAsync<T>(response);
         }
 
-        public Task<FhirResponse> DeleteAsync<T>(T resource)
+        public Task<FhirResponse> DeleteAsync<T>(T resource, CancellationToken cancellationToken = default)
             where T : Resource
         {
-            return DeleteAsync($"{resource.ResourceType}/{resource.Id}");
+            return DeleteAsync($"{resource.ResourceType}/{resource.Id}", cancellationToken);
         }
 
-        public async Task<FhirResponse> DeleteAsync(string uri)
+        public async Task<FhirResponse> DeleteAsync(string uri, CancellationToken cancellationToken = default)
         {
             var message = new HttpRequestMessage(HttpMethod.Delete, uri);
             message.Headers.Accept.Add(_mediaType);
 
-            HttpResponseMessage response = await HttpClient.SendAsync(message);
+            HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
             await EnsureSuccessStatusCodeAsync(response);
 
             return new FhirResponse(response);
         }
 
-        public Task<FhirResponse> HardDeleteAsync<T>(T resource)
+        public Task<FhirResponse> HardDeleteAsync<T>(T resource, CancellationToken cancellationToken = default)
             where T : Resource
         {
-            return DeleteAsync($"{resource.ResourceType}/{resource.Id}?hardDelete=true");
+            return DeleteAsync($"{resource.ResourceType}/{resource.Id}?hardDelete=true", cancellationToken);
         }
 
-        public async Task<FhirResponse> PatchAsync(string uri, string content)
+        public async Task<FhirResponse> PatchAsync(string uri, string content, CancellationToken cancellationToken = default)
         {
             var message = new HttpRequestMessage(HttpMethod.Patch, uri)
             {
@@ -242,14 +243,14 @@ namespace Microsoft.Health.Fhir.Client
             };
             message.Headers.Accept.Add(_mediaType);
 
-            HttpResponseMessage response = await HttpClient.SendAsync(message);
+            HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
             await EnsureSuccessStatusCodeAsync(response);
 
             return new FhirResponse(response);
         }
 
-        public Task<FhirResponse<Bundle>> SearchAsync(ResourceType resourceType, string query = null, int? count = null)
+        public Task<FhirResponse<Bundle>> SearchAsync(ResourceType resourceType, string query = null, int? count = null, CancellationToken cancellationToken = default)
         {
             StringBuilder sb = new StringBuilder();
 
@@ -270,58 +271,58 @@ namespace Microsoft.Health.Fhir.Client
                 sb.Append("_count=").Append(count.Value);
             }
 
-            return SearchAsync(sb.ToString());
+            return SearchAsync(sb.ToString(), cancellationToken);
         }
 
-        public async Task<FhirResponse<Bundle>> SearchAsync(string url)
+        public async Task<FhirResponse<Bundle>> SearchAsync(string url, CancellationToken cancellationToken = default)
         {
             var message = new HttpRequestMessage(HttpMethod.Get, url);
             message.Headers.Accept.Add(_mediaType);
 
-            HttpResponseMessage response = await HttpClient.SendAsync(message);
+            HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
             await EnsureSuccessStatusCodeAsync(response);
 
             return await CreateResponseAsync<Bundle>(response);
         }
 
-        public async Task<FhirResponse<Bundle>> SearchPostAsync(string resourceType, params (string key, string value)[] body)
+        public async Task<FhirResponse<Bundle>> SearchPostAsync(string resourceType, CancellationToken cancellationToken = default, params (string key, string value)[] body)
         {
             var message = new HttpRequestMessage(HttpMethod.Post, $"{(string.IsNullOrEmpty(resourceType) ? null : $"{resourceType}/")}_search")
             {
                 Content = new FormUrlEncodedContent(body.ToDictionary(p => p.key, p => p.value)),
             };
-            HttpResponseMessage response = await HttpClient.SendAsync(message);
+            HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
             await EnsureSuccessStatusCodeAsync(response);
 
             return await CreateResponseAsync<Bundle>(response);
         }
 
-        public async Task<Uri> ExportAsync()
+        public async Task<Uri> ExportAsync(string path = "", CancellationToken cancellationToken = default)
         {
-            var message = new HttpRequestMessage(HttpMethod.Get, "$export");
+            var message = new HttpRequestMessage(HttpMethod.Get, $"{path}$export");
 
             message.Headers.Add("Accept", "application/fhir+json");
             message.Headers.Add("Prefer", "respond-async");
 
-            HttpResponseMessage response = await HttpClient.SendAsync(message);
+            HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
             await EnsureSuccessStatusCodeAsync(response);
 
             return response.Content.Headers.ContentLocation;
         }
 
-        public async Task<HttpResponseMessage> CheckExportAsync(Uri contentLocation)
+        public async Task<HttpResponseMessage> CheckExportAsync(Uri contentLocation, CancellationToken cancellationToken = default)
         {
             var message = new HttpRequestMessage(HttpMethod.Get, contentLocation);
 
-            HttpResponseMessage response = await HttpClient.SendAsync(message);
+            HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
             return response;
         }
 
-        public async Task<FhirResponse<Bundle>> PostBundleAsync(Resource bundle)
+        public async Task<FhirResponse<Bundle>> PostBundleAsync(Resource bundle, CancellationToken cancellationToken = default)
         {
             var message = new HttpRequestMessage(HttpMethod.Post, string.Empty)
             {
@@ -330,7 +331,7 @@ namespace Microsoft.Health.Fhir.Client
 
             message.Headers.Accept.Add(_mediaType);
 
-            HttpResponseMessage response = await HttpClient.SendAsync(message);
+            HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
             await EnsureSuccessStatusCodeAsync(response);
 
@@ -343,12 +344,13 @@ namespace Microsoft.Health.Fhir.Client
         /// <param name="uri">The URL to call</param>
         /// <param name="resource">The resource to be validated. The resource parameter is a string instead of a Resource object because the validate endpoint is frequently sent invalid resources that couldn't be parsed.</param>
         /// <param name="xml">Whether the resource is in JSON or XML formal</param>
-        public async Task<OperationOutcome> ValidateAsync(string uri, string resource, bool xml = false)
+        /// <param name="cancellationToken">The cancellation token</param>
+        public async Task<OperationOutcome> ValidateAsync(string uri, string resource, bool xml = false, CancellationToken cancellationToken = default)
         {
             var message = new HttpRequestMessage(HttpMethod.Post, xml ? uri + "?_format=xml" : uri);
             message.Content = new StringContent(resource, Encoding.UTF8, xml ? ContentType.XML_CONTENT_HEADER : ContentType.JSON_CONTENT_HEADER);
 
-            HttpResponseMessage response = await HttpClient.SendAsync(message);
+            HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
             await EnsureSuccessStatusCodeAsync(response);
 
@@ -396,11 +398,12 @@ namespace Microsoft.Health.Fhir.Client
         /// <remarks>Examines the metadata endpoint to determine if there's a token and authorize url exposed and sets the property <see cref="SecurityEnabled"/> to <value>true</value> or <value>false</value> based on this.
         /// Additionally, the <see cref="TokenUri"/> and <see cref="AuthorizeUri"/> are set if they are found.</remarks>
         /// </summary>
-        public void ConfigureSecurityOptions()
+        /// <param name="cancellationToken">The cancellation token</param>
+        public async Task ConfigureSecurityOptions(CancellationToken cancellationToken = default)
         {
             bool localSecurityEnabled = false;
 
-            using FhirResponse<CapabilityStatement> readResponse = ReadAsync<CapabilityStatement>("metadata").GetAwaiter().GetResult();
+            using FhirResponse<CapabilityStatement> readResponse = await ReadAsync<CapabilityStatement>("metadata", cancellationToken);
             CapabilityStatement metadata = readResponse.Resource;
 
             foreach (var rest in metadata.Rest.Where(r => r.Mode == RestfulCapabilityMode.Server))

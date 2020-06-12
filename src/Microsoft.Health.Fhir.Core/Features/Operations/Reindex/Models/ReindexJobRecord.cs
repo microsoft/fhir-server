@@ -14,9 +14,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
     /// <summary>
     /// Class to hold metadata for an individual reindex job.
     /// </summary>
-    public class ReindexJobRecord
+    public class ReindexJobRecord : JobRecord
     {
-        public ReindexJobRecord(string searchParametersHash)
+        public ReindexJobRecord(string searchParametersHash, ushort maxiumumConcurrency, string scope)
         {
             // Default values
             SchemaVersion = 1;
@@ -27,6 +27,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
             LastModified = Clock.UtcNow;
 
             Hash = searchParametersHash;
+            MaximumConcurrency = maxiumumConcurrency;
+            Scope = scope;
         }
 
         [JsonConstructor]
@@ -34,40 +36,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         {
         }
 
-        [JsonProperty(JobRecordProperties.Id)]
-        public string Id { get; private set; }
+        [JsonProperty(JobRecordProperties.Scope)]
+        public string Scope { get; private set; }
 
-        /// <summary>
-        ///  The input should be a Parameters FHIR Resource
-        ///  TODO: We don't want to add a dependency on the FHIR model here
-        ///  but need a method to handle this type
-        /// </summary>
-        [JsonProperty(JobRecordProperties.Input)]
-        public string Input { get; private set; }
-
-        [JsonProperty(JobRecordProperties.QueuedTime)]
-        public DateTimeOffset QueuedTime { get; private set; }
-
-        [JsonProperty(JobRecordProperties.SchemaVersion)]
-        public int SchemaVersion { get; private set; }
+        [JsonProperty(JobRecordProperties.MaximumConcurrency)]
+        public ushort MaximumConcurrency { get; private set; }
 
         [JsonProperty(JobRecordProperties.Error)]
         public IList<OperationOutcomeIssue> Error { get; private set; } = new List<OperationOutcomeIssue>();
 
-        [JsonProperty(JobRecordProperties.Status)]
-        public OperationStatus Status { get; set; }
+        [JsonProperty(JobRecordProperties.QueryList)]
+        public IList<ReindexJobQueryStatus> QueryList { get; private set; } = new List<ReindexJobQueryStatus>();
 
-        [JsonProperty(JobRecordProperties.StartTime)]
-        public DateTimeOffset? StartTime { get; set; }
-
-        [JsonProperty(JobRecordProperties.EndTime)]
-        public DateTimeOffset? EndTime { get; set; }
-
-        [JsonProperty(JobRecordProperties.CanceledTime)]
-        public DateTimeOffset? CanceledTime { get; set; }
+        [JsonProperty(JobRecordProperties.Count)]
+        public int Count { get; set; }
 
         [JsonProperty(JobRecordProperties.Progress)]
-        public IList<ReindexJobQueryStatus> Progress { get; private set; } = new List<ReindexJobQueryStatus>();
+        public int Progress { get; set; }
 
         [JsonProperty(JobRecordProperties.Hash)]
         public string Hash { get; private set; }
@@ -77,5 +62,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
 
         [JsonProperty(JobRecordProperties.FailureCount)]
         public ushort FaiureCount { get; set; }
+
+        [JsonIgnore]
+        public int PercentComplete
+        {
+            get
+            {
+                if (Count > 0 && Progress > 0)
+                {
+                    return (int)((double)Progress / Count * 100);
+                }
+                else
+                {
+                    return 0;
+                }
+            }
+        }
     }
 }

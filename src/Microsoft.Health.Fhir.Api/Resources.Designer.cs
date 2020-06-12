@@ -331,6 +331,24 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Reindex job does not support the following parameter {0} for a {1} operation..
+        /// </summary>
+        public static string ReindexParameterNotValid {
+            get {
+                return ResourceManager.GetString("ReindexParameterNotValid", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Reindex operation parameters must be specified as a FHIR Parameters resource.  Provided body in this request is not valid..
+        /// </summary>
+        public static string ReindexParametersNotValid {
+            get {
+                return ResourceManager.GetString("ReindexParametersNotValid", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The security configuration requires the authority to be set to an https address..
         /// </summary>
         public static string RequireHttpsMetadataError {
