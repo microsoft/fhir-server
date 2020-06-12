@@ -374,6 +374,9 @@
   <data name="SearchParameterNotSupported" xml:space="preserve">
     <value>The search parameter '{0}' is not supported for resource type '{1}'.</value>
   </data>
+  <data name="SearchSortParameterNotSupported" xml:space="preserve">
+    <value>The search sort parameter '{0}' is not supported.</value>
+  </data>
   <data name="ServerName" xml:space="preserve">
     <value>Microsoft FHIR Server</value>
   </data>
