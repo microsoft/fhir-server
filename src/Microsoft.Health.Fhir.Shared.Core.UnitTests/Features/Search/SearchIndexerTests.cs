@@ -46,9 +46,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Theory]
-        [InlineData("DocumentReference-example")]
-        [InlineData("DocumentReference-example-002")]
-        [InlineData("DocumentReference-example-003")]
+        [InlineData("DocumentReference-example-relatesTo-code-appends")]
+        [InlineData("DocumentReference-example-relatesTo-code-transforms-replaces-target")]
+        [InlineData("DocumentReference-example-relatesTo-code-transforms")]
         public void GivenAResource_WhenExtractingValues_ThenTheCorrectValuesAreReturned(string resourceFile)
         {
             var document = Samples.GetJsonSample<DocumentReference>(resourceFile).ToResourceElement();
