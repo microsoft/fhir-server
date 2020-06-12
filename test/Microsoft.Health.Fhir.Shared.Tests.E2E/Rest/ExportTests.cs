@@ -12,12 +12,15 @@ using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+using Microsoft.Health.Test.Utilities;
 using Microsoft.Net.Http.Headers;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
+    [Trait(Traits.Category, Categories.Export)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class ExportTests : IClassFixture<HttpIntegrationTestFixture>
     {

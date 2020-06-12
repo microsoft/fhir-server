@@ -10,7 +10,8 @@
                 "delete",
                 "hardDelete",
                 "export",
-                "resourceValidate"
+                "resourceValidate",
+                "reindex"
             ]
         }
     },

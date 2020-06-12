@@ -109,7 +109,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
         private ReindexJobWrapper CreateReindexJobWrapper()
         {
-            return new ReindexJobWrapper(new ReindexJobRecord("test"), WeakETag.FromVersionId("0"));
+            return new ReindexJobWrapper(new ReindexJobRecord("test", 5, "patient"), WeakETag.FromVersionId("0"));
         }
     }
 }

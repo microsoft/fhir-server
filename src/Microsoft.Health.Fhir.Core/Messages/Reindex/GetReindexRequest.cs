@@ -3,17 +3,17 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Tests.Common
+using MediatR;
+
+namespace Microsoft.Health.Fhir.Core.Messages.Reindex
 {
-    public class TestType
+    public class GetReindexRequest : IRequest<GetReindexResponse>
     {
-        public string Property1 { get; set; }
-
-        internal static string StaticProperty { get; set; } = "Initial";
-
-        public string CallMe()
+        public GetReindexRequest(string jobId = null)
         {
-            return "hello";
+            JobId = jobId;
         }
+
+        public string JobId { get; }
     }
 }

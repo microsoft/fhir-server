@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 // If we are resuming a job, we can detect that by checking the progress info from the job record.
                 // If no queries have been added to the progress then this is a new job
-                if (_reindexJobRecord.Progress?.Count == 0)
+                if (_reindexJobRecord.QueryList?.Count == 0)
                 {
                     // Build query based on new search params
                 }
@@ -93,14 +93,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             _reindexJobRecord.Status = completionStatus;
             _reindexJobRecord.EndTime = Clock.UtcNow;
+            _reindexJobRecord.LastModified = Clock.UtcNow;
 
-            await UpdateJobRecordAsync(cancellationToken);
-        }
-
-        private async Task UpdateJobRecordAsync(CancellationToken cancellationToken)
-        {
-            // TODO: Placeholder
-            await new Task(() => _reindexJobRecord.LastModified = Clock.UtcNow, cancellationToken);
+            using (IScoped<IFhirOperationDataStore> store = _fhirOperationDataStoreFactory())
+            {
+                await store.Value.UpdateReindexJobAsync(_reindexJobRecord, _weakETag, cancellationToken);
+            }
         }
     }
 }

@@ -306,4 +306,11 @@
     <value>{0} is not a supported validation mode.</value>
     <comment>{0} is the validation mode.</comment>
   </data>
+  <data name="ReindexParameterNotValid" xml:space="preserve">
+    <value>Reindex job does not support the following parameter {0} for a {1} operation.</value>
+    <comment>{0} = the parameter name which was invalid, {1} is the operation type, POST or PATCH</comment>
+  </data>
+  <data name="ReindexParametersNotValid" xml:space="preserve">
+    <value>Reindex operation parameters must be specified as a FHIR Parameters resource.  Provided body in this request is not valid.</value>
+  </data>
 </root>

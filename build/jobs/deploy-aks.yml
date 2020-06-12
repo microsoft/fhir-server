@@ -1,0 +1,99 @@
+
+parameters:
+- name: version
+  type: string
+- name: dataStore
+  type: string
+- name: subscription
+  type: string
+- name: clusterName
+  type: string
+- name: clusterResourceGroup
+  type: string
+- name: clusterLocation
+  type: string
+- name: testEnvironmentUrl
+  type: string
+- name: imageTag
+  type: string
+- name: dnsSuffix
+  type: string
+
+jobs:
+- job: provisionServiceWithHelm
+  pool:
+    vmImage: 'ubuntu-latest'
+  steps:
+  - task: AzureKeyVault@1
+    displayName: 'Azure Key Vault: resolute-oss-tenant-info'
+    inputs:
+      azureSubscription: $(ConnectedServiceName)
+      KeyVaultName: 'resolute-oss-tenant-info'
+
+  - task: AzureCLI@2
+    displayName: 'Azure CLI: InlineScript'
+    inputs:
+      azureSubscription: $(ConnectedServiceName)
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        az aks get-credentials --name ${{parameters.clusterName}} --resource-group ${{parameters.clusterResourceGroup}}
+
+        helmChartPath="$(System.DefaultWorkingDirectory)/samples/kubernetes/helm/fhir-server/"
+        corsPath="$(System.DefaultWorkingDirectory)/test/Configuration/corstestconfiguration.json"
+        corsOrigins=`cat $corsPath | jq -r '.FhirServer.Cors.Origins | @csv' | tr -d '"'`
+        corsMethods=`cat $corsPath | jq -r '.FhirServer.Cors.Methods | @csv' | tr -d '"'`
+        corsHeaders=`cat $corsPath | jq -r '.FhirServer.Cors.Headers | @csv' | tr -d '"'`
+        corsMaxAge=`cat $corsPath | jq -r '.FhirServer.Cors.MaxAge'`        
+        repositoryName=`echo $(azureContainerRegistry)/${{parameters.version}}_fhir-server | tr '[:upper:]' '[:lower:]'`
+        releaseName=`echo "$(DeploymentEnvironmentName)-${{parameters.version}}-${{parameters.dataStore}}" | tr '[:upper:]' '[:lower:]'`
+        hostName=`echo "${releaseName}.${{parameters.dnsSuffix}}" | tr '[:upper:]' '[:lower:]'`
+        tenantId="$(tenant-id)"
+        
+        cat <<EOF > release-values.yaml
+        image:
+          repository: $repositoryName
+          tag: ${{parameters.imageTag}}
+        resources:
+          requests:
+            cpu: 500m
+        ingress:
+          enabled: true
+          annotations:
+            kubernetes.io/ingress.class: nginx
+            cert-manager.io/cluster-issuer: letsencrypt
+            nginx.ingress.kubernetes.io/ssl-redirect: "true"
+            nginx.ingress.kubernetes.io/proxy-body-size: 10m
+            nginx.ingress.kubernetes.io/enable-cors: "true"
+            nginx.ingress.kubernetes.io/cors-allow-origin: "${corsOrigins}"
+            nginx.ingress.kubernetes.io/cors-allow-methods: "${corsMethods}"
+            nginx.ingress.kubernetes.io/cors-allow-headers: "${corsHeaders}"
+            nginx.ingress.kubernetes.io/cors-max-age: "${corsMaxAge}"
+          hosts:
+            - host: $hostName
+              paths:
+                  - /
+          tls:
+            - secretName: $releaseName-tls
+              hosts:
+                - $hostName
+        database:
+          dataStore: ${{parameters.dataStore}}
+          resourceGroup: ${{parameters.clusterResourceGroup}}
+          location: ${{parameters.clusterLocation}}
+        security:
+          enabled: true
+          enableAadSmartOnFhirProxy: false
+          authority: https://login.microsoftonline.com/${tenantId}
+          audience: ${{ parameters.testEnvironmentUrl }}
+        EOF
+
+        # Debug output of release values
+        cat release-values.yaml
+
+        helm upgrade --install $releaseName $helmChartPath \
+          -f release-values.yaml \
+          --wait --timeout 20m
+
+        helm list
+        kubectl get svc "$releaseName-fhir-server"

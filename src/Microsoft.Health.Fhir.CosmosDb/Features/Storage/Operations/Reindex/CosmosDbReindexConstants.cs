@@ -3,11 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Tests.Common
+namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Reindex
 {
-    public class Traits
+    public static class CosmosDbReindexConstants
     {
-        public const string Priority = "Priority";
-        public const string Category = "Category";
+        public const string ReindexJobPartitionKey = "ReindexJob";
     }
 }
