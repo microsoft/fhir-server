@@ -221,7 +221,7 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("ConditionalUpdateMismatchedIds", resourceCulture);
             }
         }
-
+        
         /// <summary>
         ///   Looks up a localized string similar to The customer managed key is not accessible..
         /// </summary>
@@ -778,6 +778,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string SearchParameterNotSupported {
             get {
                 return ResourceManager.GetString("SearchParameterNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The search sort parameter &apos;{0}&apos; is not supported..
+        /// </summary>
+        internal static string SearchSortParameterNotSupported {
+            get {
+                return ResourceManager.GetString("SearchSortParameterNotSupported", resourceCulture);
             }
         }
         

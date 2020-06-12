@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using System.Linq;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Search;
 
@@ -21,12 +20,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         {
             var sortOrder = SortOrder.Ascending;
 
-            if (searchOptions.Sort?.Count > 0)
+            foreach (var sortOptions in searchOptions.Sort)
             {
-                sortOrder = searchOptions
-                    .Sort
-                    .Where(x => IsSearchParamterSupported(x.searchParameterInfo.Name))
-                    .Select(s => s.sortOrder).FirstOrDefault();
+                if (IsSearchParamterSupported(sortOptions.searchParameterInfo.Name))
+                {
+                    sortOrder = sortOptions.sortOrder;
+                }
+                else
+                {
+                    throw new SearchParameterNotSupportedException(string.Format(Core.Resources.SearchParameterNotSupported, sortOptions.searchParameterInfo.Name));
+                }
             }
 
             return sortOrder;
