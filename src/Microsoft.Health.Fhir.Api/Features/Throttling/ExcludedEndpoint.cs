@@ -3,17 +3,14 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Collections.Generic;
-using Microsoft.Health.Fhir.Api.Features.Throttling;
+using Microsoft.AspNetCore.Http;
 
-namespace Microsoft.Health.Fhir.Api.Configs
+namespace Microsoft.Health.Fhir.Api.Features.Throttling
 {
-    public class ThrottlingConfiguration
+    public class ExcludedEndpoint
     {
-        public bool Enabled { get; set; }
+        public string Method { get; set; }
 
-        public int ConcurrentRequestLimit { get; set; }
-
-        public HashSet<ExcludedEndpoint> ExcludedEndpoints { get; } = new HashSet<ExcludedEndpoint>();
+        public PathString Path { get; set; }
     }
 }

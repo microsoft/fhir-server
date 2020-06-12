@@ -52,14 +52,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
             {
                 foreach (var excludedEndpoint in _configuration.ExcludedEndpoints)
                 {
-                    var mapping = excludedEndpoint.Split(separator: ':', count: 2);
-
-                    if (mapping.Length != 2)
-                    {
-                        throw new ArgumentException($"Entry '{excludedEndpoint}' is invalid. It should be of the format [request method]:[request path].", nameof(throttlingConfiguration));
-                    }
-
-                    _excludedEndpoints.Add((mapping[0], mapping[1]));
+                    _excludedEndpoints.Add((excludedEndpoint.Method, excludedEndpoint.Path));
                 }
             }
         }

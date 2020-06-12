@@ -166,9 +166,9 @@ namespace Microsoft.Extensions.DependencyInjection
 
                     app.UseFhirRequestContextAuthentication();
 
-                    var throttlingConfig = app.ApplicationServices.GetRequiredService<IOptions<ThrottlingConfiguration>>();
+                    var throttlingConfig = app.ApplicationServices.GetService<IOptions<ThrottlingConfiguration>>();
 
-                    if (throttlingConfig.Value.Enabled)
+                    if (throttlingConfig?.Value?.Enabled == true)
                     {
                         // Throttling needs to come after Audit and ApiNotifications so we can audit it and track it for API metrics.
                         // It should also be after authentication

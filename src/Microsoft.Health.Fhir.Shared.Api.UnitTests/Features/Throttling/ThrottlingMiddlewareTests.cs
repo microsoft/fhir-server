@@ -135,7 +135,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
             {
                 ConcurrentRequestLimit = 5,
             };
-            throttlingConfiguration.ExcludedEndpoints.Add("get:/health/check");
+            throttlingConfiguration.ExcludedEndpoints.Add(new ExcludedEndpoint { Method = "get", Path = "/health/check" });
 
             _middleware = new ThrottlingMiddleware(
                 async x =>
