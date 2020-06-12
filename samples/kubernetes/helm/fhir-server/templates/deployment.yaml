@@ -83,8 +83,6 @@ spec:
             {{- if eq .Values.database.dataStore "SqlContainer" }}
             - name: DataStore
               value: "SqlServer"
-            - name: DataStore
-              value: "SqlServer"
             - name: SqlServer__AllowDatabaseCreation
               value: "true"
             - name: SqlServer__Initialize

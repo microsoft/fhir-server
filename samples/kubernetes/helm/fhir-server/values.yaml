@@ -65,8 +65,17 @@ database:
       pullPolicy: IfNotPresent
     replicaCount: 1
     port: 1433
-    resource: {}
-    # existingSecret: mySqlSecret
+    resources: {}
+    persistence:
+      storageClass: default
+      size: 8Gi
+      annotations: {}
+        # "helm.sh/resource-policy": keep
+    securityContext:
+      # mssql container has user mssql defined with id 10001
+      runAsUser: 10001
+      runAsGroup: 10001
+      fsGroup: 10001
 
 appInsights:
   secretKey: "instrumentationKey"

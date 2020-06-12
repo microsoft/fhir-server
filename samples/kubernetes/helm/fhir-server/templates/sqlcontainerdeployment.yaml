@@ -11,11 +11,11 @@ spec:
   replicas: {{ .Values.database.sqlContainer.replicaCount }}
   selector:
     matchLabels:
-      {{- include "fhir-server.selectorLabels" . | nindent 6 }}
+      {{- include "fhir-server-mssql.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "fhir-server.selectorLabels" . | nindent 8 }}
+        {{- include "fhir-server-mssql.selectorLabels" . | nindent 8 }}
     spec:
     {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -23,7 +23,7 @@ spec:
     {{- end }}
       serviceAccountName: {{ include "fhir-server.serviceAccountName" . }}
       securityContext:
-        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+        {{- toYaml .Values.database.sqlContainer.securityContext | nindent 8 }}
       containers:
         - name: mssql
           securityContext:
@@ -45,6 +45,13 @@ spec:
               protocol: TCP
           resources:
             {{- toYaml .Values.database.sqlContainer.resources | nindent 12 }}
+          volumeMounts:
+          - name: mssqldb
+            mountPath: /var/opt/mssql
+      volumes:
+      - name: mssqldb
+        persistentVolumeClaim:
+          claimName: {{ $dbservicename }} 
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

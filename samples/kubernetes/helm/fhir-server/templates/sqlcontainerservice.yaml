@@ -14,5 +14,5 @@ spec:
       targetPort: 1433
       protocol: TCP
   selector:
-    {{- include "fhir-server.selectorLabels" . | nindent 4 }}
+    {{- include "fhir-server-mssql.selectorLabels" . | nindent 4 }}
 {{- end }}
