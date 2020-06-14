@@ -92,6 +92,23 @@ stages:
       imageTag: $(ImageTag)
       dnsSuffix: $(aksDnsSuffix)
 
+- stage: deployAksR4SqlContainer
+  displayName: 'Deploy R4 SqlContainer in AKS'
+  dependsOn:
+  - DockerBuild
+  jobs:
+  - template: ./jobs/deploy-aks.yml
+    parameters: 
+      version: R4
+      dataStore: SqlContainer
+      subscription: $(ConnectedServiceName)
+      clusterName: $(clusterName)
+      clusterResourceGroup: $(clusterResourceGroup)
+      clusterLocation: $(clusterLocation)
+      testEnvironmentUrl: $(TestEnvironmentUrl)
+      imageTag: $(ImageTag)
+      dnsSuffix: $(aksDnsSuffix)
+
 - stage: deployStu3
   displayName: 'Deploy STU3 Site'
   dependsOn:
@@ -198,7 +215,7 @@ stages:
       imageTag: $(ImageTag)
 
 - stage: testAksR4Cosmos
-  displayName: 'R4 Cosmos AKS Tests'
+  displayName: 'R4 CosmosDb AKS Tests'
   dependsOn:
   - BuildUnitTests
   - aadTestEnvironment
@@ -211,7 +228,7 @@ stages:
       dnsSuffix: $(aksDnsSuffix)
 
 - stage: testAksR4Sql
-  displayName: 'R4 SQL AKS Tests'
+  displayName: 'R4 SqlServer AKS Tests'
   dependsOn:
   - BuildUnitTests
   - aadTestEnvironment
@@ -222,6 +239,20 @@ stages:
       version: R4
       dataStore: SqlServer
       dnsSuffix: $(aksDnsSuffix)
+
+- stage: testAksR4SqlContainer
+  displayName: 'R4 SqlContainer AKS Tests'
+  dependsOn:
+  - BuildUnitTests
+  - aadTestEnvironment
+  - deployAksR4SqlContainer
+  jobs:
+  - template: ./jobs/run-tests-aks.yml
+    parameters:
+      version: R4
+      dataStore: SqlContainer
+      dnsSuffix: $(aksDnsSuffix)
+
 
 - stage: testStu3
   displayName: 'Run Stu3 Tests'
@@ -267,6 +298,7 @@ stages:
   dependsOn:
   - testAksR4Cosmos
   - testAksR4Sql
+  - testAksR4SqlContainer
   jobs:
   - template: ./jobs/cleanup-aks.yml
     parameters:
@@ -282,5 +314,6 @@ stages:
   - testR5
   - testAksR4Cosmos
   - testAksR4Sql
+  - testAksR4SqlContainer
   jobs:
   - template: ./jobs/cleanup.yml
