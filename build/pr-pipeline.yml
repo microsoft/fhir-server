@@ -197,19 +197,32 @@ stages:
       testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
 
-- stage: testAksR4
-  displayName: 'Run R4 AKS Tests'
+- stage: testAksR4Cosmos
+  displayName: 'R4 Cosmos AKS Tests'
   dependsOn:
   - BuildUnitTests
   - aadTestEnvironment
   - deployAksR4Cosmos
+  jobs:
+  - template: ./jobs/run-tests-aks.yml
+    parameters:
+      version: R4
+      dataStore: CosmosDb
+      dnsSuffix: $(aksDnsSuffix)
+
+- stage: testAksR4Sql
+  displayName: 'R4 SQL AKS Tests'
+  dependsOn:
+  - BuildUnitTests
+  - aadTestEnvironment
   - deployAksR4Sql
   jobs:
   - template: ./jobs/run-tests-aks.yml
     parameters:
       version: R4
+      dataStore: SqlServer
       dnsSuffix: $(aksDnsSuffix)
-      
+
 - stage: testStu3
   displayName: 'Run Stu3 Tests'
   dependsOn:
