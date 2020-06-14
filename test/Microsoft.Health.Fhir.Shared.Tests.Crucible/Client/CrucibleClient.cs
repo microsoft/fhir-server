@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible.Client
             await _client.SendAsync(message);
         }
 
-        public async Task<Test[]> GetSupportedTestsAsync()
+        public async Task<Models.Test[]> GetSupportedTestsAsync()
         {
             using var message = new HttpRequestMessage(HttpMethod.Get, $"{_serverBase}/supported_tests.json");
 
