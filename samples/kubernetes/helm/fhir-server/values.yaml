@@ -59,6 +59,9 @@ database:
     # databaseId: health
     # collectionId: fhir
   sqlContainer:
+    # Accept EULA when deploying with --set database.sqlContainer.acceptEula=Y
+    acceptEula: "n"
+    edition: "Developer"
     image:
       repository: mcr.microsoft.com/mssql/server
       tag: 2019-latest

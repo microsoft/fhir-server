@@ -32,9 +32,9 @@ spec:
           imagePullPolicy: {{ .Values.database.sqlContainer.image.pullPolicy }}
           env:
           - name: MSSQL_PID
-            value: "Developer"
+            value: {{ .Values.database.sqlContainer.edition | quote }}
           - name: ACCEPT_EULA
-            value: "Y"
+            value: {{ .Values.database.sqlContainer.acceptEula | upper | quote }}
           - name: SA_PASSWORD
             valueFrom:
               secretKeyRef:
