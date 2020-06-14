@@ -280,6 +280,7 @@ stages:
   - testStu3
   - testR4
   - testR5
-  - testAksR4
+  - testAksR4Cosmos
+  - testAksR4Sql
   jobs:
   - template: ./jobs/cleanup.yml
