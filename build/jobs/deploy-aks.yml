@@ -82,7 +82,7 @@ jobs:
           resourceGroup: ${{parameters.clusterResourceGroup}}
           location: ${{parameters.clusterLocation}}
           sqlContainer:
-            acceptEula: Y
+            acceptEula: "Y"
             resources:
               requests:
                 cpu: 100m
