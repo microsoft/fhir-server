@@ -31,10 +31,10 @@ jobs:
             Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($secretValue.SecretValueText)"
         }
 
-        $dataStore = ${{parameters.dataStore}}
+        $dataStore = "${{parameters.dataStore}}"
         if ($dataStore -eq "SqlContainer" -or $dataStore -eq "SqlServer")
         {
-            $testFilter = "FullyQualifiedName~SqlServer"    
+            $testFilter = "FullyQualifiedName~SqlServer"
             $ds = $dataStore.ToLower()
             Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_Sql]https://$(DeploymentEnvironmentName)-stu3-${ds}.${{parameters.dnsSuffix}}"
             Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_R4_Sql]https://$(DeploymentEnvironmentName)-r4-${ds}.${{parameters.dnsSuffix}}"
