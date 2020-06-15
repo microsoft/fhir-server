@@ -72,5 +72,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public const string Scope = "scope";
 
         public const string MaximumConcurrency = "maximumConcurrency";
+
+        public const string SubSearch = "subSearch";
+
+        public const string SubSearchResourceId = "subSearchResourceId";
     }
 }
