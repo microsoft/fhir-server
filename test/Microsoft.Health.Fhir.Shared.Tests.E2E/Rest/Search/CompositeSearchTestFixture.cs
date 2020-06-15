@@ -28,9 +28,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         private static readonly string[] DocumentReferenceTestFiles =
         {
-            "DocumentReference-example",
-            "DocumentReference-example-002",
-            "DocumentReference-example-003",
+            "DocumentReference-example-relatesTo-code-appends",
+            "DocumentReference-example-relatesTo-code-transforms-replaces-target",
+            "DocumentReference-example-relatesTo-code-transforms",
         };
 
         public CompositeSearchTestFixture(DataStore dataStore, Format format, TestFhirServerFactory testFhirServerFactory)
