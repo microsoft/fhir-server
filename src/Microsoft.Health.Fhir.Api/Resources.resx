@@ -313,4 +313,7 @@
   <data name="ReindexParametersNotValid" xml:space="preserve">
     <value>Reindex operation parameters must be specified as a FHIR Parameters resource.  Provided body in this request is not valid.</value>
   </data>
+  <data name="TooManyConcurrentRequests" xml:space="preserve">
+    <value>The maximum number of concurrent API calls on this instance was reached.</value>
+  </data>
 </root>
