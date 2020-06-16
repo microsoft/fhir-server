@@ -1,6 +1,8 @@
 parameters:
 - name: version
   type: string
+- name: dataStore
+  type: string
 - name: dnsSuffix
   type: string
 
@@ -29,13 +31,30 @@ jobs:
             Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($secretValue.SecretValueText)"
         }
 
+        $dataStore = "${{parameters.dataStore}}"
+        if ($dataStore -eq "SqlContainer" -or $dataStore -eq "SqlServer")
+        {
+            $testFilter = "FullyQualifiedName~SqlServer"
+            $ds = $dataStore.ToLower()
+            Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_Sql]https://$(DeploymentEnvironmentName)-stu3-${ds}.${{parameters.dnsSuffix}}"
+            Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_R4_Sql]https://$(DeploymentEnvironmentName)-r4-${ds}.${{parameters.dnsSuffix}}"
+            Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_R5_Sql]https://$(DeploymentEnvironmentName)-r5-${ds}.${{parameters.dnsSuffix}}"
+        }
+        elseif ($dataStore -eq "CosmosDb")
+        {
+            $testFilter = "FullyQualifiedName~CosmosDb"
+            Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl]https://$(DeploymentEnvironmentName)-stu3-cosmosdb.${{parameters.dnsSuffix}}"
+            Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_R4]https://$(DeploymentEnvironmentName)-r4-cosmosdb.${{parameters.dnsSuffix}}"
+            Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_R5]https://$(DeploymentEnvironmentName)-r5-cosmosdb.${{parameters.dnsSuffix}}"
+        }
+        else
+        {
+            Write-Host "Unknon datastore $dataStore"
+            exit 1    
+        }
+
+        Write-Host "##vso[task.setvariable variable=TestFilter]Category!=Export&Category!=ExportDataValidation&Category!=SmartOnFhir&${testFilter}"
         Write-Host "##vso[task.setvariable variable=Resource]$(TestEnvironmentUrl)"
-        Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl]https://$(DeploymentEnvironmentName)-stu3-cosmosdb.${{parameters.dnsSuffix}}"
-        Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_Sql]https://$(DeploymentEnvironmentName)-stu3-sqlserver.${{parameters.dnsSuffix}}"
-        Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_R4]https://$(DeploymentEnvironmentName)-r4-cosmosdb.${{parameters.dnsSuffix}}"
-        Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_R4_Sql]https://$(DeploymentEnvironmentName)-r4-sqlserver.${{parameters.dnsSuffix}}"
-        Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_R5]https://$(DeploymentEnvironmentName)-r5-cosmosdb.${{parameters.dnsSuffix}}"
-        Write-Host "##vso[task.setvariable variable=TestEnvironmentUrl_R5_Sql]https://$(DeploymentEnvironmentName)-r5-sqlserver.${{parameters.dnsSuffix}}"
         
         $secrets = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info
  
@@ -54,7 +73,7 @@ jobs:
       testSelector: testAssemblies
       testAssemblyVer2: |
         **\*${{ parameters.version }}.Tests.E2E*.dll
-      testFiltercriteria: "Category!=Export&Category!=ExportDataValidation&Category!=SmartOnFhir"
+      testFiltercriteria: "$(TestFilter)"
       searchFolder: '$(System.ArtifactsDirectory)'
       rerunFailedTests: true
       rerunType: 'basedOnTestFailurePercentage'

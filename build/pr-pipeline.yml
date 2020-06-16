@@ -92,6 +92,23 @@ stages:
       imageTag: $(ImageTag)
       dnsSuffix: $(aksDnsSuffix)
 
+- stage: deployAksR4SqlContainer
+  displayName: 'Deploy R4 SqlContainer in AKS'
+  dependsOn:
+  - DockerBuild
+  jobs:
+  - template: ./jobs/deploy-aks.yml
+    parameters: 
+      version: R4
+      dataStore: SqlContainer
+      subscription: $(ConnectedServiceName)
+      clusterName: $(clusterName)
+      clusterResourceGroup: $(clusterResourceGroup)
+      clusterLocation: $(clusterLocation)
+      testEnvironmentUrl: $(TestEnvironmentUrl)
+      imageTag: $(ImageTag)
+      dnsSuffix: $(aksDnsSuffix)
+
 - stage: deployStu3
   displayName: 'Deploy STU3 Site'
   dependsOn:
@@ -197,19 +214,46 @@ stages:
       testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
 
-- stage: testAksR4
-  displayName: 'Run R4 AKS Tests'
+- stage: testAksR4Cosmos
+  displayName: 'R4 CosmosDb AKS Tests'
   dependsOn:
   - BuildUnitTests
   - aadTestEnvironment
   - deployAksR4Cosmos
+  jobs:
+  - template: ./jobs/run-tests-aks.yml
+    parameters:
+      version: R4
+      dataStore: CosmosDb
+      dnsSuffix: $(aksDnsSuffix)
+
+- stage: testAksR4Sql
+  displayName: 'R4 SqlServer AKS Tests'
+  dependsOn:
+  - BuildUnitTests
+  - aadTestEnvironment
   - deployAksR4Sql
   jobs:
   - template: ./jobs/run-tests-aks.yml
     parameters:
       version: R4
+      dataStore: SqlServer
       dnsSuffix: $(aksDnsSuffix)
-      
+
+- stage: testAksR4SqlContainer
+  displayName: 'R4 SqlContainer AKS Tests'
+  dependsOn:
+  - BuildUnitTests
+  - aadTestEnvironment
+  - deployAksR4SqlContainer
+  jobs:
+  - template: ./jobs/run-tests-aks.yml
+    parameters:
+      version: R4
+      dataStore: SqlContainer
+      dnsSuffix: $(aksDnsSuffix)
+
+
 - stage: testStu3
   displayName: 'Run Stu3 Tests'
   dependsOn:
@@ -252,7 +296,9 @@ stages:
 - stage: cleanupAks
   displayName: 'Cleanup AKS Deployments'
   dependsOn:
-  - testAksR4
+  - testAksR4Cosmos
+  - testAksR4Sql
+  - testAksR4SqlContainer
   jobs:
   - template: ./jobs/cleanup-aks.yml
     parameters:
@@ -266,6 +312,8 @@ stages:
   - testStu3
   - testR4
   - testR5
-  - testAksR4
+  - testAksR4Cosmos
+  - testAksR4Sql
+  - testAksR4SqlContainer
   jobs:
   - template: ./jobs/cleanup.yml
