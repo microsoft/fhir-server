@@ -56,7 +56,7 @@ jobs:
           tag: ${{parameters.imageTag}}
         resources:
           requests:
-            cpu: 500m
+            cpu: 100m
         ingress:
           enabled: true
           annotations:
@@ -81,6 +81,11 @@ jobs:
           dataStore: ${{parameters.dataStore}}
           resourceGroup: ${{parameters.clusterResourceGroup}}
           location: ${{parameters.clusterLocation}}
+          sqlContainer:
+            acceptEula: "Y"
+            resources:
+              requests:
+                cpu: 100m
         security:
           enabled: true
           enableAadSmartOnFhirProxy: false

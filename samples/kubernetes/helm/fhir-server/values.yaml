@@ -38,6 +38,7 @@ service:
   port: 80
 
 database:
+  # options: SqlServer, SqlContainer, CosmosDb
   dataStore: "SqlServer"
   resourceGroup: ""
   location: ""
@@ -57,6 +58,29 @@ database:
     initialCollectionThroughput: "400"
     # databaseId: health
     # collectionId: fhir
+  sqlContainer:
+    # Accept EULA when deploying with --set database.sqlContainer.acceptEula="Y"
+    acceptEula: "n"
+    edition: "Developer"
+    image:
+      repository: mcr.microsoft.com/mssql/server
+      tag: 2019-latest
+      pullPolicy: IfNotPresent
+    replicaCount: 1
+    port: 1433
+    databaseName: FHIR
+    userName: sa
+    resources: {}
+    persistence:
+      storageClass: default
+      size: 8Gi
+      annotations: {}
+        # "helm.sh/resource-policy": keep
+    securityContext:
+      # mssql container has user mssql defined with id 10001
+      runAsUser: 10001
+      runAsGroup: 10001
+      fsGroup: 10001
 
 appInsights:
   secretKey: "instrumentationKey"
