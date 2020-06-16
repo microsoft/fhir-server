@@ -68,6 +68,8 @@ database:
       pullPolicy: IfNotPresent
     replicaCount: 1
     port: 1433
+    databaseName: FHIR
+    userName: sa
     resources: {}
     persistence:
       storageClass: default

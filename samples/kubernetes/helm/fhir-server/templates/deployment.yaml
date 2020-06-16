@@ -87,17 +87,19 @@ spec:
               value: "true"
             - name: SqlServer__Initialize
               value: "true"
+            - name: DATABASEUSERNAME
+              value: {{ .Values.database.sqlContainer.userName }}
             - name: DATABASEPASSWORD
               valueFrom:
                 secretKeyRef:
                   name: {{ $dbservicename }}
                   key: sapassword
             - name: DATABASENAME
-              value: {{ include "fhir-server.fullname" . }}
+              value: {{ .Values.database.sqlContainer.databaseName }}
             - name: DATABASESERVERNAME
               value: {{ $dbservicename }}
             - name: SqlServer__ConnectionString
-              value: "Server=tcp:$(DATABASESERVERNAME),1433;Initial Catalog=FHIR;Persist Security Info=False;User ID=sa;Password=$(DATABASEPASSWORD);MultipleActiveResultSets=False;Connection Timeout=30"
+              value: "Server=tcp:$(DATABASESERVERNAME),1433;Initial Catalog=$(DATABASENAME);Persist Security Info=False;User ID=$(DATABASEUSERNAME);Password=$(DATABASEPASSWORD);MultipleActiveResultSets=False;Connection Timeout=30"
             {{- end }}
             {{- if eq .Values.database.dataStore "CosmosDb" }}
             - name: DataStore
