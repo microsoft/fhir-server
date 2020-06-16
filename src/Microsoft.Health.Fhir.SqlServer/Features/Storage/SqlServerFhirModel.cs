@@ -140,7 +140,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             using (var connection = new SqlConnection(_configuration.ConnectionString))
             {
-                await connection.OpenAsync().ConfigureAwait(false);
+                await connection.OpenAsync();
 
                 using (SqlCommand sqlCommand = connection.CreateCommand())
                 {
@@ -195,7 +195,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     sqlCommand.Parameters.AddWithValue("@claimTypes", commaSeparatedClaimTypes);
                     sqlCommand.Parameters.AddWithValue("@compartmentTypes", commaSeparatedCompartmentTypes);
 
-                    using (SqlDataReader reader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess).ConfigureAwait(false))
+                    using (SqlDataReader reader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess))
                     {
                         var resourceTypeToId = new Dictionary<string, short>(StringComparer.Ordinal);
                         var resourceTypeIdToTypeName = new Dictionary<short, string>();
