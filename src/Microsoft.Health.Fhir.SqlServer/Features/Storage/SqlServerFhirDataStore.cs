@@ -77,8 +77,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<UpsertOutcome> UpsertAsync(ResourceWrapper resource, WeakETag weakETag, bool allowCreate, bool keepHistory, CancellationToken cancellationToken)
         {
-            await _model.StartAsync();
-
             int etag = 0;
             if (weakETag != null && !int.TryParse(weakETag.VersionId, out etag))
             {
