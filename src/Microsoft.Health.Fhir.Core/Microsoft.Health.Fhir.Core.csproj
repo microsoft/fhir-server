@@ -44,7 +44,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Microsoft.Health.CosmosDb\Microsoft.Health.CosmosDb.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.ValueSets\Microsoft.Health.Fhir.ValueSets.csproj" />
   </ItemGroup>
 
