@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -46,6 +47,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private ConcurrentDictionary<string, int> _quantityCodeToId;
         private Dictionary<string, byte> _claimNameToId;
         private Dictionary<string, byte> _compartmentTypeToId;
+        private bool _started;
 
         public SqlServerFhirModel(
             SqlServerDataStoreConfiguration configuration,
@@ -69,53 +71,65 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public short GetResourceTypeId(string resourceTypeName)
         {
+            ThrowIfNotStarted();
             return _resourceTypeToId[resourceTypeName];
         }
 
         public bool TryGetResourceTypeId(string resourceTypeName, out short id)
         {
+            ThrowIfNotStarted();
             return _resourceTypeToId.TryGetValue(resourceTypeName, out id);
         }
 
         public string GetResourceTypeName(short resourceTypeId)
         {
+            ThrowIfNotStarted();
             return _resourceTypeIdToTypeName[resourceTypeId];
         }
 
         public byte GetClaimTypeId(string claimTypeName)
         {
+            ThrowIfNotStarted();
             return _claimNameToId[claimTypeName];
         }
 
         public short GetSearchParamId(Uri searchParamUri)
         {
+            ThrowIfNotStarted();
             return _searchParamUriToId[searchParamUri];
         }
 
         public byte GetCompartmentTypeId(string compartmentType)
         {
+            ThrowIfNotStarted();
             return _compartmentTypeToId[compartmentType];
         }
 
         public bool TryGetSystemId(string system, out int systemId)
         {
+            ThrowIfNotStarted();
             return _systemToId.TryGetValue(system, out systemId);
         }
 
         public int GetSystemId(string system)
         {
+            ThrowIfNotStarted();
+
             VLatest.SystemTable systemTable = VLatest.System;
             return GetStringId(_systemToId, system, systemTable, systemTable.SystemId, systemTable.Value);
         }
 
         public int GetQuantityCodeId(string code)
         {
+            ThrowIfNotStarted();
+
             VLatest.QuantityCodeTable quantityCodeTable = VLatest.QuantityCode;
             return GetStringId(_quantityCodeToId, code, quantityCodeTable, quantityCodeTable.QuantityCodeId, quantityCodeTable.Value);
         }
 
         public bool TryGetQuantityCodeId(string code, out int quantityCodeId)
         {
+            ThrowIfNotStarted();
             return _quantityCodeToId.TryGetValue(code, out quantityCodeId);
         }
 
@@ -266,6 +280,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         _quantityCodeToId = quantityCodeToId;
                         _claimNameToId = claimNameToId;
                         _compartmentTypeToId = compartmentTypeToId;
+
+                        _started = true;
                     }
                 }
             }
@@ -311,6 +327,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     cache.TryAdd(stringValue, id);
                     return id;
                 }
+            }
+        }
+
+        private void ThrowIfNotStarted()
+        {
+            if (!_started)
+            {
+                _logger.LogError($"The {nameof(SqlServerModelInitializer)} instance has not been initialized.");
+                throw new ServiceUnavailableException();
             }
         }
     }
