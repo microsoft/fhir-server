@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
@@ -29,6 +30,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         public string ResolveSystem(string shortPath)
         {
             EnsureArg.IsNotEmptyOrWhitespace(shortPath, nameof(shortPath));
+
+            if (_dictionary == null)
+            {
+                throw new InvalidOperationException($"{nameof(CodeSystemResolver)} has not been initialized.");
+            }
 
             if (_dictionary.TryGetValue(NormalizePath(shortPath), out var system))
             {

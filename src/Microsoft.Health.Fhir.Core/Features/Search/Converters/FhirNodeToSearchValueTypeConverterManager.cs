@@ -32,6 +32,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
         public bool TryGetConverter(string fhirElementType, Type searchValueType, out IFhirNodeToSearchValueTypeConverter converter)
         {
             EnsureArg.IsNotNull(fhirElementType, nameof(fhirElementType));
+            EnsureArg.IsNotNull(searchValueType, nameof(searchValueType));
 
             return _converterDictionary.TryGetValue((fhirElementType, searchValueType), out converter);
         }

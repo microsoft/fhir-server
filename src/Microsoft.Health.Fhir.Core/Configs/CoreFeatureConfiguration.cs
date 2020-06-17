@@ -22,6 +22,9 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// </summary>
         public bool SupportsTransaction { get; set; }
 
+        /// <summary>
+        /// Gets or sets a value indicating whether to use the ITypedElement based search indexer
+        /// </summary>
         public bool UseTypedElementIndexer { get; set; }
 
         /// <summary>

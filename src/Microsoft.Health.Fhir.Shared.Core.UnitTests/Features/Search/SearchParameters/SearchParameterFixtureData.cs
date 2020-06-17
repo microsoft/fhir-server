@@ -9,6 +9,7 @@ using Hl7.FhirPath;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -40,8 +41,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 .GetTypes()
                 .Where(x => typeof(IFhirNodeToSearchValueTypeConverter).IsAssignableFrom(x) && !x.IsAbstract && !x.IsInterface);
 
+            var referenceSearchValueParser = new ReferenceSearchValueParser(new FhirRequestContextAccessor());
+            var codeSystemResolver = new CodeSystemResolver(ModelInfoProvider.Instance);
+            codeSystemResolver.Start();
+
             var fhirNodeToSearchValueTypeConverters =
-                types.Select(x => (IFhirNodeToSearchValueTypeConverter)Mock.TypeWithArguments(x, new ReferenceSearchValueParser(new FhirRequestContextAccessor())));
+                types.Select(x => (IFhirNodeToSearchValueTypeConverter)Mock.TypeWithArguments(x, referenceSearchValueParser, codeSystemResolver));
 
             return new FhirNodeToSearchValueTypeConverterManager(fhirNodeToSearchValueTypeConverters);
         }

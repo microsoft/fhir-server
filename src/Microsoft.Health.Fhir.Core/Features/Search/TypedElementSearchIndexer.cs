@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             var entries = new List<SearchIndexEntry>();
 
-            var context = _modelInfoProvider.GetEvaluationContext(resource.Instance, _referenceToElementResolver.Resolve);
+            var context = _modelInfoProvider.GetEvaluationContext(_referenceToElementResolver.Resolve);
 
             IEnumerable<SearchParameterInfo> searchParameters = _searchParameterDefinitionManager.GetSearchParameters(resource.InstanceType);
 

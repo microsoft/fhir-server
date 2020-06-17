@@ -38,10 +38,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             _fixtureData = fixtureData;
 
-            _indexer = new SearchIndexer(
+            _indexer = new TypedElementSearchIndexer(
                 () => _fixtureData.SearchDefinitionManager,
                 SearchParameterFixtureData.Manager,
                 new LightweightReferenceToElementResolver(new ReferenceSearchValueParser(new FhirRequestContextAccessor()), ModelInfoProvider.Instance),
+                ModelInfoProvider.Instance,
                 NullLogger<SearchIndexer>.Instance);
         }
 

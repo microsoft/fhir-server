@@ -7,9 +7,7 @@ using System;
 using System.Collections.Generic;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Serialization;
-using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
-using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
 {

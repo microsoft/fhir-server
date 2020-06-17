@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
         {
             string stringValue = value.Value?.ToString();
 
-            if (stringValue == null)
+            if (string.IsNullOrWhiteSpace(stringValue))
             {
                 yield break;
             }
