@@ -105,5 +105,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             return componentSearchParameter.Type;
         }
+
+        public IEnumerable<SearchParameterInfo> GetSearchByStatus(bool isSupported, bool isSearchable)
+        {
+            return AllSearchParameters.Where(p => p.IsSearchable == isSearchable && p.IsSupported == isSupported);
+        }
     }
 }
