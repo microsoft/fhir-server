@@ -77,5 +77,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         {
             return _inner.GetSearchParameterType(searchParameter, componentIndex);
         }
+
+        /// <summary>
+        /// This method is not really useful, as the parameters returned are already specified
+        /// to be supported and searchable
+        /// </summary>
+        /// <param name="isSupported">Overidden to be true.</param>
+        /// <param name="isSearchable">Overridden to be true.</param>
+        /// <returns>Returns all search parameters that are both supported and searchable</returns>
+        public IEnumerable<SearchParameterInfo> GetSearchByStatus(bool isSupported, bool isSearchable)
+        {
+            return _inner.GetSearchByStatus(true, true);
+        }
     }
 }
