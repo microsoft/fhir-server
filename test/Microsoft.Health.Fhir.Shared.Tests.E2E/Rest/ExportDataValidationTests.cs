@@ -17,6 +17,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
+using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Xunit;
@@ -43,6 +44,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("Patient/")]
         public async Task GivenFhirServer_WhenDataIsExported_ThenExportedDataIsSameAsDataInFhirServer(string path)
         {
+            // NOTE: Azure Storage Emulator is required to run these tests locally.
+
             // Trigger export request and check for export status
             Uri contentLocation = await _testFhirClient.ExportAsync(path);
             IList<Uri> blobUris = await CheckExportStatus(contentLocation);
@@ -191,6 +194,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 JObject result = JObject.Parse(responseString);
 
                 JArray entries = (JArray)result["entry"];
+
+                // Fhir server has not returned any data. Return existing mapping.
+                if (entries == null)
+                {
+                    return resourceIdToResourceMapping;
+                }
+
                 foreach (JToken entry in entries)
                 {
                     string id = entry["resource"]["id"].ToString();

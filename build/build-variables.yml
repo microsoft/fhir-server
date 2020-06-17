@@ -23,3 +23,9 @@ variables:
   TestClientUrl: 'https://$(DeploymentEnvironmentName)-client/'
   ConnectedServiceName: 'Microsoft Health Open Source Subscription'
   WindowsVmImage: 'windows-latest'
+  #-----------------------------------------------------------------------------------------
+  # AKS details
+  clusterName: "mshealth-oss-aks-cluster"
+  clusterResourceGroup: "mshealth-oss-aks"
+  clusterLocation: westus2
+  aksDnsSuffix: "aks-oss.mshapis.com"

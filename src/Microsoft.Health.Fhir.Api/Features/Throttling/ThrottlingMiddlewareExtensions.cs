@@ -3,17 +3,18 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Tests.Common
+using EnsureThat;
+using Microsoft.AspNetCore.Builder;
+
+namespace Microsoft.Health.Fhir.Api.Features.Throttling
 {
-    public class TestType
+    public static class ThrottlingMiddlewareExtensions
     {
-        public string Property1 { get; set; }
-
-        internal static string StaticProperty { get; set; } = "Initial";
-
-        public string CallMe()
+        public static IApplicationBuilder UseThrottling(this IApplicationBuilder builder)
         {
-            return "hello";
+            EnsureArg.IsNotNull(builder, nameof(builder));
+
+            return builder.UseMiddleware<ThrottlingMiddleware>();
         }
     }
 }

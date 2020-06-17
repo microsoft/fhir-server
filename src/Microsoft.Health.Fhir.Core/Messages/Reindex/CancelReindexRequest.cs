@@ -3,10 +3,20 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Tests.Common
+using EnsureThat;
+using MediatR;
+
+namespace Microsoft.Health.Fhir.Core.Messages.Reindex
 {
-    public class Priority
+    public class CancelReindexRequest : IRequest<CancelReindexResponse>
     {
-        public const string One = "1";
+        public CancelReindexRequest(string jobId)
+        {
+            EnsureArg.IsNotNullOrWhiteSpace(jobId, nameof(jobId));
+
+            JobId = jobId;
+        }
+
+        public string JobId { get; }
     }
 }
