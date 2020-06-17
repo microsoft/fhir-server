@@ -11,9 +11,11 @@ using System.Net;
 using System.Reflection;
 using System.Threading;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
+using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json.Linq;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
@@ -22,6 +24,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
 {
+    [Trait(Traits.Category, Categories.SmartOnFhir)]
     public class SmartProxyTests : IClassFixture<SmartProxyTestFixture>
     {
         private SmartProxyTestFixture _fixture;
@@ -49,7 +52,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
             // TODO: We are accepting insecure certs to make it practical to run on build systems. A valid cert should be on the build system.
             options.AcceptInsecureCertificates = true;
 
-            FhirResponse<Patient> response = await _fixture.FhirClient.CreateAsync(Samples.GetDefaultPatient().ToPoco<Patient>());
+            using FhirResponse<Patient> response = await _fixture.TestFhirClient.CreateAsync(Samples.GetDefaultPatient().ToPoco<Patient>());
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
             Patient patient = response.Resource;
 

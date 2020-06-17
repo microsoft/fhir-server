@@ -5,8 +5,8 @@
 
 using System.Collections.Generic;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
-using Microsoft.Health.Fhir.Tests.E2E.Common;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
@@ -16,9 +16,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             : base(dataStore, format, testFhirServerFactory)
         {
             // Prepare the resources used for URI search tests.
-            FhirClient.DeleteAllResources(ResourceType.ValueSet).Wait();
+            TestFhirClient.DeleteAllResources(ResourceType.ValueSet).Wait();
 
-            ValueSets = FhirClient.CreateResourcesAsync<ValueSet>(
+            ValueSets = TestFhirClient.CreateResourcesAsync<ValueSet>(
                 vs => AddValueSet(vs, "http://somewhere.com/test/system"),
                 vs => AddValueSet(vs, "urn://localhost/test")).Result;
 

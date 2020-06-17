@@ -17,6 +17,7 @@ using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Fhir.Tests.E2E.Rest.Audit;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -26,14 +27,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
     public class MetricTests : IClassFixture<MetricTestFixture>
     {
         private readonly MetricTestFixture _fixture;
-        private readonly FhirClient _client;
+        private readonly TestFhirClient _client;
 
         private readonly MetricHandler _metricHandler;
 
         public MetricTests(MetricTestFixture fixture)
         {
             _fixture = fixture;
-            _client = fixture.FhirClient;
+            _client = fixture.TestFhirClient;
             _metricHandler = _fixture?.MetricHandler;
         }
 

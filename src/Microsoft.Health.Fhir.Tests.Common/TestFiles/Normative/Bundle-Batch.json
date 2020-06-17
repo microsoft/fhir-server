@@ -191,7 +191,7 @@
         {
             "request": {
                 "method": "GET",
-                "url": "Patient?name=peter"
+                "url": "Patient?name=peter&_total=none"
             }
         },
         {

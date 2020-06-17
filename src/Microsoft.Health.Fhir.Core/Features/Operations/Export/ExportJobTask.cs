@@ -165,7 +165,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 _logger.LogError(dce, "Can't connect to destination. The job will be marked as failed.");
 
-                _exportJobRecord.FailureDetails = new ExportJobFailureDetails(dce.Message, dce.StatusCode);
+                _exportJobRecord.FailureDetails = new JobFailureDetails(dce.Message, dce.StatusCode);
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
             catch (Exception ex)
@@ -174,7 +174,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 // Try to update the job to failed state.
                 _logger.LogError(ex, "Encountered an unhandled exception. The job will be marked as failed.");
 
-                _exportJobRecord.FailureDetails = new ExportJobFailureDetails(Resources.UnknownError, HttpStatusCode.InternalServerError);
+                _exportJobRecord.FailureDetails = new JobFailureDetails(Resources.UnknownError, HttpStatusCode.InternalServerError);
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
         }

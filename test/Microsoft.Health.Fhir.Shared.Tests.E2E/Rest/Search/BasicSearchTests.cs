@@ -8,12 +8,14 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Net;
+using System.Threading;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
-using Microsoft.Health.Fhir.Tests.E2E.Common;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -92,20 +94,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             await ExecuteAndValidateBundle("?_type=Patient", patients);
 
-            Bundle bundle = await Client.SearchPostAsync(null, ("_type", "Patient"));
+            Bundle bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient"));
             ValidateBundle(bundle, "_search", patients);
 
             bundle = await Client.SearchAsync("?_type=Observation,Patient");
             Assert.True(bundle.Entry.Count > patients.Length);
-            bundle = await Client.SearchPostAsync(null, ("_type", "Patient,Observation"));
+            bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient,Observation"));
             Assert.True(bundle.Entry.Count > patients.Length);
 
             await ExecuteAndValidateBundle($"?_type=Observation,Patient&_id={observation.Id}", observation);
-            bundle = await Client.SearchPostAsync(null, ("_type", "Patient,Observation"), ("_id", observation.Id));
+            bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient,Observation"), ("_id", observation.Id));
             ValidateBundle(bundle, "_search", observation);
 
             await ExecuteAndValidateBundle($"?_type=Observation,Patient&_id={organization.Id}");
-            bundle = await Client.SearchPostAsync(null, ("_type", "Patient,Observation"), ("_id", organization.Id));
+            bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient,Observation"), ("_id", organization.Id));
             ValidateBundle(bundle, "_search");
         }
 
@@ -250,7 +252,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public async Task GivenResources_WhenSearchedWithIncorrectSummaryParams_ThenExceptionShouldBeThrown(string key, string val)
         {
             Patient[] patients = await Client.CreateResourcesAsync<Patient>(3);
-            FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync($"Patient?{key}={val}"));
+            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync($"Patient?{key}={val}"));
 
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
@@ -357,7 +359,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             var totalType = TotalType.Estimate.ToString();
 
-            FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync($"Patient?_total={totalType}"));
+            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync($"Patient?_total={totalType}"));
 
             var expectedStatusCode = HttpStatusCode.Forbidden;
             Assert.Equal(expectedStatusCode, ex.StatusCode);
@@ -375,7 +377,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public async Task GivenListOfResources_WhenSearchedWithInvalidTotalType_ThenExceptionShouldBeThrown(string key, string val)
         {
             Patient[] patients = await Client.CreateResourcesAsync<Patient>(3);
-            FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync($"Patient?{key}={val}"));
+            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync($"Patient?{key}={val}"));
 
             var expectedStatusCode = HttpStatusCode.BadRequest;
             Assert.Equal(expectedStatusCode, ex.StatusCode);

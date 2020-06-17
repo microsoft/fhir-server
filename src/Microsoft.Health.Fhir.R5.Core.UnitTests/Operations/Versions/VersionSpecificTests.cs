@@ -7,7 +7,7 @@ using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Models;
 using Xunit;
 
-namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Operations.Versions
+namespace Microsoft.Health.Fhir.R5.Core.UnitTests.Operations.Versions
 {
     /// <summary>
     /// Provides R5 specific tests.
@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Operations.Versions
         {
             var version = _provider.SupportedVersion.ToString();
 
-            Assert.Equal("4.2.0", version);
+            Assert.Equal("4.4.0", version);
         }
     }
 }

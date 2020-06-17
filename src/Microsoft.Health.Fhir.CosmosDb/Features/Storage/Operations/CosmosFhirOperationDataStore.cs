@@ -21,8 +21,10 @@ using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
+using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Export;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Reindex;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.AcquireExportJobs;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
@@ -33,6 +35,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 
         private static readonly string GetJobByHashQuery =
             $"SELECT TOP 1 * FROM ROOT r WHERE r.{JobRecordProperties.JobRecord}.{JobRecordProperties.Hash} = {HashParameterName} AND r.{JobRecordProperties.JobRecord}.{JobRecordProperties.Status} IN ('{OperationStatus.Queued}', '{OperationStatus.Running}') ORDER BY r.{KnownDocumentProperties.Timestamp} ASC";
+
+        private static readonly string CheckActiveJobsByStatusQuery =
+            $"SELECT TOP 1 * FROM ROOT r WHERE r.{JobRecordProperties.JobRecord}.{JobRecordProperties.Status} IN ('{OperationStatus.Queued}', '{OperationStatus.Running}', '{OperationStatus.Paused}')";
 
         private readonly IScoped<IDocumentClient> _documentClientScope;
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
@@ -258,6 +263,144 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
                 }
 
                 _logger.LogError(dce, "Failed to acquire export jobs.");
+                throw;
+            }
+        }
+
+        public async Task<ReindexJobWrapper> CreateReindexJobAsync(ReindexJobRecord jobRecord, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(jobRecord, nameof(jobRecord));
+
+            var cosmosReindexJob = new CosmosReindexJobRecordWrapper(jobRecord);
+
+            try
+            {
+                ResourceResponse<Document> result = await _documentClientScope.Value.CreateDocumentAsync(
+                    CollectionUri,
+                    cosmosReindexJob,
+                    new RequestOptions() { PartitionKey = new PartitionKey(CosmosDbReindexConstants.ReindexJobPartitionKey) },
+                    disableAutomaticIdGeneration: true,
+                    cancellationToken: cancellationToken);
+
+                return new ReindexJobWrapper(jobRecord, WeakETag.FromVersionId(result.Resource.ETag));
+            }
+            catch (DocumentClientException dce)
+            {
+                if (dce.StatusCode == HttpStatusCode.TooManyRequests)
+                {
+                    throw new RequestRateExceededException(dce.RetryAfter);
+                }
+
+                _logger.LogError(dce, "Failed to create an reindex job.");
+                throw;
+            }
+        }
+
+        public async Task<IReadOnlyCollection<ReindexJobWrapper>> AcquireReindexJobsAsync(ushort maximumNumberOfConcurrentJobsAllowed, TimeSpan jobHeartbeatTimeoutThreshold, CancellationToken cancellationToken)
+        {
+            // TODO: Shell for testing
+            IDocumentQuery<int> query = _documentClientScope.Value.CreateDocumentQuery<int>(
+                    CollectionUri,
+                    new SqlQuerySpec(CheckActiveJobsByStatusQuery),
+                    new FeedOptions { PartitionKey = new PartitionKey(CosmosDbReindexConstants.ReindexJobPartitionKey) })
+                    .AsDocumentQuery();
+
+            FeedResponse<CosmosReindexJobRecordWrapper> result = await query.ExecuteNextAsync<CosmosReindexJobRecordWrapper>();
+            var jobList = new List<ReindexJobWrapper>();
+            CosmosReindexJobRecordWrapper cosmosJob = result.FirstOrDefault();
+            if (cosmosJob != null)
+            {
+                jobList.Add(new ReindexJobWrapper(cosmosJob.JobRecord, WeakETag.FromVersionId(cosmosJob.ETag)));
+            }
+
+            return jobList;
+        }
+
+        public async Task<bool> CheckActiveReindexJobsAsync(CancellationToken cancellationToken)
+        {
+            try
+            {
+                IDocumentQuery<int> query = _documentClientScope.Value.CreateDocumentQuery<int>(
+                    CollectionUri,
+                    new SqlQuerySpec(CheckActiveJobsByStatusQuery),
+                    new FeedOptions { PartitionKey = new PartitionKey(CosmosDbReindexConstants.ReindexJobPartitionKey) })
+                    .AsDocumentQuery();
+
+                FeedResponse<CosmosReindexJobRecordWrapper> result = await query.ExecuteNextAsync<CosmosReindexJobRecordWrapper>();
+
+                if (result.Any())
+                {
+                    return true;
+                }
+
+                return false;
+            }
+            catch (DocumentClientException dce)
+            {
+                if (dce.StatusCode == HttpStatusCode.TooManyRequests)
+                {
+                    throw new RequestRateExceededException(dce.RetryAfter);
+                }
+
+                _logger.LogError(dce, "Failed to check if any reindex jobs are active.");
+                throw;
+            }
+        }
+
+        public Task<ReindexJobWrapper> GetReindexJobByIdAsync(string jobId, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
+
+        public async Task<ReindexJobWrapper> UpdateReindexJobAsync(ReindexJobRecord jobRecord, WeakETag eTag, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(jobRecord, nameof(jobRecord));
+
+            var cosmosReindexJob = new CosmosReindexJobRecordWrapper(jobRecord);
+
+            var requestOptions = new RequestOptions()
+            {
+                PartitionKey = new PartitionKey(CosmosDbReindexConstants.ReindexJobPartitionKey),
+            };
+
+            // Create access condition so that record is replaced only if eTag matches.
+            if (eTag != null)
+            {
+                requestOptions.AccessCondition = new AccessCondition()
+                {
+                    Type = AccessConditionType.IfMatch,
+                    Condition = eTag.VersionId,
+                };
+            }
+
+            try
+            {
+                ResourceResponse<Document> replaceResult = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
+                    () => _documentClientScope.Value.ReplaceDocumentAsync(
+                        UriFactory.CreateDocumentUri(DatabaseId, CollectionId, jobRecord.Id),
+                        cosmosReindexJob,
+                        requestOptions,
+                        cancellationToken));
+
+                var latestETag = replaceResult.Resource.ETag;
+                return new ReindexJobWrapper(jobRecord, WeakETag.FromVersionId(latestETag));
+            }
+            catch (DocumentClientException dce)
+            {
+                if (dce.StatusCode == HttpStatusCode.TooManyRequests)
+                {
+                    throw new RequestRateExceededException(dce.RetryAfter);
+                }
+                else if (dce.StatusCode == HttpStatusCode.PreconditionFailed)
+                {
+                    throw new JobConflictException();
+                }
+                else if (dce.StatusCode == HttpStatusCode.NotFound)
+                {
+                    throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, jobRecord.Id));
+                }
+
+                _logger.LogError(dce, "Failed to update a reindex job.");
                 throw;
             }
         }

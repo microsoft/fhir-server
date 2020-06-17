@@ -30,19 +30,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             Error = errors;
         }
 
+        [JsonConstructor]
+        private ExportJobResult()
+        {
+        }
+
         [JsonProperty("transactionTime")]
-        public DateTimeOffset TransactionTime { get; }
+        public DateTimeOffset TransactionTime { get; private set; }
 
         [JsonProperty("request")]
-        public Uri RequestUri { get; }
+        public Uri RequestUri { get; private set; }
 
         [JsonProperty("requiresAccessToken")]
-        public bool RequiresAccessToken { get; }
+        public bool RequiresAccessToken { get; private set; }
 
         [JsonProperty("output")]
-        public IList<ExportOutputResponse> Output { get; }
+        public IList<ExportOutputResponse> Output { get; private set; }
 
         [JsonProperty("error")]
-        public IList<ExportOutputResponse> Error { get; }
+        public IList<ExportOutputResponse> Error { get; private set; }
     }
 }

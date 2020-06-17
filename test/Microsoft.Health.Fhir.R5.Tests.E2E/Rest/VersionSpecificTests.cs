@@ -6,8 +6,8 @@
 using System;
 using System.Net;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.Common;
-using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public async Task GivenR5Server_WhenCapabilityStatementIsRetrieved_ThenCorrectVersionShouldBeReturned()
         {
-            await TestCapabilityStatementFhirVersion("4.2.0");
+            await TestCapabilityStatementFhirVersion("4.4.0");
         }
 
         [Fact]
@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public async Task GivenAResourceThatWasRenamed_WhenSearched_ThenExceptionShouldBeThrown()
         {
-            FhirException exception = await Assert.ThrowsAsync<FhirException>(() => _client.SearchAsync("Sequence"));
+            using FhirException exception = await Assert.ThrowsAsync<FhirException>(() => _client.SearchAsync("Sequence"));
 
             Assert.Equal(HttpStatusCode.NotFound, exception.StatusCode);
         }

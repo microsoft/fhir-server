@@ -16,18 +16,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
     [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.All)]
     public class SmartProxyBadRequestTests : IClassFixture<HttpIntegrationTestFixture>
     {
-        private readonly FhirClient _client;
+        private readonly TestFhirClient _client;
 
         public SmartProxyBadRequestTests(HttpIntegrationTestFixture fixture)
         {
-            _client = fixture.FhirClient;
+            _client = fixture.TestFhirClient;
         }
 
         [Fact]
-        public async Task GivenMissingParams_WhenRequestingAToken_ThenBadRequestResonseReturned()
+        public async Task GivenMissingParams_WhenRequestingAToken_ThenBadRequestResponseReturned()
         {
             var content = new StringContent(string.Empty);
-            HttpResponseMessage response = await _client.HttpClient.PostAsync(_client.SecuritySettings.TokenUrl, content);
+            HttpResponseMessage response = await _client.HttpClient.PostAsync(_client.TokenUri, content);
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
             var responseContent = await response.Content.ReadAsStringAsync();

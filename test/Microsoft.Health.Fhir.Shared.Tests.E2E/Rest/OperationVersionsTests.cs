@@ -7,7 +7,6 @@ using System;
 using System.Net;
 using System.Net.Http;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
-using Microsoft.Health.Fhir.Tests.E2E.Rest;
 using Microsoft.Health.Fhir.Web;
 using Microsoft.Net.Http.Headers;
 using Xunit;
@@ -46,8 +45,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public async Task GivenNoAcceptHeaderIsProvided_WhenVersionsEndpointIsCalled_ThenServerShouldReturnOK()
         {
-            HttpRequestMessage request = GenerateOperationVersionsRequest(string.Empty);
-            HttpResponseMessage response = await _client.SendAsync(request);
+            using HttpRequestMessage request = GenerateOperationVersionsRequest(string.Empty);
+            using HttpResponseMessage response = await _client.SendAsync(request);
 
             Assert.Equal("application/fhir+json", response.Content.Headers.ContentType.MediaType);
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -58,16 +57,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("applicaiton/xml")]
         public async Task GivenInvalidAcceptHeaderIsProvided_WhenVersionsEndpointIsCalled_ThenServerShouldReturnNotAcceptable(string acceptHeaderValue)
         {
-            HttpRequestMessage request = GenerateOperationVersionsRequest(acceptHeaderValue);
-            HttpResponseMessage response = await _client.SendAsync(request);
+            using HttpRequestMessage request = GenerateOperationVersionsRequest(acceptHeaderValue);
+            using HttpResponseMessage response = await _client.SendAsync(request);
 
             Assert.Equal(HttpStatusCode.NotAcceptable, response.StatusCode);
         }
 
         private async Task CheckContentType(string acceptHeaderValue)
         {
-            HttpRequestMessage request = GenerateOperationVersionsRequest(acceptHeaderValue);
-            HttpResponseMessage response = await _client.SendAsync(request);
+            using HttpRequestMessage request = GenerateOperationVersionsRequest(acceptHeaderValue);
+            using HttpResponseMessage response = await _client.SendAsync(request);
 
             Assert.Equal(acceptHeaderValue, response.Content.Headers.ContentType.MediaType);
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);

@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 outcome.JobRecord.Status = OperationStatus.Canceled;
                 outcome.JobRecord.CanceledTime = Clock.UtcNow;
 
-                outcome.JobRecord.FailureDetails = new ExportJobFailureDetails(Resources.UserRequestedCancellation, HttpStatusCode.NoContent);
+                outcome.JobRecord.FailureDetails = new JobFailureDetails(Resources.UserRequestedCancellation, HttpStatusCode.NoContent);
 
                 await _fhirOperationDataStore.UpdateExportJobAsync(outcome.JobRecord, outcome.ETag, cancellationToken);
 

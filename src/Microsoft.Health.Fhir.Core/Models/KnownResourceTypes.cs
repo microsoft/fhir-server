@@ -13,9 +13,13 @@ namespace Microsoft.Health.Fhir.Core.Models
 
         public const string Bundle = "Bundle";
 
+        public const string CompartmentDefinition = "CompartmentDefinition";
+
         public const string Device = "Device";
 
         public const string DocumentReference = "DocumentReference";
+
+        public const string DomainResource = "DomainResource";
 
         public const string Encounter = "Encounter";
 
@@ -29,7 +33,15 @@ namespace Microsoft.Health.Fhir.Core.Models
 
         public const string Parameters = "Parameters";
 
+        public const string Practitioner = "Practitioner";
+
+        public const string Resource = "Resource";
+
+        public const string RelatedPerson = "RelatedPerson";
+
         public const string RiskAssessment = "RiskAssessment";
+
+        public const string SearchParameter = "SearchParameter";
 
         public const string Patient = "Patient";
 

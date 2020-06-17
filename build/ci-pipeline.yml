@@ -143,6 +143,14 @@ stages:
       version: R5
       keyVaultName: $(DeploymentEnvironmentNameR5)
 
+- stage: cleanStorageAccounts
+  displayName: 'Clean Storage Accounts'
+  dependsOn: []
+  jobs:
+  - template: ./jobs/clean-storage-accounts.yml
+    parameters:
+      environmentName: $(DeploymentEnvironmentName)
+
 - stage: securityScan
   displayName: Security Scan
   dependsOn: []

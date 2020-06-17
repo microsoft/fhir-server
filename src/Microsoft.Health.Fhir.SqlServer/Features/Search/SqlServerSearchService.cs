@@ -154,21 +154,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                            ?? SqlRootExpression.WithDenormalizedExpressions();
 
             using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
-            using (SqlCommand sqlCommand = sqlConnectionWrapper.CreateSqlCommand())
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
                 var stringBuilder = new IndentedStringBuilder(new StringBuilder());
 
                 EnableTimeAndIoMessageLogging(stringBuilder, sqlConnectionWrapper);
 
-                var queryGenerator = new SqlQueryGenerator(stringBuilder, new SqlQueryParameterManager(sqlCommand.Parameters), _model, historySearch);
+                var queryGenerator = new SqlQueryGenerator(stringBuilder, new SqlQueryParameterManager(sqlCommandWrapper.Parameters), _model, historySearch);
 
                 expression.AcceptVisitor(queryGenerator, searchOptions);
 
-                sqlCommand.CommandText = stringBuilder.ToString();
+                sqlCommandWrapper.CommandText = stringBuilder.ToString();
 
-                LogSqlCommand(sqlCommand);
+                LogSqlCommand(sqlCommandWrapper);
 
-                using (var reader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
+                using (var reader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken))
                 {
                     if (searchOptions.CountOnly)
                     {
@@ -264,10 +264,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         /// Logs the parameter declarations and command text of a SQL command
         /// </summary>
         [Conditional("DEBUG")]
-        private void LogSqlCommand(SqlCommand sqlCommand)
+        private void LogSqlCommand(SqlCommandWrapper sqlCommandWrapper)
         {
             var sb = new StringBuilder();
-            foreach (SqlParameter p in sqlCommand.Parameters)
+            foreach (SqlParameter p in sqlCommandWrapper.Parameters)
             {
                 sb.Append("DECLARE ")
                     .Append(p)
@@ -282,7 +282,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             sb.AppendLine();
 
-            sb.AppendLine(sqlCommand.CommandText);
+            sb.AppendLine(sqlCommandWrapper.CommandText);
             _logger.LogInformation(sb.ToString());
         }
     }
