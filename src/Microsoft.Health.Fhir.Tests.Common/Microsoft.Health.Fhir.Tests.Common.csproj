@@ -80,6 +80,7 @@
     <None Remove="TestFiles\Normative\Bundle-TransactionWithPOSTFullUrlMatchesWithPUTRequestUrl.json" />
     <None Remove="TestFiles\Normative\Bundle-TransactionWithValidBundleEntry.json" />
     <None Remove="TestFiles\Normative\Bundle-TypeMissing.json" />
+    <None Remove="TestFiles\Normative\list-example-long.json" />
     <None Remove="TestFiles\Normative\Observation-For-Patient-f001.json" />
     <None Remove="TestFiles\Normative\ObservationWith1MinuteApgarScore.json" />
     <None Remove="TestFiles\Normative\ObservationWith20MinuteApgarScore.json" />
@@ -190,6 +191,7 @@
     <EmbeddedResource Include="TestFiles\Normative\BloodGlucose.json" />
     <EmbeddedResource Include="TestFiles\Normative\BloodPressure.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TypeMissing.json" />
+    <EmbeddedResource Include="TestFiles\Normative\list-example-long.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-Batch.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionForRollBack.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithAllValidRoutes.json" />
