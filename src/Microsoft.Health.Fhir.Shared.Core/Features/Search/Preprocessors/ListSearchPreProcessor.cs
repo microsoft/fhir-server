@@ -52,39 +52,50 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.PreProcessors
             Tuple<string, string> listParameter = request.Queries
                 .FirstOrDefault(x => string.Equals(x.Item1, _listParameter, StringComparison.Ordinal));
 
-            if (string.IsNullOrWhiteSpace(listParameter?.Item2))
+            // if _list was not requested, or _list was requested with invalid value. continue
+            if ((listParameter == null) || (string.IsNullOrWhiteSpace(listParameter.Item2)))
             {
                 return;
             }
 
+            // Remove the 'list' params from the queries, to be later replaced with specific ids of resources
             IEnumerable<Tuple<string, string>> query = request.Queries.Except(new[] { listParameter });
-
             ResourceWrapper listWrapper = await _dataStore.Value.GetAsync(new ResourceKey<Hl7.Fhir.Model.List>(listParameter.Item2), cancellationToken);
 
-            if (listWrapper != null)
+            if (listWrapper == null)
             {
-                ResourceElement list = _deserializer.Deserialize(listWrapper);
+                MakeAlwaysFalseQuery(query);
+            }
 
-                IEnumerable<ReferenceSearchValue> references = list.ToPoco<Hl7.Fhir.Model.List>()
-                    .Entry
-                    .Where(x => x.Deleted != true)
-                    .Select(x => _referenceSearchValueParser.Parse(x.Item.Reference))
-                    .Where(x => string.IsNullOrWhiteSpace(request.ResourceType) ||
-                                string.Equals(request.ResourceType, x.ResourceType, StringComparison.Ordinal))
-                    .ToArray();
+            ResourceElement list = _deserializer.Deserialize(listWrapper);
 
-                if (references.Any())
-                {
-                    query = query.Concat(new[] { Tuple.Create(_idParameter, string.Join(",", references.Select(x => x.ResourceId))) });
-                }
-                else
-                {
-                    // change, stop before going to search item
-                    throw new MethodNotAllowedException("list doesnt have items");
-                }
+            IEnumerable<ReferenceSearchValue> references = list.ToPoco<Hl7.Fhir.Model.List>()
+                .Entry
+                .Where(x => x.Deleted != true)
+                .Select(x => _referenceSearchValueParser.Parse(x.Item.Reference))
+                .Where(x => string.IsNullOrWhiteSpace(request.ResourceType) ||
+                            string.Equals(request.ResourceType, x.ResourceType, StringComparison.Ordinal))
+                .ToArray();
+
+            if (references.Any())
+            {
+                query = query.Concat(new[] { Tuple.Create(_idParameter, string.Join(",", references.Select(x => x.ResourceId))) });
+            }
+            else
+            {
+                MakeAlwaysFalseQuery(query);
             }
 
             request.Queries = query.ToArray();
+        }
+
+        private void MakeAlwaysFalseQuery(IEnumerable<Tuple<string, string>> query)
+        {
+            // when asking the id to be both 1 and 2, we make sure no results will return.
+            // This is a workaround to the fact the preprocessor does not allow to
+            // return the empty results directly...
+            query = query.Concat(new[] { new Tuple<string, string>("_id", "one") });
+            query = query.Concat(new[] { new Tuple<string, string>("_id", "two") });
         }
     }
 }
