@@ -11,7 +11,6 @@ using System.Threading.Tasks;
 using EnsureThat;
 using MediatR.Pipeline;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
@@ -52,19 +51,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.PreProcessors
             Tuple<string, string> listParameter = request.Queries
                 .FirstOrDefault(x => string.Equals(x.Item1, _listParameter, StringComparison.Ordinal));
 
+            // Remove the 'list' params from the queries, to be later replaced with specific ids of resources
+            IEnumerable<Tuple<string, string>> query = request.Queries.Except(new[] { listParameter });
+
             // if _list was not requested, or _list was requested with invalid value. continue
-            if ((listParameter == null) || (string.IsNullOrWhiteSpace(listParameter.Item2)))
+            if ((listParameter == null) || string.IsNullOrWhiteSpace(listParameter.Item2))
             {
+                request.Queries = query.ToArray();
                 return;
             }
 
-            // Remove the 'list' params from the queries, to be later replaced with specific ids of resources
-            IEnumerable<Tuple<string, string>> query = request.Queries.Except(new[] { listParameter });
             ResourceWrapper listWrapper = await _dataStore.Value.GetAsync(new ResourceKey<Hl7.Fhir.Model.List>(listParameter.Item2), cancellationToken);
 
             if (listWrapper == null)
             {
-                MakeAlwaysFalseQuery(query);
+                MakeAlwaysFalseQuery(ref query);
+                request.Queries = query.ToArray();
+                return;
             }
 
             ResourceElement list = _deserializer.Deserialize(listWrapper);
@@ -83,13 +86,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.PreProcessors
             }
             else
             {
-                MakeAlwaysFalseQuery(query);
+                MakeAlwaysFalseQuery(ref query);
             }
 
             request.Queries = query.ToArray();
         }
 
-        private void MakeAlwaysFalseQuery(IEnumerable<Tuple<string, string>> query)
+        private void MakeAlwaysFalseQuery(ref IEnumerable<Tuple<string, string>> query)
         {
             // when asking the id to be both 1 and 2, we make sure no results will return.
             // This is a workaround to the fact the preprocessor does not allow to
