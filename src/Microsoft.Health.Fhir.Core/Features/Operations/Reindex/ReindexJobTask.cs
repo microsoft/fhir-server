@@ -4,6 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
@@ -11,6 +13,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Core;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -24,6 +27,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
         private readonly ReindexJobConfiguration _reindexJobConfiguration;
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
+        private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ILogger _logger;
 
         private ReindexJobRecord _reindexJobRecord;
@@ -33,16 +37,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory,
             IOptions<ReindexJobConfiguration> reindexJobConfiguration,
             Func<IScoped<ISearchService>> searchServiceFactory,
+            ISearchParameterDefinitionManager searchParameterDefinitionManager,
             ILogger<ReindexJobTask> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
             EnsureArg.IsNotNull(reindexJobConfiguration?.Value, nameof(reindexJobConfiguration));
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
+            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
             _reindexJobConfiguration = reindexJobConfiguration.Value;
             _searchServiceFactory = searchServiceFactory;
+            _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _logger = logger;
         }
 
@@ -62,6 +69,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 if (_reindexJobRecord.QueryList?.Count == 0)
                 {
                     // Build query based on new search params
+                    // Find supported, but not yet searchable params
+                    var notYetIndexedParams = _searchParameterDefinitionManager.GetSearchByStatus(true, false);
+
+                    // From the param list, get the list of necessary resources which should be
+                    // included in our query
+                    var resourceList = new HashSet<string>();
+                    foreach (var param in notYetIndexedParams)
+                    {
+                        resourceList.UnionWith(param.TargetResourceTypes);
+
+                        // TODO: Expand the BaseResourceTypes to all child resources
+                        resourceList.UnionWith(param.BaseResourceTypes);
+                    }
+
+                    _reindexJobRecord.Resources.AddRange(resourceList);
+                    _reindexJobRecord.SearchParams.AddRange(notYetIndexedParams.Select(p => p.Name));
                 }
 
                 // This is just a shell for now, will be completed in future
