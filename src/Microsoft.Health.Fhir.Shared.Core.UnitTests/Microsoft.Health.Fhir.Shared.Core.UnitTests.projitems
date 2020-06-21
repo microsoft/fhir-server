@@ -76,6 +76,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\Narratives\NarrativeValidatorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\ValidateCapabilityPreProcessorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\ValidateRequestPreProcessorTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Preprocessors\ListSearchPreProcessorTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Behaviors\ListSearchBehaviorTests.cs" />
   </ItemGroup>
 </Project>
