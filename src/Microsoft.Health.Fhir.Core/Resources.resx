@@ -175,39 +175,6 @@
     <value>Found result with Id '{0}', which did not match the provided Id '{1}'.</value>
     <comment>{0} is an Id e.g. 123456</comment>
   </data>
-  <data name="AadClientCredentialsGrantFailure" xml:space="preserve">
-    <value>AAD failure getting a token to access the customer-managed key.</value>
-  </data>
-  <data name="AadServiceUnavailable" xml:space="preserve">
-    <value>AAD service unavailable to get access to the customer-managed key.</value>
-  </data>
-  <data name="KeyVaultAuthenticationFailure" xml:space="preserve">
-    <value>The customer-managed key is disabled, or the Key Vault does not grant permission to AAD.</value>
-  </data>
-  <data name="KeyVaultKeyNotFound" xml:space="preserve">
-    <value>The customer-managed key is not found.</value>
-  </data>
-  <data name="KeyVaultServiceUnavailable" xml:space="preserve">
-    <value>The Key Vault Service is unavailable to access the customer-managed key.</value>
-  </data>
-  <data name="KeyVaultWrapUnwrapFailure" xml:space="preserve">
-    <value>Failure to Wrap or Unwrap the customer-managed key.</value>
-  </data>
-  <data name="InvalidKeyVaultKeyUri" xml:space="preserve">
-    <value>The customer-managed key URI is invalid.</value>
-  </data>
-  <data name="InvalidInputBytes" xml:space="preserve">
-    <value>The input bytes are not in base64 format.</value>
-  </data>
-  <data name="KeyVaultInternalServerError" xml:space="preserve">
-    <value>Unknown Key Vault error accessing the customer-managed key.</value>
-  </data>
-  <data name="KeyVaultDnsNotResolved" xml:space="preserve">
-    <value>Could resolve the DNS of the Key Vault of the customer-managed key.</value>
-  </data>
-  <data name="CmkDefaultError" xml:space="preserve">
-    <value>There was an error using the customer-managed key.</value>
-  </data>
   <data name="CustomHeaderPrefixCannotBeEmpty" xml:space="preserve">
     <value>The prefix used to identify custom audit headers cannot be empty.</value>
   </data>
@@ -238,7 +205,7 @@
   <data name="IdRequirements" xml:space="preserve">
     <value>Id must be any combination of upper or lower case ASCII letters ('A'..'Z', and 'a'..'z'), numerals ('0'..'9'), '-' and '.', with a length limit of 64 characters. (This might be an integer, an un-prefixed OID, UUID, or any other identifier pattern that meets these constraints.)</value>
   </data>
-  <data name="IfMatchHeaderRequiredForResource" xml:space="preserve">
+ <data name="IfMatchHeaderRequiredForResource" xml:space="preserve">
     <value>A valid if-match header is required for resource type '{0}'.</value>
   </data>
   <data name="IllegalHtmlAttribute" xml:space="preserve">
@@ -295,7 +262,7 @@
     <value>The requested job "{0}" was not found.</value>
     <comment>{0} is the job id</comment>
   </data>
-  <data name="MalformedSearchValue" xml:space="preserve">
+ <data name="MalformedSearchValue" xml:space="preserve">
     <value>Malformed search value '{0}'.</value>
   </data>
   <data name="ModifierNotSupported" xml:space="preserve">
