@@ -74,9 +74,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 ExportJobConfiguration exportJobConfiguration = _exportJobConfiguration;
 
-                string connectionHash = Microsoft.Health.Core.Extensions.StringExtensions.ComputeHash(_exportJobConfiguration.StorageAccountConnection);
+                string connectionHash = string.IsNullOrEmpty(_exportJobConfiguration.StorageAccountConnection) ?
+                    string.Empty :
+                    Microsoft.Health.Core.Extensions.StringExtensions.ComputeHash(_exportJobConfiguration.StorageAccountConnection);
 
-                if (string.IsNullOrEmpty(exportJobRecord.StorageAccountUri) && string.IsNullOrEmpty(_exportJobConfiguration.StorageAccountUri))
+                if (string.IsNullOrEmpty(exportJobRecord.StorageAccountUri))
                 {
                     if (!string.Equals(exportJobRecord.StorageAccountConnectionHash, connectionHash, StringComparison.Ordinal))
                     {
@@ -85,12 +87,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 }
                 else
                 {
-                    if (!string.Equals(exportJobRecord.StorageAccountUri, _exportJobConfiguration.StorageAccountUri, StringComparison.Ordinal))
-                    {
-                        exportJobConfiguration = new ExportJobConfiguration();
-                        exportJobConfiguration.Enabled = _exportJobConfiguration.Enabled;
-                        exportJobConfiguration.StorageAccountUri = exportJobRecord.StorageAccountUri;
-                    }
+                    exportJobConfiguration = new ExportJobConfiguration();
+                    exportJobConfiguration.Enabled = _exportJobConfiguration.Enabled;
+                    exportJobConfiguration.StorageAccountUri = exportJobRecord.StorageAccountUri;
                 }
 
                 // Connect to export destination using appropriate client.

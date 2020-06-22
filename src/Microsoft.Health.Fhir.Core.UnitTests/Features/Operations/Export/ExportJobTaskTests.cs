@@ -100,7 +100,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 "Patient",
                 "hash",
                 since: Core.Models.PartialDateTime.MinValue,
-                storageAccountConnectionHash: Microsoft.Health.Core.Extensions.StringExtensions.ComputeHash(_exportJobConfiguration.StorageAccountConnection),
+                storageAccountConnectionHash: string.Empty,
                 storageAccountUri: _exportJobConfiguration.StorageAccountUri);
 
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithSince);
@@ -166,7 +166,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 "Patient",
                 "hash",
                 since: PartialDateTime.MinValue,
-                storageAccountConnectionHash: Microsoft.Health.Core.Extensions.StringExtensions.ComputeHash(_exportJobConfiguration.StorageAccountConnection),
+                storageAccountConnectionHash: string.Empty,
                 storageAccountUri: _exportJobConfiguration.StorageAccountUri);
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithSince);
 
@@ -256,7 +256,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 "Patient",
                 "hash",
                 since: PartialDateTime.MinValue,
-                storageAccountConnectionHash: Microsoft.Health.Core.Extensions.StringExtensions.ComputeHash(_exportJobConfiguration.StorageAccountConnection),
+                storageAccountConnectionHash: string.Empty,
                 storageAccountUri: _exportJobConfiguration.StorageAccountUri);
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithSince);
 
@@ -662,7 +662,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 new Uri("https://localhost/ExportJob/"),
                 "Patient",
                 "hash",
-                storageAccountConnectionHash: Microsoft.Health.Core.Extensions.StringExtensions.ComputeHash(_exportJobConfiguration.StorageAccountConnection),
+                storageAccountConnectionHash: string.Empty,
                 storageAccountUri: _exportJobConfiguration.StorageAccountUri);
 
             _fhirOperationDataStore.UpdateExportJobAsync(_exportJobRecord, _weakETag, _cancellationToken).Returns(x =>
