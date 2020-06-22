@@ -508,6 +508,48 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         }
 
         [Fact]
+        public async Task GivenStorageAccountConnectionDidNotChange_WhenExecuted_ThenJobShouldBeCompleted()
+        {
+            ExportJobConfiguration exportJobConfiguration = new ExportJobConfiguration();
+            exportJobConfiguration.StorageAccountConnection = "connection";
+            exportJobConfiguration.StorageAccountUri = string.Empty;
+
+            var exportJobRecordWithConnection = new ExportJobRecord(
+                new Uri("https://localhost/ExportJob/"),
+                "Patient",
+                "hash",
+                since: PartialDateTime.MinValue,
+                storageAccountConnectionHash: Microsoft.Health.Core.Extensions.StringExtensions.ComputeHash(exportJobConfiguration.StorageAccountConnection),
+                storageAccountUri: exportJobConfiguration.StorageAccountUri);
+            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithConnection);
+
+            var exportJobTask = new ExportJobTask(
+                () => _fhirOperationDataStore.CreateMockScope(),
+                Options.Create(exportJobConfiguration),
+                () => _searchService.CreateMockScope(),
+                _resourceToByteArraySerializer,
+                _inMemoryDestinationClient,
+                NullLogger<ExportJobTask>.Instance);
+
+            _searchService.SearchAsync(
+               Arg.Any<string>(),
+               Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+               _cancellationToken)
+               .Returns(x => CreateSearchResult());
+
+            DateTimeOffset endTimestamp = DateTimeOffset.UtcNow;
+
+            using (Mock.Property(() => ClockResolver.UtcNowFunc, () => endTimestamp))
+            {
+                await exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+            }
+
+            Assert.NotNull(_lastExportJobOutcome);
+            Assert.Equal(OperationStatus.Completed, _lastExportJobOutcome.JobRecord.Status);
+            Assert.Equal(endTimestamp, _lastExportJobOutcome.JobRecord.EndTime);
+        }
+
+        [Fact]
         public async Task GivenStorageAccountConnectionChanged_WhenExecuted_ThenJobStatusShouldBeUpdatedToFailed()
         {
             string connectionFailure = "Storage account connection string was updated during an export job.";
