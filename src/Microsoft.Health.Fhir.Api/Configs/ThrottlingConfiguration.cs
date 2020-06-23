@@ -3,11 +3,17 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Tests.Common
+using System.Collections.Generic;
+using Microsoft.Health.Fhir.Api.Features.Throttling;
+
+namespace Microsoft.Health.Fhir.Api.Configs
 {
-    public class Traits
+    public class ThrottlingConfiguration
     {
-        public const string Priority = "Priority";
-        public const string Category = "Category";
+        public bool Enabled { get; set; }
+
+        public int ConcurrentRequestLimit { get; set; }
+
+        public HashSet<ExcludedEndpoint> ExcludedEndpoints { get; } = new HashSet<ExcludedEndpoint>();
     }
 }

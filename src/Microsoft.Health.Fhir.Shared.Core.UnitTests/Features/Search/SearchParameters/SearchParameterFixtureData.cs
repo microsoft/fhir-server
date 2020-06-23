@@ -3,10 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Linq;
 using Hl7.Fhir.FhirPath;
-using Hl7.Fhir.Serialization;
 using Hl7.FhirPath;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -16,7 +14,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search

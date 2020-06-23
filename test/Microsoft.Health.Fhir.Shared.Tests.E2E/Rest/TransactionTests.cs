@@ -13,6 +13,7 @@ using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 using static Hl7.Fhir.Model.Bundle;
 using static Hl7.Fhir.Model.OperationOutcome;

@@ -3,23 +3,20 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Tests.Common
+using EnsureThat;
+using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
+
+namespace Microsoft.Health.Fhir.Core.Messages.Reindex
 {
-    public class TestTypeWithArgs
+    public class CreateReindexResponse
     {
-        public TestTypeWithArgs(TestType oneArg)
-            : this(oneArg, null)
+        public CreateReindexResponse(ReindexJobWrapper job)
         {
+            EnsureArg.IsNotNull(job, nameof(job));
+
+            Job = job;
         }
 
-        public TestTypeWithArgs(TestType oneArg, string secondArg)
-        {
-            OneArg = oneArg;
-            SecondArg = secondArg;
-        }
-
-        public TestType OneArg { get; }
-
-        public string SecondArg { get; }
+        public ReindexJobWrapper Job { get; }
     }
 }
