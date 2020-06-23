@@ -9,8 +9,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
-using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
