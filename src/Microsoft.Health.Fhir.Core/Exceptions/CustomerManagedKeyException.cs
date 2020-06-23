@@ -10,6 +10,7 @@ namespace Microsoft.Health.Fhir.Core.Exceptions
     public class CustomerManagedKeyException : FhirException
     {
         public CustomerManagedKeyException(string message)
+            : base(message)
         {
             Issues.Add(new OperationOutcomeIssue(
                     OperationOutcomeConstants.IssueSeverity.Error,
