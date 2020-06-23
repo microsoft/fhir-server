@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Behavior
             // if _list was requested with invalid value. continue
             if (string.IsNullOrWhiteSpace(listParameter.Item2))
             {
-                return _emptyResponse.Value;
+                return await next();
             }
 
             ResourceWrapper listWrapper =

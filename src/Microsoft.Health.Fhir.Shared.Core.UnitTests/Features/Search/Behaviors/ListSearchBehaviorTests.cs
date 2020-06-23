@@ -153,8 +153,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                     return Task.FromResult(new SearchResourceResponse(_nonEmptyBundle));
                 });
 
-            var emptyResponse = behavior.CreateEmptySearchResponse(getResourceRequest);
-            Assert.Equal(emptyResponse.Bundle, response.Bundle);
+            Assert.Equal(_nonEmptyBundle, response.Bundle);
         }
 
         [Fact]
