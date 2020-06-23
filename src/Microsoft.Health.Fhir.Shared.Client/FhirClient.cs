@@ -322,6 +322,17 @@ namespace Microsoft.Health.Fhir.Client
             return response;
         }
 
+        public async Task CancelExport(Uri contentLocation, CancellationToken cancellationToken = default)
+        {
+            var message = new HttpRequestMessage
+            {
+                Method = HttpMethod.Delete,
+                RequestUri = contentLocation,
+            };
+
+            await HttpClient.SendAsync(message, cancellationToken);
+        }
+
         public async Task<FhirResponse<Bundle>> PostBundleAsync(Resource bundle, CancellationToken cancellationToken = default)
         {
             var message = new HttpRequestMessage(HttpMethod.Post, string.Empty)
