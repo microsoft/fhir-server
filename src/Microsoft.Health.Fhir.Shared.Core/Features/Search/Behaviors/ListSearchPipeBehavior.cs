@@ -13,6 +13,7 @@ using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Messages.Search;
@@ -25,8 +26,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Behavior
     /// </summary>
     public class ListSearchPipeBehavior : IPipelineBehavior<SearchResourceRequest, SearchResourceResponse>
     {
-        private const string _listParameter = "_list";
-        private const string _idParameter = "_id";
         private readonly IScoped<IFhirDataStore> _dataStore;
         private readonly ResourceDeserializer _deserializer;
         private readonly IBundleFactory _bundleFactory;
@@ -58,7 +57,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Behavior
             EnsureArg.IsNotNull(request, nameof(request));
 
             Tuple<string, string> listParameter = request.Queries
-                .FirstOrDefault(x => string.Equals(x.Item1, _listParameter, StringComparison.Ordinal));
+                .FirstOrDefault(x => string.Equals(x.Item1, KnownQueryParameterNames.ListParameter, StringComparison.Ordinal));
 
             // if _list was not requested, continue...
             if (listParameter == null)
@@ -102,7 +101,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Behavior
                 return emptyResponse;
             }
 
-            query = query.Concat(new[] { Tuple.Create(_idParameter, string.Join(",", references.Select(x => x.ResourceId))) });
+            query = query.Concat(new[] { Tuple.Create(KnownQueryParameterNames.IdParameter, string.Join(",", references.Select(x => x.ResourceId))) });
             request.Queries = query.ToArray();
             return await next();
         }
