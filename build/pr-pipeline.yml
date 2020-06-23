@@ -253,7 +253,6 @@ stages:
       dataStore: SqlContainer
       dnsSuffix: $(aksDnsSuffix)
 
-
 - stage: testStu3
   displayName: 'Run Stu3 Tests'
   dependsOn:
