@@ -51,18 +51,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             FhirResponse<Bundle> firstBundle = await Client.SearchAsync(searchUrl);
 
-            var firstExpectedResources = expectedResources.Length > 10 ? expectedResources.ToList().GetRange(0, 10).ToArray() : expectedResources;
-            ValidateBundle(firstBundle, selfLink, sort, firstExpectedResources);
+            var pageSize = 10;
+            var expectedFirstBundle = expectedResources.Length > pageSize ? expectedResources.ToList().GetRange(0, pageSize).ToArray() : expectedResources;
 
-            var nextLink = (firstBundle.Resource.NextLink == null) ? null : firstBundle.Resource.NextLink.ToString();
+            ValidateBundle(firstBundle, selfLink, sort, expectedFirstBundle);
 
+            var nextLink = firstBundle.Resource.NextLink?.ToString();
             if (nextLink != null)
             {
                 FhirResponse<Bundle> secondBundle = await Client.SearchAsync(nextLink);
 
                 // Truncating host and appending continuation token
                 nextLink = selfLink + nextLink.Substring(nextLink.IndexOf(ContinuationToken));
-                ValidateBundle(secondBundle, nextLink, sort, expectedResources.ToList().GetRange(10, expectedResources.Length - 10).ToArray());
+                ValidateBundle(secondBundle, nextLink, sort, expectedResources.ToList().GetRange(pageSize, expectedResources.Length - pageSize).ToArray());
             }
 
             return firstBundle;
