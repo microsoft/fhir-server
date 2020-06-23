@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Behavior
             EnsureArg.IsNotNull(request, nameof(request));
 
             Tuple<string, string> listParameter = request.Queries
-                .FirstOrDefault(x => string.Equals(x.Item1, KnownQueryParameterNames.ListParameter, StringComparison.Ordinal));
+                .FirstOrDefault(x => string.Equals(x.Item1, KnownQueryParameterNames.ListParameter, StringComparison.OrdinalIgnoreCase));
 
             // if _list was not requested, continue...
             if (listParameter == null)
