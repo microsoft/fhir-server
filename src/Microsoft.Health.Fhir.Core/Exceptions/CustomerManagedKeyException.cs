@@ -7,14 +7,15 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Exceptions
 {
-    public class CustomerManagedKeyInaccessibleException : FhirException
+    public class CustomerManagedKeyException : FhirException
     {
-        public CustomerManagedKeyInaccessibleException()
+        public CustomerManagedKeyException(string message)
+            : base(message)
         {
             Issues.Add(new OperationOutcomeIssue(
                     OperationOutcomeConstants.IssueSeverity.Error,
                     OperationOutcomeConstants.IssueType.Forbidden,
-                    Resources.CustomerManagedKeyInaccessible));
+                    message));
         }
     }
 }

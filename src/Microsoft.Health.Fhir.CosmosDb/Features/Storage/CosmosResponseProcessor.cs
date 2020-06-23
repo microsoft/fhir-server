@@ -72,9 +72,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     // 2. Larger documents are rejected by CosmosDb with HttpStatusCode.RequestEntityTooLarge
                     throw new Core.Exceptions.RequestEntityTooLargeException();
                 }
-                else if (dce.StatusCode == HttpStatusCode.Forbidden && dce.GetSubStatusValue() == CosmosDbSubStatusValues.CustomerManagedKeyInaccessible)
+                else if (dce.StatusCode == HttpStatusCode.Forbidden)
                 {
-                    throw new Core.Exceptions.CustomerManagedKeyInaccessibleException();
+                    int? subStatusValue = dce.GetSubStatusValue();
+                    if (subStatusValue.HasValue && Enum.IsDefined(typeof(KnownCosmosDbCmkSubStatusValue), subStatusValue))
+                    {
+                        throw new Core.Exceptions.CustomerManagedKeyException(GetCustomerManagedKeyErrorMessage(subStatusValue.Value));
+                    }
                 }
             }
         }
@@ -148,6 +152,47 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 _logger.LogCritical(ex, "Unable to publish CosmosDB metric.");
             }
+        }
+
+        private string GetCustomerManagedKeyErrorMessage(int subStatusCode)
+        {
+            string errorMessage = Resources.CmkDefaultError;
+
+            switch ((KnownCosmosDbCmkSubStatusValue)subStatusCode)
+            {
+                case KnownCosmosDbCmkSubStatusValue.AadClientCredentialsGrantFailure:
+                    errorMessage = Resources.AadClientCredentialsGrantFailure;
+                    break;
+                case KnownCosmosDbCmkSubStatusValue.AadServiceUnavailable:
+                    errorMessage = Resources.AadServiceUnavailable;
+                    break;
+                case KnownCosmosDbCmkSubStatusValue.KeyVaultAuthenticationFailure:
+                    errorMessage = Resources.KeyVaultAuthenticationFailure;
+                    break;
+                case KnownCosmosDbCmkSubStatusValue.KeyVaultKeyNotFound:
+                    errorMessage = Resources.KeyVaultKeyNotFound;
+                    break;
+                case KnownCosmosDbCmkSubStatusValue.KeyVaultServiceUnavailable:
+                    errorMessage = Resources.KeyVaultServiceUnavailable;
+                    break;
+                case KnownCosmosDbCmkSubStatusValue.KeyVaultWrapUnwrapFailure:
+                    errorMessage = Resources.KeyVaultWrapUnwrapFailure;
+                    break;
+                case KnownCosmosDbCmkSubStatusValue.InvalidKeyVaultKeyUri:
+                    errorMessage = Resources.InvalidKeyVaultKeyUri;
+                    break;
+                case KnownCosmosDbCmkSubStatusValue.InvalidInputBytes:
+                    errorMessage = Resources.InvalidInputBytes;
+                    break;
+                case KnownCosmosDbCmkSubStatusValue.KeyVaultInternalServerError:
+                    errorMessage = Resources.KeyVaultInternalServerError;
+                    break;
+                case KnownCosmosDbCmkSubStatusValue.KeyVaultDnsNotResolved:
+                    errorMessage = Resources.KeyVaultDnsNotResolved;
+                    break;
+            }
+
+            return errorMessage;
         }
     }
 }
