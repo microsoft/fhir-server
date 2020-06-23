@@ -82,11 +82,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     _exportJobRecord.Progress = new ExportJobProgress(continuationToken: null, page: 0);
                 }
 
-                ExportJobProgress progress = _exportJobRecord.Progress;
-
-                // Current batch will be used to organize a set of search results into a group so that they can be committed together.
-                uint currentBatchId = progress.Page;
-
                 // The intial list of query parameters will not have a continutation token. We will add that later if we get one back
                 // from the search result.
                 var queryParametersList = new List<Tuple<string, string>>()
@@ -100,53 +95,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.LastUpdated, $"ge{_exportJobRecord.Since}"));
                 }
 
-                // Process the export if:
-                // 1. There is continuation token, which means there is more resource to be exported.
-                // 2. There is no continuation token but the page is 0, which means it's the initial export.
-                while (progress.ContinuationToken != null || progress.Page == 0)
+                ExportJobProgress progress = _exportJobRecord.Progress;
+
+                if (progress.ContinuationToken != null)
                 {
-                    SearchResult searchResult;
-
-                    // Search and process the results.
-                    using (IScoped<ISearchService> searchService = _searchServiceFactory())
-                    {
-                        searchResult = await searchService.Value.SearchAsync(
-                                _exportJobRecord.ResourceType,
-                                queryParametersList,
-                                cancellationToken);
-                    }
-
-                    await ProcessSearchResultsAsync(searchResult.Results, currentBatchId, cancellationToken);
-
-                    if (searchResult.ContinuationToken == null)
-                    {
-                        // No more continuation token, we are done.
-                        break;
-                    }
-
-                    // Update the continuation token in local cache and queryParams.
-                    // We will add or udpate the continuation token to the end of the query parameters list.
-                    progress.UpdateContinuationToken(searchResult.ContinuationToken);
-                    if (queryParametersList[queryParametersList.Count - 1].Item1 == KnownQueryParameterNames.ContinuationToken)
-                    {
-                        queryParametersList[queryParametersList.Count - 1] = Tuple.Create(KnownQueryParameterNames.ContinuationToken, progress.ContinuationToken);
-                    }
-                    else
-                    {
-                        queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, progress.ContinuationToken));
-                    }
-
-                    if (progress.Page % _exportJobConfiguration.NumberOfPagesPerCommit == 0)
-                    {
-                        // Commit the changes.
-                        await _exportDestinationClient.CommitAsync(cancellationToken);
-
-                        // Update the job record.
-                        await UpdateJobRecordAsync(cancellationToken);
-
-                        currentBatchId = progress.Page;
-                    }
+                    queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, progress.ContinuationToken));
                 }
+
+                await RunExportSearch(progress, queryParametersList, cancellationToken);
 
                 // Commit one last time for any pending changes.
                 await _exportDestinationClient.CommitAsync(cancellationToken);
@@ -195,6 +151,60 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 _exportJobRecord = updatedExportJobOutcome.JobRecord;
                 _weakETag = updatedExportJobOutcome.ETag;
+            }
+        }
+
+        private async Task RunExportSearch(ExportJobProgress progress, List<Tuple<string, string>> queryParametersList, CancellationToken cancellationToken)
+        {
+            // Current batch will be used to organize a set of search results into a group so that they can be committed together.
+            uint currentBatchId = progress.Page;
+
+            // Process the export if:
+            // 1. There is continuation token, which means there is more resource to be exported.
+            // 2. There is no continuation token but the page is 0, which means it's the initial export.
+            while (progress.ContinuationToken != null || progress.Page == 0)
+            {
+                SearchResult searchResult;
+
+                // Search and process the results.
+                using (IScoped<ISearchService> searchService = _searchServiceFactory())
+                {
+                    searchResult = await searchService.Value.SearchAsync(
+                            _exportJobRecord.ResourceType,
+                            queryParametersList,
+                            cancellationToken);
+                }
+
+                await ProcessSearchResultsAsync(searchResult.Results, currentBatchId, cancellationToken);
+
+                if (searchResult.ContinuationToken == null)
+                {
+                    // No more continuation token, we are done.
+                    break;
+                }
+
+                // Update the continuation token in local cache and queryParams.
+                // We will add or udpate the continuation token to the end of the query parameters list.
+                progress.UpdateContinuationToken(searchResult.ContinuationToken);
+                if (queryParametersList[queryParametersList.Count - 1].Item1 == KnownQueryParameterNames.ContinuationToken)
+                {
+                    queryParametersList[queryParametersList.Count - 1] = Tuple.Create(KnownQueryParameterNames.ContinuationToken, progress.ContinuationToken);
+                }
+                else
+                {
+                    queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, progress.ContinuationToken));
+                }
+
+                if (progress.Page % _exportJobConfiguration.NumberOfPagesPerCommit == 0)
+                {
+                    // Commit the changes.
+                    await _exportDestinationClient.CommitAsync(cancellationToken);
+
+                    // Update the job record.
+                    await UpdateJobRecordAsync(cancellationToken);
+
+                    currentBatchId = progress.Page;
+                }
             }
         }
 
