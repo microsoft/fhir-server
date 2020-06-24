@@ -39,13 +39,18 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
 
         public async Task<CloudBlobClient> GetAuthorizedClientAsync(CancellationToken cancellationToken)
         {
+            return await GetAuthorizedClientAsync(_exportJobConfiguration, cancellationToken);
+        }
+
+        public async Task<CloudBlobClient> GetAuthorizedClientAsync(ExportJobConfiguration exportJobConfiguration, CancellationToken cancellationToken)
+        {
             // Get storage uri from config
-            if (string.IsNullOrWhiteSpace(_exportJobConfiguration.StorageAccountUri))
+            if (string.IsNullOrWhiteSpace(exportJobConfiguration.StorageAccountUri))
             {
                 throw new ExportClientInitializerException(Resources.InvalidStorageUri, HttpStatusCode.BadRequest);
             }
 
-            if (!Uri.TryCreate(_exportJobConfiguration.StorageAccountUri, UriKind.Absolute, out Uri storageAccountUri))
+            if (!Uri.TryCreate(exportJobConfiguration.StorageAccountUri, UriKind.Absolute, out Uri storageAccountUri))
             {
                 throw new ExportClientInitializerException(Resources.InvalidStorageUri, HttpStatusCode.BadRequest);
             }
