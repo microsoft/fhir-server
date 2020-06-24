@@ -13,7 +13,6 @@ using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Messages.Search;
@@ -31,7 +30,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Behavior
         private readonly IBundleFactory _bundleFactory;
         private readonly IReferenceSearchValueParser _referenceSearchValueParser;
         private readonly ISearchOptionsFactory _searchOptionsFactory;
-        private Lazy<SearchResourceResponse> _emptyResponse;
 
         public ListSearchPipeBehavior(
             ISearchOptionsFactory searchOptionsFactory,
@@ -60,20 +58,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Behavior
             Tuple<string, string> listParameter = request.Queries
                 .FirstOrDefault(x => string.Equals(x.Item1, KnownQueryParameterNames.List, StringComparison.OrdinalIgnoreCase));
 
-            // if _list was not requested, continue...
-            if (listParameter == null)
-            {
-                return await next();
-            }
-
-            // Remove the 'list' params from the queries, to be later replaced with specific ids of resources
-            IEnumerable<Tuple<string, string>> query = request.Queries.Except(new[] { listParameter });
-
-            // prepare an empty response (lazy) in case we need it
-            _emptyResponse = new Lazy<SearchResourceResponse>(() => CreateEmptySearchResponse(request));
-
-            // if _list was requested with invalid value. continue
-            if (string.IsNullOrWhiteSpace(listParameter.Item2))
+            // if _list was not requested, or _list was requested with invalid value, continue...
+            if ((listParameter == null) || string.IsNullOrWhiteSpace(listParameter.Item2))
             {
                 return await next();
             }
@@ -84,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Behavior
             // wanted list was not found
             if (listWrapper == null)
             {
-                return _emptyResponse.Value;
+                return CreateEmptySearchResponse(request);
             }
 
             ResourceElement list = _deserializer.Deserialize(listWrapper);
@@ -99,8 +85,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Behavior
             // the requested resource was not found in the list
             if (!references.Any())
             {
-                return _emptyResponse.Value;
+                return CreateEmptySearchResponse(request);
             }
+
+            // Remove the 'list' params from the queries, to be later replaced with specific ids of resources
+            IEnumerable<Tuple<string, string>> query = request.Queries.Except(new[] { listParameter });
 
             query = query.Concat(new[] { Tuple.Create(KnownQueryParameterNames.Id, string.Join(",", references.Select(x => x.ResourceId))) });
             request.Queries = query.ToArray();
