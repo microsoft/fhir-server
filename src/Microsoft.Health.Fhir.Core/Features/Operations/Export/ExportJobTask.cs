@@ -111,7 +111,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 // from the search result.
                 var queryParametersList = new List<Tuple<string, string>>()
                 {
-                    Tuple.Create(KnownQueryParameterNames.Count, _exportJobConfiguration.MaximumNumberOfResourcesPerQuery.ToString(CultureInfo.InvariantCulture)),
+                    Tuple.Create(KnownQueryParameterNames.Count, _exportJobRecord.MaximumNumberOfResourcesPerQuery.ToString(CultureInfo.InvariantCulture)),
                     Tuple.Create(KnownQueryParameterNames.LastUpdated, $"le{_exportJobRecord.QueuedTime.ToString("o", CultureInfo.InvariantCulture)}"),
                 };
 
@@ -156,7 +156,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, progress.ContinuationToken));
                     }
 
-                    if (progress.Page % _exportJobConfiguration.NumberOfPagesPerCommit == 0)
+                    if (progress.Page % _exportJobRecord.NumberOfPagesPerCommit == 0)
                     {
                         // Commit the changes.
                         await _exportDestinationClient.CommitAsync(exportJobConfiguration, cancellationToken);
