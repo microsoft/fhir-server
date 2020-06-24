@@ -64,6 +64,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.Add<SearchParameterSupportResolver>()
                 .Singleton()
+                .AsSelf()
                 .AsImplementedInterfaces();
 
             services.TypesInSameAssemblyAs<IFhirElementToSearchValueTypeConverter>()

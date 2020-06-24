@@ -36,6 +36,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
             _fixture = fixture;
             _client = fixture.TestFhirClient;
             _metricHandler = _fixture?.MetricHandler;
+
+            // Send an empty request to guarantee that there is a bearer token set and the call isn't recorded in the metric handler.
+            _client.HttpClient.SendAsync(new HttpRequestMessage(HttpMethod.Get, string.Empty)).GetAwaiter().GetResult();
         }
 
         [Fact]

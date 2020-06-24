@@ -15,24 +15,14 @@ namespace Microsoft.Health.Fhir.Client
 {
     public interface IFhirClient
     {
-        Uri AuthorizeUri { get; }
-
         ResourceFormat Format { get; }
 
         HttpClient HttpClient { get; }
-
-        bool? SecurityEnabled { get; }
-
-        DateTime TokenExpiration { get; }
-
-        Uri TokenUri { get; }
 
         Task<HttpResponseMessage> CheckExportAsync(Uri contentLocation, CancellationToken cancellationToken = default);
 
         Task<FhirResponse<T>> ConditionalUpdateAsync<T>(T resource, string searchCriteria, string ifMatchVersion = null, CancellationToken cancellationToken = default)
             where T : Resource;
-
-        Task ConfigureSecurityOptions(CancellationToken cancellationToken = default);
 
         Task<FhirResponse<T>> CreateAsync<T>(string uri, T resource, string conditionalCreateCriteria = null, CancellationToken cancellationToken = default)
             where T : Resource;
@@ -65,8 +55,6 @@ namespace Microsoft.Health.Fhir.Client
         Task<FhirResponse<Bundle>> SearchAsync(string url, CancellationToken cancellationToken = default);
 
         Task<FhirResponse<Bundle>> SearchPostAsync(string resourceType, CancellationToken cancellationToken = default, params (string key, string value)[] body);
-
-        void SetBearerToken(string token);
 
         Task<FhirResponse<T>> UpdateAsync<T>(string uri, T resource, string ifMatchVersion = null, CancellationToken cancellationToken = default)
             where T : Resource;

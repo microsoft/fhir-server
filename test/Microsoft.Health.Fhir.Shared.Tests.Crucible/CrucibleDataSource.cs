@@ -55,11 +55,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
                     .GetTestFhirServer(_dataStore, null)
                     .GetTestFhirClient(ResourceFormat.Json);
 
-                if (testFhirClient?.SecurityEnabled == true)
-                {
-                    await client.AuthorizeServerAsync(testFhirClient.AuthorizeUri, testFhirClient.TokenUri);
-                }
-
                 var supportedTests = await client.GetSupportedTestsAsync();
 
                 var ids = supportedTests.Where(x => x.Supported).Select(x => x.Id).ToArray();
