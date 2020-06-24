@@ -73,8 +73,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     }
                 });
 
-            schemaInitializer.Initialize(forceIncrementalSchemaUpgrade);
-
+            // TODO: re-add forceIncrementalSchemaUpgrade test functionality
             _sqlServerFhirModel.Start();
         }
 
