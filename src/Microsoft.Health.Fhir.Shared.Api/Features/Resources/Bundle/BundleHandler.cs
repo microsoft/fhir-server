@@ -260,7 +260,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             var requestUrl = entry.Request?.Url;
 
-            // For resources within a transaction, we need to resolve any intrabundle references and potentially persist any internally assigned ids
+            // For resources within a transaction, we need to resolve any intra-bundle references and potentially persist any internally assigned ids
             HTTPVerb requestMethod = entry.Request.Method.Value;
 
             if (_bundleType == BundleType.Transaction && entry.Resource != null)
@@ -325,7 +325,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         {
             foreach ((RouteContext request, int entryIndex, string persistedId) in _requests[httpVerb])
             {
-                var entryComponent = new EntryComponent();
+                EntryComponent entryComponent;
 
                 if (request.Handler != null)
                 {
@@ -344,17 +344,20 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                     _resourceIdProvider.Create = originalResourceIdProvider;
 
-                    CreateEntryComponent(httpContext, entryComponent);
+                    entryComponent = CreateEntryComponent(httpContext);
                 }
                 else
                 {
-                    entryComponent.Response = new ResponseComponent
+                    entryComponent = new EntryComponent
                     {
-                        Status = ((int)HttpStatusCode.NotFound).ToString(),
-                        Outcome = CreateOperationOutcome(
-                            OperationOutcome.IssueSeverity.Error,
-                            OperationOutcome.IssueType.NotFound,
-                            string.Format(Api.Resources.BundleNotFound, $"{request.HttpContext.Request.Path}{request.HttpContext.Request.QueryString}")),
+                        Response = new ResponseComponent
+                        {
+                            Status = ((int)HttpStatusCode.NotFound).ToString(),
+                            Outcome = CreateOperationOutcome(
+                                OperationOutcome.IssueSeverity.Error,
+                                OperationOutcome.IssueType.NotFound,
+                                string.Format(Api.Resources.BundleNotFound, $"{request.HttpContext.Request.Path}{request.HttpContext.Request.QueryString}")),
+                        },
                     };
                 }
 
@@ -374,18 +377,22 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
         }
 
-        private void CreateEntryComponent(HttpContext httpContext, EntryComponent entryComponent)
+        private EntryComponent CreateEntryComponent(HttpContext httpContext)
         {
             httpContext.Response.Body.Seek(0, SeekOrigin.Begin);
             string bodyContent = new StreamReader(httpContext.Response.Body).ReadToEnd();
 
             ResponseHeaders responseHeaders = httpContext.Response.GetTypedHeaders();
-            entryComponent.Response = new ResponseComponent
+
+            var entryComponent = new EntryComponent
             {
-                Status = httpContext.Response.StatusCode.ToString(),
-                Location = responseHeaders.Location?.OriginalString,
-                Etag = responseHeaders.ETag?.ToString(),
-                LastModified = responseHeaders.LastModified,
+                Response = new ResponseComponent
+                {
+                    Status = httpContext.Response.StatusCode.ToString(),
+                    Location = responseHeaders.Location?.OriginalString,
+                    Etag = responseHeaders.ETag?.ToString(),
+                    LastModified = responseHeaders.LastModified,
+                },
             };
 
             if (!string.IsNullOrWhiteSpace(bodyContent))
@@ -411,6 +418,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         Api.Resources.Forbidden);
                 }
             }
+
+            return entryComponent;
         }
 
         private void SetupContexts(RouteContext request, HttpContext httpContext)
@@ -454,6 +463,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                         idDictionary.Add(entry.FullUrl, (insertId, entry.Resource.TypeName));
                     }
+
+                    continue;
                 }
 
                 if (entry.Request.Method != HTTPVerb.POST)

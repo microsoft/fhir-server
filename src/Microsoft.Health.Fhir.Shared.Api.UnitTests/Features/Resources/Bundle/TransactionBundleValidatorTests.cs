@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Routing;
@@ -13,6 +14,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using NSubstitute;
 using Xunit;
@@ -33,10 +35,48 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         }
 
         [Fact]
-        public async Task GivenATransactionBundle_WhenContainsUniqueResources_NoExceptionShouldBeThrown()
+        public async Task GivenATransactionBundle_WhenContainsUniqueResources_ThenNoExceptionShouldBeThrown()
         {
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithValidBundleEntry");
             await _transactionBundleValidator.ValidateBundle(requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>(), _idDictionary, CancellationToken.None);
+
+            ValidateIdDictionaryPopulatedCorrectly(_idDictionary, Array.Empty<Action<KeyValuePair<string, (string resourceId, string resourceType)>>>());
+        }
+
+        [Fact]
+        public async Task GivenATransactionBundle_WhenContainsAnExistingResource_ThenIdDictionaryShouldBeUpdated()
+        {
+            var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithValidBundleEntry");
+
+            MockSearchAsync(1);
+
+            await _transactionBundleValidator.ValidateBundle(requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>(), _idDictionary, CancellationToken.None);
+
+            var expectedEntries = new[]
+            {
+                new Action<KeyValuePair<string, (string resourceId, string resourceType)>>(keyValuePair =>
+                {
+                    (string key, (string resourceId, string resourceType)) = keyValuePair;
+
+                    Assert.Equal("urn:uuid:88f151c0-a954-468a-88bd-5ae15c08e059", key);
+                    Assert.Equal("1234", resourceId);
+                    Assert.Equal("Patient", resourceType);
+                }),
+            };
+
+            ValidateIdDictionaryPopulatedCorrectly(
+                _idDictionary,
+                expectedEntries);
+        }
+
+        [Fact]
+        public async Task GivenATransactionBundle_WhenContainsMultipleMatchingExistingResource_ThenPreconditionFailedExceptionShouldBeThrown()
+        {
+            var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithValidBundleEntry");
+
+            MockSearchAsync(2);
+
+            await Assert.ThrowsAsync<PreconditionFailedException>(async () => await _transactionBundleValidator.ValidateBundle(requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>(), _idDictionary, CancellationToken.None));
         }
 
         [Theory]
@@ -61,29 +101,56 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.Equal(expectedMessage, exception.Message);
         }
 
-        private async Task ValidateIfBundleEntryIsUniqueAsync(Core.Models.ResourceElement requestBundle)
+        private static void ValidateIdDictionaryPopulatedCorrectly(Dictionary<string, (string resourceId, string resourceType)> idDictionary, Action<KeyValuePair<string, (string resourceId, string resourceType)>>[] actions)
         {
-            var resourceIdList = new HashSet<string>(StringComparer.Ordinal);
+            Assert.Collection(idDictionary, actions);
+        }
+
+        private async Task ValidateIfBundleEntryIsUniqueAsync(ResourceElement requestBundle)
+        {
             var bundle = requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>();
 
-            var mockSearchEntry = new SearchResultEntry(
+            SearchResult mockSearchResult = GenerateSearchResult(1);
+
+            _searchService.SearchAsync("Patient", Arg.Any<IReadOnlyList<Tuple<string, string>>>(), CancellationToken.None).Returns(mockSearchResult);
+
+            await _transactionBundleValidator.ValidateBundle(bundle, _idDictionary, CancellationToken.None);
+        }
+
+        private void MockSearchAsync(int resultCount)
+        {
+            SearchResult searchResult = GenerateSearchResult(resultCount);
+
+            _searchService.SearchAsync(
+                    Arg.Any<string>(),
+                    Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Any(t => t.Item1 == "identifier" && t.Item2 == "234234")),
+                    Arg.Any<CancellationToken>())
+                .Returns(searchResult);
+        }
+
+        private static SearchResult GenerateSearchResult(int resultCount)
+        {
+            var result = new SearchResultEntry(
                 new ResourceWrapper(
-                    "123",
+                    "1234",
                     "1",
                     "Patient",
-                    new RawResource("data", Core.Models.FhirResourceFormat.Json),
-                    null,
-                    DateTimeOffset.MinValue,
+                    new RawResource(
+                        "data",
+                        FhirResourceFormat.Unknown),
+                    new ResourceRequest("POST"),
+                    DateTimeOffset.UtcNow,
                     false,
                     null,
                     null,
                     null));
 
-            var mockSearchResult = new SearchResult(new[] { mockSearchEntry }, new Tuple<string, string>[0], Array.Empty<(string parameterName, string reason)>(), null);
-
-            _searchService.SearchAsync("Patient", Arg.Any<IReadOnlyList<Tuple<string, string>>>(), CancellationToken.None).Returns(mockSearchResult);
-
-            await _transactionBundleValidator.ValidateBundle(bundle, _idDictionary, CancellationToken.None);
+            var searchResult = new SearchResult(
+                Enumerable.Repeat(result, resultCount),
+                Array.Empty<Tuple<string, string>>(),
+                Array.Empty<(string, string)>(),
+                null);
+            return searchResult;
         }
     }
 }
