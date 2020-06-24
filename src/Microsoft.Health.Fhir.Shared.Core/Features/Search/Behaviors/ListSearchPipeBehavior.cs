@@ -99,19 +99,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Behavior
         public SearchResourceResponse CreateEmptySearchResponse(SearchResourceRequest request)
         {
             SearchOptions searchOptions = _searchOptionsFactory.Create(request.ResourceType, request.Queries);
-            IReadOnlyList<(string parameterName, string reason)> unsupportedSortingParameters;
-            if (searchOptions.Sort?.Count > 0)
-            {
-                // we don't currently support sort
-                unsupportedSortingParameters = searchOptions.UnsupportedSortingParams.Concat(searchOptions.Sort.Select(s => (s.searchParameterInfo.Name, Core.Resources.SortNotSupported))).ToList();
-            }
-            else
-            {
-                unsupportedSortingParameters = searchOptions.UnsupportedSortingParams;
-            }
 
             SearchResult emptySearchResult =
-                new SearchResult(new List<SearchResultEntry>(), searchOptions.UnsupportedSearchParams, unsupportedSortingParameters, null);
+                new SearchResult(new List<SearchResultEntry>(), searchOptions.UnsupportedSearchParams, searchOptions.UnsupportedSortingParams, null);
 
             ResourceElement bundle = _bundleFactory.CreateSearchBundle(emptySearchResult);
             return new SearchResourceResponse(bundle);
