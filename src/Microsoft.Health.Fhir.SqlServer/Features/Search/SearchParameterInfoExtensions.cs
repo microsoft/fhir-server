@@ -20,6 +20,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         public static bool IsSortSupported(this SearchParameterInfo searchParameterInfo)
         {
             EnsureArg.IsNotNull(searchParameterInfo, nameof(searchParameterInfo));
+
             return SupportedSortParameters.Contains(searchParameterInfo.Name);
         }
     }
