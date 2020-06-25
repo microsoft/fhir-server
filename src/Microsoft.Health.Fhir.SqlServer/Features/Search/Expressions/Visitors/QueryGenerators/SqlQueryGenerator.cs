@@ -122,7 +122,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             if (!searchOptions.CountOnly)
             {
-                var sortOrder = SortUtils.GetSortOrderForSupportedParam(searchOptions);
+                var sortOrder = searchOptions.GetFirstSortOrderForSupportedParam();
 
                 StringBuilder.Append("ORDER BY ")
                     .Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).Append(" ")
@@ -237,7 +237,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     break;
 
                 case TableExpressionKind.Top:
-                    var sortOrder = SortUtils.GetSortOrderForSupportedParam(context);
+                    var sortOrder = context.GetFirstSortOrderForSupportedParam();
 
                     // Everything in the top expression is considered a match
                     StringBuilder.Append("SELECT DISTINCT TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1)).AppendLine(") Sid1, 1 AS IsMatch ")

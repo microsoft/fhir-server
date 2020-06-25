@@ -3,28 +3,26 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Collections.Generic;
-using Microsoft.Health.Fhir.Core.Features;
+using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Search;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 {
-    public static class SortUtils
+    public static class SearchOptionsExtensions
     {
-        private static readonly IList<string> SupportedParameters = new List<string>
-            {
-                KnownQueryParameterNames.LastUpdated,
-            };
+        // Returns the sort order of first supported _sort query parameter
 
-        public static SortOrder GetSortOrderForSupportedParam(SearchOptions searchOptions)
+        public static SortOrder GetFirstSortOrderForSupportedParam(this SearchOptions searchOptions)
         {
+            EnsureArg.IsNotNull(searchOptions, nameof(searchOptions));
+
             var sortOrder = SortOrder.Ascending;
 
             foreach (var sortOptions in searchOptions.Sort)
             {
-                if (IsSearchParamterSupported(sortOptions.searchParameterInfo.Name))
+                if (sortOptions.searchParameterInfo.IsSortSupported())
                 {
-                    sortOrder = sortOptions.sortOrder;
+                    return sortOptions.sortOrder;
                 }
                 else
                 {
@@ -33,11 +31,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
 
             return sortOrder;
-        }
-
-        public static bool IsSearchParamterSupported(string parameter)
-        {
-            return SupportedParameters.Contains(parameter);
         }
     }
 }
