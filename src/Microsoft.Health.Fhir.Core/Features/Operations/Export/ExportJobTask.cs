@@ -175,6 +175,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                             cancellationToken);
                 }
 
+                if (_exportJobRecord.ResourceType == "Patient")
+                {
+                    foreach (SearchResultEntry result in searchResult.Results)
+                    {
+                        if (progress.SubSearch == null)
+                        {
+                            progress.NewSubSearch(result.Resource.ResourceId, new ExportJobProgress(continuationToken: null, page: 0));
+                        }
+
+                        // Add to query parameter list
+                        var subsearchQueryParameterList = new List<Tuple<string, string>>(queryParametersList);
+
+                        await RunExportSearch(progress.SubSearch, subsearchQueryParameterList, cancellationToken);
+                    }
+                }
+
                 await ProcessSearchResultsAsync(searchResult.Results, currentBatchId, cancellationToken);
 
                 if (searchResult.ContinuationToken == null)
