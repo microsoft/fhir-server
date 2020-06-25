@@ -3,10 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Linq;
 using Hl7.Fhir.FhirPath;
 using Hl7.FhirPath;
 using MediatR;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -22,17 +24,20 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 {
     public class SearchParameterFixtureData
     {
-        public SearchParameterFixtureData()
+        static SearchParameterFixtureData()
         {
-            SearchDefinitionManager = CreateSearchParameterDefinitionManager();
             FhirPathCompiler.DefaultSymbolTable.AddFhirExtensions();
+
+            Compiler = new FhirPathCompiler();
+            Manager = CreateFhirElementToSearchValueTypeConverterManager();
+            SearchDefinitionManager = CreateSearchParameterDefinitionManager(new VersionSpecificModelInfoProvider());
         }
 
-        public SearchParameterDefinitionManager SearchDefinitionManager { get; }
+        public static SearchParameterDefinitionManager SearchDefinitionManager { get; }
 
         public static FhirNodeToSearchValueTypeConverterManager Manager { get; } = CreateFhirElementToSearchValueTypeConverterManager();
 
-        public static FhirPathCompiler Compiler { get; } = new FhirPathCompiler();
+        public static FhirPathCompiler Compiler { get; }
 
         public static FhirNodeToSearchValueTypeConverterManager CreateFhirElementToSearchValueTypeConverterManager()
         {
@@ -51,22 +56,27 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             return new FhirNodeToSearchValueTypeConverterManager(fhirNodeToSearchValueTypeConverters);
         }
 
-        public static SearchParameterDefinitionManager CreateSearchParameterDefinitionManager()
+        public static SearchParameterDefinitionManager CreateSearchParameterDefinitionManager(IModelInfoProvider modelInfoProvider)
         {
-            var manager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance);
-            manager.Start();
+            if (Manager == null)
+            {
+                throw new InvalidOperationException($"{nameof(Manager)} was not instantiated.");
+            }
+
+            var definitionManager = new SearchParameterDefinitionManager(modelInfoProvider);
+            definitionManager.Start();
 
             var statusRegistry = new FilebasedSearchParameterRegistry(
-                manager,
-                ModelInfoProvider.Instance);
+                definitionManager,
+                modelInfoProvider);
             var statusManager = new SearchParameterStatusManager(
                 statusRegistry,
-                manager,
-                new SearchParameterSupportResolver(manager, Manager),
+                definitionManager,
+                new SearchParameterSupportResolver(definitionManager, Manager),
                 Substitute.For<IMediator>());
             statusManager.EnsureInitialized().GetAwaiter().GetResult();
 
-            return manager;
+            return definitionManager;
         }
     }
 }

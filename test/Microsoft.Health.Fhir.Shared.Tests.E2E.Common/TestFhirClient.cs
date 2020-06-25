@@ -89,7 +89,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
                     clientApplication.ClientId,
                     clientApplication.ClientSecret,
                     resource,
-                    scope);
+                    scope,
+                    cancellationToken: default);
             }
             else
             {
@@ -99,7 +100,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
                     AuthenticationSettings.Resource,
                     AuthenticationSettings.Scope,
                     user.UserId,
-                    user.Password);
+                    user.Password,
+                    cancellationToken: default);
             }
         }
     }

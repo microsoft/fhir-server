@@ -17,7 +17,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
     /// </summary>
     public class ExportJobRecord : JobRecord
     {
-        public ExportJobRecord(Uri requestUri, string resourceType, string hash, IReadOnlyCollection<KeyValuePair<string, string>> requestorClaims = null, PartialDateTime since = null)
+        public ExportJobRecord(Uri requestUri, string resourceType, string hash, IReadOnlyCollection<KeyValuePair<string, string>> requestorClaims = null, PartialDateTime since = null, string storageAccountConnectionHash = null, string storageAccountUri = null)
         {
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
             EnsureArg.IsNotNullOrWhiteSpace(hash, nameof(hash));
@@ -27,6 +27,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             ResourceType = resourceType;
             RequestorClaims = requestorClaims;
             Since = since;
+            StorageAccountConnectionHash = storageAccountConnectionHash;
+            StorageAccountUri = storageAccountUri;
 
             // Default values
             SchemaVersion = 1;
@@ -64,5 +66,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
         [JsonProperty(JobRecordProperties.Since)]
         public PartialDateTime Since { get; private set; }
+
+        [JsonProperty(JobRecordProperties.StorageAccountConnectionHash)]
+        public string StorageAccountConnectionHash { get; private set; }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage(
+            "Usage",
+            "CA1056:Uri properties should not be strings",
+            Justification = "Set from an ExportJobConfiguration where the value is a string and is never used as a URI.")]
+        [JsonProperty(JobRecordProperties.StorageAccountUri)]
+        public string StorageAccountUri { get; private set; }
     }
 }
