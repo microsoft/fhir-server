@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         [JsonProperty(JobRecordProperties.Page)]
         public uint Page { get; private set; }
 
-        [JsonProperty(JobRecordProperties.SubSearchResourceId)]
+        [JsonProperty(JobRecordProperties.TriggeringResourceId)]
         public string TriggeringResourceId { get; private set; }
 
         [JsonProperty(JobRecordProperties.SubSearch)]

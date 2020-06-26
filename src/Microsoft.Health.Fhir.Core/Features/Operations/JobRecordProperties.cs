@@ -75,6 +75,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string SubSearch = "subSearch";
 
-        public const string SubSearchResourceId = "subSearchResourceId";
+        public const string TriggeringResourceId = "triggeringResourceId";
     }
 }
