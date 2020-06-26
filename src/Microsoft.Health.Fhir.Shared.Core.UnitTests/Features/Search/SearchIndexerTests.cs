@@ -35,10 +35,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         public SearchIndexerTests()
         {
-            _indexer = new SearchIndexer(
+            _indexer = new TypedElementSearchIndexer(
                 () => SearchParameterFixtureData.SearchDefinitionManager,
                 SearchParameterFixtureData.Manager,
                 new LightweightReferenceToElementResolver(new ReferenceSearchValueParser(new FhirRequestContextAccessor()), ModelInfoProvider.Instance),
+                ModelInfoProvider.Instance,
                 NullLogger<SearchIndexer>.Instance);
         }
 

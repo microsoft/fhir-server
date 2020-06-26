@@ -11,6 +11,7 @@ using MediatR;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -34,21 +35,25 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         public static SearchParameterDefinitionManager SearchDefinitionManager { get; }
 
-        public static FhirElementToSearchValueTypeConverterManager Manager { get; }
+        public static FhirNodeToSearchValueTypeConverterManager Manager { get; } = CreateFhirElementToSearchValueTypeConverterManager();
 
         public static FhirPathCompiler Compiler { get; }
 
-        public static FhirElementToSearchValueTypeConverterManager CreateFhirElementToSearchValueTypeConverterManager()
+        public static FhirNodeToSearchValueTypeConverterManager CreateFhirElementToSearchValueTypeConverterManager()
         {
-            var types = typeof(IFhirElementToSearchValueTypeConverter)
+            var types = typeof(IFhirNodeToSearchValueTypeConverter)
                 .Assembly
                 .GetTypes()
-                .Where(x => typeof(IFhirElementToSearchValueTypeConverter).IsAssignableFrom(x) && !x.IsAbstract && !x.IsInterface);
+                .Where(x => typeof(IFhirNodeToSearchValueTypeConverter).IsAssignableFrom(x) && !x.IsAbstract && !x.IsInterface);
 
-            var fhirElementToSearchValueTypeConverters =
-                types.Select(x => (IFhirElementToSearchValueTypeConverter)Mock.TypeWithArguments(x, new ReferenceSearchValueParser(new FhirRequestContextAccessor())));
+            var referenceSearchValueParser = new ReferenceSearchValueParser(new FhirRequestContextAccessor());
+            var codeSystemResolver = new CodeSystemResolver(ModelInfoProvider.Instance);
+            codeSystemResolver.Start();
 
-            return new FhirElementToSearchValueTypeConverterManager(fhirElementToSearchValueTypeConverters);
+            var fhirNodeToSearchValueTypeConverters =
+                types.Select(x => (IFhirNodeToSearchValueTypeConverter)Mock.TypeWithArguments(x, referenceSearchValueParser, codeSystemResolver));
+
+            return new FhirNodeToSearchValueTypeConverterManager(fhirNodeToSearchValueTypeConverters);
         }
 
         public static SearchParameterDefinitionManager CreateSearchParameterDefinitionManager(IModelInfoProvider modelInfoProvider)
