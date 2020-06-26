@@ -19,15 +19,13 @@ using Xunit.Abstractions;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 {
-    public class SearchConverterForAllSearchTypes : IClassFixture<SearchParameterFixtureData>
+    public class SearchConverterForAllSearchTypes
     {
         private readonly ITestOutputHelper _outputHelper;
-        private readonly SearchParameterFixtureData _fixtureData;
 
-        public SearchConverterForAllSearchTypes(ITestOutputHelper outputHelper, SearchParameterFixtureData fixtureData)
+        public SearchConverterForAllSearchTypes(ITestOutputHelper outputHelper)
         {
             _outputHelper = outputHelper;
-            _fixtureData = fixtureData;
         }
 
         [Theory]
@@ -36,8 +34,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             string resourceType,
             IEnumerable<SearchParameterInfo> parameters)
         {
-            SearchParameterToTypeResolver.Log = s => _outputHelper.WriteLine(s);
-
             foreach (var parameterInfo in parameters)
             {
                 var fhirPath = parameterInfo.Expression;
@@ -74,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             var unsupported = new UnsupportedSearchParameters();
 
-            SearchParameterDefinitionManager manager = SearchParameterFixtureData.CreateSearchParameterDefinitionManager();
+            SearchParameterDefinitionManager manager = SearchParameterFixtureData.CreateSearchParameterDefinitionManager(ModelInfoProvider.Instance);
 
             var resourceAndSearchParameters = ModelInfoProvider.Instance
                 .GetResourceTypeNames()
@@ -133,7 +129,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var parsed = SearchParameterFixtureData.Compiler.Parse(parameterInfo.Expression);
 
             (SearchParamType Type, Expression, Uri DefinitionUrl)[] componentExpressions = parameterInfo.Component
-                .Select(x => (_fixtureData.SearchDefinitionManager.UrlLookup[x.DefinitionUrl].Type,
+                .Select(x => (SearchParameterFixtureData.SearchDefinitionManager.UrlLookup[x.DefinitionUrl].Type,
                     SearchParameterFixtureData.Compiler.Parse(x.Expression),
                     x.DefinitionUrl))
                 .ToArray();
@@ -158,7 +154,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         public static IEnumerable<object[]> GetAllSearchParameters()
         {
-            var manager = SearchParameterFixtureData.CreateSearchParameterDefinitionManager();
+            var manager = SearchParameterFixtureData.CreateSearchParameterDefinitionManager(ModelInfoProvider.Instance);
 
             var values = ModelInfoProvider.Instance
                 .GetResourceTypeNames()

@@ -11,13 +11,13 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 {
-    public class SearchParameterSupportResolverTests : IClassFixture<SearchParameterFixtureData>
+    public class SearchParameterSupportResolverTests
     {
         private readonly SearchParameterSupportResolver _resolver;
 
-        public SearchParameterSupportResolverTests(SearchParameterFixtureData fixtureData)
+        public SearchParameterSupportResolverTests()
         {
-            _resolver = new SearchParameterSupportResolver(fixtureData.SearchDefinitionManager, SearchParameterFixtureData.Manager);
+            _resolver = new SearchParameterSupportResolver(SearchParameterFixtureData.SearchDefinitionManager, SearchParameterFixtureData.Manager);
         }
 
         [Fact]

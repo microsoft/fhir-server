@@ -20,9 +20,8 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 {
-    public class SearchIndexerTests : IClassFixture<SearchParameterFixtureData>
+    public class SearchIndexerTests
     {
-        private readonly SearchParameterFixtureData _fixtureData;
         private ISearchIndexer _indexer;
 
         private JsonSerializerSettings _settings = new JsonSerializerSettings
@@ -34,12 +33,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             ContractResolver = new CamelCasePropertyNamesContractResolver(),
         };
 
-        public SearchIndexerTests(SearchParameterFixtureData fixtureData)
+        public SearchIndexerTests()
         {
-            _fixtureData = fixtureData;
-
             _indexer = new SearchIndexer(
-                () => _fixtureData.SearchDefinitionManager,
+                () => SearchParameterFixtureData.SearchDefinitionManager,
                 SearchParameterFixtureData.Manager,
                 new LightweightReferenceToElementResolver(new ReferenceSearchValueParser(new FhirRequestContextAccessor()), ModelInfoProvider.Instance),
                 NullLogger<SearchIndexer>.Instance);

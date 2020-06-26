@@ -132,4 +132,37 @@
   <data name="UnrecognizedConsistencyLevel" xml:space="preserve">
     <value>Invalid consistency level '{0}'. Valid values are: {1}.</value>
   </data>
+  <data name="AadClientCredentialsGrantFailure" xml:space="preserve">
+    <value>Failed to get or access the Azure AD token to access the customer-managed key.</value>
+  </data>
+  <data name="AadServiceUnavailable" xml:space="preserve">
+    <value>Azure AD service is unavailable to get access to the customer-managed key.</value>
+  </data>
+  <data name="KeyVaultAuthenticationFailure" xml:space="preserve">
+    <value>Key Vault does not grant permission to the Azure AD, or the customer-managed key is disabled.</value>
+  </data>
+  <data name="KeyVaultKeyNotFound" xml:space="preserve">
+    <value>The customer-managed key is not found.</value>
+  </data>
+  <data name="KeyVaultServiceUnavailable" xml:space="preserve">
+    <value>The Key Vault Service is unavailable to access the customer-managed key.</value>
+  </data>
+  <data name="KeyVaultWrapUnwrapFailure" xml:space="preserve">
+    <value>Failure to Wrap or Unwrap the customer-managed key.</value>
+  </data>
+  <data name="InvalidKeyVaultKeyUri" xml:space="preserve">
+    <value>The customer-managed key URI is invalid.</value>
+  </data>
+  <data name="InvalidInputBytes" xml:space="preserve">
+    <value>Internal server error: the input bytes are not in base64 format.</value>
+  </data>
+  <data name="KeyVaultInternalServerError" xml:space="preserve">
+    <value>Key Vault internal service errors accessing the customer-managed key.</value>
+  </data>
+  <data name="KeyVaultDnsNotResolved" xml:space="preserve">
+    <value>Could not resolve the DNS name of the Key Vault of the customer-managed key.</value>
+  </data>
+  <data name="CmkDefaultError" xml:space="preserve">
+    <value>There was an error using the customer-managed key.</value>
+  </data>
 </root>
