@@ -18,6 +18,7 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Messages.Reindex;
 using NSubstitute;
 using Xunit;
@@ -32,12 +33,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         private IFhirRequestContextAccessor _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
         private HttpContext _httpContext = new DefaultHttpContext();
         private static ReindexJobConfiguration _reindexJobConfig = new ReindexJobConfiguration() { Enabled = true };
+        private IUrlResolver _urlResolver = Substitute.For<IUrlResolver>();
 
         public ReindexControllerTests()
         {
             _reindexEnabledController = GetController(_reindexJobConfig);
             var controllerContext = new ControllerContext() { HttpContext = _httpContext };
             _reindexEnabledController.ControllerContext = controllerContext;
+            _urlResolver.ResolveOperationResultUrl(Arg.Any<string>(), Arg.Any<string>()).Returns(new System.Uri("https://test.com"));
         }
 
         public static TheoryData<Parameters> InvalidBody =>
@@ -100,6 +103,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 _mediator,
                 _fhirRequestContextAccessor,
                 optionsOperationConfiguration,
+                _urlResolver,
                 NullLogger<ReindexController>.Instance);
         }
 

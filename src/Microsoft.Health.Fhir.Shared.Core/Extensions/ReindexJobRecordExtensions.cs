@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Collections.Generic;
 using EnsureThat;
 using Hl7.Fhir.Model;
@@ -23,12 +22,20 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             parametersResource.VersionId = record.ETag.VersionId;
             var job = record.JobRecord;
 
-            var startTime = job.StartTime ?? DateTimeOffset.MinValue;
-            var endTime = job.StartTime ?? DateTimeOffset.MaxValue;
+            parametersResource.Id = job.Id;
             parametersResource.Parameter = new List<Parameters.ParameterComponent>();
             parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.Id, Value = new FhirString(job.Id) });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.StartTime, Value = new FhirDateTime(startTime) });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.EndTime, Value = new FhirDateTime(endTime) });
+
+            if (job.StartTime.HasValue)
+            {
+                parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.StartTime, Value = new FhirDateTime(job.StartTime.Value) });
+            }
+
+            if (job.EndTime.HasValue)
+            {
+                parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.EndTime, Value = new FhirDateTime(job.EndTime.Value) });
+            }
+
             parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.Progress, Value = new FhirDecimal(job.PercentComplete) });
             parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.Status, Value = new FhirString(job.Status.ToString()) });
             parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.MaximumConcurrency, Value = new FhirDecimal(job.MaximumConcurrency) });

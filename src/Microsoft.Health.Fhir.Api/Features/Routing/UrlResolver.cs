@@ -240,9 +240,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             EnsureArg.IsNotNullOrWhiteSpace(operationName, nameof(operationName));
             EnsureArg.IsNotNullOrWhiteSpace(id, nameof(id));
 
-            if (!string.Equals(operationName, OperationsConstants.Export, StringComparison.OrdinalIgnoreCase))
+            string routName = null;
+
+            switch (operationName)
             {
-                throw new OperationNotImplementedException(string.Format(Resources.OperationNotImplemented, operationName));
+                case OperationsConstants.Export:
+                    routName = RouteNames.GetExportStatusById;
+                    break;
+                case OperationsConstants.Reindex:
+                    routName = RouteNames.GetReindexStatusById;
+                    break;
+                default:
+                    throw new OperationNotImplementedException(string.Format(Resources.OperationNotImplemented, operationName));
             }
 
             var routeValues = new RouteValueDictionary()
@@ -251,7 +260,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             };
 
             string uriString = UrlHelper.RouteUrl(
-                RouteNames.GetExportStatusById,
+                routName,
                 routeValues,
                 Request.Scheme,
                 Request.Host.Value);
