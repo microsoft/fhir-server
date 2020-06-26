@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
         private CloudBlobContainer _blobContainer = null;
 
         private Dictionary<Uri, CloudBlockBlobWrapper> _uriToBlobMapping = new Dictionary<Uri, CloudBlockBlobWrapper>();
-        private Dictionary<(Uri FileUri, uint PartId), Stream> _streamMappings = new Dictionary<(Uri FileUri, uint PartId), Stream>();
+        private Dictionary<(Uri FileUri, string PartId), Stream> _streamMappings = new Dictionary<(Uri FileUri, string PartId), Stream>();
 
         private readonly IExportClientInitializer<CloudBlobClient> _exportClientInitializer;
         private readonly ILogger _logger;
@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             return Task.FromResult(blockBlob.Uri);
         }
 
-        public async Task WriteFilePartAsync(Uri fileUri, uint partId, byte[] bytes, CancellationToken cancellationToken)
+        public async Task WriteFilePartAsync(Uri fileUri, string partId, byte[] bytes, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(fileUri, nameof(fileUri));
             EnsureArg.IsNotNull(bytes, nameof(bytes));
@@ -181,14 +181,14 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             Task[] uploadTasks = new Task[_streamMappings.Count];
 
             int index = 0;
-            foreach (KeyValuePair<(Uri, uint), Stream> mapping in _streamMappings)
+            foreach (KeyValuePair<(Uri, string), Stream> mapping in _streamMappings)
             {
                 // Reset stream position.
                 Stream stream = mapping.Value;
                 stream.Position = 0;
 
                 CloudBlockBlobWrapper blobWrapper = _uriToBlobMapping[mapping.Key.Item1];
-                var blockId = Convert.ToBase64String(Encoding.ASCII.GetBytes(mapping.Key.Item2.ToString("d6")));
+                var blockId = Convert.ToBase64String(Encoding.ASCII.GetBytes(mapping.Key.Item2));
 
                 uploadTasks[index] = blobWrapper.UploadBlockAsync(blockId, stream, md5Hash: null, cancellationToken);
                 index++;
@@ -202,7 +202,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             CloudBlockBlobWrapper[] wrappersToCommit = new CloudBlockBlobWrapper[_streamMappings.Count];
 
             int index = 0;
-            foreach (KeyValuePair<(Uri, uint), Stream> mapping in _streamMappings)
+            foreach (KeyValuePair<(Uri, string), Stream> mapping in _streamMappings)
             {
                 wrappersToCommit[index] = _uriToBlobMapping[mapping.Key.Item1];
                 index++;

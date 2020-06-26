@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         {
             ContinuationToken = continuationToken;
             Page = page;
-            SubSearchResourceId = resourceId;
+            TriggeringResourceId = resourceId;
             SubSearch = subSearch;
         }
 
@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         public uint Page { get; private set; }
 
         [JsonProperty(JobRecordProperties.SubSearchResourceId)]
-        public string SubSearchResourceId { get; private set; }
+        public string TriggeringResourceId { get; private set; }
 
         [JsonProperty(JobRecordProperties.SubSearch)]
         public ExportJobProgress SubSearch { get; private set; }
@@ -43,15 +43,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             Page++;
         }
 
-        public void NewSubSearch(string resourceId, ExportJobProgress subSearch)
+        public void NewSubSearch(string resourceId)
         {
-            SubSearchResourceId = resourceId;
-            SubSearch = subSearch;
+            SubSearch = new ExportJobProgress(null, 0, resourceId);
         }
 
         public void ClearSubSearch()
         {
-            SubSearchResourceId = null;
             SubSearch = null;
         }
     }
