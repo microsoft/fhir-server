@@ -20,7 +20,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
             Expression normalizedPredicate,
             Expression denormalizedPredicate,
             TableExpressionKind kind,
-            int chainLevel = 0)
+            int chainLevel = 0,
+            Expression denormalizedPredicateOnChainRoot = null)
         {
             switch (normalizedPredicate)
             {
@@ -39,11 +40,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
             DenormalizedPredicate = denormalizedPredicate;
             Kind = kind;
             ChainLevel = chainLevel;
+            DenormalizedPredicateOnChainRoot = denormalizedPredicateOnChainRoot;
         }
 
         public TableExpressionKind Kind { get; }
 
         public int ChainLevel { get; }
+
+        public Expression DenormalizedPredicateOnChainRoot { get; }
 
         public NormalizedSearchParameterQueryGenerator SearchParameterQueryGenerator { get; }
 
@@ -63,7 +67,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
 
         public override string ToString()
         {
-            return $"(Table {Kind} {(ChainLevel == 0 ? null : $"ChainLevel:{ChainLevel} ")}{SearchParameterQueryGenerator?.Table} Normalized:{NormalizedPredicate} Denormalized:{DenormalizedPredicate})";
+            return $"(Table {Kind} {(ChainLevel == 0 ? null : $"ChainLevel:{ChainLevel} ")}{SearchParameterQueryGenerator?.Table} Normalized:{NormalizedPredicate} Denormalized:{DenormalizedPredicate} DenormalizedOnChainRoot:{DenormalizedPredicateOnChainRoot})";
         }
     }
 }
