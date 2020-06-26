@@ -36,6 +36,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public void Start()
         {
+            // This method is idempotent because dependent Start methods are not guaranteed to be executed in order.
             if (!_started)
             {
                 var builder = new SearchParameterDefinitionBuilder(

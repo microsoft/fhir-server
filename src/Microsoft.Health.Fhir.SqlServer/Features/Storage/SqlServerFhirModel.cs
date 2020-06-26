@@ -150,6 +150,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             {
                 connection.Open();
 
+                // Synchronous calls are used because this code is executed on startup and doesn't need to be async.
+                // Additionally, XUnit task scheduler constraints prevent async calls from being easily tested.
                 using (SqlCommand sqlCommand = connection.CreateCommand())
                 {
                     sqlCommand.CommandText = @"
