@@ -51,17 +51,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             IList<Uri> blobUris = await CheckExportStatus(contentLocation);
 
             // Download exported data from storage account
-            Dictionary<string, string> dataFromExport = await DownloadBlobAndParse(blobUris);
+            Dictionary<(string resourceType, string resourceId), string> dataFromExport = await DownloadBlobAndParse(blobUris);
 
             // Download all resources from fhir server
             Uri address = new Uri(_testFhirClient.HttpClient.BaseAddress, path);
-            Dictionary<string, string> dataFromFhirServer = await GetResourcesFromFhirServer(address);
+            Dictionary<(string resourceType, string resourceId), string> dataFromFhirServer = await GetResourcesFromFhirServer(address);
 
             // Assert both data are equal
             Assert.True(ValidateDataFromBothSources(dataFromFhirServer, dataFromExport));
         }
 
-        private bool ValidateDataFromBothSources(Dictionary<string, string> dataFromServer, Dictionary<string, string> dataFromStorageAccount)
+        private bool ValidateDataFromBothSources(Dictionary<(string resourceType, string resourceId), string> dataFromServer, Dictionary<(string resourceType, string resourceId), string> dataFromStorageAccount)
         {
             bool result = true;
 
@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             */
 
             int wrongCount = 0;
-            foreach (KeyValuePair<string, string> kvp in dataFromServer)
+            foreach (KeyValuePair<(string resourceType, string resourceId), string> kvp in dataFromServer)
             {
                 if (!dataFromStorageAccount.ContainsKey(kvp.Key))
                 {
@@ -132,11 +132,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             return exportJobResult.Output.Select(x => x.FileUri).ToList();
         }
 
-        private async Task<Dictionary<string, string>> DownloadBlobAndParse(IList<Uri> blobUri)
+        private async Task<Dictionary<(string resourceType, string resourceId), string>> DownloadBlobAndParse(IList<Uri> blobUri)
         {
             if (blobUri == null || blobUri.Count == 0)
             {
-                return new Dictionary<string, string>();
+                return new Dictionary<(string resourceType, string resourceId), string>();
             }
 
             // Extract storage account name from blob uri in order to get corresponding access token.
@@ -145,7 +145,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             CloudStorageAccount cloudAccount = GetCloudStorageAccountHelper(storageAccountName);
             CloudBlobClient blobClient = cloudAccount.CreateCloudBlobClient();
-            Dictionary<string, string> resourceIdToResourceMapping = new Dictionary<string, string>();
+            var resourceIdToResourceMapping = new Dictionary<(string resourceType, string resourceId), string>();
 
             foreach (Uri uri in blobUri)
             {
@@ -162,7 +162,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     }
 
                     JObject resource = JObject.Parse(entry);
-                    resourceIdToResourceMapping.Add(resource["id"].ToString(), entry);
+                    resourceIdToResourceMapping.Add((resource["resourceType"].ToString(), resource["id"].ToString()), entry);
                 }
             }
 
@@ -175,9 +175,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             return resourceIdToResourceMapping;
         }
 
-        private async Task<Dictionary<string, string>> GetResourcesFromFhirServer(Uri requestUri)
+        private async Task<Dictionary<(string resourceType, string resourceId), string>> GetResourcesFromFhirServer(Uri requestUri)
         {
-            Dictionary<string, string> resourceIdToResourceMapping = new Dictionary<string, string>();
+            var resourceIdToResourceMapping = new Dictionary<(string resourceType, string resourceId), string>();
 
             while (requestUri != null)
             {
@@ -203,13 +203,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                 foreach (JToken entry in entries)
                 {
+                    string resourceType = entry["resource"]["resourceType"].ToString();
                     string id = entry["resource"]["id"].ToString();
+
                     string resource = entry["resource"].ToString().Trim();
 
-                    resourceIdToResourceMapping.Add(id, resource);
+                    resourceIdToResourceMapping.Add((resourceType, id), resource);
                 }
 
-                // Look at whether a continutation token has been returned.
+                // Look at whether a continuation token has been returned.
                 // We will always have self link. We are looking for the "next" link
                 JArray links = (JArray)result["link"];
                 string nextUri = null;
