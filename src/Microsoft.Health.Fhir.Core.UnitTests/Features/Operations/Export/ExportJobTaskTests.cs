@@ -70,7 +70,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             bool capturedSearch = false;
 
-            _exportJobConfiguration.MaximumNumberOfResourcesPerQuery = 1;
+            var exportJobRecordWithOneResource = new ExportJobRecord(
+                new Uri("https://localhost/ExportJob/"),
+                "Patient",
+                "hash",
+                storageAccountConnectionHash: string.Empty,
+                storageAccountUri: _exportJobConfiguration.StorageAccountUri,
+                maximumNumberOfResourcesPerQuery: 1,
+                numberOfPagesPerCommit: _exportJobConfiguration.NumberOfPagesPerCommit);
+
+            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithOneResource);
 
             // First search should not have continuation token in the list of query parameters.
             _searchService.SearchAsync(
@@ -94,14 +103,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             bool capturedSearch = false;
 
-            _exportJobConfiguration.MaximumNumberOfResourcesPerQuery = 1;
             var exportJobRecordWithSince = new ExportJobRecord(
                 new Uri("https://localhost/ExportJob/"),
                 "Patient",
                 "hash",
                 since: Core.Models.PartialDateTime.MinValue,
                 storageAccountConnectionHash: string.Empty,
-                storageAccountUri: _exportJobConfiguration.StorageAccountUri);
+                storageAccountUri: _exportJobConfiguration.StorageAccountUri,
+                maximumNumberOfResourcesPerQuery: 1,
+                numberOfPagesPerCommit: _exportJobConfiguration.NumberOfPagesPerCommit);
 
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithSince);
 
@@ -127,7 +137,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             const string continuationToken = "ct";
 
-            _exportJobConfiguration.MaximumNumberOfResourcesPerQuery = 1;
+            var exportJobRecordWithOneResource = new ExportJobRecord(
+                new Uri("https://localhost/ExportJob/"),
+                "Patient",
+                "hash",
+                storageAccountConnectionHash: string.Empty,
+                storageAccountUri: _exportJobConfiguration.StorageAccountUri,
+                maximumNumberOfResourcesPerQuery: 1,
+                numberOfPagesPerCommit: _exportJobConfiguration.NumberOfPagesPerCommit);
+
+            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithOneResource);
 
             // First search returns a search result with continuation token.
             _searchService.SearchAsync(
@@ -160,14 +179,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             const string continuationToken = "ct";
 
-            _exportJobConfiguration.MaximumNumberOfResourcesPerQuery = 1;
             var exportJobRecordWithSince = new ExportJobRecord(
                 new Uri("https://localhost/ExportJob/"),
                 "Patient",
                 "hash",
                 since: PartialDateTime.MinValue,
                 storageAccountConnectionHash: string.Empty,
-                storageAccountUri: _exportJobConfiguration.StorageAccountUri);
+                storageAccountUri: _exportJobConfiguration.StorageAccountUri,
+                maximumNumberOfResourcesPerQuery: 1,
+                numberOfPagesPerCommit: _exportJobConfiguration.NumberOfPagesPerCommit);
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithSince);
 
             // First search returns a search result with continuation token.
@@ -201,7 +221,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             const string continuationToken = "ct";
 
-            _exportJobConfiguration.MaximumNumberOfResourcesPerQuery = 1;
+            var exportJobRecordWithOneResource = new ExportJobRecord(
+                new Uri("https://localhost/ExportJob/"),
+                "Patient",
+                "hash",
+                storageAccountConnectionHash: string.Empty,
+                storageAccountUri: _exportJobConfiguration.StorageAccountUri,
+                maximumNumberOfResourcesPerQuery: 1,
+                numberOfPagesPerCommit: _exportJobConfiguration.NumberOfPagesPerCommit);
+
+            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithOneResource);
 
             // First search returns a search result with continuation token.
             _searchService.SearchAsync(
@@ -250,14 +279,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             const string continuationToken = "ct";
 
-            _exportJobConfiguration.MaximumNumberOfResourcesPerQuery = 1;
             var exportJobRecordWithSince = new ExportJobRecord(
                 new Uri("https://localhost/ExportJob/"),
                 "Patient",
                 "hash",
                 since: PartialDateTime.MinValue,
                 storageAccountConnectionHash: string.Empty,
-                storageAccountUri: _exportJobConfiguration.StorageAccountUri);
+                storageAccountUri: _exportJobConfiguration.StorageAccountUri,
+                maximumNumberOfResourcesPerQuery: 1,
+                numberOfPagesPerCommit: _exportJobConfiguration.NumberOfPagesPerCommit);
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithSince);
 
             // First search returns a search result with continuation token.
@@ -390,7 +420,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         [InlineData(6, "012345")] // Because it fails to perform the 7th search, the file is created and the first 6 pages are committed.
         public async Task GivenVariousNumberOfSuccessfulSearch_WhenExecuted_ThenItShouldCommitAtScheduledPage(int numberOfSuccessfulPages, string expectedIds)
         {
-            _exportJobConfiguration.NumberOfPagesPerCommit = 3;
+            var exportJobRecordWithCommitPages = new ExportJobRecord(
+                new Uri("https://localhost/ExportJob/"),
+                "Patient",
+                "hash",
+                since: PartialDateTime.MinValue,
+                storageAccountConnectionHash: string.Empty,
+                storageAccountUri: _exportJobConfiguration.StorageAccountUri,
+                maximumNumberOfResourcesPerQuery: _exportJobConfiguration.MaximumNumberOfResourcesPerQuery,
+                numberOfPagesPerCommit: 3);
+            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithCommitPages);
 
             int numberOfCalls = 0;
 
@@ -436,7 +475,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         [Fact]
         public async Task GivenNumberOfSearch_WhenExecuted_ThenItShouldCommitOneLastTime()
         {
-            _exportJobConfiguration.NumberOfPagesPerCommit = 3;
+            var exportJobRecordWithCommitPages = new ExportJobRecord(
+                 new Uri("https://localhost/ExportJob/"),
+                 "Patient",
+                 "hash",
+                 since: PartialDateTime.MinValue,
+                 storageAccountConnectionHash: string.Empty,
+                 storageAccountUri: _exportJobConfiguration.StorageAccountUri,
+                 maximumNumberOfResourcesPerQuery: _exportJobConfiguration.MaximumNumberOfResourcesPerQuery,
+                 numberOfPagesPerCommit: 2);
+            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithCommitPages);
 
             SearchResult searchResultWithContinuationToken = CreateSearchResult(continuationToken: "ct");
 
@@ -623,7 +671,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             // We are using the SearchService to throw an exception in order to simulate the export job task
             // "crashing" while in the middle of the process.
-            _exportJobConfiguration.NumberOfPagesPerCommit = 2;
+            var exportJobRecordWithCommitPages = new ExportJobRecord(
+                new Uri("https://localhost/ExportJob/"),
+                "Patient",
+                "hash",
+                since: PartialDateTime.MinValue,
+                storageAccountConnectionHash: string.Empty,
+                storageAccountUri: _exportJobConfiguration.StorageAccountUri,
+                maximumNumberOfResourcesPerQuery: _exportJobConfiguration.MaximumNumberOfResourcesPerQuery,
+                numberOfPagesPerCommit: 2);
+            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithCommitPages);
 
             int numberOfCalls = 0;
             int numberOfSuccessfulPages = 2;
@@ -705,7 +762,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 "Patient",
                 "hash",
                 storageAccountConnectionHash: string.Empty,
-                storageAccountUri: _exportJobConfiguration.StorageAccountUri);
+                storageAccountUri: _exportJobConfiguration.StorageAccountUri,
+                maximumNumberOfResourcesPerQuery: _exportJobConfiguration.MaximumNumberOfResourcesPerQuery,
+                numberOfPagesPerCommit: _exportJobConfiguration.NumberOfPagesPerCommit);
 
             _fhirOperationDataStore.UpdateExportJobAsync(_exportJobRecord, _weakETag, _cancellationToken).Returns(x =>
             {
