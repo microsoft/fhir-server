@@ -13,7 +13,6 @@ using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Abstractions.Exceptions;
-using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.CosmosDb.Features.Metrics;
@@ -60,27 +59,27 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         }
 
         [Fact]
-        public async Task GivenADocumentClientExceptionWithNormalStatusCode_WhenProcessing_ThenResponseShouldBeProcessed()
+        public async Task GivenAnExceptionWithNormalStatusCode_WhenProcessing_ThenResponseShouldBeProcessed()
         {
-            ResponseMessage documentClientException = CreateDocumentClientException("fail", HttpStatusCode.OK);
+            ResponseMessage response = CreateResponseException("fail", HttpStatusCode.OK);
 
-            await _cosmosResponseProcessor.ProcessException(documentClientException);
+            await _cosmosResponseProcessor.ProcessException(response);
         }
 
         [Fact]
-        public async Task GivenADocumentClientExceptionWithRequestExceededStatusCode_WhenProcessing_ThenExceptionShouldThrow()
+        public async Task GivenAnExceptionWithRequestExceededStatusCode_WhenProcessing_ThenExceptionShouldThrow()
         {
-            ResponseMessage documentClientException = CreateDocumentClientException("fail", HttpStatusCode.TooManyRequests);
+            ResponseMessage response = CreateResponseException("fail", HttpStatusCode.TooManyRequests);
 
-            await Assert.ThrowsAsync<RequestRateExceededException>(async () => await _cosmosResponseProcessor.ProcessException(documentClientException));
+            await Assert.ThrowsAsync<RequestRateExceededException>(async () => await _cosmosResponseProcessor.ProcessException(response));
         }
 
         [Fact]
-        public async Task GivenADocumentClientExceptionWithSpecificMessage_WhenProcessing_ThenExceptionShouldThrow()
+        public async Task GivenAnExceptionWithSpecificMessage_WhenProcessing_ThenExceptionShouldThrow()
         {
-            ResponseMessage documentClientException = CreateDocumentClientException("invalid continuation token", HttpStatusCode.BadRequest);
+            ResponseMessage response = CreateResponseException("invalid continuation token", HttpStatusCode.BadRequest);
 
-            await Assert.ThrowsAsync<RequestNotValidException>(async () => await _cosmosResponseProcessor.ProcessException(documentClientException));
+            await Assert.ThrowsAsync<RequestNotValidException>(async () => await _cosmosResponseProcessor.ProcessException(response));
         }
 
         [Theory]
@@ -94,34 +93,34 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         [InlineData(KnownCosmosDbCmkSubStatusValue.InvalidInputBytes)]
         [InlineData(KnownCosmosDbCmkSubStatusValue.KeyVaultInternalServerError)]
         [InlineData(KnownCosmosDbCmkSubStatusValue.KeyVaultDnsNotResolved)]
-        public async Task GivenADocumentClientExceptionWithCmkSubStatus_WhenProcessing_ThenExceptionShouldThrow(KnownCosmosDbCmkSubStatusValue subStatusValue)
+        public async Task GivenAnExceptionWithCmkSubStatus_WhenProcessing_ThenExceptionShouldThrow(KnownCosmosDbCmkSubStatusValue subStatusValue)
         {
-            ResponseMessage documentClientException = CreateDocumentClientException("fail", HttpStatusCode.Forbidden, Convert.ToString((int)subStatusValue));
+            ResponseMessage response = CreateResponseException("fail", HttpStatusCode.Forbidden, Convert.ToString((int)subStatusValue));
 
-            await Assert.ThrowsAsync<CustomerManagedKeyException>(async () => await _cosmosResponseProcessor.ProcessException(documentClientException));
+            await Assert.ThrowsAsync<CustomerManagedKeyException>(async () => await _cosmosResponseProcessor.ProcessException(response));
         }
 
         [Theory]
         [InlineData("")]
         [InlineData(null)]
         [InlineData("3999")]
-        public async Task GivenADocumentClientExceptionWithForbiddenStatusCodeAndUnknownSubStatus_WhenProcessing_ThenNothingElseShouldOccur(string subsStatusCode)
+        public async Task GivenAnExceptionWithForbiddenStatusCodeAndUnknownSubStatus_WhenProcessing_ThenNothingElseShouldOccur(string subsStatusCode)
         {
-            ResponseMessage documentClientException = CreateDocumentClientException("fail", HttpStatusCode.Forbidden, subsStatusCode);
+            ResponseMessage response = CreateResponseException("fail", HttpStatusCode.Forbidden, subsStatusCode);
 
-            await _cosmosResponseProcessor.ProcessException(documentClientException);
+            await _cosmosResponseProcessor.ProcessException(response);
         }
 
         [Fact]
         public async Task GivenANullFhirRequestContext_WhenProcessing_ThenNothingAdditionalShouldOccur()
         {
             _fhirRequestContextAccessor.FhirRequestContext.Returns((IFhirRequestContext)null);
-            ResponseMessage documentClientException = CreateDocumentClientException("fail", HttpStatusCode.TooManyRequests);
+            ResponseMessage response = CreateResponseException("fail", HttpStatusCode.TooManyRequests);
 
-            await _cosmosResponseProcessor.ProcessException(documentClientException);
+            await _cosmosResponseProcessor.ProcessException(response);
         }
 
-        private static ResponseMessage CreateDocumentClientException(string exceptionMessage, HttpStatusCode httpStatusCode, string subStatus = null)
+        private static ResponseMessage CreateResponseException(string exceptionMessage, HttpStatusCode httpStatusCode, string subStatus = null)
         {
             var message = new ResponseMessage(httpStatusCode, errorMessage: exceptionMessage);
 

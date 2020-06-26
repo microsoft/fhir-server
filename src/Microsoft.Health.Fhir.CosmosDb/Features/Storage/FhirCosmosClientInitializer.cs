@@ -12,10 +12,9 @@ using EnsureThat;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Azure.Cosmos.Fluent;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.CosmosDb.Configs;
-using Microsoft.Health.CosmosDb.Features.Queries;
-using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.CosmosDb.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.IO;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
@@ -24,14 +23,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
     public class FhirCosmosClientInitializer : ICosmosClientInitializer
     {
-        private readonly IDocumentClientTestProvider _testProvider;
+        private readonly ICosmosClientTestProvider _testProvider;
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly ILogger<FhirCosmosClientInitializer> _logger;
         private readonly ICosmosResponseProcessor _cosmosResponseProcessor;
         private readonly IEnumerable<RequestHandler> _requestHandlers;
 
         public FhirCosmosClientInitializer(
-            IDocumentClientTestProvider testProvider,
+            ICosmosClientTestProvider testProvider,
             IFhirRequestContextAccessor fhirRequestContextAccessor,
             ICosmosResponseProcessor cosmosResponseProcessor,
             IEnumerable<RequestHandler> requestHandlers,
@@ -50,7 +49,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         /// <inheritdoc />
-        public CosmosClient CreateDocumentClient(CosmosDataStoreConfiguration configuration)
+        public CosmosClient CreateCosmosClient(CosmosDataStoreConfiguration configuration)
         {
             EnsureArg.IsNotNull(configuration, nameof(configuration));
 

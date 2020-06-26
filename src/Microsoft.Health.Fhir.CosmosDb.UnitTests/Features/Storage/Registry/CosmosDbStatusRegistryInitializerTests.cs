@@ -9,9 +9,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Health.Core;
-using Microsoft.Health.CosmosDb.Features.Queries;
-using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry;
 using NSubstitute;
 using Xunit;
@@ -59,11 +59,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Registry
                 .ExecuteNextAsync()
                 .Returns(Substitute.ForPartsOf<FeedResponse<dynamic>>());
 
-            Container documentClient = Substitute.For<Container>();
+            Container container = Substitute.For<Container>();
 
-            await _initializer.ExecuteAsync(documentClient);
+            await _initializer.ExecuteAsync(container);
 
-            documentClient.Received().CreateTransactionalBatch(Arg.Any<PartitionKey>());
+            container.Received().CreateTransactionalBatch(Arg.Any<PartitionKey>());
         }
 
         [Fact]
@@ -83,11 +83,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Registry
                 .ExecuteNextAsync()
                 .Returns(info => response);
 
-            Container documentClient = Substitute.For<Container>();
+            Container container = Substitute.For<Container>();
 
-            await _initializer.ExecuteAsync(documentClient);
+            await _initializer.ExecuteAsync(container);
 
-            documentClient.DidNotReceive().CreateTransactionalBatch(Arg.Any<PartitionKey>());
+            container.DidNotReceive().CreateTransactionalBatch(Arg.Any<PartitionKey>());
         }
     }
 }

@@ -9,16 +9,15 @@ using EnsureThat;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.CosmosDb.Configs;
-using Microsoft.Health.CosmosDb.Features.Storage.Versioning;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.CosmosDb.Configs;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
 {
     /// <summary>
     /// Updates a document collection to the latest index
     /// </summary>
-    public sealed class FhirCollectionSettingsUpdater : IFhirCollectionUpdater
+    public sealed class FhirCollectionSettingsUpdater : ICollectionUpdater
     {
         private readonly ILogger<FhirCollectionSettingsUpdater> _logger;
         private readonly CosmosDataStoreConfiguration _configuration;

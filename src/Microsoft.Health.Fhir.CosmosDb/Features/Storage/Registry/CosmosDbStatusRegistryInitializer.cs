@@ -8,14 +8,13 @@ using System.Linq;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
-using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
 {
-    public class CosmosDbStatusRegistryInitializer : IFhirCollectionUpdater
+    public class CosmosDbStatusRegistryInitializer : ICollectionUpdater
     {
         private readonly ISearchParameterRegistry _filebasedRegistry;
         private readonly ICosmosQueryFactory _queryFactory;

@@ -8,12 +8,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos.Scripts;
-using Microsoft.Health.CosmosDb.Features.Storage.StoredProcedures;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.HardDelete
 {
-    internal class HardDelete : StoredProcedureBase, IFhirStoredProcedure
+    internal class HardDelete : StoredProcedureBase
     {
         public async Task<StoredProcedureExecuteResponse<IList<string>>> Execute(Scripts client, ResourceKey key, CancellationToken cancellationToken)
         {
