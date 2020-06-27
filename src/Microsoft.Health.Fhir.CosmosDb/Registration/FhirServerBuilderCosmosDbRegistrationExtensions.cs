@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Linq;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
@@ -34,20 +35,18 @@ namespace Microsoft.Extensions.DependencyInjection
         /// Adds Cosmos Db as the data store for the FHIR server.
         /// </summary>
         /// <param name="fhirServerBuilder">The FHIR server builder.</param>
-        /// <param name="configuration">The configuration for the server</param>
         /// <returns>The builder.</returns>
-        public static IFhirServerBuilder AddCosmosDb(this IFhirServerBuilder fhirServerBuilder, IConfiguration configuration)
+        public static IFhirServerBuilder AddCosmosDb(this IFhirServerBuilder fhirServerBuilder, Action<CosmosDataStoreConfiguration> configureAction = null)
         {
             EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
-            EnsureArg.IsNotNull(configuration, nameof(configuration));
 
             return fhirServerBuilder
-                .AddCosmosDbPersistence(configuration)
+                .AddCosmosDbPersistence(configureAction)
                 .AddCosmosDbSearch()
                 .AddCosmosDbHealthCheck();
         }
 
-        private static IFhirServerBuilder AddCosmosDbPersistence(this IFhirServerBuilder fhirServerBuilder, IConfiguration configuration)
+        private static IFhirServerBuilder AddCosmosDbPersistence(this IFhirServerBuilder fhirServerBuilder, Action<CosmosDataStoreConfiguration> configureAction = null)
         {
             IServiceCollection services = fhirServerBuilder.Services;
 
@@ -60,6 +59,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 {
                     var config = new CosmosDataStoreConfiguration();
                     provider.GetService<IConfiguration>().GetSection("CosmosDb").Bind(config);
+                    configureAction?.Invoke(config);
 
                     if (string.IsNullOrEmpty(config.Host))
                     {
@@ -82,8 +82,8 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsService<ICosmosClientTestProvider>();
 
-            // Register IDocumentClient
-            // We are intentionally not registering IDocumentClient directly, because
+            // Register Container
+            // We are intentionally not registering Container directly, because
             // we want this codebase to support different configurations, where the
             // lifetime of the document clients can be managed outside of the IoC
             // container, which will automatically dispose it if exposed as a scoped
@@ -107,14 +107,15 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf();
 
             services.AddTransient<IConfigureOptions<CosmosCollectionConfiguration>>(
-                sp => new ConfigureNamedOptions<CosmosCollectionConfiguration>(
+                provider => new ConfigureNamedOptions<CosmosCollectionConfiguration>(
                     Constants.CollectionConfigurationName,
                     cosmosCollectionConfiguration =>
                     {
+                        var configuration = provider.GetRequiredService<IConfiguration>();
                         configuration.GetSection("FhirServer:CosmosDb").Bind(cosmosCollectionConfiguration);
                         if (string.IsNullOrWhiteSpace(cosmosCollectionConfiguration.CollectionId))
                         {
-                            IModelInfoProvider modelInfoProvider = sp.GetRequiredService<IModelInfoProvider>();
+                            IModelInfoProvider modelInfoProvider = provider.GetRequiredService<IModelInfoProvider>();
                             cosmosCollectionConfiguration.CollectionId = modelInfoProvider.Version == FhirSpecification.Stu3 ? "fhir" : $"fhir{modelInfoProvider.Version}";
                         }
                     }));

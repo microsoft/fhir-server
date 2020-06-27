@@ -21,18 +21,18 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _partitionKey = new PartitionKey(_document.PartitionKey);
         }
 
-        public async Task PerformTest(Container documentClient, CosmosDataStoreConfiguration configuration, CosmosCollectionConfiguration cosmosCollectionConfiguration)
+        public async Task PerformTest(Container container, CosmosDataStoreConfiguration configuration, CosmosCollectionConfiguration cosmosCollectionConfiguration)
         {
             var requestOptions = new ItemRequestOptions { ConsistencyLevel = ConsistencyLevel.Session };
 
-            var resourceResponse = await documentClient.UpsertItemAsync(
+            var resourceResponse = await container.UpsertItemAsync(
                 _document,
                 _partitionKey,
                 requestOptions);
 
             requestOptions.SessionToken = resourceResponse.Headers.Session;
 
-            await documentClient.ReadItemAsync<HealthCheckDocument>(resourceResponse.Resource.Id, _partitionKey, requestOptions);
+            await container.ReadItemAsync<HealthCheckDocument>(resourceResponse.Resource.Id, _partitionKey, requestOptions);
         }
 
         private class HealthCheckDocument : SystemData

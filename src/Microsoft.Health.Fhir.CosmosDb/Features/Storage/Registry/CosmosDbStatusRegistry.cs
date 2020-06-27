@@ -19,19 +19,19 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
 {
     public class CosmosDbStatusRegistry : ISearchParameterRegistry
     {
-        private readonly Func<IScoped<Container>> _documentClientFactory;
+        private readonly Func<IScoped<Container>> _containerScopeFactory;
         private readonly ICosmosQueryFactory _queryFactory;
 
         public CosmosDbStatusRegistry(
-            Func<IScoped<Container>> documentClientFactory,
+            Func<IScoped<Container>> containerScopeFactory,
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
             ICosmosQueryFactory queryFactory)
         {
-            EnsureArg.IsNotNull(documentClientFactory, nameof(documentClientFactory));
+            EnsureArg.IsNotNull(containerScopeFactory, nameof(containerScopeFactory));
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
             EnsureArg.IsNotNull(queryFactory, nameof(queryFactory));
 
-            _documentClientFactory = documentClientFactory;
+            _containerScopeFactory = containerScopeFactory;
             _queryFactory = queryFactory;
         }
 
@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
         {
             using var cancellationSource = new CancellationTokenSource(TimeSpan.FromMinutes(1));
             var parameterStatus = new List<ResourceSearchParameterStatus>();
-            using IScoped<Container> clientScope = _documentClientFactory.Invoke();
+            using IScoped<Container> clientScope = _containerScopeFactory.Invoke();
 
             do
             {
@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
         {
             EnsureArg.IsNotNull(statuses, nameof(statuses));
 
-            using var clientScope = _documentClientFactory.Invoke();
+            using var clientScope = _containerScopeFactory.Invoke();
             var batch = clientScope.Value.CreateTransactionalBatch(new PartitionKey(SearchParameterStatusWrapper.SearchParameterStatusPartitionKey));
 
             foreach (var status in statuses.Select(x => x.ToSearchParameterStatusWrapper()))

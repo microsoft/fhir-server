@@ -35,11 +35,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
             EnsureArg.IsNotNull(collection, nameof(collection));
 
             // Detect if registry has been initialized
+            var partitionKey = new PartitionKey(SearchParameterStatusWrapper.SearchParameterStatusPartitionKey);
             var query = _queryFactory.Create<dynamic>(
                 collection,
                 new CosmosQueryContext(
                     new QueryDefinition($"SELECT TOP 1 * FROM c where c.{KnownDocumentProperties.PartitionKey} = '{SearchParameterStatusWrapper.SearchParameterStatusPartitionKey}'"),
-                    new QueryRequestOptions { PartitionKey = new PartitionKey(SearchParameterStatusWrapper.SearchParameterStatusPartitionKey) }));
+                    new QueryRequestOptions { PartitionKey = partitionKey }));
 
             var results = await query.ExecuteNextAsync();
 
@@ -49,7 +50,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
 
                 foreach (var batch in statuses.TakeBatch(100))
                 {
-                    TransactionalBatch transaction = collection.CreateTransactionalBatch(new PartitionKey(SearchParameterStatusWrapper.SearchParameterStatusPartitionKey));
+                    TransactionalBatch transaction = collection.CreateTransactionalBatch(partitionKey);
 
                     foreach (SearchParameterStatusWrapper status in batch.Select(x => x.ToSearchParameterStatusWrapper()))
                     {

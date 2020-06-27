@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
     public class CosmosQuery<T> : ICosmosQuery<T>
     {
         private readonly ICosmosQueryContext _queryContext;
-        private readonly FeedIterator<T> _documentQuery;
+        private readonly FeedIterator<T> _feedIterator;
         private readonly ICosmosResponseProcessor _cosmosResponseProcessor;
         private readonly ICosmosQueryLogger _logger;
 
@@ -29,22 +29,22 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
         /// Initializes a new instance of the <see cref="CosmosQuery{T}"/> class.
         /// </summary>
         /// <param name="queryContext">The query context.</param>
-        /// <param name="documentQuery">The document query to execute.</param>
+        /// <param name="feedIterator">The feed iterator to enumerate.</param>
         /// <param name="cosmosResponseProcessor">The cosmos response processor.</param>
         /// <param name="logger">The logger.</param>
         public CosmosQuery(
             ICosmosQueryContext queryContext,
-            FeedIterator<T> documentQuery,
+            FeedIterator<T> feedIterator,
             ICosmosResponseProcessor cosmosResponseProcessor,
             ICosmosQueryLogger logger)
         {
             EnsureArg.IsNotNull(queryContext, nameof(queryContext));
-            EnsureArg.IsNotNull(documentQuery, nameof(documentQuery));
+            EnsureArg.IsNotNull(feedIterator, nameof(feedIterator));
             EnsureArg.IsNotNull(cosmosResponseProcessor, nameof(cosmosResponseProcessor));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _queryContext = queryContext;
-            _documentQuery = documentQuery;
+            _feedIterator = feedIterator;
             _cosmosResponseProcessor = cosmosResponseProcessor;
             _logger = logger;
 
@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
         /// <summary>
         /// Gets a value indicating whether there are more results.
         /// </summary>
-        public bool HasMoreResults => _documentQuery.HasMoreResults;
+        public bool HasMoreResults => _feedIterator.HasMoreResults;
 
         /// <inheritdoc />
         public async Task<FeedResponse<T>> ExecuteNextAsync(CancellationToken token = default)
@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
 
             try
             {
-                FeedResponse<T> response = await _documentQuery.ReadNextAsync(token);
+                FeedResponse<T> response = await _feedIterator.ReadNextAsync(token);
 
                 _continuationToken = response.ContinuationToken;
 

@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
-    public interface ICosmosDbDistributedLock : IDisposable
+    public interface ICosmosDbDistributedLock : IAsyncDisposable, IDisposable
     {
         /// <summary>
         /// Makes one attempt to acquire the lock.

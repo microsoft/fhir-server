@@ -9,7 +9,7 @@ using Microsoft.Azure.Cosmos;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
-    public static class DocumentClientExceptionExtensions
+    public static class CosmosExceptionExtensions
     {
         /// <summary>
         /// When a javascript stored procedure throws an exception in code, such as

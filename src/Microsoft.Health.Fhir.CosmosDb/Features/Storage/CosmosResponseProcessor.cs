@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// if the status code is 429.
         /// </summary>
         /// <param name="response">The response that has errored</param>
-        public Task ProcessException(ResponseMessage response)
+        public Task ProcessErrorResponse(ResponseMessage response)
         {
             if (_fhirRequestContextAccessor.FhirRequestContext == null)
             {

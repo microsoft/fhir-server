@@ -11,10 +11,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
     public sealed class NonDisposingScope : IScoped<Container>
     {
-        public NonDisposingScope(Container documentClient)
+        public NonDisposingScope(Container container)
         {
-            EnsureArg.IsNotNull(documentClient, nameof(documentClient));
-            Value = documentClient;
+            EnsureArg.IsNotNull(container, nameof(container));
+            Value = container;
         }
 
         public Container Value { get; }

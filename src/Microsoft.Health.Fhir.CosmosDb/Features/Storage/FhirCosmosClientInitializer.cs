@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             EnsureArg.IsNotNull(configuration, nameof(configuration));
 
-            _logger.LogInformation("Creating DocumentClient instance for {DatabaseId}", configuration.DatabaseId);
+            _logger.LogInformation("Creating CosmosClient instance for {DatabaseId}", configuration.DatabaseId);
 
             var host = configuration.Host;
             var key = configuration.Key;
@@ -89,29 +89,29 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         /// <inheritdoc />
-        public async Task OpenDocumentClient(CosmosClient client, CosmosDataStoreConfiguration configuration, CosmosCollectionConfiguration cosmosCollectionConfiguration)
+        public async Task OpenCosmosClient(CosmosClient client, CosmosDataStoreConfiguration configuration, CosmosCollectionConfiguration cosmosCollectionConfiguration)
         {
             EnsureArg.IsNotNull(client, nameof(client));
             EnsureArg.IsNotNull(configuration, nameof(configuration));
 
-            _logger.LogInformation("Opening DocumentClient connection to {CollectionId}", cosmosCollectionConfiguration.CollectionId);
+            _logger.LogInformation("Opening CosmosClient connection to {CollectionId}", cosmosCollectionConfiguration.CollectionId);
             try
             {
                 await _testProvider.PerformTest(client.GetContainer(configuration.DatabaseId, cosmosCollectionConfiguration.CollectionId), configuration, cosmosCollectionConfiguration);
 
-                _logger.LogInformation("Established DocumentClient connection to {CollectionId}", cosmosCollectionConfiguration.CollectionId);
+                _logger.LogInformation("Established CosmosClient connection to {CollectionId}", cosmosCollectionConfiguration.CollectionId);
             }
             catch (Exception e)
             {
-                _logger.LogCritical(e, "Failed to connect to DocumentClient collection {CollectionId}", cosmosCollectionConfiguration.CollectionId);
+                _logger.LogCritical(e, "Failed to connect to CosmosClient collection {CollectionId}", cosmosCollectionConfiguration.CollectionId);
                 throw;
             }
         }
 
         /// <inheritdoc />
-        public async Task InitializeDataStore(CosmosClient documentClient, CosmosDataStoreConfiguration cosmosDataStoreConfiguration, IEnumerable<ICollectionInitializer> collectionInitializers)
+        public async Task InitializeDataStore(CosmosClient client, CosmosDataStoreConfiguration cosmosDataStoreConfiguration, IEnumerable<ICollectionInitializer> collectionInitializers)
         {
-            EnsureArg.IsNotNull(documentClient, nameof(documentClient));
+            EnsureArg.IsNotNull(client, nameof(client));
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
             EnsureArg.IsNotNull(collectionInitializers, nameof(collectionInitializers));
 
@@ -123,14 +123,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 {
                     _logger.LogDebug("CreateDatabaseIfNotExists {DatabaseId})", cosmosDataStoreConfiguration.DatabaseId);
 
-                    await documentClient.CreateDatabaseIfNotExistsAsync(
+                    await client.CreateDatabaseIfNotExistsAsync(
                         cosmosDataStoreConfiguration.DatabaseId,
                         cosmosDataStoreConfiguration.InitialDatabaseThroughput.HasValue ? ThroughputProperties.CreateManualThroughput(cosmosDataStoreConfiguration.InitialDatabaseThroughput.Value) : null);
                 }
 
                 foreach (var collectionInitializer in collectionInitializers)
                 {
-                    await collectionInitializer.InitializeCollection(documentClient);
+                    await collectionInitializer.InitializeCollection(client);
                 }
 
                 _logger.LogInformation("Cosmos DB Database {DatabaseId} and collections successfully initialized", cosmosDataStoreConfiguration.DatabaseId);
@@ -181,8 +181,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             public override Stream ToStream<T>(T input)
             {
                 MemoryStream stream = _manager.GetStream();
-                var writer = new StreamWriter(stream);
-                var jsonWriter = new JsonTextWriter(writer);
+                using var writer = new StreamWriter(stream, leaveOpen: true);
+                using var jsonWriter = new JsonTextWriter(writer);
                 _serializer.Serialize(jsonWriter, input);
                 jsonWriter.Flush();
                 stream.Position = 0;

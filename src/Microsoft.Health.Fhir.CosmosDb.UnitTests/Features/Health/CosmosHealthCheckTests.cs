@@ -17,11 +17,11 @@ using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Xunit;
 
-namespace Microsoft.Health.CosmosDb.UnitTests.Features.Health
+namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
 {
     public class CosmosHealthCheckTests
     {
-        private readonly Container _documentClient = Substitute.For<Container>();
+        private readonly Container _container = Substitute.For<Container>();
         private readonly ICosmosClientTestProvider _testProvider = Substitute.For<ICosmosClientTestProvider>();
         private readonly CosmosDataStoreConfiguration _configuration = new CosmosDataStoreConfiguration { DatabaseId = "mydb" };
         private readonly CosmosCollectionConfiguration _cosmosCollectionConfiguration = new CosmosCollectionConfiguration { CollectionId = "mycoll" };
@@ -34,7 +34,7 @@ namespace Microsoft.Health.CosmosDb.UnitTests.Features.Health
             optionsSnapshot.Get(Microsoft.Health.Fhir.CosmosDb.Constants.CollectionConfigurationName).Returns(_cosmosCollectionConfiguration);
 
             _healthCheck = new TestCosmosHealthCheck(
-                new NonDisposingScope(_documentClient),
+                new NonDisposingScope(_container),
                 _configuration,
                 optionsSnapshot,
                 _testProvider,

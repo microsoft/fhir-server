@@ -100,7 +100,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var cosmosResponseProcessor = Substitute.For<ICosmosResponseProcessor>();
 
             var responseProcessor = new CosmosResponseProcessor(fhirRequestContextAccessor, Substitute.For<IMediator>(), NullLogger<CosmosResponseProcessor>.Instance);
-            var handler = new FhirCosmosReponseHandler(() => new NonDisposingScope(_documentClient), _cosmosDataStoreConfiguration, fhirRequestContextAccessor, responseProcessor);
+            var handler = new FhirCosmosResponseHandler(() => new NonDisposingScope(_documentClient), _cosmosDataStoreConfiguration, fhirRequestContextAccessor, responseProcessor);
             var documentClientInitializer = new FhirCosmosClientInitializer(testProvider, fhirRequestContextAccessor, cosmosResponseProcessor, new[] { handler }, NullLogger<FhirCosmosClientInitializer>.Instance);
             var cosmosClient = documentClientInitializer.CreateCosmosClient(_cosmosDataStoreConfiguration);
             var fhirCollectionInitializer = new CollectionInitializer(_cosmosCollectionConfiguration.CollectionId, _cosmosDataStoreConfiguration, _cosmosCollectionConfiguration.InitialCollectionThroughput, upgradeManager, NullLogger<CollectionInitializer>.Instance);

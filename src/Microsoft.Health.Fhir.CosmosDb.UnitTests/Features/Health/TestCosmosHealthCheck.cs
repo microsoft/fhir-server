@@ -11,18 +11,18 @@ using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Health;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 
-namespace Microsoft.Health.CosmosDb.UnitTests.Features.Health
+namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
 {
     internal class TestCosmosHealthCheck : CosmosHealthCheck
     {
         public TestCosmosHealthCheck(
-            IScoped<Container> documentClient,
+            IScoped<Container> container,
             CosmosDataStoreConfiguration configuration,
             IOptionsSnapshot<CosmosCollectionConfiguration> namedCosmosCollectionConfigurationAccessor,
             ICosmosClientTestProvider testProvider,
             ILogger<CosmosHealthCheck> logger)
             : base(
-                  documentClient,
+                  container,
                   configuration,
                   namedCosmosCollectionConfigurationAccessor,
                   testProvider,

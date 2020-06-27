@@ -34,16 +34,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _logger = logger;
         }
 
-        public async Task<Container> InitializeCollection(CosmosClient documentClient)
+        public async Task<Container> InitializeCollection(CosmosClient client)
         {
-            Database database = documentClient.GetDatabase(_cosmosDataStoreConfiguration.DatabaseId);
+            Database database = client.GetDatabase(_cosmosDataStoreConfiguration.DatabaseId);
             Container containerClient = database.GetContainer(_collectionId);
 
-            var existingDocumentCollection = await database.TryGetDocumentCollectionAsync(_collectionId);
+            var existingContainer = await database.TryGetContainerAsync(_collectionId);
 
-            if (existingDocumentCollection == null)
+            if (existingContainer == null)
             {
-                _logger.LogDebug("Creating document collection if not exits: {collectionId}", _collectionId);
+                _logger.LogDebug("Creating Cosmos Container if not exits: {collectionId}", _collectionId);
 
                 var containerResponse = await database.CreateContainerIfNotExistsAsync(
                     _collectionId,
@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                 containerResponse.Resource.DefaultTimeToLive = -1;
 
-                existingDocumentCollection = await database.GetContainer(_collectionId).ReplaceContainerAsync(containerResponse);
+                existingContainer = await database.GetContainer(_collectionId).ReplaceContainerAsync(containerResponse);
 
                 if (_initialCollectionThroughput.HasValue)
                 {
@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             await _upgradeManager.SetupContainerAsync(containerClient);
 
-            return existingDocumentCollection;
+            return existingContainer;
         }
     }
 }

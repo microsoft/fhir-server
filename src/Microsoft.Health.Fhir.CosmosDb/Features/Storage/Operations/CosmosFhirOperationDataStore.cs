@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
         private static readonly string CheckActiveJobsByStatusQuery =
             $"SELECT TOP 1 * FROM ROOT r WHERE r.{JobRecordProperties.JobRecord}.{JobRecordProperties.Status} IN ('{OperationStatus.Queued}', '{OperationStatus.Running}', '{OperationStatus.Paused}')";
 
-        private readonly IScoped<Container> _documentClientScope;
+        private readonly IScoped<Container> _containerScope;
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
         private readonly ICosmosQueryFactory _queryFactory;
         private readonly ILogger _logger;
@@ -46,27 +46,27 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
         /// <summary>
         /// Initializes a new instance of the <see cref="CosmosFhirOperationDataStore"/> class.
         /// </summary>
-        /// <param name="documentClientScope">The factory for <see cref="IDocumentClient"/>.</param>
+        /// <param name="containerScope">The factory for <see cref="Container"/>.</param>
         /// <param name="cosmosDataStoreConfiguration">The data store configuration.</param>
         /// <param name="namedCosmosCollectionConfigurationAccessor">The IOptions accessor to get a named version.</param>
         /// <param name="retryExceptionPolicyFactory">The retry exception policy factory.</param>
         /// <param name="queryFactory">The Query Factory</param>
         /// <param name="logger">The logger.</param>
         public CosmosFhirOperationDataStore(
-            IScoped<Container> documentClientScope,
+            IScoped<Container> containerScope,
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
             IOptionsMonitor<CosmosCollectionConfiguration> namedCosmosCollectionConfigurationAccessor,
             RetryExceptionPolicyFactory retryExceptionPolicyFactory,
             ICosmosQueryFactory queryFactory,
             ILogger<CosmosFhirOperationDataStore> logger)
         {
-            EnsureArg.IsNotNull(documentClientScope, nameof(documentClientScope));
+            EnsureArg.IsNotNull(containerScope, nameof(containerScope));
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
             EnsureArg.IsNotNull(namedCosmosCollectionConfigurationAccessor, nameof(namedCosmosCollectionConfigurationAccessor));
             EnsureArg.IsNotNull(retryExceptionPolicyFactory, nameof(retryExceptionPolicyFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _documentClientScope = documentClientScope;
+            _containerScope = containerScope;
             _retryExceptionPolicyFactory = retryExceptionPolicyFactory;
             _queryFactory = queryFactory;
             _logger = logger;
@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 
             try
             {
-                var result = await _documentClientScope.Value.CreateItemAsync(
+                var result = await _containerScope.Value.CreateItemAsync(
                     cosmosExportJob,
                     new PartitionKey(CosmosDbExportConstants.ExportJobPartitionKey),
                     cancellationToken: cancellationToken);
@@ -114,7 +114,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 
             try
             {
-                ItemResponse<CosmosExportJobRecordWrapper> cosmosExportJobRecord = await _documentClientScope.Value.ReadItemAsync<CosmosExportJobRecordWrapper>(
+                ItemResponse<CosmosExportJobRecordWrapper> cosmosExportJobRecord = await _containerScope.Value.ReadItemAsync<CosmosExportJobRecordWrapper>(
                     id,
                     new PartitionKey(CosmosDbExportConstants.ExportJobPartitionKey),
                     cancellationToken: cancellationToken);
@@ -146,7 +146,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             try
             {
                 var query = _queryFactory.Create<CosmosExportJobRecordWrapper>(
-                    _documentClientScope.Value,
+                    _containerScope.Value,
                     new CosmosQueryContext(
                         new QueryDefinition(GetJobByHashQuery)
                             .WithParameter(HashParameterName, hash),
@@ -192,7 +192,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             try
             {
                 var replaceResult = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
-                    () => _documentClientScope.Value.ReplaceItemAsync(
+                    () => _containerScope.Value.ReplaceItemAsync(
                         cosmosExportJob,
                         jobRecord.Id,
                         new PartitionKey(CosmosDbExportConstants.ExportJobPartitionKey),
@@ -231,7 +231,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             {
                 var response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
                     async ct => await _acquireExportJobs.ExecuteAsync(
-                        _documentClientScope.Value.Scripts,
+                        _containerScope.Value.Scripts,
                         maximumNumberOfConcurrentJobsAllowed,
                         (ushort)jobHeartbeatTimeoutThreshold.TotalSeconds,
                         ct),
@@ -259,7 +259,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 
             try
             {
-                var result = await _documentClientScope.Value.CreateItemAsync(
+                var result = await _containerScope.Value.CreateItemAsync(
                     cosmosReindexJob,
                     new PartitionKey(CosmosDbReindexConstants.ReindexJobPartitionKey),
                     cancellationToken: cancellationToken);
@@ -283,7 +283,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             // TODO: Shell for testing
 
             var query = _queryFactory.Create<CosmosReindexJobRecordWrapper>(
-                _documentClientScope.Value,
+                _containerScope.Value,
                 new CosmosQueryContext(
                     new QueryDefinition(CheckActiveJobsByStatusQuery),
                     new QueryRequestOptions { PartitionKey = new PartitionKey(CosmosDbReindexConstants.ReindexJobPartitionKey) }));
@@ -304,7 +304,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             try
             {
                 var query = _queryFactory.Create<CosmosReindexJobRecordWrapper>(
-                    _documentClientScope.Value,
+                    _containerScope.Value,
                     new CosmosQueryContext(
                         new QueryDefinition(CheckActiveJobsByStatusQuery),
                         new QueryRequestOptions { PartitionKey = new PartitionKey(CosmosDbReindexConstants.ReindexJobPartitionKey) }));
@@ -351,7 +351,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             try
             {
                 var replaceResult = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
-                    () => _documentClientScope.Value.ReplaceItemAsync(
+                    () => _containerScope.Value.ReplaceItemAsync(
                         cosmosReindexJob,
                         jobRecord.Id,
                         new PartitionKey(CosmosDbReindexConstants.ReindexJobPartitionKey),

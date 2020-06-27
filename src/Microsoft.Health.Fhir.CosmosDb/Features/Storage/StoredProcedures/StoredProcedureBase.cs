@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures
 
         public string FullName => _versionedName.Value;
 
-        public StoredProcedureProperties AsStoredProcedure()
+        public StoredProcedureProperties ToStoredProcedureProperties()
         {
             return new StoredProcedureProperties
             {

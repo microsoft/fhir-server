@@ -13,15 +13,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
     public class CosmosDbDistributedLockFactory : ICosmosDbDistributedLockFactory
     {
-        private readonly Func<IScoped<Container>> _documentClientFactory;
+        private readonly Func<IScoped<Container>> _containerScopeFactory;
         private readonly ILogger<CosmosDbDistributedLock> _logger;
 
-        public CosmosDbDistributedLockFactory(Func<IScoped<Container>> documentClientFactory, ILogger<CosmosDbDistributedLock> logger)
+        public CosmosDbDistributedLockFactory(Func<IScoped<Container>> containerScopeFactory, ILogger<CosmosDbDistributedLock> logger)
         {
-            EnsureArg.IsNotNull(documentClientFactory, nameof(documentClientFactory));
+            EnsureArg.IsNotNull(containerScopeFactory, nameof(containerScopeFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _documentClientFactory = documentClientFactory;
+            _containerScopeFactory = containerScopeFactory;
             _logger = logger;
         }
 
@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             EnsureArg.IsNotNullOrEmpty(lockId, nameof(lockId));
 
-            return new CosmosDbDistributedLock(_documentClientFactory, lockId, _logger);
+            return new CosmosDbDistributedLock(_containerScopeFactory, lockId, _logger);
         }
 
         public ICosmosDbDistributedLock Create(Container client, string lockId)

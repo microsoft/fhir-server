@@ -51,6 +51,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
 
                 var container = await client.ReadContainerAsync();
 
+                // For more information on setting indexing policies refer to:
+                // https://docs.microsoft.com/en-us/azure/cosmos-db/how-to-manage-indexing-policy
+                // It is no longer necessary to explicitly set the kind (range/hash)
                 container.Resource.IndexingPolicy.IncludedPaths.Clear();
                 container.Resource.IndexingPolicy.IncludedPaths.Add(new IncludedPath
                 {
@@ -58,10 +61,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
                 });
 
                 container.Resource.IndexingPolicy.ExcludedPaths.Clear();
-                container.Resource.IndexingPolicy.ExcludedPaths.Add(new ExcludedPath
-                {
-                    Path = $"/{KnownResourceWrapperProperties.RawResource}/*",
-                });
+                container.Resource.IndexingPolicy.ExcludedPaths.Add(new ExcludedPath { Path = $"/{KnownResourceWrapperProperties.RawResource}/*", });
+                container.Resource.IndexingPolicy.ExcludedPaths.Add(new ExcludedPath { Path = $"/\"_etag\"/?", });
 
                 // Setting the DefaultTTL to -1 means that by default all documents in the collection will live forever
                 // but the Cosmos DB service should monitor this collection for documents that have overridden this default.
@@ -75,9 +76,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
             }
         }
 
-        private static async Task<CollectionVersion> GetLatestCollectionVersion(Container documentClient)
+        private static async Task<CollectionVersion> GetLatestCollectionVersion(Container container)
         {
-            FeedIterator<CollectionVersion> query = documentClient.GetItemQueryIterator<CollectionVersion>(
+            FeedIterator<CollectionVersion> query = container.GetItemQueryIterator<CollectionVersion>(
                 new QueryDefinition("SELECT * FROM root r"),
                 requestOptions: new QueryRequestOptions
                 {

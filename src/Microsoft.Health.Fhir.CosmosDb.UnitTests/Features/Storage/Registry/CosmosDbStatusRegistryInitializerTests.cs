@@ -51,11 +51,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Registry
         [Fact]
         public async Task GivenARegistryInitializer_WhenDatabaseIsNew_SearchParametersShouldBeUpserted()
         {
-            ICosmosQuery<dynamic> documentQuery = Substitute.For<ICosmosQuery<dynamic>>();
+            ICosmosQuery<dynamic> cosmosQuery = Substitute.For<ICosmosQuery<dynamic>>();
             _cosmosDocumentQueryFactory.Create<dynamic>(Arg.Any<Container>(), Arg.Any<CosmosQueryContext>())
-                .Returns(documentQuery);
+                .Returns(cosmosQuery);
 
-            documentQuery
+            cosmosQuery
                 .ExecuteNextAsync()
                 .Returns(Substitute.ForPartsOf<FeedResponse<dynamic>>());
 

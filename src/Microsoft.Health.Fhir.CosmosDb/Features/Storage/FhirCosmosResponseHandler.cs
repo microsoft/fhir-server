@@ -17,15 +17,19 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
-    public class FhirCosmosReponseHandler : RequestHandler
+    public class FhirCosmosResponseHandler : RequestHandler
     {
-        private static readonly string ValidConsistencyLevelsForErrorMessage = string.Join(", ", Enum.GetNames(typeof(ConsistencyLevel)).Select(v => $"'{v}'"));
+        private const string _continuationTokenLimitHeaderName = "x-ms-documentdb-responsecontinuationtokenlimitinkb";
+        private const string _consistencyLevelHeaderName = "x-ms-consistency-level";
+        private const string _sessionTokenHeaderName = "x-ms-session-token";
+
+        private static readonly string _validConsistencyLevelsForErrorMessage = string.Join(", ", Enum.GetNames(typeof(ConsistencyLevel)).Select(v => $"'{v}'"));
         private readonly Func<IScoped<Container>> _client;
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly ICosmosResponseProcessor _cosmosResponseProcessor;
 
-        public FhirCosmosReponseHandler(
+        public FhirCosmosResponseHandler(
             Func<IScoped<Container>> client,
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
             IFhirRequestContextAccessor fhirRequestContextAccessor,
@@ -47,7 +51,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             if (!response.IsSuccessStatusCode)
             {
-                await _cosmosResponseProcessor.ProcessException(response);
+                await _cosmosResponseProcessor.ProcessErrorResponse(response);
             }
 
             return response;
@@ -57,7 +61,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             if (_cosmosDataStoreConfiguration.InitialDatabaseThroughput != null)
             {
-                options.Headers["x-ms-documentdb-responsecontinuationtokenlimitinkb"] = _cosmosDataStoreConfiguration.ContinuationTokenSizeLimitInKb?.ToString();
+                options.Headers[_continuationTokenLimitHeaderName] = _cosmosDataStoreConfiguration.ContinuationTokenSizeLimitInKb?.ToString();
             }
 
             (ConsistencyLevel? consistencyLevel, string sessionToken) = GetConsistencyHeaders();
@@ -69,12 +73,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             if (consistencyLevel != null)
             {
-                options.Headers["x-ms-consistency-level"] = consistencyLevel?.ToString();
+                options.Headers[_consistencyLevelHeaderName] = consistencyLevel?.ToString();
             }
 
             if (!string.IsNullOrEmpty(sessionToken))
             {
-                options.Headers["x-ms-session-token"] = sessionToken;
+                options.Headers[_sessionTokenHeaderName] = sessionToken;
             }
         }
 
@@ -93,7 +97,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 if (!Enum.TryParse(values, out ConsistencyLevel parsedLevel))
                 {
-                    throw new BadRequestException(string.Format(CultureInfo.CurrentCulture, Resources.UnrecognizedConsistencyLevel, values, ValidConsistencyLevelsForErrorMessage));
+                    throw new BadRequestException(string.Format(CultureInfo.CurrentCulture, Resources.UnrecognizedConsistencyLevel, values, _validConsistencyLevelsForErrorMessage));
                 }
 
                 using var client = _client.Invoke();
@@ -114,8 +118,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         /// <summary>
-        /// Determines whether the requested consistency level is valid given the DocumentClient's consistency level.
-        /// DocumentClient throws an ArgumentException when a requested consistency level is invalid. Since ArgumentException
+        /// Determines whether the requested consistency level is valid given the CosmosClient's consistency level.
+        /// CosmosClient throws an ArgumentException when a requested consistency level is invalid. Since ArgumentException
         /// is not very specific and we would rather not inspect the exception message, we do the check ourselves here.
         /// Copied from the DocumentDB SDK.
         /// </summary>

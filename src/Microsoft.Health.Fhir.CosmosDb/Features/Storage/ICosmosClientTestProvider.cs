@@ -11,6 +11,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
     public interface ICosmosClientTestProvider
     {
-        Task PerformTest(Container documentClient, CosmosDataStoreConfiguration configuration, CosmosCollectionConfiguration cosmosCollectionConfiguration);
+        Task PerformTest(Container container, CosmosDataStoreConfiguration configuration, CosmosCollectionConfiguration cosmosCollectionConfiguration);
     }
 }

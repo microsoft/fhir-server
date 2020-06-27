@@ -11,6 +11,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures
     {
         string FullName { get; }
 
-        StoredProcedureProperties AsStoredProcedure();
+        StoredProcedureProperties ToStoredProcedureProperties();
     }
 }

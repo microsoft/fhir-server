@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         }
 
         [Fact]
-        public void CreateCosmosClient_NullPreferredLocations_DoesNotSetPreferredLocations()
+        public void CreateClient_NullPreferredLocations_DoesNotSetPreferredLocations()
         {
             var client = _initializer.CreateCosmosClient(_cosmosDataStoreConfiguration);
 

@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures
                 }
                 catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
                 {
-                    await client.Scripts.CreateStoredProcedureAsync(storedProc.AsStoredProcedure());
+                    await client.Scripts.CreateStoredProcedureAsync(storedProc.ToStoredProcedureProperties());
                 }
             }
         }

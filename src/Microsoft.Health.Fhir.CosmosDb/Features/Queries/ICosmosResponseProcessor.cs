@@ -11,7 +11,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
 {
     public interface ICosmosResponseProcessor
     {
-        Task ProcessException(ResponseMessage ex);
+        Task ProcessErrorResponse(ResponseMessage ex);
 
         Task ProcessResponse(string sessionToken, double responseRequestCharge, HttpStatusCode? statusCode);
     }

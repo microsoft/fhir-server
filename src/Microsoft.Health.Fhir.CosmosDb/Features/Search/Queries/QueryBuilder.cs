@@ -97,8 +97,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                     .Append(SearchValueConstants.RootAliasName).Append(".").Append(KnownResourceWrapperProperties.LastModified)
                     .AppendLine(" DESC");
 
-                var sqlParameterCollection = _queryParameterManager.ToSqlParameterCollection();
-
                 var query = new QueryDefinition(_queryBuilder.ToString());
                 _queryParameterManager.AddToQuery(query);
 

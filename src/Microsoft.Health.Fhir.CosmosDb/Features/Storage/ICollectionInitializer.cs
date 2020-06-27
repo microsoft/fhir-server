@@ -10,6 +10,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
     public interface ICollectionInitializer
     {
-        Task<Container> InitializeCollection(CosmosClient documentClient);
+        Task<Container> InitializeCollection(CosmosClient client);
     }
 }

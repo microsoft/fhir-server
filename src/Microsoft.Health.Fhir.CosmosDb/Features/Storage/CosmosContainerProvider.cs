@@ -17,12 +17,12 @@ using Microsoft.Health.Fhir.CosmosDb.Configs;
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
     /// <summary>
-    /// Provides an <see cref="IDocumentClient"/> instance that is opened and whose collection has been properly initialized for use.
+    /// Provides an <see cref="Container"/> instance that is opened and whose collection has been properly initialized for use.
     /// Initialization starts asynchronously during application startup and is guaranteed to complete before any web request is handled by a controller.
     /// </summary>
     public class CosmosContainerProvider : IStartable, IRequireInitializationOnFirstRequest, IDisposable
     {
-        private Lazy<Container> _documentClient;
+        private Lazy<Container> _container;
         private readonly RetryableInitializationOperation _initializationOperation;
 
         public CosmosContainerProvider(
@@ -38,17 +38,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(collectionInitializers, nameof(collectionInitializers));
 
+            string collectionId = collectionConfiguration.Get(Constants.CollectionConfigurationName).CollectionId;
             CosmosClient client = cosmosClientInitializer.CreateCosmosClient(cosmosDataStoreConfiguration);
 
             _initializationOperation = new RetryableInitializationOperation(
                 () => cosmosClientInitializer.InitializeDataStore(client, cosmosDataStoreConfiguration, collectionInitializers));
 
-            _documentClient = new Lazy<Container>(() =>
-                cosmosClientInitializer.CreateFhirContainer(
-                    client,
-                    cosmosDataStoreConfiguration.DatabaseId,
-                    collectionConfiguration.Get("fhirCosmosDb").CollectionId,
-                    cosmosDataStoreConfiguration.ContinuationTokenSizeLimitInKb));
+            _container = new Lazy<Container>(() => cosmosClientInitializer.CreateFhirContainer(
+                client,
+                cosmosDataStoreConfiguration.DatabaseId,
+                collectionId,
+                cosmosDataStoreConfiguration.ContinuationTokenSizeLimitInKb));
         }
 
         public Container Container
@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 #pragma warning restore CA1065
                 }
 
-                return _documentClient.Value;
+                return _container.Value;
             }
         }
 
@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         public void Start()
         {
 #pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
-            // The result is ignored and will be awaited in EnsureInitialized(). Exceptions are logged within DocumentClientInitializer.
+            // The result is ignored and will be awaited in EnsureInitialized(). Exceptions are logged within CosmosClientInitializer.
             _initializationOperation.EnsureInitialized();
 #pragma warning restore CS4014
         }
@@ -96,7 +96,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             if (disposing)
             {
-                _documentClient = null;
+                _container = null;
             }
         }
 

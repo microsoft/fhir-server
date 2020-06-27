@@ -17,9 +17,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// Creates an instance of <see cref="IDocumentQuery{T}"/>.
         /// </summary>
         /// <typeparam name="T">The document type.</typeparam>
-        /// <param name="documentClient">The document client</param>
+        /// <param name="container">The document client</param>
         /// <param name="queryContext">The SQL query context.</param>
         /// <returns>An instance of <see cref="IDocumentQuery{T}"/>.</returns>
-        ICosmosQuery<T> Create<T>(Container documentClient, CosmosQueryContext queryContext);
+        ICosmosQuery<T> Create<T>(Container container, CosmosQueryContext queryContext);
     }
 }

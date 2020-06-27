@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
 
             using (var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromMinutes(5)))
             {
-                using (var distributedLock = _lockFactory.Create(container, $"UpgradeLock-{CollectionSettingsVersion}"))
+                await using (var distributedLock = _lockFactory.Create(container, $"UpgradeLock:{CollectionSettingsVersion}"))
                 {
                     _logger.LogDebug("Attempting to acquire upgrade lock");
 
