@@ -422,7 +422,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             var exportJobRecordWithCommitPages = new ExportJobRecord(
                 new Uri("https://localhost/ExportJob/"),
-                "Patient",
+                null,
                 "hash",
                 since: PartialDateTime.MinValue,
                 storageAccountConnectionHash: string.Empty,
@@ -477,7 +477,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             var exportJobRecordWithCommitPages = new ExportJobRecord(
                  new Uri("https://localhost/ExportJob/"),
-                 "Patient",
+                 null,
                  "hash",
                  since: PartialDateTime.MinValue,
                  storageAccountConnectionHash: string.Empty,
@@ -673,7 +673,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // "crashing" while in the middle of the process.
             var exportJobRecordWithCommitPages = new ExportJobRecord(
                 new Uri("https://localhost/ExportJob/"),
-                "Patient",
+                null,
                 "hash",
                 since: PartialDateTime.MinValue,
                 storageAccountConnectionHash: string.Empty,
