@@ -18,9 +18,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
     /// </summary>
     public class SupportedSearchParameterDefinitionManager : ISupportedSearchParameterDefinitionManager
     {
-        private readonly SearchParameterDefinitionManager _inner;
+        private readonly ISearchParameterDefinitionManager _inner;
 
-        public SupportedSearchParameterDefinitionManager(SearchParameterDefinitionManager inner)
+        public SupportedSearchParameterDefinitionManager(ISearchParameterDefinitionManager inner)
         {
             EnsureArg.IsNotNull(inner, nameof(inner));
 
