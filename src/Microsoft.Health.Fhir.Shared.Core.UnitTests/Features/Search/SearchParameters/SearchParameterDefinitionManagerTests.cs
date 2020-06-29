@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Linq;
 using System.Threading.Tasks;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -96,7 +95,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             _searchParameterDefinitionManager.Start();
             await _manager.EnsureInitialized();
-            var paramList = _searchParameterDefinitionManager.GetSearchByStatus(true, false);
+            var supportedDefinitionManager = new SupportedSearchParameterDefinitionManager(_searchParameterDefinitionManager);
+            var paramList = supportedDefinitionManager.GetSupportedButNotSearchableParams();
 
             Assert.Single(paramList);
             Assert.Collection(paramList, p =>
@@ -104,42 +104,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 Assert.True(p.IsSupported);
                 Assert.False(p.IsSearchable);
             });
-        }
-
-        [Fact]
-        public async Task GivenSearchableParams_WhenGettingSearchable_ThenSupportedParamsReturned()
-        {
-            _searchParameterDefinitionManager.Start();
-            await _manager.EnsureInitialized();
-            var paramList = _searchParameterDefinitionManager.GetSearchByStatus(true, true);
-
-            Assert.Equal(2, paramList.Count());
-            Assert.Collection(
-                paramList,
-                p1 =>
-                {
-                    Assert.True(p1.IsSupported);
-                    Assert.True(p1.IsSearchable);
-                },
-                p2 =>
-                {
-                    Assert.True(p2.IsSupported);
-                    Assert.True(p2.IsSearchable);
-                });
-        }
-
-        [Fact]
-        public async Task GivenDisabledParams_WhenGettingDisabled_ThenDisabledParamsReturned()
-        {
-            _searchParameterDefinitionManager.Start();
-            await _manager.EnsureInitialized();
-            var paramList = _searchParameterDefinitionManager.GetSearchByStatus(false, false);
-
-            foreach (var param in paramList)
-            {
-                Assert.False(param.IsSearchable);
-                Assert.False(param.IsSupported);
-            }
         }
     }
 }

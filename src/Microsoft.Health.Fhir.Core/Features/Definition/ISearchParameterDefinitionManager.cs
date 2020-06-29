@@ -64,13 +64,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         /// <param name="componentIndex">The optional component index if the search parameter is a composite</param>
         /// <returns>The search parameter type.</returns>
         SearchParamType GetSearchParameterType(SearchParameterInfo searchParameter, int? componentIndex);
-
-        /// <summary>
-        /// Gets list of search parameters with the given support status: <paramref name="isSupported"/> <paramref name="isSearchable"/>.
-        /// </summary>
-        /// <param name="isSupported">Indicates whether to return supported params or unsupported params.</param>
-        /// <param name="isSearchable">Indicates whether to return searchable or unsearchable params.</param>
-        /// <returns>An <see cref="IEnumerable{T}"/> that contains the matching search parameters.</returns>
-        IEnumerable<SearchParameterInfo> GetSearchByStatus(bool isSupported, bool isSearchable);
     }
 }

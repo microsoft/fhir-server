@@ -16,7 +16,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
     /// <summary>
     /// A SearchParameterDefinitionManager that only returns actively searchable parameters.
     /// </summary>
-    public class SupportedSearchParameterDefinitionManager : ISearchParameterDefinitionManager
+    public class SupportedSearchParameterDefinitionManager : ISupportedSearchParameterDefinitionManager
     {
         private readonly SearchParameterDefinitionManager _inner;
 
@@ -75,16 +75,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             return _inner.GetSearchParameterType(searchParameter, componentIndex);
         }
 
-        /// <summary>
-        /// This method will filter by isSupported = true always and return search parameters
-        /// based on the value supplied for isSearchable
-        /// </summary>
-        /// <param name="isSupported">Overidden to be true.</param>
-        /// <param name="isSearchable">Value to filter on whether or not search params are searchable.</param>
-        /// <returns>Returns all search parameters that are both supported and searchable</returns>
-        public IEnumerable<SearchParameterInfo> GetSearchByStatus(bool isSupported, bool isSearchable)
+        public IEnumerable<SearchParameterInfo> GetSupportedButNotSearchableParams()
         {
-            return _inner.GetSearchByStatus(true, isSearchable);
+            return _inner.AllSearchParameters.Where(p => p.IsSearchable == false && p.IsSupported == true);
         }
     }
 }

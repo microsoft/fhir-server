@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
         private readonly ReindexJobConfiguration _reindexJobConfiguration;
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
-        private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
+        private readonly ISupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager;
         private readonly ILogger _logger;
 
         private ReindexJobRecord _reindexJobRecord;
@@ -37,19 +37,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory,
             IOptions<ReindexJobConfiguration> reindexJobConfiguration,
             Func<IScoped<ISearchService>> searchServiceFactory,
-            ISearchParameterDefinitionManager searchParameterDefinitionManager,
+            ISupportedSearchParameterDefinitionManager supportedSearchParameterDefinitionManager,
             ILogger<ReindexJobTask> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
             EnsureArg.IsNotNull(reindexJobConfiguration?.Value, nameof(reindexJobConfiguration));
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
-            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
+            EnsureArg.IsNotNull(supportedSearchParameterDefinitionManager, nameof(supportedSearchParameterDefinitionManager));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
             _reindexJobConfiguration = reindexJobConfiguration.Value;
             _searchServiceFactory = searchServiceFactory;
-            _searchParameterDefinitionManager = searchParameterDefinitionManager;
+            _supportedSearchParameterDefinitionManager = supportedSearchParameterDefinitionManager;
             _logger = logger;
         }
 
@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 {
                     // Build query based on new search params
                     // Find supported, but not yet searchable params
-                    var notYetIndexedParams = _searchParameterDefinitionManager.GetSearchByStatus(true, false);
+                    var notYetIndexedParams = _supportedSearchParameterDefinitionManager.GetSupportedButNotSearchableParams();
 
                     // From the param list, get the list of necessary resources which should be
                     // included in our query
