@@ -745,6 +745,141 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal("23", exportedIds);
         }
 
+        [Fact]
+        public async Task GivenAPatientExportJob_WhenExecuted_ThenAllCompartmentResourcesShouldBeExported()
+        {
+            int numberOfCalls = 0;
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    numberOfCalls++;
+                    return CreateSearchResult(
+                        new[]
+                        {
+                            new SearchResultEntry(
+                                new ResourceWrapper(
+                                    numberOfCalls.ToString(CultureInfo.InvariantCulture),
+                                    "1",
+                                    "Patient",
+                                    new RawResource("data", Core.Models.FhirResourceFormat.Json),
+                                    null,
+                                    DateTimeOffset.MinValue,
+                                    false,
+                                    null,
+                                    null,
+                                    null)),
+                        },
+                        continuationToken: numberOfCalls > 3 ? null : "ct");
+                });
+
+            int numberOfCompartmentCalls = 0;
+            _searchService.SearchCompartmentAsync(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    numberOfCompartmentCalls++;
+                    return CreateSearchResult(
+                        new[]
+                        {
+                            new SearchResultEntry(
+                                new ResourceWrapper(
+                                    numberOfCompartmentCalls.ToString(CultureInfo.InvariantCulture),
+                                    "1",
+                                    "Observation",
+                                    new RawResource("data", Core.Models.FhirResourceFormat.Json),
+                                    null,
+                                    DateTimeOffset.MinValue,
+                                    false,
+                                    null,
+                                    null,
+                                    null)),
+                        },
+                        continuationToken: numberOfCompartmentCalls % 2 == 0 ? null : "ct");
+                });
+
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            Assert.Equal(4, numberOfCalls);
+            Assert.Equal(8, numberOfCompartmentCalls);
+
+            string exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
+            Assert.Equal("1234", exportedIds);
+            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri("Observation.ndjson", UriKind.Relative));
+            Assert.Equal("12345678", exportedIds);
+
+            Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
+        }
+
+        [Fact]
+        public async Task GivenAPatientExportJobWithNoCompartmentResources_WhenExecuted_ThenJustAllPatientResourcesShouldBeExported()
+        {
+            int numberOfCalls = 0;
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    numberOfCalls++;
+                    return CreateSearchResult(
+                        new[]
+                        {
+                            new SearchResultEntry(
+                                new ResourceWrapper(
+                                    numberOfCalls.ToString(CultureInfo.InvariantCulture),
+                                    "1",
+                                    "Patient",
+                                    new RawResource("data", Core.Models.FhirResourceFormat.Json),
+                                    null,
+                                    DateTimeOffset.MinValue,
+                                    false,
+                                    null,
+                                    null,
+                                    null)),
+                        },
+                        continuationToken: numberOfCalls > 3 ? null : "ct");
+                });
+
+            int numberOfCompartmentCalls = 0;
+            _searchService.SearchCompartmentAsync(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    numberOfCompartmentCalls++;
+                    return CreateSearchResult();
+                });
+
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            Assert.Equal(4, numberOfCalls);
+            Assert.Equal(4, numberOfCompartmentCalls);
+
+            string exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
+            Assert.Equal("1234", exportedIds);
+            Assert.Equal(1, _inMemoryDestinationClient.GetExportedDataFileCount());
+
+            Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
+        }
+
+        /*
+        [Fact]
+        public async Task GivenAPatientExportJobToResumeWithinACompartment_WhenExecuted_ThenItShouldExportAllResources()
+        {
+
+        }
+        */
+
         private SearchResult CreateSearchResult(IEnumerable<SearchResultEntry> resourceWrappers = null, string continuationToken = null)
         {
             if (resourceWrappers == null)
