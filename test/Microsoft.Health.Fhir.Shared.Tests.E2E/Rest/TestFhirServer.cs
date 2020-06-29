@@ -113,12 +113,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                             scope,
                             clientApplication.ClientId,
                             clientApplication.ClientSecret);
-                        var credentialProvider = new OAuth2ClientCredentialProvider(authHttpClient, Options.Create(credentialConfiguration));
+                        var credentialProvider = new OAuth2ClientCredentialProvider(Options.Create(credentialConfiguration), authHttpClient);
                         authHandler = new AuthenticationHttpMessageHandler(credentialProvider);
                     }
                     else
                     {
-                        var credentialConfiguration = new OAuth2UserCredentialConfiguration(
+                        var credentialConfiguration = new OAuth2UserPasswordCredentialConfiguration(
                             TokenUri,
                             AuthenticationSettings.Resource,
                             AuthenticationSettings.Scope,
@@ -126,7 +126,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                             clientApplication.ClientSecret,
                             user.UserId,
                             user.Password);
-                        var credentialProvider = new OAuth2UserPasswordCredentialProvider(authHttpClient, Options.Create(credentialConfiguration));
+                        var credentialProvider = new OAuth2UserPasswordCredentialProvider(Options.Create(credentialConfiguration), authHttpClient);
                         authHandler = new AuthenticationHttpMessageHandler(credentialProvider);
                     }
 
