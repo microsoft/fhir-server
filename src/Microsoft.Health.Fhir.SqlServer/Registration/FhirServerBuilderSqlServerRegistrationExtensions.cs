@@ -37,7 +37,8 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.Add<SqlServerFhirModel>()
                 .Singleton()
-                .AsSelf();
+                .AsSelf()
+                .AsImplementedInterfaces();
 
             services.Add<SearchParameterToSearchValueTypeMap>()
                 .Singleton()
