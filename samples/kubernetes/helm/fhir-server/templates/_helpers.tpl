@@ -52,6 +52,14 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 
 {{/*
+Selector labels for MSSQL
+*/}}
+{{- define "fhir-server-mssql.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "fhir-server.name" . }}-mssql
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end -}}
+
+{{/*
 Create the name of the service account to use
 */}}
 {{- define "fhir-server.serviceAccountName" -}}

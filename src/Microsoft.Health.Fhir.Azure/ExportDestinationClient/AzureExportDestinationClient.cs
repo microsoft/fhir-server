@@ -15,6 +15,8 @@ using EnsureThat;
 using Microsoft.Azure.Storage;
 using Microsoft.Azure.Storage.Blob;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 using Polly;
 
@@ -29,24 +31,33 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
         private Dictionary<(Uri FileUri, string PartId), Stream> _streamMappings = new Dictionary<(Uri FileUri, string PartId), Stream>();
 
         private readonly IExportClientInitializer<CloudBlobClient> _exportClientInitializer;
+        private readonly ExportJobConfiguration _exportJobConfiguration;
         private readonly ILogger _logger;
 
         public AzureExportDestinationClient(
             IExportClientInitializer<CloudBlobClient> exportClientInitializer,
+            IOptions<ExportJobConfiguration> exportJobConfiguration,
             ILogger<AzureExportDestinationClient> logger)
         {
             EnsureArg.IsNotNull(exportClientInitializer, nameof(exportClientInitializer));
+            EnsureArg.IsNotNull(exportJobConfiguration?.Value, nameof(exportJobConfiguration));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _exportClientInitializer = exportClientInitializer;
+            _exportJobConfiguration = exportJobConfiguration.Value;
             _logger = logger;
         }
 
         public async Task ConnectAsync(CancellationToken cancellationToken, string containerId = null)
         {
+            await ConnectAsync(_exportJobConfiguration, cancellationToken, containerId);
+        }
+
+        public async Task ConnectAsync(ExportJobConfiguration exportJobConfiguration, CancellationToken cancellationToken, string containerId = null)
+        {
             try
             {
-                _blobClient = await _exportClientInitializer.GetAuthorizedClientAsync(cancellationToken);
+                _blobClient = await _exportClientInitializer.GetAuthorizedClientAsync(exportJobConfiguration, cancellationToken);
             }
             catch (ExportClientInitializerException ece)
             {
@@ -117,6 +128,11 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
 
         public async Task CommitAsync(CancellationToken cancellationToken)
         {
+            await CommitAsync(_exportJobConfiguration, cancellationToken);
+        }
+
+        public async Task CommitAsync(ExportJobConfiguration exportJobConfiguration, CancellationToken cancellationToken)
+        {
             CheckIfClientIsConnected();
 
             try
@@ -128,7 +144,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
                         onRetryAsync: async (exception, retryCount) =>
                         {
                             _logger.LogWarning(exception, "Error while uploading blobs.");
-                            await RefreshClientAsync(cancellationToken);
+                            await RefreshClientAsync(exportJobConfiguration, cancellationToken);
                         })
                     .ExecuteAsync(() => UploadBlobHelperAsync(cancellationToken));
             }
@@ -151,7 +167,7 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
                         onRetryAsync: async (exception, retryCount) =>
                         {
                             _logger.LogWarning(exception, "Error while committing block list.");
-                            await RefreshClientAsync(cancellationToken);
+                            await RefreshClientAsync(exportJobConfiguration, cancellationToken);
                         })
                     .ExecuteAsync(() => UploadBlockListHelperAsync(cancellationToken));
             }
@@ -252,12 +268,12 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
         /// Also updates the existing blob container and CloudBlockBlob objects so that they will
         /// use the new CloudBlobClient.
         /// </summary>
-        private async Task RefreshClientAsync(CancellationToken cancellationToken)
+        private async Task RefreshClientAsync(ExportJobConfiguration exportJobConfiguration, CancellationToken cancellationToken)
         {
             CloudBlobClient refreshedClient;
             try
             {
-                refreshedClient = await _exportClientInitializer.GetAuthorizedClientAsync(cancellationToken);
+                refreshedClient = await _exportClientInitializer.GetAuthorizedClientAsync(exportJobConfiguration, cancellationToken);
             }
             catch (ExportClientInitializerException ex)
             {

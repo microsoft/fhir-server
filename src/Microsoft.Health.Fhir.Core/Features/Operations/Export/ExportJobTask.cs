@@ -72,8 +72,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             try
             {
+                ExportJobConfiguration exportJobConfiguration = _exportJobConfiguration;
+
+                string connectionHash = string.IsNullOrEmpty(_exportJobConfiguration.StorageAccountConnection) ?
+                    string.Empty :
+                    Microsoft.Health.Core.Extensions.StringExtensions.ComputeHash(_exportJobConfiguration.StorageAccountConnection);
+
+                if (string.IsNullOrEmpty(exportJobRecord.StorageAccountUri))
+                {
+                    if (!string.Equals(exportJobRecord.StorageAccountConnectionHash, connectionHash, StringComparison.Ordinal))
+                    {
+                        throw new DestinationConnectionException("Storage account connection string was updated during an export job.", HttpStatusCode.BadRequest);
+                    }
+                }
+                else
+                {
+                    exportJobConfiguration = new ExportJobConfiguration();
+                    exportJobConfiguration.Enabled = _exportJobConfiguration.Enabled;
+                    exportJobConfiguration.StorageAccountUri = exportJobRecord.StorageAccountUri;
+                }
+
                 // Connect to export destination using appropriate client.
-                await _exportDestinationClient.ConnectAsync(cancellationToken, _exportJobRecord.Id);
+                await _exportDestinationClient.ConnectAsync(exportJobConfiguration, cancellationToken, _exportJobRecord.Id);
 
                 // If we are resuming a job, we can detect that by checking the progress info from the job record.
                 // If it is null, then we know we are processing a new job.
@@ -86,7 +106,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 // from the search result.
                 var queryParametersList = new List<Tuple<string, string>>()
                 {
-                    Tuple.Create(KnownQueryParameterNames.Count, _exportJobConfiguration.MaximumNumberOfResourcesPerQuery.ToString(CultureInfo.InvariantCulture)),
+                    Tuple.Create(KnownQueryParameterNames.Count, _exportJobRecord.MaximumNumberOfResourcesPerQuery.ToString(CultureInfo.InvariantCulture)),
                     Tuple.Create(KnownQueryParameterNames.LastUpdated, $"le{_exportJobRecord.QueuedTime.ToString("o", CultureInfo.InvariantCulture)}"),
                 };
 
@@ -230,10 +250,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, progress.ContinuationToken));
                 }
 
-                if (pagesWaitingForCommit % _exportJobConfiguration.NumberOfPagesPerCommit == 0)
-                {
-                    // Commit the changes.
-                    await _exportDestinationClient.CommitAsync(cancellationToken);
+                    if (progress.Page % _exportJobRecord.NumberOfPagesPerCommit == 0)
+                    {
+                        // Commit the changes.
+                        await _exportDestinationClient.CommitAsync(exportJobConfiguration, cancellationToken);
 
                     // Update the job record.
                     await UpdateJobRecordAsync(cancellationToken);
@@ -244,7 +264,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
 
             // Commit one last time for any pending changes.
-            await _exportDestinationClient.CommitAsync(cancellationToken);
+            await _exportDestinationClient.CommitAsync(exportJobConfiguration, cancellationToken);
         }
 
         private async Task ProcessSearchResultsAsync(IEnumerable<SearchResultEntry> searchResults, string partId, CancellationToken cancellationToken)

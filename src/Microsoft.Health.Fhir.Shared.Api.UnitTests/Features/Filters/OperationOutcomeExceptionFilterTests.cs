@@ -200,9 +200,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         }
 
         [Fact]
-        public void GivenACustomerManagedKeyInaccessibleException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
+        public void GivenCustomerManagedKeyException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
         {
-            ValidateOperationOutcome(new CustomerManagedKeyInaccessibleException(), HttpStatusCode.Forbidden);
+            ValidateOperationOutcome(new CustomerManagedKeyException("A customer-managed key error message"), HttpStatusCode.Forbidden);
         }
 
         [Fact]

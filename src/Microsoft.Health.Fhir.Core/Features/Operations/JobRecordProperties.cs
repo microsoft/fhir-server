@@ -71,7 +71,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string Scope = "scope";
 
+        public const string StorageAccountConnectionHash = "storageAccountConnectionHash";
+
+        public const string StorageAccountUri = "storageAccountUri";
+
         public const string MaximumConcurrency = "maximumConcurrency";
+
+        public const string MaximumNumberOfResourcesPerQuery = "maximumNumberOfResourcesPerQuery";
+
+        public const string NumberOfPagesPerCommit = "numberOfPagesPerCommit";
 
         public const string SubSearch = "subSearch";
 
