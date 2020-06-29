@@ -240,15 +240,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             EnsureArg.IsNotNullOrWhiteSpace(operationName, nameof(operationName));
             EnsureArg.IsNotNullOrWhiteSpace(id, nameof(id));
 
-            string routName = null;
+            string routeName = null;
 
             switch (operationName)
             {
                 case OperationsConstants.Export:
-                    routName = RouteNames.GetExportStatusById;
+                    routeName = RouteNames.GetExportStatusById;
                     break;
                 case OperationsConstants.Reindex:
-                    routName = RouteNames.GetReindexStatusById;
+                    routeName = RouteNames.GetReindexStatusById;
                     break;
                 default:
                     throw new OperationNotImplementedException(string.Format(Resources.OperationNotImplemented, operationName));
@@ -260,7 +260,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             };
 
             string uriString = UrlHelper.RouteUrl(
-                routName,
+                routeName,
                 routeValues,
                 Request.Scheme,
                 Request.Host.Value);
