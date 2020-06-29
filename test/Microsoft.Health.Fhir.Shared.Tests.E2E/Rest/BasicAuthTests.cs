@@ -206,7 +206,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ExportUser, TestApplications.NativeClient);
 
-            await tempClient.ExportAsync();
+            Uri contentLocation = await tempClient.ExportAsync();
+            await tempClient.CancelExport(contentLocation);
         }
     }
 }

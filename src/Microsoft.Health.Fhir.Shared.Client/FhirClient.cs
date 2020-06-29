@@ -301,8 +301,7 @@ namespace Microsoft.Health.Fhir.Client
 
         public async Task<Uri> ExportAsync(string path = "", CancellationToken cancellationToken = default)
         {
-            var message = new HttpRequestMessage(HttpMethod.Get, $"{path}$export");
-
+            using var message = new HttpRequestMessage(HttpMethod.Get, $"{path}$export");
             message.Headers.Add("Accept", "application/fhir+json");
             message.Headers.Add("Prefer", "respond-async");
 
@@ -315,11 +314,16 @@ namespace Microsoft.Health.Fhir.Client
 
         public async Task<HttpResponseMessage> CheckExportAsync(Uri contentLocation, CancellationToken cancellationToken = default)
         {
-            var message = new HttpRequestMessage(HttpMethod.Get, contentLocation);
-
+            using var message = new HttpRequestMessage(HttpMethod.Get, contentLocation);
             HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
             return response;
+        }
+
+        public async Task CancelExport(Uri contentLocation, CancellationToken cancellationToken = default)
+        {
+            using var message = new HttpRequestMessage(HttpMethod.Delete, contentLocation);
+            await HttpClient.SendAsync(message, cancellationToken);
         }
 
         public async Task<FhirResponse<Bundle>> PostBundleAsync(Resource bundle, CancellationToken cancellationToken = default)
