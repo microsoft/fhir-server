@@ -257,7 +257,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, progress.ContinuationToken));
                 }
 
-                if (progress.Page % _exportJobRecord.NumberOfPagesPerCommit == 0)
+                if (progress.Page % _exportJobRecord.NumberOfPagesPerCommit == 0 || (_exportJobRecord.ResourceType == "Patient" && !compartmentSearch))
                 {
                     // Commit the changes.
                     await _exportDestinationClient.CommitAsync(exportJobConfiguration, cancellationToken);
@@ -272,6 +272,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             // Commit one last time for any pending changes.
             await _exportDestinationClient.CommitAsync(exportJobConfiguration, cancellationToken);
+            await UpdateJobRecordAsync(cancellationToken);
         }
 
         private async Task ProcessSearchResultsAsync(IEnumerable<SearchResultEntry> searchResults, string partId, CancellationToken cancellationToken)
