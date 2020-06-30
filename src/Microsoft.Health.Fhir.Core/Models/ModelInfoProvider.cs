@@ -86,9 +86,9 @@ namespace Microsoft.Health.Fhir.Core.Models
             return Instance.GetTypeForFhirType(resourceType);
         }
 
-        public static EvaluationContext GetEvaluationContext(ITypedElement element)
+        public static EvaluationContext GetEvaluationContext(Func<string, ITypedElement> elementResolver = null)
         {
-            return Instance.GetEvaluationContext(element);
+            return Instance.GetEvaluationContext(elementResolver);
         }
 
         public static void EnsureValidResourceType(string resourceName, string parameterName)
