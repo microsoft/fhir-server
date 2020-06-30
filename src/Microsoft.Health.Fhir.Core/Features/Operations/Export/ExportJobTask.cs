@@ -18,6 +18,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationCli
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Models;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
@@ -189,7 +190,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             // 2. There is no continuation token but the page is 0, which means it's the initial export.
             while (progress.ContinuationToken != null || progress.Page == 0)
             {
-                SearchResult searchResult;
+                SearchResult searchResult = null;
 
                 // Search and process the results.
                 using (IScoped<ISearchService> searchService = _searchServiceFactory())
@@ -197,7 +198,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     if (compartmentSearch)
                     {
                         searchResult = await searchService.Value.SearchCompartmentAsync(
-                            _exportJobRecord.ResourceType,
+                            KnownResourceTypes.Patient,
                             progress.TriggeringResourceId,
                             null,
                             queryParametersList,
@@ -205,14 +206,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     }
                     else
                     {
-                        searchResult = await searchService.Value.SearchAsync(
-                            _exportJobRecord.ResourceType,
-                            queryParametersList,
-                            cancellationToken);
+                        switch (_exportJobRecord.ExportType)
+                        {
+                            case ExportJobType.All:
+                                searchResult = await searchService.Value.SearchAsync(
+                                    null,
+                                    queryParametersList,
+                                    cancellationToken);
+                                break;
+                            case ExportJobType.Patient:
+                                searchResult = await searchService.Value.SearchAsync(
+                                    KnownResourceTypes.Patient,
+                                    queryParametersList,
+                                    cancellationToken);
+                                break;
+                        }
                     }
                 }
 
-                if (_exportJobRecord.ResourceType == "Patient" && !compartmentSearch)
+                if (_exportJobRecord.ExportType == ExportJobType.Patient && !compartmentSearch)
                 {
                     uint resultIndex = 0;
                     foreach (SearchResultEntry result in searchResult.Results)
@@ -257,7 +269,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, progress.ContinuationToken));
                 }
 
-                if (progress.Page % _exportJobRecord.NumberOfPagesPerCommit == 0 || (_exportJobRecord.ResourceType == "Patient" && !compartmentSearch))
+                if (progress.Page % _exportJobRecord.NumberOfPagesPerCommit == 0 || (_exportJobRecord.ExportType == ExportJobType.Patient && !compartmentSearch))
                 {
                     // Commit the changes.
                     await _exportDestinationClient.CommitAsync(exportJobConfiguration, cancellationToken);

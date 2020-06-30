@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Messages.Export;
@@ -49,7 +50,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         [Fact]
         public async Task GivenANewExportRequest_WhenCreatingExportJob_ThenGetsJobCreated()
         {
-            var jobRecord = new ExportJobRecord(_exportRequest.RequestUri, _exportRequest.ResourceType, "hash");
+            ExportJobType exportType = ExportJobType.All;
+            if (_exportRequest.RequestUri.AbsoluteUri.Contains("Patient", StringComparison.OrdinalIgnoreCase))
+            {
+                exportType = ExportJobType.Patient;
+            }
+            else if (_exportRequest.RequestUri.AbsoluteUri.Contains("Group", StringComparison.OrdinalIgnoreCase))
+            {
+                exportType = ExportJobType.Group;
+            }
+
+            var jobRecord = new ExportJobRecord(_exportRequest.RequestUri, exportType, _exportRequest.ResourceType, "hash");
 
             ExportJobOutcome outcome = await _operationDataStore.CreateExportJobAsync(jobRecord, CancellationToken.None);
 
@@ -315,7 +326,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
 
             string hash = JsonConvert.SerializeObject(hashObject).ComputeHash();
 
-            var jobRecord = new ExportJobRecord(_exportRequest.RequestUri, "Patient", hash);
+            var jobRecord = new ExportJobRecord(_exportRequest.RequestUri, ExportJobType.Patient, null, hash);
 
             jobRecordCustomizer?.Invoke(jobRecord);
 

@@ -73,7 +73,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var exportJobRecordWithOneResource = new ExportJobRecord(
                 new Uri("https://localhost/ExportJob/"),
-                "Patient",
+                ExportJobType.Patient,
+                null,
                 "hash",
                 storageAccountConnectionHash: string.Empty,
                 storageAccountUri: _exportJobConfiguration.StorageAccountUri,
@@ -84,7 +85,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             // First search should not have continuation token in the list of query parameters.
             _searchService.SearchAsync(
-                _exportJobRecord.ResourceType,
+                "Patient",
                 Arg.Is(CreateQueryParametersExpression()),
                 _cancellationToken)
                 .Returns(x =>
@@ -106,7 +107,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var exportJobRecordWithSince = new ExportJobRecord(
                 new Uri("https://localhost/ExportJob/"),
-                "Patient",
+                ExportJobType.Patient,
+                null,
                 "hash",
                 since: Core.Models.PartialDateTime.MinValue,
                 storageAccountConnectionHash: string.Empty,
@@ -118,7 +120,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             // First search should not have continuation token in the list of query parameters.
             _searchService.SearchAsync(
-                _exportJobRecord.ResourceType,
+                "Patient",
                 Arg.Is(CreateQueryParametersExpression(_exportJobRecord.Since)),
                 _cancellationToken)
                 .Returns(x =>
@@ -140,7 +142,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var exportJobRecordWithOneResource = new ExportJobRecord(
                 new Uri("https://localhost/ExportJob/"),
-                "Patient",
+                ExportJobType.Patient,
+                null,
                 "hash",
                 storageAccountConnectionHash: string.Empty,
                 storageAccountUri: _exportJobConfiguration.StorageAccountUri,
@@ -151,7 +154,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             // First search returns a search result with continuation token.
             _searchService.SearchAsync(
-                _exportJobRecord.ResourceType,
+                "Patient",
                 Arg.Is(CreateQueryParametersExpression()),
                 _cancellationToken)
                 .Returns(CreateSearchResult(continuationToken: continuationToken));
@@ -160,7 +163,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             // Second search returns a search result without continuation token.
             _searchService.SearchAsync(
-                _exportJobRecord.ResourceType,
+                "Patient",
                 Arg.Is(CreateQueryParametersExpressionWithContinuationToken(continuationToken)),
                 _cancellationToken)
                 .Returns(x =>
@@ -182,7 +185,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var exportJobRecordWithSince = new ExportJobRecord(
                 new Uri("https://localhost/ExportJob/"),
-                "Patient",
+                ExportJobType.Patient,
+                null,
                 "hash",
                 since: PartialDateTime.MinValue,
                 storageAccountConnectionHash: string.Empty,
@@ -193,7 +197,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             // First search returns a search result with continuation token.
             _searchService.SearchAsync(
-                _exportJobRecord.ResourceType,
+                "Patient",
                 Arg.Is(CreateQueryParametersExpression(_exportJobRecord.Since)),
                 _cancellationToken)
                 .Returns(CreateSearchResult(continuationToken: continuationToken));
@@ -202,7 +206,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             // Second search returns a search result without continuation token.
             _searchService.SearchAsync(
-                _exportJobRecord.ResourceType,
+                "Patient",
                 Arg.Is(CreateQueryParametersExpressionWithContinuationToken(continuationToken, _exportJobRecord.Since)),
                 _cancellationToken)
                 .Returns(x =>
@@ -224,7 +228,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var exportJobRecordWithOneResource = new ExportJobRecord(
                 new Uri("https://localhost/ExportJob/"),
-                "Patient",
+                ExportJobType.Patient,
+                null,
                 "hash",
                 storageAccountConnectionHash: string.Empty,
                 storageAccountUri: _exportJobConfiguration.StorageAccountUri,
@@ -235,7 +240,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             // First search returns a search result with continuation token.
             _searchService.SearchAsync(
-                _exportJobRecord.ResourceType,
+                "Patient",
                 Arg.Is(CreateQueryParametersExpression()),
                 _cancellationToken)
                 .Returns(CreateSearchResult(continuationToken: continuationToken));
@@ -245,7 +250,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             // Second search returns a search result with continuation token.
             _searchService.SearchAsync(
-                _exportJobRecord.ResourceType,
+                "Patient",
                 Arg.Is(CreateQueryParametersExpressionWithContinuationToken(continuationToken)),
                 _cancellationToken)
                 .Returns(x =>
@@ -259,7 +264,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             // Third search returns a search result without continuation token.
             _searchService.SearchAsync(
-                _exportJobRecord.ResourceType,
+                "Patient",
                 Arg.Is(CreateQueryParametersExpressionWithContinuationToken(newContinuationToken)),
                 _cancellationToken)
                 .Returns(x =>
@@ -282,7 +287,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var exportJobRecordWithSince = new ExportJobRecord(
                 new Uri("https://localhost/ExportJob/"),
-                "Patient",
+                ExportJobType.Patient,
+                null,
                 "hash",
                 since: PartialDateTime.MinValue,
                 storageAccountConnectionHash: string.Empty,
@@ -293,7 +299,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             // First search returns a search result with continuation token.
             _searchService.SearchAsync(
-                _exportJobRecord.ResourceType,
+                "Patient",
                 Arg.Is(CreateQueryParametersExpression(_exportJobRecord.Since)),
                 _cancellationToken)
                 .Returns(CreateSearchResult(continuationToken: continuationToken));
@@ -303,7 +309,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             // Second search returns a search result with continuation token.
             _searchService.SearchAsync(
-                _exportJobRecord.ResourceType,
+                "Patient",
                 Arg.Is(CreateQueryParametersExpressionWithContinuationToken(continuationToken, _exportJobRecord.Since)),
                 _cancellationToken)
                 .Returns(x =>
@@ -317,7 +323,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             // Third search returns a search result without continuation token.
             _searchService.SearchAsync(
-                _exportJobRecord.ResourceType,
+                "Patient",
                 Arg.Is(CreateQueryParametersExpressionWithContinuationToken(newContinuationToken, _exportJobRecord.Since)),
                 _cancellationToken)
                 .Returns(x =>
@@ -423,6 +429,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             var exportJobRecordWithCommitPages = new ExportJobRecord(
                 new Uri("https://localhost/ExportJob/"),
+                ExportJobType.All,
                 null,
                 "hash",
                 since: PartialDateTime.MinValue,
@@ -478,6 +485,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             var exportJobRecordWithCommitPages = new ExportJobRecord(
                  new Uri("https://localhost/ExportJob/"),
+                 ExportJobType.All,
                  null,
                  "hash",
                  since: PartialDateTime.MinValue,
@@ -565,7 +573,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var exportJobRecordWithConnection = new ExportJobRecord(
                 new Uri("https://localhost/ExportJob/"),
-                "Patient",
+                ExportJobType.Patient,
+                null,
                 "hash",
                 since: PartialDateTime.MinValue,
                 storageAccountConnectionHash: Microsoft.Health.Core.Extensions.StringExtensions.ComputeHash(exportJobConfiguration.StorageAccountConnection),
@@ -605,7 +614,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var exportJobRecordWithChangedConnection = new ExportJobRecord(
                 new Uri("https://localhost/ExportJob/"),
-                "Patient",
+                ExportJobType.Patient,
+                null,
                 "hash",
                 since: PartialDateTime.MinValue,
                 storageAccountConnectionHash: Microsoft.Health.Core.Extensions.StringExtensions.ComputeHash("different connection"),
@@ -633,7 +643,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             var exportJobRecordWithChangedConnection = new ExportJobRecord(
                 new Uri("https://localhost/ExportJob/"),
-                "Patient",
+                ExportJobType.Patient,
+                null,
                 "hash",
                 since: PartialDateTime.MinValue,
                 storageAccountConnectionHash: Microsoft.Health.Core.Extensions.StringExtensions.ComputeHash(_exportJobConfiguration.StorageAccountConnection),
@@ -674,6 +685,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // "crashing" while in the middle of the process.
             var exportJobRecordWithCommitPages = new ExportJobRecord(
                 new Uri("https://localhost/ExportJob/"),
+                ExportJobType.All,
                 null,
                 "hash",
                 since: PartialDateTime.MinValue,
@@ -880,7 +892,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // "crashing" while in the middle of the process.
             var exportJobRecordWithCommitPages = new ExportJobRecord(
                 new Uri("https://localhost/ExportJob/"),
-                "Patient",
+                ExportJobType.Patient,
+                null,
                 "hash",
                 since: PartialDateTime.MinValue,
                 storageAccountConnectionHash: string.Empty,
@@ -1009,7 +1022,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // "crashing" while in the middle of the process.
             var exportJobRecordWithCommitPages = new ExportJobRecord(
                 new Uri("https://localhost/ExportJob/"),
-                "Patient",
+                ExportJobType.Patient,
+                null,
                 "hash",
                 since: PartialDateTime.MinValue,
                 storageAccountConnectionHash: string.Empty,
@@ -1137,7 +1151,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             _exportJobRecord = exportJobRecord ?? new ExportJobRecord(
                 new Uri("https://localhost/ExportJob/"),
-                "Patient",
+                ExportJobType.Patient,
+                null,
                 "hash",
                 storageAccountConnectionHash: string.Empty,
                 storageAccountUri: _exportJobConfiguration.StorageAccountUri,

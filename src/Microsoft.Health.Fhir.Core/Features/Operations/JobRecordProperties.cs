@@ -84,5 +84,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public const string SubSearch = "subSearch";
 
         public const string TriggeringResourceId = "triggeringResourceId";
+
+        public const string ExportType = "exportType";
     }
 }

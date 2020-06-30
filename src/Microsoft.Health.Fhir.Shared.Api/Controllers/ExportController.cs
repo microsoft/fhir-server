@@ -95,7 +95,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new RequestNotValidException(string.Format(Resources.UnsupportedResourceType, typeParameter));
             }
 
-            return await SendExportRequest(since, typeParameter);
+            return await SendExportRequest(since);
         }
 
         [HttpGet]
