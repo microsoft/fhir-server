@@ -51,6 +51,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         protected internal Uri TokenUri { get; set; }
 
+        protected internal Uri AuthorizeUri { get; set; }
+
         public Uri BaseAddress { get; }
 
         public TestFhirClient GetTestFhirClient(ResourceFormat format, bool reusable = true, DelegatingHandler authenticationHandler = null)
@@ -174,9 +176,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 if (oauth != null)
                 {
                     var tokenUrl = oauth.GetExtensionValue<FhirUri>(Core.Features.Security.Constants.SmartOAuthUriExtensionToken).Value;
+                    var authorizeUrl = oauth.GetExtensionValue<FhirUri>(Core.Features.Security.Constants.SmartOAuthUriExtensionAuthorize).Value;
 
                     localSecurityEnabled = true;
                     TokenUri = new Uri(tokenUrl);
+                    AuthorizeUrl = new Uri(authorizeUrl);
 
                     break;
                 }

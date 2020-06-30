@@ -51,9 +51,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
 
             using (var testFhirServerFactory = new TestFhirServerFactory())
             {
-                var testFhirClient = testFhirServerFactory
-                    .GetTestFhirServer(_dataStore, null)
-                    .GetTestFhirClient(ResourceFormat.Json);
+                var testFhirServer = testFhirServerFactory
+                    .GetTestFhirServer(_dataStore, null);
+
+                if (testFhirServer.SecurityEnabled)
+                {
+                    await client.AuthorizeServerAsync(testFhirServer.AuthorizeUri, testFhirServer.TokenUri);
+                }
 
                 var supportedTests = await client.GetSupportedTestsAsync();
 
