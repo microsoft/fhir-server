@@ -8,5 +8,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
     public class OperationsConfiguration
     {
         public ExportJobConfiguration Export { get; set; } = new ExportJobConfiguration();
+
+        public ReindexJobConfiguration Reindex { get; set; } = new ReindexJobConfiguration();
     }
 }

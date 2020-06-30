@@ -78,13 +78,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             optionsMonitor.Get(CosmosDb.Constants.CollectionConfigurationName).Returns(_cosmosCollectionConfiguration);
 
-            Type searchDefinitionManagerType = typeof(SearchParameterDefinitionManager);
-            var searchParameterDefinitionManager = new SearchParameterDefinitionManager(new FhirJsonParser(), ModelInfoProvider.Instance);
+            var searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance);
             searchParameterDefinitionManager.Start();
-            _filebasedSearchParameterRegistry = new FilebasedSearchParameterRegistry(
-                searchParameterDefinitionManager,
-                searchDefinitionManagerType.Assembly,
-                $"{searchDefinitionManagerType.Namespace}.unsupported-search-parameters.json");
+
+            _filebasedSearchParameterRegistry = new FilebasedSearchParameterRegistry(searchParameterDefinitionManager, ModelInfoProvider.Instance);
 
             var updaters = new IFhirCollectionUpdater[]
             {

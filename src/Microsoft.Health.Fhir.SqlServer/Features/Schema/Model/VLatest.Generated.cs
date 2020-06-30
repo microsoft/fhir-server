@@ -8,6 +8,7 @@
 //------------------------------------------------------------------------------
 namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
 {
+    using Microsoft.Health.SqlServer.Features.Client;
     using Microsoft.Health.SqlServer.Features.Schema.Model;
 
     internal class VLatest
@@ -17,6 +18,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         internal readonly static CompartmentTypeTable CompartmentType = new CompartmentTypeTable();
         internal readonly static DateTimeSearchParamTable DateTimeSearchParam = new DateTimeSearchParamTable();
         internal readonly static ExportJobTable ExportJob = new ExportJobTable();
+        internal readonly static InstanceSchemaTable InstanceSchema = new InstanceSchemaTable();
         internal readonly static NumberSearchParamTable NumberSearchParam = new NumberSearchParamTable();
         internal readonly static QuantityCodeTable QuantityCode = new QuantityCodeTable();
         internal readonly static QuantitySearchParamTable QuantitySearchParam = new QuantitySearchParamTable();
@@ -39,12 +41,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         internal readonly static UriSearchParamTable UriSearchParam = new UriSearchParamTable();
         internal readonly static AcquireExportJobsProcedure AcquireExportJobs = new AcquireExportJobsProcedure();
         internal readonly static CreateExportJobProcedure CreateExportJob = new CreateExportJobProcedure();
+        internal readonly static DeleteInstanceSchemaProcedure DeleteInstanceSchema = new DeleteInstanceSchemaProcedure();
         internal readonly static GetExportJobByHashProcedure GetExportJobByHash = new GetExportJobByHashProcedure();
         internal readonly static GetExportJobByIdProcedure GetExportJobById = new GetExportJobByIdProcedure();
+        internal readonly static GetInstanceSchemaByNameProcedure GetInstanceSchemaByName = new GetInstanceSchemaByNameProcedure();
         internal readonly static HardDeleteResourceProcedure HardDeleteResource = new HardDeleteResourceProcedure();
         internal readonly static ReadResourceProcedure ReadResource = new ReadResourceProcedure();
+        internal readonly static SelectCompatibleSchemaVersionsProcedure SelectCompatibleSchemaVersions = new SelectCompatibleSchemaVersionsProcedure();
         internal readonly static SelectCurrentSchemaVersionProcedure SelectCurrentSchemaVersion = new SelectCurrentSchemaVersionProcedure();
+        internal readonly static SelectCurrentVersionsInformationProcedure SelectCurrentVersionsInformation = new SelectCurrentVersionsInformationProcedure();
         internal readonly static UpdateExportJobProcedure UpdateExportJob = new UpdateExportJobProcedure();
+        internal readonly static UpsertInstanceSchemaProcedure UpsertInstanceSchema = new UpsertInstanceSchemaProcedure();
         internal readonly static UpsertResourceProcedure UpsertResource = new UpsertResourceProcedure();
         internal readonly static UpsertSchemaVersionProcedure UpsertSchemaVersion = new UpsertSchemaVersionProcedure();
         internal class ClaimTypeTable : Table
@@ -107,6 +114,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly NullableDateTime2Column HeartbeatDateTime = new NullableDateTime2Column("HeartbeatDateTime", 7);
             internal readonly VarCharColumn RawJobRecord = new VarCharColumn("RawJobRecord", -1);
             internal readonly TimestampColumn JobVersion = new TimestampColumn("JobVersion");
+        }
+
+        internal class InstanceSchemaTable : Table
+        {
+            internal InstanceSchemaTable(): base("dbo.InstanceSchema")
+            {
+            }
+
+            internal readonly VarCharColumn Name = new VarCharColumn("Name", 64, "Latin1_General_100_CS_AS");
+            internal readonly IntColumn CurrentVersion = new IntColumn("CurrentVersion");
+            internal readonly IntColumn MaxVersion = new IntColumn("MaxVersion");
+            internal readonly IntColumn MinVersion = new IntColumn("MinVersion");
+            internal readonly DateTime2Column Timeout = new DateTime2Column("Timeout", 0);
         }
 
         internal class NumberSearchParamTable : Table
@@ -403,7 +423,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
 
             private readonly ParameterDefinition<System.Int64> _jobHeartbeatTimeoutThresholdInSeconds = new ParameterDefinition<System.Int64>("@jobHeartbeatTimeoutThresholdInSeconds", global::System.Data.SqlDbType.BigInt, false);
             private readonly ParameterDefinition<System.Int32> _maximumNumberOfConcurrentJobsAllowed = new ParameterDefinition<System.Int32>("@maximumNumberOfConcurrentJobsAllowed", global::System.Data.SqlDbType.Int, false);
-            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.Int64 jobHeartbeatTimeoutThresholdInSeconds, System.Int32 maximumNumberOfConcurrentJobsAllowed)
+            public void PopulateCommand(SqlCommandWrapper command, System.Int64 jobHeartbeatTimeoutThresholdInSeconds, System.Int32 maximumNumberOfConcurrentJobsAllowed)
             {
                 command.CommandType = global::System.Data.CommandType.StoredProcedure;
                 command.CommandText = "dbo.AcquireExportJobs";
@@ -422,7 +442,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             private readonly ParameterDefinition<System.String> _hash = new ParameterDefinition<System.String>("@hash", global::System.Data.SqlDbType.VarChar, false, 64);
             private readonly ParameterDefinition<System.String> _status = new ParameterDefinition<System.String>("@status", global::System.Data.SqlDbType.VarChar, false, 10);
             private readonly ParameterDefinition<System.String> _rawJobRecord = new ParameterDefinition<System.String>("@rawJobRecord", global::System.Data.SqlDbType.VarChar, false, -1);
-            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.String id, System.String hash, System.String status, System.String rawJobRecord)
+            public void PopulateCommand(SqlCommandWrapper command, System.String id, System.String hash, System.String status, System.String rawJobRecord)
             {
                 command.CommandType = global::System.Data.CommandType.StoredProcedure;
                 command.CommandText = "dbo.CreateExportJob";
@@ -433,6 +453,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
         }
 
+        internal class DeleteInstanceSchemaProcedure : StoredProcedure
+        {
+            internal DeleteInstanceSchemaProcedure(): base("dbo.DeleteInstanceSchema")
+            {
+            }
+
+            public void PopulateCommand(SqlCommandWrapper command)
+            {
+                command.CommandType = global::System.Data.CommandType.StoredProcedure;
+                command.CommandText = "dbo.DeleteInstanceSchema";
+            }
+        }
+
         internal class GetExportJobByHashProcedure : StoredProcedure
         {
             internal GetExportJobByHashProcedure(): base("dbo.GetExportJobByHash")
@@ -440,7 +473,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
 
             private readonly ParameterDefinition<System.String> _hash = new ParameterDefinition<System.String>("@hash", global::System.Data.SqlDbType.VarChar, false, 64);
-            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.String hash)
+            public void PopulateCommand(SqlCommandWrapper command, System.String hash)
             {
                 command.CommandType = global::System.Data.CommandType.StoredProcedure;
                 command.CommandText = "dbo.GetExportJobByHash";
@@ -455,11 +488,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
 
             private readonly ParameterDefinition<System.String> _id = new ParameterDefinition<System.String>("@id", global::System.Data.SqlDbType.VarChar, false, 64);
-            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.String id)
+            public void PopulateCommand(SqlCommandWrapper command, System.String id)
             {
                 command.CommandType = global::System.Data.CommandType.StoredProcedure;
                 command.CommandText = "dbo.GetExportJobById";
                 _id.AddParameter(command.Parameters, id);
+            }
+        }
+
+        internal class GetInstanceSchemaByNameProcedure : StoredProcedure
+        {
+            internal GetInstanceSchemaByNameProcedure(): base("dbo.GetInstanceSchemaByName")
+            {
+            }
+
+            private readonly ParameterDefinition<System.String> _name = new ParameterDefinition<System.String>("@name", global::System.Data.SqlDbType.VarChar, false, 64);
+            public void PopulateCommand(SqlCommandWrapper command, System.String name)
+            {
+                command.CommandType = global::System.Data.CommandType.StoredProcedure;
+                command.CommandText = "dbo.GetInstanceSchemaByName";
+                _name.AddParameter(command.Parameters, name);
             }
         }
 
@@ -471,7 +519,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
 
             private readonly ParameterDefinition<System.Int16> _resourceTypeId = new ParameterDefinition<System.Int16>("@resourceTypeId", global::System.Data.SqlDbType.SmallInt, false);
             private readonly ParameterDefinition<System.String> _resourceId = new ParameterDefinition<System.String>("@resourceId", global::System.Data.SqlDbType.VarChar, false, 64);
-            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.Int16 resourceTypeId, System.String resourceId)
+            public void PopulateCommand(SqlCommandWrapper command, System.Int16 resourceTypeId, System.String resourceId)
             {
                 command.CommandType = global::System.Data.CommandType.StoredProcedure;
                 command.CommandText = "dbo.HardDeleteResource";
@@ -489,7 +537,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             private readonly ParameterDefinition<System.Int16> _resourceTypeId = new ParameterDefinition<System.Int16>("@resourceTypeId", global::System.Data.SqlDbType.SmallInt, false);
             private readonly ParameterDefinition<System.String> _resourceId = new ParameterDefinition<System.String>("@resourceId", global::System.Data.SqlDbType.VarChar, false, 64);
             private readonly ParameterDefinition<System.Nullable<System.Int32>> _version = new ParameterDefinition<System.Nullable<System.Int32>>("@version", global::System.Data.SqlDbType.Int, true);
-            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.Int16 resourceTypeId, System.String resourceId, System.Nullable<System.Int32> version)
+            public void PopulateCommand(SqlCommandWrapper command, System.Int16 resourceTypeId, System.String resourceId, System.Nullable<System.Int32> version)
             {
                 command.CommandType = global::System.Data.CommandType.StoredProcedure;
                 command.CommandText = "dbo.ReadResource";
@@ -499,16 +547,42 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
         }
 
+        internal class SelectCompatibleSchemaVersionsProcedure : StoredProcedure
+        {
+            internal SelectCompatibleSchemaVersionsProcedure(): base("dbo.SelectCompatibleSchemaVersions")
+            {
+            }
+
+            public void PopulateCommand(SqlCommandWrapper command)
+            {
+                command.CommandType = global::System.Data.CommandType.StoredProcedure;
+                command.CommandText = "dbo.SelectCompatibleSchemaVersions";
+            }
+        }
+
         internal class SelectCurrentSchemaVersionProcedure : StoredProcedure
         {
             internal SelectCurrentSchemaVersionProcedure(): base("dbo.SelectCurrentSchemaVersion")
             {
             }
 
-            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command)
+            public void PopulateCommand(SqlCommandWrapper command)
             {
                 command.CommandType = global::System.Data.CommandType.StoredProcedure;
                 command.CommandText = "dbo.SelectCurrentSchemaVersion";
+            }
+        }
+
+        internal class SelectCurrentVersionsInformationProcedure : StoredProcedure
+        {
+            internal SelectCurrentVersionsInformationProcedure(): base("dbo.SelectCurrentVersionsInformation")
+            {
+            }
+
+            public void PopulateCommand(SqlCommandWrapper command)
+            {
+                command.CommandType = global::System.Data.CommandType.StoredProcedure;
+                command.CommandText = "dbo.SelectCurrentVersionsInformation";
             }
         }
 
@@ -522,7 +596,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             private readonly ParameterDefinition<System.String> _status = new ParameterDefinition<System.String>("@status", global::System.Data.SqlDbType.VarChar, false, 10);
             private readonly ParameterDefinition<System.String> _rawJobRecord = new ParameterDefinition<System.String>("@rawJobRecord", global::System.Data.SqlDbType.VarChar, false, -1);
             private readonly ParameterDefinition<System.Byte[]> _jobVersion = new ParameterDefinition<System.Byte[]>("@jobVersion", global::System.Data.SqlDbType.Binary, false, 8);
-            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.String id, System.String status, System.String rawJobRecord, System.Byte[] jobVersion)
+            public void PopulateCommand(SqlCommandWrapper command, System.String id, System.String status, System.String rawJobRecord, System.Byte[] jobVersion)
             {
                 command.CommandType = global::System.Data.CommandType.StoredProcedure;
                 command.CommandText = "dbo.UpdateExportJob";
@@ -530,6 +604,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
                 _status.AddParameter(command.Parameters, status);
                 _rawJobRecord.AddParameter(command.Parameters, rawJobRecord);
                 _jobVersion.AddParameter(command.Parameters, jobVersion);
+            }
+        }
+
+        internal class UpsertInstanceSchemaProcedure : StoredProcedure
+        {
+            internal UpsertInstanceSchemaProcedure(): base("dbo.UpsertInstanceSchema")
+            {
+            }
+
+            private readonly ParameterDefinition<System.String> _name = new ParameterDefinition<System.String>("@name", global::System.Data.SqlDbType.VarChar, false, 64);
+            private readonly ParameterDefinition<System.Int32> _maxVersion = new ParameterDefinition<System.Int32>("@maxVersion", global::System.Data.SqlDbType.Int, false);
+            private readonly ParameterDefinition<System.Int32> _minVersion = new ParameterDefinition<System.Int32>("@minVersion", global::System.Data.SqlDbType.Int, false);
+            private readonly ParameterDefinition<System.Int32> _addMinutesOnTimeout = new ParameterDefinition<System.Int32>("@addMinutesOnTimeout", global::System.Data.SqlDbType.Int, false);
+            public void PopulateCommand(SqlCommandWrapper command, System.String name, System.Int32 maxVersion, System.Int32 minVersion, System.Int32 addMinutesOnTimeout)
+            {
+                command.CommandType = global::System.Data.CommandType.StoredProcedure;
+                command.CommandText = "dbo.UpsertInstanceSchema";
+                _name.AddParameter(command.Parameters, name);
+                _maxVersion.AddParameter(command.Parameters, maxVersion);
+                _minVersion.AddParameter(command.Parameters, minVersion);
+                _addMinutesOnTimeout.AddParameter(command.Parameters, addMinutesOnTimeout);
             }
         }
 
@@ -564,7 +659,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             private readonly TokenQuantityCompositeSearchParamTableTypeTableValuedParameterDefinition _tokenQuantityCompositeSearchParams = new TokenQuantityCompositeSearchParamTableTypeTableValuedParameterDefinition("@tokenQuantityCompositeSearchParams");
             private readonly TokenStringCompositeSearchParamTableTypeTableValuedParameterDefinition _tokenStringCompositeSearchParams = new TokenStringCompositeSearchParamTableTypeTableValuedParameterDefinition("@tokenStringCompositeSearchParams");
             private readonly TokenNumberNumberCompositeSearchParamTableTypeTableValuedParameterDefinition _tokenNumberNumberCompositeSearchParams = new TokenNumberNumberCompositeSearchParamTableTypeTableValuedParameterDefinition("@tokenNumberNumberCompositeSearchParams");
-            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.Int64 baseResourceSurrogateId, System.Int16 resourceTypeId, System.String resourceId, System.Nullable<System.Int32> eTag, System.Boolean allowCreate, System.Boolean isDeleted, System.Boolean keepHistory, System.String requestMethod, global::System.IO.Stream rawResource, global::System.Collections.Generic.IEnumerable<ResourceWriteClaimTableTypeRow> resourceWriteClaims, global::System.Collections.Generic.IEnumerable<CompartmentAssignmentTableTypeRow> compartmentAssignments, global::System.Collections.Generic.IEnumerable<ReferenceSearchParamTableTypeRow> referenceSearchParams, global::System.Collections.Generic.IEnumerable<TokenSearchParamTableTypeRow> tokenSearchParams, global::System.Collections.Generic.IEnumerable<TokenTextTableTypeRow> tokenTextSearchParams, global::System.Collections.Generic.IEnumerable<StringSearchParamTableTypeRow> stringSearchParams, global::System.Collections.Generic.IEnumerable<NumberSearchParamTableTypeRow> numberSearchParams, global::System.Collections.Generic.IEnumerable<QuantitySearchParamTableTypeRow> quantitySearchParams, global::System.Collections.Generic.IEnumerable<UriSearchParamTableTypeRow> uriSearchParams, global::System.Collections.Generic.IEnumerable<DateTimeSearchParamTableTypeRow> dateTimeSearchParms, global::System.Collections.Generic.IEnumerable<ReferenceTokenCompositeSearchParamTableTypeRow> referenceTokenCompositeSearchParams, global::System.Collections.Generic.IEnumerable<TokenTokenCompositeSearchParamTableTypeRow> tokenTokenCompositeSearchParams, global::System.Collections.Generic.IEnumerable<TokenDateTimeCompositeSearchParamTableTypeRow> tokenDateTimeCompositeSearchParams, global::System.Collections.Generic.IEnumerable<TokenQuantityCompositeSearchParamTableTypeRow> tokenQuantityCompositeSearchParams, global::System.Collections.Generic.IEnumerable<TokenStringCompositeSearchParamTableTypeRow> tokenStringCompositeSearchParams, global::System.Collections.Generic.IEnumerable<TokenNumberNumberCompositeSearchParamTableTypeRow> tokenNumberNumberCompositeSearchParams)
+            public void PopulateCommand(SqlCommandWrapper command, System.Int64 baseResourceSurrogateId, System.Int16 resourceTypeId, System.String resourceId, System.Nullable<System.Int32> eTag, System.Boolean allowCreate, System.Boolean isDeleted, System.Boolean keepHistory, System.String requestMethod, global::System.IO.Stream rawResource, global::System.Collections.Generic.IEnumerable<ResourceWriteClaimTableTypeRow> resourceWriteClaims, global::System.Collections.Generic.IEnumerable<CompartmentAssignmentTableTypeRow> compartmentAssignments, global::System.Collections.Generic.IEnumerable<ReferenceSearchParamTableTypeRow> referenceSearchParams, global::System.Collections.Generic.IEnumerable<TokenSearchParamTableTypeRow> tokenSearchParams, global::System.Collections.Generic.IEnumerable<TokenTextTableTypeRow> tokenTextSearchParams, global::System.Collections.Generic.IEnumerable<StringSearchParamTableTypeRow> stringSearchParams, global::System.Collections.Generic.IEnumerable<NumberSearchParamTableTypeRow> numberSearchParams, global::System.Collections.Generic.IEnumerable<QuantitySearchParamTableTypeRow> quantitySearchParams, global::System.Collections.Generic.IEnumerable<UriSearchParamTableTypeRow> uriSearchParams, global::System.Collections.Generic.IEnumerable<DateTimeSearchParamTableTypeRow> dateTimeSearchParms, global::System.Collections.Generic.IEnumerable<ReferenceTokenCompositeSearchParamTableTypeRow> referenceTokenCompositeSearchParams, global::System.Collections.Generic.IEnumerable<TokenTokenCompositeSearchParamTableTypeRow> tokenTokenCompositeSearchParams, global::System.Collections.Generic.IEnumerable<TokenDateTimeCompositeSearchParamTableTypeRow> tokenDateTimeCompositeSearchParams, global::System.Collections.Generic.IEnumerable<TokenQuantityCompositeSearchParamTableTypeRow> tokenQuantityCompositeSearchParams, global::System.Collections.Generic.IEnumerable<TokenStringCompositeSearchParamTableTypeRow> tokenStringCompositeSearchParams, global::System.Collections.Generic.IEnumerable<TokenNumberNumberCompositeSearchParamTableTypeRow> tokenNumberNumberCompositeSearchParams)
             {
                 command.CommandType = global::System.Data.CommandType.StoredProcedure;
                 command.CommandText = "dbo.UpsertResource";
@@ -595,7 +690,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
                 _tokenNumberNumberCompositeSearchParams.AddParameter(command.Parameters, tokenNumberNumberCompositeSearchParams);
             }
 
-            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.Int64 baseResourceSurrogateId, System.Int16 resourceTypeId, System.String resourceId, System.Nullable<System.Int32> eTag, System.Boolean allowCreate, System.Boolean isDeleted, System.Boolean keepHistory, System.String requestMethod, global::System.IO.Stream rawResource, UpsertResourceTableValuedParameters tableValuedParameters)
+            public void PopulateCommand(SqlCommandWrapper command, System.Int64 baseResourceSurrogateId, System.Int16 resourceTypeId, System.String resourceId, System.Nullable<System.Int32> eTag, System.Boolean allowCreate, System.Boolean isDeleted, System.Boolean keepHistory, System.String requestMethod, global::System.IO.Stream rawResource, UpsertResourceTableValuedParameters tableValuedParameters)
             {
                 PopulateCommand(command, baseResourceSurrogateId: baseResourceSurrogateId, resourceTypeId: resourceTypeId, resourceId: resourceId, eTag: eTag, allowCreate: allowCreate, isDeleted: isDeleted, keepHistory: keepHistory, requestMethod: requestMethod, rawResource: rawResource, resourceWriteClaims: tableValuedParameters.ResourceWriteClaims, compartmentAssignments: tableValuedParameters.CompartmentAssignments, referenceSearchParams: tableValuedParameters.ReferenceSearchParams, tokenSearchParams: tableValuedParameters.TokenSearchParams, tokenTextSearchParams: tableValuedParameters.TokenTextSearchParams, stringSearchParams: tableValuedParameters.StringSearchParams, numberSearchParams: tableValuedParameters.NumberSearchParams, quantitySearchParams: tableValuedParameters.QuantitySearchParams, uriSearchParams: tableValuedParameters.UriSearchParams, dateTimeSearchParms: tableValuedParameters.DateTimeSearchParms, referenceTokenCompositeSearchParams: tableValuedParameters.ReferenceTokenCompositeSearchParams, tokenTokenCompositeSearchParams: tableValuedParameters.TokenTokenCompositeSearchParams, tokenDateTimeCompositeSearchParams: tableValuedParameters.TokenDateTimeCompositeSearchParams, tokenQuantityCompositeSearchParams: tableValuedParameters.TokenQuantityCompositeSearchParams, tokenStringCompositeSearchParams: tableValuedParameters.TokenStringCompositeSearchParams, tokenNumberNumberCompositeSearchParams: tableValuedParameters.TokenNumberNumberCompositeSearchParams);
             }
@@ -756,7 +851,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
 
             private readonly ParameterDefinition<System.Int32> _version = new ParameterDefinition<System.Int32>("@version", global::System.Data.SqlDbType.Int, false);
             private readonly ParameterDefinition<System.String> _status = new ParameterDefinition<System.String>("@status", global::System.Data.SqlDbType.VarChar, false, 10);
-            public void PopulateCommand(global::System.Data.SqlClient.SqlCommand command, System.Int32 version, System.String status)
+            public void PopulateCommand(SqlCommandWrapper command, System.Int32 version, System.String status)
             {
                 command.CommandType = global::System.Data.CommandType.StoredProcedure;
                 command.CommandText = "dbo.UpsertSchemaVersion";

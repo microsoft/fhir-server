@@ -19,12 +19,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
     public class SearchParameterSupportResolver : ISearchParameterSupportResolver
     {
         private readonly ISearchParameterDefinitionManager _definitionManager;
-        private readonly IFhirElementToSearchValueTypeConverterManager _searchValueTypeConverterManager;
+        private readonly IFhirNodeToSearchValueTypeConverterManager _searchValueTypeConverterManager;
         private static readonly FhirPathCompiler _compiler = new FhirPathCompiler();
 
         public SearchParameterSupportResolver(
             ISearchParameterDefinitionManager definitionManager,
-            IFhirElementToSearchValueTypeConverterManager searchValueTypeConverterManager)
+            IFhirNodeToSearchValueTypeConverterManager searchValueTypeConverterManager)
         {
             EnsureArg.IsNotNull(definitionManager, nameof(definitionManager));
             EnsureArg.IsNotNull(searchValueTypeConverterManager, nameof(searchValueTypeConverterManager));
@@ -33,9 +33,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             _searchValueTypeConverterManager = searchValueTypeConverterManager;
         }
 
-        public bool IsSearchParameterSupported(SearchParameterInfo parameterInfo)
+        public (bool Supported, bool IsPartiallySupported) IsSearchParameterSupported(SearchParameterInfo parameterInfo)
         {
             EnsureArg.IsNotNull(parameterInfo, nameof(parameterInfo));
+
+            if (string.IsNullOrWhiteSpace(parameterInfo.Expression))
+            {
+                return (false, false);
+            }
 
             Expression parsed = _compiler.Parse(parameterInfo.Expression);
 
@@ -45,12 +50,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     x.DefinitionUrl))
                 .ToArray();
 
-            if (parameterInfo.TargetResourceTypes?.Any() != true && parameterInfo.BaseResourceTypes?.Any() != true)
+            IEnumerable<string> resourceTypes = (parameterInfo.TargetResourceTypes ?? Enumerable.Empty<string>()).Concat(parameterInfo.BaseResourceTypes ?? Enumerable.Empty<string>());
+
+            if (!resourceTypes.Any())
             {
                 throw new NotSupportedException("No target resources defined.");
             }
-
-            IEnumerable<string> resourceTypes = (parameterInfo.TargetResourceTypes ?? Enumerable.Empty<string>()).Concat(parameterInfo.BaseResourceTypes ?? Enumerable.Empty<string>());
 
             foreach (var resource in resourceTypes)
             {
@@ -63,19 +68,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     .Select(result => (
                         result,
                         hasConverter: _searchValueTypeConverterManager.TryGetConverter(
-                            result.ClassMapping.NativeType,
+                            result.ClassMapping.Name,
                             SearchIndexer.GetSearchValueTypeForSearchParamType(result.SearchParamType),
-                            out IFhirElementToSearchValueTypeConverter converter),
+                            out IFhirNodeToSearchValueTypeConverter converter),
                         converter))
                     .ToArray();
 
+                if (!converters.Any())
+                {
+                    return (false, false);
+                }
+
                 if (!converters.All(x => x.hasConverter))
                 {
-                    return false;
+                    bool partialSupport = converters.Any(x => x.hasConverter);
+                    return (partialSupport, partialSupport);
                 }
             }
 
-            return true;
+            return (true, false);
         }
     }
 }

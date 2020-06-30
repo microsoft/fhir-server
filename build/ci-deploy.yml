@@ -1,0 +1,148 @@
+# DESCRIPTION: 	
+# Deploys the CI environment in case the persistant resources are deleted or broken.
+
+name: $(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:-r)
+trigger: none
+
+variables:
+- template: ci-variables.yml
+- template: build-variables.yml
+
+stages:
+- stage: DockerBuild  
+  displayName: 'Build images'
+  dependsOn: []
+  jobs:
+  - template: ./jobs/docker-build-all.yml
+    parameters: 
+      tag: $(ImageTag)
+
+- stage: provisionEnvironment
+  displayName: Provision Environment
+  dependsOn: []
+  jobs:
+  - template: ./jobs/cleanup.yml
+  - job: provision
+    dependsOn: DeleteResourceGroup 
+    steps:
+    - task: AzurePowerShell@4
+      displayName: Provision Resource Group
+      inputs:
+        azureSubscription: $(ConnectedServiceName)
+        azurePowerShellVersion: latestVersion
+        ScriptType: inlineScript
+        Inline: |
+          New-AzResourceGroup -Name "$(DeploymentEnvironmentName)" -Location "$(ResourceGroupRegion)" -Force
+
+- stage: aadTestEnvironment
+  displayName: Setup AAD Test Environment
+  dependsOn:
+  - provisionEnvironment
+  - DockerBuild
+  jobs:
+  - template: ./jobs/add-aad-test-environment.yml
+
+- stage: deployStu3
+  displayName: 'Deploy STU3 Site'
+  dependsOn:
+  - provisionEnvironment
+  - DockerBuild
+  jobs:
+  - template: ./jobs/provision-deploy.yml
+    parameters: 
+      version: Stu3
+      webAppName: $(DeploymentEnvironmentName)
+      appServicePlanName: $(appServicePlanName)
+      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(DeploymentEnvironmentName)
+      testEnvironmentUrl: $(TestEnvironmentUrl)
+      imageTag: $(ImageTag)
+
+- stage: deployStu3Sql
+  displayName: 'Deploy STU3 SQL Site'
+  dependsOn:
+  - provisionEnvironment
+  - DockerBuild
+  jobs:
+  - template: ./jobs/provision-deploy.yml
+    parameters: 
+      version: Stu3
+      sql: true
+      webAppName: $(DeploymentEnvironmentNameSql)
+      appServicePlanName: $(appServicePlanName)
+      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(DeploymentEnvironmentName)
+      testEnvironmentUrl: $(TestEnvironmentUrl)
+      imageTag: $(ImageTag)
+
+- stage: deployR4
+  displayName: 'Deploy R4 Site'
+  dependsOn:
+  - provisionEnvironment
+  - DockerBuild
+  jobs:
+  - template: ./jobs/provision-deploy.yml
+    parameters: 
+      version: R4
+      webAppName: $(DeploymentEnvironmentNameR4)
+      appServicePlanName: $(appServicePlanName)
+      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(DeploymentEnvironmentName)
+      testEnvironmentUrl: $(TestEnvironmentUrl)
+      imageTag: $(ImageTag)
+
+- stage: deployR4Sql
+  displayName: 'Deploy R4 SQL Site'
+  dependsOn:
+  - provisionEnvironment
+  - DockerBuild
+  jobs:
+  - template: ./jobs/provision-deploy.yml
+    parameters: 
+      version: R4
+      sql: true
+      webAppName: $(DeploymentEnvironmentNameR4Sql)
+      appServicePlanName: $(appServicePlanName)
+      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(DeploymentEnvironmentName)
+      testEnvironmentUrl: $(TestEnvironmentUrl)
+      imageTag: $(ImageTag)
+
+- stage: deployR5
+  displayName: 'Deploy R5 Site'
+  dependsOn:
+  - provisionEnvironment
+  - DockerBuild
+  jobs:
+  - template: ./jobs/provision-deploy.yml
+    parameters: 
+      version: R5
+      webAppName: $(DeploymentEnvironmentNameR5)
+      appServicePlanName: $(appServicePlanName)
+      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(DeploymentEnvironmentName)
+      testEnvironmentUrl: $(TestEnvironmentUrl)
+      imageTag: $(ImageTag)
+
+- stage: deployR5Sql
+  displayName: 'Deploy R5 SQL Site'
+  dependsOn:
+  - provisionEnvironment
+  - DockerBuild
+  jobs:
+  - template: ./jobs/provision-deploy.yml
+    parameters: 
+      version: R5
+      sql: true
+      webAppName: $(DeploymentEnvironmentNameR5Sql)
+      appServicePlanName: $(appServicePlanName)
+      appServicePlanResourceGroup: $(appServicePlanResourceGroup)
+      subscription: $(ConnectedServiceName)
+      resourceGroup: $(DeploymentEnvironmentName)
+      testEnvironmentUrl: $(TestEnvironmentUrl)
+      imageTag: $(ImageTag)

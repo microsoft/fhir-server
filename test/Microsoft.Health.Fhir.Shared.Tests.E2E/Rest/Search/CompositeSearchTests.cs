@@ -22,8 +22,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         private const string ObservationWithTPMTHaplotypeOne = "ObservationWithTPMTHaplotypeOne";
         private const string ObservationWithBloodPressure = "ObservationWithBloodPressure";
 
-        private const string DocumentReferenceExample = "DocumentReference-example";
-        private const string DocumentReferenceExample002 = "DocumentReference-example-002";
+        private const string DocumentReferenceExample = "DocumentReference-example-relatesTo-code-appends";
+        private const string DocumentReferenceExample002 = "DocumentReference-example-relatesTo-code-transforms-replaces-target";
 
         public CompositeSearchTests(CompositeSearchTestFixture fixture)
             : base(fixture)

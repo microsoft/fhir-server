@@ -205,11 +205,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     },
                 };
 
-                var organization = FhirClient.CreateAsync(new Organization { Meta = meta, Address = new List<Address> { new Address { City = "Seattle" } } }).Result.Resource;
+                var organization = TestFhirClient.CreateAsync(new Organization { Meta = meta, Address = new List<Address> { new Address { City = "Seattle" } } }).Result.Resource;
 
-                AdamsPatient = FhirClient.CreateAsync(new Patient { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Adams" } } }).Result.Resource;
-                SmithPatient = FhirClient.CreateAsync(new Patient { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Smith" } }, ManagingOrganization = new ResourceReference($"Organization/{organization.Id}") }).Result.Resource;
-                TrumanPatient = FhirClient.CreateAsync(new Patient { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Truman" } } }).Result.Resource;
+                AdamsPatient = TestFhirClient.CreateAsync(new Patient { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Adams" } } }).Result.Resource;
+                SmithPatient = TestFhirClient.CreateAsync(new Patient { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Smith" } }, ManagingOrganization = new ResourceReference($"Organization/{organization.Id}") }).Result.Resource;
+                TrumanPatient = TestFhirClient.CreateAsync(new Patient { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Truman" } } }).Result.Resource;
 
                 var adamsLoincObservation = CreateObservation(AdamsPatient, loincCode);
                 var smithLoincObservation = CreateObservation(SmithPatient, loincCode);
@@ -234,11 +234,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     },
                 };
 
-                PatientGroup = FhirClient.CreateAsync(group).Result.Resource;
+                PatientGroup = TestFhirClient.CreateAsync(group).Result.Resource;
 
                 DiagnosticReport CreateDiagnosticReport(Patient patient, Observation observation, CodeableConcept code)
                 {
-                    return FhirClient.CreateAsync(
+                    return TestFhirClient.CreateAsync(
                         new DiagnosticReport
                         {
                             Meta = meta,
@@ -251,7 +251,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                 Observation CreateObservation(Patient patient, CodeableConcept code)
                 {
-                    return FhirClient.CreateAsync(
+                    return TestFhirClient.CreateAsync(
                         new Observation()
                         {
                             Status = ObservationStatus.Final,

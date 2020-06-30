@@ -18,13 +18,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         public HealthTests(HttpIntegrationTestFixture fixture)
         {
-            _client = fixture.FhirClient.HttpClient;
+            _client = fixture.TestFhirClient.HttpClient;
         }
 
         [Fact]
         public async Task GivenAHealthEndpoint_WhenStartingTheFhirServer_ThenTheHealthCheckIsOK()
         {
-            var response = await _client.GetAsync("health/check");
+            using HttpResponseMessage response = await _client.GetAsync("health/check");
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public async Task GivenAHealthEndpoint_WhenStartingTheFhirServer_ThenResponseContainsDescription()
         {
-            var response = await _client.GetAsync("health/check");
+            using HttpResponseMessage response = await _client.GetAsync("health/check");
             string responseContent = await response.Content.ReadAsStringAsync();
 
             Assert.Contains("description", responseContent);

@@ -18,15 +18,17 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Determines the storage account connection that will be used to export data to.
         /// Should be a connection string to the required storage account.
         /// </summary>
-        public string StorageAccountConnection { get; set; }
+        public string StorageAccountConnection { get; set; } = string.Empty;
 
         /// <summary>
         /// Determines the storage account connection that will be used to export data to.
         /// Should be a uri pointing to the required storage account.
         /// </summary>
-#pragma warning disable CA1056 // Uri properties should not be strings
-        public string StorageAccountUri { get; set; }
-#pragma warning restore CA1056 // Uri properties should not be strings
+        [System.Diagnostics.CodeAnalysis.SuppressMessage(
+            "Usage",
+            "CA1056:Uri properties should not be strings",
+            Justification = "Set from an environment variable.")]
+        public string StorageAccountUri { get; set; } = string.Empty;
 
         public ushort MaximumNumberOfConcurrentJobsAllowed { get; set; } = 1;
 

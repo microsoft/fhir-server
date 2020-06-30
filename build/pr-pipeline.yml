@@ -5,8 +5,8 @@ name: pr$(system.pullRequest.pullRequestNumber)-$(Date:yyyyMMdd)$(Rev:-r)
 trigger: none
 
 variables:
-- template: build-variables.yml
 - template: pr-variables.yml
+- template: build-variables.yml
 
 stages:
 - stage: BuildUnitTests
@@ -17,13 +17,13 @@ stages:
     pool:
       vmImage: $(WindowsVmImage)
     steps:
-    - template: build.yml
+    - template: ./jobs/build.yml
 
   - job: Linux
     pool:
       vmImage: 'ubuntu-latest'
     steps:
-    - template: build.yml
+    - template: ./jobs/build.yml
       parameters:
         packageArtifacts: false
 
@@ -31,7 +31,7 @@ stages:
   displayName: 'Build images'
   dependsOn: []
   jobs:
-  - template: docker-build-all.yml
+  - template: ./jobs/docker-build-all.yml
     parameters: 
       tag: $(ImageTag)
 
@@ -57,6 +57,57 @@ stages:
   - DockerBuild
   jobs:
   - template: ./jobs/add-aad-test-environment.yml
+
+- stage: deployAksR4Cosmos
+  displayName: 'Deploy R4 Cosmos in AKS'
+  dependsOn:
+  - DockerBuild
+  jobs:
+  - template: ./jobs/deploy-aks.yml
+    parameters: 
+      version: R4
+      dataStore: CosmosDb
+      subscription: $(ConnectedServiceName)
+      clusterName: $(clusterName)
+      clusterResourceGroup: $(clusterResourceGroup)
+      clusterLocation: $(clusterLocation)
+      testEnvironmentUrl: $(TestEnvironmentUrl)
+      imageTag: $(ImageTag)
+      dnsSuffix: $(aksDnsSuffix)
+
+- stage: deployAksR4Sql
+  displayName: 'Deploy R4 Sql in AKS'
+  dependsOn:
+  - DockerBuild
+  jobs:
+  - template: ./jobs/deploy-aks.yml
+    parameters: 
+      version: R4
+      dataStore: SqlServer
+      subscription: $(ConnectedServiceName)
+      clusterName: $(clusterName)
+      clusterResourceGroup: $(clusterResourceGroup)
+      clusterLocation: $(clusterLocation)
+      testEnvironmentUrl: $(TestEnvironmentUrl)
+      imageTag: $(ImageTag)
+      dnsSuffix: $(aksDnsSuffix)
+
+- stage: deployAksR4SqlContainer
+  displayName: 'Deploy R4 SqlContainer in AKS'
+  dependsOn:
+  - DockerBuild
+  jobs:
+  - template: ./jobs/deploy-aks.yml
+    parameters: 
+      version: R4
+      dataStore: SqlContainer
+      subscription: $(ConnectedServiceName)
+      clusterName: $(clusterName)
+      clusterResourceGroup: $(clusterResourceGroup)
+      clusterLocation: $(clusterLocation)
+      testEnvironmentUrl: $(TestEnvironmentUrl)
+      imageTag: $(ImageTag)
+      dnsSuffix: $(aksDnsSuffix)
 
 - stage: deployStu3
   displayName: 'Deploy STU3 Site'
@@ -162,7 +213,46 @@ stages:
       resourceGroup: $(DeploymentEnvironmentName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
-  
+
+- stage: testAksR4Cosmos
+  displayName: 'R4 CosmosDb AKS Tests'
+  dependsOn:
+  - BuildUnitTests
+  - aadTestEnvironment
+  - deployAksR4Cosmos
+  jobs:
+  - template: ./jobs/run-tests-aks.yml
+    parameters:
+      version: R4
+      dataStore: CosmosDb
+      dnsSuffix: $(aksDnsSuffix)
+
+- stage: testAksR4Sql
+  displayName: 'R4 SqlServer AKS Tests'
+  dependsOn:
+  - BuildUnitTests
+  - aadTestEnvironment
+  - deployAksR4Sql
+  jobs:
+  - template: ./jobs/run-tests-aks.yml
+    parameters:
+      version: R4
+      dataStore: SqlServer
+      dnsSuffix: $(aksDnsSuffix)
+
+- stage: testAksR4SqlContainer
+  displayName: 'R4 SqlContainer AKS Tests'
+  dependsOn:
+  - BuildUnitTests
+  - aadTestEnvironment
+  - deployAksR4SqlContainer
+  jobs:
+  - template: ./jobs/run-tests-aks.yml
+    parameters:
+      version: R4
+      dataStore: SqlContainer
+      dnsSuffix: $(aksDnsSuffix)
+
 - stage: testStu3
   displayName: 'Run Stu3 Tests'
   dependsOn:
@@ -202,11 +292,27 @@ stages:
       version: R5
       keyVaultName: $(DeploymentEnvironmentNameR5)
 
+- stage: cleanupAks
+  displayName: 'Cleanup AKS Deployments'
+  dependsOn:
+  - testAksR4Cosmos
+  - testAksR4Sql
+  - testAksR4SqlContainer
+  jobs:
+  - template: ./jobs/cleanup-aks.yml
+    parameters:
+      subscription: $(ConnectedServiceName)
+      clusterName: $(clusterName)
+      clusterResourceGroup: $(clusterResourceGroup)
+
 - stage: cleanup
   displayName: 'Cleanup Azure Environment'
   dependsOn:
   - testStu3
   - testR4
   - testR5
+  - testAksR4Cosmos
+  - testAksR4Sql
+  - testAksR4SqlContainer
   jobs:
   - template: ./jobs/cleanup.yml

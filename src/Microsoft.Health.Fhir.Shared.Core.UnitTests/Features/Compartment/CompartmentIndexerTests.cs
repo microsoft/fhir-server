@@ -13,6 +13,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
 using NSubstitute;
 using Xunit;
+using CompartmentType = Microsoft.Health.Fhir.ValueSets.CompartmentType;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Compartment
 {
@@ -46,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Compartment
         public void GivenSearchIndicesWithResourceTypeAndCompartmentType_WhenExtracted_ThenCorrectIndicesExtracted(ResourceType resourceType, CompartmentType compartmentType, ReferenceKind referenceKind, string expectedResourceId)
         {
             HashSet<string> compParams = null;
-            _compartmentManager.TryGetSearchParams(resourceType.ToString(), compartmentType.ToString(), out compParams)
+            _compartmentManager.TryGetSearchParams(resourceType.ToString(), compartmentType, out compParams)
                 .Returns(x =>
                 {
                     x[2] = new HashSet<string> { _referenceSearchTestParam.Name, _nonReferenceReferenceSearchTestParam.Name };
@@ -73,7 +74,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Compartment
         public void GivenSearchIndicesWithResourceTypeAndCompartmentTypeAndNullReferenceSearchResourceType_WhenExtracted_ThenNoIndicesExtracted(ResourceType resourceType, CompartmentType compartmentType, ReferenceKind referenceKind, string expectedResourceId)
         {
             HashSet<string> compParams = null;
-            _compartmentManager.TryGetSearchParams(resourceType.ToString(), compartmentType.ToString(), out compParams)
+            _compartmentManager.TryGetSearchParams(resourceType.ToString(), compartmentType, out compParams)
                 .Returns(x =>
                 {
                     x[2] = new HashSet<string> { _referenceSearchTestParam.Name };
@@ -97,22 +98,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Compartment
             string expectedCareTeamResource = ResourceType.CareTeam.ToString();
 
             // Setup the compartment search definitions.
-            string expectedCompartmentType1Str = expectedCompartmentType1.ToString();
-            _compartmentManager.TryGetSearchParams(expectedCareTeamResource, expectedCompartmentType1Str, out compParams)
+            _compartmentManager.TryGetSearchParams(expectedCareTeamResource, expectedCompartmentType1, out compParams)
                 .Returns(x =>
                 {
                     x[2] = new HashSet<string> { _referenceSearchTestParam.Name };
                     return true;
                 });
-            string expectedCompartmentType2Str = expectedCompartmentType2.ToString();
-            _compartmentManager.TryGetSearchParams(expectedCareTeamResource, expectedCompartmentType2Str, out compParams)
+            _compartmentManager.TryGetSearchParams(expectedCareTeamResource, expectedCompartmentType2, out compParams)
                 .Returns(x =>
                 {
                     x[2] = new HashSet<string> { _anotherReferenceSearchTestParam.Name };
                     return true;
                 });
-            string expectedCompartmentType3Str = expectedCompartmentType3.ToString();
-            _compartmentManager.TryGetSearchParams(expectedCareTeamResource, expectedCompartmentType3Str, out compParams)
+            _compartmentManager.TryGetSearchParams(expectedCareTeamResource, expectedCompartmentType3, out compParams)
                 .Returns(x =>
                 {
                     x[2] = new HashSet<string> { _yetAnotherReferenceSearchTestParam.Name };
@@ -125,9 +123,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Compartment
             // Setup multiple reference search parameters with expected resource ids for the compartments.
             var searchIndexEntries = new List<SearchIndexEntry>
             {
-                new SearchIndexEntry(_referenceSearchTestParam, new ReferenceSearchValue(ReferenceKind.InternalOrExternal, _baseUri, CompartmentDefinitionManager.CompartmentTypeToResourceType(expectedCompartmentType1Str).ToString(), ExpectedResourceIdR1)),
-                new SearchIndexEntry(_anotherReferenceSearchTestParam, new ReferenceSearchValue(ReferenceKind.Internal, _baseUri, CompartmentDefinitionManager.CompartmentTypeToResourceType(expectedCompartmentType2Str).ToString(), ExpectedResourceIdR2)),
-                new SearchIndexEntry(_yetAnotherReferenceSearchTestParam, new ReferenceSearchValue(ReferenceKind.External, _baseUri, CompartmentDefinitionManager.CompartmentTypeToResourceType(expectedCompartmentType3Str).ToString(), ExpectedResourceIdR3)),
+                new SearchIndexEntry(_referenceSearchTestParam, new ReferenceSearchValue(ReferenceKind.InternalOrExternal, _baseUri, CompartmentDefinitionManager.CompartmentTypeToResourceType(expectedCompartmentType1.ToString()).ToString(), ExpectedResourceIdR1)),
+                new SearchIndexEntry(_anotherReferenceSearchTestParam, new ReferenceSearchValue(ReferenceKind.Internal, _baseUri, CompartmentDefinitionManager.CompartmentTypeToResourceType(expectedCompartmentType2.ToString()).ToString(), ExpectedResourceIdR2)),
+                new SearchIndexEntry(_yetAnotherReferenceSearchTestParam, new ReferenceSearchValue(ReferenceKind.External, _baseUri, CompartmentDefinitionManager.CompartmentTypeToResourceType(expectedCompartmentType3.ToString()).ToString(), ExpectedResourceIdR3)),
             };
 
             CompartmentIndices compartmentIndices = _compartmentIndexer.Extract(expectedCareTeamResource, searchIndexEntries);

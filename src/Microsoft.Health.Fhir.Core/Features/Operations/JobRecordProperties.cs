@@ -41,6 +41,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string Query = "query";
 
+        public const string QueryList = "queryList";
+
         public const string Page = "page";
 
         public const string Error = "error";
@@ -64,5 +66,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public const string FailureDetails = "failureDetails";
 
         public const string Since = "since";
+
+        public const string FailureCount = "failureCount";
+
+        public const string Scope = "scope";
+
+        public const string StorageAccountConnectionHash = "storageAccountConnectionHash";
+
+        public const string StorageAccountUri = "storageAccountUri";
+
+        public const string MaximumConcurrency = "maximumConcurrency";
+
+        public const string MaximumNumberOfResourcesPerQuery = "maximumNumberOfResourcesPerQuery";
+
+        public const string NumberOfPagesPerCommit = "numberOfPagesPerCommit";
     }
 }

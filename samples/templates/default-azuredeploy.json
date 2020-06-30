@@ -83,7 +83,7 @@
             "type": "bool",
             "defaultValue": true,
             "metadata": {
-                "description": "Deploy Application Insights for the FHIR server. Disabled for Microsoft Azure Government (MAG)"
+                "description": "Deploy Application Insights for the FHIR server."
             }
         },
         "applicationInsightsLocation": {
@@ -95,7 +95,9 @@
                 "westeurope",
                 "eastus",
                 "southcentralus",
-                "westus2"
+                "westus2",
+                "usgovvirginia",
+                "usgovarizona"
             ]
         },
         "additionalFhirServerConfigProperties": {
@@ -143,7 +145,7 @@
         "appServiceResourceId": "[resourceId('Microsoft.Web/sites', variables('serviceName'))]",
         "securityAuthenticationEnabled": "[and(not(empty(parameters('securityAuthenticationAuthority'))),not(empty(parameters('securityAuthenticationAudience'))))]",
         "msdeployPackageUrlToUse": "[if(empty(parameters('msdeployPackageUrl')),variables('defaultMsdeployPackageUrl'),parameters('msdeployPackageUrl'))]",
-        "deployAppInsights": "[and(parameters('deployApplicationInsights'),not(variables('isMAG')))]",
+        "deployAppInsights": "[parameters('deployApplicationInsights')]",
         "appInsightsName": "[concat('AppInsights-', variables('serviceName'))]",
         "storageBlobDataContributerRoleId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]",
         "blobStorageUri": "[if(variables('isMAG'), '.blob.core.usgovcloudapi.net', '.blob.core.windows.net')]",
@@ -163,7 +165,7 @@
             "FhirServer:Operations:Export:StorageAccountUri": "[if(parameters('enableExport'), concat('https://', variables('storageAccountName'), variables('blobStorageUri')), 'null')]"
         },
         "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'))]",
-        "storageAccountName": "[concat(substring(replace(variables('serviceName'), '-', ''), 0, min(11, length(variables('serviceName')))), uniquestring(resourceGroup().id, variables('serviceName')))]"
+        "storageAccountName": "[concat(substring(replace(variables('serviceName'), '-', ''), 0, min(11, length(replace(variables('serviceName'), '-', '')))), uniquestring(resourceGroup().id, variables('serviceName')))]"
     },
     "resources": [
         {

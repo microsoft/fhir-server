@@ -12,12 +12,13 @@ using System.Text;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Validation;
+using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
-using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Common.FhirClient;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
@@ -25,18 +26,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.All)]
     public class CreateTests : IClassFixture<HttpIntegrationTestFixture>
     {
+        private readonly TestFhirClient _client;
+
         public CreateTests(HttpIntegrationTestFixture fixture)
         {
-            Client = fixture.FhirClient;
+            _client = fixture.TestFhirClient;
         }
-
-        protected FhirClient Client { get; set; }
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAResource_WhenPostingToHttp_TheServerShouldRespondSuccessfully()
         {
-            FhirResponse<Observation> response = await Client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
+            using FhirResponse<Observation> response = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
             Assert.NotNull(response.Headers.ETag);
@@ -51,27 +52,31 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             Assert.Equal($@"W/""{observation.Meta.VersionId}""", response.Headers.ETag.ToString());
 
-            TestHelper.AssertLocationHeaderIsCorrect(Client, observation, response.Headers.Location);
+            TestHelper.AssertLocationHeaderIsCorrect(_client, observation, response.Headers.Location);
             TestHelper.AssertLastUpdatedAndLastModifiedAreEqual(observation.Meta.LastUpdated, response.Content.Headers.LastModified);
 
             DotNetAttributeValidation.Validate(observation, true);
         }
 
-        [Fact]
+        [Theory]
+        [InlineData(2)]
+        [InlineData(5)]
         [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb)]
-        public async Task GivenALargeResource_WhenPostingToHttp_ThenServerShouldRespondWithRequestEntityTooLarge()
+        public async Task GivenALargeResource_WhenPostingToHttp_ThenServerShouldRespondWithRequestEntityTooLarge(int dataSizeMb)
         {
             var poco = Samples.GetDefaultPatient().ToPoco<Patient>();
             StringBuilder largeStringBuilder = new StringBuilder();
 
-            for (int i = 0; i < 1024 * 1024 * 2; i++)
+            // At ~2mb the document makes it into the Upsert Stored Proc and fails on create
+            // At 5mb the request is rejected by CosmosDb with HttpStatusCode.RequestEntityTooLarge
+            for (int i = 0; i < 1024 * 1024 * dataSizeMb; i++)
             {
                 largeStringBuilder.Append('a');
             }
 
             poco.Text.Div = $"<div>{largeStringBuilder.ToString()}</div>";
 
-            var exception = await Assert.ThrowsAsync<FhirException>(() => Client.CreateAsync(poco));
+            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.CreateAsync(poco));
             Assert.Equal(HttpStatusCode.RequestEntityTooLarge, exception.StatusCode);
         }
 
@@ -87,7 +92,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 LastUpdated = DateTimeOffset.UtcNow,
             };
 
-            FhirResponse<Observation> response = await Client.CreateAsync(originalResource);
+            using FhirResponse<Observation> response = await _client.CreateAsync(originalResource);
 
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
             Assert.NotNull(response.Headers.ETag);
@@ -104,7 +109,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.NotEqual(originalResource.Meta.LastUpdated, observation.Meta.LastUpdated);
             Assert.NotEqual(originalResource.Meta.VersionId, observation.Meta.VersionId);
 
-            TestHelper.AssertLocationHeaderIsCorrect(Client, observation, response.Headers.Location);
+            TestHelper.AssertLocationHeaderIsCorrect(_client, observation, response.Headers.Location);
             TestHelper.AssertLastUpdatedAndLastModifiedAreEqual(observation.Meta.LastUpdated, response.Content.Headers.LastModified);
 
             DotNetAttributeValidation.Validate(observation, true);
@@ -116,7 +121,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             Location originalResource = Samples.GetJsonSample("Location-example-hq").ToPoco<Location>();
 
-            FhirResponse<Location> response = await Client.CreateAsync(originalResource);
+            using FhirResponse<Location> response = await _client.CreateAsync(originalResource);
 
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         }
@@ -125,7 +130,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAnUnsupportedResourceType_WhenPostingToHttp_TheServerShouldRespondWithANotFoundResponse()
         {
-            FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.CreateAsync("NotObservation", Samples.GetDefaultObservation().ToPoco<Observation>()));
+            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => _client.CreateAsync("NotObservation", Samples.GetDefaultObservation().ToPoco<Observation>()));
 
             Assert.Equal(HttpStatusCode.NotFound, ex.StatusCode);
         }
@@ -134,7 +139,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenUnsetContentType_WhenPostingToHttp_TheServerShouldRespondWithAUnsupportedMediaTypeResponse()
         {
-            var result = await Client.
+            var result = await _client.
                 HttpClient.PostAsync("Observation", new StringContent("Content!"));
 
             Assert.Equal(HttpStatusCode.UnsupportedMediaType, result.StatusCode);
@@ -144,7 +149,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAnUnsupportedContentType_WhenPostingToHttp_TheServerShouldRespondWithAUnsupportedMediaTypeResponse()
         {
-            var result = await Client.HttpClient.PostAsync("Observation", new FormUrlEncodedContent(new KeyValuePair<string, string>[0]));
+            var result = await _client.HttpClient.PostAsync("Observation", new FormUrlEncodedContent(new KeyValuePair<string, string>[0]));
 
             Assert.Equal(HttpStatusCode.UnsupportedMediaType, result.StatusCode);
         }
@@ -154,7 +159,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenAnInvalidResource_WhenPostingToHttp_TheServerShouldRespondWithBadRequestResponse()
         {
             // An empty observation is invalid because it is missing fields that have a minimum cardinality of 1
-            FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.CreateAsync(new Observation()));
+            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => _client.CreateAsync(new Observation()));
 
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
         }
@@ -164,7 +169,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAResource_WhenPostingToHttpWithMaliciousUrl_TheServerShouldHandleRequest(string code)
         {
-            FhirResponse<Observation> response = await Client.CreateAsync($"Observation?{code}", Samples.GetDefaultObservation().ToPoco<Observation>());
+            using FhirResponse<Observation> response = await _client.CreateAsync($"Observation?{code}", Samples.GetDefaultObservation().ToPoco<Observation>());
 
             // Status should always be created in these tests
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
@@ -181,7 +186,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 .UpdateId("' SELECT name FROM syscolumns WHERE id = (SELECT id FROM sysobjects WHERE name = tablename')--")
                 .ToPoco<Observation>();
 
-            var exception = await Assert.ThrowsAsync<FhirException>(async () => await Client.UpdateAsync(observation));
+            var exception = await Assert.ThrowsAsync<FhirException>(async () => await _client.UpdateAsync(observation));
 
             Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
         }
@@ -198,7 +203,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 Div = $"<div>{code}</div>",
             };
 
-            FhirResponse<Observation> response = await Client.CreateAsync(observation);
+            using FhirResponse<Observation> response = await _client.CreateAsync(observation);
 
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
             Assert.NotNull(response.Headers.ETag);
@@ -219,9 +224,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             };
 
             // Xml can't even serialize these broken fragments
-            if (Client.Format != ResourceFormat.Xml)
+            if (_client.Format != ResourceFormat.Xml)
             {
-                var exception = await Assert.ThrowsAsync<FhirException>(() => Client.CreateAsync(observation));
+                var exception = await Assert.ThrowsAsync<FhirException>(() => _client.CreateAsync(observation));
                 Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
             }
         }

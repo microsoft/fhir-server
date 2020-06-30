@@ -175,9 +175,6 @@
     <value>Found result with Id '{0}', which did not match the provided Id '{1}'.</value>
     <comment>{0} is an Id e.g. 123456</comment>
   </data>
-  <data name="CustomerManagedKeyInaccessible" xml:space="preserve">
-    <value>The customer managed key is not accessible.</value>
-  </data>
   <data name="CustomHeaderPrefixCannotBeEmpty" xml:space="preserve">
     <value>The prefix used to identify custom audit headers cannot be empty.</value>
   </data>
@@ -288,6 +285,9 @@
   </data>
   <data name="OnlyOneModifierSeparatorSupported" xml:space="preserve">
     <value>Only one modifier separator can be specified.</value>
+  </data>
+  <data name="OnlyOneResourceJobAllowed" xml:space="preserve">
+    <value>Only one active or paused reindex job allowed.  Cancel any previous jobs before submitting a new job.</value>
   </data>
   <data name="OpenIdConfiguration" xml:space="preserve">
     <value>Failed to retrieve the OpenId configuration from the authentication provider.</value>

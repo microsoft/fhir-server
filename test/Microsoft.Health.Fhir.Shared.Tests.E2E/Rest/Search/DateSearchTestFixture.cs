@@ -6,8 +6,8 @@
 using System;
 using System.Collections.Generic;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
-using Microsoft.Health.Fhir.Tests.E2E.Common;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 System = "http://fhir-server-test/guid",
             };
 
-            Observations = FhirClient.CreateResourcesAsync<Observation>(
+            Observations = TestFhirClient.CreateResourcesAsync<Observation>(
                 p => SetObservation(p, "1979-12-31"),                // 1979-12-31T00:00:00.0000000 <-> 1979-12-31T23:59:59.9999999
                 p => SetObservation(p, "1980"),                      // 1980-01-01T00:00:00.0000000 <-> 1980-12-31T23:59:59.9999999
                 p => SetObservation(p, "1980-05"),                   // 1980-05-01T00:00:00.0000000 <-> 1980-05-31T23:59:59.9999999

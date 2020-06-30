@@ -5,6 +5,7 @@
 
 using System;
 using System.Data.SqlClient;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.SqlServer.Features.Client;
@@ -33,17 +34,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             using (var transactionScope = _fixture.SqlTransactionHandler.BeginTransaction())
             {
                 using (SqlConnectionWrapper connectionWrapperWithTransaction = _fixture.SqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
+                using (SqlCommandWrapper sqlCommandWrapper = connectionWrapperWithTransaction.CreateSqlCommand())
                 {
-                    using (SqlCommand command = connectionWrapperWithTransaction.CreateSqlCommand())
-                    {
-                        command.CommandText = @"
-                            INSERT INTO Resource
-                            VALUES(97, @newId, 1, 0, 5095719085917680000, 0, null, CAST('test' AS VARBINARY(MAX)))";
+                    sqlCommandWrapper.CommandText = @"
+                        INSERT INTO Resource
+                        VALUES(97, @newId, 1, 0, 5095719085917680000, 0, null, CAST('test' AS VARBINARY(MAX)))";
 
-                        command.Parameters.Add(new SqlParameter { ParameterName = "newId", Value = newId });
+                    sqlCommandWrapper.Parameters.Add(new SqlParameter { ParameterName = "newId", Value = newId });
 
-                        command.ExecuteNonQuery();
-                    }
+                    await sqlCommandWrapper.ExecuteNonQueryAsync(CancellationToken.None);
                 }
 
                 // Within the same transaction, the resource should be found
@@ -86,23 +85,21 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             using (var transactionScope = _fixture.SqlTransactionHandler.BeginTransaction())
             {
                 using (SqlConnectionWrapper connectionWrapperWithTransaction = _fixture.SqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
+                using (SqlCommandWrapper sqlCommandWrapper = connectionWrapperWithTransaction.CreateSqlCommand())
                 {
-                    using (SqlCommand command = connectionWrapperWithTransaction.CreateSqlCommand())
-                    {
-                        command.CommandText = @"
-                            INSERT INTO Resource
-                            VALUES(97, @newId, 1, 0, 5095719085917680001, 0, null, CAST('test' AS VARBINARY(MAX)))";
+                    sqlCommandWrapper.CommandText = @"
+                        INSERT INTO Resource
+                        VALUES(97, @newId, 1, 0, 5095719085917680001, 0, null, CAST('test' AS VARBINARY(MAX)))";
 
-                        command.Parameters.Add(new SqlParameter { ParameterName = "newId", Value = newId });
+                    sqlCommandWrapper.Parameters.Add(new SqlParameter { ParameterName = "newId", Value = newId });
 
-                        command.ExecuteNonQuery();
-                    }
+                    await sqlCommandWrapper.ExecuteNonQueryAsync(CancellationToken.None);
                 }
 
                 transactionScope.Complete();
             }
 
-            // Outside of the transactionscope, the resource should not be found
+            // Outside of the transaction scope, the resource should not be found
             using (SqlConnectionWrapper connectionWrapperWithTransaction = _fixture.SqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(false))
             {
                 await VerifyCommandResults(connectionWrapperWithTransaction, newId, true);
@@ -111,16 +108,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         private static async Task VerifyCommandResults(SqlConnectionWrapper connectionWrapper, string newId, bool shouldFind, string tableHints = "")
         {
-            using (SqlCommand command = connectionWrapper.CreateSqlCommand())
+            using (SqlCommandWrapper sqlCommandWrapper = connectionWrapper.CreateSqlCommand())
             {
-                command.CommandText = $@"
+                sqlCommandWrapper.CommandText = $@"
                             SELECT * 
                             FROM resource {tableHints}
                             WHERE ResourceId = @newId";
 
-                command.Parameters.Add(new SqlParameter { ParameterName = "newId", Value = newId });
+                sqlCommandWrapper.Parameters.Add(new SqlParameter { ParameterName = "newId", Value = newId });
 
-                using (var reader = await command.ExecuteReaderAsync())
+                using (var reader = await sqlCommandWrapper.ExecuteReaderAsync(CancellationToken.None))
                 {
                     if (shouldFind)
                     {

@@ -6,9 +6,9 @@
 using System.Collections.Generic;
 using System.Web;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
-using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 ManagingOrganization = new ResourceReference($"Organization/{organizationResponse.Resource.Id}"),
             });
 
-            Bundle bundle = await Client.SearchPostAsync(ResourceType.Location.ToString(), ("_include", "Location:organization:Organization"));
+            Bundle bundle = await Client.SearchPostAsync(ResourceType.Location.ToString(), default, ("_include", "Location:organization:Organization"));
 
             ValidateBundle(
                 bundle,
@@ -122,7 +122,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAnIncludeSearchExpressionWithSimpleSearchAndCount_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
-            string query = $"_tag={Fixture.Tag}&_include=DiagnosticReport:patient:Patient&code=429858000&_count=1";
+            // Workaround for issue (https://github.com/microsoft/fhir-server/issues/1011) SQL DataProvider _total=accurate does not work with _include searches
+            string query = $"_tag={Fixture.Tag}&_include=DiagnosticReport:patient:Patient&code=429858000&_count=1&_total=none";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
 
@@ -184,7 +185,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAnIncludeSearchExpressionWithMultipleDenormalizedParametersAndTableParameters_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
-            var newDiagnosticReportResponse = await Fixture.FhirClient.CreateAsync(
+            var newDiagnosticReportResponse = await Fixture.TestFhirClient.CreateAsync(
                 new DiagnosticReport
                 {
                     Meta = new Meta { Tag = new List<Coding> { new Coding("testTag", Fixture.Tag) } },
@@ -212,7 +213,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateSearchEntryMode(bundle, ResourceType.DiagnosticReport);
 
             // delete the extra entry added
-            await Fixture.FhirClient.DeleteAsync(newDiagnosticReportResponse.Resource);
+            await Fixture.TestFhirClient.DeleteAsync(newDiagnosticReportResponse.Resource);
         }
 
         [Fact]
