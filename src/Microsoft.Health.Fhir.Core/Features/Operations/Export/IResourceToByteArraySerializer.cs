@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
@@ -15,8 +16,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         /// <summary>
         /// Serializes the resource represented by <see cref="ResourceWrapper"/> to byte array.
         /// </summary>
-        /// <param name="resourceWrapper">The resource wrapper used to serialize.</param>
+        /// <param name="resourceElement">The resource element used to serialize.</param>
         /// <returns>The serialized bytes.</returns>
-        byte[] Serialize(ResourceWrapper resourceWrapper);
+        byte[] Serialize(ResourceElement resourceElement);
     }
 }

@@ -41,6 +41,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         private readonly ExportJobConfiguration _exportJobConfiguration = new ExportJobConfiguration();
         private readonly ISearchService _searchService = Substitute.For<ISearchService>();
         private readonly IResourceToByteArraySerializer _resourceToByteArraySerializer = Substitute.For<IResourceToByteArraySerializer>();
+        private readonly ResourceDeserializer _resourceDeserializer = Substitute.For<ResourceDeserializer>();
 
         private readonly ExportJobTask _exportJobTask;
 
@@ -54,7 +55,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _cancellationToken = _cancellationTokenSource.Token;
             SetupExportJobRecordAndOperationDataStore();
 
-            _resourceToByteArraySerializer.Serialize(Arg.Any<ResourceWrapper>()).Returns(x => Encoding.UTF8.GetBytes(x.ArgAt<ResourceWrapper>(0).ResourceId));
+            _resourceToByteArraySerializer.Serialize(Arg.Any<ResourceElement>()).Returns(x => Encoding.UTF8.GetBytes(x.ArgAt<ResourceWrapper>(0).ResourceId));
 
             _exportJobTask = new ExportJobTask(
                 () => _fhirOperationDataStore.CreateMockScope(),
@@ -62,6 +63,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 () => _searchService.CreateMockScope(),
                 _resourceToByteArraySerializer,
                 _inMemoryDestinationClient,
+                _resourceDeserializer,
+                () => null,
                 NullLogger<ExportJobTask>.Instance);
         }
 
@@ -545,6 +548,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 () => _searchService.CreateMockScope(),
                 _resourceToByteArraySerializer,
                 mockExportDestinationClient,
+                _resourceDeserializer,
+                () => null,
                 NullLogger<ExportJobTask>.Instance);
 
             await exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
@@ -577,6 +582,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 () => _searchService.CreateMockScope(),
                 _resourceToByteArraySerializer,
                 _inMemoryDestinationClient,
+                _resourceDeserializer,
+                () => null,
                 NullLogger<ExportJobTask>.Instance);
 
             _searchService.SearchAsync(
@@ -617,6 +624,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 () => _searchService.CreateMockScope(),
                 _resourceToByteArraySerializer,
                 _inMemoryDestinationClient,
+                _resourceDeserializer,
+                () => null,
                 NullLogger<ExportJobTask>.Instance);
 
             await exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
@@ -659,6 +668,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 () => _searchService.CreateMockScope(),
                 _resourceToByteArraySerializer,
                 mockDestinationClient,
+                _resourceDeserializer,
+                () => null,
                 NullLogger<ExportJobTask>.Instance);
 
             await exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
@@ -736,6 +747,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 () => _searchService.CreateMockScope(),
                 _resourceToByteArraySerializer,
                 _inMemoryDestinationClient,
+                _resourceDeserializer,
+                () => null,
                 NullLogger<ExportJobTask>.Instance);
 
             numberOfSuccessfulPages = 5;

@@ -18,6 +18,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationCli
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Models;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
@@ -25,10 +26,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
     public class ExportJobTask : IExportJobTask
     {
         private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
+        private readonly Func<IScoped<IAnonymizer>> _anonymizerFactory;
         private readonly ExportJobConfiguration _exportJobConfiguration;
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly IResourceToByteArraySerializer _resourceToByteArraySerializer;
         private readonly IExportDestinationClient _exportDestinationClient;
+        private readonly ResourceDeserializer _resourceDeserializer;
         private readonly ILogger _logger;
 
         // Currently we will have only one file per resource type. In the future we will add the ability to split
@@ -45,6 +48,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             Func<IScoped<ISearchService>> searchServiceFactory,
             IResourceToByteArraySerializer resourceToByteArraySerializer,
             IExportDestinationClient exportDestinationClient,
+            ResourceDeserializer resourceDeserializer,
+            Func<IScoped<IAnonymizer>> anonymizerFactory,
             ILogger<ExportJobTask> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
@@ -52,13 +57,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(resourceToByteArraySerializer, nameof(resourceToByteArraySerializer));
             EnsureArg.IsNotNull(exportDestinationClient, nameof(exportDestinationClient));
+            EnsureArg.IsNotNull(resourceDeserializer, nameof(resourceDeserializer));
+            EnsureArg.IsNotNull(anonymizerFactory, nameof(anonymizerFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
             _exportJobConfiguration = exportJobConfiguration.Value;
             _searchServiceFactory = searchServiceFactory;
             _resourceToByteArraySerializer = resourceToByteArraySerializer;
+            _resourceDeserializer = resourceDeserializer;
             _exportDestinationClient = exportDestinationClient;
+            _anonymizerFactory = anonymizerFactory;
             _logger = logger;
         }
 
@@ -220,6 +229,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         private async Task ProcessSearchResultsAsync(IEnumerable<SearchResultEntry> searchResults, uint partId, CancellationToken cancellationToken)
         {
+            IAnonymizer anonymizer = _anonymizerFactory().Value;
+
             foreach (SearchResultEntry result in searchResults)
             {
                 ResourceWrapper resourceWrapper = result.Resource;
@@ -250,8 +261,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     _resourceTypeToFileInfoMapping.Add(resourceType, exportFileInfo);
                 }
 
+                ResourceElement element = _resourceDeserializer.DeserializeRaw(resourceWrapper.RawResource, resourceWrapper.Version, resourceWrapper.LastModified);
+
+                if (anonymizer != null)
+                {
+                    element = anonymizer.Anonymize(element);
+                }
+
                 // Serialize into NDJson and write to the file.
-                byte[] bytesToWrite = _resourceToByteArraySerializer.Serialize(resourceWrapper);
+                byte[] bytesToWrite = _resourceToByteArraySerializer.Serialize(element);
 
                 await _exportDestinationClient.WriteFilePartAsync(exportFileInfo.FileUri, partId, bytesToWrite, cancellationToken);
 

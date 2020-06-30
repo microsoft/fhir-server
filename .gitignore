@@ -287,3 +287,5 @@ tempkey.rsa
 
 # Azure Service Operator install dir
 install-aso/
+
+src/Fhir.Anonymizer.Core*
