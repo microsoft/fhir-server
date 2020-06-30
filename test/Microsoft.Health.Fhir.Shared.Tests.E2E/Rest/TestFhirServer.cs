@@ -155,7 +155,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         /// Additionally, the <see cref="TokenUri"/> is set if it is are found.</remarks>
         /// </summary>
         /// <param name="cancellationToken">The cancellation token</param>
-        private async Task ConfigureSecurityOptions(CancellationToken cancellationToken = default)
+        internal async Task ConfigureSecurityOptions(CancellationToken cancellationToken = default)
         {
             bool localSecurityEnabled = false;
 
