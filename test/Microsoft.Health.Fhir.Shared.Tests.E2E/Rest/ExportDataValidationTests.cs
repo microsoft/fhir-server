@@ -188,7 +188,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     }
 
                     JObject resource = JObject.Parse(entry);
-                    resourceIdToResourceMapping.Add(resource["id"].ToString(), entry);
+                    resourceIdToResourceMapping.TryAdd(resource["id"].ToString(), entry);
                 }
             }
 
