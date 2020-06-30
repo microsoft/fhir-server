@@ -54,7 +54,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
                 var testFhirServer = testFhirServerFactory
                     .GetTestFhirServer(_dataStore, null);
 
-                await testFhirServer.ConfigureSecurityOptions();
+                // Obtaining a client is required for configuring the security options.
+                testFhirServer.GetTestFhirClient(ResourceFormat.Json, reusable: false);
 
                 if (testFhirServer.SecurityEnabled)
                 {
