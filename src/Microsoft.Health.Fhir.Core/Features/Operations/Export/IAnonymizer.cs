@@ -11,10 +11,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
     public interface IAnonymizer
     {
         /// <summary>
-        /// Anonymize the FHIR resource
+        /// Initialize anonymizer
         /// </summary>
-        /// <param name="resourceElement">The FHIR resource for anonymization.</param>
-        /// <returns>The anonymized FHIR resource.</returns>
         Task InitailizeAsync();
 
         /// <summary>
