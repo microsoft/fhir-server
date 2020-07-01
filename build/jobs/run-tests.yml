@@ -39,7 +39,7 @@ jobs:
       testAssemblyVer2: |
         **\*${{ parameters.version }}.Tests.Integration*.dll
       searchFolder: '$(System.ArtifactsDirectory)'
-      testRunTitle: '{{ parameters.version }} Integration'
+      testRunTitle: '${{ parameters.version }} Integration'
     env:
       'CosmosDb:Host': $(CosmosDb--Host)
       'CosmosDb:Key': $(CosmosDb--Key)
@@ -104,7 +104,7 @@ jobs:
       rerunType: 'basedOnTestFailurePercentage'
       rerunFailedThreshold: '95'
       rerunMaxAttempts: 3
-      testRunTitle: '{{ parameters.version }} CosmosDB'
+      testRunTitle: '${{ parameters.version }} CosmosDB'
 
 - job: 'sqlE2eTests'
   dependsOn: []
@@ -165,4 +165,4 @@ jobs:
       rerunType: 'basedOnTestFailurePercentage'
       rerunFailedThreshold: '95'
       rerunMaxAttempts: 3
-      testRunTitle: '${{ parameters.version}} SQL'
+      testRunTitle: '${{ parameters.version }} SQL'
