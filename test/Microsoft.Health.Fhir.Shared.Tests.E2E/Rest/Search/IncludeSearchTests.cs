@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             bundle = await Client.SearchAsync(ResourceType.Location, $"{query}&_summary=count");
             Assert.Equal(1, bundle.Total);
 
-            // ensure that the included resources are not counted when _total is specified and the results fi in a single bundle.
+            // ensure that the included resources are not counted when _total is specified and the results fit in a single bundle.
             bundle = await Client.SearchAsync(ResourceType.Location, $"{query}&_total=accurate");
             Assert.Equal(1, bundle.Total);
         }
