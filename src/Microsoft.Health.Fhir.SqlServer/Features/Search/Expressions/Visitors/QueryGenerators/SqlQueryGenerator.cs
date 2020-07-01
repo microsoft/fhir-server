@@ -122,7 +122,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             if (!searchOptions.CountOnly)
             {
-                StringBuilder.Append("ORDER BY ").Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).AppendLine(" ASC");
+                var sortOrder = searchOptions.GetFirstSortOrderForSupportedParam();
+
+                StringBuilder.Append("ORDER BY ")
+                    .Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).Append(" ")
+                    .AppendLine(sortOrder == SortOrder.Ascending ? "ASC" : "DESC");
             }
 
             StringBuilder.Append("OPTION(RECOMPILE)");
@@ -233,10 +237,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     break;
 
                 case TableExpressionKind.Top:
+                    var sortOrder = context.GetFirstSortOrderForSupportedParam();
+
                     // Everything in the top expression is considered a match
                     StringBuilder.Append("SELECT DISTINCT TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1)).AppendLine(") Sid1, 1 AS IsMatch ")
                         .Append("FROM ").AppendLine(TableExpressionName(_tableExpressionCounter - 1))
-                        .AppendLine("ORDER BY Sid1 ASC");
+                        .AppendLine($"ORDER BY Sid1 {(sortOrder == SortOrder.Ascending ? "ASC" : "DESC")}");
 
                     // For any includes, the source of the resource surrogate ids to join on is saved
                     _cteMainSelect = TableExpressionName(_tableExpressionCounter);

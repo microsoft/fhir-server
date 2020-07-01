@@ -56,7 +56,8 @@ jobs:
           tag: ${{parameters.imageTag}}
         resources:
           requests:
-            cpu: 100m
+            cpu: 500m
+            memory: 500Mi
         ingress:
           enabled: true
           annotations:
@@ -85,7 +86,8 @@ jobs:
             acceptEula: "Y"
             resources:
               requests:
-                cpu: 100m
+                cpu: 500m
+                memory: 2000Mi
         security:
           enabled: true
           enableAadSmartOnFhirProxy: false
