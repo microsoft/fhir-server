@@ -131,8 +131,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.LastUpdated, $"ge{_exportJobRecord.Since}"));
                 }
 
-                _anonymizer = _anonymizerFactory().Value;
-                await _anonymizer?.InitailizeAsync();
+                _anonymizer = _anonymizerFactory()?.Value;
+                if (_anonymizer != null)
+                {
+                    await _anonymizer?.InitailizeAsync();
+                }
 
                 // Process the export if:
                 // 1. There is continuation token, which means there is more resource to be exported.
