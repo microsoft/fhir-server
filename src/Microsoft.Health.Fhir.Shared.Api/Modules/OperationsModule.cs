@@ -51,7 +51,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsSelf();
 
             services.AddFactory<IScoped<IAnonymizer>>();
-            services.AddFactory<IScoped<IAnonymizerSettingsProvider>>();
         }
     }
 }

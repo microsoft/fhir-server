@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.Azure
                 .AsService<IExportDestinationClient>();
 
             fhirServerBuilder.Services.Add<AzureExportAnonymizerSettingsProvider>()
-                .Transient()
+                .Scoped()
                 .AsService<IAnonymizerSettingsProvider>();
 
             return fhirServerBuilder;

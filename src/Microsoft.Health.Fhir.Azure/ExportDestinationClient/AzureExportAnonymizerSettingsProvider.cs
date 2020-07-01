@@ -6,6 +6,7 @@
 using System;
 using System.IO;
 using System.Threading;
+using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Storage.Blob;
 using Microsoft.Extensions.Logging;
@@ -18,7 +19,6 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
     {
         private readonly IExportClientInitializer<CloudBlobClient> _exportClientInitializer;
         private readonly ILogger<AzureExportDestinationClient> _logger;
-        private readonly Lazy<CloudBlobClient> _blobClient;
 
         public AzureExportAnonymizerSettingsProvider(
             IExportClientInitializer<CloudBlobClient> exportClientInitializer,
@@ -29,22 +29,30 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
 
             _exportClientInitializer = exportClientInitializer;
             _logger = logger;
-
-            _blobClient = new Lazy<CloudBlobClient>(() => _exportClientInitializer.GetAuthorizedClientAsync(CancellationToken.None).Result);
         }
 
-        public string GetAnonymizerSettings()
+        public async Task<string> GetAnonymizerSettingsAsync()
         {
-            var container = _blobClient.Value.GetContainerReference("fhiranonymizer");
+            var blobClient = await _exportClientInitializer.GetAuthorizedClientAsync(CancellationToken.None);
+            var container = blobClient.GetContainerReference("anonymization");
             var blob = container.GetBlobReference("config.json");
-            using (MemoryStream stream = new MemoryStream())
+
+            if (await blob.ExistsAsync())
             {
-                blob.DownloadToStream(stream);
-                stream.Position = 0;
-                using (StreamReader reader = new StreamReader(stream))
+                using (MemoryStream stream = new MemoryStream())
                 {
-                    return reader.ReadToEnd();
+                    await blob.DownloadToStreamAsync(stream);
+                    stream.Position = 0;
+                    using (StreamReader reader = new StreamReader(stream))
+                    {
+                        return await reader.ReadToEndAsync();
+                    }
                 }
+            }
+            else
+            {
+                _logger.LogInformation("Anonymization config not found.");
+                return null;
             }
         }
     }

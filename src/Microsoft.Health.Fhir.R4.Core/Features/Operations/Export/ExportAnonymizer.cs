@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Threading.Tasks;
 using Fhir.Anonymizer.Core;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
@@ -12,28 +13,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
     public class ExportAnonymizer : IAnonymizer
     {
-        private readonly IAnonymizerSettingsProvider _provider;
-        private readonly ResourceDeserializer _resourceDeserializer;
-        private readonly Lazy<AnonymizerEngine> _engine;
+        private IAnonymizerSettingsProvider _provider;
+        private AnonymizerEngine _engine;
 
-        public ExportAnonymizer(IAnonymizerSettingsProvider provider, ResourceDeserializer resourceDeserializer)
+        public ExportAnonymizer(IAnonymizerSettingsProvider provider)
         {
             _provider = provider;
-            _resourceDeserializer = resourceDeserializer;
+        }
 
-            _engine = new Lazy<AnonymizerEngine>(CreateAnonymizerEngine);
+        public async Task InitailizeAsync()
+        {
+            // TODO: validate config
+            string settings = await _provider.GetAnonymizerSettingsAsync();
+            _engine = new AnonymizerEngine(AnonymizerConfigurationManager.CreateFromSettings(settings));
         }
 
         public ResourceElement Anonymize(ResourceElement resourceElement)
         {
-            return new ResourceElement(_engine.Value.AnonymizeTypedElement(resourceElement.Instance));
-        }
-
-        private AnonymizerEngine CreateAnonymizerEngine()
-        {
-            AnonymizerEngine.InitializeFhirPathExtensionSymbols();
-            string settings = _provider.GetAnonymizerSettings();
-            return new AnonymizerEngine(AnonymizerConfigurationManager.CreateFromSettings(settings));
+            return new ResourceElement(_engine.AnonymizeTypedElement(resourceElement.Instance));
         }
     }
 }

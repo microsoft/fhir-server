@@ -42,6 +42,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private ExportJobRecord _exportJobRecord;
         private WeakETag _weakETag;
 
+        private IAnonymizer _anonymizer;
+
         public ExportJobTask(
             Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory,
             IOptions<ExportJobConfiguration> exportJobConfiguration,
@@ -128,6 +130,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 {
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.LastUpdated, $"ge{_exportJobRecord.Since}"));
                 }
+
+                _anonymizer = _anonymizerFactory().Value;
+                await _anonymizer?.InitailizeAsync();
 
                 // Process the export if:
                 // 1. There is continuation token, which means there is more resource to be exported.
@@ -229,8 +234,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         private async Task ProcessSearchResultsAsync(IEnumerable<SearchResultEntry> searchResults, uint partId, CancellationToken cancellationToken)
         {
-            IAnonymizer anonymizer = _anonymizerFactory().Value;
-
             foreach (SearchResultEntry result in searchResults)
             {
                 ResourceWrapper resourceWrapper = result.Resource;
@@ -263,10 +266,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 ResourceElement element = _resourceDeserializer.DeserializeRaw(resourceWrapper.RawResource, resourceWrapper.Version, resourceWrapper.LastModified);
 
-                if (anonymizer != null)
-                {
-                    element = anonymizer.Anonymize(element);
-                }
+                element = _anonymizer?.Anonymize(element);
 
                 // Serialize into NDJson and write to the file.
                 byte[] bytesToWrite = _resourceToByteArraySerializer.Serialize(element);
