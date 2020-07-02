@@ -82,8 +82,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 // If this is the first page and there aren't any more pages
                 if (searchOptions.ContinuationToken == null && searchResult.ContinuationToken == null)
                 {
-                    // Count the results on the page.
-                    searchResult.TotalCount = searchResult.Results.Count();
+                    // Count the match results on the page.
+                    searchResult.TotalCount = searchResult.Results.Count(r => r.SearchEntryMode == SearchEntryMode.Match);
                 }
                 else
                 {
@@ -138,6 +138,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 {
                     throw new BadRequestException(Resources.InvalidContinuationToken);
                 }
+            }
+
+            if (searchOptions.CountOnly)
+            {
+                // if we're only returning a count, discard any _include parameters since included resources are not counted.
+                searchExpression = searchExpression?.AcceptVisitor(RemoveIncludesRewriter.Instance);
             }
 
             SqlRootExpression expression = (SqlRootExpression)searchExpression
