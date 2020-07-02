@@ -78,10 +78,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             foreach (string key in dataFromFhirServer.Keys)
             {
                 address = new Uri(_testFhirClient.HttpClient.BaseAddress, "Patient/" + key + "/*");
-                compartmentData.Union(await GetResourcesFromFhirServer(address));
+                compartmentData = (Dictionary<string, string>)compartmentData.Union(await GetResourcesFromFhirServer(address));
             }
 
-            dataFromFhirServer.Union(compartmentData);
+            dataFromFhirServer = (Dictionary<string, string>)dataFromFhirServer.Union(compartmentData);
 
             // Assert both data are equal
             Assert.True(ValidateDataFromBothSources(dataFromFhirServer, dataFromExport));
@@ -94,7 +94,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             if (dataFromStorageAccount.Count != dataFromServer.Count)
             {
                 _outputHelper.WriteLine($"Count differs. Exported data count: {dataFromStorageAccount.Count} Fhir Server Count: {dataFromServer.Count}");
-                return false;
+                result = false;
+
+                foreach (KeyValuePair<string, string> kvp in dataFromStorageAccount)
+                {
+                    if (!dataFromServer.ContainsKey(kvp.Key))
+                    {
+                        _outputHelper.WriteLine($"Extra resource in exported data: {kvp.Key}");
+                    }
+                }
             }
 
             // Enable this check when creating/updating data validation tests to ensure there is data to export
