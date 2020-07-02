@@ -51,4 +51,8 @@
     </EmbeddedResource>
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Features\Headers\" />
+  </ItemGroup>
+
 </Project>
