@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
     public class SearchParameterDefinitionManagerTests
     {
         private static readonly string ResourceId = "http://hl7.org/fhir/SearchParameter/Resource-id";
-        private static readonly string ResourceLastupdated = "http://hl7.org/fhir/SearchParameter/Resource-lastUpdated";
+        private static readonly string ResourceLastUpdated = "http://hl7.org/fhir/SearchParameter/Resource-lastUpdated";
         private static readonly string ResourceProfile = "http://hl7.org/fhir/SearchParameter/Resource-profile";
         private static readonly string ResourceSecurity = "http://hl7.org/fhir/SearchParameter/Resource-security";
         private static readonly string ResourceQuery = "http://hl7.org/fhir/SearchParameter/Resource-query";
@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                     new ResourceSearchParameterStatus
                     {
                         Status = SearchParameterStatus.Enabled,
-                        Uri = new Uri(ResourceLastupdated),
+                        Uri = new Uri(ResourceLastUpdated),
                         IsPartiallySupported = true,
                     },
                     new ResourceSearchParameterStatus
@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _searchParameterInfos = new[]
             {
                 new SearchParameterInfo("_id", SearchParamType.Token, new Uri(ResourceId)),
-                new SearchParameterInfo("_lastUpdated", SearchParamType.Token, new Uri(ResourceLastupdated)),
+                new SearchParameterInfo("_lastUpdated", SearchParamType.Token, new Uri(ResourceLastUpdated)),
                 new SearchParameterInfo("_profile", SearchParamType.Token, new Uri(ResourceProfile)),
                 new SearchParameterInfo("_security", SearchParamType.Token, new Uri(ResourceSecurity)),
                 _queryParameter,
@@ -104,6 +104,28 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 Assert.True(p.IsSupported);
                 Assert.False(p.IsSearchable);
             });
+        }
+
+        [Fact]
+        public async Task GivenSearchableParams_WhenGettingSearchable_ThenCorrectParamsReturned()
+        {
+            _searchParameterDefinitionManager.Start();
+            await _manager.EnsureInitialized();
+            var searchableDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager);
+            var paramList = searchableDefinitionManager.AllSearchParameters;
+
+            Assert.Collection(
+                paramList,
+                p =>
+                {
+                    Assert.True(p.IsSupported);
+                    Assert.True(p.IsSearchable);
+                },
+                p2 =>
+                {
+                    Assert.True(p2.IsSupported);
+                    Assert.True(p2.IsSearchable);
+                });
         }
     }
 }
