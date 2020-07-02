@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         private readonly ConcurrentDictionary<(ResourceFormat format, TestApplication clientApplication, TestUser user), Lazy<TestFhirClient>> _cache = new ConcurrentDictionary<(ResourceFormat format, TestApplication clientApplication, TestUser user), Lazy<TestFhirClient>>();
         private readonly AsyncLocal<SessionTokenContainer> _asyncLocalSessionTokenContainer = new AsyncLocal<SessionTokenContainer>();
 
-        private Dictionary<string, AuthenticationHttpMessageHandler> _authenticationHandlers = new Dictionary<string, AuthenticationHttpMessageHandler>();
+        private readonly Dictionary<string, AuthenticationHttpMessageHandler> _authenticationHandlers = new Dictionary<string, AuthenticationHttpMessageHandler>();
 
         protected TestFhirServer(Uri baseAddress)
         {
@@ -54,12 +54,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         public Uri BaseAddress { get; }
 
-        public TestFhirClient GetTestFhirClient(ResourceFormat format, bool reusable = true, DelegatingHandler authenticationHandler = null)
+        public TestFhirClient GetTestFhirClient(ResourceFormat format, bool reusable = true, AuthenticationHttpMessageHandler authenticationHandler = null)
         {
             return GetTestFhirClient(format, TestApplications.GlobalAdminServicePrincipal, null, reusable, authenticationHandler);
         }
 
-        public TestFhirClient GetTestFhirClient(ResourceFormat format, TestApplication clientApplication, TestUser user, bool reusable = true, DelegatingHandler authenticationHandler = null)
+        public TestFhirClient GetTestFhirClient(ResourceFormat format, TestApplication clientApplication, TestUser user, bool reusable = true, AuthenticationHttpMessageHandler authenticationHandler = null)
         {
             if (_asyncLocalSessionTokenContainer.Value == null)
             {
@@ -80,87 +80,96 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 .Value;
         }
 
-        private TestFhirClient CreateFhirClient(ResourceFormat format, TestApplication clientApplication, TestUser user, DelegatingHandler authenticationHandler = null)
+        private TestFhirClient CreateFhirClient(ResourceFormat format, TestApplication clientApplication, TestUser user, AuthenticationHttpMessageHandler authenticationHandler = null)
         {
-            ConfigureSecurityOptions().GetAwaiter().GetResult();
-
-            var sessionMessageHandler = new SessionMessageHandler(CreateMessageHandler(), _asyncLocalSessionTokenContainer);
-
-            if (authenticationHandler != null)
+            if (SecurityEnabled && authenticationHandler == null)
             {
-                authenticationHandler.InnerHandler = CreateMessageHandler();
-                sessionMessageHandler.InnerHandler = authenticationHandler;
+                authenticationHandler = GetAuthenticationHandler(clientApplication, user);
             }
-            else if (SecurityEnabled && !clientApplication.Equals(TestApplications.InvalidClient))
-            {
-                string authKey = GenerateKey();
-                if (_authenticationHandlers.ContainsKey(authKey))
-                {
-                    sessionMessageHandler.InnerHandler = _authenticationHandlers[authKey];
-                }
-                else
-                {
-                    AuthenticationHttpMessageHandler authHandler;
 
-                    var authHttpClient = new HttpClient(new SessionMessageHandler(CreateMessageHandler(), _asyncLocalSessionTokenContainer)) { BaseAddress = BaseAddress };
-                    if (user == null)
-                    {
-                        string scope = clientApplication.Equals(TestApplications.WrongAudienceClient) ? clientApplication.ClientId : AuthenticationSettings.Scope;
-                        string resource = clientApplication.Equals(TestApplications.WrongAudienceClient) ? clientApplication.ClientId : AuthenticationSettings.Resource;
+            HttpMessageHandler innerHandler = authenticationHandler ?? CreateMessageHandler();
 
-                        var credentialConfiguration = new OAuth2ClientCredentialConfiguration(
-                            TokenUri,
-                            resource,
-                            scope,
-                            clientApplication.ClientId,
-                            clientApplication.ClientSecret);
-                        var credentialProvider = new OAuth2ClientCredentialProvider(Options.Create(credentialConfiguration), authHttpClient);
-                        authHandler = new AuthenticationHttpMessageHandler(credentialProvider);
-                    }
-                    else
-                    {
-                        var credentialConfiguration = new OAuth2UserPasswordCredentialConfiguration(
-                            TokenUri,
-                            AuthenticationSettings.Resource,
-                            AuthenticationSettings.Scope,
-                            clientApplication.ClientId,
-                            clientApplication.ClientSecret,
-                            user.UserId,
-                            user.Password);
-                        var credentialProvider = new OAuth2UserPasswordCredentialProvider(Options.Create(credentialConfiguration), authHttpClient);
-                        authHandler = new AuthenticationHttpMessageHandler(credentialProvider);
-                    }
-
-                    _authenticationHandlers.Add(authKey, authHandler);
-                    authHandler.InnerHandler = CreateMessageHandler();
-                    sessionMessageHandler.InnerHandler = authHandler;
-                }
-            }
+            var sessionMessageHandler = new SessionMessageHandler(innerHandler, _asyncLocalSessionTokenContainer);
 
             var httpClient = new HttpClient(sessionMessageHandler) { BaseAddress = BaseAddress };
 
             return new TestFhirClient(httpClient, this, format, clientApplication, user);
+        }
 
-            string GenerateKey()
+        private AuthenticationHttpMessageHandler GetAuthenticationHandler(TestApplication clientApplication, TestUser user)
+        {
+            if (clientApplication.Equals(TestApplications.InvalidClient))
+            {
+                return null;
+            }
+
+            string authDictionaryKey = GenerateDictionaryKey();
+
+            if (_authenticationHandlers.ContainsKey(authDictionaryKey))
+            {
+                return _authenticationHandlers[authDictionaryKey];
+            }
+
+            var authHttpClient = new HttpClient(CreateMessageHandler())
+            {
+                BaseAddress = BaseAddress,
+            };
+
+            string scope = clientApplication.Equals(TestApplications.WrongAudienceClient) ? clientApplication.ClientId : AuthenticationSettings.Scope;
+            string resource = clientApplication.Equals(TestApplications.WrongAudienceClient) ? clientApplication.ClientId : AuthenticationSettings.Resource;
+
+            ICredentialProvider credentialProvider;
+            if (user == null)
+            {
+                var credentialConfiguration = new OAuth2ClientCredentialConfiguration(
+                    TokenUri,
+                    resource,
+                    scope,
+                    clientApplication.ClientId,
+                    clientApplication.ClientSecret);
+                credentialProvider = new OAuth2ClientCredentialProvider(Options.Create(credentialConfiguration), authHttpClient);
+            }
+            else
+            {
+                var credentialConfiguration = new OAuth2UserPasswordCredentialConfiguration(
+                    TokenUri,
+                    resource,
+                    scope,
+                    clientApplication.ClientId,
+                    clientApplication.ClientSecret,
+                    user.UserId,
+                    user.Password);
+                credentialProvider = new OAuth2UserPasswordCredentialProvider(Options.Create(credentialConfiguration), authHttpClient);
+            }
+
+            var authenticationHandler = new AuthenticationHttpMessageHandler(credentialProvider)
+            {
+                InnerHandler = CreateMessageHandler(),
+            };
+            _authenticationHandlers.Add(authDictionaryKey, authenticationHandler);
+
+            return authenticationHandler;
+
+            string GenerateDictionaryKey()
             {
                 return $"{clientApplication.ClientId}:{user?.UserId}";
             }
         }
 
-        protected abstract HttpMessageHandler CreateMessageHandler();
+        internal abstract HttpMessageHandler CreateMessageHandler();
 
         /// <summary>
-        /// Set the security options on the <see cref="Hl7.Fhir.Rest.FhirClient"/>.
+        /// Set the security options on the class.
         /// <remarks>Examines the metadata endpoint to determine if there's a token and authorize url exposed and sets the property <see cref="SecurityEnabled"/> to <value>true</value> or <value>false</value> based on this.
-        /// Additionally, the <see cref="TokenUri"/> is set if it is are found.</remarks>
+        /// Additionally, the <see cref="TokenUri"/> and <see cref="AuthorizeUri"/> is set if it they are found.</remarks>
         /// </summary>
         /// <param name="cancellationToken">The cancellation token</param>
-        private async Task ConfigureSecurityOptions(CancellationToken cancellationToken = default)
+        public async Task ConfigureSecurityOptions(CancellationToken cancellationToken = default)
         {
             bool localSecurityEnabled = false;
 
             using HttpRequestMessage requestMessage = new HttpRequestMessage(HttpMethod.Get, new Uri(BaseAddress, "metadata"));
-            var httpClient = new HttpClient(new SessionMessageHandler(CreateMessageHandler(), _asyncLocalSessionTokenContainer))
+            var httpClient = new HttpClient(CreateMessageHandler())
             {
                 BaseAddress = BaseAddress,
             };

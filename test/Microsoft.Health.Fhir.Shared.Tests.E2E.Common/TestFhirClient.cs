@@ -7,6 +7,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using EnsureThat;
 using Hl7.Fhir.Rest;
+using Microsoft.Health.Client;
 using Microsoft.Health.Fhir.Tests.E2E.Rest;
 using FhirClient = Microsoft.Health.Fhir.Client.FhirClient;
 
@@ -44,7 +45,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             return _testFhirServer.GetTestFhirClient(Format, clientApplication, null);
         }
 
-        public TestFhirClient Clone(DelegatingHandler authenticationHandler = null)
+        public TestFhirClient Clone(AuthenticationHttpMessageHandler authenticationHandler = null)
         {
             return _testFhirServer.GetTestFhirClient(Format, _clientApplication, _user, reusable: false, authenticationHandler);
         }

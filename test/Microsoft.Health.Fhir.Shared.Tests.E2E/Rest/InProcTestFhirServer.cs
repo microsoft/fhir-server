@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         public TestServer Server { get; }
 
-        protected override HttpMessageHandler CreateMessageHandler()
+        internal override HttpMessageHandler CreateMessageHandler()
         {
             return Server.CreateHandler();
         }

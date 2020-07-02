@@ -7,14 +7,17 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Health.Client;
+using NSubstitute;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Common
 {
-    public class TestAuthenticationHttpMessageHandler : DelegatingHandler
+    public class TestAuthenticationHttpMessageHandler : AuthenticationHttpMessageHandler
     {
         private readonly AuthenticationHeaderValue _headerValue;
 
         public TestAuthenticationHttpMessageHandler(AuthenticationHeaderValue headerValue)
+            : base(Substitute.For<ICredentialProvider>())
         {
             _headerValue = headerValue;
         }

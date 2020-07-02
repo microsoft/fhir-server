@@ -291,7 +291,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             await ExecuteAndValidate(
                 () =>
                 {
-                    var testHandler = new TestAuthenticationHttpMessageHandler(null);
+                    var testHandler = new TestAuthenticationHttpMessageHandler(null)
+                    {
+                        InnerHandler = _fixture.TestFhirServer.CreateMessageHandler(),
+                    };
                     return _client.Clone(testHandler);
                 },
                 HttpStatusCode.Unauthorized,
@@ -304,7 +307,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             await ExecuteAndValidate(
                 () =>
                 {
-                    var testHandler = new TestAuthenticationHttpMessageHandler(new AuthenticationHeaderValue("Bearer", "invalid"));
+                    var testHandler = new TestAuthenticationHttpMessageHandler(new AuthenticationHeaderValue("Bearer", "invalid"))
+                    {
+                        InnerHandler = _fixture.TestFhirServer.CreateMessageHandler(),
+                    };
                     return _client.Clone(testHandler);
                 },
                 HttpStatusCode.Unauthorized,
