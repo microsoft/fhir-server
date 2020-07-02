@@ -86,5 +86,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public const string TriggeringResourceId = "triggeringResourceId";
 
         public const string ExportType = "exportType";
+
+        public const string LastFinishedResourceType = "lastFinishedResourceType";
     }
 }

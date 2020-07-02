@@ -35,6 +35,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         [JsonProperty(JobRecordProperties.SubSearch)]
         public ExportJobProgress SubSearch { get; private set; }
 
+        [JsonProperty(JobRecordProperties.LastFinishedResourceType)]
+        public string LastFinishedResourceType { get; set; }
+
         public void UpdateContinuationToken(string continuationToken)
         {
             EnsureArg.IsNotNullOrWhiteSpace(continuationToken, nameof(continuationToken));
