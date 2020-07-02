@@ -291,7 +291,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
                     throw new RequestRateExceededException(dce.RetryAfter);
                 }
 
-                _logger.LogError(dce, "Failed to create an reindex job.");
+                _logger.LogError(dce, "Failed to create a reindex job.");
                 throw;
             }
         }
