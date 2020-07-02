@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         private readonly IFhirOperationDataStore _operationDataStore;
         private readonly IFhirStorageTestHelper _testHelper;
 
-        private readonly CreateExportRequest _exportRequest = new CreateExportRequest(new Uri("http://localhost/ExportJob"));
+        private readonly CreateExportRequest _exportRequest = new CreateExportRequest(new Uri("http://localhost/ExportJob"), ExportJobType.All);
 
         public FhirOperationDataStoreTests(FhirStorageTestsFixture fixture)
         {
@@ -50,17 +50,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         [Fact]
         public async Task GivenANewExportRequest_WhenCreatingExportJob_ThenGetsJobCreated()
         {
-            ExportJobType exportType = ExportJobType.All;
-            if (_exportRequest.RequestUri.AbsoluteUri.Contains("Patient", StringComparison.OrdinalIgnoreCase))
-            {
-                exportType = ExportJobType.Patient;
-            }
-            else if (_exportRequest.RequestUri.AbsoluteUri.Contains("Group", StringComparison.OrdinalIgnoreCase))
-            {
-                exportType = ExportJobType.Group;
-            }
-
-            var jobRecord = new ExportJobRecord(_exportRequest.RequestUri, exportType, _exportRequest.ResourceType, "hash");
+            var jobRecord = new ExportJobRecord(_exportRequest.RequestUri, _exportRequest.RequestType, _exportRequest.ResourceType, "hash");
 
             ExportJobOutcome outcome = await _operationDataStore.CreateExportJobAsync(jobRecord, CancellationToken.None);
 

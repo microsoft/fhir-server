@@ -77,20 +77,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             if (outcome == null)
             {
-                // This is not a good enough parse...
-                ExportJobType exportType = ExportJobType.All;
-                if (request.RequestUri.AbsoluteUri.Contains("Patient", StringComparison.OrdinalIgnoreCase))
-                {
-                    exportType = ExportJobType.Patient;
-                }
-                else if (request.RequestUri.AbsoluteUri.Contains("Group", StringComparison.OrdinalIgnoreCase))
-                {
-                    exportType = ExportJobType.Group;
-                }
-
                 var jobRecord = new ExportJobRecord(
                     request.RequestUri,
-                    exportType,
+                    request.RequestType,
                     request.ResourceType,
                     hash,
                     requestorClaims,
