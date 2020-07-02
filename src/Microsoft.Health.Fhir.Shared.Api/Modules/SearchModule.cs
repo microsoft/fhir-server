@@ -73,6 +73,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.Add<SearchParameterSupportResolver>()
                 .Singleton()
+                .AsSelf()
                 .AsImplementedInterfaces();
 
             // TypedElement based converters
