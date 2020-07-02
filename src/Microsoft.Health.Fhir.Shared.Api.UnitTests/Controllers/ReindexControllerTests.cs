@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Arg.Is<GetReindexRequest>(r => r.JobId == "id"), Arg.Any<CancellationToken>());
 
             var parametersResource = ((FhirResult)result).Result.ResourceInstance as Parameters;
-            Assert.Equal("Queued", parametersResource.Parameter[2].Value.ToString());
+            Assert.Equal("Queued", parametersResource.Parameter[3].Value.ToString());
         }
 
         [Theory]
@@ -112,7 +112,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             _mediator.ClearReceivedCalls();
 
             var parametersResource = ((FhirResult)result).Result.ResourceInstance as Parameters;
-            Assert.Equal("Queued", parametersResource.Parameter[2].Value.ToString());
+            Assert.Equal("Queued", parametersResource.Parameter[3].Value.ToString());
         }
 
         private ReindexController GetController(ReindexJobConfiguration reindexConfig)
