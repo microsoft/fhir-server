@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 return;
             }
 
-            _engine = new AnonymizerEngine(AnonymizerConfigurationManager.CreateFromSettings(settings));
+            _engine = new AnonymizerEngine(AnonymizerConfigurationManager.CreateFromSettingsInJson(settings));
         }
 
         public ResourceElement Anonymize(ResourceElement resourceElement)
@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
             else
             {
-                return new ResourceElement(_engine.AnonymizeTypedElement(resourceElement.Instance));
+                return new ResourceElement(_engine.AnonymizeElement(resourceElement.Instance));
             }
         }
     }
