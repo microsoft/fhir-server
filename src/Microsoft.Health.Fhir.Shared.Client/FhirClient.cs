@@ -14,20 +14,12 @@ using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
-using Microsoft.IdentityModel.JsonWebTokens;
 using Task = System.Threading.Tasks.Task;
-#if !R5
-using RestfulCapabilityMode = Hl7.Fhir.Model.CapabilityStatement.RestfulCapabilityMode;
-#endif
 
 namespace Microsoft.Health.Fhir.Client
 {
     public class FhirClient : IFhirClient
     {
-        private const string SmartOAuthUriExtension = "http://fhir-registry.smarthealthit.org/StructureDefinition/oauth-uris";
-        private const string SmartOAuthUriExtensionToken = "token";
-        private const string SmartOAuthUriExtensionAuthorize = "authorize";
-
         private const string IfNoneExistHeaderName = "If-None-Exist";
         private const string IfMatchHeaderName = "If-Match";
 
@@ -56,7 +48,7 @@ namespace Microsoft.Health.Fhir.Client
         /// <exception cref="InvalidOperationException">Returned if the format specified is invalid.</exception>
         public FhirClient(
             HttpClient httpClient,
-            ResourceFormat format)
+            ResourceFormat format = ResourceFormat.Json)
         {
             EnsureArg.IsNotNull(httpClient, nameof(httpClient));
 
@@ -102,29 +94,7 @@ namespace Microsoft.Health.Fhir.Client
 
         public ResourceFormat Format { get; }
 
-        /// <summary>
-        /// Value representing if the FHIR server has security options present in the metadata.
-        /// <remarks><value>null</value> indicates that the <see cref="ConfigureSecurityOptions"/> method has not been called.</remarks>
-        /// </summary>
-        public bool? SecurityEnabled { get; private set; }
-
-        public Uri AuthorizeUri { get; private set; }
-
-        public Uri TokenUri { get; private set; }
-
         public HttpClient HttpClient { get; }
-
-        public DateTime TokenExpiration { get; private set; }
-
-        public void SetBearerToken(string token)
-        {
-            EnsureArg.IsNotNullOrWhiteSpace(token, nameof(token));
-
-            var decodedToken = new JsonWebToken(token);
-            TokenExpiration = decodedToken.ValidTo;
-
-            HttpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        }
 
         public Task<FhirResponse<T>> CreateAsync<T>(T resource, string conditionalCreateCriteria = null, CancellationToken cancellationToken = default)
             where T : Resource
@@ -301,8 +271,7 @@ namespace Microsoft.Health.Fhir.Client
 
         public async Task<Uri> ExportAsync(string path = "", CancellationToken cancellationToken = default)
         {
-            var message = new HttpRequestMessage(HttpMethod.Get, $"{path}$export");
-
+            using var message = new HttpRequestMessage(HttpMethod.Get, $"{path}$export");
             message.Headers.Add("Accept", "application/fhir+json");
             message.Headers.Add("Prefer", "respond-async");
 
@@ -315,11 +284,16 @@ namespace Microsoft.Health.Fhir.Client
 
         public async Task<HttpResponseMessage> CheckExportAsync(Uri contentLocation, CancellationToken cancellationToken = default)
         {
-            var message = new HttpRequestMessage(HttpMethod.Get, contentLocation);
-
+            using var message = new HttpRequestMessage(HttpMethod.Get, contentLocation);
             HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
             return response;
+        }
+
+        public async Task CancelExport(Uri contentLocation, CancellationToken cancellationToken = default)
+        {
+            using var message = new HttpRequestMessage(HttpMethod.Delete, contentLocation);
+            await HttpClient.SendAsync(message, cancellationToken);
         }
 
         public async Task<FhirResponse<Bundle>> PostBundleAsync(Resource bundle, CancellationToken cancellationToken = default)
@@ -391,38 +365,6 @@ namespace Microsoft.Health.Fhir.Client
             return new FhirResponse<T>(
                 response,
                 string.IsNullOrWhiteSpace(content) ? null : (T)_deserialize(content));
-        }
-
-        /// <summary>
-        /// Set the security options on the <see cref="FhirClient"/>.
-        /// <remarks>Examines the metadata endpoint to determine if there's a token and authorize url exposed and sets the property <see cref="SecurityEnabled"/> to <value>true</value> or <value>false</value> based on this.
-        /// Additionally, the <see cref="TokenUri"/> and <see cref="AuthorizeUri"/> are set if they are found.</remarks>
-        /// </summary>
-        /// <param name="cancellationToken">The cancellation token</param>
-        public async Task ConfigureSecurityOptions(CancellationToken cancellationToken = default)
-        {
-            bool localSecurityEnabled = false;
-
-            using FhirResponse<CapabilityStatement> readResponse = await ReadAsync<CapabilityStatement>("metadata", cancellationToken);
-            CapabilityStatement metadata = readResponse.Resource;
-
-            foreach (var rest in metadata.Rest.Where(r => r.Mode == RestfulCapabilityMode.Server))
-            {
-                var oauth = rest.Security?.GetExtension(SmartOAuthUriExtension);
-                if (oauth != null)
-                {
-                    var tokenUrl = oauth.GetExtensionValue<FhirUri>(SmartOAuthUriExtensionToken).Value;
-                    var authorizeUrl = oauth.GetExtensionValue<FhirUri>(SmartOAuthUriExtensionAuthorize).Value;
-
-                    localSecurityEnabled = true;
-                    TokenUri = new Uri(tokenUrl);
-                    AuthorizeUri = new Uri(authorizeUrl);
-
-                    break;
-                }
-            }
-
-            SecurityEnabled = localSecurityEnabled;
         }
     }
 }

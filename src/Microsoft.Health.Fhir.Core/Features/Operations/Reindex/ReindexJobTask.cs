@@ -65,7 +65,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 }
 
                 // This is just a shell for now, will be completed in future
-
                 await CompleteJobAsync(OperationStatus.Completed, cancellationToken);
 
                 _logger.LogTrace("Successfully completed the job.");
@@ -92,6 +91,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private async Task CompleteJobAsync(OperationStatus completionStatus, CancellationToken cancellationToken)
         {
             _reindexJobRecord.Status = completionStatus;
+            _reindexJobRecord.StartTime = Clock.UtcNow;
             _reindexJobRecord.EndTime = Clock.UtcNow;
             _reindexJobRecord.LastModified = Clock.UtcNow;
 

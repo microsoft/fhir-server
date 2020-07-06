@@ -58,6 +58,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\ReferenceSearchTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\ReferenceSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\SearchTestsBase.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\SortTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\StringSearchTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\StringSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\TokenSearchTestFixture.cs" />

@@ -291,7 +291,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
                     throw new RequestRateExceededException(dce.RetryAfter);
                 }
 
-                _logger.LogError(dce, "Failed to create an reindex job.");
+                _logger.LogError(dce, "Failed to create a reindex job.");
                 throw;
             }
         }
@@ -347,9 +347,35 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             }
         }
 
-        public Task<ReindexJobWrapper> GetReindexJobByIdAsync(string jobId, CancellationToken cancellationToken)
+        public async Task<ReindexJobWrapper> GetReindexJobByIdAsync(string jobId, CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            EnsureArg.IsNotNullOrWhiteSpace(jobId, nameof(jobId));
+
+            try
+            {
+                DocumentResponse<CosmosReindexJobRecordWrapper> cosmosReindexJobRecord = await _documentClientScope.Value.ReadDocumentAsync<CosmosReindexJobRecordWrapper>(
+                    UriFactory.CreateDocumentUri(DatabaseId, CollectionId, jobId),
+                    new RequestOptions { PartitionKey = new PartitionKey(CosmosDbReindexConstants.ReindexJobPartitionKey) },
+                    cancellationToken);
+
+                var outcome = new ReindexJobWrapper(cosmosReindexJobRecord.Document.JobRecord, WeakETag.FromVersionId(cosmosReindexJobRecord.Document.ETag));
+
+                return outcome;
+            }
+            catch (DocumentClientException dce)
+            {
+                if (dce.StatusCode == HttpStatusCode.TooManyRequests)
+                {
+                    throw new RequestRateExceededException(dce.RetryAfter);
+                }
+                else if (dce.StatusCode == HttpStatusCode.NotFound)
+                {
+                    throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, jobId));
+                }
+
+                _logger.LogError(dce, $"Failed to get reindex job by id: {jobId}.");
+                throw;
+            }
         }
 
         public async Task<ReindexJobWrapper> UpdateReindexJobAsync(ReindexJobRecord jobRecord, WeakETag eTag, CancellationToken cancellationToken)

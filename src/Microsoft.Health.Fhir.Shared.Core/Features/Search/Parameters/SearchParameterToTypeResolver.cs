@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
@@ -29,8 +28,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
     internal static class SearchParameterToTypeResolver
     {
         private static readonly ModelInspector ModelInspector = GetModelInspector();
-
-        internal static Action<string> Log { get; set; } = s => Debug.WriteLine(s);
 
         public static EnumerableReturnType Resolve(
             string resourceType,
@@ -233,7 +230,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                             }
 
                             pathBuilder.AppendFormat("({0})", string.Join(",", prop.FhirType.Select(x => x.Name)));
-                            Log($"Resolved path '{pathBuilder}'");
 
                             yield break;
                         }
@@ -245,8 +241,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                         break;
                     }
                 }
-
-                Log($"Resolved path '{pathBuilder}'");
 
                 yield return new SearchParameterTypeResult(mapping, ctx.SearchParamType, pathBuilder.ToString(), ctx.Definition);
             }

@@ -19,6 +19,6 @@ namespace Microsoft.Health.Fhir.Core.Messages.Search
 
         public string ResourceType { get; }
 
-        public IReadOnlyList<Tuple<string, string>> Queries { get; }
+        public IReadOnlyList<Tuple<string, string>> Queries { get; set; }
     }
 }
