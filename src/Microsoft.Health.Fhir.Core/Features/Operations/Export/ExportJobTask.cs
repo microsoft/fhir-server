@@ -187,17 +187,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 resourceTypes = new string[] { KnownResourceTypes.Patient };
             }
 
-            int currentResourceTypeIndex = 0;
+            int resourceTypeIndex = 0;
             if (!string.IsNullOrEmpty(progress.LastFinishedResourceType))
             {
-                currentResourceTypeIndex = Array.IndexOf(resourceTypes, progress.LastFinishedResourceType) + 1;
+                resourceTypeIndex = Array.IndexOf(resourceTypes, progress.LastFinishedResourceType) + 1;
             }
 
-            for (
-                string currentResourceType = resourceTypes[currentResourceTypeIndex];
-                currentResourceTypeIndex < resourceTypes.Length;
-                currentResourceType = resourceTypes[++currentResourceTypeIndex])
+            for (int currentResourceTypeIndex = resourceTypeIndex; currentResourceTypeIndex < resourceTypes.Length; currentResourceTypeIndex++)
             {
+                string currentResourceType = resourceTypes[currentResourceTypeIndex];
+
                 // Current batch will be used to organize a set of search results into a group so that they can be committed together.
                 string currentBatchId = batchIdPrefix + "-" + currentResourceType + progress.Page.ToString("d6");
 
@@ -295,6 +294,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 // Commit for any pending changes.
                 progress.LastFinishedResourceType = currentResourceType;
+                progress.ResetContinuationToken();
                 await _exportDestinationClient.CommitAsync(exportJobConfiguration, cancellationToken);
                 await UpdateJobRecordAsync(cancellationToken);
             }

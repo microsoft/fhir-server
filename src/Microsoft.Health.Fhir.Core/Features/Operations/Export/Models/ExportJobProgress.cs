@@ -46,6 +46,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             Page++;
         }
 
+        public void ResetContinuationToken()
+        {
+            ContinuationToken = null;
+            Page = 0;
+        }
+
         public void NewSubSearch(string resourceId)
         {
             SubSearch = new ExportJobProgress(null, 0, resourceId);
