@@ -29,7 +29,7 @@ In case of any errors during upgrade, the application fails to start and the upg
 ## 2. Upgrade via Schema migration tool
 Schema migration tool is a command-line utility that admins can run to perform schema migrations on demand.
 
-Schema upgrade scripts would still be part of any upgrade package for the application but the scripts will not run automatically on the server startup. In order to perform the schema upgrade, the schema admin should run the schema migration tool.
+Schema upgrade scripts would still be part of any upgrade package for the application but the scripts will not run automatically on the server startup. In order to perform the schema upgrade, the schema admin would need to run the schema migration tool.
 
  - ### Prerequisites
 
@@ -42,7 +42,7 @@ Schema upgrade scripts would still be part of any upgrade package for the applic
  
     - Role-based security
  
-        Only Database/Schema Admin can run this tool to upgrade the schema. It allows you to setup proper roles and permissions for the application e.g. the application is assigend the role as only Database Reader/Writer.
+        Only Database/Schema Admin can run this tool to upgrade the schema. It allows you to setup proper roles and permissions for the application e.g. the application is assigned the role as only Database Reader/Writer.
 
 - ### Schema migration tool
     The Schema migration tool is the command line utility to perform schema upgrade on demand.
@@ -63,7 +63,7 @@ The tool needs to know which version the databases are at in order to select the
 
         |Option|Description|Usage
         |--------|---|---|
-        |--server/-s|To provide the host url of the application| --server https://localhost:63637|
+        |--server/-s|To provide the host url of the application| --server https://localhost:12345|
         --connection-string/-cs| To provide the connection string  of the sql database| --connection-string "server=(local);Initial Catalog=DATABASE_NAME;Integrated Security=true"|
         --next/-n| It fetches the available versions and apply the next immediate available version to the current version| ---next|
         --version|To provide the schema version to upgrade. It applies all the versions between current version and the specified version|--version 5|
@@ -98,8 +98,8 @@ There is a configurable property in the launchSettings.json which can be set to 
 
 `SqlServer:SchemaOptions:AutomaticUpdatesEnabled": "true"`
 
-* If the property sets to 'true', then the schema would be upgraded automatically on the startup by the server itself.
-* If the property sets to 'false'. then the schema would remain in the same state. Moreover, the schema would only be upgraded by running the schema migration tool on demand.
+* If the property sets to ' startuptrue', then the schema would be upgraded automatically on the server startup.
+* If the property sets to 'false'. then the schema would remain in the same state. Moreover, the schema would only be upgraded by running the schema migration tool as needed.
 
 The setting should be considered for each web project
 
@@ -118,4 +118,4 @@ The setting should be considered for each web project
  Q2. What should we do in case of automatic schema upgrade fails?
 
  Ans. If automatic schema upgrade fails and application is unable to start then you can toggle the schema auto upgrade flag as mentioned under the section (How to toggle between the options) so that the upgrade scripts would not run and application would start on the current version.
- Also, you can reach out to the concerned(TBD) team with the error description to get further help on the issue.
+ Also, you can reach out to the concerned team with the error description to get further help on the issue.
