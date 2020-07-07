@@ -32,6 +32,12 @@ spec:
           env:
             - name: ASPNETCORE_FORWARDEDHEADERS_ENABLED
               value: "true"
+            {{- if .Values.serviceMonitor.enabled }}
+            - name: PrometheusMetrics__enabled
+              value: "true"
+            - name: PrometheusMetrics__port
+              value: {{ .Values.serviceMonitor.port | quote }}
+            {{- end }}
             {{- if .Values.appInsights.secretName }}
             - name: ApplicationInsights__InstrumentationKey
               valueFrom:
@@ -128,6 +134,9 @@ spec:
           ports:
             - name: http
               containerPort: 8080
+              protocol: TCP
+            - name: metric
+              containerPort: {{ .Values.serviceMonitor.port }}
               protocol: TCP
           livenessProbe:
             httpGet:
