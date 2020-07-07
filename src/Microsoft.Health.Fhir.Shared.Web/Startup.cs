@@ -11,6 +11,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Azure;
 using Prometheus;
+using Prometheus.SystemMetrics;
 
 namespace Microsoft.Health.Fhir.Web
 {
@@ -58,6 +59,14 @@ namespace Microsoft.Health.Fhir.Web
                 });
             }
 
+            if (bool.TryParse(Configuration["PrometheusMetrics:enabled"], out bool prometheusMetrics) && prometheusMetrics)
+            {
+                if (bool.TryParse(Configuration["PrometheusMetrics:systemMetrics"], out bool systemMetrics) && systemMetrics)
+                {
+                    services.AddSystemMetrics();
+                }
+            }
+
             AddApplicationInsightsTelemetry(services);
         }
 
@@ -69,12 +78,13 @@ namespace Microsoft.Health.Fhir.Web
                 app.UseForwardedHeaders();
             }
 
-            app.UseRouting();
-            app.UseHttpMetrics();
-            app.UseEndpoints(endpoints =>
+            if (bool.TryParse(Configuration["PrometheusMetrics:enabled"], out bool prometheusMetrics) && prometheusMetrics)
             {
-                endpoints.MapMetrics();
-            });
+                if (bool.TryParse(Configuration["PrometheusMetrics:httpMetrics"], out bool httpMetrics) && httpMetrics)
+                {
+                    app.UseHttpMetrics();
+                }
+            }
 
             app.UseFhirServer();
             app.UseDevelopmentIdentityProviderIfConfigured();
