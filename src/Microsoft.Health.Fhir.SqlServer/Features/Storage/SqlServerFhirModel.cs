@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly SqlServerDataStoreConfiguration _configuration;
         private readonly SchemaInitializer _schemaInitializer;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
-        private readonly ISearchParameterRegistry _filebasedRegistry;
+        private readonly IStatusRegistryDataStore _filebasedRegistryDataStore;
         private readonly SecurityConfiguration _securityConfiguration;
         private readonly ILogger<SqlServerFhirModel> _logger;
         private Dictionary<string, short> _resourceTypeToId;
@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             SqlServerDataStoreConfiguration configuration,
             SchemaInitializer schemaInitializer,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
-            FilebasedSearchParameterRegistry.Resolver filebasedRegistry,
+            FilebasedStatusRegistryDataStore.Resolver filebasedRegistry,
             IOptions<SecurityConfiguration> securityConfiguration,
             ILogger<SqlServerFhirModel> logger)
         {
@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _configuration = configuration;
             _schemaInitializer = schemaInitializer;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
-            _filebasedRegistry = filebasedRegistry.Invoke();
+            _filebasedRegistryDataStore = filebasedRegistry.Invoke();
             _securityConfiguration = securityConfiguration.Value;
             _logger = logger;
         }
@@ -213,7 +213,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     string searchParametersJson = JsonConvert.SerializeObject(_searchParameterDefinitionManager.AllSearchParameters.Select(p => new { Name = p.Name, Uri = p.Url }));
                     string commaSeparatedClaimTypes = string.Join(',', _securityConfiguration.PrincipalClaims);
                     string commaSeparatedCompartmentTypes = string.Join(',', ModelInfoProvider.GetCompartmentTypeNames());
-                    IEnumerable<ResourceSearchParameterStatus> statuses = _filebasedRegistry.GetSearchParameterStatuses().Result;
+                    IEnumerable<ResourceSearchParameterStatus> statuses = _filebasedRegistryDataStore.GetSearchParameterStatuses().Result;
 
                     sqlCommand.Parameters.AddWithValue("@resourceTypes", commaSeparatedResourceTypes);
                     sqlCommand.Parameters.AddWithValue("@searchParams", searchParametersJson);

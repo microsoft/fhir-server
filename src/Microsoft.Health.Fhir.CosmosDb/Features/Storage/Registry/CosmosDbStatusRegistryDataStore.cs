@@ -19,12 +19,12 @@ using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
 {
-    public class CosmosDbStatusRegistry : ISearchParameterRegistry
+    public class CosmosDbStatusRegistryDataStore : IStatusRegistryDataStore
     {
         private readonly Func<IScoped<IDocumentClient>> _documentClientFactory;
         private readonly ICosmosDocumentQueryFactory _queryFactory;
 
-        public CosmosDbStatusRegistry(
+        public CosmosDbStatusRegistryDataStore(
             Func<IScoped<IDocumentClient>> documentClientFactory,
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
             ICosmosDocumentQueryFactory queryFactory,

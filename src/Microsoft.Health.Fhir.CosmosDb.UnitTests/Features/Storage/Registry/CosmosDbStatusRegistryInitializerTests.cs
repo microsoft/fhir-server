@@ -27,15 +27,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Registry
 
         public CosmosDbStatusRegistryInitializerTests()
         {
-            ISearchParameterRegistry searchParameterRegistry = Substitute.For<ISearchParameterRegistry>();
+            IStatusRegistryDataStore statusRegistryDataStore = Substitute.For<IStatusRegistryDataStore>();
             _cosmosDocumentQueryFactory = Substitute.For<ICosmosDocumentQueryFactory>();
 
             _initializer = new CosmosDbStatusRegistryInitializer(
-                () => searchParameterRegistry,
+                () => statusRegistryDataStore,
                 _cosmosDocumentQueryFactory);
 
             _testParameterUri = new Uri("/test", UriKind.Relative);
-            searchParameterRegistry
+            statusRegistryDataStore
                 .GetSearchParameterStatuses()
                 .Returns(new[]
                 {

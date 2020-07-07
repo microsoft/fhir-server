@@ -47,8 +47,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private IFhirDataStore _fhirDataStore;
         private IFhirOperationDataStore _fhirOperationDataStore;
         private IFhirStorageTestHelper _fhirStorageTestHelper;
-        private FilebasedSearchParameterRegistry _filebasedSearchParameterRegistry;
-        private ISearchParameterRegistry _searchParameterRegistry;
+        private FilebasedStatusRegistryDataStore _filebasedStatusRegistryDataStore;
+        private IStatusRegistryDataStore _statusRegistryDataStore;
 
         public CosmosDbFhirStorageTestsFixture()
         {
@@ -82,14 +82,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance);
             searchParameterDefinitionManager.Start();
 
-            _filebasedSearchParameterRegistry = new FilebasedSearchParameterRegistry(searchParameterDefinitionManager, ModelInfoProvider.Instance);
+            _filebasedStatusRegistryDataStore = new FilebasedStatusRegistryDataStore(searchParameterDefinitionManager, ModelInfoProvider.Instance);
 
             var updaters = new IFhirCollectionUpdater[]
             {
                 new FhirCollectionSettingsUpdater(_cosmosDataStoreConfiguration, optionsMonitor, NullLogger<FhirCollectionSettingsUpdater>.Instance),
                 new FhirStoredProcedureInstaller(fhirStoredProcs),
                 new CosmosDbStatusRegistryInitializer(
-                    () => _filebasedSearchParameterRegistry,
+                    () => _filebasedStatusRegistryDataStore,
                     new FhirCosmosDocumentQueryFactory(
                         new CosmosResponseProcessor(Substitute.For<IFhirRequestContextAccessor>(), Substitute.For<IMediator>(), NullLogger<CosmosResponseProcessor>.Instance),
                         NullFhirDocumentQueryLogger.Instance)),
@@ -124,7 +124,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var documentClient = new NonDisposingScope(_documentClient);
 
-            _searchParameterRegistry = new CosmosDbStatusRegistry(
+            _statusRegistryDataStore = new CosmosDbStatusRegistryDataStore(
                 () => documentClient,
                 _cosmosDataStoreConfiguration,
                 cosmosDocumentQueryFactory,
@@ -183,14 +183,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 return this;
             }
 
-            if (serviceType == typeof(ISearchParameterRegistry))
+            if (serviceType == typeof(IStatusRegistryDataStore))
             {
-                return _searchParameterRegistry;
+                return _statusRegistryDataStore;
             }
 
-            if (serviceType == typeof(FilebasedSearchParameterRegistry))
+            if (serviceType == typeof(FilebasedStatusRegistryDataStore))
             {
-                return _filebasedSearchParameterRegistry;
+                return _filebasedStatusRegistryDataStore;
             }
 
             return null;

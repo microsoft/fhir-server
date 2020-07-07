@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly IFhirOperationDataStore _fhirOperationDataStore;
         private readonly SqlServerFhirStorageTestHelper _testHelper;
         private readonly SchemaInitializer _schemaInitializer;
-        private readonly FilebasedSearchParameterRegistry _filebasedSearchParameterRegistry;
+        private readonly FilebasedStatusRegistryDataStore _filebasedStatusRegistryDataStore;
 
         public SqlServerFhirStorageTestsFixture()
         {
@@ -64,11 +64,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _schemaInitializer = new SchemaInitializer(config, schemaUpgradeRunner, schemaInformation, NullLogger<SchemaInitializer>.Instance);
 
             var searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance);
-            _filebasedSearchParameterRegistry = new FilebasedSearchParameterRegistry(searchParameterDefinitionManager, ModelInfoProvider.Instance);
+            _filebasedStatusRegistryDataStore = new FilebasedStatusRegistryDataStore(searchParameterDefinitionManager, ModelInfoProvider.Instance);
 
             var securityConfiguration = new SecurityConfiguration { PrincipalClaims = { "oid" } };
 
-            var sqlServerFhirModel = new SqlServerFhirModel(config, _schemaInitializer, searchParameterDefinitionManager, () => _filebasedSearchParameterRegistry, Options.Create(securityConfiguration), NullLogger<SqlServerFhirModel>.Instance);
+            var sqlServerFhirModel = new SqlServerFhirModel(config, _schemaInitializer, searchParameterDefinitionManager, () => _filebasedStatusRegistryDataStore, Options.Create(securityConfiguration), NullLogger<SqlServerFhirModel>.Instance);
 
             var serviceCollection = new ServiceCollection();
             serviceCollection.AddSqlServerTableRowParameterGenerators();
@@ -136,14 +136,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 return SqlTransactionHandler;
             }
 
-            if (serviceType == typeof(ISearchParameterRegistry))
+            if (serviceType == typeof(IStatusRegistryDataStore))
             {
                 return SqlServerStatusRegistryDataStore;
             }
 
-            if (serviceType == typeof(FilebasedSearchParameterRegistry))
+            if (serviceType == typeof(FilebasedStatusRegistryDataStore))
             {
-                return _filebasedSearchParameterRegistry;
+                return _filebasedStatusRegistryDataStore;
             }
 
             return null;

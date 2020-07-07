@@ -42,9 +42,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public ITransactionHandler TransactionHandler => _fixture.GetRequiredService<ITransactionHandler>();
 
-        public ISearchParameterRegistry SearchParameterRegistry => _fixture.GetRequiredService<ISearchParameterRegistry>();
+        public IStatusRegistryDataStore StatusRegistryDataStore => _fixture.GetRequiredService<IStatusRegistryDataStore>();
 
-        public FilebasedSearchParameterRegistry FilebasedSearchParameterRegistry => _fixture.GetRequiredService<FilebasedSearchParameterRegistry>();
+        public FilebasedStatusRegistryDataStore FilebasedStatusRegistryDataStore => _fixture.GetRequiredService<FilebasedStatusRegistryDataStore>();
 
         void IDisposable.Dispose()
         {

@@ -28,8 +28,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task GivenAStatusRegistry_WhenGettingStatuses_ThenTheStatusesAreRetrieved()
         {
-            IReadOnlyCollection<ResourceSearchParameterStatus> expectedStatuses = await _fixture.FilebasedSearchParameterRegistry.GetSearchParameterStatuses();
-            IReadOnlyCollection<ResourceSearchParameterStatus> actualStatuses = await _fixture.SearchParameterRegistry.GetSearchParameterStatuses();
+            IReadOnlyCollection<ResourceSearchParameterStatus> expectedStatuses = await _fixture.FilebasedStatusRegistryDataStore.GetSearchParameterStatuses();
+            IReadOnlyCollection<ResourceSearchParameterStatus> actualStatuses = await _fixture.StatusRegistryDataStore.GetSearchParameterStatuses();
 
             ValidateSearchParameterStatuses(expectedStatuses, actualStatuses);
         }
@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 Uri = new Uri(statusName2), Status = SearchParameterStatus.Disabled, IsPartiallySupported = false,
             };
 
-            IReadOnlyCollection<ResourceSearchParameterStatus> readonlyStatusesBeforeUpsert = await _fixture.SearchParameterRegistry.GetSearchParameterStatuses();
+            IReadOnlyCollection<ResourceSearchParameterStatus> readonlyStatusesBeforeUpsert = await _fixture.StatusRegistryDataStore.GetSearchParameterStatuses();
             var expectedStatuses = readonlyStatusesBeforeUpsert.ToList();
             expectedStatuses.Add(status1);
             expectedStatuses.Add(status2);
@@ -61,9 +61,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             try
             {
-                await _fixture.SearchParameterRegistry.UpsertStatuses(newStatusesToUpsert);
+                await _fixture.StatusRegistryDataStore.UpsertStatuses(newStatusesToUpsert);
 
-                IReadOnlyCollection<ResourceSearchParameterStatus> actualStatuses = await _fixture.SearchParameterRegistry.GetSearchParameterStatuses();
+                IReadOnlyCollection<ResourceSearchParameterStatus> actualStatuses = await _fixture.StatusRegistryDataStore.GetSearchParameterStatuses();
 
                 ValidateSearchParameterStatuses(expectedStatuses, actualStatuses);
             }

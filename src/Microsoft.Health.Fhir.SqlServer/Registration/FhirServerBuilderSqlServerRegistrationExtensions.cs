@@ -40,7 +40,7 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add<SqlServerStatusRegistryDataStore>()
                 .Singleton()
                 .AsSelf()
-                .ReplaceService<ISearchParameterRegistry>();
+                .ReplaceService<IStatusRegistryDataStore>();
 
             services.Add<SqlServerFhirModel>()
                 .Singleton()
