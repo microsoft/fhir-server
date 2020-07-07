@@ -10,6 +10,8 @@ using Microsoft.Azure.KeyVault;
 using Microsoft.Azure.Services.AppAuthentication;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Configuration.AzureKeyVault;
+using Prometheus;
+using Prometheus.DotNetRuntime;
 
 namespace Microsoft.Health.Fhir.Web
 {
@@ -17,6 +19,14 @@ namespace Microsoft.Health.Fhir.Web
     {
         public static void Main(string[] args)
         {
+            DotNetRuntimeStatsBuilder.Customize()
+                .WithThreadPoolSchedulingStats()
+                .WithContentionStats()
+                .WithGcStats()
+                .WithJitStats()
+                .WithThreadPoolStats()
+                .StartCollecting();
+
             var host = WebHost.CreateDefaultBuilder(args)
                 .UseContentRoot(Path.GetDirectoryName(typeof(Program).Assembly.Location))
                 .ConfigureAppConfiguration((hostContext, builder) =>
