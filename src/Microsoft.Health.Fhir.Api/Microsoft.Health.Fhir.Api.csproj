@@ -19,8 +19,8 @@
     <PackageReference Include="Ensure.That" Version="8.1.2" />
     <PackageReference Include="FluentValidation" Version="8.6.1" />
     <PackageReference Include="Hl7.Fhir.Serialization" Version="1.7.0" />
-    <PackageReference Include="MediatR" Version="8.0.0" />
-    <PackageReference Include="MediatR.Extensions.Microsoft.DependencyInjection" Version="8.0.0" />
+    <PackageReference Include="MediatR" Version="8.0.2" />
+    <PackageReference Include="MediatR.Extensions.Microsoft.DependencyInjection" Version="8.0.1" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="3.1.3" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="3.1.3" />
     <PackageReference Include="Microsoft.Extensions.FileProviders.Embedded" Version="3.1.3" />
