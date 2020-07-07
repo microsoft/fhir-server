@@ -10,6 +10,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Azure;
+using Prometheus;
 
 namespace Microsoft.Health.Fhir.Web
 {
@@ -67,6 +68,13 @@ namespace Microsoft.Health.Fhir.Web
             {
                 app.UseForwardedHeaders();
             }
+
+            app.UseRouting();
+            app.UseHttpMetrics();
+            app.UseEndpoints(endpoints =>
+            {
+                endpoints.MapMetrics();
+            });
 
             app.UseFhirServer();
             app.UseDevelopmentIdentityProviderIfConfigured();
