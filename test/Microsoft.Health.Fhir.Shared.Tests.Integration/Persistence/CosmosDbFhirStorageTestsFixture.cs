@@ -48,6 +48,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private IFhirOperationDataStore _fhirOperationDataStore;
         private IFhirStorageTestHelper _fhirStorageTestHelper;
         private FilebasedSearchParameterRegistry _filebasedSearchParameterRegistry;
+        private ISearchParameterRegistry _searchParameterRegistry;
 
         public CosmosDbFhirStorageTestsFixture()
         {
@@ -123,6 +124,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var documentClient = new NonDisposingScope(_documentClient);
 
+            _searchParameterRegistry = new CosmosDbStatusRegistry(
+                () => documentClient,
+                _cosmosDataStoreConfiguration,
+                cosmosDocumentQueryFactory,
+                optionsMonitor);
+
             _fhirDataStore = new CosmosFhirDataStore(
                 documentClient,
                 _cosmosDataStoreConfiguration,
@@ -174,6 +181,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             if (serviceType.IsInstanceOfType(this))
             {
                 return this;
+            }
+
+            if (serviceType == typeof(ISearchParameterRegistry))
+            {
+                return _searchParameterRegistry;
+            }
+
+            if (serviceType == typeof(FilebasedSearchParameterRegistry))
+            {
+                return _filebasedSearchParameterRegistry;
             }
 
             return null;

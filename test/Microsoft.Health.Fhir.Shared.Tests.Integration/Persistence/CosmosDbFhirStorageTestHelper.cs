@@ -9,6 +9,8 @@ using System.Threading.Tasks;
 using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.Azure.Documents.Linq;
+using Microsoft.Health.Core.Extensions;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
@@ -57,6 +59,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             Uri documentUri = UriFactory.CreateDocumentUri(_databaseId, _collectionId, id);
             await _documentClient.DeleteDocumentAsync(documentUri, new RequestOptions { PartitionKey = new PartitionKey(ExportJobPartitionKey) }, cancellationToken);
+        }
+
+        public async Task DeleteSearchParameterStatusAsync(string uri, CancellationToken cancellationToken = default)
+        {
+            Uri documentUri = UriFactory.CreateDocumentUri(_databaseId, _collectionId, uri.ComputeHash());
+            await _documentClient.DeleteDocumentAsync(documentUri, new RequestOptions { PartitionKey = new PartitionKey(SearchParameterStatusWrapper.SearchParameterStatusPartitionKey) }, cancellationToken);
         }
 
         async Task<object> IFhirStorageTestHelper.GetSnapshotToken()
