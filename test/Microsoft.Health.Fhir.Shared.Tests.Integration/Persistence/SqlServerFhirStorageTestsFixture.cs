@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Numerics;
 using System.Threading;
@@ -23,6 +24,7 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
@@ -42,7 +44,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly IFhirOperationDataStore _fhirOperationDataStore;
         private readonly SqlServerFhirStorageTestHelper _testHelper;
         private readonly SchemaInitializer _schemaInitializer;
-        private FilebasedSearchParameterRegistry _filebasedSearchParameterRegistry;
 
         public SqlServerFhirStorageTestsFixture()
         {
@@ -68,11 +69,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 new SearchParameter { Name = SearchParameterNames.LastUpdated, Type = SearchParamType.Date, Url = SearchParameterNames.LastUpdatedUri.ToString() }.ToInfo(),
             });
 
-            _filebasedSearchParameterRegistry = new FilebasedSearchParameterRegistry(searchParameterDefinitionManager, ModelInfoProvider.Instance);
+            FilebasedSearchParameterRegistry = new FilebasedSearchParameterRegistry(searchParameterDefinitionManager, ModelInfoProvider.Instance);
 
             var securityConfiguration = new SecurityConfiguration { PrincipalClaims = { "oid" } };
 
-            var sqlServerFhirModel = new SqlServerFhirModel(config, _schemaInitializer, searchParameterDefinitionManager, () => _filebasedSearchParameterRegistry, Options.Create(securityConfiguration), NullLogger<SqlServerFhirModel>.Instance);
+            var sqlServerFhirModel = new SqlServerFhirModel(config, _schemaInitializer, searchParameterDefinitionManager, () => FilebasedSearchParameterRegistry, Options.Create(securityConfiguration), NullLogger<SqlServerFhirModel>.Instance);
 
             var serviceCollection = new ServiceCollection();
             serviceCollection.AddSqlServerTableRowParameterGenerators();
@@ -81,10 +82,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             ServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
 
             var upsertResourceTvpGenerator = serviceProvider.GetRequiredService<VLatest.UpsertResourceTvpGenerator<ResourceMetadata>>();
+            var upsertSearchParamStatusTvpGenerator = serviceProvider.GetRequiredService<VLatest.UpsertSearchParamStatusTvpGenerator<List<ResourceSearchParameterStatus>>>();
+
             var searchParameterToSearchValueTypeMap = new SearchParameterToSearchValueTypeMap(() => searchParameterDefinitionManager);
 
             SqlTransactionHandler = new SqlTransactionHandler();
             SqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(config, SqlTransactionHandler, new SqlCommandWrapperFactory());
+
+            SqlServerStatusRegistryDataStore = new SqlServerStatusRegistryDataStore(
+                SqlConnectionWrapperFactory,
+                upsertSearchParamStatusTvpGenerator);
 
             _fhirDataStore = new SqlServerFhirDataStore(config, sqlServerFhirModel, searchParameterToSearchValueTypeMap, upsertResourceTvpGenerator, Options.Create(new CoreFeatureConfiguration()), SqlConnectionWrapperFactory, NullLogger<SqlServerFhirDataStore>.Instance);
 
@@ -98,6 +105,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         internal SqlTransactionHandler SqlTransactionHandler { get; }
 
         internal SqlConnectionWrapperFactory SqlConnectionWrapperFactory { get; }
+
+        internal SqlServerStatusRegistryDataStore SqlServerStatusRegistryDataStore { get; }
+
+        internal FilebasedSearchParameterRegistry FilebasedSearchParameterRegistry { get; }
 
         public async Task InitializeAsync()
         {
