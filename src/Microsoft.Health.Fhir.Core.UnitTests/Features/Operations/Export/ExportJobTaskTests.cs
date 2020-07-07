@@ -85,8 +85,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             // First search should not have continuation token in the list of query parameters.
             _searchService.SearchAsync(
-                "Patient",
-                Arg.Is(CreateQueryParametersExpression()),
+                null,
+                Arg.Is(CreateQueryParametersExpression(KnownResourceTypes.Patient)),
                 _cancellationToken)
                 .Returns(x =>
                 {
@@ -120,8 +120,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             // First search should not have continuation token in the list of query parameters.
             _searchService.SearchAsync(
-                "Patient",
-                Arg.Is(CreateQueryParametersExpression(_exportJobRecord.Since)),
+                null,
+                Arg.Is(CreateQueryParametersExpression(_exportJobRecord.Since, KnownResourceTypes.Patient)),
                 _cancellationToken)
                 .Returns(x =>
                 {
@@ -154,8 +154,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             // First search returns a search result with continuation token.
             _searchService.SearchAsync(
-                "Patient",
-                Arg.Is(CreateQueryParametersExpression()),
+                null,
+                Arg.Is(CreateQueryParametersExpression(KnownResourceTypes.Patient)),
                 _cancellationToken)
                 .Returns(CreateSearchResult(continuationToken: continuationToken));
 
@@ -163,8 +163,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             // Second search returns a search result without continuation token.
             _searchService.SearchAsync(
-                "Patient",
-                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(continuationToken)),
+                null,
+                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(continuationToken, KnownResourceTypes.Patient)),
                 _cancellationToken)
                 .Returns(x =>
                 {
@@ -197,8 +197,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             // First search returns a search result with continuation token.
             _searchService.SearchAsync(
-                "Patient",
-                Arg.Is(CreateQueryParametersExpression(_exportJobRecord.Since)),
+                null,
+                Arg.Is(CreateQueryParametersExpression(_exportJobRecord.Since, KnownResourceTypes.Patient)),
                 _cancellationToken)
                 .Returns(CreateSearchResult(continuationToken: continuationToken));
 
@@ -206,8 +206,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             // Second search returns a search result without continuation token.
             _searchService.SearchAsync(
-                "Patient",
-                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(continuationToken, _exportJobRecord.Since)),
+                null,
+                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(continuationToken, _exportJobRecord.Since, KnownResourceTypes.Patient)),
                 _cancellationToken)
                 .Returns(x =>
                 {
@@ -240,8 +240,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             // First search returns a search result with continuation token.
             _searchService.SearchAsync(
-                "Patient",
-                Arg.Is(CreateQueryParametersExpression()),
+                null,
+                Arg.Is(CreateQueryParametersExpression(KnownResourceTypes.Patient)),
                 _cancellationToken)
                 .Returns(CreateSearchResult(continuationToken: continuationToken));
 
@@ -250,8 +250,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             // Second search returns a search result with continuation token.
             _searchService.SearchAsync(
-                "Patient",
-                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(continuationToken)),
+                null,
+                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(continuationToken, KnownResourceTypes.Patient)),
                 _cancellationToken)
                 .Returns(x =>
                 {
@@ -264,8 +264,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             // Third search returns a search result without continuation token.
             _searchService.SearchAsync(
-                "Patient",
-                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(newContinuationToken)),
+                null,
+                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(newContinuationToken, KnownResourceTypes.Patient)),
                 _cancellationToken)
                 .Returns(x =>
                 {
@@ -299,8 +299,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             // First search returns a search result with continuation token.
             _searchService.SearchAsync(
-                "Patient",
-                Arg.Is(CreateQueryParametersExpression(_exportJobRecord.Since)),
+                null,
+                Arg.Is(CreateQueryParametersExpression(_exportJobRecord.Since, KnownResourceTypes.Patient)),
                 _cancellationToken)
                 .Returns(CreateSearchResult(continuationToken: continuationToken));
 
@@ -309,8 +309,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             // Second search returns a search result with continuation token.
             _searchService.SearchAsync(
-                "Patient",
-                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(continuationToken, _exportJobRecord.Since)),
+                null,
+                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(continuationToken, _exportJobRecord.Since, KnownResourceTypes.Patient)),
                 _cancellationToken)
                 .Returns(x =>
                 {
@@ -323,8 +323,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             // Third search returns a search result without continuation token.
             _searchService.SearchAsync(
-                "Patient",
-                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(newContinuationToken, _exportJobRecord.Since)),
+                null,
+                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(newContinuationToken, _exportJobRecord.Since, KnownResourceTypes.Patient)),
                 _cancellationToken)
                 .Returns(x =>
                 {
@@ -339,36 +339,40 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.True(secondCapturedSearch);
         }
 
-        private Expression<Predicate<IReadOnlyList<Tuple<string, string>>>> CreateQueryParametersExpression()
-        {
-            return arg => arg != null &&
-                Tuple.Create("_count", "1").Equals(arg[0]) &&
-                Tuple.Create("_lastUpdated", $"le{_exportJobRecord.QueuedTime.ToString("o")}").Equals(arg[1]);
-        }
-
-        private Expression<Predicate<IReadOnlyList<Tuple<string, string>>>> CreateQueryParametersExpression(PartialDateTime since)
+        private Expression<Predicate<IReadOnlyList<Tuple<string, string>>>> CreateQueryParametersExpression(string resourceType)
         {
             return arg => arg != null &&
                 Tuple.Create("_count", "1").Equals(arg[0]) &&
                 Tuple.Create("_lastUpdated", $"le{_exportJobRecord.QueuedTime.ToString("o")}").Equals(arg[1]) &&
-                Tuple.Create("_lastUpdated", $"ge{since}").Equals(arg[2]);
+                Tuple.Create("_type", resourceType).Equals(arg[2]);
         }
 
-        private Expression<Predicate<IReadOnlyList<Tuple<string, string>>>> CreateQueryParametersExpressionWithContinuationToken(string continuationToken)
-        {
-            return arg => arg != null &&
-                Tuple.Create("_count", "1").Equals(arg[0]) &&
-                Tuple.Create("_lastUpdated", $"le{_exportJobRecord.QueuedTime.ToString("o")}").Equals(arg[1]) &&
-                Tuple.Create("ct", continuationToken).Equals(arg[2]);
-        }
-
-        private Expression<Predicate<IReadOnlyList<Tuple<string, string>>>> CreateQueryParametersExpressionWithContinuationToken(string continuationToken, PartialDateTime since)
+        private Expression<Predicate<IReadOnlyList<Tuple<string, string>>>> CreateQueryParametersExpression(PartialDateTime since, string resourceType)
         {
             return arg => arg != null &&
                 Tuple.Create("_count", "1").Equals(arg[0]) &&
                 Tuple.Create("_lastUpdated", $"le{_exportJobRecord.QueuedTime.ToString("o")}").Equals(arg[1]) &&
                 Tuple.Create("_lastUpdated", $"ge{since}").Equals(arg[2]) &&
+                Tuple.Create("_type", resourceType).Equals(arg[3]);
+        }
+
+        private Expression<Predicate<IReadOnlyList<Tuple<string, string>>>> CreateQueryParametersExpressionWithContinuationToken(string continuationToken, string resourceType)
+        {
+            return arg => arg != null &&
+                Tuple.Create("_count", "1").Equals(arg[0]) &&
+                Tuple.Create("_lastUpdated", $"le{_exportJobRecord.QueuedTime.ToString("o")}").Equals(arg[1]) &&
+                Tuple.Create("_type", resourceType).Equals(arg[2]) &&
                 Tuple.Create("ct", continuationToken).Equals(arg[3]);
+        }
+
+        private Expression<Predicate<IReadOnlyList<Tuple<string, string>>>> CreateQueryParametersExpressionWithContinuationToken(string continuationToken, PartialDateTime since, string resourceType)
+        {
+            return arg => arg != null &&
+                Tuple.Create("_count", "1").Equals(arg[0]) &&
+                Tuple.Create("_lastUpdated", $"le{_exportJobRecord.QueuedTime.ToString("o")}").Equals(arg[1]) &&
+                Tuple.Create("_lastUpdated", $"ge{since}").Equals(arg[2]) &&
+                Tuple.Create("_type", resourceType).Equals(arg[3]) &&
+                Tuple.Create("ct", continuationToken).Equals(arg[4]);
         }
 
         [Fact]
