@@ -118,7 +118,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 ExportJobProgress progress = _exportJobRecord.Progress;
 
-                await RunExportSearch(exportJobConfiguration, progress, queryParametersList, 0, string.Empty, cancellationToken);
+                await RunExportSearch(exportJobConfiguration, progress, queryParametersList, cancellationToken);
 
                 await CompleteJobAsync(OperationStatus.Completed, cancellationToken);
 
@@ -171,11 +171,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             ExportJobConfiguration exportJobConfiguration,
             ExportJobProgress progress,
             List<Tuple<string, string>> sharedQueryParametersList,
-            uint pagesWaitingForCommit,
-            string batchIdPrefix,
             CancellationToken cancellationToken,
+            uint pagesWaitingForCommit = 0,
+            string batchIdPrefix = "",
             bool compartmentSearch = false)
         {
+            EnsureArg.IsNotNull(exportJobConfiguration, nameof(exportJobConfiguration));
+            EnsureArg.IsNotNull(progress, nameof(progress));
+            EnsureArg.IsNotNull(sharedQueryParametersList, nameof(sharedQueryParametersList));
+
             // Current batch will be used to organize a set of search results into a group so that they can be committed together.
             string currentBatchId = batchIdPrefix + "-" + progress.Page.ToString("d6");
 
@@ -240,7 +244,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                             progress.NewSubSearch(result.Resource.ResourceId);
                         }
 
-                        await RunExportSearch(exportJobConfiguration, progress.SubSearch, sharedQueryParametersList, pagesWaitingForCommit, currentBatchId + ":" + resultIndex.ToString("d6"), cancellationToken, true);
+                        await RunExportSearch(exportJobConfiguration, progress.SubSearch, sharedQueryParametersList, cancellationToken, pagesWaitingForCommit, currentBatchId + ":" + resultIndex.ToString("d6"), true);
                         resultIndex++;
 
                         progress.ClearSubSearch();

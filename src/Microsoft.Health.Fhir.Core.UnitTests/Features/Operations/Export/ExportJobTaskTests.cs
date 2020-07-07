@@ -880,7 +880,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             string exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
             Assert.Equal("1234", exportedIds);
-            Assert.Equal(1, _inMemoryDestinationClient.GetExportedDataFileCount());
+            Assert.Equal(1, _inMemoryDestinationClient.ExportedDataFileCount);
 
             Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
         }

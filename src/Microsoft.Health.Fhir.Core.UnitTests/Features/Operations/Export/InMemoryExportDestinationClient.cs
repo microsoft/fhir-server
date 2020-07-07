@@ -21,6 +21,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         private Dictionary<Uri, StringBuilder> _exportedData = new Dictionary<Uri, StringBuilder>();
         private Dictionary<(Uri FileUri, string PartId), Stream> _streamMappings = new Dictionary<(Uri FileUri, string PartId), Stream>();
 
+        public int ExportedDataFileCount => _exportedData.Keys.Count;
+
         public async Task ConnectAsync(CancellationToken cancellationToken, string containerId = null)
         {
             await Task.CompletedTask;
@@ -105,11 +107,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             }
 
             return null;
-        }
-
-        public int GetExportedDataFileCount()
-        {
-            return _exportedData.Keys.Count;
         }
     }
 }
