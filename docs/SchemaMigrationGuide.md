@@ -12,7 +12,6 @@ A migration is a T-SQL script that alters the database in some way. The script h
 
 ## 1. Automatic Schema Upgrade
 Here, the schema migration is performed automatically on the server startup.
-
 The scripts that upgrade schema are part of any upgrade package for the application and run automatically when the application launches.
 
 In case of any errors during upgrade, the application fails to start and the upgrade script transaction is not committed.
@@ -46,12 +45,12 @@ Schema upgrade scripts would still be part of any upgrade package for the applic
 
 - ### Schema migration tool
     The Schema migration tool is the command line utility to perform schema upgrade on demand.
-The tool needs to know which version the databases are at in order to select the appropriate migration scripts to upgrade the schema. 
+    The tool will automatically identify current version of the database in order to apply appropriate migration scripts. 
 
-    Note - The tool can't downgrade the schema version.
+    Note - The tool can't downgrade a schema version.
 
     - #### Commands
-        The following commands are available via the tool:
+        The tool supports following commands:
 
         |Command|Description|Options
         |--------|---|---|
@@ -70,16 +69,16 @@ The tool needs to know which version the databases are at in order to select the
         --latest/-l|It fetches the available versions and apply all the versions between current and the latest available version|--latest|
         --force/-f|This option can be used with --next, --version and --latest. It skips all the checks to validate version and forces the tool to perform schema migration|--force
 
-    - #### Tool available as .NET Core global tool
+    - #### The tool is available as .NET Core global tool
 
     The schema migration tool will be available as .NET Core global tool.
 
     It can be installed like this:
 
          Open a terminal/command prompt 
-         Type dotnet tool install -g [tool-name]
+         Type 'dotnet tool install -g [tool-name]'
 
- - ### General best practices for schema upgrade on Sql server
+ - ### Best practices for schema upgrade on Sql server
     - #### Back up the data before executing.
         
         In case something goes wrong during the implementation, you can’t afford to lose data. Make sure there are backup resources and that they’ve been tested before you proceed.
@@ -98,10 +97,10 @@ There is a configurable property in the launchSettings.json which can be set to 
 
 `SqlServer:SchemaOptions:AutomaticUpdatesEnabled": "true"`
 
-* If the property sets to ' startuptrue', then the schema would be upgraded automatically on the server startup.
-* If the property sets to 'false'. then the schema would remain in the same state. Moreover, the schema would only be upgraded by running the schema migration tool as needed.
+* If the property sets to 'true', then the schema would be upgraded automatically on the server startup.
+* If the property sets to 'false', then the schema would remain in the same state. Moreover, the schema would only be upgraded by running the schema migration tool as needed.
 
-The setting should be considered for each web project
+This configurable property should be considered for each web project
 
 * Stu3 - https://github.com/microsoft/fhir-server/blob/master/src/Microsoft.Health.Fhir.Stu3.Web/Properties/launchSettings.json#L27
 * R4 - https://github.com/microsoft/fhir-server/blob/master/src/Microsoft.Health.Fhir.R4.Web/Properties/launchSettings.json#L28
