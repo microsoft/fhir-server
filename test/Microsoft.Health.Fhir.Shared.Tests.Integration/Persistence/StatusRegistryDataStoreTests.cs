@@ -55,13 +55,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             expectedStatuses.Add(status1);
             expectedStatuses.Add(status2);
 
-            var newStatusesToUpsert = new List<ResourceSearchParameterStatus>();
-            newStatusesToUpsert.Add(status1);
-            newStatusesToUpsert.Add(status2);
+            var statusesToUpsert = new List<ResourceSearchParameterStatus> { status1, status2 };
 
             try
             {
-                await _fixture.StatusRegistryDataStore.UpsertStatuses(newStatusesToUpsert);
+                await _fixture.StatusRegistryDataStore.UpsertStatuses(statusesToUpsert);
 
                 IReadOnlyCollection<ResourceSearchParameterStatus> actualStatuses = await _fixture.StatusRegistryDataStore.GetSearchParameterStatuses();
 
@@ -72,6 +70,25 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 await _testHelper.DeleteSearchParameterStatusAsync(statusName1);
                 await _testHelper.DeleteSearchParameterStatusAsync(statusName2);
             }
+        }
+
+        [Fact]
+        public async Task GivenAStatusRegistry_WhenUpsertingExistingStatuses_ThenTheStatusesAreNotAdded()
+        {
+            IReadOnlyCollection<ResourceSearchParameterStatus> expectedStatuses = await _fixture.StatusRegistryDataStore.GetSearchParameterStatuses();
+
+            // Get two existing statuses.
+            ResourceSearchParameterStatus status1 = expectedStatuses.First();
+            ResourceSearchParameterStatus status2 = expectedStatuses.Last();
+
+            var statusesToUpsert = new List<ResourceSearchParameterStatus> { status1, status2 };
+
+            // Upsert the two existing statuses.
+            await _fixture.StatusRegistryDataStore.UpsertStatuses(statusesToUpsert);
+
+            IReadOnlyCollection<ResourceSearchParameterStatus> actualStatuses = await _fixture.StatusRegistryDataStore.GetSearchParameterStatuses();
+
+            ValidateSearchParameterStatuses(expectedStatuses, actualStatuses);
         }
 
         private static void ValidateSearchParameterStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> expectedStatuses, IReadOnlyCollection<ResourceSearchParameterStatus> actualStatuses)
