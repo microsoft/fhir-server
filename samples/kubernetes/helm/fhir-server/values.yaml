@@ -86,6 +86,16 @@ appInsights:
   secretKey: "instrumentationKey"
 #  secretName: "cluster-app-insights"
 
+serviceMonitor:
+  enabled: false
+  port: 1234
+  labels: {}
+    # prometheus: monitor
+  interval: 30s
+  dotnetRuntimeMetrics: true
+  httpMetrics: true
+  systemMetrics: true
+  
 security:
   enabled: false
   enableAadSmartOnFhirProxy: false
