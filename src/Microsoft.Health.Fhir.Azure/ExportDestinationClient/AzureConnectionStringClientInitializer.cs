@@ -33,12 +33,17 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
 
         public Task<CloudBlobClient> GetAuthorizedClientAsync(CancellationToken cancellationToken)
         {
-            if (string.IsNullOrWhiteSpace(_exportJobConfiguration.StorageAccountConnection))
+            return GetAuthorizedClientAsync(_exportJobConfiguration, cancellationToken);
+        }
+
+        public Task<CloudBlobClient> GetAuthorizedClientAsync(ExportJobConfiguration exportJobConfiguration, CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(exportJobConfiguration.StorageAccountConnection))
             {
                 throw new ExportClientInitializerException(Resources.InvalidConnectionSettings, HttpStatusCode.BadRequest);
             }
 
-            if (!CloudStorageAccount.TryParse(_exportJobConfiguration.StorageAccountConnection, out CloudStorageAccount cloudAccount))
+            if (!CloudStorageAccount.TryParse(exportJobConfiguration.StorageAccountConnection, out CloudStorageAccount cloudAccount))
             {
                 throw new ExportClientInitializerException(Resources.InvalidConnectionSettings, HttpStatusCode.BadRequest);
             }

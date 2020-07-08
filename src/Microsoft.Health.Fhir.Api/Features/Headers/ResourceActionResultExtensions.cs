@@ -10,27 +10,29 @@ using Microsoft.Net.Http.Headers;
 
 namespace Microsoft.Health.Fhir.Api.Features.Headers
 {
-    public static class ExportResultExtensions
+    public static class ResourceActionResultExtensions
     {
         // Generates the url to be included in the response based on the operation and sets the content location header.
-        public static ExportResult SetContentLocationHeader(this ExportResult exportResult, IUrlResolver urlResolver, string operationName, string id)
+        public static ResourceActionResult<TResult> SetContentLocationHeader<TResult>(this ResourceActionResult<TResult> result, IUrlResolver urlResolver, string operationName, string id)
         {
+            EnsureArg.IsNotNull(result, nameof(result));
             EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
             EnsureArg.IsNotNullOrWhiteSpace(operationName, nameof(operationName));
             EnsureArg.IsNotNullOrWhiteSpace(id, nameof(id));
 
             var url = urlResolver.ResolveOperationResultUrl(operationName, id);
 
-            exportResult.Headers.Add(HeaderNames.ContentLocation, url.ToString());
-            return exportResult;
+            result.Headers.Add(HeaderNames.ContentLocation, url.ToString());
+            return result;
         }
 
-        public static ExportResult SetContentTypeHeader(this ExportResult exportResult, string contentTypeValue)
+        public static ResourceActionResult<TResult> SetContentTypeHeader<TResult>(this ResourceActionResult<TResult> result, string contentTypeValue)
         {
+            EnsureArg.IsNotNull(result, nameof(result));
             EnsureArg.IsNotNullOrWhiteSpace(contentTypeValue);
 
-            exportResult.Headers.Add(HeaderNames.ContentType, contentTypeValue);
-            return exportResult;
+            result.Headers.Add(HeaderNames.ContentType, contentTypeValue);
+            return result;
         }
     }
 }

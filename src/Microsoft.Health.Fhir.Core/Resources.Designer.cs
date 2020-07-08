@@ -223,15 +223,6 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The customer managed key is not accessible..
-        /// </summary>
-        internal static string CustomerManagedKeyInaccessible {
-            get {
-                return ResourceManager.GetString("CustomerManagedKeyInaccessible", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to The prefix used to identify custom audit headers cannot be empty..
         /// </summary>
         internal static string CustomHeaderPrefixCannotBeEmpty {
@@ -787,6 +778,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string SearchParameterNotSupported {
             get {
                 return ResourceManager.GetString("SearchParameterNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The search sort parameter &apos;{0}&apos; is not supported..
+        /// </summary>
+        internal static string SearchSortParameterNotSupported {
+            get {
+                return ResourceManager.GetString("SearchSortParameterNotSupported", resourceCulture);
             }
         }
         
