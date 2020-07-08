@@ -92,6 +92,9 @@ serviceMonitor:
   labels: {}
     # prometheus: monitor
   interval: 30s
+  dotnetRuntimeMetrics: true
+  httpMetrics: true
+  systemMetrics: true
   
 security:
   enabled: false
