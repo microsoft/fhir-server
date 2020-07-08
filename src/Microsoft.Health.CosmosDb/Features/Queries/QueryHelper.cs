@@ -18,7 +18,7 @@ namespace Microsoft.Health.CosmosDb.Features.Queries
         {
             EnsureArg.IsNotNull(queryBuilder, nameof(queryBuilder));
             EnsureArg.IsNotNull(queryParameterManager, nameof(queryParameterManager));
-            EnsureArg.IsNotEmptyOrWhitespace(rootAliasName, nameof(queryParameterManager));
+            EnsureArg.IsNotNullOrWhiteSpace(rootAliasName, nameof(queryParameterManager));
 
             _queryBuilder = queryBuilder;
             _queryParameterManager = queryParameterManager;
