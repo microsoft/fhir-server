@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.Web
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public virtual void Configure(IApplicationBuilder app, ILogger<Startup> logger, IOptions<PrometheusMetricsConfig> prometheusConfig)
+        public virtual void Configure(IApplicationBuilder app, IOptions<PrometheusMetricsConfig> prometheusConfig)
         {
             if (string.Equals(Configuration["ASPNETCORE_FORWARDEDHEADERS_ENABLED"], "true", StringComparison.OrdinalIgnoreCase))
             {

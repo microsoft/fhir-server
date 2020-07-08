@@ -9,10 +9,13 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Validation;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Shared.Tests.E2E;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
+using Microsoft.Health.Fhir.Web;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
@@ -107,7 +110,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             {
             }
 
-            public override void Configure(IApplicationBuilder app)
+            public override void Configure(IApplicationBuilder app, IOptions<PrometheusMetricsConfig> prometheusConfig)
             {
                 app.Use(async (context, next) =>
                 {
@@ -137,7 +140,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     await next();
                 });
 
-                base.Configure(app);
+                base.Configure(app, prometheusConfig);
             }
         }
     }
