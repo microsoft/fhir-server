@@ -32,7 +32,7 @@ Schema upgrade scripts would still be part of any upgrade package for the applic
 
  - ### Prerequisites
 
-    - The schema migration tool is available as .NET core global tool.
+    - The schema migration tool is available.
 
  - ### When might you choose this option
     - Production environment
@@ -44,39 +44,8 @@ Schema upgrade scripts would still be part of any upgrade package for the applic
         Only Database/Schema Admin can run this tool to upgrade the schema. It allows you to setup proper roles and permissions for the application e.g. the application is assigned the role as only Database Reader/Writer.
 
 - ### Schema migration tool
-    The Schema migration tool is the command line utility to perform schema upgrade on demand.
-    The tool will automatically identify current version of the database in order to apply appropriate migration scripts. 
 
-    Note - The tool can't downgrade a schema version.
-
-    - #### Commands
-        The tool supports following commands:
-
-        |Command|Description|Options
-        |--------|---|---|
-        |current|Returns the current versions from the SchemaVersion table along with information on the instances using the given version|--server/-s|
-        |available|Returns the versions greater than or equal to the current version along with the path to the T-SQL scripts for upgrades|--server/-s|
-        |apply|Applies the specified version(s) to the connection string supplied. Optionally can poll the FHIR server current version to apply multiple versions in sequence|--server/-s,<br /> --connection-string/-cs,<br /> --next/-n,<br /> --version/-v,<br /> --latest/-l,<br /> --force/-f|
-
-    - #### Options 
-
-        |Option|Description|Usage
-        |--------|---|---|
-        |--server/-s|To provide the host url of the application| --server https://localhost:12345|
-        --connection-string/-cs| To provide the connection string  of the sql database| --connection-string "server=(local);Initial Catalog=DATABASE_NAME;Integrated Security=true"|
-        --next/-n| It fetches the available versions and apply the next immediate available version to the current version| ---next|
-        --version|To provide the schema version to upgrade. It applies all the versions between current version and the specified version|--version 5|
-        --latest/-l|It fetches the available versions and apply all the versions between current and the latest available version|--latest|
-        --force/-f|This option can be used with --next, --version and --latest. It skips all the checks to validate version and forces the tool to perform schema migration|--force
-
-    - #### The tool is available as .NET Core global tool
-
-    The schema migration tool will be available as .NET Core global tool.
-
-    It can be installed like this:
-
-         Open a terminal/command prompt 
-         Type 'dotnet tool install -g [tool-name]'
+    The detailed information about this tool is provided [here](SchemaMigrationTool.md).
 
  - ### Best practices for schema upgrade on Sql server
     - #### Back up the data before executing.
