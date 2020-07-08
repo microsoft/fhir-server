@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Client
         Task<FhirResponse> DeleteAsync<T>(T resource, CancellationToken cancellationToken = default)
             where T : Resource;
 
-        Task<Uri> ExportAsync(string path = "", CancellationToken cancellationToken = default);
+        Task<Uri> ExportAsync(string path = "", string parameters = "", CancellationToken cancellationToken = default);
 
         Task<FhirResponse> HardDeleteAsync<T>(T resource, CancellationToken cancellationToken = default)
             where T : Resource;

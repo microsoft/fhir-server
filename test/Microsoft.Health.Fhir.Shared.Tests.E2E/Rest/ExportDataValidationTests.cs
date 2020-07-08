@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // NOTE: Azure Storage Emulator is required to run these tests locally.
 
             // Trigger export request and check for export status
-            Uri contentLocation = await _testFhirClient.ExportAsync(string.Empty);
+            Uri contentLocation = await _testFhirClient.ExportAsync();
             IList<Uri> blobUris = await CheckExportStatus(contentLocation);
 
             // Download exported data from storage account
@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // Download exported data from storage account
             Dictionary<(string resourceType, string resourceId), string> dataFromExport = await DownloadBlobAndParse(blobUris);
 
-            // Download all resources from fhir server
+            // Download resources from fhir server
             Uri address = new Uri(_testFhirClient.HttpClient.BaseAddress, "Patient/");
             Dictionary<(string resourceType, string resourceId), string> dataFromFhirServer = await GetResourcesFromFhirServer(address);
 
@@ -78,6 +78,58 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             foreach ((string resourceType, string resourceId) key in dataFromFhirServer.Keys)
             {
                 address = new Uri(_testFhirClient.HttpClient.BaseAddress, "Patient/" + key.resourceId + "/*");
+
+                // copies all the new values into the compartment data dictionary
+                (await GetResourcesFromFhirServer(address)).ToList().ForEach(x => compartmentData.TryAdd(x.Key, x.Value));
+            }
+
+            compartmentData.ToList().ForEach(x => dataFromFhirServer.TryAdd(x.Key, x.Value));
+            dataFromFhirServer.Union(compartmentData);
+
+            // Assert both data are equal
+            Assert.True(ValidateDataFromBothSources(dataFromFhirServer, dataFromExport));
+        }
+
+        [Fact]
+        public async Task GiveFhirServer_WhenAllObservationDataIsExported_ThenExportedDataIsSameAsDataInFhirServer()
+        {
+            // NOTE: Azure Storage Emulator is required to run these tests locally.
+
+            // Trigger export request and check for export status
+            Uri contentLocation = await _testFhirClient.ExportAsync(string.Empty, "_type=Observation,Patient");
+            IList<Uri> blobUris = await CheckExportStatus(contentLocation);
+
+            // Download exported data from storage account
+            Dictionary<(string resourceType, string resourceId), string> dataFromExport = await DownloadBlobAndParse(blobUris);
+
+            // Download resources from fhir server
+            Uri address = new Uri(_testFhirClient.HttpClient.BaseAddress, "?_type=Observation,Patient");
+            Dictionary<(string resourceType, string resourceId), string> dataFromFhirServer = await GetResourcesFromFhirServer(address);
+
+            // Assert both data are equal
+            Assert.True(ValidateDataFromBothSources(dataFromFhirServer, dataFromExport));
+        }
+
+        [Fact]
+        public async Task GiveFhirServer_WhenPatientObservationDataIsExported_ThenExportedDataIsSameAsDataInFhirServer()
+        {
+            // NOTE: Azure Storage Emulator is required to run these tests locally.
+
+            // Trigger export request and check for export status
+            Uri contentLocation = await _testFhirClient.ExportAsync("Patient/", "_type=Observation");
+            IList<Uri> blobUris = await CheckExportStatus(contentLocation);
+
+            // Download exported data from storage account
+            Dictionary<(string resourceType, string resourceId), string> dataFromExport = await DownloadBlobAndParse(blobUris);
+
+            // Download resources from fhir server
+            Uri address = new Uri(_testFhirClient.HttpClient.BaseAddress, "Patient/");
+            Dictionary<(string resourceType, string resourceId), string> dataFromFhirServer = await GetResourcesFromFhirServer(address);
+
+            Dictionary<(string resourceType, string resourceId), string> compartmentData = new Dictionary<(string resourceType, string resourceId), string>();
+            foreach ((string resourceType, string resourceId) key in dataFromFhirServer.Keys)
+            {
+                address = new Uri(_testFhirClient.HttpClient.BaseAddress, "Patient/" + key.resourceId + "/Observation");
 
                 // copies all the new values into the compartment data dictionary
                 (await GetResourcesFromFhirServer(address)).ToList().ForEach(x => compartmentData.TryAdd(x.Key, x.Value));
