@@ -8,7 +8,6 @@ using System.Linq;
 using Hl7.Fhir.FhirPath;
 using Hl7.FhirPath;
 using MediatR;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -31,9 +30,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Compiler = new FhirPathCompiler();
             Manager = CreateFhirElementToSearchValueTypeConverterManager();
             SearchDefinitionManager = CreateSearchParameterDefinitionManager(new VersionSpecificModelInfoProvider());
+            SupportedSearchDefinitionManager = new SupportedSearchParameterDefinitionManager(SearchDefinitionManager);
         }
 
         public static SearchParameterDefinitionManager SearchDefinitionManager { get; }
+
+        public static SupportedSearchParameterDefinitionManager SupportedSearchDefinitionManager { get; }
 
         public static FhirNodeToSearchValueTypeConverterManager Manager { get; } = CreateFhirElementToSearchValueTypeConverterManager();
 

@@ -29,7 +29,7 @@ This file is based on or incorporates material from the projects listed below (T
   > OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
   > SOFTWARE.
 
-## Ensure.That 8.1.2
+## Ensure.That 9.2.0
 * Component Source:   https://github.com/danielwertheim/Ensure.That/
 * Component Copyright and License:
   > The MIT License (MIT)
@@ -775,7 +775,7 @@ This file is based on or incorporates material from the projects listed below (T
   > 
   > [ http://www.opensource.org/licenses/bsd-license.php ]> 
 
-## Polly 7.2.0
+## Polly 7.2.1
 * Component Source:   https://github.com/App-vNext/Polly
 * Component Copyright and License:
   > New BSD License
