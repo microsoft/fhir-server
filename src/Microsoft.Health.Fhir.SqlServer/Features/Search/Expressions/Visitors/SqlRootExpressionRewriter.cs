@@ -89,6 +89,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 case IncludeQueryGenerator _:
                     kind = TableExpressionKind.Include;
                     break;
+                case RevIncludeQueryGenerator _:
+                    kind = TableExpressionKind.RevInclude;
+                    break;
                 default:
                     kind = TableExpressionKind.Normal;
                     break;

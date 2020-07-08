@@ -21,6 +21,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return null;
         }
 
+        public override Expression VisitRevInclude(RevIncludeExpression expression, object context)
+        {
+            return null;
+        }
+
         public override Expression VisitMultiary(MultiaryExpression expression, object context)
         {
             List<Expression> newChildExpressions = null;
@@ -29,7 +34,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 Expression childExpression = expression.Expressions[i];
                 if (childExpression is IncludeExpression)
                 {
-                    if (i == 0 && expression.Expressions.All(e => e is IncludeExpression))
+                    if (i == 0 && expression.Expressions.All(e => e is IncludeExpression || e is RevIncludeExpression))
                     {
                         return null;
                     }

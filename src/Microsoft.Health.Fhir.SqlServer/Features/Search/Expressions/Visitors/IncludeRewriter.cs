@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public override Expression VisitSqlRoot(SqlRootExpression expression, object context)
         {
-            if (expression.TableExpressions.Count == 1 || expression.TableExpressions.All(e => e.Kind != TableExpressionKind.Include))
+            if (expression.TableExpressions.Count == 1 || expression.TableExpressions.All(e => e.Kind != TableExpressionKind.Include && e.Kind != TableExpressionKind.RevInclude))
             {
                 return expression;
             }
@@ -33,6 +33,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 switch (t.SearchParameterQueryGenerator)
                 {
                     case IncludeQueryGenerator _:
+                        containsInclude = true;
+                        return 0;
+                    case RevIncludeQueryGenerator _:
                         containsInclude = true;
                         return 0;
                     default:

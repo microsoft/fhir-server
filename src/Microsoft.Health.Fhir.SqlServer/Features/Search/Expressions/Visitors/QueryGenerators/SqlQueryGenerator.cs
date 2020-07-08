@@ -392,6 +392,59 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                     _includeCtes.Add(TableExpressionName(_tableExpressionCounter));
                     break;
+                case TableExpressionKind.RevInclude:
+                    var truncatedItemsLimit = 100;
+                    var revIncludeExpression = (RevIncludeExpression)tableExpression.NormalizedPredicate;
+
+                    StringBuilder.Append("SELECT DISTINCT TOP " + (truncatedItemsLimit + 1) + " ");
+                    StringBuilder.Append(VLatest.Resource.ResourceSurrogateId, referenceSourceTableAlias).AppendLine(" AS Sid1, 0 AS IsMatch")
+                        .Append("FROM ").Append(VLatest.ReferenceSearchParam).Append(' ').AppendLine(referenceSourceTableAlias)
+                        .Append("INNER JOIN ").Append(VLatest.Resource).Append(' ').AppendLine(referenceTargetResourceTableAlias);
+
+                    using (var delimited = StringBuilder.BeginDelimitedOnClause())
+                    {
+                        delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceSourceTableAlias)
+                            .Append(" = ").Append(VLatest.Resource.ResourceTypeId, referenceTargetResourceTableAlias);
+
+                        delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ReferenceResourceId, referenceSourceTableAlias)
+                            .Append(" = ").Append(VLatest.Resource.ResourceId, referenceTargetResourceTableAlias);
+                    }
+
+                    using (var delimited = StringBuilder.BeginDelimitedWhereClause())
+                    {
+                        if (!revIncludeExpression.WildCard)
+                        {
+                            delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.SearchParamId, referenceSourceTableAlias)
+                                .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.SearchParamId, Model.GetSearchParamId(revIncludeExpression.ReferenceSearchParameter.Url)));
+
+                            if (revIncludeExpression.TargetResourceType != null)
+                            {
+                                delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceSourceTableAlias)
+                                    .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, Model.GetResourceTypeId(revIncludeExpression.TargetResourceType)));
+                            }
+                        }
+
+                        AppendHistoryClause(delimited, referenceTargetResourceTableAlias);
+                        AppendHistoryClause(delimited, referenceSourceTableAlias);
+
+                        delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ResourceTypeId, referenceTargetResourceTableAlias)
+                            .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.ResourceTypeId, Model.GetResourceTypeId(revIncludeExpression.ResourceType)));
+
+                        // Limit the join to the main select CTE.
+                        // The main select will have max+1 items in the result set to account for paging, so we only want to join using the max amount.
+                        delimited.BeginDelimitedElement().Append(VLatest.Resource.ResourceSurrogateId, referenceTargetResourceTableAlias)
+                            .Append(" IN (SELECT TOP(")
+                            .Append(Parameters.AddParameter(context.MaxItemCount))
+                            .Append(") Sid1 FROM ").Append(_cteMainSelect).Append(")");
+                    }
+
+                    if (_includeCtes == null)
+                    {
+                        _includeCtes = new List<string>();
+                    }
+
+                    _includeCtes.Add(TableExpressionName(_tableExpressionCounter));
+                    break;
                 case TableExpressionKind.IncludeUnionAll:
                     StringBuilder.AppendLine("SELECT Sid1, IsMatch");
                     StringBuilder.Append("FROM ").AppendLine(_cteMainSelect);

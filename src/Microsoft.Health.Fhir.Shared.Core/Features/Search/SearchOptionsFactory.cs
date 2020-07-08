@@ -187,6 +187,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     .Where(item => item != null));
             }
 
+            if (searchParams.RevInclude?.Count > 0)
+            {
+                searchExpressions.AddRange(searchParams.RevInclude.Select(
+                    q => _expressionParser.ParseRevInclude(parsedResourceType.ToString(), q))
+                    .Where(item => item != null));
+            }
+
             if (!string.IsNullOrWhiteSpace(compartmentType))
             {
                 if (Enum.TryParse(compartmentType, out CompartmentType parsedCompartmentType))

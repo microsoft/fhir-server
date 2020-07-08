@@ -82,6 +82,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return new IncludeExpression(resourceType, referenceSearchParameter, targetResourceType, wildCard);
         }
 
+        public static RevIncludeExpression RevInclude(string resourceType, SearchParameterInfo referenceSearchParameter, string targetResourceType, bool wildCard)
+        {
+            return new RevIncludeExpression(resourceType, referenceSearchParameter, targetResourceType, wildCard);
+        }
+
         /// <summary>
         /// Creates a <see cref="StringExpression"/> that represents contains operation.
         /// </summary>

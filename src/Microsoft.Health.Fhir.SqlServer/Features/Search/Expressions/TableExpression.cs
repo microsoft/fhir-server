@@ -39,6 +39,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
                 case CompartmentSearchExpression _:
                 case ChainedExpression _:
                 case IncludeExpression _:
+                case RevIncludeExpression _:
                 case null:
                     break;
                 default:

@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public Expression VisitSqlRoot(SqlRootExpression expression, object context)
         {
-            if (expression.TableExpressions.Count == 0 || expression.DenormalizedExpressions.Count == 0 || expression.TableExpressions.All(t => t.Kind == TableExpressionKind.Include))
+            if (expression.TableExpressions.Count == 0 || expression.DenormalizedExpressions.Count == 0 || expression.TableExpressions.All(t => t.Kind == TableExpressionKind.Include) || expression.TableExpressions.All(t => t.Kind == TableExpressionKind.RevInclude))
             {
                 return expression;
             }
@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             var newTableExpressions = new List<TableExpression>(expression.TableExpressions.Count);
             foreach (var tableExpression in expression.TableExpressions)
             {
-                if (tableExpression.Kind == TableExpressionKind.Include)
+                if ((tableExpression.Kind == TableExpressionKind.Include) || (tableExpression.Kind == TableExpressionKind.RevInclude))
                 {
                     newTableExpressions.Add(tableExpression);
                 }

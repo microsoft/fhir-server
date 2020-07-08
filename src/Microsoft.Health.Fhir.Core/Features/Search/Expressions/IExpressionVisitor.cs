@@ -74,5 +74,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <param name="expression">The expression to visit.</param>
         /// <param name="context">The input.</param>
         TOutput VisitInclude(IncludeExpression expression, TContext context);
+
+        TOutput VisitRevInclude(RevIncludeExpression expression, TContext context);
     }
 }

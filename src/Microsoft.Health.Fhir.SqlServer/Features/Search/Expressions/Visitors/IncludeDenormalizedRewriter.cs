@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return expression;
             }
 
-            if (!expression.TableExpressions.All(te => te.Kind == TableExpressionKind.Include))
+            if (!expression.TableExpressions.All(te => te.Kind == TableExpressionKind.Include || te.Kind == TableExpressionKind.RevInclude))
             {
                 return expression;
             }
