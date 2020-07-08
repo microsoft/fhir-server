@@ -172,7 +172,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             ExportJobProgress progress,
             List<Tuple<string, string>> sharedQueryParametersList,
             CancellationToken cancellationToken,
-            uint pagesWaitingForCommit = 0,
             string batchIdPrefix = "",
             bool compartmentSearch = false)
         {
@@ -244,7 +243,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                             progress.NewSubSearch(result.Resource.ResourceId);
                         }
 
-                        await RunExportSearch(exportJobConfiguration, progress.SubSearch, sharedQueryParametersList, cancellationToken, pagesWaitingForCommit, currentBatchId + ":" + resultIndex.ToString("d6"), true);
+                        await RunExportSearch(exportJobConfiguration, progress.SubSearch, sharedQueryParametersList, cancellationToken, currentBatchId + ":" + resultIndex.ToString("d6"), true);
                         resultIndex++;
 
                         progress.ClearSubSearch();
@@ -262,7 +261,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 // Update the continuation token in local cache and queryParams.
                 // We will add or udpate the continuation token to the end of the query parameters list.
                 progress.UpdateContinuationToken(searchResult.ContinuationToken);
-                pagesWaitingForCommit++;
 
                 if (queryParametersList[queryParametersList.Count - 1].Item1 == KnownQueryParameterNames.ContinuationToken)
                 {
@@ -282,7 +280,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     await UpdateJobRecordAsync(cancellationToken);
 
                     currentBatchId = batchIdPrefix + '-' + progress.Page.ToString("d6");
-                    pagesWaitingForCommit = 0;
                 }
             }
 
