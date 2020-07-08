@@ -93,6 +93,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         private static void ValidateSearchParameterStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> expectedStatuses, IReadOnlyCollection<ResourceSearchParameterStatus> actualStatuses)
         {
+            Assert.NotEmpty(expectedStatuses);
+
             var sortedExpected = expectedStatuses.OrderBy(status => status.Uri.ToString()).ToList();
             var sortedActual = actualStatuses.OrderBy(status => status.Uri.ToString()).ToList();
 
