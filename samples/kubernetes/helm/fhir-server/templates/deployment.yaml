@@ -141,7 +141,7 @@ spec:
             - name: http
               containerPort: 8080
               protocol: TCP
-            - name: metric
+            - name: metrics
               containerPort: {{ .Values.serviceMonitor.port }}
               protocol: TCP
           livenessProbe:
