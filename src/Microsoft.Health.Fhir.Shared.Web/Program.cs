@@ -10,8 +10,6 @@ using Microsoft.Azure.KeyVault;
 using Microsoft.Azure.Services.AppAuthentication;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Configuration.AzureKeyVault;
-using Prometheus;
-using Prometheus.DotNetRuntime;
 
 namespace Microsoft.Health.Fhir.Web
 {
@@ -19,8 +17,6 @@ namespace Microsoft.Health.Fhir.Web
     {
         public static void Main(string[] args)
         {
-            KestrelMetricServer metricServer = null;
-
             var host = WebHost.CreateDefaultBuilder(args)
                 .UseContentRoot(Path.GetDirectoryName(typeof(Program).Assembly.Location))
                 .ConfigureAppConfiguration((hostContext, builder) =>
@@ -36,27 +32,6 @@ namespace Microsoft.Health.Fhir.Web
                     }
 
                     builder.AddDevelopmentAuthEnvironmentIfConfigured(builtConfig);
-
-                    if (bool.TryParse(builtConfig["PrometheusMetrics:enabled"], out bool prometheusEnabled) && prometheusEnabled)
-                    {
-                        int metricsPort = int.TryParse(builtConfig["PrometheusMetrics:port"], out metricsPort) ? metricsPort : 1234;
-                        string metricsUrl = string.IsNullOrEmpty(builtConfig["PrometheusMetrics:url"]) ? "/metrics" : builtConfig["PrometheusMetrics:url"];
-
-                        metricServer = new KestrelMetricServer(port: metricsPort, url: metricsUrl);
-
-                        if (bool.TryParse(builtConfig["PrometheusMetrics:dotnetRuntimeMetrics"], out bool dotnetRuntimeMetrics) && dotnetRuntimeMetrics)
-                        {
-                            DotNetRuntimeStatsBuilder.Customize()
-                                .WithThreadPoolSchedulingStats()
-                                .WithContentionStats()
-                                .WithGcStats()
-                                .WithJitStats()
-                                .WithThreadPoolStats()
-                                .StartCollecting();
-                        }
-
-                        metricServer.Start();
-                    }
                 })
                 .UseStartup<Startup>()
                 .Build();

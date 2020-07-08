@@ -9,6 +9,8 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Azure;
 using Prometheus;
 using Prometheus.SystemMetrics;
@@ -59,9 +61,17 @@ namespace Microsoft.Health.Fhir.Web
                 });
             }
 
-            if (bool.TryParse(Configuration["PrometheusMetrics:enabled"], out bool prometheusMetrics) && prometheusMetrics)
+            PrometheusMetricsConfig prometheusConfig = new PrometheusMetricsConfig();
+            Configuration.Bind("PrometheusMetrics", prometheusConfig);
+            services.AddSingleton(Options.Create(prometheusConfig));
+
+            if (prometheusConfig.Enabled)
             {
-                if (bool.TryParse(Configuration["PrometheusMetrics:systemMetrics"], out bool systemMetrics) && systemMetrics)
+                services.Add<PrometheusMetricsServer>()
+                    .Singleton()
+                    .AsService<IStartable>();
+
+                if (prometheusConfig.SystemMetrics)
                 {
                     services.AddSystemMetrics();
                 }
@@ -71,16 +81,17 @@ namespace Microsoft.Health.Fhir.Web
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public virtual void Configure(IApplicationBuilder app)
+        public virtual void Configure(IApplicationBuilder app, ILogger<Startup> logger, IOptions<PrometheusMetricsConfig> prometheusConfig)
         {
             if (string.Equals(Configuration["ASPNETCORE_FORWARDEDHEADERS_ENABLED"], "true", StringComparison.OrdinalIgnoreCase))
             {
                 app.UseForwardedHeaders();
             }
 
-            if (bool.TryParse(Configuration["PrometheusMetrics:enabled"], out bool prometheusMetrics) && prometheusMetrics)
+            var prometheusMetricsConfig = prometheusConfig.Value;
+            if (prometheusMetricsConfig.Enabled)
             {
-                if (bool.TryParse(Configuration["PrometheusMetrics:httpMetrics"], out bool httpMetrics) && httpMetrics)
+                if (prometheusMetricsConfig.HttpMetrics)
                 {
                     app.UseHttpMetrics();
                 }
