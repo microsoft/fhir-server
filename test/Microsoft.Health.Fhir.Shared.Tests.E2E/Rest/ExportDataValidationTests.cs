@@ -199,7 +199,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     }
 
                     JObject resource = JObject.Parse(entry);
-                    resourceIdToResourceMapping.Add((resource["resourceType"].ToString(), resource["id"].ToString()), entry);
+
+                    // Ideally this should just be Add, but until we prevent duplicates from being added to the server there is a chance the same resource being added multiple times resulting in a key conflict.
+                    resourceIdToResourceMapping.TryAdd((resource["resourceType"].ToString(), resource["id"].ToString()), entry);
                 }
             }
 
@@ -245,7 +247,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                     string resource = entry["resource"].ToString().Trim();
 
-                    resourceIdToResourceMapping.Add((resourceType, id), resource);
+                    resourceIdToResourceMapping.TryAdd((resourceType, id), resource);
                 }
 
                 // Look at whether a continuation token has been returned.
