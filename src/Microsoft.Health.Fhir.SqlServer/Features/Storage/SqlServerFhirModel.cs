@@ -175,11 +175,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         WITH (Uri varchar(128) '$.Uri')
                         EXCEPT SELECT Uri FROM dbo.SearchParam;
 
-                        IF ((SELECT COUNT(*) FROM dbo.SearchParamRegistry) = 0)
+                        IF ((SELECT COUNT(*) FROM dbo.SearchParamStatusRegistry) = 0)
                         BEGIN
                             DECLARE @lastUpdated datetimeoffset(7) = SYSDATETIMEOFFSET()
         
-                            INSERT INTO dbo.SearchParamRegistry (Uri, Status, LastUpdated, IsPartiallySupported)
+                            INSERT INTO dbo.SearchParamStatusRegistry (Uri, Status, LastUpdated, IsPartiallySupported)
                             SELECT sps.Uri, sps.Status, @lastUpdated, sps.IsPartiallySupported
                             FROM @searchParamStatuses AS sps
                         END
@@ -222,7 +222,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                     SqlParameter tableValuedParameter = sqlCommand.Parameters.AddWithValue("@searchParamStatuses", CreateSqlDataRecords(statuses));
                     tableValuedParameter.SqlDbType = SqlDbType.Structured;
-                    tableValuedParameter.TypeName = "dbo.SearchParamRegistryTableType_1";
+                    tableValuedParameter.TypeName = "dbo.SearchParamStatusRegistryTableType_1";
 
                     using (SqlDataReader reader = sqlCommand.ExecuteReader(CommandBehavior.SequentialAccess))
                     {

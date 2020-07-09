@@ -1,15 +1,15 @@
 /*************************************************************
-    Search Parameter Registry
+    Search Parameter Status Registry
 **************************************************************/
 
-CREATE TYPE dbo.SearchParamRegistryTableType_1 AS TABLE
+CREATE TYPE dbo.SearchParamStatusRegistryTableType_1 AS TABLE
 (
     Uri varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     Status varchar(10) NOT NULL,
     IsPartiallySupported bit NOT NULL
 )
 
-CREATE TABLE dbo.SearchParamRegistry
+CREATE TABLE dbo.SearchParamStatusRegistry
 (
     Uri varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     Status varchar(10) NOT NULL,
@@ -17,8 +17,8 @@ CREATE TABLE dbo.SearchParamRegistry
     IsPartiallySupported bit NOT NULL
 )
 
-CREATE UNIQUE CLUSTERED INDEX IXC_SearchParamRegistry
-ON dbo.SearchParamRegistry
+CREATE UNIQUE CLUSTERED INDEX IXC_SearchParamStatusRegistry
+ON dbo.SearchParamStatusRegistry
 (
     Uri
 )
@@ -26,7 +26,7 @@ ON dbo.SearchParamRegistry
 GO
 
 /*************************************************************
-    Stored procedures for the search parameter registry
+    Stored procedures for the search parameter status registry
 **************************************************************/
 --
 -- STORED PROCEDURE
@@ -42,7 +42,7 @@ CREATE PROCEDURE dbo.GetSearchParamStatuses
 AS
     SET NOCOUNT ON
 
-    SELECT * FROM dbo.SearchParamRegistry
+    SELECT * FROM dbo.SearchParamStatusRegistry
 GO
 
 --
@@ -58,7 +58,7 @@ GO
 --         * The updated or new search parameter statuses
 --
 CREATE PROCEDURE dbo.UpsertSearchParamStatuses
-    @searchParamStatuses dbo.SearchParamRegistryTableType_1 READONLY
+    @searchParamStatuses dbo.SearchParamStatusRegistryTableType_1 READONLY
 AS
     SET NOCOUNT ON
     SET XACT_ABORT ON
@@ -69,18 +69,18 @@ AS
     DECLARE @lastUpdated datetimeoffset(7) = SYSDATETIMEOFFSET()
 
     -- Acquire and hold an exclusive table lock for the entire transaction to prevent parameters from being added or modified during upsertion.
-    UPDATE dbo.SearchParamRegistry
+    UPDATE dbo.SearchParamStatusRegistry
     WITH (TABLOCKX)
     SET Status = sps.Status, LastUpdated = @lastUpdated, IsPartiallySupported = sps.IsPartiallySupported
-    FROM dbo.SearchParamRegistry INNER JOIN @searchParamStatuses as sps
-    ON dbo.SearchParamRegistry.Uri = sps.Uri
+    FROM dbo.SearchParamStatusRegistry INNER JOIN @searchParamStatuses as sps
+    ON dbo.SearchParamStatusRegistry.Uri = sps.Uri
 
-    INSERT INTO dbo.SearchParamRegistry
+    INSERT INTO dbo.SearchParamStatusRegistry
         (Uri, Status, LastUpdated, IsPartiallySupported)
     SELECT sps.Uri, sps.Status, @lastUpdated, sps.IsPartiallySupported
     FROM @searchParamStatuses AS sps
     WHERE sps.Uri NOT IN
-        (SELECT Uri FROM dbo.SearchParamRegistry)
+        (SELECT Uri FROM dbo.SearchParamStatusRegistry)
 
     COMMIT TRANSACTION
 GO
