@@ -1,6 +1,6 @@
 # BaseSchema
 
-The following are the required schema for Schema migration tool. It includes the couple of tables and stored procedures corresponding to these tables.
+The following are the required schema for [Schema migration tool](SchemaMigrationTool.md). It include tables and stored procedures corresponding to these tables.
 
  ## 1. SchemaVersion
 This table holds the information about the schema versions with their status.

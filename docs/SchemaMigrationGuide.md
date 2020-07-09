@@ -1,5 +1,5 @@
 # Schema Migration Guide
-This document describes how to perform Sql schema migration on the Open source FHIR server.
+This document describes how to perform Sql schema migration on the application server.
 
  A database schema will evolve over time. The corresponding server in production would need to be upgraded to the next/latest version of the code, which may require schema migration.
 
@@ -47,22 +47,22 @@ Schema upgrade scripts would still be part of any upgrade package for the applic
 
     The detailed information about this tool is provided [here](SchemaMigrationTool.md).
 
- - ### Best practices for schema upgrade on Sql server
-    - #### Back up the data before executing.
-        
-        In case something goes wrong during the implementation, you can’t afford to lose data. Make sure there are backup resources and that they’ve been tested before you proceed.
-        
-    - #### Stick to the strategy.
+## Best practices for schema upgrade on Sql server
+- ### Back up the data before executing.
+    
+    In case something goes wrong during the implementation, you can’t afford to lose data. Make sure there are backup resources and that they’ve been tested before you proceed.
+    
+- ### Stick to the strategy.
 
-        Too many data managers make a plan and then abandon it when the process goes “too” smoothly or when things get out of hand. The migration process can be complicated, so prepare for that reality and then 
-        stick to the plan.
+    Too many data managers make a plan and then abandon it when the process goes “too” smoothly or when things get out of hand. The migration process can be complicated, so prepare for that reality and then 
+    stick to the plan.
 
-    - #### Test, test
+- ### Test, test
 
-        Test before executing the migration and test after the migration is completed.
+    Test before executing the migration and test after the migration is completed.  
 
  ## How to toggle between the options
-There is a configurable property in the launchSettings.json which can be set to true/false based on the desired behavior.
+There is a configurable property in the launchSettings.json which can be set to true/false based on the desired behavior. By default, the property is considered to be false.
 
 `SqlServer:SchemaOptions:AutomaticUpdatesEnabled": "true"`
 

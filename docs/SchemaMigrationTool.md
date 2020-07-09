@@ -1,5 +1,5 @@
 # Schema Migration Tool
-The Schema migration tool is the command line utility to perform schema upgrade on demand. The tool will automatically identify current version of the database in order to apply appropriate migration scripts.
+The Schema migration tool is the command line utility to perform schema upgrade on demand. The tool will automatically identify the current version of the database in order to apply appropriate migration scripts.
 
 Note - The tool can't downgrade a schema version.
 
@@ -12,20 +12,21 @@ Note - The tool can't downgrade a schema version.
 
         It can be installed like this:
 
-            Open a terminal/command prompt 
-            Type 'dotnet tool install -g Microsoft.Health.SchemaManager'
+        - Open a terminal/command prompt 
+        - Type 'dotnet tool install -g Microsoft.Health.SchemaManager'
 
      - ##### If not available as .NET core global tool, then install it from public feed
 
         It can be installed like this:
             
-            Visual Studio setup - On the Tools menu, select Options > NuGet Package Manager > Package Sources. Select the green plus in the upper-right corner and enter the name and source URL as below:
+        - Visual Studio setup - On the Tools menu, select Options > NuGet Package Manager > Package Sources. Select the green plus in the upper-right corner and enter the name and source URL as below:
 
-            Name: InternalBuilds
-            Source: https://microsofthealthoss.pkgs.visualstudio.com/_packaging/InternalBuilds/nuget/v3/index.json
-            
-            In the Package Manager Console, type the below command
-            PM> dotnet tool install -g Microsoft.Health.SchemaManager --add-source ./ --version [latestversion]
+                Name: InternalBuilds
+                Source: https://microsofthealthoss.pkgs.visualstudio.com/_packaging/InternalBuilds/nuget/v3/index.json
+        
+        - In the Package Manager Console, type the below command
+        
+                PM> dotnet tool install -g Microsoft.Health.SchemaManager --add-source ./ --version [latestversion]
             
 
 - #### Commands
