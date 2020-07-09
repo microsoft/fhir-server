@@ -110,7 +110,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             {
             }
 
-            public override void Configure(IApplicationBuilder app, IOptions<PrometheusMetricsConfig> prometheusConfig)
+            public override void Configure(IApplicationBuilder app)
             {
                 app.Use(async (context, next) =>
                 {
@@ -140,7 +140,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     await next();
                 });
 
-                base.Configure(app, prometheusConfig);
+                base.Configure(app);
             }
         }
     }
