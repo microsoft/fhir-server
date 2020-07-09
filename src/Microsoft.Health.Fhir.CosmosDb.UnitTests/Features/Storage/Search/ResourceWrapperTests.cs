@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
-using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Core.Internal;
@@ -19,7 +18,7 @@ using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
 
-namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
+namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
 {
     public class ResourceWrapperTests
     {
