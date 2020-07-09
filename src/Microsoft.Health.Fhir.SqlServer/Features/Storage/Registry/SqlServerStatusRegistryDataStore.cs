@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             {
                 VLatest.UpsertSearchParamStatuses.PopulateCommand(sqlCommandWrapper, _updateSearchParamRegistryTvpGenerator.Generate(statuses.ToList()));
 
-                await sqlCommandWrapper.ExecuteScalarAsync(CancellationToken.None);
+                await sqlCommandWrapper.ExecuteNonQueryAsync(CancellationToken.None);
             }
         }
     }
