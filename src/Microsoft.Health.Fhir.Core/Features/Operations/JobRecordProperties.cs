@@ -80,5 +80,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public const string MaximumNumberOfResourcesPerQuery = "maximumNumberOfResourcesPerQuery";
 
         public const string NumberOfPagesPerCommit = "numberOfPagesPerCommit";
+
+        public const string Resources = "resources";
+
+        public const string SearchParams = "searchParams";
     }
 }

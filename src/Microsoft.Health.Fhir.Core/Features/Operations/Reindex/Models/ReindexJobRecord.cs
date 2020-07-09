@@ -63,6 +63,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         [JsonProperty(JobRecordProperties.FailureCount)]
         public ushort FaiureCount { get; set; }
 
+        [JsonProperty(JobRecordProperties.Resources)]
+        public List<string> Resources { get; private set; } = new List<string>();
+
+        [JsonProperty(JobRecordProperties.SearchParams)]
+        public List<string> SearchParams { get; private set; } = new List<string>();
+
         [JsonIgnore]
         public int PercentComplete
         {
