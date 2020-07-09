@@ -41,7 +41,7 @@ GO
 CREATE PROCEDURE dbo.GetSearchParamStatuses
 AS
     SET NOCOUNT ON
-    
+
     SELECT * FROM dbo.SearchParamRegistry
 GO
 
@@ -57,7 +57,7 @@ GO
 --     @searchParamStatuses
 --         * The updated or new search parameter statuses
 --
-CREATE PROCEDURE dbo.UpsertSearchParamStatus
+CREATE PROCEDURE dbo.UpsertSearchParamStatuses
     @searchParamStatuses dbo.SearchParamRegistryTableType_1 READONLY
 AS
     SET NOCOUNT ON
@@ -80,7 +80,7 @@ AS
     SELECT sps.Uri, sps.Status, @lastUpdated, sps.IsPartiallySupported
     FROM @searchParamStatuses AS sps
     WHERE sps.Uri NOT IN
-        (SELECT Uri FROM dbo.SearchParamRegistry) 
+        (SELECT Uri FROM dbo.SearchParamRegistry)
 
     COMMIT TRANSACTION
 GO

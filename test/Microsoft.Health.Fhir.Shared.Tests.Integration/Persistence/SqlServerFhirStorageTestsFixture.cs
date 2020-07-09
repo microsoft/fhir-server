@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             ServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
 
             var upsertResourceTvpGenerator = serviceProvider.GetRequiredService<VLatest.UpsertResourceTvpGenerator<ResourceMetadata>>();
-            var upsertSearchParamStatusTvpGenerator = serviceProvider.GetRequiredService<VLatest.UpsertSearchParamStatusTvpGenerator<List<ResourceSearchParameterStatus>>>();
+            var upsertSearchParamStatusTvpGenerator = serviceProvider.GetRequiredService<VLatest.UpsertSearchParamStatusesTvpGenerator<List<ResourceSearchParameterStatus>>>();
 
             var searchParameterToSearchValueTypeMap = new SearchParameterToSearchValueTypeMap(() => searchParameterDefinitionManager);
 

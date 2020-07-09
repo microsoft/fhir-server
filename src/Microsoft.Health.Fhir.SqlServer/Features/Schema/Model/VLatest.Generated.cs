@@ -46,10 +46,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         internal readonly static GetExportJobByHashProcedure GetExportJobByHash = new GetExportJobByHashProcedure();
         internal readonly static GetExportJobByIdProcedure GetExportJobById = new GetExportJobByIdProcedure();
         internal readonly static GetInstanceSchemaByNameProcedure GetInstanceSchemaByName = new GetInstanceSchemaByNameProcedure();
-        internal readonly static GetSearchParamRegistryCountProcedure GetSearchParamRegistryCount = new GetSearchParamRegistryCountProcedure();
         internal readonly static GetSearchParamStatusesProcedure GetSearchParamStatuses = new GetSearchParamStatusesProcedure();
         internal readonly static HardDeleteResourceProcedure HardDeleteResource = new HardDeleteResourceProcedure();
-        internal readonly static InsertIntoSearchParamRegistryProcedure InsertIntoSearchParamRegistry = new InsertIntoSearchParamRegistryProcedure();
         internal readonly static ReadResourceProcedure ReadResource = new ReadResourceProcedure();
         internal readonly static SelectCompatibleSchemaVersionsProcedure SelectCompatibleSchemaVersions = new SelectCompatibleSchemaVersionsProcedure();
         internal readonly static SelectCurrentSchemaVersionProcedure SelectCurrentSchemaVersion = new SelectCurrentSchemaVersionProcedure();
@@ -58,7 +56,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         internal readonly static UpsertInstanceSchemaProcedure UpsertInstanceSchema = new UpsertInstanceSchemaProcedure();
         internal readonly static UpsertResourceProcedure UpsertResource = new UpsertResourceProcedure();
         internal readonly static UpsertSchemaVersionProcedure UpsertSchemaVersion = new UpsertSchemaVersionProcedure();
-        internal readonly static UpsertSearchParamStatusProcedure UpsertSearchParamStatus = new UpsertSearchParamStatusProcedure();
+        internal readonly static UpsertSearchParamStatusesProcedure UpsertSearchParamStatuses = new UpsertSearchParamStatusesProcedure();
         internal class ClaimTypeTable : Table
         {
             internal ClaimTypeTable(): base("dbo.ClaimType")
@@ -528,19 +526,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
         }
 
-        internal class GetSearchParamRegistryCountProcedure : StoredProcedure
-        {
-            internal GetSearchParamRegistryCountProcedure(): base("dbo.GetSearchParamRegistryCount")
-            {
-            }
-
-            public void PopulateCommand(SqlCommandWrapper command)
-            {
-                command.CommandType = global::System.Data.CommandType.StoredProcedure;
-                command.CommandText = "dbo.GetSearchParamRegistryCount";
-            }
-        }
-
         internal class GetSearchParamStatusesProcedure : StoredProcedure
         {
             internal GetSearchParamStatusesProcedure(): base("dbo.GetSearchParamStatuses")
@@ -568,53 +553,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
                 command.CommandText = "dbo.HardDeleteResource";
                 _resourceTypeId.AddParameter(command.Parameters, resourceTypeId);
                 _resourceId.AddParameter(command.Parameters, resourceId);
-            }
-        }
-
-        internal class InsertIntoSearchParamRegistryProcedure : StoredProcedure
-        {
-            internal InsertIntoSearchParamRegistryProcedure(): base("dbo.InsertIntoSearchParamRegistry")
-            {
-            }
-
-            private readonly SearchParamRegistryTableTypeTableValuedParameterDefinition _searchParamStatuses = new SearchParamRegistryTableTypeTableValuedParameterDefinition("@searchParamStatuses");
-            public void PopulateCommand(SqlCommandWrapper command, global::System.Collections.Generic.IEnumerable<SearchParamRegistryTableTypeRow> searchParamStatuses)
-            {
-                command.CommandType = global::System.Data.CommandType.StoredProcedure;
-                command.CommandText = "dbo.InsertIntoSearchParamRegistry";
-                _searchParamStatuses.AddParameter(command.Parameters, searchParamStatuses);
-            }
-
-            public void PopulateCommand(SqlCommandWrapper command, InsertIntoSearchParamRegistryTableValuedParameters tableValuedParameters)
-            {
-                PopulateCommand(command, searchParamStatuses: tableValuedParameters.SearchParamStatuses);
-            }
-        }
-
-        internal class InsertIntoSearchParamRegistryTvpGenerator<TInput> : IStoredProcedureTableValuedParametersGenerator<TInput, InsertIntoSearchParamRegistryTableValuedParameters>
-        {
-            public InsertIntoSearchParamRegistryTvpGenerator(ITableValuedParameterRowGenerator<TInput, SearchParamRegistryTableTypeRow> SearchParamRegistryTableTypeRowGenerator)
-            {
-                this.SearchParamRegistryTableTypeRowGenerator = SearchParamRegistryTableTypeRowGenerator;
-            }
-
-            private readonly ITableValuedParameterRowGenerator<TInput, SearchParamRegistryTableTypeRow> SearchParamRegistryTableTypeRowGenerator;
-            public InsertIntoSearchParamRegistryTableValuedParameters Generate(TInput input)
-            {
-                return new InsertIntoSearchParamRegistryTableValuedParameters(SearchParamRegistryTableTypeRowGenerator.GenerateRows(input));
-            }
-        }
-
-        internal struct InsertIntoSearchParamRegistryTableValuedParameters
-        {
-            internal InsertIntoSearchParamRegistryTableValuedParameters(global::System.Collections.Generic.IEnumerable<SearchParamRegistryTableTypeRow> SearchParamStatuses)
-            {
-                this.SearchParamStatuses = SearchParamStatuses;
-            }
-
-            internal global::System.Collections.Generic.IEnumerable<SearchParamRegistryTableTypeRow> SearchParamStatuses
-            {
-                get;
             }
         }
 
@@ -950,9 +888,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
         }
 
-        internal class UpsertSearchParamStatusProcedure : StoredProcedure
+        internal class UpsertSearchParamStatusesProcedure : StoredProcedure
         {
-            internal UpsertSearchParamStatusProcedure(): base("dbo.UpsertSearchParamStatus")
+            internal UpsertSearchParamStatusesProcedure(): base("dbo.UpsertSearchParamStatuses")
             {
             }
 
@@ -960,33 +898,33 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             public void PopulateCommand(SqlCommandWrapper command, global::System.Collections.Generic.IEnumerable<SearchParamRegistryTableTypeRow> searchParamStatuses)
             {
                 command.CommandType = global::System.Data.CommandType.StoredProcedure;
-                command.CommandText = "dbo.UpsertSearchParamStatus";
+                command.CommandText = "dbo.UpsertSearchParamStatuses";
                 _searchParamStatuses.AddParameter(command.Parameters, searchParamStatuses);
             }
 
-            public void PopulateCommand(SqlCommandWrapper command, UpsertSearchParamStatusTableValuedParameters tableValuedParameters)
+            public void PopulateCommand(SqlCommandWrapper command, UpsertSearchParamStatusesTableValuedParameters tableValuedParameters)
             {
                 PopulateCommand(command, searchParamStatuses: tableValuedParameters.SearchParamStatuses);
             }
         }
 
-        internal class UpsertSearchParamStatusTvpGenerator<TInput> : IStoredProcedureTableValuedParametersGenerator<TInput, UpsertSearchParamStatusTableValuedParameters>
+        internal class UpsertSearchParamStatusesTvpGenerator<TInput> : IStoredProcedureTableValuedParametersGenerator<TInput, UpsertSearchParamStatusesTableValuedParameters>
         {
-            public UpsertSearchParamStatusTvpGenerator(ITableValuedParameterRowGenerator<TInput, SearchParamRegistryTableTypeRow> SearchParamRegistryTableTypeRowGenerator)
+            public UpsertSearchParamStatusesTvpGenerator(ITableValuedParameterRowGenerator<TInput, SearchParamRegistryTableTypeRow> SearchParamRegistryTableTypeRowGenerator)
             {
                 this.SearchParamRegistryTableTypeRowGenerator = SearchParamRegistryTableTypeRowGenerator;
             }
 
             private readonly ITableValuedParameterRowGenerator<TInput, SearchParamRegistryTableTypeRow> SearchParamRegistryTableTypeRowGenerator;
-            public UpsertSearchParamStatusTableValuedParameters Generate(TInput input)
+            public UpsertSearchParamStatusesTableValuedParameters Generate(TInput input)
             {
-                return new UpsertSearchParamStatusTableValuedParameters(SearchParamRegistryTableTypeRowGenerator.GenerateRows(input));
+                return new UpsertSearchParamStatusesTableValuedParameters(SearchParamRegistryTableTypeRowGenerator.GenerateRows(input));
             }
         }
 
-        internal struct UpsertSearchParamStatusTableValuedParameters
+        internal struct UpsertSearchParamStatusesTableValuedParameters
         {
-            internal UpsertSearchParamStatusTableValuedParameters(global::System.Collections.Generic.IEnumerable<SearchParamRegistryTableTypeRow> SearchParamStatuses)
+            internal UpsertSearchParamStatusesTableValuedParameters(global::System.Collections.Generic.IEnumerable<SearchParamRegistryTableTypeRow> SearchParamStatuses)
             {
                 this.SearchParamStatuses = SearchParamStatuses;
             }

@@ -1816,7 +1816,7 @@ AS
         (Id, Hash, Status, HeartbeatDateTime, RawJobRecord)
     VALUES
         (@id, @hash, @status, @heartbeatDateTime, @rawJobRecord)
-  
+
     SELECT CAST(MIN_ACTIVE_ROWVERSION() AS INT)
 
     COMMIT TRANSACTION
@@ -1924,7 +1924,7 @@ AS
     UPDATE dbo.ExportJob
     SET Status = @status, HeartbeatDateTime = @heartbeatDateTime, RawJobRecord = @rawJobRecord
     WHERE Id = @id
-  
+
     SELECT MIN_ACTIVE_ROWVERSION()
 
     COMMIT TRANSACTION
@@ -1985,7 +1985,7 @@ AS
     SET Status = 'Running', HeartbeatDateTime = @heartbeatDateTime, RawJobRecord = JSON_MODIFY(RawJobRecord,'$.status', 'Running')
     OUTPUT inserted.RawJobRecord, inserted.JobVersion
     FROM dbo.ExportJob job INNER JOIN @availableJobs availableJob ON job.Id = availableJob.Id AND job.JobVersion = availableJob.JobVersion
-   
+
     COMMIT TRANSACTION
 GO
 
@@ -2061,7 +2061,7 @@ CREATE PROCEDURE dbo.UpsertInstanceSchema
     @maxVersion int,
     @minVersion int,
     @addMinutesOnTimeout int
-    
+
 AS
     SET NOCOUNT ON
 
@@ -2076,7 +2076,7 @@ AS
         UPDATE dbo.InstanceSchema
         SET CurrentVersion = @currentVersion, MaxVersion = @maxVersion, Timeout = @timeout
         WHERE Name = @name
-        
+
         SELECT @currentVersion
     END
     ELSE
@@ -2098,7 +2098,7 @@ GO
 --     Delete all the expired records in the InstanceSchema table.
 --
 CREATE PROCEDURE dbo.DeleteInstanceSchema
-    
+
 AS
     SET NOCOUNT ON
 
@@ -2196,7 +2196,7 @@ GO
 CREATE PROCEDURE dbo.GetSearchParamStatuses
 AS
     SET NOCOUNT ON
-    
+
     SELECT * FROM dbo.SearchParamRegistry
 GO
 
@@ -2212,7 +2212,7 @@ GO
 --     @searchParamStatuses
 --         * The updated or new search parameter statuses
 --
-CREATE PROCEDURE dbo.UpsertSearchParamStatus
+CREATE PROCEDURE dbo.UpsertSearchParamStatuses
     @searchParamStatuses dbo.SearchParamRegistryTableType_1 READONLY
 AS
     SET NOCOUNT ON
@@ -2235,49 +2235,7 @@ AS
     SELECT sps.Uri, sps.Status, @lastUpdated, sps.IsPartiallySupported
     FROM @searchParamStatuses AS sps
     WHERE sps.Uri NOT IN
-        (SELECT Uri FROM dbo.SearchParamRegistry) 
+        (SELECT Uri FROM dbo.SearchParamRegistry)
 
     COMMIT TRANSACTION
-GO
-
---
--- STORED PROCEDURE
---     Counts the number of search parameters.
---
--- DESCRIPTION
---     Retrieves and returns the number of rows in the search parameter registry.
---
--- RETURN VALUE
---     The number of search parameters in the registry.
---
-CREATE PROCEDURE dbo.GetSearchParamRegistryCount
-AS
-    SET NOCOUNT ON
-    
-    SELECT COUNT(*) FROM dbo.SearchParamRegistry
-GO
-
---
--- STORED PROCEDURE
---     Inserts a search parameter and its status into the search parameter registry.
---
--- DESCRIPTION
---     Adds a row to the search parameter registry. This is intended to be called within
---     a transaction that also queries if the table is empty and needs to be initialized.
---
--- PARAMETERS
---     @searchParamStatuses
---         * The updated search parameter statuses
---
-CREATE PROCEDURE dbo.InsertIntoSearchParamRegistry
-    @searchParamStatuses dbo.SearchParamRegistryTableType_1 READONLY
-AS
-    SET NOCOUNT ON
-
-    DECLARE @lastUpdated datetimeoffset(7) = SYSDATETIMEOFFSET()
-    
-    INSERT INTO dbo.SearchParamRegistry
-        (Uri, Status, LastUpdated, IsPartiallySupported)
-    SELECT sps.Uri, sps.Status, @lastUpdated, sps.IsPartiallySupported
-    FROM @searchParamStatuses AS sps
 GO

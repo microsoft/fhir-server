@@ -21,11 +21,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
     internal class SqlServerStatusRegistryDataStore : IStatusRegistryDataStore
     {
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
-        private readonly VLatest.UpsertSearchParamStatusTvpGenerator<List<ResourceSearchParameterStatus>> _updateSearchParamRegistryTvpGenerator;
+        private readonly VLatest.UpsertSearchParamStatusesTvpGenerator<List<ResourceSearchParameterStatus>> _updateSearchParamRegistryTvpGenerator;
 
         public SqlServerStatusRegistryDataStore(
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
-            VLatest.UpsertSearchParamStatusTvpGenerator<List<ResourceSearchParameterStatus>> updateSearchParamRegistryTvpGenerator)
+            VLatest.UpsertSearchParamStatusesTvpGenerator<List<ResourceSearchParameterStatus>> updateSearchParamRegistryTvpGenerator)
         {
             EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
             EnsureArg.IsNotNull(updateSearchParamRegistryTvpGenerator, nameof(updateSearchParamRegistryTvpGenerator));
@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                 _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
-                VLatest.UpsertSearchParamStatus.PopulateCommand(sqlCommandWrapper, _updateSearchParamRegistryTvpGenerator.Generate(statuses.ToList()));
+                VLatest.UpsertSearchParamStatuses.PopulateCommand(sqlCommandWrapper, _updateSearchParamRegistryTvpGenerator.Generate(statuses.ToList()));
 
                 await sqlCommandWrapper.ExecuteScalarAsync(CancellationToken.None);
             }
