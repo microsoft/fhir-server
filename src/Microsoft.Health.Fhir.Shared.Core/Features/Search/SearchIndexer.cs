@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     /// </summary>
     public class SearchIndexer : ISearchIndexer
     {
-        private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
+        private readonly ISupportedSearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly IFhirElementToSearchValueTypeConverterManager _fhirElementTypeConverterManager;
         private readonly IReferenceToElementResolver _referenceToElementResolver;
         private readonly ILogger<SearchIndexer> _logger;
@@ -35,22 +35,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <summary>
         /// Initializes a new instance of the <see cref="SearchIndexer"/> class.
         /// </summary>
-        /// <param name="searchParameterDefinitionManagerResolver">The search parameter definition manager.</param>
+        /// <param name="searchParameterDefinitionManager">The search parameter definition manager.</param>
         /// <param name="fhirElementTypeConverterManager">The FHIR element type converter manager.</param>
         /// <param name="referenceToElementResolver">Used for parsing reference strings</param>
         /// <param name="logger">The logger.</param>
         public SearchIndexer(
-            ISearchParameterDefinitionManager.SupportedSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
+            ISupportedSearchParameterDefinitionManager searchParameterDefinitionManager,
             IFhirElementToSearchValueTypeConverterManager fhirElementTypeConverterManager,
             IReferenceToElementResolver referenceToElementResolver,
             ILogger<SearchIndexer> logger)
         {
-            EnsureArg.IsNotNull(searchParameterDefinitionManagerResolver, nameof(searchParameterDefinitionManagerResolver));
+            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(fhirElementTypeConverterManager, nameof(fhirElementTypeConverterManager));
             EnsureArg.IsNotNull(referenceToElementResolver, nameof(referenceToElementResolver));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _searchParameterDefinitionManager = searchParameterDefinitionManagerResolver();
+            _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _fhirElementTypeConverterManager = fhirElementTypeConverterManager;
             _referenceToElementResolver = referenceToElementResolver;
             _logger = logger;

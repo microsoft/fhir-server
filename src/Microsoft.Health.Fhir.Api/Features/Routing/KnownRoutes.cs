@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         public const string ValidateResourceTypeById = ResourceTypeById + "/" + Validate;
 
         public const string Reindex = "$reindex";
-        public const string ReindexJobLocation = "$reindex" + "/" + IdRouteSegment;
+        public const string ReindexJobLocation = OperationsConstants.Operations + "/" + OperationsConstants.Reindex + "/" + IdRouteSegment;
 
         public const string CompartmentTypeByResourceType = CompartmentTypeRouteSegment + "/" + IdRouteSegment + "/" + CompartmentResourceTypeRouteSegment;
 

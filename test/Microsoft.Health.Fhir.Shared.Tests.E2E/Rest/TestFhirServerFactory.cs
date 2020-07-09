@@ -25,19 +25,26 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     tuple =>
                         new Lazy<TestFhirServer>(() =>
                         {
+                            TestFhirServer testFhirServer;
                             string environmentUrl = GetEnvironmentUrl(tuple.dataStore);
 
                             if (string.IsNullOrEmpty(environmentUrl))
                             {
-                                return new InProcTestFhirServer(tuple.dataStore, tuple.startupType);
+                                testFhirServer = new InProcTestFhirServer(tuple.dataStore, tuple.startupType);
                             }
-
-                            if (environmentUrl.Last() != '/')
+                            else
                             {
-                                environmentUrl = $"{environmentUrl}/";
+                                if (environmentUrl.Last() != '/')
+                                {
+                                    environmentUrl = $"{environmentUrl}/";
+                                }
+
+                                testFhirServer = new RemoteTestFhirServer(environmentUrl);
                             }
 
-                            return new RemoteTestFhirServer(environmentUrl);
+                            testFhirServer.ConfigureSecurityOptions().GetAwaiter().GetResult();
+
+                            return testFhirServer;
                         }))
                 .Value;
         }
