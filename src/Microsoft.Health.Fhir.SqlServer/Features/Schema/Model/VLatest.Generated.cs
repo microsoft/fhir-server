@@ -273,7 +273,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
 
             internal readonly VarCharColumn Uri = new VarCharColumn("Uri", 128, "Latin1_General_100_CS_AS");
             internal readonly VarCharColumn Status = new VarCharColumn("Status", 10);
-            internal readonly NullableDateTimeOffsetColumn LastUpdated = new NullableDateTimeOffsetColumn("LastUpdated", 7);
+            internal readonly DateTimeOffsetColumn LastUpdated = new DateTimeOffsetColumn("LastUpdated", 7);
             internal readonly BitColumn IsPartiallySupported = new BitColumn("IsPartiallySupported");
         }
 
