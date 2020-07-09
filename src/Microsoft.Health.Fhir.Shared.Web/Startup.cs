@@ -57,6 +57,11 @@ namespace Microsoft.Health.Fhir.Web
                 });
             }
 
+            if (bool.TryParse(Configuration["PrometheusMetrics:enabled"], out bool prometheusOn) && prometheusOn)
+            {
+                services.AddPrometheusMetrics(Configuration);
+            }
+
             AddApplicationInsightsTelemetry(services);
         }
 
@@ -68,6 +73,7 @@ namespace Microsoft.Health.Fhir.Web
                 app.UseForwardedHeaders();
             }
 
+            app.UsePrometheusHttpMetrics();
             app.UseFhirServer();
             app.UseDevelopmentIdentityProviderIfConfigured();
         }
