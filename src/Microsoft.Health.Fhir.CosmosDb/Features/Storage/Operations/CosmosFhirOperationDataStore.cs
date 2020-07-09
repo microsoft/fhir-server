@@ -336,16 +336,18 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 
             try
             {
-                DocumentResponse<CosmosReindexJobRecordWrapper> cosmosReindexJobRecord = await _documentClientScope.Value.ReadDocumentAsync<CosmosReindexJobRecordWrapper>(
-                    UriFactory.CreateDocumentUri(DatabaseId, CollectionId, jobId),
-                    new RequestOptions { PartitionKey = new PartitionKey(CosmosDbReindexConstants.ReindexJobPartitionKey) },
-                    cancellationToken);
+                var cosmosReindexJobRecord = await _containerScope.Value.ReadItemAsync<CosmosReindexJobRecordWrapper>(
+                    jobId,
+                    new PartitionKey(CosmosDbReindexConstants.ReindexJobPartitionKey),
+                    cancellationToken: cancellationToken);
 
-                var outcome = new ReindexJobWrapper(cosmosReindexJobRecord.Document.JobRecord, WeakETag.FromVersionId(cosmosReindexJobRecord.Document.ETag));
+                var outcome = new ReindexJobWrapper(
+                    cosmosReindexJobRecord.Resource.JobRecord,
+                    WeakETag.FromVersionId(cosmosReindexJobRecord.Resource.ETag));
 
                 return outcome;
             }
-            catch (DocumentClientException dce)
+            catch (CosmosException dce)
             {
                 if (dce.StatusCode == HttpStatusCode.TooManyRequests)
                 {
