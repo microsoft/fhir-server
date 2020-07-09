@@ -73,22 +73,52 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenAStatusRegistry_WhenUpsertingExistingStatuses_ThenTheStatusesAreNotAdded()
+        public async Task GivenAStatusRegistry_WhenUpsertingExistingStatuses_ThenTheExistingStatusesAreUpdated()
         {
-            IReadOnlyCollection<ResourceSearchParameterStatus> expectedStatuses = await _fixture.StatusRegistryDataStore.GetSearchParameterStatuses();
+            IReadOnlyCollection<ResourceSearchParameterStatus> statusesBeforeUpdate = await _fixture.StatusRegistryDataStore.GetSearchParameterStatuses();
 
             // Get two existing statuses.
-            ResourceSearchParameterStatus status1 = expectedStatuses.First();
-            ResourceSearchParameterStatus status2 = expectedStatuses.Last();
+            ResourceSearchParameterStatus expectedStatus1 = statusesBeforeUpdate.First();
+            ResourceSearchParameterStatus expectedStatus2 = statusesBeforeUpdate.Last();
 
-            var statusesToUpsert = new List<ResourceSearchParameterStatus> { status1, status2 };
+            // Modify them in some way.
+            expectedStatus1.IsPartiallySupported = !expectedStatus1.IsPartiallySupported;
+            expectedStatus2.IsPartiallySupported = !expectedStatus2.IsPartiallySupported;
 
-            // Upsert the two existing statuses.
-            await _fixture.StatusRegistryDataStore.UpsertStatuses(statusesToUpsert);
+            var statusesToUpsert = new List<ResourceSearchParameterStatus> { expectedStatus1, expectedStatus2 };
 
-            IReadOnlyCollection<ResourceSearchParameterStatus> actualStatuses = await _fixture.StatusRegistryDataStore.GetSearchParameterStatuses();
+            try
+            {
+                // Upsert the two existing, modified statuses.
+                await _fixture.StatusRegistryDataStore.UpsertStatuses(statusesToUpsert);
 
-            ValidateSearchParameterStatuses(expectedStatuses, actualStatuses);
+                IReadOnlyCollection<ResourceSearchParameterStatus> statusesAfterUpdate =
+                    await _fixture.StatusRegistryDataStore.GetSearchParameterStatuses();
+
+                Assert.Equal(statusesBeforeUpdate.Count, statusesAfterUpdate.Count);
+
+                ResourceSearchParameterStatus actualStatus1 = statusesAfterUpdate.FirstOrDefault(s => s.Uri.Equals(expectedStatus1.Uri));
+                ResourceSearchParameterStatus actualStatus2 = statusesAfterUpdate.FirstOrDefault(s => s.Uri.Equals(expectedStatus2.Uri));
+
+                Assert.NotNull(actualStatus1);
+                Assert.NotNull(actualStatus2);
+
+                Assert.Equal(expectedStatus1.Status, actualStatus1.Status);
+                Assert.Equal(expectedStatus1.IsPartiallySupported, actualStatus1.IsPartiallySupported);
+
+                Assert.Equal(expectedStatus2.Status, actualStatus2.Status);
+                Assert.Equal(expectedStatus2.IsPartiallySupported, actualStatus2.IsPartiallySupported);
+            }
+            finally
+            {
+                // Reset changes made.
+                expectedStatus1.IsPartiallySupported = !expectedStatus1.IsPartiallySupported;
+                expectedStatus2.IsPartiallySupported = !expectedStatus2.IsPartiallySupported;
+
+                statusesToUpsert = new List<ResourceSearchParameterStatus> { expectedStatus1, expectedStatus2 };
+
+                await _fixture.StatusRegistryDataStore.UpsertStatuses(statusesToUpsert);
+            }
         }
 
         private static void ValidateSearchParameterStatuses(IReadOnlyCollection<ResourceSearchParameterStatus> expectedStatuses, IReadOnlyCollection<ResourceSearchParameterStatus> actualStatuses)
