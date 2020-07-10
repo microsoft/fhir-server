@@ -1156,38 +1156,40 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                numberOfPagesPerCommit: 2);
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithCommitPages);
 
-            int numberOfCalls = 0;
             _searchService.SearchAsync(
-                Arg.Any<string>(),
+                null,
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
                 _cancellationToken)
                 .Returns(x =>
                 {
-                    numberOfCalls++;
-                    return CreateSearchResult(
-                        new[]
-                        {
-                            new SearchResultEntry(
+                    string[] types = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[3].Item2.Split(',');
+                    SearchResultEntry[] entries = new SearchResultEntry[types.Length];
+
+                    for (int index = 0; index < types.Length; index++)
+                    {
+                        entries[index] = new SearchResultEntry(
                                 new ResourceWrapper(
-                                    numberOfCalls.ToString(CultureInfo.InvariantCulture),
+                                    index.ToString(CultureInfo.InvariantCulture),
                                     "1",
-                                    x.ArgAt<string>(0),
+                                    types[index],
                                     new RawResource("data", Core.Models.FhirResourceFormat.Json),
                                     null,
                                     DateTimeOffset.MinValue,
                                     false,
                                     null,
                                     null,
-                                    null)),
-                        });
+                                    null));
+                    }
+
+                    return CreateSearchResult(entries);
                 });
 
             await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
             string exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
-            Assert.Equal("1", exportedIds);
+            Assert.Equal("0", exportedIds);
             exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri("Encounter.ndjson", UriKind.Relative));
-            Assert.Equal("2", exportedIds);
+            Assert.Equal("1", exportedIds);
             Assert.Equal(2, _inMemoryDestinationClient.ExportedDataFileCount);
 
             Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
@@ -1209,7 +1211,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithCommitPages);
 
             _searchService.SearchAsync(
-                Arg.Any<string>(),
+                null,
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
                 _cancellationToken)
                 .Returns(x =>
@@ -1240,22 +1242,26 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 _cancellationToken)
                 .Returns(x =>
                 {
-                    return CreateSearchResult(
-                        new[]
-                        {
-                            new SearchResultEntry(
+                    string[] types = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(3)[3].Item2.Split(',');
+                    SearchResultEntry[] entries = new SearchResultEntry[types.Length];
+
+                    for (int index = 0; index < types.Length; index++)
+                    {
+                        entries[index] = new SearchResultEntry(
                                 new ResourceWrapper(
-                                    "2",
+                                    index.ToString(CultureInfo.InvariantCulture),
                                     "1",
-                                    x.ArgAt<string>(2),
+                                    types[index],
                                     new RawResource("data", Core.Models.FhirResourceFormat.Json),
                                     null,
                                     DateTimeOffset.MinValue,
                                     false,
                                     null,
                                     null,
-                                    null)),
-                        });
+                                    null));
+                    }
+
+                    return CreateSearchResult(entries);
                 });
 
             await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
@@ -1263,7 +1269,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             string exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
             Assert.Equal("1", exportedIds);
             exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
-            Assert.Equal("2", exportedIds);
+            Assert.Equal("0", exportedIds);
             Assert.Equal(2, _inMemoryDestinationClient.ExportedDataFileCount);
 
             Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
