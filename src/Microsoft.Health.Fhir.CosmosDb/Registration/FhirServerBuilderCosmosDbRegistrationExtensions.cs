@@ -63,6 +63,9 @@ namespace Microsoft.Extensions.DependencyInjection
 
                     if (string.IsNullOrEmpty(config.Host))
                     {
+                        ILogger<CosmosDataStoreConfiguration> logger = provider.GetService<ILogger<CosmosDataStoreConfiguration>>();
+                        logger.LogWarning("No connection string provided, attempting to connect to local emulator.");
+
                         config.Host = CosmosDbLocalEmulator.Host;
                         config.Key = CosmosDbLocalEmulator.Key;
                     }
