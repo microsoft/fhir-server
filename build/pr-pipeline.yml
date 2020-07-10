@@ -43,7 +43,7 @@ stages:
   - template: ./jobs/docker-add-tag.yml
     parameters:
       sourceTag: $(ImageTag)
-      targetTag: 'myTestTag'
+      targetTag: 'mytesttag'
 
 - stage: provisionEnvironment
   displayName: Provision Environment

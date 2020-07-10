@@ -19,8 +19,8 @@ jobs:
       inlineScript: |
         az acr login -n $(azureContainerRegistry)
         for v in stu3 r4 r5; do
-          sourceImage="$(azureContainerRegistry)/${v}_fhir-server:${{parameters.sourceTag}}
-          targetImage="$(azureContainerRegistry)/${v}_fhir-server:${{parameters.targetTag}}
+          sourceImage="$(azureContainerRegistry)/${v}_fhir-server:${{parameters.sourceTag}}"
+          targetImage="$(azureContainerRegistry)/${v}_fhir-server:${{parameters.targetTag}}"
           docker pull $sourceImage
           docker tag $sourceImage $targetImage
           docker push $targetImage
