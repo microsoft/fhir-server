@@ -6,7 +6,7 @@ parameters:
   type: string
 
 jobs:
-- job: Docker Add Tag
+- job: DockerAddTag
   pool:
     vmImage: 'ubuntu-latest'
   steps:
