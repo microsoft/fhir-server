@@ -143,6 +143,17 @@ stages:
       version: R5
       keyVaultName: $(DeploymentEnvironmentNameR5)
 
+- stage: buildMasterImages
+  displayName: 'Build master images'
+  dependsOn:
+  - testStu3
+  - testR4
+  - testR5
+  jobs:
+  - template: ./jobs/docker-build-all.yml
+    parameters: 
+      tag: master
+
 - stage: cleanStorageAccounts
   displayName: 'Clean Storage Accounts'
   dependsOn: []
