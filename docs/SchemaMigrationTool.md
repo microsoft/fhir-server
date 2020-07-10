@@ -19,15 +19,19 @@ Note - The tool can't downgrade a schema version.
 
         It can be installed like this:
             
-        - Visual Studio setup - On the Tools menu, select Options > NuGet Package Manager > Package Sources. Select the green plus in the upper-right corner and enter the name and source URL as below:
+        - Visual Studio setup - Start Visual Studio as admin. On the Tools menu, select Options > NuGet Package Manager > Package Sources. Select the green plus in the upper-right corner and enter the name and source URL as below:
 
                 Name: InternalBuilds
                 Source: https://microsofthealthoss.pkgs.visualstudio.com/_packaging/InternalBuilds/nuget/v3/index.json
         
         - In the Package Manager Console, type the below command
         
-                PM> dotnet tool install -g Microsoft.Health.SchemaManager --add-source ./ --version [latestversion]
-            
+                PM> dotnet tool install -g Microsoft.Health.SchemaManager --version [latestversion]
+
+- #### How to uninstall the tool
+    In any case, if the tool needs to be uninstalled, the command is as follows
+
+        PM> dotnet tool uninstall -g Microsoft.Health.SchemaManager          
 
 - #### Commands
     The tool supports following commands:
@@ -45,6 +49,6 @@ Note - The tool can't downgrade a schema version.
     |--server/-s|To provide the host url of the application| --server https://localhost:12345|
     --connection-string/-cs| To provide the connection string  of the sql database| --connection-string "server=(local);Initial Catalog=DATABASE_NAME;Integrated Security=true"|
     --next/-n| It fetches the available versions and apply the next immediate available version to the current version| ---next|
-    --version|To provide the schema version to upgrade. It applies all the versions between current version and the specified version|--version 5|
+    --version/-v|To provide the schema version to upgrade. It applies all the versions between current version and the specified version|--version 5|
     --latest/-l|It fetches the available versions and apply all the versions between current and the latest available version|--latest|
     --force/-f|This option can be used with --next, --version and --latest. It skips all the checks to validate version and forces the tool to perform schema migration|--force
