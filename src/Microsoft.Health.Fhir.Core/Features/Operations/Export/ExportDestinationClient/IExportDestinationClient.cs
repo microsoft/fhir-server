@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinatio
         /// <param name="bytes">The bytes array to write.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>A <see cref="Task"/> representing the asynchronous write operation.</returns>
-        Task WriteFilePartAsync(Uri fileUri, uint partId, byte[] bytes, CancellationToken cancellationToken);
+        Task WriteFilePartAsync(Uri fileUri, string partId, byte[] bytes, CancellationToken cancellationToken);
 
         /// <summary>
         /// Commits the written parts of the file.
