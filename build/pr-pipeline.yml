@@ -35,6 +35,16 @@ stages:
     parameters: 
       tag: $(ImageTag)
 
+- stage: DockerAddTag
+  displayName: 'Docker add tag'
+  dependsOn:
+  - DockerBuild
+  jobs:
+  - template: ./jobs/docker-add-tag.yml
+    parameters:
+      sourceTag: $(ImageTag)
+      targetTag: 'myTestTag'
+
 - stage: provisionEnvironment
   displayName: Provision Environment
   dependsOn: []
