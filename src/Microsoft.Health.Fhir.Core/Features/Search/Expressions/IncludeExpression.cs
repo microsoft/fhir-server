@@ -11,7 +11,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     /// <summary>
     /// Represents an include expression (where an additional resource is included based on a reference)
     /// </summary>
-    public class IncludeExpression : Expression
+    public class IncludeExpression : IncludeBaseExpression
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="IncludeExpression"/> class.
@@ -21,39 +21,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <param name="targetResourceType">The target type of the reference.</param>
         /// <param name="wildCard">If this is a wildcard reference include (include all referenced resources).</param>
         public IncludeExpression(string resourceType, SearchParameterInfo referenceSearchParameter, string targetResourceType, bool wildCard)
+        : base(resourceType, referenceSearchParameter, targetResourceType, wildCard)
         {
-            EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
-
-            if (!wildCard)
-            {
-                EnsureArg.IsNotNull(referenceSearchParameter, nameof(referenceSearchParameter));
-            }
-
-            ResourceType = resourceType;
-            ReferenceSearchParameter = referenceSearchParameter;
-            TargetResourceType = targetResourceType;
-            WildCard = wildCard;
         }
-
-        /// <summary>
-        /// Gets the resource type which is being searched.
-        /// </summary>
-        public string ResourceType { get; }
-
-        /// <summary>
-        /// Gets the reference search parameter for the relationship.
-        /// </summary>
-        public SearchParameterInfo ReferenceSearchParameter { get; }
-
-        /// <summary>
-        /// Gets the target resource type. Value will be null if none are specified.
-        /// </summary>
-        public string TargetResourceType { get; }
-
-        /// <summary>
-        /// Gets if the include is a wildcard include.
-        /// </summary>
-        public bool WildCard { get; }
 
         public override TOutput AcceptVisitor<TContext, TOutput>(IExpressionVisitor<TContext, TOutput> visitor, TContext context)
         {

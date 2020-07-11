@@ -48,6 +48,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         /// Represents a table expression that is used to include multiple resource types in the query.
         /// </summary>
         Include,
+
+        /// <summary>
+        /// Represents a table expression that is used to reverse include multiple resource types in the query.
+        /// </summary>
         RevInclude,
 
         /// <summary>
