@@ -23,10 +23,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
-        public async Task GivenAnIncludeSearchExpression_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        public async Task GivenARevIncludeSearchExpression_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
+            // Note: this test is very similar to its matchin test in the 'include' part.
+            // where the quering direction is different
+
             // Delete all locations before starting the test.
             await Client.DeleteAllResources(ResourceType.Location);
+
+            // Creating a Location which refers an Organization
             var organizationResponse = await Client.CreateAsync(new Organization());
 
             var locationResponse = await Client.CreateAsync(new Location
@@ -34,28 +39,29 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 ManagingOrganization = new ResourceReference($"Organization/{organizationResponse.Resource.Id}"),
             });
 
-            string query = $"_revinclude=Location:organization:Organization";
+            // Ask for reverse include to get all Locations which reference an org
+            string query = $"_revinclude=Location:managingOrganization";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.Location, query);
+            Bundle bundle = await Client.SearchAsync(ResourceType.Organization, query);
 
             ValidateBundle(
                 bundle,
-                organizationResponse.Resource,
-                locationResponse.Resource);
+                locationResponse.Resource,
+                organizationResponse.Resource);
 
-            ValidateSearchEntryMode(bundle, ResourceType.Location);
+            ValidateSearchEntryMode(bundle, ResourceType.Organization);
 
             // ensure that the included resources are not counted
-            bundle = await Client.SearchAsync(ResourceType.Location, $"{query}&_summary=count");
+            bundle = await Client.SearchAsync(ResourceType.Organization, $"{query}&_summary=count");
             Assert.Equal(1, bundle.Total);
 
             // ensure that the included resources are not counted when _total is specified and the results fit in a single bundle.
-            bundle = await Client.SearchAsync(ResourceType.Location, $"{query}&_total=accurate");
+            bundle = await Client.SearchAsync(ResourceType.Organization, $"{query}&_total=accurate");
             Assert.Equal(1, bundle.Total);
         }
 
         [Fact]
-        public async Task GivenAnIncludeSearchExpression_WhenSearchedWithPost_ThenCorrectBundleShouldBeReturned()
+        public async Task GivenARevIncludeSearchExpression_WhenSearchedWithPost_ThenCorrectBundleShouldBeReturned()
         {
             // Delete all locations before starting the test.
             await Client.DeleteAllResources(ResourceType.Location);
@@ -66,80 +72,46 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 ManagingOrganization = new ResourceReference($"Organization/{organizationResponse.Resource.Id}"),
             });
 
-            Bundle bundle = await Client.SearchPostAsync(ResourceType.Location.ToString(), default, ("_revinclude", "Location:organization:Organization"));
+            Bundle bundle = await Client.SearchPostAsync(ResourceType.Organization.ToString(), default, ("_revinclude", "Location:managingOrganization"));
 
             ValidateBundle(
                 bundle,
-                organizationResponse.Resource,
-                locationResponse.Resource);
+                locationResponse.Resource,
+                organizationResponse.Resource);
 
-            ValidateSearchEntryMode(bundle, ResourceType.Location);
+            ValidateSearchEntryMode(bundle, ResourceType.Organization);
         }
 
         [Fact]
-        public async Task GivenAnIncludeSearchExpressionWithMultipleDenormalizedParameters_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        public async Task GivenARevIncludeSearchExpressionWithSimpleSearch_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
-            // Delete all locations before starting the test.
-            await Client.DeleteAllResources(ResourceType.Location);
-            var organizationResponse = await Client.CreateAsync(new Organization());
+            string query = $"_tag={Fixture.Tag}&_revinclude=Location:managingOrganization&code=429858000";
 
-            var locationResponse = await Client.CreateAsync(new Location
-            {
-                ManagingOrganization = new ResourceReference($"Organization/{organizationResponse.Resource.Id}"),
-            });
+            Bundle bundle = await Client.SearchAsync(ResourceType.Organization, query);
 
-            // Make sure that the second location ends up in a different bucket of resource surrogate ids
-            await Task.Delay(100);
-
-            var locationResponse2 = await Client.CreateAsync(new Location
-            {
-                ManagingOrganization = new ResourceReference($"Organization/{organizationResponse.Resource.Id}"),
-            });
-
-            // Format the time to fit yyyy-MM-ddTHH:mm:ss.fffffffzzz, and encode its special characters.
-            string lastUpdated = HttpUtility.UrlEncode($"{locationResponse2.Resource.Meta.LastUpdated:o}");
-            string query = $"_revinclude=Location:organization:Organization&_lastUpdated=lt{lastUpdated}";
-
-            Bundle bundle = await Client.SearchAsync(ResourceType.Location, query);
-
-            ValidateBundle(
-                bundle,
-                organizationResponse.Resource,
-                locationResponse.Resource);
-
-            ValidateSearchEntryMode(bundle, ResourceType.Location);
-        }
-
-        [Fact]
-        public async Task GivenAnIncludeSearchExpressionWithSimpleSearch_WhenSearched_ThenCorrectBundleShouldBeReturned()
-        {
-            string query = $"_tag={Fixture.Tag}&_revinclude=DiagnosticReport:patient:Patient&code=429858000";
-
-            Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
-
-            ValidateBundle(
+            /* ValidateBundle(
                 bundle,
                 Fixture.SmithSnomedDiagnosticReport,
                 Fixture.SmithPatient,
                 Fixture.TrumanSnomedDiagnosticReport,
-                Fixture.TrumanPatient);
+                Fixture.TrumanPatient); */
 
-            ValidateSearchEntryMode(bundle, ResourceType.DiagnosticReport);
+            ValidateSearchEntryMode(bundle, ResourceType.Organization);
         }
 
         [Fact]
         public async Task GivenAnIncludeSearchExpressionWithSimpleSearchAndCount_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
-            string query = $"_tag={Fixture.Tag}&_revinclude=DiagnosticReport:patient:Patient&code=429858000&_count=1";
+            string query = $"_tag={Fixture.Tag}&_revinclude=Location:managingOrganization&code=429858000&_count=1";
 
-            Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
+            Bundle bundle = await Client.SearchAsync(ResourceType.Organization, query);
 
-            ValidateBundle(
+            /* ValidateBundle(
                 bundle,
                 Fixture.SmithSnomedDiagnosticReport,
-                Fixture.SmithPatient);
+                Fixture.SmithPatient); */
 
-            ValidateSearchEntryMode(bundle, ResourceType.DiagnosticReport);
+            ValidateSearchEntryMode(bundle, ResourceType.Organization);
 
             bundle = await Client.SearchAsync(bundle.NextLink.ToString());
 
@@ -151,6 +123,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateSearchEntryMode(bundle, ResourceType.DiagnosticReport);
         }
 
+        /*
         [Fact]
         public async Task GivenAnIncludeSearchExpressionWithWildcard_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
@@ -241,7 +214,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.Organization);
 
             ValidateSearchEntryMode(bundle, ResourceType.Observation);
-        }
+        } */
 
         private static void ValidateSearchEntryMode(Bundle bundle, ResourceType matchResourceType)
         {
