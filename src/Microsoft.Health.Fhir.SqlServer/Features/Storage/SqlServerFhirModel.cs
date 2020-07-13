@@ -9,7 +9,6 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
-using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -330,7 +329,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             if (!_started)
             {
-                _logger.LogError($"The {nameof(SqlServerModelInitializer)} instance has not been initialized.");
+                _logger.LogError($"The {nameof(SqlServerFhirModel)} instance has not been initialized.");
                 throw new ServiceUnavailableException();
             }
         }
