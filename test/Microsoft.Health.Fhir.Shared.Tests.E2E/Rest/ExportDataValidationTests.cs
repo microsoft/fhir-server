@@ -91,7 +91,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
-        public async Task GiveFhirServer_WhenAllObservationDataIsExported_ThenExportedDataIsSameAsDataInFhirServer()
+        public async Task GiveFhirServer_WhenAllObservationAndPatientDataIsExported_ThenExportedDataIsSameAsDataInFhirServer()
         {
             // NOTE: Azure Storage Emulator is required to run these tests locally.
 
