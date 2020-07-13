@@ -12,6 +12,7 @@ using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
+using Xunit.Sdk;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
@@ -30,7 +31,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             var tag = Guid.NewGuid().ToString();
             var patients = await CreateResources(tag);
 
-            await Assert.ThrowsAsync<FhirException>(async () => await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=name", false, patients.Cast<Resource>().ToArray()));
+            await Assert.ThrowsAsync<EqualException>(async () => await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=name", false, patients.Cast<Resource>().ToArray()));
+        }
+
+        [Fact]
+        public async Task GivenResources_WhenSearchedWithUnsupportedSortParamsCode_ThenSortIsDroppedFromUrl()
+        {
+            var tag = Guid.NewGuid().ToString();
+            var patients = await CreateResources(tag);
+
+            await Assert.ThrowsAsync<EqualException>(async () => await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=code", false, patients.Cast<Resource>().ToArray()));
+        }
+
+        [Fact]
+        public async Task GivenObservations_WhenSearchedWithUnsupportedSortParamsCode_ThenSortIsDroppedFromUrl()
+        {
+            var tag = Guid.NewGuid().ToString();
+            var observations = await CreateObservations(tag);
+
+            await Assert.ThrowsAsync<EqualException>(async () => await ExecuteAndValidateBundle($"Observation?_tag={tag}&_sort=code", false, observations.Cast<Resource>().ToArray()));
         }
 
         [Fact]
@@ -115,6 +134,27 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             };
 
             patient.Name = new List<HumanName> { new HumanName { Family = family }, };
+        }
+
+        private async Task<Observation[]> CreateObservations(string tag)
+        {
+            Observation[] observations = await Client.CreateResourcesAsync<Observation>(
+                o => SetObservationInfo(o, "1979-12-31", tag),
+                o => SetObservationInfo(o, "1989-12-31", tag),
+                o => SetObservationInfo(o, "1999-12-31", tag));
+
+            return observations;
+        }
+
+        private void SetObservationInfo(Observation observation, string date, string tag)
+        {
+            observation.Status = ObservationStatus.Final;
+            observation.Code = new CodeableConcept
+            {
+                Coding = new List<Coding> { new Coding(null, tag) },
+            };
+            observation.Meta = new Meta { Tag = new List<Coding> { new Coding(null, tag) }, };
+            observation.Effective = new FhirDateTime(date);
         }
     }
 }
