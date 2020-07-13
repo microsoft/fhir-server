@@ -35,6 +35,7 @@ namespace Microsoft.Extensions.DependencyInjection
         /// Adds Cosmos Db as the data store for the FHIR server.
         /// </summary>
         /// <param name="fhirServerBuilder">The FHIR server builder.</param>
+        /// <param name="configureAction">Configure action. Defaulted to null.</param>
         /// <returns>The builder.</returns>
         public static IFhirServerBuilder AddCosmosDb(this IFhirServerBuilder fhirServerBuilder, Action<CosmosDataStoreConfiguration> configureAction = null)
         {
