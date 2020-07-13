@@ -127,6 +127,15 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             return result.Bundle;
         }
 
+        public static async Task<RawSearchBundle> RawSearchResourceCompartmentAsync(this IMediator mediator, string compartmentType, string compartmentId, string resourceType, IReadOnlyList<Tuple<string, string>> queries, CancellationToken cancellationToken = default)
+        {
+            EnsureArg.IsNotNull(mediator, nameof(mediator));
+
+            var result = await mediator.Send(new RawSearchCompartmentRequest(compartmentType, compartmentId, resourceType, queries), cancellationToken);
+
+            return result.Bundle;
+        }
+
         public static async Task<ResourceElement> GetCapabilitiesAsync(this IMediator mediator, CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
