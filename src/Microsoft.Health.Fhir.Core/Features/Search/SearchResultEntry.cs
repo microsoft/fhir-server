@@ -12,17 +12,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 {
     public struct SearchResultEntry : IEquatable<SearchResultEntry>
     {
-        public SearchResultEntry(ResourceWrapper resourceWrapper, SearchEntryMode searchEntryMode = SearchEntryMode.Match)
+        public SearchResultEntry(ResourceWrapper resourceWrapper, SearchEntryMode searchEntryMode = SearchEntryMode.Match, bool isPartial = false)
         {
             EnsureArg.IsNotNull(resourceWrapper, nameof(resourceWrapper));
 
             Resource = resourceWrapper;
             SearchEntryMode = searchEntryMode;
+            IsPartial = isPartial;
         }
 
         public ResourceWrapper Resource { get; }
 
         public SearchEntryMode SearchEntryMode { get; }
+
+        public bool IsPartial { get; }
 
         public static bool operator ==(SearchResultEntry left, SearchResultEntry right)
         {

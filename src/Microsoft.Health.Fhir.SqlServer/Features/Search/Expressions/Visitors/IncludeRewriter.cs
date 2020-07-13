@@ -19,6 +19,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         private static readonly TableExpression IncludeUnionAllExpression = new TableExpression(null, null, null, TableExpressionKind.IncludeUnionAll);
 
+        private static readonly TableExpression RevIncludeUnionAllExpression = new TableExpression(null, null, null, TableExpressionKind.RevIncludeUnionAll);
+
         public override Expression VisitSqlRoot(SqlRootExpression expression, object context)
         {
             if (expression.TableExpressions.Count == 1 || expression.TableExpressions.All(e => e.Kind != TableExpressionKind.Include && e.Kind != TableExpressionKind.RevInclude))
@@ -27,6 +29,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             }
 
             bool containsInclude = false;
+            bool containsRevInclude = false;
 
             List<TableExpression> reorderedExpressions = expression.TableExpressions.OrderByDescending(t =>
             {
@@ -36,7 +39,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                         containsInclude = true;
                         return 0;
                     case RevIncludeQueryGenerator _:
-                        containsInclude = true;
+                        containsRevInclude = true;
                         return 0;
                     default:
                         return 10;
@@ -46,6 +49,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             if (containsInclude)
             {
                 reorderedExpressions.Add(IncludeUnionAllExpression);
+            }
+
+            if (containsRevInclude)
+            {
+                reorderedExpressions.Add(RevIncludeUnionAllExpression);
             }
 
             return new SqlRootExpression(reorderedExpressions, expression.DenormalizedExpressions);
