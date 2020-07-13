@@ -18,6 +18,7 @@ using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -117,6 +118,32 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             {
                 routeName = RouteNames.ReadResourceWithVersionRoute;
                 routeValues.Add(KnownActionParameterNames.Vid, resource.VersionId);
+            }
+
+            var uriString = UrlHelper.RouteUrl(
+                routeName,
+                routeValues,
+                Request.Scheme,
+                Request.Host.Value);
+
+            return new Uri(uriString);
+        }
+
+        public Uri ResolveRawResourceUrl(ResourceWrapper resource, bool includeVersion = false)
+        {
+            EnsureArg.IsNotNull(resource, nameof(resource));
+
+            var routeName = RouteNames.ReadResource;
+            var routeValues = new RouteValueDictionary
+            {
+                { KnownActionParameterNames.ResourceType, resource.ResourceTypeName },
+                { KnownActionParameterNames.Id, resource.ResourceId },
+            };
+
+            if (includeVersion)
+            {
+                routeName = RouteNames.ReadResourceWithVersionRoute;
+                routeValues.Add(KnownActionParameterNames.Vid, resource.Version);
             }
 
             var uriString = UrlHelper.RouteUrl(

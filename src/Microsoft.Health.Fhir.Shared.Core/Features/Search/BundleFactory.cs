@@ -14,6 +14,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
 
@@ -52,6 +53,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     },
                 };
             });
+        }
+
+        public RawSearchBundle CreateRawSearchBundle(SearchResult result)
+        {
+            var bundle = new RawSearchBundle
+            {
+                Id = Guid.NewGuid().ToString(),
+            };
+
+            bundle.Entry.AddRange(result.Results.Select(x => x.Resource.RawResource.Data));
+
+            return bundle;
         }
 
         public ResourceElement CreateHistoryBundle(SearchResult result)

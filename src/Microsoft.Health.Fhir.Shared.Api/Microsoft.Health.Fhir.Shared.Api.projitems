@@ -17,9 +17,12 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\ActionResults\FhirResult.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ActionResults\OperationOutcomeResult.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ActionResults\OperationVersionsResult.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\ActionResults\RawBundleFhirResult.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\ActionResults\RawFhirResult.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ContentTypes\ContentTypeService.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ParameterCompatibleFilter.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidationQueryFilterAndParameterParserAttribute.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Headers\RawFhirResultExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Routing\QueryStringParser.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\FeatureFlags\Validate\ValidateFeatureModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\FeatureFlags\Validate\ValidatePostConfigureOptions.cs" />

@@ -33,6 +33,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
+using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
@@ -257,6 +258,23 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         }
 
         /// <summary>
+        /// Reads the specified resource.
+        /// </summary>
+        /// <param name="typeParameter">The type.</param>
+        /// <param name="idParameter">The identifier.</param>
+        [HttpGet]
+        [Route(KnownRoutes.RawResourceTypeById, Name = RouteNames.ReadRawResource)]
+        [AuditEventType(AuditEventSubType.Read)]
+        public async Task<IActionResult> RawRead(string typeParameter, string idParameter)
+        {
+            ResourceWrapper response = await _mediator.GetRawResourceAsync(new ResourceKey(typeParameter, idParameter), HttpContext.RequestAborted);
+
+            return RawFhirResult.Create(response)
+                .SetETagHeader()
+                .SetLastModifiedHeader();
+        }
+
+        /// <summary>
         /// Returns the history of all resources in the system
         /// </summary>
         /// <param name="at">Instant for history to return.</param>
@@ -345,6 +363,24 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             ResourceElement response = await _mediator.GetResourceAsync(new ResourceKey(typeParameter, idParameter, vidParameter), HttpContext.RequestAborted);
 
             return FhirResult.Create(response, HttpStatusCode.OK)
+                .SetETagHeader()
+                .SetLastModifiedHeader();
+        }
+
+        /// <summary>
+        /// Reads the specified version of the resource.
+        /// </summary>
+        /// <param name="typeParameter">The type.</param>
+        /// <param name="idParameter">The identifier.</param>
+        /// <param name="vidParameter">The versionId.</param>
+        [HttpGet]
+        [Route(KnownRoutes.RawResourceTypeByIdAndVid, Name = RouteNames.ReadRawResourceWithVersionRoute)]
+        [AuditEventType(AuditEventSubType.VRead)]
+        public async Task<IActionResult> VRawRead(string typeParameter, string idParameter, string vidParameter)
+        {
+            ResourceWrapper response = await _mediator.GetRawResourceAsync(new ResourceKey(typeParameter, idParameter, vidParameter), HttpContext.RequestAborted);
+
+            return RawFhirResult.Create(response, HttpStatusCode.OK)
                 .SetETagHeader()
                 .SetLastModifiedHeader();
         }
@@ -482,9 +518,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         private async Task<IActionResult> PerformSearch(string type, IReadOnlyList<Tuple<string, string>> queries)
         {
-            ResourceElement response = await _mediator.SearchResourceAsync(type, queries, HttpContext.RequestAborted);
+            RawSearchBundle response = await _mediator.RawSearchResourceAsync(type, queries, HttpContext.RequestAborted);
 
-            return FhirResult.Create(response);
+            return RawBundleFhirResult.Create(response);
         }
 
         /// <summary>

@@ -3,20 +3,18 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using EnsureThat;
-using Microsoft.Health.Fhir.Core.Models;
+using System.Collections.Generic;
 
-namespace Microsoft.Health.Fhir.Core.Messages.Get
+namespace Microsoft.Health.Fhir.Core.Messages.Search
 {
-    public class GetResourceResponse
+    public class RawSearchBundle
     {
-        public GetResourceResponse(ResourceElement resource)
-        {
-            EnsureArg.IsNotNull(resource, nameof(resource));
+        public static readonly string ResourceType = "Bundle";
 
-            Resource = resource;
-        }
+        public static readonly string Type = "searchset";
 
-        public ResourceElement Resource { get; }
+        public string Id { get; set; }
+
+        public List<string> Entry { get; } = new List<string>();
     }
 }

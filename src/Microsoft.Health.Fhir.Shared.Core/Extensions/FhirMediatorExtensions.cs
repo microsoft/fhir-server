@@ -53,6 +53,16 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             return result.Resource;
         }
 
+        public static async Task<ResourceWrapper> GetRawResourceAsync(this IMediator mediator, ResourceKey key, CancellationToken cancellationToken = default)
+        {
+            EnsureArg.IsNotNull(mediator, nameof(mediator));
+            EnsureArg.IsNotNull(key, nameof(key));
+
+            GetRawResourceResponse result = await mediator.Send(new GetRawResourceRequest(key), cancellationToken);
+
+            return result.Resource;
+        }
+
         public static async Task<DeleteResourceResponse> DeleteResourceAsync(this IMediator mediator, ResourceKey key, bool hardDelete, CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
@@ -68,6 +78,15 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             EnsureArg.IsNotNull(mediator, nameof(mediator));
 
             var result = await mediator.Send(new SearchResourceRequest(type, queries), cancellationToken);
+
+            return result.Bundle;
+        }
+
+        public static async Task<RawSearchBundle> RawSearchResourceAsync(this IMediator mediator, string type, IReadOnlyList<Tuple<string, string>> queries, CancellationToken cancellationToken = default)
+        {
+            EnsureArg.IsNotNull(mediator, nameof(mediator));
+
+            var result = await mediator.Send(new RawSearchResourceRequest(type, queries), cancellationToken);
 
             return result.Bundle;
         }

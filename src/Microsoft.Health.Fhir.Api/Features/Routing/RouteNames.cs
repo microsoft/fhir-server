@@ -11,7 +11,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
 
         internal const string ReadResource = "ReadResource";
 
+        internal const string ReadRawResource = "ReadRawResource";
+
         internal const string ReadResourceWithVersionRoute = "ReadResourceWithVersionRoute";
+
+        internal const string ReadRawResourceWithVersionRoute = "ReadRawResourceWithVersionRoute";
 
         internal const string SearchResources = "SearchResources";
 

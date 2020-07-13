@@ -23,6 +23,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Create\CreateResourceValidator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Delete\DeleteResourceHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Delete\DeleteResourceValidator.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Get\GetRawResourceHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Get\GetResourceHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Get\GetResourceValidator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\ResourceExtensions.cs" />
@@ -68,6 +69,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Parameters\SearchParameterSupportResolver.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Parameters\SearchParameterToTypeResolver.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Parameters\SearchParameterTypeResult.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\RawSearchResourceHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchIndexer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchOptionsFactory.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchResourceHandler.cs" />
