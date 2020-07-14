@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenARevIncludeSearchExpression_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
-            // Note: this test is very similar to its matchin test in the 'include' part.
+            // Note: this test is very similar to its matching test in the 'include' part.
             // where the quering direction is different
 
             // Delete all locations before starting the test.

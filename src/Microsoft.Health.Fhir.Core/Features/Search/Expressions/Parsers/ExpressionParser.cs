@@ -67,15 +67,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 
         public IncludeExpression ParseInclude(string resourceType, string includeValue)
         {
-           return (IncludeExpression)ParseIncludeOrRevinclude(resourceType, includeValue, false /* isReverse */);
+            return (IncludeExpression)ParseIncludeOrRevinclude(
+                resourceType,
+                includeValue,
+                (resourceType, refSearchParameter, targetType, wildCard) => new IncludeExpression(resourceType, refSearchParameter, targetType, wildCard));
         }
 
         public RevIncludeExpression ParseRevInclude(string resourceType, string includeValue)
         {
-           return (RevIncludeExpression)ParseIncludeOrRevinclude(resourceType, includeValue, true /* isReverse */);
+            return (RevIncludeExpression)ParseIncludeOrRevinclude(
+                resourceType,
+                includeValue,
+                (resourceType, refSearchParameter, targetType, wildCard) => new RevIncludeExpression(resourceType, refSearchParameter, targetType, wildCard));
         }
 
-        private IncludeBaseExpression ParseIncludeOrRevinclude(string resourceType, string includeValue, bool isReverse)
+        private IncludeBaseExpression ParseIncludeOrRevinclude(string resourceType, string includeValue, Func<string, SearchParameterInfo, string, bool, IncludeBaseExpression> buildExpression)
         {
             var valueSpan = includeValue.AsSpan();
             if (!TrySplit(SearchSplitChar, ref valueSpan, out ReadOnlySpan<char> originalType))
@@ -111,12 +117,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(originalType.ToString(), searchParam.ToString());
             }
 
-            if (isReverse)
-            {
-                return new RevIncludeExpression(resourceType, refSearchParameter, targetType, wildCard);
-            }
-
-            return new IncludeExpression(resourceType, refSearchParameter, targetType, wildCard);
+            return buildExpression(resourceType, refSearchParameter, targetType, wildCard);
         }
 
         private Expression ParseImpl(string resourceType, ReadOnlySpan<char> key, string value)

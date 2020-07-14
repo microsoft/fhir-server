@@ -283,7 +283,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
         public object VisitRevInclude(RevIncludeExpression expression, Context context)
         {
-            // TODO: This will be removed once it's implemented.
             throw new SearchOperationNotSupportedException(Resources.IncludeExpressionNotSupported);
         }
 

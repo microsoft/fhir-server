@@ -22,6 +22,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private readonly bool _isHistorySearch;
         private int _tableExpressionCounter = -1;
         private SqlRootExpression _rootExpression;
+        private const int MaxIncludedItems = 100;
 
         public SqlQueryGenerator(IndentedStringBuilder sb, SqlQueryParameterManager parameters, SqlServerFhirModel model, bool isHistorySearch)
         {
@@ -393,25 +394,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                     _includeCtes.Add(TableExpressionName(_tableExpressionCounter));
                     break;
-                case TableExpressionKind.IncludeUnionAll:
-                    StringBuilder.AppendLine("SELECT Sid1, IsMatch");
-                    StringBuilder.Append("FROM ").AppendLine(_cteMainSelect);
-
-                    foreach (var includeCte in _includeCtes)
-                    {
-                        StringBuilder.AppendLine("UNION ALL");
-                        StringBuilder.AppendLine("SELECT Sid1, IsMatch ");
-                        StringBuilder.Append("FROM ").AppendLine(includeCte);
-                    }
-
-                    break;
                 case TableExpressionKind.RevInclude:
-                    var maxIncludedItems = 100;
                     var revIncludeExpression = (RevIncludeExpression)tableExpression.NormalizedPredicate;
 
                     StringBuilder.Append("SELECT ");
                     StringBuilder.Append(VLatest.Resource.ResourceSurrogateId, referenceSourceTableAlias).AppendLine(" AS Sid1 ");
-                    StringBuilder.Append(", (CASE WHEN CountSource > " + maxIncludedItems + " THEN ")
+                    StringBuilder.Append(", (CASE WHEN CountSource > " + MaxIncludedItems + " THEN ")
                     .Append(VLatest.Resource.ResourceSurrogateId, referenceTargetResourceTableAlias)
                     .Append(" ELSE NULL END) IsPartialTargetSid1 ");
 
@@ -419,7 +407,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     StringBuilder.AppendLine("CROSS APPLY -- we want the top to work on the (rev)included resource records and not on the overall resultset, hence can't use a simple join.");
                     StringBuilder.AppendLine("( ");
 
-                    StringBuilder.AppendLine("SELECT DISTINCT TOP (" + maxIncludedItems + ") ResourceSurrogateId")
+                    StringBuilder.AppendLine("SELECT DISTINCT TOP (" + MaxIncludedItems + ") ResourceSurrogateId")
                     .AppendLine(", count(*) over() as CountSource -- count all records before the TOP")
                     .AppendLine("FROM ").Append(VLatest.ReferenceSearchParam).Append(' ').AppendLine(referenceSourceTableAlias);
 
@@ -456,6 +444,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     }
 
                     _includeCtes.Add(TableExpressionName(_tableExpressionCounter));
+                    break;
+                case TableExpressionKind.IncludeUnionAll:
+                    StringBuilder.AppendLine("SELECT Sid1, IsMatch");
+                    StringBuilder.Append("FROM ").AppendLine(_cteMainSelect);
+
+                    foreach (var includeCte in _includeCtes)
+                    {
+                        StringBuilder.AppendLine("UNION ALL");
+                        StringBuilder.AppendLine("SELECT Sid1, IsMatch ");
+                        StringBuilder.Append("FROM ").AppendLine(includeCte);
+                    }
+
                     break;
                 case TableExpressionKind.RevIncludeUnionAll:
                     StringBuilder.AppendLine("SELECT DISTINCT ").Append(TableExpressionName(_tableExpressionCounter - 2)).Append(".Sid1 , 1 AS IsMatch ");
