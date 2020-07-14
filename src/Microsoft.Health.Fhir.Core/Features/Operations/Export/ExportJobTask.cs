@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
     public class ExportJobTask : IExportJobTask
     {
         private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
-        private readonly Func<IScoped<IAnonymizer>> _anonymizerFactory;
+        private readonly IAnonymizerFactory _anonymizerFactory;
         private readonly ExportJobConfiguration _exportJobConfiguration;
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly IResourceToByteArraySerializer _resourceToByteArraySerializer;
@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             IResourceToByteArraySerializer resourceToByteArraySerializer,
             IExportDestinationClient exportDestinationClient,
             ResourceDeserializer resourceDeserializer,
-            Func<IScoped<IAnonymizer>> anonymizerFactory,
+            IAnonymizerFactory anonymizerFactory,
             ILogger<ExportJobTask> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
@@ -60,7 +60,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             EnsureArg.IsNotNull(resourceToByteArraySerializer, nameof(resourceToByteArraySerializer));
             EnsureArg.IsNotNull(exportDestinationClient, nameof(exportDestinationClient));
             EnsureArg.IsNotNull(resourceDeserializer, nameof(resourceDeserializer));
-            EnsureArg.IsNotNull(anonymizerFactory, nameof(anonymizerFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
@@ -131,10 +130,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.LastUpdated, $"ge{_exportJobRecord.Since}"));
                 }
 
-                _anonymizer = _anonymizerFactory()?.Value;
-                if (_anonymizer != null)
+                if (!string.IsNullOrEmpty(exportJobRecord.AnonymizationConfigurationLocation))
                 {
-                    await _anonymizer?.InitailizeAsync();
+                    _anonymizer = await _anonymizerFactory.CreateAnonymizerAsync(exportJobRecord.AnonymizationConfigurationLocation, exportJobRecord.AnonymizationConfigurationFileHash, cancellationToken);
                 }
 
                 // Process the export if:

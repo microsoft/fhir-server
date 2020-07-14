@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         public async Task<IActionResult> Export([FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since, [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationLocation)] string anonymizationConfigLocation, [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationFileHash)] string anonymizationConfigFileHash)
         {
             CheckIfExportIsEnabled();
-            return await SendExportRequest(since);
+            return await SendExportRequest(since, anonymizationConfigLocation: anonymizationConfigLocation, anonymizationConfigFileHash: anonymizationConfigFileHash);
         }
 
         [HttpGet]

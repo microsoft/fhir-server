@@ -3,17 +3,13 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Microsoft.Health.Fhir.Core.Models;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
-    public interface IAnonymizer
+    public interface IAnonymizerFactory
     {
-        /// <summary>
-        /// Anonymize the FHIR resource
-        /// </summary>
-        /// <param name="resourceElement">The FHIR resource for anonymization.</param>
-        /// <returns>The anonymized FHIR resource.</returns>
-        ResourceElement Anonymize(ResourceElement resourceElement);
+        public Task<IAnonymizer> CreateAnonymizerAsync(string configurationLocation, string fileHash, CancellationToken cancellationToken);
     }
 }

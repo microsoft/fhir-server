@@ -3,7 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Threading.Tasks;
+using EnsureThat;
 using Fhir.Anonymizer.Core;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -11,36 +11,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
     public class ExportAnonymizer : IAnonymizer
     {
-        private IAnonymizerSettingsProvider _provider;
         private AnonymizerEngine _engine;
 
-        public ExportAnonymizer(IAnonymizerSettingsProvider provider)
+        public ExportAnonymizer(AnonymizerEngine engine)
         {
-            _provider = provider;
-        }
+            EnsureArg.IsNotNull(engine, nameof(engine));
 
-        public async Task InitailizeAsync()
-        {
-            // TODO: validate config
-            string settings = await _provider.GetAnonymizerSettingsAsync();
-            if (string.IsNullOrEmpty(settings))
-            {
-                return;
-            }
-
-            _engine = new AnonymizerEngine(AnonymizerConfigurationManager.CreateFromSettingsInJson(settings));
+            _engine = engine;
         }
 
         public ResourceElement Anonymize(ResourceElement resourceElement)
         {
-            if (_engine == null)
-            {
-                return resourceElement;
-            }
-            else
-            {
-                return new ResourceElement(_engine.AnonymizeElement(resourceElement.Instance));
-            }
+            return new ResourceElement(_engine.AnonymizeElement(resourceElement.Instance));
         }
     }
 }

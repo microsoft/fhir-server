@@ -106,5 +106,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             return null;
         }
+
+        public Task DownloadFileToStreamAsync(Uri fileUri, Stream target, CancellationToken cancellationToken)
+        {
+            return Task.CompletedTask;
+        }
     }
 }

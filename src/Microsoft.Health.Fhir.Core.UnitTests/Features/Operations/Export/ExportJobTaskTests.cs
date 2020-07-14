@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 _resourceToByteArraySerializer,
                 _inMemoryDestinationClient,
                 _resourceDeserializer,
-                () => null,
+                null,
                 NullLogger<ExportJobTask>.Instance);
         }
 
@@ -549,7 +549,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 _resourceToByteArraySerializer,
                 mockExportDestinationClient,
                 _resourceDeserializer,
-                () => null,
+                null,
                 NullLogger<ExportJobTask>.Instance);
 
             await exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
@@ -583,7 +583,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 _resourceToByteArraySerializer,
                 _inMemoryDestinationClient,
                 _resourceDeserializer,
-                () => null,
+                null,
                 NullLogger<ExportJobTask>.Instance);
 
             _searchService.SearchAsync(
@@ -625,7 +625,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 _resourceToByteArraySerializer,
                 _inMemoryDestinationClient,
                 _resourceDeserializer,
-                () => null,
+                null,
                 NullLogger<ExportJobTask>.Instance);
 
             await exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
@@ -669,7 +669,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 _resourceToByteArraySerializer,
                 mockDestinationClient,
                 _resourceDeserializer,
-                () => null,
+                null,
                 NullLogger<ExportJobTask>.Instance);
 
             await exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
@@ -748,7 +748,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 _resourceToByteArraySerializer,
                 _inMemoryDestinationClient,
                 _resourceDeserializer,
-                () => null,
+                null,
                 NullLogger<ExportJobTask>.Instance);
 
             numberOfSuccessfulPages = 5;
