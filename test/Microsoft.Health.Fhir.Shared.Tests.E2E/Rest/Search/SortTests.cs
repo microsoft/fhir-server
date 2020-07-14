@@ -17,7 +17,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
-    [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class SortTests : SearchTestsBase<HttpIntegrationTestFixture>
     {
         public SortTests(HttpIntegrationTestFixture fixture)
