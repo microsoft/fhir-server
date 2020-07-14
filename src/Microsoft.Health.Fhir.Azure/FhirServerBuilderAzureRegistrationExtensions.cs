@@ -9,7 +9,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Azure.ExportDestinationClient;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 using Microsoft.Health.Fhir.Core.Registration;
 
@@ -26,10 +25,6 @@ namespace Microsoft.Health.Fhir.Azure
             fhirServerBuilder.Services.Add<AzureExportDestinationClient>()
                 .Transient()
                 .AsService<IExportDestinationClient>();
-
-            fhirServerBuilder.Services.Add<AzureExportAnonymizerSettingsProvider>()
-                .Scoped()
-                .AsService<IAnonymizerSettingsProvider>();
 
             return fhirServerBuilder;
         }
