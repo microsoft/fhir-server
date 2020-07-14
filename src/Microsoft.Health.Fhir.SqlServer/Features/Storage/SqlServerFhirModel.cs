@@ -330,7 +330,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             if (!_started)
             {
-                _logger.LogError($"The {nameof(SqlServerModelInitializer)} instance has not been initialized.");
+                _logger.LogError($"The {nameof(SqlServerFhirModel)} instance has not been initialized.");
                 throw new ServiceUnavailableException();
             }
         }
