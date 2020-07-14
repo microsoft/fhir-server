@@ -209,11 +209,11 @@ export HELM_EXPERIMENTAL_OCI=1
 helm chart pull mcr.microsoft.com/k8s/asohelmchart:latest
 helm chart export mcr.microsoft.com/k8s/asohelmchart:latest --destination install-aso/
 
-helm upgrade --install aso ./install-aso/azure-service-operator \
+helm upgrade --install aso ./install-aso/azure-service-operator -n azureoperator-system --create-namespace  \
     --set azureSubscriptionID=$(echo $accountDetails | jq -r .id) \
     --set azureTenantID=$(echo $accountDetails | jq -r .tenantId) \
     --set azureClientID=$spId \
     --set azureClientSecret=$spPass \
     --set createNamespace=true \
-    --set image.repository="mcr.microsoft.com/k8s/azure-service-operator:latest"
+    --set image.repository="mcr.microsoft.com/k8s/azureserviceoperator:latest"
 

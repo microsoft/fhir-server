@@ -26,19 +26,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
-        public async Task GivenResources_WhenSearchedWithUnsupportedSortParams_ThenSortIsDroppedFromUrl()
+        public async Task GivenPatients_WhenSearchedWithUnsupportedSortParams_ThenSortIsDroppedFromUrl()
         {
             var tag = Guid.NewGuid().ToString();
-            var patients = await CreateResources(tag);
+            var patients = await CreatePatients(tag);
 
             await Assert.ThrowsAsync<EqualException>(async () => await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=name", false, patients.Cast<Resource>().ToArray()));
         }
 
         [Fact]
-        public async Task GivenResources_WhenSearchedWithUnsupportedSortParamsCode_ThenSortIsDroppedFromUrl()
+        public async Task GivenPatients_WhenSearchedWithUnsupportedSortParamsCode_ThenSortIsDroppedFromUrl()
         {
             var tag = Guid.NewGuid().ToString();
-            var patients = await CreateResources(tag);
+            var patients = await CreatePatients(tag);
 
             await Assert.ThrowsAsync<EqualException>(async () => await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=code", false, patients.Cast<Resource>().ToArray()));
         }
@@ -54,43 +54,43 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenResources_WhenSearchedWithSortParams_ThenResourcesAreReturnedInTheAscendingOrder()
+        public async Task GivenPatients_WhenSearchedWithSortParams_ThenPatientsAreReturnedInTheAscendingOrder()
         {
             var tag = Guid.NewGuid().ToString();
-            var patients = await CreateResources(tag);
+            var patients = await CreatePatients(tag);
 
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=_lastUpdated", false, patients.Cast<Resource>().ToArray());
         }
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenResources_WhenSearchedWithSortParamsWithHyphen_ThenResourcesAreReturnedInTheDescendingOrder()
+        public async Task GivenPatients_WhenSearchedWithSortParamsWithHyphen_ThenPatientsAreReturnedInTheDescendingOrder()
         {
             var tag = Guid.NewGuid().ToString();
-            var patients = await CreateResources(tag);
+            var patients = await CreatePatients(tag);
 
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=-_lastUpdated", false, patients.Reverse().Cast<Resource>().ToArray());
         }
 
         [Fact]
-        public async Task GivenMoreThanTenResources_WhenSearchedWithSortParam_ThenResourcesAreReturnedInAscendingOrder()
+        public async Task GivenMoreThanTenPatients_WhenSearchedWithSortParam_ThenPatientsAreReturnedInAscendingOrder()
         {
             var tag = Guid.NewGuid().ToString();
-            var patients = await CreatePaginatedResources(tag);
+            var patients = await CreatePaginatedPatients(tag);
 
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=_lastUpdated", false, patients.Cast<Resource>().ToArray());
         }
 
         [Fact]
-        public async Task GivenMoreThanTenResources_WhenSearchedWithSortParamWithHyphen_ThenResourcesAreReturnedInDescendingOrder()
+        public async Task GivenMoreThanTenPatients_WhenSearchedWithSortParamWithHyphen_ThenPatientsAreReturnedInDescendingOrder()
         {
             var tag = Guid.NewGuid().ToString();
-            var patients = await CreatePaginatedResources(tag);
+            var patients = await CreatePaginatedPatients(tag);
 
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=-_lastUpdated", false, patients.Reverse().Cast<Resource>().ToArray());
         }
 
-        private async Task<Patient[]> CreateResources(string tag)
+        private async Task<Patient[]> CreatePatients(string tag)
         {
             // Create various resources.
             Patient[] patients = await Client.CreateResourcesAsync<Patient>(
@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             return patients;
         }
 
-        private async Task<Patient[]> CreatePaginatedResources(string tag)
+        private async Task<Patient[]> CreatePaginatedPatients(string tag)
         {
             // Create various resources.
             Patient[] patients = await Client.CreateResourcesAsync<Patient>(
