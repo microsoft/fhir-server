@@ -285,7 +285,23 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
         }
 
         [Fact]
-        public void GivenANonExportOperation_WhenOperationResultUrlIsResolved_ThenOperationNotImplementedExceptionShouldBeThrown()
+        public void GivenAReindexOperation_WhenOperationResultUrlIsResolved_ThenCorrectUrlShouldBeReturned()
+        {
+            const string id = "12345";
+            const string opName = OperationsConstants.Reindex;
+
+            _urlResolver.ResolveOperationResultUrl(opName, id);
+
+            ValidateUrlRouteContext(
+                RouteNames.GetReindexStatusById,
+                routeValues =>
+                {
+                    Assert.Equal(id, routeValues[KnownActionParameterNames.Id]);
+                });
+        }
+
+        [Fact]
+        public void GivenAnUnknownOperation_WhenOperationResultUrlIsResolved_ThenOperationNotImplementedExceptionShouldBeThrown()
         {
             const string id = "12345";
             const string opName = "import";

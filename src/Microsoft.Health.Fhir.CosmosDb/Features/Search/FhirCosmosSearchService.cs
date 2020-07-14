@@ -8,8 +8,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Microsoft.Azure.Documents;
-using Microsoft.Azure.Documents.Client;
+using Microsoft.Azure.Cosmos;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
@@ -88,28 +87,28 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         }
 
         private async Task<SearchResult> ExecuteSearchAsync(
-            SqlQuerySpec sqlQuerySpec,
+            QueryDefinition sqlQuerySpec,
             SearchOptions searchOptions,
             CancellationToken cancellationToken)
         {
-            var feedOptions = new FeedOptions
+            var feedOptions = new QueryRequestOptions
             {
-                EnableCrossPartitionQuery = true,
                 MaxItemCount = searchOptions.MaxItemCount,
-                RequestContinuation = searchOptions.CountOnly ? null : searchOptions.ContinuationToken,
             };
+
+            string continuationToken = searchOptions.CountOnly ? null : searchOptions.ContinuationToken;
 
             if (searchOptions.CountOnly)
             {
                 return new SearchResult(
-                    (await _fhirDataStore.ExecuteDocumentQueryAsync<int>(sqlQuerySpec, feedOptions, cancellationToken)).Single(),
+                    (await _fhirDataStore.ExecuteDocumentQueryAsync<int>(sqlQuerySpec, feedOptions,  continuationToken, cancellationToken)).Single(),
                     searchOptions.UnsupportedSearchParams);
             }
 
-            FeedResponse<Document> fetchedResults = await _fhirDataStore.ExecuteDocumentQueryAsync<Document>(sqlQuerySpec, feedOptions, cancellationToken);
+            var fetchedResults = await _fhirDataStore.ExecuteDocumentQueryAsync<FhirCosmosResourceWrapper>(sqlQuerySpec, feedOptions, continuationToken, cancellationToken);
 
             SearchResultEntry[] wrappers = fetchedResults
-                .Select(r => new SearchResultEntry(r.GetPropertyValue<FhirCosmosResourceWrapper>(SearchValueConstants.RootAliasName))).ToArray();
+                .Select(r => new SearchResultEntry(r)).ToArray();
 
             IReadOnlyList<(string parameterName, string reason)> unsupportedSortingParameters;
             if (searchOptions.Sort?.Count > 0)
@@ -126,7 +125,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 wrappers,
                 searchOptions.UnsupportedSearchParams,
                 unsupportedSortingParameters,
-                fetchedResults.ResponseContinuation);
+                fetchedResults.ContinuationToken);
         }
     }
 }
