@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Net;
 using System.Threading;
+using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -28,6 +29,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
         private readonly ExportJobConfiguration _exportJobConfiguration;
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
+        private readonly IFhirDataStore _fhirDataStore;
+        private readonly ResourceDeserializer _resourceDeserializer;
         private readonly IResourceToByteArraySerializer _resourceToByteArraySerializer;
         private readonly IExportDestinationClient _exportDestinationClient;
         private readonly ILogger _logger;
@@ -44,6 +47,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory,
             IOptions<ExportJobConfiguration> exportJobConfiguration,
             Func<IScoped<ISearchService>> searchServiceFactory,
+            IFhirDataStore fhirDataStore,
+            ResourceDeserializer resourceDeserializer,
             IResourceToByteArraySerializer resourceToByteArraySerializer,
             IExportDestinationClient exportDestinationClient,
             ILogger<ExportJobTask> logger)
@@ -51,6 +56,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
             EnsureArg.IsNotNull(exportJobConfiguration?.Value, nameof(exportJobConfiguration));
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
+            EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
+            EnsureArg.IsNotNull(resourceDeserializer, nameof(resourceDeserializer));
             EnsureArg.IsNotNull(resourceToByteArraySerializer, nameof(resourceToByteArraySerializer));
             EnsureArg.IsNotNull(exportDestinationClient, nameof(exportDestinationClient));
             EnsureArg.IsNotNull(logger, nameof(logger));
@@ -58,6 +65,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
             _exportJobConfiguration = exportJobConfiguration.Value;
             _searchServiceFactory = searchServiceFactory;
+            _fhirDataStore = fhirDataStore;
+            _resourceDeserializer = resourceDeserializer;
             _resourceToByteArraySerializer = resourceToByteArraySerializer;
             _exportDestinationClient = exportDestinationClient;
             _logger = logger;
@@ -383,6 +392,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 // Update the job record.
                 await UpdateJobRecordAsync(cancellationToken);
             }
+        }
+
+        private async Task<IEnumerable<SearchResultEntry>> GetGroupPatients(string groupId, CancellationToken cancellationToken)
+        {
+            // need to send in the _before param so that if this restarted the same version of the group is retrieved
+
+            var groupResource = await _fhirDataStore.GetAsync(new ResourceKey(KnownResourceTypes.Group, groupId), cancellationToken);
+
+            var group = _resourceDeserializer.Deserialize(groupResource);
+            var groupContents = group.Select("member.entity");
+
+            List<SearchResultEntry> patients = new List<SearchResultEntry>();
+
+            // iterate through the contects, make calls to get the patients, recurse calls to other groups, ignore other resources
+            // add patients and results from sub groups to the patients list
+
+            return patients;
         }
     }
 }

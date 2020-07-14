@@ -90,5 +90,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public const string Resources = "resources";
 
         public const string SearchParams = "searchParams";
+
+        public const string GroupId = "groupId";
     }
 }
