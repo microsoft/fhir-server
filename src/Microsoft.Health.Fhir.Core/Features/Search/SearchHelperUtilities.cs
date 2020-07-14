@@ -16,9 +16,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     {
         /// <summary>
         /// Given a list of <see cref="SearchParameterInfo"/> calculates a hash using the
-        /// <see cref="SearchParameterInfo.Name"/> values of each component. The collection of
-        /// search parameters (irrespective of the order they are present) will return the
-        /// same hash.
+        /// <see cref="SearchParameterInfo.Name"/> values of each component.
+        /// The same collection of search parameters (irrespective of their order in the input)
+        /// will return the same hash.
         /// </summary>
         /// <param name="searchParamInfo">A list of <see cref="SearchSearchParameterInfo" /></param>
         /// <returns>A hash based on the search parameter names present in the input.</returns>

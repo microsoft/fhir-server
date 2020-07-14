@@ -14,19 +14,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
     public class SearchHelperUtilitiesTests
     {
         [Fact]
-        public void GivenNullSearchParamInfo_WhenCalculateSearchParamHash_ThenThrowsException()
+        public void GivenNullSearchParamInfo_WhenCalculateSearchParameterNameHash_ThenThrowsException()
         {
             Assert.ThrowsAny<Exception>(() => SearchHelperUtilities.CalculateSearchParameterNameHash(null));
         }
 
         [Fact]
-        public void GivenEmptySearchParamInfo_WhenCalculateSearchParamHash_ThenThrowsException()
+        public void GivenEmptySearchParamInfo_WhenCalculateSearchParameterNameHash_ThenThrowsException()
         {
             Assert.ThrowsAny<Exception>(() => SearchHelperUtilities.CalculateSearchParameterNameHash(new List<SearchParameterInfo>()));
         }
 
         [Fact]
-        public void GivenTwoSameListsOfSearchParamInfo_WhenCalculateSearchParamHash_ThenHashIsSame()
+        public void GivenTwoSameListsOfSearchParamInfo_WhenCalculateSearchParameterNameHash_ThenHashIsSame()
         {
             IEnumerable<SearchParameterInfo> paramInfo1 = GenerateSearchParamInfo("_type", "supplement", "study");
             IEnumerable<SearchParameterInfo> paramInfo2 = GenerateSearchParamInfo("_type", "supplement", "study");
@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
-        public void GivenTwoDifferentListsOfSearchParamInfo_WhenCalculateSearchParamHash_ThenHashIsNotSame()
+        public void GivenTwoDifferentListsOfSearchParamInfo_WhenCalculateSearchParameterNameHash_ThenHashIsNotSame()
         {
             IEnumerable<SearchParameterInfo> paramInfo1 = GenerateSearchParamInfo("_type", "supplement", "study");
             IEnumerable<SearchParameterInfo> paramInfo2 = GenerateSearchParamInfo("_type", "study");
@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
-        public void GivenTwoSameListsDifferentOrderOfSearchParamInfo_WhenCalculateSearchParamHash_ThenHashIsNotSame()
+        public void GivenTwoSameListsDifferentOrderOfSearchParamInfo_WhenCalculateSearchParameterNameHash_ThenHashIsSame()
         {
             IEnumerable<SearchParameterInfo> paramInfo1 = GenerateSearchParamInfo("_type", "supplement", "study");
             IEnumerable<SearchParameterInfo> paramInfo2 = GenerateSearchParamInfo("_type", "study", "supplement");
