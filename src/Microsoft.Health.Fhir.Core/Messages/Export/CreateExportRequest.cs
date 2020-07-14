@@ -12,13 +12,15 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
 {
     public class CreateExportRequest : IRequest<CreateExportResponse>
     {
-        public CreateExportRequest(Uri requestUri, string resourceType = null, PartialDateTime since = null)
+        public CreateExportRequest(Uri requestUri, string resourceType = null, PartialDateTime since = null, string anonymizationConfigurationLocation = null, string anonymizationConfigurationFileHash = null)
         {
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
 
             RequestUri = requestUri;
             ResourceType = resourceType;
             Since = since;
+            AnonymizationConfigurationLocation = anonymizationConfigurationLocation;
+            AnonymizationConfigurationFileHash = anonymizationConfigurationFileHash;
         }
 
         public Uri RequestUri { get; }
@@ -26,5 +28,9 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
         public string ResourceType { get; }
 
         public PartialDateTime Since { get; }
+
+        public string AnonymizationConfigurationLocation { get; }
+
+        public string AnonymizationConfigurationFileHash { get; }
     }
 }

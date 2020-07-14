@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.Export)]
         [ServiceFilter(typeof(ValidateExportRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.Export)]
-        public async Task<IActionResult> Export([FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since)
+        public async Task<IActionResult> Export([FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since, [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationLocation)] string anonymizationConfigLocation, [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationFileHash)] string anonymizationConfigFileHash)
         {
             CheckIfExportIsEnabled();
             return await SendExportRequest(since);
@@ -149,9 +149,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return new ExportResult(response.StatusCode);
         }
 
-        private async Task<IActionResult> SendExportRequest(PartialDateTime since, string type = null)
+        private async Task<IActionResult> SendExportRequest(PartialDateTime since, string type = null, string anonymizationConfigLocation = null, string anonymizationConfigFileHash = null)
         {
-            CreateExportResponse response = await _mediator.ExportAsync(_fhirRequestContextAccessor.FhirRequestContext.Uri, type, since, HttpContext.RequestAborted);
+            CreateExportResponse response = await _mediator.ExportAsync(_fhirRequestContextAccessor.FhirRequestContext.Uri, type, since, anonymizationConfigLocation, anonymizationConfigFileHash, HttpContext.RequestAborted);
 
             var exportResult = ExportResult.Accepted();
             exportResult.SetContentLocationHeader(_urlResolver, OperationsConstants.Export, response.JobId);
