@@ -23,9 +23,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         public async Task<IAnonymizer> CreateAnonymizerAsync(string configurationLocation, string fileHash, CancellationToken cancellationToken)
         {
+            await _exportDestinationClient.ConnectAsync(cancellationToken);
             using (MemoryStream stream = new MemoryStream())
             {
                 await _exportDestinationClient.DownloadFileToStreamAsync(new Uri(configurationLocation), stream, cancellationToken);
+                stream.Position = 0;
 
                 using (StreamReader reader = new StreamReader(stream))
                 {
