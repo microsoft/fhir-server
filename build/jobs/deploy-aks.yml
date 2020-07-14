@@ -75,7 +75,7 @@ jobs:
               paths:
                   - /
           tls:
-            - secretName: $releaseName-tls
+            - secretName: aks-oss-tls
               hosts:
                 - $hostName
         database:
