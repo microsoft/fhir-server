@@ -52,8 +52,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _container = new Lazy<Container>(() => cosmosClientInitializer.CreateFhirContainer(
                 _client,
                 cosmosDataStoreConfiguration.DatabaseId,
-                collectionId,
-                cosmosDataStoreConfiguration.ContinuationTokenSizeLimitInKb));
+                collectionId));
         }
 
         public Container Container
