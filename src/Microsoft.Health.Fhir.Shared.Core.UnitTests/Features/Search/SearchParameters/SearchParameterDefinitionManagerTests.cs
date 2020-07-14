@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private static readonly string ResourceQuery = "http://hl7.org/fhir/SearchParameter/Resource-query";
 
         private readonly SearchParameterStatusManager _manager;
-        private readonly ISearchParameterRegistry _searchParameterRegistry;
+        private readonly IStatusRegistryDataStore _statusRegistryDataStore;
         private readonly SearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly IMediator _mediator;
         private readonly SearchParameterInfo[] _searchParameterInfos;
@@ -36,16 +36,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             _searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
             _mediator = Substitute.For<IMediator>();
-            _searchParameterRegistry = Substitute.For<ISearchParameterRegistry>();
+            _statusRegistryDataStore = Substitute.For<IStatusRegistryDataStore>();
             _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance);
 
             _manager = new SearchParameterStatusManager(
-                _searchParameterRegistry,
+                _statusRegistryDataStore,
                 _searchParameterDefinitionManager,
                 _searchParameterSupportResolver,
                 _mediator);
 
-            _searchParameterRegistry.GetSearchParameterStatuses()
+            _statusRegistryDataStore.GetSearchParameterStatuses()
                 .Returns(new[]
                 {
                     new ResourceSearchParameterStatus
