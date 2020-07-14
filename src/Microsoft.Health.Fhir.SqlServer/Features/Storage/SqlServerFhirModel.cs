@@ -16,12 +16,14 @@ using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Storage;
+using Microsoft.SqlServer.Server;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
@@ -37,6 +39,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly SqlServerDataStoreConfiguration _configuration;
         private readonly SchemaInitializer _schemaInitializer;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
+        private readonly IStatusRegistryDataStore _filebasedRegistryDataStore;
         private readonly SecurityConfiguration _securityConfiguration;
         private readonly ILogger<SqlServerFhirModel> _logger;
         private Dictionary<string, short> _resourceTypeToId;
@@ -52,18 +55,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             SqlServerDataStoreConfiguration configuration,
             SchemaInitializer schemaInitializer,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
+            FilebasedStatusRegistryDataStore.Resolver filebasedRegistry,
             IOptions<SecurityConfiguration> securityConfiguration,
             ILogger<SqlServerFhirModel> logger)
         {
             EnsureArg.IsNotNull(configuration, nameof(configuration));
             EnsureArg.IsNotNull(schemaInitializer, nameof(schemaInitializer));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
+            EnsureArg.IsNotNull(filebasedRegistry, nameof(filebasedRegistry));
             EnsureArg.IsNotNull(securityConfiguration?.Value, nameof(securityConfiguration));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _configuration = configuration;
             _schemaInitializer = schemaInitializer;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
+            _filebasedRegistryDataStore = filebasedRegistry.Invoke();
             _securityConfiguration = securityConfiguration.Value;
             _logger = logger;
         }
@@ -169,6 +175,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         WITH (Uri varchar(128) '$.Uri')
                         EXCEPT SELECT Uri FROM dbo.SearchParam;
 
+                        IF ((SELECT COUNT(*) FROM dbo.SearchParamStatusRegistry) = 0)
+                        BEGIN
+                            DECLARE @lastUpdated datetimeoffset(7) = SYSDATETIMEOFFSET()
+        
+                            INSERT INTO dbo.SearchParamStatusRegistry (Uri, Status, LastUpdated, IsPartiallySupported)
+                            SELECT sps.Uri, sps.Status, @lastUpdated, sps.IsPartiallySupported
+                            FROM @searchParamStatuses AS sps
+                        END
+
                         -- result set 2
                         SELECT Uri, SearchParamId FROM dbo.SearchParam;
 
@@ -198,11 +213,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     string searchParametersJson = JsonConvert.SerializeObject(_searchParameterDefinitionManager.AllSearchParameters.Select(p => new { Name = p.Name, Uri = p.Url }));
                     string commaSeparatedClaimTypes = string.Join(',', _securityConfiguration.PrincipalClaims);
                     string commaSeparatedCompartmentTypes = string.Join(',', ModelInfoProvider.GetCompartmentTypeNames());
+                    IEnumerable<ResourceSearchParameterStatus> statuses = _filebasedRegistryDataStore.GetSearchParameterStatuses().Result;
 
                     sqlCommand.Parameters.AddWithValue("@resourceTypes", commaSeparatedResourceTypes);
                     sqlCommand.Parameters.AddWithValue("@searchParams", searchParametersJson);
                     sqlCommand.Parameters.AddWithValue("@claimTypes", commaSeparatedClaimTypes);
                     sqlCommand.Parameters.AddWithValue("@compartmentTypes", commaSeparatedCompartmentTypes);
+
+                    SqlParameter tableValuedParameter = sqlCommand.Parameters.AddWithValue("@searchParamStatuses", CreateSqlDataRecords(statuses));
+                    tableValuedParameter.SqlDbType = SqlDbType.Structured;
+                    tableValuedParameter.TypeName = "dbo.SearchParamStatusRegistryTableType_1";
 
                     using (SqlDataReader reader = sqlCommand.ExecuteReader(CommandBehavior.SequentialAccess))
                     {
@@ -279,6 +299,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         _started = true;
                     }
                 }
+            }
+        }
+
+        private static IEnumerable<SqlDataRecord> CreateSqlDataRecords(IEnumerable<ResourceSearchParameterStatus> statuses)
+        {
+            var record = new SqlDataRecord(
+                new SqlMetaData("Uri", SqlDbType.NVarChar, 128),
+                new SqlMetaData("Status", SqlDbType.NVarChar, 10),
+                new SqlMetaData("IsPartiallySupported", SqlDbType.Bit));
+
+            foreach (ResourceSearchParameterStatus status in statuses)
+            {
+                record.SetString(0, status.Uri.ToString());
+                record.SetString(1, status.Status.ToString());
+                record.SetSqlBoolean(2, status.IsPartiallySupported);
+                yield return record;
             }
         }
 

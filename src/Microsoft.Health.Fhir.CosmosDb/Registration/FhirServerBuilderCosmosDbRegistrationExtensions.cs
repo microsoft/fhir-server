@@ -184,10 +184,10 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            services.Add<CosmosDbStatusRegistry>()
+            services.Add<CosmosDbStatusRegistryDataStore>()
                 .Singleton()
                 .AsSelf()
-                .ReplaceService<ISearchParameterRegistry>();
+                .ReplaceService<IStatusRegistryDataStore>();
 
             // Each CosmosClient needs new instances of a RequestHandler
             services.TypesInSameAssemblyAs<FhirCosmosClientInitializer>()

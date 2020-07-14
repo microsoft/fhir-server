@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Numerics;
 using System.Threading;
@@ -18,9 +19,12 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
@@ -40,6 +44,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly IFhirOperationDataStore _fhirOperationDataStore;
         private readonly SqlServerFhirStorageTestHelper _testHelper;
         private readonly SchemaInitializer _schemaInitializer;
+        private readonly FilebasedStatusRegistryDataStore _filebasedStatusRegistryDataStore;
 
         public SqlServerFhirStorageTestsFixture()
         {
@@ -58,16 +63,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             _schemaInitializer = new SchemaInitializer(config, schemaUpgradeRunner, schemaInformation, NullLogger<SchemaInitializer>.Instance);
 
-            var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
-            searchParameterDefinitionManager.AllSearchParameters.Returns(new[]
-            {
-                new SearchParameter { Name = SearchParameterNames.Id, Type = SearchParamType.Token, Url = SearchParameterNames.IdUri.ToString() }.ToInfo(),
-                new SearchParameter { Name = SearchParameterNames.LastUpdated, Type = SearchParamType.Date, Url = SearchParameterNames.LastUpdatedUri.ToString() }.ToInfo(),
-            });
+            var searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance);
+            _filebasedStatusRegistryDataStore = new FilebasedStatusRegistryDataStore(searchParameterDefinitionManager, ModelInfoProvider.Instance);
 
             var securityConfiguration = new SecurityConfiguration { PrincipalClaims = { "oid" } };
 
-            var sqlServerFhirModel = new SqlServerFhirModel(config, _schemaInitializer, searchParameterDefinitionManager, Options.Create(securityConfiguration), NullLogger<SqlServerFhirModel>.Instance);
+            var sqlServerFhirModel = new SqlServerFhirModel(config, _schemaInitializer, searchParameterDefinitionManager, () => _filebasedStatusRegistryDataStore, Options.Create(securityConfiguration), NullLogger<SqlServerFhirModel>.Instance);
 
             var serviceCollection = new ServiceCollection();
             serviceCollection.AddSqlServerTableRowParameterGenerators();
@@ -76,11 +77,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             ServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
 
             var upsertResourceTvpGenerator = serviceProvider.GetRequiredService<VLatest.UpsertResourceTvpGenerator<ResourceMetadata>>();
+            var upsertSearchParamStatusTvpGenerator = serviceProvider.GetRequiredService<VLatest.UpsertSearchParamStatusesTvpGenerator<List<ResourceSearchParameterStatus>>>();
+
             var searchParameterToSearchValueTypeMap = new SearchParameterToSearchValueTypeMap(new SupportedSearchParameterDefinitionManager(searchParameterDefinitionManager));
 
             SqlTransactionHandler = new SqlTransactionHandler();
             SqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(config, SqlTransactionHandler, new SqlCommandWrapperFactory());
 
+            SqlServerStatusRegistryDataStore = new SqlServerStatusRegistryDataStore(SqlConnectionWrapperFactory, upsertSearchParamStatusTvpGenerator);
             _fhirDataStore = new SqlServerFhirDataStore(config, sqlServerFhirModel, searchParameterToSearchValueTypeMap, upsertResourceTvpGenerator, Options.Create(new CoreFeatureConfiguration()), SqlConnectionWrapperFactory, NullLogger<SqlServerFhirDataStore>.Instance);
 
             _fhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, NullLogger<SqlServerFhirOperationDataStore>.Instance);
@@ -93,6 +97,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         internal SqlTransactionHandler SqlTransactionHandler { get; }
 
         internal SqlConnectionWrapperFactory SqlConnectionWrapperFactory { get; }
+
+        internal SqlServerStatusRegistryDataStore SqlServerStatusRegistryDataStore { get; }
 
         public async Task InitializeAsync()
         {
@@ -129,6 +135,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             if (serviceType == typeof(ITransactionHandler))
             {
                 return SqlTransactionHandler;
+            }
+
+            if (serviceType == typeof(IStatusRegistryDataStore))
+            {
+                return SqlServerStatusRegistryDataStore;
+            }
+
+            if (serviceType == typeof(FilebasedStatusRegistryDataStore))
+            {
+                return _filebasedStatusRegistryDataStore;
             }
 
             return null;

@@ -7,11 +7,13 @@ using System;
 using System.Linq;
 using EnsureThat;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
 using Microsoft.Health.SqlServer.Api.Registration;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Schema;
@@ -30,10 +32,15 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddSqlServerBase<SchemaVersion>(configureAction);
             services.AddSqlServerApi();
 
-            services.Add(provider => new SchemaInformation((int)SchemaVersion.V1, (int)SchemaVersion.V3))
+            services.Add(provider => new SchemaInformation((int)SchemaVersion.V1, (int)SchemaVersion.V4))
                 .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();
+
+            services.Add<SqlServerStatusRegistryDataStore>()
+                .Singleton()
+                .AsSelf()
+                .ReplaceService<IStatusRegistryDataStore>();
 
             services.Add<SqlServerFhirModel>()
                 .Singleton()
