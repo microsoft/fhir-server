@@ -28,8 +28,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     /// </summary>
     public class InProcTestFhirServer : TestFhirServer
     {
-        private readonly HttpMessageHandler _messageHandler;
-
         public InProcTestFhirServer(DataStore dataStore, Type startupType)
             : base(new Uri("http://localhost/"))
         {
@@ -61,23 +59,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     // use a message handler for the test server
                     serviceCollection
                         .AddHttpClient(Options.DefaultName)
-                        .ConfigurePrimaryHttpMessageHandler(() => _messageHandler)
+                        .ConfigurePrimaryHttpMessageHandler(() => Server.CreateHandler())
                         .SetHandlerLifetime(Timeout.InfiniteTimeSpan); // So that it is not disposed after 2 minutes;
 
                     serviceCollection.PostConfigure<JwtBearerOptions>(
                         JwtBearerDefaults.AuthenticationScheme,
-                        options => options.BackchannelHttpHandler = _messageHandler);
+                        options => options.BackchannelHttpHandler = Server.CreateHandler());
                 });
 
             Server = new TestServer(builder);
-            _messageHandler = new SuppressExecutionContextHandler(Server.CreateHandler());
         }
 
         public TestServer Server { get; }
 
-        protected override HttpMessageHandler CreateMessageHandler()
+        internal override HttpMessageHandler CreateMessageHandler()
         {
-            return _messageHandler;
+            return Server.CreateHandler();
         }
 
         public override void Dispose()

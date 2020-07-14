@@ -8,10 +8,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
-using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Api.Features.ApiNotifications;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.CosmosDb.Features.Metrics;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Metric;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -24,7 +24,7 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
 {
     [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json)]
-    public class MetricTests : IClassFixture<MetricTestFixture>
+    public class MetricTests : IClassFixture<MetricTestFixture>, IAsyncLifetime
     {
         private readonly MetricTestFixture _fixture;
         private readonly TestFhirClient _client;
@@ -36,6 +36,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
             _fixture = fixture;
             _client = fixture.TestFhirClient;
             _metricHandler = _fixture?.MetricHandler;
+        }
+
+        public async Task InitializeAsync()
+        {
+            // Send an empty request to guarantee that there is a bearer token set and the call isn't recorded in the metric handler.
+            await _client.HttpClient.SendAsync(new HttpRequestMessage(HttpMethod.Get, string.Empty));
+        }
+
+        public Task DisposeAsync()
+        {
+            return Task.CompletedTask;
         }
 
         [Fact]

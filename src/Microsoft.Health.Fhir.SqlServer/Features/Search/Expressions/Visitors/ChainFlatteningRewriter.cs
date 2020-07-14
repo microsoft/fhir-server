@@ -66,7 +66,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                     expression,
                     denormalizedPredicate: normalizedParameterQueryGenerator == null ? expression.Expression : null,
                     TableExpressionKind.Chain,
-                    context.chainLevel);
+                    context.chainLevel,
+                    thisTableExpression?.DenormalizedPredicateOnChainRoot);
             }
 
             if (normalizedParameterQueryGenerator == null)

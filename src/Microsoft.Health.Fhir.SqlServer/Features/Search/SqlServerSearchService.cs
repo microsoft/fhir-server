@@ -31,6 +31,7 @@ using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Storage;
+using SortOrder = Microsoft.Health.Fhir.Core.Features.Search.SortOrder;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 {
@@ -81,8 +82,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 // If this is the first page and there aren't any more pages
                 if (searchOptions.ContinuationToken == null && searchResult.ContinuationToken == null)
                 {
-                    // Count the results on the page.
-                    searchResult.TotalCount = searchResult.Results.Count();
+                    // Count the match results on the page.
+                    searchResult.TotalCount = searchResult.Results.Count(r => r.SearchEntryMode == SearchEntryMode.Match);
                 }
                 else
                 {
@@ -125,13 +126,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             {
                 if (long.TryParse(searchOptions.ContinuationToken, NumberStyles.None, CultureInfo.InvariantCulture, out var token))
                 {
-                    var tokenExpression = Expression.SearchParameter(SqlSearchParameters.ResourceSurrogateIdParameter, Expression.GreaterThan(SqlFieldName.ResourceSurrogateId, null, token));
+                    var sortOrder = searchOptions.GetFirstSortOrderForSupportedParam();
+
+                    Expression lastUpdatedExpression = sortOrder == SortOrder.Ascending ? Expression.GreaterThan(SqlFieldName.ResourceSurrogateId, null, token)
+                                                                                                : Expression.LessThan(SqlFieldName.ResourceSurrogateId, null, token);
+
+                    var tokenExpression = Expression.SearchParameter(SqlSearchParameters.ResourceSurrogateIdParameter, lastUpdatedExpression);
                     searchExpression = searchExpression == null ? tokenExpression : (Expression)Expression.And(tokenExpression, searchExpression);
                 }
                 else
                 {
                     throw new BadRequestException(Resources.InvalidContinuationToken);
                 }
+            }
+
+            if (searchOptions.CountOnly)
+            {
+                // if we're only returning a count, discard any _include parameters since included resources are not counted.
+                searchExpression = searchExpression?.AcceptVisitor(RemoveIncludesRewriter.Instance);
             }
 
             SqlRootExpression expression = (SqlRootExpression)searchExpression
@@ -236,8 +248,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     IReadOnlyList<(string parameterName, string reason)> unsupportedSortingParameters;
                     if (searchOptions.Sort?.Count > 0)
                     {
-                        // we don't currently support sort
-                        unsupportedSortingParameters = searchOptions.UnsupportedSortingParams.Concat(searchOptions.Sort.Select(s => (s.searchParameterInfo.Name, Core.Resources.SortNotSupported))).ToList();
+                        unsupportedSortingParameters = searchOptions
+                            .UnsupportedSortingParams
+                            .Concat(searchOptions.Sort
+                                .Where(x => !x.searchParameterInfo.IsSortSupported())
+                                .Select(s => (s.searchParameterInfo.Name, Core.Resources.SortNotSupported))).ToList();
                     }
                     else
                     {

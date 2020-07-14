@@ -52,6 +52,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             AddIssue(string.Format(Core.Resources.SearchParameterByDefinitionUriNotSupported, definitionUri.ToString()));
         }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="SearchParameterNotSupportedException"/> class.
+        /// </summary>
+        /// <param name="issueMessage">The issue message.</param>
+        public SearchParameterNotSupportedException(string issueMessage)
+        {
+            Debug.Assert(!string.IsNullOrWhiteSpace(issueMessage), $"{nameof(issueMessage)} should not be null or whitespace.");
+
+            AddIssue(issueMessage);
+        }
+
         private void AddIssue(string diagnostics)
         {
             Issues.Add(new OperationOutcomeIssue(
