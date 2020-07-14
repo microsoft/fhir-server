@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly IResourceToByteArraySerializer _resourceToByteArraySerializer;
         private readonly IExportDestinationClient _exportDestinationClient;
-        private readonly ResourceDeserializer _resourceDeserializer;
+        private readonly IResourceDeserializer _resourceDeserializer;
         private readonly ILogger _logger;
 
         // Currently we will have only one file per resource type. In the future we will add the ability to split
@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             Func<IScoped<ISearchService>> searchServiceFactory,
             IResourceToByteArraySerializer resourceToByteArraySerializer,
             IExportDestinationClient exportDestinationClient,
-            ResourceDeserializer resourceDeserializer,
+            IResourceDeserializer resourceDeserializer,
             IScoped<IAnonymizerFactory> anonymizerFactory,
             ILogger<ExportJobTask> logger)
         {
@@ -355,9 +355,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     _resourceTypeToFileInfoMapping.Add(resourceType, exportFileInfo);
                 }
 
-                ResourceElement element = _resourceDeserializer.DeserializeRaw(resourceWrapper.RawResource, resourceWrapper.Version, resourceWrapper.LastModified);
+                ResourceElement element = _resourceDeserializer.Deserialize(resourceWrapper);
 
-                element = _anonymizer?.Anonymize(element);
+                if (_anonymizer != null)
+                {
+                    element = _anonymizer.Anonymize(element);
+                }
 
                 // Serialize into NDJson and write to the file.
                 byte[] bytesToWrite = _resourceToByteArraySerializer.Serialize(element);

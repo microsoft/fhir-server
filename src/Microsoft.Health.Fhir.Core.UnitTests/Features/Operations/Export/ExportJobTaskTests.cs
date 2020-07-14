@@ -11,6 +11,7 @@ using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Hl7.Fhir.ElementModel;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Internal;
@@ -42,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         private readonly ExportJobConfiguration _exportJobConfiguration = new ExportJobConfiguration();
         private readonly ISearchService _searchService = Substitute.For<ISearchService>();
         private readonly IResourceToByteArraySerializer _resourceToByteArraySerializer = Substitute.For<IResourceToByteArraySerializer>();
-        private readonly ResourceDeserializer _resourceDeserializer = Substitute.For<ResourceDeserializer>();
+        private readonly IResourceDeserializer _resourceDeserializer = Substitute.For<IResourceDeserializer>();
 
         private readonly ExportJobTask _exportJobTask;
 
@@ -56,7 +57,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _cancellationToken = _cancellationTokenSource.Token;
             SetupExportJobRecordAndOperationDataStore();
 
-            _resourceToByteArraySerializer.Serialize(Arg.Any<ResourceElement>()).Returns(x => Encoding.UTF8.GetBytes(x.ArgAt<ResourceWrapper>(0).ResourceId));
+            _resourceToByteArraySerializer.Serialize(Arg.Any<ResourceElement>()).Returns(x => Encoding.UTF8.GetBytes(x.ArgAt<ResourceElement>(0).Instance.Value.ToString()));
+            _resourceDeserializer.Deserialize(Arg.Any<ResourceWrapper>()).Returns(x => new ResourceElement(ElementNode.FromElement(ElementNode.ForPrimitive(x.ArgAt<ResourceWrapper>(0).ResourceId))));
 
             _exportJobTask = new ExportJobTask(
                 () => _fhirOperationDataStore.CreateMockScope(),
