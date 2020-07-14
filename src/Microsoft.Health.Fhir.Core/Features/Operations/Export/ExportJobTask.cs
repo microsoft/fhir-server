@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
     public class ExportJobTask : IExportJobTask
     {
         private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
-        private readonly IAnonymizerFactory _anonymizerFactory;
+        private readonly IScoped<IAnonymizerFactory> _anonymizerFactory;
         private readonly ExportJobConfiguration _exportJobConfiguration;
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly IResourceToByteArraySerializer _resourceToByteArraySerializer;
@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             IResourceToByteArraySerializer resourceToByteArraySerializer,
             IExportDestinationClient exportDestinationClient,
             ResourceDeserializer resourceDeserializer,
-            IAnonymizerFactory anonymizerFactory,
+            IScoped<IAnonymizerFactory> anonymizerFactory,
             ILogger<ExportJobTask> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
@@ -132,7 +132,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 if (!string.IsNullOrEmpty(exportJobRecord.AnonymizationConfigurationLocation))
                 {
-                    _anonymizer = await _anonymizerFactory.CreateAnonymizerAsync(exportJobRecord.AnonymizationConfigurationLocation, exportJobRecord.AnonymizationConfigurationFileHash, cancellationToken);
+                    _anonymizer = await _anonymizerFactory.Value.CreateAnonymizerAsync(exportJobRecord.AnonymizationConfigurationLocation, exportJobRecord.AnonymizationConfigurationFileHash, cancellationToken);
                 }
 
                 // Process the export if:
