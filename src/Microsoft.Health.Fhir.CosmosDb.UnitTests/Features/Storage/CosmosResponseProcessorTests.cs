@@ -5,23 +5,19 @@
 
 using System;
 using System.Collections.Generic;
-using System.Collections.Specialized;
 using System.Globalization;
 using System.Net;
 using System.Threading.Tasks;
 using MediatR;
-using Microsoft.Azure.Documents;
-using Microsoft.Azure.Documents.Client;
+using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Abstractions.Exceptions;
-using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.CosmosDb.Features.Metrics;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using NSubstitute;
-using NSubstitute.ExceptionExtensions;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
@@ -51,108 +47,39 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         [Fact]
         public async Task GivenAResourceResponse_WhenProcessResponseCalled_ThenHeadersShouldBeSetAndMetricNotificationShouldHappen()
         {
-            var resourceResponse = Substitute.For<IResourceResponse<Document>>();
-            resourceResponse.SessionToken.Returns("2");
-            resourceResponse.RequestCharge.Returns(37.37);
-            resourceResponse.CollectionSizeUsage.Returns(1234L);
-            resourceResponse.StatusCode.Returns(HttpStatusCode.OK);
-
-            await _cosmosResponseProcessor.ProcessResponse(resourceResponse);
-
+            await _cosmosResponseProcessor.ProcessResponse("2", 37.37, HttpStatusCode.OK);
             ValidateExecution("2", 37.37, false);
         }
 
         [Fact]
         public async Task GivenAResourceResponseWith429Status_WhenProcessResponseCalled_ThenThrottledCountShouldBeSet()
         {
-            var resourceResponse = Substitute.For<IResourceResponse<Document>>();
-            resourceResponse.SessionToken.Returns("2");
-            resourceResponse.RequestCharge.Returns(37.37);
-            resourceResponse.CollectionSizeUsage.Returns(1234L);
-            resourceResponse.StatusCode.Returns(HttpStatusCode.TooManyRequests);
-
-            await _cosmosResponseProcessor.ProcessResponse(resourceResponse);
-
+            await _cosmosResponseProcessor.ProcessResponse("2", 37.37, HttpStatusCode.TooManyRequests);
             ValidateExecution("2", 37.37, true);
         }
 
         [Fact]
-        public async Task GivenAFeedResponse_WhenProcessResponseCalled_ThenHeadersShouldBeSetAndMetricNotificationShouldHappen()
+        public async Task GivenAnExceptionWithNormalStatusCode_WhenProcessing_ThenResponseShouldBeProcessed()
         {
-            var feedResponse = Substitute.For<IFeedResponse<Database>>();
-            feedResponse.SessionToken.Returns("2");
-            feedResponse.RequestCharge.Returns(37.37);
-            feedResponse.CollectionSizeUsage.Returns(1234L);
+            ResponseMessage response = CreateResponseException("fail", HttpStatusCode.OK);
 
-            await _cosmosResponseProcessor.ProcessResponse(feedResponse);
-
-            ValidateExecution("2", 37.37, false);
+            await _cosmosResponseProcessor.ProcessErrorResponse(response);
         }
 
         [Fact]
-        public async Task GivenAStoredProcedureResponse_WhenProcessResponseCalled_ThenHeadersShouldBeSetAndMetricNotificationShouldHappen()
+        public async Task GivenAnExceptionWithRequestExceededStatusCode_WhenProcessing_ThenExceptionShouldThrow()
         {
-            var storedProcedureResponse = Substitute.For<IStoredProcedureResponse<Database>>();
-            storedProcedureResponse.SessionToken.Returns("2");
-            storedProcedureResponse.RequestCharge.Returns(37.37);
-            storedProcedureResponse.StatusCode.Returns(HttpStatusCode.OK);
+            ResponseMessage response = CreateResponseException("fail", HttpStatusCode.TooManyRequests);
 
-            await _cosmosResponseProcessor.ProcessResponse(storedProcedureResponse);
-
-            ValidateExecution("2", 37.37, false);
+            await Assert.ThrowsAsync<RequestRateExceededException>(async () => await _cosmosResponseProcessor.ProcessErrorResponse(response));
         }
 
         [Fact]
-        public async Task GivenAFeedResponse_WhenMediatorThrows_ThenExecutionContinues()
+        public async Task GivenAnExceptionWithSpecificMessage_WhenProcessing_ThenExceptionShouldThrow()
         {
-            var feedResponse = Substitute.For<IFeedResponse<Database>>();
-            feedResponse.SessionToken.Returns("2");
-            feedResponse.RequestCharge.Returns(37.37);
-            feedResponse.CollectionSizeUsage.Returns(1234L);
+            ResponseMessage response = CreateResponseException("invalid continuation token", HttpStatusCode.BadRequest);
 
-            _mediator.Publish(Arg.Any<CosmosStorageRequestMetricsNotification>()).Throws(new Exception("fail"));
-
-            await _cosmosResponseProcessor.ProcessResponse(feedResponse);
-        }
-
-        [Fact]
-        public async Task GivenAGenericException_WhenProcessing_ThenNothingAdditionalShouldOccur()
-        {
-            _fhirRequestContextAccessor.ClearReceivedCalls();
-
-            await _cosmosResponseProcessor.ProcessException(new Exception("fail"));
-
-            _ = _fhirRequestContextAccessor.Received(1).FhirRequestContext;
-        }
-
-        [Fact]
-        public async Task GivenADocumentClientExceptionWithNormalStatusCode_WhenProcessing_ThenResponseShouldBeProcessed()
-        {
-            DocumentClientException documentClientException = CreateDocumentClientException("12.4", "fail", HttpStatusCode.OK);
-
-            await _cosmosResponseProcessor.ProcessException(documentClientException);
-
-            ValidateExecution(expectedSessionToken: null, 12.4, false);
-        }
-
-        [Fact]
-        public async Task GivenADocumentClientExceptionWithRequestExceededStatusCode_WhenProcessing_ThenExceptionShouldThrow()
-        {
-            DocumentClientException documentClientException = CreateDocumentClientException("12.4", "fail", HttpStatusCode.TooManyRequests);
-
-            await Assert.ThrowsAsync<RequestRateExceededException>(async () => await _cosmosResponseProcessor.ProcessException(documentClientException));
-
-            ValidateExecution(expectedSessionToken: null, 12.4, true);
-        }
-
-        [Fact]
-        public async Task GivenADocumentClientExceptionWithSpecificMessage_WhenProcessing_ThenExceptionShouldThrow()
-        {
-            DocumentClientException documentClientException = CreateDocumentClientException("12.4", "invalid continuation token", HttpStatusCode.OK);
-
-            await Assert.ThrowsAsync<RequestNotValidException>(async () => await _cosmosResponseProcessor.ProcessException(documentClientException));
-
-            ValidateExecution(expectedSessionToken: null, 12.4, false);
+            await Assert.ThrowsAsync<RequestNotValidException>(async () => await _cosmosResponseProcessor.ProcessErrorResponse(response));
         }
 
         [Theory]
@@ -166,48 +93,43 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         [InlineData(KnownCosmosDbCmkSubStatusValue.InvalidInputBytes)]
         [InlineData(KnownCosmosDbCmkSubStatusValue.KeyVaultInternalServerError)]
         [InlineData(KnownCosmosDbCmkSubStatusValue.KeyVaultDnsNotResolved)]
-        public async Task GivenADocumentClientExceptionWithCmkSubStatus_WhenProcessing_ThenExceptionShouldThrow(KnownCosmosDbCmkSubStatusValue subStatusValue)
+        public async Task GivenAnExceptionWithCmkSubStatus_WhenProcessing_ThenExceptionShouldThrow(KnownCosmosDbCmkSubStatusValue subStatusValue)
         {
-            DocumentClientException documentClientException = CreateDocumentClientException("12.4", "fail", HttpStatusCode.Forbidden, Convert.ToString((int)subStatusValue));
+            ResponseMessage response = CreateResponseException("fail", HttpStatusCode.Forbidden, Convert.ToString((int)subStatusValue));
 
-            await Assert.ThrowsAsync<CustomerManagedKeyException>(async () => await _cosmosResponseProcessor.ProcessException(documentClientException));
-
-            ValidateExecution(expectedSessionToken: null, 12.4, false);
+            await Assert.ThrowsAsync<CustomerManagedKeyException>(async () => await _cosmosResponseProcessor.ProcessErrorResponse(response));
         }
 
         [Theory]
         [InlineData("")]
         [InlineData(null)]
         [InlineData("3999")]
-        public async Task GivenADocumentClientExceptionWithForbiddenStatusCodeAndUnknownSubStatus_WhenProcessing_ThenNothingElseShouldOccur(string subsStatusCode)
+        public async Task GivenAnExceptionWithForbiddenStatusCodeAndUnknownSubStatus_WhenProcessing_ThenNothingElseShouldOccur(string subsStatusCode)
         {
-            DocumentClientException documentClientException = CreateDocumentClientException("12.4", "fail", HttpStatusCode.Forbidden, subsStatusCode);
+            ResponseMessage response = CreateResponseException("fail", HttpStatusCode.Forbidden, subsStatusCode);
 
-            await _cosmosResponseProcessor.ProcessException(documentClientException);
-
-            ValidateExecution(expectedSessionToken: null, 12.4, false);
+            await _cosmosResponseProcessor.ProcessErrorResponse(response);
         }
 
         [Fact]
         public async Task GivenANullFhirRequestContext_WhenProcessing_ThenNothingAdditionalShouldOccur()
         {
             _fhirRequestContextAccessor.FhirRequestContext.Returns((IFhirRequestContext)null);
-            DocumentClientException documentClientException = CreateDocumentClientException("12.4", "fail", HttpStatusCode.TooManyRequests);
+            ResponseMessage response = CreateResponseException("fail", HttpStatusCode.TooManyRequests);
 
-            await _cosmosResponseProcessor.ProcessException(documentClientException);
+            await _cosmosResponseProcessor.ProcessErrorResponse(response);
         }
 
-        private static DocumentClientException CreateDocumentClientException(string requestCharge, string exceptionMessage, HttpStatusCode httpStatusCode, string subStatus = null)
+        private static ResponseMessage CreateResponseException(string exceptionMessage, HttpStatusCode httpStatusCode, string subStatus = null)
         {
-            var nameValueCollection = new NameValueCollection();
-            nameValueCollection.Add(CosmosDbHeaders.RequestCharge, requestCharge);
+            var message = new ResponseMessage(httpStatusCode, errorMessage: exceptionMessage);
+
             if (subStatus != null)
             {
-                nameValueCollection.Add(CosmosDbHeaders.SubStatus, subStatus);
+                message.Headers.Add(CosmosDbHeaders.SubStatus, subStatus);
             }
 
-            DocumentClientException documentClientException = CosmosDbMockingHelper.CreateDocumentClientException(exceptionMessage, nameValueCollection, httpStatusCode);
-            return documentClientException;
+            return message;
         }
 
         private void ValidateExecution(string expectedSessionToken, double expectedRequestCharge, bool expectedThrottled)

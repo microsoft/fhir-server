@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
         }
 
-        protected override HttpMessageHandler CreateMessageHandler()
+        internal override HttpMessageHandler CreateMessageHandler()
         {
             return new HttpClientHandler();
         }

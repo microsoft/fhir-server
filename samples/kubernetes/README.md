@@ -214,3 +214,34 @@ ingress:
         hosts:
           - mytestfhir.example.com
 ```
+
+## Prometheus Metrics
+
+The FHIR service can (optionally) expose [Prometheus](https://prometheus.io) metrics on a seperate port. In order to collect (scrape) the metrics, will need to install Prometheus in your cluster. This can be done with the [Prometheus Operator](https://github.com/coreos/prometheus-operator).
+
+You can enable this Prometheus metrics with the `serviceMonitor.enabled` parameter by adding a `serviceMonitor` section to your values:
+
+```yaml
+serviceMonitor:
+  enabled: true
+  labels:
+    prometheus: monitor
+```
+
+The `label` has to match the `serviceMonitorSelector.matchLabels` for your `Prometheus` resource. You can find the match labels with:
+
+```bash
+kubectl get -n <prometheus namespace> Prometheus -o json | jq .items[0].spec.serviceMonitorSelector
+```
+
+which should have something like:
+
+```json
+{
+  "matchLabels": {
+    "prometheus": "monitor"
+  }
+}
+```
+
+to work with the settings above.
