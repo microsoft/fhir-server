@@ -60,6 +60,7 @@ stages:
 
 - stage: deployAksR4Cosmos
   displayName: 'Deploy R4 Cosmos in AKS'
+  condition: and(succeeded(), eq(variables.enableAks, true))
   dependsOn:
   - DockerBuild
   jobs:
@@ -77,6 +78,7 @@ stages:
 
 - stage: deployAksR4Sql
   displayName: 'Deploy R4 Sql in AKS'
+  condition: and(succeeded(), eq(variables.enableAks, true))
   dependsOn:
   - DockerBuild
   jobs:
@@ -94,6 +96,7 @@ stages:
 
 - stage: deployAksR4SqlContainer
   displayName: 'Deploy R4 SqlContainer in AKS'
+  condition: and(succeeded(), eq(variables.enableAks, true))
   dependsOn:
   - DockerBuild
   jobs:
@@ -216,6 +219,7 @@ stages:
 
 - stage: testAksR4Cosmos
   displayName: 'R4 CosmosDb AKS Tests'
+  condition: and(succeeded(), eq(variables.enableAks, true))
   dependsOn:
   - BuildUnitTests
   - aadTestEnvironment
@@ -229,6 +233,7 @@ stages:
 
 - stage: testAksR4Sql
   displayName: 'R4 SqlServer AKS Tests'
+  condition: and(succeeded(), eq(variables.enableAks, true))
   dependsOn:
   - BuildUnitTests
   - aadTestEnvironment
@@ -242,6 +247,7 @@ stages:
 
 - stage: testAksR4SqlContainer
   displayName: 'R4 SqlContainer AKS Tests'
+  condition: and(succeeded(), eq(variables.enableAks, true))
   dependsOn:
   - BuildUnitTests
   - aadTestEnvironment
@@ -311,8 +317,5 @@ stages:
   - testStu3
   - testR4
   - testR5
-  - testAksR4Cosmos
-  - testAksR4Sql
-  - testAksR4SqlContainer
   jobs:
   - template: ./jobs/cleanup.yml
