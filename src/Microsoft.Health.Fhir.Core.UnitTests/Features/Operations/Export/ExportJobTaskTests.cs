@@ -1005,13 +1005,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // and resuming the export process. The export destination client contains data that has
             // been committed up until the "crash".
             _inMemoryDestinationClient = new InMemoryExportDestinationClient();
-
             var secondExportJobTask = new ExportJobTask(
                 () => _fhirOperationDataStore.CreateMockScope(),
                 Options.Create(_exportJobConfiguration),
                 () => _searchService.CreateMockScope(),
                 _resourceToByteArraySerializer,
                 _inMemoryDestinationClient,
+                _resourceDeserializer,
+                null,
                 NullLogger<ExportJobTask>.Instance);
 
             await secondExportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
@@ -1131,6 +1132,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 () => _searchService.CreateMockScope(),
                 _resourceToByteArraySerializer,
                 _inMemoryDestinationClient,
+                _resourceDeserializer,
+                null,
                 NullLogger<ExportJobTask>.Instance);
 
             // Reseting the number of calls so that the ressource id of the Patient is the same ('2') as it was when the crash happened.

@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         {
             var exportController = GetController(new ExportJobConfiguration() { Enabled = false });
 
-            await Assert.ThrowsAsync<RequestNotValidException>(() => exportController.Export(since: null));
+            await Assert.ThrowsAsync<RequestNotValidException>(() => exportController.Export(since: null, null, null));
         }
 
         [Fact]
