@@ -27,6 +27,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
             return new QueryBuilderHelper().GenerateHistorySql(searchOptions);
         }
 
+        public QueryDefinition GenerateReindexSql(SearchOptions searchOptions, string searchParameterHash)
+        {
+            throw new QueryBuilderHelper().GenerateReindexSql(searchOptions, searchParameterHash);
+        }
+
         private class QueryBuilderHelper
         {
             private readonly StringBuilder _queryBuilder;
@@ -122,6 +127,41 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                     .Append("ORDER BY ")
                     .Append(SearchValueConstants.RootAliasName).Append(".").Append(KnownResourceWrapperProperties.LastModified)
                     .AppendLine(" DESC");
+
+                var query = new QueryDefinition(_queryBuilder.ToString());
+                _queryParameterManager.AddToQuery(query);
+
+                return query;
+            }
+
+            public QueryDefinition GenerateReindexSql(SearchOptions searchOptions, string searchParameterHash)
+            {
+                EnsureArg.IsNotNull(searchOptions, nameof(searchOptions));
+
+                if (searchOptions.CountOnly)
+                {
+                    AppendSelectFromRoot("VALUE COUNT(1)");
+                }
+                else
+                {
+                    AppendSelectFromRoot();
+                }
+
+                AppendSystemDataFilter();
+
+                var expressionQueryBuilder = new ExpressionQueryBuilder(
+                    _queryBuilder,
+                    _queryParameterManager);
+
+                if (searchOptions.Expression != null)
+                {
+                    _queryBuilder.Append("AND ");
+                    searchOptions.Expression.AcceptVisitor(expressionQueryBuilder);
+                }
+
+                AppendFilterCondition(
+                   "AND",
+                   (KnownResourceWrapperProperties.SearchParameterHash, searchParameterHash));
 
                 var query = new QueryDefinition(_queryBuilder.ToString());
                 _queryParameterManager.AddToQuery(query);

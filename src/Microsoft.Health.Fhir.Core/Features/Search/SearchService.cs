@@ -179,6 +179,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             return searchResult;
         }
 
+        /// <inheritdoc />
+        public async Task<SearchResult> SearchForReindexAsync(
+            IReadOnlyList<Tuple<string, string>> queryParameters,
+            string searchParameterHash,
+            CancellationToken cancellationToken)
+        {
+            SearchOptions searchOptions = _searchOptionsFactory.Create(null, queryParameters);
+
+            searchOptions.CountOnly = true;
+            var countOnlyResults = await SearchForReindexInternalAsync(searchOptions, searchParameterHash, cancellationToken);
+
+            searchOptions.CountOnly = false;
+            var results = await SearchForReindexInternalAsync(searchOptions, searchParameterHash, cancellationToken);
+            results.TotalCount = countOnlyResults.TotalCount;
+
+            return results;
+        }
+
         /// <summary>
         /// Performs the actual search.
         /// </summary>
@@ -191,6 +209,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
         protected abstract Task<SearchResult> SearchHistoryInternalAsync(
             SearchOptions searchOptions,
+            CancellationToken cancellationToken);
+
+        protected abstract Task<SearchResult> SearchForReindexInternalAsync(
+            SearchOptions searchOptions,
+            string searchParameterHash,
             CancellationToken cancellationToken);
     }
 }

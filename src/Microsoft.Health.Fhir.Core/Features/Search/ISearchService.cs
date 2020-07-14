@@ -53,5 +53,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             int? count,
             string continuationToken,
             CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Searches resources by queryParameters and returns the raw resource,
+        /// the current search param values for each resource,
+        /// the history of each resource,
+        /// and the total resource count of the query
+        /// </summary>
+        /// <param name="queryParameters">Currently composed of the _type parameter to search for set of resources</param>
+        /// <param name="searchParameterHash">Value representing a current state of the search params</param>
+        /// <param name="cancellationToken">The cancellation token</param>
+        /// <returns>A collection of resources matching the query parameters</returns>
+        Task<SearchResult> SearchForReindexAsync(
+            IReadOnlyList<Tuple<string, string>> queryParameters,
+            string searchParameterHash,
+            CancellationToken cancellationToken);
     }
 }

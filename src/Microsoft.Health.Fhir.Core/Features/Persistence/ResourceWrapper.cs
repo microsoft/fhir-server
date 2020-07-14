@@ -20,6 +20,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             RawResource rawResource,
             ResourceRequest request,
             bool deleted,
+            string searchParameterHash,
             IReadOnlyCollection<SearchIndexEntry> searchIndices,
             CompartmentIndices compartmentIndices,
             IReadOnlyCollection<KeyValuePair<string, string>> lastModifiedClaims)
@@ -31,6 +32,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                  request,
                  resource.LastUpdated ?? Clock.UtcNow,
                  deleted,
+                 searchParameterHash,
                  searchIndices,
                  compartmentIndices,
                  lastModifiedClaims)
@@ -45,6 +47,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             ResourceRequest request,
             DateTimeOffset lastModified,
             bool deleted,
+            string searchParameterHash,
             IReadOnlyCollection<SearchIndexEntry> searchIndices,
             CompartmentIndices compartmentIndices,
             IReadOnlyCollection<KeyValuePair<string, string>> lastModifiedClaims)
@@ -60,6 +63,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             Request = request;
             IsDeleted = deleted;
             LastModified = lastModified;
+            SearchParameterHash = searchParameterHash;
             SearchIndices = searchIndices;
             CompartmentIndices = compartmentIndices;
             LastModifiedClaims = lastModifiedClaims;
@@ -102,6 +106,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         [JsonProperty(KnownResourceWrapperProperties.CompartmentIndices)]
         public CompartmentIndices CompartmentIndices { get; protected set; }
+
+        [JsonProperty(KnownResourceWrapperProperties.SearchParameterHash)]
+        public string SearchParameterHash { get; protected set; }
 
         public ResourceKey ToResourceKey()
         {
