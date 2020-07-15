@@ -104,7 +104,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Exceptions
                     context.Response.ContentType = KnownContentTypes.JsonContentType;
                 }
 
-                var result = new OperationOutcomeResult(operationOutcome, HttpStatusCode.InternalServerError);
+                var result = new OperationOutcomeResult(
+                    operationOutcome,
+                    exception is ServiceUnavailableException ? HttpStatusCode.ServiceUnavailable : HttpStatusCode.InternalServerError);
 
                 await ExecuteResultAsync(context, result);
             }

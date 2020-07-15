@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
         public string ResolveSystem(string shortPath)
         {
-            EnsureArg.IsNotEmptyOrWhitespace(shortPath, nameof(shortPath));
+            EnsureArg.IsNotNullOrWhiteSpace(shortPath, nameof(shortPath));
 
             if (_dictionary == null)
             {

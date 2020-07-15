@@ -38,6 +38,7 @@ There is also a managed offering in Azure called the [Azure API for FHIR](https:
 - [Search](docs/Search.md): Describes how search is implemented for the FHIR Server for Azure.
 - [Debugging](docs/HowToDebug.md): Describes how to debug FHIR Server for Azure using Visual Studio.
 - [Testing with Postman](docs/PostmanTesting.md): Describes how to use Postman for testing FHIR Server for Azure.
+- [Sql Schema Migration Guide](docs/SchemaMigrationGuide.md): Describes how to upgrade Schema for Sql Server.
 
 ## More Information
 

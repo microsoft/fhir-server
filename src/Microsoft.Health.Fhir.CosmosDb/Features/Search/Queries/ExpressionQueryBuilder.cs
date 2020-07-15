@@ -9,11 +9,11 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 using EnsureThat;
-using Microsoft.Health.CosmosDb.Features.Queries;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 {
