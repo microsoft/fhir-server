@@ -1287,7 +1287,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 storageAccountConnectionHash: string.Empty,
                 storageAccountUri: _exportJobConfiguration.StorageAccountUri,
                 maximumNumberOfResourcesPerQuery: _exportJobConfiguration.MaximumNumberOfResourcesPerQuery,
-                numberOfPagesPerCommit: 2);
+                numberOfPagesPerCommit: 1);
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithCommitPages);
 
             int searchCallsMade = 0;
@@ -1313,7 +1313,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                         else if (parameter.Item1 == Core.Features.KnownQueryParameterNames.Type)
                         {
                             typeParameterIncluded = true;
-                            types = queryParameterList[3].Item2.Split(',');
+                            types = parameter.Item2.Split(',');
                         }
                     }
 
