@@ -42,8 +42,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private ExportJobRecord _exportJobRecord;
         private WeakETag _weakETag;
 
-        private IAnonymizer _anonymizer;
-
         public ExportJobTask(
             Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory,
             IOptions<ExportJobConfiguration> exportJobConfiguration,
@@ -146,6 +144,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 _exportJobRecord.FailureDetails = new JobFailureDetails(dce.Message, dce.StatusCode);
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
+            catch (FailedToParseAnonymizationConfigurationException ex)
+            {
+                _logger.LogError(ex, "Failed to parse anonymization configuration. The job will be marked as failed.");
+
+                _exportJobRecord.FailureDetails = new JobFailureDetails(ex.Message, HttpStatusCode.BadRequest);
+                await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
+            }
+            catch (AnonymizationConfigurationNotFoundException ex)
+            {
+                _logger.LogError(ex, "Cannot found anonymization configuration. The job will be marked as failed.");
+
+                _exportJobRecord.FailureDetails = new JobFailureDetails(ex.Message, HttpStatusCode.BadRequest);
+                await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
+            }
             catch (Exception ex)
             {
                 // The job has encountered an error it cannot recover from.
@@ -193,11 +205,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             if (progress.ContinuationToken != null)
             {
                 queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, progress.ContinuationToken));
-            }
-
-            if (!string.IsNullOrEmpty(_exportJobRecord.AnonymizationConfigurationLocation))
-            {
-                _anonymizer = await _anonymizerFactory.Value.CreateAnonymizerAsync(_exportJobRecord.AnonymizationConfigurationLocation, _exportJobRecord.AnonymizationConfigurationFileHash, cancellationToken);
             }
 
             // Process the export if:
@@ -252,7 +259,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     }
                 }
 
-                await ProcessSearchResultsAsync(searchResult.Results, currentBatchId, cancellationToken);
+                bool needToAnonymizeResource = !string.IsNullOrEmpty(_exportJobRecord.AnonymizationConfigurationLocation);
+                if (needToAnonymizeResource)
+                {
+                    IAnonymizer anonymizer = await _anonymizerFactory.Value.CreateAnonymizerAsync(_exportJobRecord.AnonymizationConfigurationLocation, _exportJobRecord.AnonymizationConfigurationFileHash, cancellationToken);
+                    await ProcessSearchResultsAsync(searchResult.Results, currentBatchId, anonymizer, cancellationToken);
+                }
+                else
+                {
+                    await ProcessSearchResultsAsync(searchResult.Results, currentBatchId, null, cancellationToken);
+                }
 
                 if (searchResult.ContinuationToken == null)
                 {
@@ -306,7 +322,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         cancellationToken);
                 }
 
-                await ProcessSearchResultsAsync(searchResult.Results, currentBatchId, cancellationToken);
+                await ProcessSearchResultsAsync(searchResult.Results, currentBatchId, null, cancellationToken);
 
                 if (searchResult.ContinuationToken == null)
                 {
@@ -323,7 +339,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             await UpdateJobRecordAsync(cancellationToken);
         }
 
-        private async Task ProcessSearchResultsAsync(IEnumerable<SearchResultEntry> searchResults, string partId, CancellationToken cancellationToken)
+        private async Task ProcessSearchResultsAsync(IEnumerable<SearchResultEntry> searchResults, string partId, IAnonymizer anonymizer, CancellationToken cancellationToken)
         {
             foreach (SearchResultEntry result in searchResults)
             {
@@ -357,9 +373,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 ResourceElement element = _resourceDeserializer.Deserialize(resourceWrapper);
 
-                if (_anonymizer != null)
+                if (anonymizer != null)
                 {
-                    element = _anonymizer.Anonymize(element);
+                    element = anonymizer.Anonymize(element);
                 }
 
                 // Serialize into NDJson and write to the file.

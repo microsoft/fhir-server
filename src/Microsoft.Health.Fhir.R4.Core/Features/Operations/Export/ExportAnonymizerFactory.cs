@@ -5,6 +5,7 @@
 
 using System;
 using System.IO;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using Fhir.Anonymizer.Core;
@@ -26,14 +27,40 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             await _exportDestinationClient.ConnectAsync(cancellationToken);
             using (MemoryStream stream = new MemoryStream())
             {
-                await _exportDestinationClient.DownloadFileToStreamAsync(new Uri(configurationLocation), stream, cancellationToken);
-                stream.Position = 0;
+                try
+                {
+                    await _exportDestinationClient.DownloadFileToStreamAsync(new Uri(configurationLocation), stream, cancellationToken);
+                    stream.Position = 0;
+                }
+                catch (FileNotFoundException ex)
+                {
+                    throw new AnonymizationConfigurationNotFoundException(ex.Message, ex);
+                }
+
+                if (!string.IsNullOrEmpty(fileHash))
+                {
+                    using (var md5 = SHA256.Create())
+                    {
+                        var actualHashValue = BitConverter.ToString(md5.ComputeHash(stream)).Replace("-", string.Empty, StringComparison.InvariantCultureIgnoreCase);
+                        if (!string.Equals(actualHashValue, fileHash, StringComparison.InvariantCultureIgnoreCase))
+                        {
+                            throw new AnonymizationConfigurationHashValueNotMatchException($"Configuration file hash value not match. Please double check file hash of sha256.");
+                        }
+                    }
+                }
 
                 using (StreamReader reader = new StreamReader(stream))
                 {
                     string configurationContent = await reader.ReadToEndAsync();
-                    var engine = new AnonymizerEngine(AnonymizerConfigurationManager.CreateFromSettingsInJson(configurationContent));
-                    return new ExportAnonymizer(engine);
+                    try
+                    {
+                        var engine = new AnonymizerEngine(AnonymizerConfigurationManager.CreateFromSettingsInJson(configurationContent));
+                        return new ExportAnonymizer(engine);
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new FailedToParseAnonymizationConfigurationException(ex.Message, ex);
+                    }
                 }
             }
         }
