@@ -1305,6 +1305,45 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(HttpStatusCode.BadRequest, _lastExportJobOutcome.JobRecord.FailureDetails.FailureStatusCode);
         }
 
+        [Fact]
+        public async Task GivenAnInvalidConfigurationFileHash_WhenExecuted_ThenJobStatusShouldBeUpdatedToFailed()
+        {
+            string expectedError = "config file hash value not match";
+
+            // Setup export destination client.
+            var exportJobRecordWithOneResource = new ExportJobRecord(
+               new Uri("https://localhost/ExportJob/"),
+               ExportJobType.All,
+               null,
+               "hash",
+               storageAccountConnectionHash: string.Empty,
+               storageAccountUri: _exportJobConfiguration.StorageAccountUri,
+               maximumNumberOfResourcesPerQuery: 1,
+               numberOfPagesPerCommit: _exportJobConfiguration.NumberOfPagesPerCommit,
+               anonymizationConfigurationLocation: "anonymization-config-file");
+
+            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithOneResource);
+            IAnonymizerFactory factory = Substitute.For<IAnonymizerFactory>();
+            factory.CreateAnonymizerAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns<Task<IAnonymizer>>(_ => throw new AnonymizationConfigurationHashValueNotMatchException(expectedError));
+
+            var exportJobTask = new ExportJobTask(
+                () => _fhirOperationDataStore.CreateMockScope(),
+                Options.Create(_exportJobConfiguration),
+                () => _searchService.CreateMockScope(),
+                _resourceToByteArraySerializer,
+                _inMemoryDestinationClient,
+                _resourceDeserializer,
+                factory.CreateMockScope(),
+                NullLogger<ExportJobTask>.Instance);
+
+            await exportJobTask.ExecuteAsync(exportJobRecordWithOneResource, _weakETag, _cancellationToken);
+
+            Assert.NotNull(_lastExportJobOutcome);
+            Assert.Equal(OperationStatus.Failed, _lastExportJobOutcome.JobRecord.Status);
+            Assert.Equal(expectedError, _lastExportJobOutcome.JobRecord.FailureDetails.FailureReason);
+            Assert.Equal(HttpStatusCode.BadRequest, _lastExportJobOutcome.JobRecord.FailureDetails.FailureStatusCode);
+        }
+
         private SearchResult CreateSearchResult(IEnumerable<SearchResultEntry> resourceWrappers = null, string continuationToken = null)
         {
             if (resourceWrappers == null)

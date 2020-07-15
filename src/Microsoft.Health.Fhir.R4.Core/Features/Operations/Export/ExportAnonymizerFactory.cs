@@ -9,6 +9,7 @@ using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using Fhir.Anonymizer.Core;
+using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
@@ -16,10 +17,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
     public class ExportAnonymizerFactory : IAnonymizerFactory
     {
         private IExportDestinationClient _exportDestinationClient;
+        private ILogger<ExportJobTask> _logger;
 
-        public ExportAnonymizerFactory(IExportDestinationClient exportDestinationClient)
+        public ExportAnonymizerFactory(IExportDestinationClient exportDestinationClient, ILogger<ExportJobTask> logger)
         {
             _exportDestinationClient = exportDestinationClient;
+            _logger = logger;
         }
 
         public async Task<IAnonymizer> CreateAnonymizerAsync(string configurationLocation, string fileHash, CancellationToken cancellationToken)
@@ -34,6 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 }
                 catch (FileNotFoundException ex)
                 {
+                    _logger.LogError($"Anonymization configuration file not found: {configurationLocation}");
                     throw new AnonymizationConfigurationNotFoundException(ex.Message, ex);
                 }
 
@@ -44,6 +48,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         var actualHashValue = BitConverter.ToString(md5.ComputeHash(stream)).Replace("-", string.Empty, StringComparison.InvariantCultureIgnoreCase);
                         if (!string.Equals(actualHashValue, fileHash, StringComparison.InvariantCultureIgnoreCase))
                         {
+                            _logger.LogError($"Anonymization configuration file hash value not match: expected {fileHash}");
                             throw new AnonymizationConfigurationHashValueNotMatchException($"Configuration file hash value not match. Please double check file hash of sha256.");
                         }
                     }
@@ -60,6 +65,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     }
                     catch (Exception ex)
                     {
+                        _logger.LogError($"Loca anonymization configuration file failed: {ex.Message}");
                         throw new FailedToParseAnonymizationConfigurationException(ex.Message, ex);
                     }
                 }
