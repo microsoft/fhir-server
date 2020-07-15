@@ -49,6 +49,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     }
                 }
 
+                stream.Position = 0;
                 using (StreamReader reader = new StreamReader(stream))
                 {
                     string configurationContent = await reader.ReadToEndAsync();
