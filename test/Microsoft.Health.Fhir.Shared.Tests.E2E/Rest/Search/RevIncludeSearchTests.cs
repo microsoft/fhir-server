@@ -127,8 +127,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(
                 bundle,
                 Fixture.TrumanSnomedDiagnosticReport,
-                Fixture.TrumanSnomedObservation,
-                Fixture.SmithSnomedDiagnosticReport);
+                Fixture.TrumanSnomedObservation);
 
             ValidateSearchEntryMode(bundle, ResourceType.Observation);
         }
@@ -153,7 +152,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         // todo bug: 2289 - fix multiple revincludes
         /*
         [Fact]
-        public async Task GivenAnIncludeSearchExpressionWithMultipleIncludes_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        public async Task GivenARevIncludeSearchExpressionWithMultipleIncludes_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"_tag={Fixture.Tag}&_revinclude=DiagnosticReport:result&_revinclude=Observation:patient&code=429858000";
 
