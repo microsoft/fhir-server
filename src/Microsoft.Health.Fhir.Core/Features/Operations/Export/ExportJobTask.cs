@@ -363,14 +363,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             CancellationToken cancellationToken)
         {
             // Update the continuation token in local cache and queryParams.
-            // We will add or udpate the continuation token to the end of the query parameters list.
+            // We will add or udpate the continuation token in the query parameters list.
             progress.UpdateContinuationToken(continuationToken);
 
-            if (queryParametersList[queryParametersList.Count - 1].Item1 == KnownQueryParameterNames.ContinuationToken)
+            bool replacedContinuationToken = false;
+            for (int index = 0; index < queryParametersList.Count; index++)
             {
-                queryParametersList[queryParametersList.Count - 1] = Tuple.Create(KnownQueryParameterNames.ContinuationToken, progress.ContinuationToken);
+                if (queryParametersList[index].Item1 == KnownQueryParameterNames.ContinuationToken)
+                {
+                    queryParametersList[index] = Tuple.Create(KnownQueryParameterNames.ContinuationToken, progress.ContinuationToken);
+                    replacedContinuationToken = true;
+                }
             }
-            else
+
+            if (!replacedContinuationToken)
             {
                 queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, progress.ContinuationToken));
             }
