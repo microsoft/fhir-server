@@ -172,7 +172,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }*/
 
         [Fact]
-        public async Task GivenAnIncludeSearchExpressionWithMultipleDenormalizedParametersAndTableParameters_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        public async Task GivenARevIncludeSearchExpressionWithMultipleDenormalizedParametersAndTableParameters_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             var newDiagnosticReportResponse = await Fixture.TestFhirClient.CreateAsync(
                 new DiagnosticReport
@@ -195,7 +195,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.SmithSnomedDiagnosticReport,
                 Fixture.SmithSnomedObservation,
                 Fixture.TrumanSnomedDiagnosticReport,
-                Fixture.TrumanSnomedObservation);
+                Fixture.TrumanSnomedObservation,
+                newDiagnosticReportResponse.Resource);
 
             ValidateSearchEntryMode(bundle, ResourceType.Observation);
 
