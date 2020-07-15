@@ -8,9 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
-using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using NSubstitute;
 using Xunit;
@@ -21,7 +19,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
     {
         private readonly FhirCosmosClientInitializer _initializer;
 
-        private readonly Container _container = Substitute.ForPartsOf<Container>();
         private readonly ICollectionInitializer _collectionInitializer1 = Substitute.For<ICollectionInitializer>();
         private readonly ICollectionInitializer _collectionInitializer2 = Substitute.For<ICollectionInitializer>();
         private readonly List<ICollectionInitializer> _collectionInitializers;
@@ -30,14 +27,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         public FhirCosmosClientInitializerTests()
         {
             var clientTestProvider = Substitute.For<ICosmosClientTestProvider>();
-            var fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
-            var cosmosResponseProcessor = Substitute.For<ICosmosResponseProcessor>();
             _cosmosDataStoreConfiguration = new CosmosDataStoreConfiguration();
 
             _initializer = new FhirCosmosClientInitializer(
                 clientTestProvider,
-                fhirRequestContextAccessor,
-                cosmosResponseProcessor,
                 Enumerable.Empty<RequestHandler>(),
                 NullLogger<FhirCosmosClientInitializer>.Instance);
 
