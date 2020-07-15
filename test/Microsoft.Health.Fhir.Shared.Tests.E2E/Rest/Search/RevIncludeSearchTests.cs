@@ -110,6 +110,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             Bundle bundle = await Client.SearchAsync(ResourceType.Observation, query);
 
+            // Note: The way fhir server works with paging, it asks for 1 extra match item
+            // to avoid additional call. this also gives us other includes.
+            // fhir will exclude that extra match but the extra include will be
+            // passed to the client (and will be ignoredß)
             ValidateBundle(
                 bundle,
                 Fixture.SmithSnomedDiagnosticReport,
@@ -118,16 +122,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             ValidateSearchEntryMode(bundle, ResourceType.Observation);
 
-            // todo bug: zzz fix next link issue
-            /* bundle = await Client.SearchAsync(bundle.NextLink.ToString());
+            bundle = await Client.SearchAsync(bundle.NextLink.ToString());
 
             ValidateBundle(
                 bundle,
                 Fixture.TrumanSnomedDiagnosticReport,
-                Fixture.TrumanSnomedObservation);
+                Fixture.TrumanSnomedObservation,
+                Fixture.SmithSnomedDiagnosticReport);
 
             ValidateSearchEntryMode(bundle, ResourceType.Observation);
-            */
         }
 
         [Fact]
@@ -147,7 +150,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateSearchEntryMode(bundle, ResourceType.Observation);
         }
 
-        // todo bug: fix multiple revincludes
+        // todo bug: 2289 - fix multiple revincludes
         /*
         [Fact]
         public async Task GivenAnIncludeSearchExpressionWithMultipleIncludes_WhenSearched_ThenCorrectBundleShouldBeReturned()
@@ -168,7 +171,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateSearchEntryMode(bundle, ResourceType.Patient);
         }*/
 
-        /*
         [Fact]
         public async Task GivenAnIncludeSearchExpressionWithMultipleDenormalizedParametersAndTableParameters_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
@@ -184,44 +186,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             // Format the time to fit yyyy-MM-ddTHH:mm:ss.fffffffzzz, and encode its special characters.
             string lastUpdated = HttpUtility.UrlEncode($"{Fixture.PatientGroup.Meta.LastUpdated:o}");
-            string query = $"_tag={Fixture.Tag}&_revinclude=DiagnosticReport:patient:Patient&_revinclude=DiagnosticReport:result:Observation&code=429858000&_lastUpdated=lt{lastUpdated}";
-
-            Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
-
-            ValidateBundle(
-                bundle,
-                Fixture.SmithSnomedDiagnosticReport,
-                Fixture.SmithPatient,
-                Fixture.SmithSnomedObservation,
-                Fixture.TrumanSnomedDiagnosticReport,
-                Fixture.TrumanPatient,
-                Fixture.TrumanSnomedObservation);
-
-            ValidateSearchEntryMode(bundle, ResourceType.DiagnosticReport);
-
-            // delete the extra entry added
-            await Fixture.TestFhirClient.DeleteAsync(newDiagnosticReportResponse.Resource);
-        }
-
-        [Fact]
-        public async Task GivenAnIncludeSearchExpressionWithNoTargetType_WhenSearched_ThenCorrectBundleShouldBeReturned()
-        {
-            string query = $"_tag={Fixture.Tag}&_revinclude=Observation:performer";
+            string query = $"_tag={Fixture.Tag}&_revinclude=DiagnosticReport:result&code=429858000&_lastUpdated=lt{lastUpdated}";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.Observation, query);
 
             ValidateBundle(
                 bundle,
-                Fixture.AdamsLoincObservation,
-                Fixture.SmithLoincObservation,
+                Fixture.SmithSnomedDiagnosticReport,
                 Fixture.SmithSnomedObservation,
-                Fixture.TrumanLoincObservation,
-                Fixture.TrumanSnomedObservation,
-                Fixture.Practitioner,
-                Fixture.Organization);
+                Fixture.TrumanSnomedDiagnosticReport,
+                Fixture.TrumanSnomedObservation);
 
             ValidateSearchEntryMode(bundle, ResourceType.Observation);
-        } */
+
+            // delete the extra entry added
+            await Fixture.TestFhirClient.DeleteAsync(newDiagnosticReportResponse.Resource);
+        }
 
         private static void ValidateSearchEntryMode(Bundle bundle, ResourceType matchResourceType)
         {
