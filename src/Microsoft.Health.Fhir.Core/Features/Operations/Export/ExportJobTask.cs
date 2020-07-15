@@ -214,10 +214,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 // Search and process the results.
                 using (IScoped<ISearchService> searchService = _searchServiceFactory())
                 {
-                    searchResult = await searchService.Value.SearchAsync(
-                        resourceType: null,
-                        queryParametersList,
-                        cancellationToken);
+                    switch (_exportJobRecord.ExportType)
+                    {
+                        case ExportJobType.All:
+                        case ExportJobType.Patient:
+                            searchResult = await searchService.Value.SearchAsync(
+                                resourceType: null,
+                                queryParametersList,
+                                cancellationToken);
+                            break;
+                        case ExportJobType.Group:
+                            searchResult = await GetGroupPatients(_exportJobRecord.GroupId, cancellationToken);
+                            break;
+                    }
                 }
 
                 if (_exportJobRecord.ExportType == ExportJobType.Patient)
@@ -394,7 +403,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
         }
 
-        private async Task<IEnumerable<SearchResultEntry>> GetGroupPatients(string groupId, CancellationToken cancellationToken)
+        private async Task<SearchResult> GetGroupPatients(string groupId, CancellationToken cancellationToken)
         {
             // need to send in the _before param so that if this restarted the same version of the group is retrieved
 
@@ -408,7 +417,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             // iterate through the contects, make calls to get the patients, recurse calls to other groups, ignore other resources
             // add patients and results from sub groups to the patients list
 
-            return patients;
+            return new SearchResult(patients, new List<Tuple<string, string>>(), new List<(string, string)>(), null);
         }
     }
 }
