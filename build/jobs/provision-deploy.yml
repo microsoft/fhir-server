@@ -77,3 +77,4 @@ jobs:
         }
      
         Set-AzKeyVaultAccessPolicy -VaultName "${{ parameters.webAppName }}" -ObjectId 4d4d503d-9ca8-462e-9e18-b35fc8b5285b -PermissionsToSecrets list,get
+
