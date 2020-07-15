@@ -149,26 +149,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateSearchEntryMode(bundle, ResourceType.Observation);
         }
 
-        // todo bug: 2289 - fix multiple revincludes
-        /*
         [Fact]
         public async Task GivenARevIncludeSearchExpressionWithMultipleIncludes_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
-            string query = $"_tag={Fixture.Tag}&_revinclude=DiagnosticReport:result&_revinclude=Observation:patient&code=429858000";
+            string query = $"_tag={Fixture.Tag}&_revinclude=DiagnosticReport:result&_revinclude=Observation:patient&family=Truman";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
 
             ValidateBundle(
                 bundle,
-                Fixture.SmithSnomedDiagnosticReport,
-                Fixture.SmithPatient,
-                Fixture.SmithSnomedObservation,
-                Fixture.TrumanSnomedDiagnosticReport,
                 Fixture.TrumanPatient,
-                Fixture.TrumanSnomedObservation);
+                Fixture.TrumanSnomedDiagnosticReport,
+                Fixture.TrumanSnomedObservation,
+                Fixture.TrumanLoincDiagnosticReport,
+                Fixture.TrumanLoincObservation);
 
             ValidateSearchEntryMode(bundle, ResourceType.Patient);
-        }*/
+        }
 
         [Fact]
         public async Task GivenARevIncludeSearchExpressionWithMultipleDenormalizedParametersAndTableParameters_WhenSearched_ThenCorrectBundleShouldBeReturned()

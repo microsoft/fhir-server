@@ -19,6 +19,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
     {
         private string _cteMainSelect; // This is represents the CTE that is the main selector for use with includes
         private List<string> _includeCtes;
+        private List<string> _revIncludeCtes;
+
         private readonly bool _isHistorySearch;
         private int _tableExpressionCounter = -1;
         private SqlRootExpression _rootExpression;
@@ -441,12 +443,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                             .Append(" IN (SELECT Sid1 FROM ").Append(_cteMainSelect).Append(")");
                     }
 
-                    if (_includeCtes == null)
+                    if (_revIncludeCtes == null)
                     {
-                        _includeCtes = new List<string>();
+                        _revIncludeCtes = new List<string>();
                     }
 
-                    _includeCtes.Add(TableExpressionName(_tableExpressionCounter));
+                    _revIncludeCtes.Add(TableExpressionName(_tableExpressionCounter));
                     break;
                 case TableExpressionKind.IncludeUnionAll:
                     StringBuilder.AppendLine("SELECT Sid1, IsMatch, 0 AS IsPartial");
@@ -461,13 +463,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                     break;
                 case TableExpressionKind.RevIncludeUnionAll:
-                    StringBuilder.AppendLine("SELECT DISTINCT ").Append(TableExpressionName(_tableExpressionCounter - 2)).Append(".Sid1 , 1 AS IsMatch ");
-                    StringBuilder.AppendLine(", (CASE WHEN IsPartialTargetSid1 IS NULL THEN 0 ELSE 1 END) as IsPartial -- if cte2 includes the parent sid1 it means that results have been truncated");
-                    StringBuilder.AppendLine(" From ").Append(TableExpressionName(_tableExpressionCounter - 2));
-                    StringBuilder.AppendLine(" LEFT OUTER JOIN ").Append(TableExpressionName(_tableExpressionCounter - 1)).Append(" ON ").Append(TableExpressionName(_tableExpressionCounter - 2)).Append(".Sid1 = ").Append(TableExpressionName(_tableExpressionCounter - 1)).Append(".IsPartialTargetSid1");
-                    StringBuilder.AppendLine(" UNION ALL");
-                    StringBuilder.AppendLine(" SELECT Sid1, 0 AS IsMatch, 0 AS IsPartial");
-                    StringBuilder.AppendLine(" FROM ").Append(TableExpressionName(_tableExpressionCounter - 1));
+                    var isFirst = true;
+                    foreach (var revincludeCte in _revIncludeCtes)
+                    {
+                        if (!isFirst)
+                        {
+                            StringBuilder.AppendLine("UNION ");
+                        }
+
+                        isFirst = false;
+                        StringBuilder.AppendLine("SELECT DISTINCT ").Append(_cteMainSelect).Append(".Sid1 , 1 AS IsMatch ");
+                        StringBuilder.AppendLine(", (CASE WHEN ").Append(revincludeCte).AppendLine(".IsPartialTargetSid1 IS NULL THEN 0 ELSE 1 END) as IsPartial -- if cte2 includes the parent sid1 it means that results have been truncated");
+                        StringBuilder.AppendLine(" From ").AppendLine(_cteMainSelect);
+                        StringBuilder.AppendLine(" LEFT OUTER JOIN ").Append(revincludeCte).Append(" ON ").Append(_cteMainSelect).Append(".Sid1 = ").Append(revincludeCte).AppendLine(".IsPartialTargetSid1");
+                    }
+
+                    foreach (var revincludeCte in _revIncludeCtes)
+                    {
+                        StringBuilder.AppendLine("UNION ALL");
+                        StringBuilder.AppendLine("SELECT Sid1, 0 AS IsMatch, 0 AS IsPartial");
+                        StringBuilder.Append("FROM ").AppendLine(revincludeCte);
+                    }
+
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(tableExpression.Kind.ToString());
