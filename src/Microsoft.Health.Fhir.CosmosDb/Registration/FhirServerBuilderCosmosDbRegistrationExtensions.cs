@@ -61,13 +61,6 @@ namespace Microsoft.Extensions.DependencyInjection
                     var config = new CosmosDataStoreConfiguration();
                     provider.GetService<IConfiguration>().GetSection("CosmosDb").Bind(config);
                     configureAction?.Invoke(config);
-
-                    if (string.IsNullOrEmpty(config.Host))
-                    {
-                        config.Host = CosmosDbLocalEmulator.Host;
-                        config.Key = CosmosDbLocalEmulator.Key;
-                    }
-
                     return config;
                 })
                 .Singleton()
