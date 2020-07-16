@@ -45,6 +45,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
         public void NewSubSearch(string resourceId)
         {
+            EnsureArg.IsNotNullOrWhiteSpace(resourceId, nameof(resourceId));
+
             SubSearch = new ExportJobProgress(null, 0, resourceId);
         }
 
