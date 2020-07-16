@@ -200,6 +200,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await Fixture.TestFhirClient.DeleteAsync(newDiagnosticReportResponse.Resource);
         }
 
+        [Fact]
+        public async Task GivenARevIncludeSearchExpressionWithWithNoReferences_WhenSearched_ThenCorrectBundleWithOnlyMatchesShouldBeReturned()
+        {
+            // looking for an appointment referencing a Patient, however this kind of reference was
+            // not created in this fixture.
+            string query = $"_tag={Fixture.Tag}&_revinclude=Appointment:actor";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
+
+            ValidateBundle(
+                bundle,
+                Fixture.SmithPatient,
+                Fixture.TrumanPatient,
+                Fixture.AdamsPatient);
+
+            ValidateSearchEntryMode(bundle, ResourceType.Patient);
+        }
+
         private static void ValidateSearchEntryMode(Bundle bundle, ResourceType matchResourceType)
         {
             foreach (Bundle.EntryComponent entry in bundle.Entry)
