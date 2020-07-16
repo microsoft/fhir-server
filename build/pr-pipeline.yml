@@ -313,9 +313,23 @@ stages:
 
 - stage: cleanup
   displayName: 'Cleanup Azure Environment'
+  condition: eq(variables.enableAks, false)
   dependsOn:
   - testStu3
   - testR4
   - testR5
+  jobs:
+  - template: ./jobs/cleanup.yml
+
+- stage: cleanupWaitAll
+  displayName: 'Cleanup Azure Environment'
+  condition: eq(variables.enableAks, true)
+  dependsOn:
+  - testStu3
+  - testR4
+  - testR5
+  - testAksR4Cosmos
+  - testAksR4Sql
+  - testAksR4SqlContainer
   jobs:
   - template: ./jobs/cleanup.yml

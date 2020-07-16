@@ -1164,7 +1164,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         }
 
         [Fact]
-        public async Task GivenAnExportJobWithTheTypeParameter_WhenExecuted_OnlyResourcesOfTheGivenTypesAreExported()
+        public async Task GivenAnExportJobWithTheTypeParameter_WhenExecuted_ThenOnlyResourcesOfTheGivenTypesAreExported()
         {
             var exportJobRecordWithCommitPages = new ExportJobRecord(
                new Uri("https://localhost/ExportJob/"),
@@ -1218,7 +1218,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         }
 
         [Fact]
-        public async Task GivenAPatientExportJobWithTheTypeParameter_WhenExecuted_OnlyCompartmentResourcesOfTheGivenTypesAreExported()
+        public async Task GivenAPatientExportJobWithTheTypeParameter_WhenExecuted_ThenOnlyCompartmentResourcesOfTheGivenTypesAreExported()
         {
             var exportJobRecordWithCommitPages = new ExportJobRecord(
                 new Uri("https://localhost/ExportJob/"),
@@ -1292,6 +1292,112 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal("1", exportedIds);
             exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
             Assert.Equal("0", exportedIds);
+            Assert.Equal(2, _inMemoryDestinationClient.ExportedDataFileCount);
+
+            Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
+        }
+
+        [Fact]
+        public async Task GivenAnExportJobToResumeWithTheTypeParameter_WhenExecuted_ThenOnlyResourcesOfTheGivenTypesAreExported()
+        {
+            var exportJobRecordWithCommitPages = new ExportJobRecord(
+                new Uri("https://localhost/ExportJob/"),
+                ExportJobType.All,
+                KnownResourceTypes.Observation + "," + KnownResourceTypes.Encounter,
+                "hash",
+                since: PartialDateTime.MinValue,
+                storageAccountConnectionHash: string.Empty,
+                storageAccountUri: _exportJobConfiguration.StorageAccountUri,
+                maximumNumberOfResourcesPerQuery: _exportJobConfiguration.MaximumNumberOfResourcesPerQuery,
+                numberOfPagesPerCommit: 1);
+            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithCommitPages);
+
+            int searchCallsMade = 0;
+            _searchService.SearchAsync(
+                null,
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    searchCallsMade++;
+                    var queryParameterList = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1);
+
+                    bool typeParameterIncluded = false;
+                    bool continuationTokenParameterIncluded = false;
+                    string[] types = null;
+
+                    foreach (Tuple<string, string> parameter in queryParameterList)
+                    {
+                        if (parameter.Item1 == Core.Features.KnownQueryParameterNames.ContinuationToken)
+                        {
+                            continuationTokenParameterIncluded = true;
+                        }
+                        else if (parameter.Item1 == Core.Features.KnownQueryParameterNames.Type)
+                        {
+                            typeParameterIncluded = true;
+                            types = parameter.Item2.Split(',');
+                        }
+                    }
+
+                    Assert.True(typeParameterIncluded);
+                    Assert.Equal(searchCallsMade > 1 ? true : false, continuationTokenParameterIncluded);
+
+                    if (searchCallsMade == 2)
+                    {
+                        throw new Exception();
+                    }
+
+                    SearchResultEntry[] entries = new SearchResultEntry[types.Length];
+
+                    for (int index = 0; index < types.Length; index++)
+                    {
+                        entries[index] = new SearchResultEntry(
+                            new ResourceWrapper(
+                                searchCallsMade.ToString(CultureInfo.InvariantCulture),
+                                "1",
+                                types[index],
+                                new RawResource("data", Core.Models.FhirResourceFormat.Json),
+                                null,
+                                DateTimeOffset.MinValue,
+                                false,
+                                null,
+                                null,
+                                null));
+                    }
+
+                    return CreateSearchResult(entries, searchCallsMade < 4 ? "ct" : null);
+                });
+
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            string exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
+            Assert.Equal("1", exportedIds);
+            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri("Encounter.ndjson", UriKind.Relative));
+            Assert.Equal("1", exportedIds);
+            Assert.Equal(2, _inMemoryDestinationClient.ExportedDataFileCount);
+
+            // We create a new export job task here to simulate the worker picking up the "old" export job record
+            // and resuming the export process. The export destination client contains data that has
+            // been committed up until the "crash".
+            _inMemoryDestinationClient = new InMemoryExportDestinationClient();
+
+            var secondExportJobTask = new ExportJobTask(
+                () => _fhirOperationDataStore.CreateMockScope(),
+                Options.Create(_exportJobConfiguration),
+                () => _searchService.CreateMockScope(),
+                _fhirDataStore,
+                _resourceDeserializer,
+                _resourceToByteArraySerializer,
+                _inMemoryDestinationClient,
+                NullLogger<ExportJobTask>.Instance);
+
+            // Reseting the number of calls so that the ressource id of the Patient is the same ('2') as it was when the crash happened.
+            await secondExportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
+            Assert.Equal("34", exportedIds);
+            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri("Encounter.ndjson", UriKind.Relative));
+            Assert.Equal("34", exportedIds);
             Assert.Equal(2, _inMemoryDestinationClient.ExportedDataFileCount);
 
             Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
