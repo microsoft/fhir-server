@@ -46,15 +46,15 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public void GivenAnExportResourceTypeIdRequest_WhenResourceTypeIsNotGroup_ThenRequestNotValidExceptionShouldBeThrown()
+        public async Task GivenAnExportResourceTypeIdRequest_WhenResourceTypeIsNotGroup_ThenRequestNotValidExceptionShouldBeThrown()
         {
-            Assert.Throws<RequestNotValidException>(() => _exportEnabledController.ExportResourceTypeById(ResourceType.Patient.ToString(), "id"));
+            await Assert.ThrowsAsync<RequestNotValidException>(() => _exportEnabledController.ExportResourceTypeById(null, null, ResourceType.Patient.ToString(), "id"));
         }
 
         [Fact]
-        public void GivenAnExportByResourceTypeIdRequest_WhenResourceTypeIsGroup_ThenOperationNotImplementedExceptionShouldBeThrown()
+        public async Task GivenAnExportByResourceTypeIdRequest_WhenResourceTypeIsGroup_ThenOperationNotImplementedExceptionShouldBeThrown()
         {
-            Assert.Throws<OperationNotImplementedException>(() => _exportEnabledController.ExportResourceTypeById(ResourceType.Group.ToString(), "id"));
+            await Assert.ThrowsAsync<OperationNotImplementedException>(() => _exportEnabledController.ExportResourceTypeById(null, null, ResourceType.Group.ToString(), "id"));
         }
 
         private ExportController GetController(ExportJobConfiguration exportConfig)

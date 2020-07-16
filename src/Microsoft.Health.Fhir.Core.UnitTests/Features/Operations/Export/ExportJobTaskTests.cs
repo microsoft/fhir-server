@@ -38,9 +38,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         private ExportJobRecord _exportJobRecord;
         private InMemoryExportDestinationClient _inMemoryDestinationClient = new InMemoryExportDestinationClient();
 
+        // private ResourceElement _resourceElement = null;
+
         private readonly IFhirOperationDataStore _fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
         private readonly ExportJobConfiguration _exportJobConfiguration = new ExportJobConfiguration();
         private readonly ISearchService _searchService = Substitute.For<ISearchService>();
+        private readonly IFhirDataStore _fhirDataStore = Substitute.For<IFhirDataStore>();
+        private readonly ResourceDeserializer _resourceDeserializer;
         private readonly IResourceToByteArraySerializer _resourceToByteArraySerializer = Substitute.For<IResourceToByteArraySerializer>();
 
         private readonly ExportJobTask _exportJobTask;
@@ -56,11 +60,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             SetupExportJobRecordAndOperationDataStore();
 
             _resourceToByteArraySerializer.Serialize(Arg.Any<ResourceWrapper>()).Returns(x => Encoding.UTF8.GetBytes(x.ArgAt<ResourceWrapper>(0).ResourceId));
+            _resourceDeserializer = new ResourceDeserializer(
+                (FhirResourceFormat.Json, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastUpdated) => null)));
 
             _exportJobTask = new ExportJobTask(
                 () => _fhirOperationDataStore.CreateMockScope(),
                 Options.Create(_exportJobConfiguration),
                 () => _searchService.CreateMockScope(),
+                _fhirDataStore,
+                _resourceDeserializer,
                 _resourceToByteArraySerializer,
                 _inMemoryDestinationClient,
                 NullLogger<ExportJobTask>.Instance);
@@ -556,6 +564,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 () => _fhirOperationDataStore.CreateMockScope(),
                 Options.Create(_exportJobConfiguration),
                 () => _searchService.CreateMockScope(),
+                _fhirDataStore,
+                _resourceDeserializer,
                 _resourceToByteArraySerializer,
                 mockExportDestinationClient,
                 NullLogger<ExportJobTask>.Instance);
@@ -589,6 +599,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 () => _fhirOperationDataStore.CreateMockScope(),
                 Options.Create(exportJobConfiguration),
                 () => _searchService.CreateMockScope(),
+                _fhirDataStore,
+                _resourceDeserializer,
                 _resourceToByteArraySerializer,
                 _inMemoryDestinationClient,
                 NullLogger<ExportJobTask>.Instance);
@@ -630,6 +642,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 () => _fhirOperationDataStore.CreateMockScope(),
                 Options.Create(_exportJobConfiguration),
                 () => _searchService.CreateMockScope(),
+                _fhirDataStore,
+                _resourceDeserializer,
                 _resourceToByteArraySerializer,
                 _inMemoryDestinationClient,
                 NullLogger<ExportJobTask>.Instance);
@@ -673,6 +687,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 () => _fhirOperationDataStore.CreateMockScope(),
                 Options.Create(_exportJobConfiguration),
                 () => _searchService.CreateMockScope(),
+                _fhirDataStore,
+                _resourceDeserializer,
                 _resourceToByteArraySerializer,
                 mockDestinationClient,
                 NullLogger<ExportJobTask>.Instance);
@@ -751,6 +767,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 () => _fhirOperationDataStore.CreateMockScope(),
                 Options.Create(_exportJobConfiguration),
                 () => _searchService.CreateMockScope(),
+                _fhirDataStore,
+                _resourceDeserializer,
                 _resourceToByteArraySerializer,
                 _inMemoryDestinationClient,
                 NullLogger<ExportJobTask>.Instance);
@@ -1001,6 +1019,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 () => _fhirOperationDataStore.CreateMockScope(),
                 Options.Create(_exportJobConfiguration),
                 () => _searchService.CreateMockScope(),
+                _fhirDataStore,
+                _resourceDeserializer,
                 _resourceToByteArraySerializer,
                 _inMemoryDestinationClient,
                 NullLogger<ExportJobTask>.Instance);
@@ -1120,6 +1140,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 () => _fhirOperationDataStore.CreateMockScope(),
                 Options.Create(_exportJobConfiguration),
                 () => _searchService.CreateMockScope(),
+                _fhirDataStore,
+                _resourceDeserializer,
                 _resourceToByteArraySerializer,
                 _inMemoryDestinationClient,
                 NullLogger<ExportJobTask>.Instance);

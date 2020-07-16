@@ -10,6 +10,7 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.ElementModel;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core;
@@ -212,21 +213,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 SearchResult searchResult = null;
 
                 // Search and process the results.
-                using (IScoped<ISearchService> searchService = _searchServiceFactory())
+                switch (_exportJobRecord.ExportType)
                 {
-                    switch (_exportJobRecord.ExportType)
-                    {
-                        case ExportJobType.All:
-                        case ExportJobType.Patient:
+                    case ExportJobType.All:
+                    case ExportJobType.Patient:
+                        using (IScoped<ISearchService> searchService = _searchServiceFactory())
+                        {
                             searchResult = await searchService.Value.SearchAsync(
                                 resourceType: null,
                                 queryParametersList,
                                 cancellationToken);
-                            break;
-                        case ExportJobType.Group:
-                            searchResult = await GetGroupPatients(_exportJobRecord.GroupId, cancellationToken);
-                            break;
-                    }
+                        }
+
+                        break;
+                    case ExportJobType.Group:
+                        searchResult = await GetGroupPatients(_exportJobRecord.GroupId, queryParametersList, cancellationToken);
+                        break;
                 }
 
                 if (_exportJobRecord.ExportType == ExportJobType.Patient)
@@ -403,21 +405,62 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
         }
 
-        private async Task<SearchResult> GetGroupPatients(string groupId, CancellationToken cancellationToken)
+        private async Task<SearchResult> GetGroupPatients(string groupId, List<Tuple<string, string>> queryParametersList, CancellationToken cancellationToken)
+        {
+            if (!queryParametersList.Exists((Tuple<string, string> parameter) => parameter.Item1 == KnownQueryParameterNames.Id))
+            {
+                var patientIds = await GetGroupPatientIds(groupId, cancellationToken);
+                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Id, string.Join(',', patientIds)));
+            }
+
+            using (IScoped<ISearchService> searchService = _searchServiceFactory())
+            {
+                return await searchService.Value.SearchAsync(
+                               resourceType: null,
+                               queryParametersList,
+                               cancellationToken);
+            }
+        }
+
+        private async Task<HashSet<string>> GetGroupPatientIds(string groupId, CancellationToken cancellationToken, HashSet<string> groupsAlreadyChecked = null)
         {
             // need to send in the _before param so that if this restarted the same version of the group is retrieved
+
+            if (groupsAlreadyChecked == null)
+            {
+                groupsAlreadyChecked = new HashSet<string>();
+            }
+
+            groupsAlreadyChecked.Add(groupId);
 
             var groupResource = await _fhirDataStore.GetAsync(new ResourceKey(KnownResourceTypes.Group, groupId), cancellationToken);
 
             var group = _resourceDeserializer.Deserialize(groupResource);
             var groupContents = group.Select("member.entity");
 
-            List<SearchResultEntry> patients = new List<SearchResultEntry>();
+            var patientIds = new HashSet<string>();
 
-            // iterate through the contects, make calls to get the patients, recurse calls to other groups, ignore other resources
-            // add patients and results from sub groups to the patients list
+            foreach (ITypedElement entity in groupContents)
+            {
+                var reference = new ResourceElement(entity);
+                switch (reference.Scalar<string>("type"))
+                {
+                    case KnownResourceTypes.Patient:
+                        patientIds.Add(reference.Scalar<string>("reference"));
+                        break;
+                    case KnownResourceTypes.Group:
+                        // need to check that loops aren't happening
+                        var nestedGroupId = reference.Scalar<string>("reference");
+                        if (!groupsAlreadyChecked.Contains(nestedGroupId))
+                        {
+                            patientIds.UnionWith(await GetGroupPatientIds(nestedGroupId, cancellationToken, groupsAlreadyChecked));
+                        }
 
-            return new SearchResult(patients, new List<Tuple<string, string>>(), new List<(string, string)>(), null);
+                        break;
+                }
+            }
+
+            return patientIds;
         }
     }
 }
