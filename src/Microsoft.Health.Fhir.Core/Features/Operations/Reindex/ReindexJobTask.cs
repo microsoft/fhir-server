@@ -85,6 +85,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                     _reindexJobRecord.Resources.AddRange(resourceList);
                     _reindexJobRecord.SearchParams.AddRange(notYetIndexedParams.Select(p => p.Name));
+
+                    // generate and run first query
+                    var queryStatus = new ReindexJobQueryStatus(
+                        _reindexJobRecord.TypeQueryString + "&" + KnownQueryParameterNames.Count +
+                        "+" + _reindexJobConfiguration.MaximumNumberOfResourcesPerQuery);
+                    queryStatus.LastModified = DateTimeOffset.UtcNow;
+                    queryStatus.Status = OperationStatus.Running;
+
+                    // update total
+
+                    // Query first batch of resources
+                    // if continuation token then update next query
+
+                    // update job record to running
+                    _reindexJobRecord.Status = OperationStatus.Running;
+                    _reindexJobRecord.StartTime = Clock.UtcNow;
+                    _reindexJobRecord.LastModified = Clock.UtcNow;
+                    await UpdateJobAsync(cancellationToken);
+
+                    // finally start task to reindex queried records
+                }
+                else
+                {
+                    // grab the next query from the list which is labeled as queued and run it
+
+                    // check if all queries marked as complete, then mark job as complete
                 }
 
                 // This is just a shell for now, will be completed in future
@@ -114,10 +140,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private async Task CompleteJobAsync(OperationStatus completionStatus, CancellationToken cancellationToken)
         {
             _reindexJobRecord.Status = completionStatus;
-            _reindexJobRecord.StartTime = Clock.UtcNow;
             _reindexJobRecord.EndTime = Clock.UtcNow;
             _reindexJobRecord.LastModified = Clock.UtcNow;
 
+            await UpdateJobAsync(cancellationToken);
+        }
+
+        private async Task UpdateJobAsync(CancellationToken cancellationToken)
+        {
             using (IScoped<IFhirOperationDataStore> store = _fhirOperationDataStoreFactory())
             {
                 await store.Value.UpdateReindexJobAsync(_reindexJobRecord, _weakETag, cancellationToken);

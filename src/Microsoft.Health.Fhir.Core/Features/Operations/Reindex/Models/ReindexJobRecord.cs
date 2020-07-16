@@ -84,5 +84,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
                 }
             }
         }
+
+        [JsonIgnore]
+        public string TypeQueryString
+        {
+            get
+            {
+                return KnownQueryParameterNames.Type + "=" + string.Join(",", Resources);
+            }
+        }
     }
 }
