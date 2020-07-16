@@ -433,6 +433,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         AppendHistoryClause(delimited, referenceSourceTableAlias);
                     }
 
+                    // Since we might truncate the number of included resource
+                    // we sort them so we get the latest.
+                    var order = context.GetFirstSortOrderForSupportedParam();
+
+                    StringBuilder.Append("ORDER BY ")
+                        .Append(VLatest.Resource.ResourceSurrogateId, referenceSourceTableAlias).Append(" ")
+                        .AppendLine(order == SortOrder.Ascending ? "ASC" : "DESC");
+
                     StringBuilder.AppendLine(") AS ").Append(referenceSourceTableAlias).Append(" ");
 
                     using (var delimited = StringBuilder.BeginDelimitedWhereClause())
