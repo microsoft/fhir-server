@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                                 {
                                     Severity = OperationOutcome.IssueSeverity.Information,
                                     Code = OperationOutcome.IssueType.Incomplete,
-                                    Diagnostics = "Truncated. Too many included resources",
+                                    Diagnostics = Core.Resources.TruncatedIncludes,
                                 },
                             },
                         },
