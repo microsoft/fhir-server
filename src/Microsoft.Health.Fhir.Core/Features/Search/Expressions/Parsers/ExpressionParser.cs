@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 
         public IncludeExpression ParseInclude(string resourceType, string includeValue)
         {
-            return (IncludeExpression)ParseIncludeOrRevinclude(
+            return (IncludeExpression)ParseIncludeOrRevInclude(
                 resourceType,
                 includeValue,
                 (resourceType, refSearchParameter, targetType, wildCard) => new IncludeExpression(resourceType, refSearchParameter, targetType, wildCard));
@@ -75,13 +75,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 
         public RevIncludeExpression ParseRevInclude(string resourceType, string includeValue)
         {
-            return (RevIncludeExpression)ParseIncludeOrRevinclude(
+            return (RevIncludeExpression)ParseIncludeOrRevInclude(
                 resourceType,
                 includeValue,
                 (resourceType, refSearchParameter, targetType, wildCard) => new RevIncludeExpression(resourceType, refSearchParameter, targetType, wildCard));
         }
 
-        private IncludeBaseExpression ParseIncludeOrRevinclude(string resourceType, string includeValue, Func<string, SearchParameterInfo, string, bool, IncludeBaseExpression> buildExpression)
+        private IncludeBaseExpression ParseIncludeOrRevInclude(string resourceType, string includeValue, Func<string, SearchParameterInfo, string, bool, IncludeBaseExpression> buildExpression)
         {
             var valueSpan = includeValue.AsSpan();
             if (!TrySplit(SearchSplitChar, ref valueSpan, out ReadOnlySpan<char> originalType))

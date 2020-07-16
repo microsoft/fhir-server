@@ -406,11 +406,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     .Append(" ELSE NULL END) IsPartialTargetSid1 ");
 
                     StringBuilder.AppendLine("FROM ").Append(VLatest.Resource).Append(' ').AppendLine(referenceTargetResourceTableAlias);
-                    StringBuilder.AppendLine("CROSS APPLY -- we want the top to work on the (rev)included resource records and not on the overall resultset, hence can't use a simple join.");
+
+                    // We want the top to work on the (rev)included resource records and not on the overall resultset, hence can't use a simple join.
+                    StringBuilder.AppendLine("CROSS APPLY");
                     StringBuilder.AppendLine("( ");
 
+                    // Count all records before the TOP
                     StringBuilder.AppendLine("SELECT DISTINCT TOP (" + MaxIncludedItems + ") ResourceSurrogateId")
-                    .AppendLine(", count(*) over() as CountSource -- count all records before the TOP")
+                    .AppendLine(", count(*) over() as CountSource ")
                     .AppendLine("FROM ").Append(VLatest.ReferenceSearchParam).Append(' ').AppendLine(referenceSourceTableAlias);
 
                     using (var delimited = StringBuilder.BeginDelimitedWhereClause())

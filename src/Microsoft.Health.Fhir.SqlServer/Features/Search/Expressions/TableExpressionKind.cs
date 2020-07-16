@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         IncludeUnionAll,
 
         /// <summary>
-        /// Represents a table expression that is used to union all of the reverse ßincludes with the base search query.
+        /// Represents a table expression that is used to union all of the reverse includes with the base search query.
         /// </summary>
         RevIncludeUnionAll,
     }
