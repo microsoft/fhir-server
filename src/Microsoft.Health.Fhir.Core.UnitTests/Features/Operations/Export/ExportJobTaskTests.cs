@@ -1123,11 +1123,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             var exportJobRecordWithCommitPages = CreateExportJobRecord(
               exportJobType: ExportJobType.Group,
+              groupId: "group",
               numberOfPagesPerCommit: 2);
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithCommitPages);
 
             _groupMemberExtractor.GetGroupMembers(
-                Arg.Any<string>(),
+                "group",
                 _cancellationToken).Returns(
                     new List<Tuple<string, string>>()
                     {
@@ -1180,31 +1181,320 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
         }
 
-        /*
         [Fact]
         public async Task GivenAGroupExportJobWithNestedGroups_WhenExecuted_ThenAllPatientResourcesInTheGroupAreExported()
         {
+            var exportJobRecordWithCommitPages = CreateExportJobRecord(
+              exportJobType: ExportJobType.Group,
+              groupId: "group",
+              numberOfPagesPerCommit: 2);
+            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithCommitPages);
 
+            _groupMemberExtractor.GetGroupMembers(
+                "group",
+                _cancellationToken).Returns(
+                    new List<Tuple<string, string>>()
+                    {
+                        Tuple.Create("1", KnownResourceTypes.Patient),
+                        Tuple.Create("2", KnownResourceTypes.Observation),
+                        Tuple.Create("nested", KnownResourceTypes.Group),
+                    });
+
+            _groupMemberExtractor.GetGroupMembers(
+               "nested",
+               _cancellationToken).Returns(
+                   new List<Tuple<string, string>>()
+                   {
+                        Tuple.Create("5", KnownResourceTypes.Patient),
+                        Tuple.Create("6", KnownResourceTypes.Observation),
+                   });
+
+            _searchService.SearchAsync(
+                null,
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    string[] ids = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[2].Item2.Split(',');
+                    SearchResultEntry[] entries = new SearchResultEntry[ids.Length];
+
+                    for (int index = 0; index < ids.Length; index++)
+                    {
+                        entries[index] = CreateSearchResultEntry(ids[index], KnownResourceTypes.Patient);
+                    }
+
+                    return CreateSearchResult(entries);
+                });
+
+            _searchService.SearchCompartmentAsync(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    string parentId = x.ArgAt<string>(1);
+
+                    return CreateSearchResult(new SearchResultEntry[]
+                    {
+                         CreateSearchResultEntry(parentId, KnownResourceTypes.Observation),
+                    });
+                });
+
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            string exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
+            Assert.Equal("15", exportedIds);
+            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
+            Assert.Equal("15", exportedIds);
+            Assert.Equal(2, _inMemoryDestinationClient.ExportedDataFileCount);
+
+            Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
         }
 
         [Fact]
         public async Task GivenAGroupExportJobWithMultiplePagesOfPatients_WhenExecuted_ThenAllPatientResourcesInTheGroupAreExported()
         {
+            var exportJobRecordWithCommitPages = CreateExportJobRecord(
+              exportJobType: ExportJobType.Group,
+              groupId: "group",
+              maximumNumberOfResourcesPerQuery: 1,
+              numberOfPagesPerCommit: 2);
+            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithCommitPages);
 
+            _groupMemberExtractor.GetGroupMembers(
+                "group",
+                _cancellationToken).Returns(
+                    new List<Tuple<string, string>>()
+                    {
+                        Tuple.Create("1", KnownResourceTypes.Patient),
+                        Tuple.Create("2", KnownResourceTypes.Patient),
+                        Tuple.Create("3", KnownResourceTypes.Patient),
+                    });
+
+            int countOfSearches = 0;
+            _searchService.SearchAsync(
+                null,
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    string[] ids = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[2].Item2.Split(',');
+
+                    countOfSearches++;
+
+                    return CreateSearchResult(
+                        new SearchResultEntry[]
+                        {
+                            CreateSearchResultEntry(ids[countOfSearches - 1], KnownResourceTypes.Patient),
+                        },
+                        countOfSearches < 3 ? "ct" : null);
+                });
+
+            _searchService.SearchCompartmentAsync(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    string parentId = x.ArgAt<string>(1);
+
+                    return CreateSearchResult(new SearchResultEntry[]
+                    {
+                         CreateSearchResultEntry(parentId, KnownResourceTypes.Observation),
+                    });
+                });
+
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            string exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
+            Assert.Equal("123", exportedIds);
+            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
+            Assert.Equal("123", exportedIds);
+            Assert.Equal(2, _inMemoryDestinationClient.ExportedDataFileCount);
+
+            Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
+
+            Assert.Equal(3, countOfSearches);
         }
 
         [Fact]
         public async Task GivenAGroupExportJobToResume_WhenExecuted_ThenAllPatientResourcesInTheGroupAreExported()
         {
+            var exportJobRecordWithCommitPages = CreateExportJobRecord(
+              exportJobType: ExportJobType.Group,
+              groupId: "group",
+              maximumNumberOfResourcesPerQuery: 1,
+              numberOfPagesPerCommit: 1);
+            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithCommitPages);
 
+            _groupMemberExtractor.GetGroupMembers(
+                "group",
+                _cancellationToken).Returns(
+                    new List<Tuple<string, string>>()
+                    {
+                        Tuple.Create("1", KnownResourceTypes.Patient),
+                        Tuple.Create("2", KnownResourceTypes.Patient),
+                        Tuple.Create("3", KnownResourceTypes.Patient),
+                    });
+
+            int countOfSearches = 0;
+            _searchService.SearchAsync(
+                null,
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    string[] ids;
+                    int continuationTokenIndex;
+                    countOfSearches++;
+
+                    if (countOfSearches == 1)
+                    {
+                        ids = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[2].Item2.Split(',');
+                        continuationTokenIndex = 0;
+                    }
+                    else if (countOfSearches == 2)
+                    {
+                        throw new Exception();
+                    }
+                    else
+                    {
+                        ids = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[3].Item2.Split(',');
+                        continuationTokenIndex = int.Parse(x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[2].Item2.Substring(2));
+                    }
+
+                    return CreateSearchResult(
+                        new SearchResultEntry[]
+                        {
+                            CreateSearchResultEntry(ids[continuationTokenIndex], KnownResourceTypes.Patient),
+                        },
+                        countOfSearches < 4 ? "ct" + (continuationTokenIndex + 1) : null);
+                });
+
+            _searchService.SearchCompartmentAsync(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    string parentId = x.ArgAt<string>(1);
+
+                    return CreateSearchResult(new SearchResultEntry[]
+                    {
+                         CreateSearchResultEntry(parentId, KnownResourceTypes.Observation),
+                    });
+                });
+
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            string exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
+            Assert.Equal("1", exportedIds);
+            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
+            Assert.Equal("1", exportedIds);
+            Assert.Equal(2, _inMemoryDestinationClient.ExportedDataFileCount);
+
+            // We create a new export job task here to simulate the worker picking up the "old" export job record
+            // and resuming the export process. The export destination client contains data that has
+            // been committed up until the "crash".
+            _inMemoryDestinationClient = new InMemoryExportDestinationClient();
+
+            var secondExportJobTask = new ExportJobTask(
+                () => _fhirOperationDataStore.CreateMockScope(),
+                Options.Create(_exportJobConfiguration),
+                () => _searchService.CreateMockScope(),
+                _groupMemberExtractor,
+                _resourceToByteArraySerializer,
+                _inMemoryDestinationClient,
+                NullLogger<ExportJobTask>.Instance);
+
+            // Reseting the number of calls so that the ressource id of the Patient is the same ('2') as it was when the crash happened.
+            await secondExportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
+            Assert.Equal("23", exportedIds);
+            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
+            Assert.Equal("23", exportedIds);
+            Assert.Equal(2, _inMemoryDestinationClient.ExportedDataFileCount);
+
+            Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
         }
 
         [Fact]
         public async Task GivenAGroupExportJobWithTheTypeParameter_WhenExecuted_ThenAllPatientResourcesInTheGroupAreExported()
         {
+            var exportJobRecordWithCommitPages = CreateExportJobRecord(
+              exportJobType: ExportJobType.Group,
+              resourceType: KnownResourceTypes.Encounter + "," + KnownResourceTypes.Observation,
+              groupId: "group",
+              numberOfPagesPerCommit: 2);
+            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithCommitPages);
 
+            _groupMemberExtractor.GetGroupMembers(
+                "group",
+                _cancellationToken).Returns(
+                    new List<Tuple<string, string>>()
+                    {
+                        Tuple.Create("1", KnownResourceTypes.Patient),
+                        Tuple.Create("2", KnownResourceTypes.Patient),
+                        Tuple.Create("3", KnownResourceTypes.Patient),
+                    });
+
+            _searchService.SearchAsync(
+                null,
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    string[] ids = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[2].Item2.Split(',');
+                    SearchResultEntry[] entries = new SearchResultEntry[ids.Length];
+
+                    for (int index = 0; index < ids.Length; index++)
+                    {
+                        entries[index] = CreateSearchResultEntry(ids[index], KnownResourceTypes.Patient);
+                    }
+
+                    return CreateSearchResult(entries);
+                });
+
+            _searchService.SearchCompartmentAsync(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    string parentId = x.ArgAt<string>(1);
+                    string[] resourceTypes = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(3)[2].Item2.Split(',');
+
+                    SearchResultEntry[] entries = new SearchResultEntry[resourceTypes.Length];
+
+                    for (int index = 0; index < resourceTypes.Length; index++)
+                    {
+                        entries[index] = CreateSearchResultEntry(parentId, resourceTypes[index]);
+                    }
+
+                    return CreateSearchResult(entries);
+                });
+
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            string exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
+            Assert.Equal("123", exportedIds);
+            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
+            Assert.Equal("123", exportedIds);
+            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri("Encounter.ndjson", UriKind.Relative));
+            Assert.Equal("123", exportedIds);
+            Assert.Equal(3, _inMemoryDestinationClient.ExportedDataFileCount);
+
+            Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
         }
-        */
 
         private ExportJobRecord CreateExportJobRecord(
             string requestEndpoint = "https://localhost/ExportJob/",
