@@ -8,29 +8,30 @@ using System.Linq;
 using System.Text;
 using EnsureThat;
 using Microsoft.Health.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
     public static class SearchHelperUtilities
     {
         /// <summary>
-        /// Given a list of <see cref="SearchParameterInfo"/> calculates a hash using the
-        /// <see cref="SearchParameterInfo.Name"/> values of each component.
-        /// The same collection of search parameters (irrespective of their order in the input)
+        /// Given a list of <see cref="ResourceSearchParameterStatus"/> calculates a hash using the
+        /// <see cref="ResourceSearchParameterStatus.Uri"/> and <see cref="ResourceSearchParameterStatus.LastUpdated"/>
+        /// values of each component. The same collection of search parameter status (irrespective of their order in the input)
         /// will return the same hash.
         /// </summary>
-        /// <param name="searchParamInfo">A list of <see cref="SearchSearchParameterInfo" /></param>
-        /// <returns>A hash based on the search parameter names present in the input.</returns>
-        public static string CalculateSearchParameterNameHash(IEnumerable<SearchParameterInfo> searchParamInfo)
+        /// <param name="resourceSearchParameterStatus">A list of <see cref="ResourceSearchParameterStatus" /></param>
+        /// <returns>A hash based on the search parameter uri and last updated value.</returns>
+        public static string CalculateSearchParameterNameHash(IEnumerable<ResourceSearchParameterStatus> resourceSearchParameterStatus)
         {
-            EnsureArg.IsNotNull(searchParamInfo, nameof(searchParamInfo));
-            EnsureArg.IsGt(searchParamInfo.Count(), 0, nameof(searchParamInfo));
+            EnsureArg.IsNotNull(resourceSearchParameterStatus, nameof(resourceSearchParameterStatus));
+            EnsureArg.IsGt(resourceSearchParameterStatus.Count(), 0, nameof(resourceSearchParameterStatus));
 
             StringBuilder sb = new StringBuilder();
-            foreach (string paramName in searchParamInfo.Select(x => x.Name).OrderBy(x => x))
+            foreach (ResourceSearchParameterStatus searchParameterStatus in resourceSearchParameterStatus.OrderBy(x => x.Uri.ToString()))
             {
-                sb.Append(paramName);
+                sb.Append(searchParameterStatus.Uri.ToString());
+                sb.Append(searchParameterStatus.LastUpdated.ToString());
             }
 
             string hash = sb.ToString().ComputeHash();

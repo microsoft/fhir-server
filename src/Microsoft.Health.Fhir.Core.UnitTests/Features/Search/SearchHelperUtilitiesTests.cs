@@ -6,13 +6,17 @@
 using System;
 using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Features.Search;
-using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 {
     public class SearchHelperUtilitiesTests
     {
+        private readonly Uri _paramUri1 = new Uri("https://localhost/searchparam1");
+        private readonly Uri _paramUri2 = new Uri("https://localhost/searchParam2");
+        private readonly Uri _paramUri3 = new Uri("https://localhost/searchParam3");
+
         [Fact]
         public void GivenNullSearchParamInfo_WhenCalculateSearchParameterNameHash_ThenThrowsException()
         {
@@ -22,54 +26,77 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public void GivenEmptySearchParamInfo_WhenCalculateSearchParameterNameHash_ThenThrowsException()
         {
-            Assert.ThrowsAny<Exception>(() => SearchHelperUtilities.CalculateSearchParameterNameHash(new List<SearchParameterInfo>()));
+            Assert.ThrowsAny<Exception>(() => SearchHelperUtilities.CalculateSearchParameterNameHash(new List<ResourceSearchParameterStatus>()));
         }
 
         [Fact]
-        public void GivenTwoSameListsOfSearchParamInfo_WhenCalculateSearchParameterNameHash_ThenHashIsSame()
+        public void GivenTwoSameListsOfResourceSearchParameterStatus_WhenCalculateSearchParameterNameHash_ThenHashIsSame()
         {
-            IEnumerable<SearchParameterInfo> paramInfo1 = GenerateSearchParamInfo("_type", "supplement", "study");
-            IEnumerable<SearchParameterInfo> paramInfo2 = GenerateSearchParamInfo("_type", "supplement", "study");
+            DateTimeOffset lastUpdated = DateTimeOffset.UtcNow;
+            var param1 = GenerateResourceSearchParameterStatus(_paramUri1, lastUpdated);
+            var param2 = GenerateResourceSearchParameterStatus(_paramUri2, lastUpdated);
 
-            string hash1 = SearchHelperUtilities.CalculateSearchParameterNameHash(paramInfo1);
-            string hash2 = SearchHelperUtilities.CalculateSearchParameterNameHash(paramInfo2);
+            string hash1 = SearchHelperUtilities.CalculateSearchParameterNameHash(new List<ResourceSearchParameterStatus>() { param1, param2 });
+            string hash2 = SearchHelperUtilities.CalculateSearchParameterNameHash(new List<ResourceSearchParameterStatus>() { param1, param2 });
 
             Assert.Equal(hash1, hash2);
         }
 
         [Fact]
-        public void GivenTwoDifferentListsOfSearchParamInfo_WhenCalculateSearchParameterNameHash_ThenHashIsNotSame()
+        public void GivenTwoDifferentListsOfResourceSearchParameterStatus_WhenCalculateSearchParameterNameHash_ThenHashIsDifferent()
         {
-            IEnumerable<SearchParameterInfo> paramInfo1 = GenerateSearchParamInfo("_type", "supplement", "study");
-            IEnumerable<SearchParameterInfo> paramInfo2 = GenerateSearchParamInfo("_type", "study");
+            DateTimeOffset lastUpdated = DateTimeOffset.UtcNow;
+            var param1 = GenerateResourceSearchParameterStatus(_paramUri1, lastUpdated);
+            var param2 = GenerateResourceSearchParameterStatus(_paramUri2, lastUpdated);
 
-            string hash1 = SearchHelperUtilities.CalculateSearchParameterNameHash(paramInfo1);
-            string hash2 = SearchHelperUtilities.CalculateSearchParameterNameHash(paramInfo2);
+            string hash1 = SearchHelperUtilities.CalculateSearchParameterNameHash(new List<ResourceSearchParameterStatus>() { param1, param2 });
+            string hash2 = SearchHelperUtilities.CalculateSearchParameterNameHash(new List<ResourceSearchParameterStatus>() { param1 });
 
             Assert.NotEqual(hash1, hash2);
         }
 
         [Fact]
-        public void GivenTwoSameListsDifferentOrderOfSearchParamInfo_WhenCalculateSearchParameterNameHash_ThenHashIsSame()
+        public void GivenTwoSameListsDifferentOrderOfResourceSearchParameterStatus_WhenCalculateSearchParameterNameHash_ThenHashIsSame()
         {
-            IEnumerable<SearchParameterInfo> paramInfo1 = GenerateSearchParamInfo("_type", "supplement", "study");
-            IEnumerable<SearchParameterInfo> paramInfo2 = GenerateSearchParamInfo("_type", "study", "supplement");
+            DateTimeOffset lastUpdated = DateTimeOffset.UtcNow;
+            var param1 = GenerateResourceSearchParameterStatus(_paramUri1, lastUpdated);
+            var param2 = GenerateResourceSearchParameterStatus(_paramUri2, lastUpdated);
+            var param3 = GenerateResourceSearchParameterStatus(_paramUri3, lastUpdated);
 
-            string hash1 = SearchHelperUtilities.CalculateSearchParameterNameHash(paramInfo1);
-            string hash2 = SearchHelperUtilities.CalculateSearchParameterNameHash(paramInfo2);
+            string hash1 = SearchHelperUtilities.CalculateSearchParameterNameHash(new List<ResourceSearchParameterStatus>() { param1, param2, param3 });
+            string hash2 = SearchHelperUtilities.CalculateSearchParameterNameHash(new List<ResourceSearchParameterStatus>() { param2, param3, param1 });
 
             Assert.Equal(hash1, hash2);
         }
 
-        private List<SearchParameterInfo> GenerateSearchParamInfo(params string[] searchParamNames)
+        [Fact]
+        public void GivenTwoSameListsDifferentLastUpdatedResourceSearchParameterStatus_WhenCalculateSearchParameterNameHash_ThenHashIsDifferent()
         {
-            List<SearchParameterInfo> paramInfo = new List<SearchParameterInfo>();
-            foreach (string paramName in searchParamNames)
+            DateTimeOffset lastUpdated = DateTimeOffset.UtcNow.AddSeconds(-600);
+            var param1 = GenerateResourceSearchParameterStatus(_paramUri1, lastUpdated);
+            var param2 = GenerateResourceSearchParameterStatus(_paramUri2, lastUpdated);
+            var latestParam1 = GenerateResourceSearchParameterStatus(_paramUri1, DateTimeOffset.UtcNow);
+
+            string hash1 = SearchHelperUtilities.CalculateSearchParameterNameHash(new List<ResourceSearchParameterStatus>() { param1, param2 });
+            string hash2 = SearchHelperUtilities.CalculateSearchParameterNameHash(new List<ResourceSearchParameterStatus>() { latestParam1, param2 });
+
+            Assert.NotEqual(hash1, hash2);
+        }
+
+        private ResourceSearchParameterStatus GenerateResourceSearchParameterStatus(Uri uri, DateTimeOffset lastUpdated)
+        {
+            if (lastUpdated == default)
             {
-                paramInfo.Add(new SearchParameterInfo(paramName));
+                lastUpdated = DateTimeOffset.UtcNow;
             }
 
-            return paramInfo;
+            return new ResourceSearchParameterStatus()
+            {
+                Uri = uri,
+                Status = SearchParameterStatus.Enabled,
+                IsPartiallySupported = false,
+                LastUpdated = lastUpdated,
+            };
         }
     }
 }
