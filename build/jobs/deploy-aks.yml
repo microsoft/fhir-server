@@ -49,7 +49,20 @@ jobs:
         releaseName=`echo "$(DeploymentEnvironmentName)-${{parameters.version}}-${{parameters.dataStore}}" | tr '[:upper:]' '[:lower:]'`
         hostName=`echo "${releaseName}.${{parameters.dnsSuffix}}" | tr '[:upper:]' '[:lower:]'`
         tenantId="$(tenant-id)"
+
+        # Create pod identity and storage account
+        SUBSCRIPTION_ID=$(az account show | jq -r .id)
+        IDENTITY_NAME=$releaseName
+        az identity create -g ${{parameters.clusterResourceGroup}} -n $IDENTITY_NAME --subscription $SUBSCRIPTION_ID
+        IDENTITY_CLIENT_ID="$(az identity show -g ${{parameters.clusterResourceGroup}} -n $IDENTITY_NAME --subscription $SUBSCRIPTION_ID --query clientId -otsv)"
+        IDENTITY_RESOURCE_ID="$(az identity show -g ${{parameters.clusterResourceGroup}} -n $IDENTITY_NAME --subscription $SUBSCRIPTION_ID --query id -otsv)"
         
+        STORAGE_ACCOUNT_NAME=$(echo $releaseName | tr -d '-')
+        az storage account create -g ${{parameters.clusterResourceGroup}} -n $STORAGE_ACCOUNT_NAME
+        STORAGE_ACCOUNT_ID=$(az storage account show -g ${{parameters.clusterResourceGroup}} -n $STORAGE_ACCOUNT_NAME | jq -r .id)
+        BLOB_URI=$(az storage account show -g ${{parameters.clusterResourceGroup}} -n $STORAGE_ACCOUNT_NAME | jq -r .primaryEndpoints.blob)
+        az role assignment create --role "Storage Blob Data Contributor" --assignee $IDENTITY_CLIENT_ID --scope $STORAGE_ACCOUNT_ID
+
         cat <<EOF > release-values.yaml
         image:
           repository: $repositoryName
@@ -87,6 +100,13 @@ jobs:
               requests:
                 cpu: 500m
                 memory: 2000Mi
+        podIdentity:
+          enabled: true
+          identityClientId: $IDENTITY_CLIENT_ID
+          identityResourceId: $IDENTITY_RESOURCE_ID
+        export:
+          enabled: true
+          blobStorageUri: $BLOB_URI
         security:
           enabled: true
           enableAadSmartOnFhirProxy: false

@@ -5,7 +5,6 @@ metadata:
   name: {{ include "fhir-server.fullname" . }}
   labels:
     {{- include "fhir-server.labels" . | nindent 4 }}
-
 spec:
   type: 0
   resourceID: {{ .Values.podIdentity.identityResourceId }}
