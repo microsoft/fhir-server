@@ -14,6 +14,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Get;
+using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
 {
@@ -68,6 +69,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
                 throw new ResourceGoneException(new ResourceKey(currentDoc.ResourceTypeName, currentDoc.ResourceId, currentDoc.Version));
             }
 
+            var raw = JObject.Parse(currentDoc.RawResource.Data);
+
+            JObject meta = (JObject)raw.GetValue("meta", StringComparison.OrdinalIgnoreCase);
+
+            bool hadValues = meta != null;
+
+            if (!hadValues)
+            {
+                meta = new JObject();
+            }
+
+            meta.Add(new JProperty("versionId", currentDoc.Version));
+            meta.Add(new JProperty("lastUpdated", currentDoc.LastModified));
+
+            if (!hadValues)
+            {
+                raw.Add("meta", meta);
+            }
+
+            currentDoc.RawResource = new RawResource(raw.ToString(), currentDoc.RawResource.Format);
             return new GetRawResourceResponse(currentDoc);
         }
     }

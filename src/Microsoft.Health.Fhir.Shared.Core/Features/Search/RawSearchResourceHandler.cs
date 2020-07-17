@@ -3,14 +3,18 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Search;
+using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
@@ -51,6 +55,30 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
 
             SearchResult searchResult = await _searchService.SearchAsync(message.ResourceType, message.Queries, cancellationToken);
+
+            foreach (var result in searchResult.Results.Select(x => x.Resource))
+            {
+                var raw = JObject.Parse(result.RawResource.Data);
+
+                JObject meta = (JObject)raw.GetValue("meta", StringComparison.OrdinalIgnoreCase);
+
+                bool hadValues = meta != null;
+
+                if (!hadValues)
+                {
+                    meta = new JObject();
+                }
+
+                meta.Add(new JProperty("versionId", result.Version));
+                meta.Add(new JProperty("lastUpdated", result.LastModified));
+
+                if (!hadValues)
+                {
+                    raw.Add("meta", meta);
+                }
+
+                result.RawResource = new RawResource(raw.ToString(), result.RawResource.Format);
+            }
 
             RawSearchBundle bundle = _bundleFactory.CreateRawSearchBundle(searchResult);
 
