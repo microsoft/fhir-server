@@ -24,8 +24,8 @@ serviceAccount:
 
 podIdentity:
   enabled: false
-  # identityId: my-id
-  # identityResourceGroup: my-rg
+  # identityClientId: my-id
+  # identityResourceId: my-identity-resource-id
 
 podSecurityContext: {}
   # fsGroup: 2000

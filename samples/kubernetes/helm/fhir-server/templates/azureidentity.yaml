@@ -8,6 +8,6 @@ metadata:
 
 spec:
   type: 0
-  resourceID: {{ .Values.podIdentity.identityResourceGroup }}
+  resourceID: {{ .Values.podIdentity.identityResourceId }}
   clientID: {{ .Values.podIdentity.identityClientId }}
 {{- end }}
