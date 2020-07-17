@@ -57,7 +57,7 @@ jobs:
         IDENTITY_CLIENT_ID="$(az identity show -g ${{parameters.clusterResourceGroup}} -n $IDENTITY_NAME --subscription $SUBSCRIPTION_ID --query clientId -otsv)"
         IDENTITY_RESOURCE_ID="$(az identity show -g ${{parameters.clusterResourceGroup}} -n $IDENTITY_NAME --subscription $SUBSCRIPTION_ID --query id -otsv)"
         
-        STORAGE_ACCOUNT_NAME=$(echo $releaseName | tr -d '-')
+        STORAGE_ACCOUNT_NAME=$(echo $releaseName | tr -d '-' | cut -c1-24)
         az storage account create -g ${{parameters.clusterResourceGroup}} -n $STORAGE_ACCOUNT_NAME
         STORAGE_ACCOUNT_ID=$(az storage account show -g ${{parameters.clusterResourceGroup}} -n $STORAGE_ACCOUNT_NAME | jq -r .id)
         BLOB_URI=$(az storage account show -g ${{parameters.clusterResourceGroup}} -n $STORAGE_ACCOUNT_NAME | jq -r .primaryEndpoints.blob)
