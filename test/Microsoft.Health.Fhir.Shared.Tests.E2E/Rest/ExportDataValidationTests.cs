@@ -39,23 +39,104 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _outputHelper = testOutputHelper;
         }
 
-        [Theory]
-        [InlineData("")]
-        [InlineData("Patient/")]
-        public async Task GivenFhirServer_WhenDataIsExported_ThenExportedDataIsSameAsDataInFhirServer(string path)
+        [Fact]
+        public async Task GivenFhirServer_WhenAllDataIsExported_ThenExportedDataIsSameAsDataInFhirServer()
         {
             // NOTE: Azure Storage Emulator is required to run these tests locally.
 
             // Trigger export request and check for export status
-            Uri contentLocation = await _testFhirClient.ExportAsync(path);
+            Uri contentLocation = await _testFhirClient.ExportAsync();
             IList<Uri> blobUris = await CheckExportStatus(contentLocation);
 
             // Download exported data from storage account
             Dictionary<(string resourceType, string resourceId), string> dataFromExport = await DownloadBlobAndParse(blobUris);
 
             // Download all resources from fhir server
-            Uri address = new Uri(_testFhirClient.HttpClient.BaseAddress, path);
+            Dictionary<(string resourceType, string resourceId), string> dataFromFhirServer = await GetResourcesFromFhirServer(_testFhirClient.HttpClient.BaseAddress);
+
+            // Assert both data are equal
+            Assert.True(ValidateDataFromBothSources(dataFromFhirServer, dataFromExport));
+        }
+
+        [Fact]
+        public async Task GivenFhirServer_WhenPatientDataIsExported_ThenExportedDataIsSameAsDataInFhirServer()
+        {
+            // NOTE: Azure Storage Emulator is required to run these tests locally.
+
+            // Trigger export request and check for export status
+            Uri contentLocation = await _testFhirClient.ExportAsync("Patient/");
+            IList<Uri> blobUris = await CheckExportStatus(contentLocation);
+
+            // Download exported data from storage account
+            Dictionary<(string resourceType, string resourceId), string> dataFromExport = await DownloadBlobAndParse(blobUris);
+
+            // Download resources from fhir server
+            Uri address = new Uri(_testFhirClient.HttpClient.BaseAddress, "Patient/");
             Dictionary<(string resourceType, string resourceId), string> dataFromFhirServer = await GetResourcesFromFhirServer(address);
+
+            Dictionary<(string resourceType, string resourceId), string> compartmentData = new Dictionary<(string resourceType, string resourceId), string>();
+            foreach ((string resourceType, string resourceId) key in dataFromFhirServer.Keys)
+            {
+                address = new Uri(_testFhirClient.HttpClient.BaseAddress, "Patient/" + key.resourceId + "/*");
+
+                // copies all the new values into the compartment data dictionary
+                (await GetResourcesFromFhirServer(address)).ToList().ForEach(x => compartmentData.TryAdd(x.Key, x.Value));
+            }
+
+            compartmentData.ToList().ForEach(x => dataFromFhirServer.TryAdd(x.Key, x.Value));
+            dataFromFhirServer.Union(compartmentData);
+
+            // Assert both data are equal
+            Assert.True(ValidateDataFromBothSources(dataFromFhirServer, dataFromExport));
+        }
+
+        [Fact]
+        public async Task GiveFhirServer_WhenAllObservationAndPatientDataIsExported_ThenExportedDataIsSameAsDataInFhirServer()
+        {
+            // NOTE: Azure Storage Emulator is required to run these tests locally.
+
+            // Trigger export request and check for export status
+            Uri contentLocation = await _testFhirClient.ExportAsync(string.Empty, "_type=Observation,Patient");
+            IList<Uri> blobUris = await CheckExportStatus(contentLocation);
+
+            // Download exported data from storage account
+            Dictionary<(string resourceType, string resourceId), string> dataFromExport = await DownloadBlobAndParse(blobUris);
+
+            // Download resources from fhir server
+            Uri address = new Uri(_testFhirClient.HttpClient.BaseAddress, "?_type=Observation,Patient");
+            Dictionary<(string resourceType, string resourceId), string> dataFromFhirServer = await GetResourcesFromFhirServer(address);
+
+            // Assert both data are equal
+            Assert.True(ValidateDataFromBothSources(dataFromFhirServer, dataFromExport));
+        }
+
+        [Fact]
+        public async Task GiveFhirServer_WhenPatientObservationDataIsExported_ThenExportedDataIsSameAsDataInFhirServer()
+        {
+            // NOTE: Azure Storage Emulator is required to run these tests locally.
+
+            // Trigger export request and check for export status
+            Uri contentLocation = await _testFhirClient.ExportAsync("Patient/", "_type=Observation");
+            IList<Uri> blobUris = await CheckExportStatus(contentLocation);
+
+            // Download exported data from storage account
+            Dictionary<(string resourceType, string resourceId), string> dataFromExport = await DownloadBlobAndParse(blobUris);
+
+            // Download resources from fhir server
+            Uri address = new Uri(_testFhirClient.HttpClient.BaseAddress, "Patient/");
+            Dictionary<(string resourceType, string resourceId), string> dataFromFhirServer = await GetResourcesFromFhirServer(address);
+
+            Dictionary<(string resourceType, string resourceId), string> compartmentData = new Dictionary<(string resourceType, string resourceId), string>();
+            foreach ((string resourceType, string resourceId) key in dataFromFhirServer.Keys)
+            {
+                address = new Uri(_testFhirClient.HttpClient.BaseAddress, "Patient/" + key.resourceId + "/Observation");
+
+                // copies all the new values into the compartment data dictionary
+                (await GetResourcesFromFhirServer(address)).ToList().ForEach(x => compartmentData.TryAdd(x.Key, x.Value));
+            }
+
+            compartmentData.ToList().ForEach(x => dataFromFhirServer.TryAdd(x.Key, x.Value));
+            dataFromFhirServer.Union(compartmentData);
 
             // Assert both data are equal
             Assert.True(ValidateDataFromBothSources(dataFromFhirServer, dataFromExport));
@@ -68,7 +149,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             if (dataFromStorageAccount.Count != dataFromServer.Count)
             {
                 _outputHelper.WriteLine($"Count differs. Exported data count: {dataFromStorageAccount.Count} Fhir Server Count: {dataFromServer.Count}");
-                return false;
+                result = false;
+
+                foreach (KeyValuePair<(string resourceType, string resourceId), string> kvp in dataFromStorageAccount)
+                {
+                    if (!dataFromServer.ContainsKey(kvp.Key))
+                    {
+                        _outputHelper.WriteLine($"Extra resource in exported data: {kvp.Key}");
+                    }
+                }
             }
 
             // Enable this check when creating/updating data validation tests to ensure there is data to export
@@ -162,7 +251,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     }
 
                     JObject resource = JObject.Parse(entry);
-                    resourceIdToResourceMapping.Add((resource["resourceType"].ToString(), resource["id"].ToString()), entry);
+
+                    // Ideally this should just be Add, but until we prevent duplicates from being added to the server there is a chance the same resource being added multiple times resulting in a key conflict.
+                    resourceIdToResourceMapping.TryAdd((resource["resourceType"].ToString(), resource["id"].ToString()), entry);
                 }
             }
 
@@ -208,7 +299,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                     string resource = entry["resource"].ToString().Trim();
 
-                    resourceIdToResourceMapping.Add((resourceType, id), resource);
+                    resourceIdToResourceMapping.TryAdd((resourceType, id), resource);
                 }
 
                 // Look at whether a continuation token has been returned.

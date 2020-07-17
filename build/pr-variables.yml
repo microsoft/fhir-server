@@ -6,3 +6,4 @@ variables:
     DeploymentEnvironmentName: '$(resourceGroupRoot)-$(prNumber)'
     TestEnvironmentName: 'OSS PR$(prNumber)'
     ImageTag: '$(build.BuildNumber)'
+    enableAks: true
