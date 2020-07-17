@@ -38,14 +38,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         private ExportJobRecord _exportJobRecord;
         private InMemoryExportDestinationClient _inMemoryDestinationClient = new InMemoryExportDestinationClient();
 
-        // private ResourceElement _resourceElement = null;
-
         private readonly IFhirOperationDataStore _fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
         private readonly ExportJobConfiguration _exportJobConfiguration = new ExportJobConfiguration();
         private readonly ISearchService _searchService = Substitute.For<ISearchService>();
-        private readonly IFhirDataStore _fhirDataStore = Substitute.For<IFhirDataStore>();
-        private readonly ResourceDeserializer _resourceDeserializer;
         private readonly IResourceToByteArraySerializer _resourceToByteArraySerializer = Substitute.For<IResourceToByteArraySerializer>();
+        private readonly IGroupMemberExtractor _groupMemberExtractor = Substitute.For<IGroupMemberExtractor>();
 
         private readonly ExportJobTask _exportJobTask;
 
@@ -60,15 +57,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             SetupExportJobRecordAndOperationDataStore();
 
             _resourceToByteArraySerializer.Serialize(Arg.Any<ResourceWrapper>()).Returns(x => Encoding.UTF8.GetBytes(x.ArgAt<ResourceWrapper>(0).ResourceId));
-            _resourceDeserializer = new ResourceDeserializer(
-                (FhirResourceFormat.Json, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastUpdated) => null)));
 
             _exportJobTask = new ExportJobTask(
                 () => _fhirOperationDataStore.CreateMockScope(),
                 Options.Create(_exportJobConfiguration),
                 () => _searchService.CreateMockScope(),
-                _fhirDataStore,
-                _resourceDeserializer,
+                _groupMemberExtractor,
                 _resourceToByteArraySerializer,
                 _inMemoryDestinationClient,
                 NullLogger<ExportJobTask>.Instance);
@@ -79,15 +73,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             bool capturedSearch = false;
 
-            var exportJobRecordWithOneResource = new ExportJobRecord(
-                new Uri("https://localhost/ExportJob/"),
-                ExportJobType.Patient,
-                null,
-                "hash",
-                storageAccountConnectionHash: string.Empty,
-                storageAccountUri: _exportJobConfiguration.StorageAccountUri,
-                maximumNumberOfResourcesPerQuery: 1,
-                numberOfPagesPerCommit: _exportJobConfiguration.NumberOfPagesPerCommit);
+            var exportJobRecordWithOneResource = CreateExportJobRecord(
+                exportJobType: ExportJobType.Patient,
+                maximumNumberOfResourcesPerQuery: 1);
 
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithOneResource);
 
@@ -113,16 +101,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             bool capturedSearch = false;
 
-            var exportJobRecordWithSince = new ExportJobRecord(
-                new Uri("https://localhost/ExportJob/"),
-                ExportJobType.Patient,
-                null,
-                "hash",
-                since: Core.Models.PartialDateTime.MinValue,
-                storageAccountConnectionHash: string.Empty,
-                storageAccountUri: _exportJobConfiguration.StorageAccountUri,
-                maximumNumberOfResourcesPerQuery: 1,
-                numberOfPagesPerCommit: _exportJobConfiguration.NumberOfPagesPerCommit);
+            var exportJobRecordWithSince = CreateExportJobRecord(
+                exportJobType: ExportJobType.Patient,
+                since: PartialDateTime.MinValue,
+                maximumNumberOfResourcesPerQuery: 1);
 
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithSince);
 
@@ -148,15 +130,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             const string continuationToken = "ct";
 
-            var exportJobRecordWithOneResource = new ExportJobRecord(
-                new Uri("https://localhost/ExportJob/"),
-                ExportJobType.Patient,
-                null,
-                "hash",
-                storageAccountConnectionHash: string.Empty,
-                storageAccountUri: _exportJobConfiguration.StorageAccountUri,
-                maximumNumberOfResourcesPerQuery: 1,
-                numberOfPagesPerCommit: _exportJobConfiguration.NumberOfPagesPerCommit);
+            var exportJobRecordWithOneResource = CreateExportJobRecord(
+                exportJobType: ExportJobType.Patient,
+                maximumNumberOfResourcesPerQuery: 1);
 
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithOneResource);
 
@@ -191,16 +167,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             const string continuationToken = "ct";
 
-            var exportJobRecordWithSince = new ExportJobRecord(
-                new Uri("https://localhost/ExportJob/"),
-                ExportJobType.Patient,
-                null,
-                "hash",
+            var exportJobRecordWithSince = CreateExportJobRecord(
+                exportJobType: ExportJobType.Patient,
                 since: PartialDateTime.MinValue,
-                storageAccountConnectionHash: string.Empty,
-                storageAccountUri: _exportJobConfiguration.StorageAccountUri,
-                maximumNumberOfResourcesPerQuery: 1,
-                numberOfPagesPerCommit: _exportJobConfiguration.NumberOfPagesPerCommit);
+                maximumNumberOfResourcesPerQuery: 1);
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithSince);
 
             // First search returns a search result with continuation token.
@@ -234,15 +204,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             const string continuationToken = "ct";
 
-            var exportJobRecordWithOneResource = new ExportJobRecord(
-                new Uri("https://localhost/ExportJob/"),
-                ExportJobType.Patient,
-                null,
-                "hash",
-                storageAccountConnectionHash: string.Empty,
-                storageAccountUri: _exportJobConfiguration.StorageAccountUri,
-                maximumNumberOfResourcesPerQuery: 1,
-                numberOfPagesPerCommit: _exportJobConfiguration.NumberOfPagesPerCommit);
+            var exportJobRecordWithOneResource = CreateExportJobRecord(
+                exportJobType: ExportJobType.Patient,
+                maximumNumberOfResourcesPerQuery: 1);
 
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithOneResource);
 
@@ -293,16 +257,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             const string continuationToken = "ct";
 
-            var exportJobRecordWithSince = new ExportJobRecord(
-                new Uri("https://localhost/ExportJob/"),
-                ExportJobType.Patient,
-                null,
-                "hash",
+            var exportJobRecordWithSince = CreateExportJobRecord(
+                exportJobType: ExportJobType.Patient,
                 since: PartialDateTime.MinValue,
-                storageAccountConnectionHash: string.Empty,
-                storageAccountUri: _exportJobConfiguration.StorageAccountUri,
-                maximumNumberOfResourcesPerQuery: 1,
-                numberOfPagesPerCommit: _exportJobConfiguration.NumberOfPagesPerCommit);
+                maximumNumberOfResourcesPerQuery: 1);
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithSince);
 
             // First search returns a search result with continuation token.
@@ -439,15 +397,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         [InlineData(6, "012345")] // Because it fails to perform the 7th search, the file is created and the first 6 pages are committed.
         public async Task GivenVariousNumberOfSuccessfulSearch_WhenExecuted_ThenItShouldCommitAtScheduledPage(int numberOfSuccessfulPages, string expectedIds)
         {
-            var exportJobRecordWithCommitPages = new ExportJobRecord(
-                new Uri("https://localhost/ExportJob/"),
-                ExportJobType.All,
-                null,
-                "hash",
-                since: PartialDateTime.MinValue,
-                storageAccountConnectionHash: string.Empty,
-                storageAccountUri: _exportJobConfiguration.StorageAccountUri,
-                maximumNumberOfResourcesPerQuery: _exportJobConfiguration.MaximumNumberOfResourcesPerQuery,
+            var exportJobRecordWithCommitPages = CreateExportJobRecord(
                 numberOfPagesPerCommit: 3);
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithCommitPages);
 
@@ -469,18 +419,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     return CreateSearchResult(
                         new[]
                         {
-                            new SearchResultEntry(
-                                new ResourceWrapper(
-                                    count.ToString(CultureInfo.InvariantCulture),
-                                    "1",
-                                    "Patient",
-                                    new RawResource("data", Core.Models.FhirResourceFormat.Json),
-                                    null,
-                                    DateTimeOffset.MinValue,
-                                    false,
-                                    null,
-                                    null,
-                                    null)),
+                            CreateSearchResultEntry(count.ToString(CultureInfo.InvariantCulture), "Patient"),
                         },
                         continuationToken: "ct");
                 });
@@ -495,15 +434,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         [Fact]
         public async Task GivenNumberOfSearch_WhenExecuted_ThenItShouldCommitOneLastTime()
         {
-            var exportJobRecordWithCommitPages = new ExportJobRecord(
-                 new Uri("https://localhost/ExportJob/"),
-                 ExportJobType.All,
-                 null,
-                 "hash",
-                 since: PartialDateTime.MinValue,
-                 storageAccountConnectionHash: string.Empty,
-                 storageAccountUri: _exportJobConfiguration.StorageAccountUri,
-                 maximumNumberOfResourcesPerQuery: _exportJobConfiguration.MaximumNumberOfResourcesPerQuery,
+            var exportJobRecordWithCommitPages = CreateExportJobRecord(
                  numberOfPagesPerCommit: 2);
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithCommitPages);
 
@@ -527,18 +458,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     return CreateSearchResult(
                         new[]
                         {
-                            new SearchResultEntry(
-                                new ResourceWrapper(
-                                    count.ToString(CultureInfo.InvariantCulture),
-                                    "1",
-                                    "Patient",
-                                    new RawResource("data", Core.Models.FhirResourceFormat.Json),
-                                    null,
-                                    DateTimeOffset.MinValue,
-                                    false,
-                                    null,
-                                    null,
-                                    null)),
+                            CreateSearchResultEntry(count.ToString(CultureInfo.InvariantCulture), "Patient"),
                         },
                         continuationToken: "ct");
                 });
@@ -564,8 +484,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 () => _fhirOperationDataStore.CreateMockScope(),
                 Options.Create(_exportJobConfiguration),
                 () => _searchService.CreateMockScope(),
-                _fhirDataStore,
-                _resourceDeserializer,
+                _groupMemberExtractor,
                 _resourceToByteArraySerializer,
                 mockExportDestinationClient,
                 NullLogger<ExportJobTask>.Instance);
@@ -585,22 +504,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             exportJobConfiguration.StorageAccountConnection = "connection";
             exportJobConfiguration.StorageAccountUri = string.Empty;
 
-            var exportJobRecordWithConnection = new ExportJobRecord(
-                new Uri("https://localhost/ExportJob/"),
-                ExportJobType.Patient,
-                null,
-                "hash",
-                since: PartialDateTime.MinValue,
-                storageAccountConnectionHash: Microsoft.Health.Core.Extensions.StringExtensions.ComputeHash(exportJobConfiguration.StorageAccountConnection),
-                storageAccountUri: exportJobConfiguration.StorageAccountUri);
+            var exportJobRecordWithConnection = CreateExportJobRecord(
+                exportJobType: ExportJobType.Patient,
+                storageAccountConnectionHash: Microsoft.Health.Core.Extensions.StringExtensions.ComputeHash(exportJobConfiguration.StorageAccountConnection));
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithConnection);
 
             var exportJobTask = new ExportJobTask(
                 () => _fhirOperationDataStore.CreateMockScope(),
                 Options.Create(exportJobConfiguration),
                 () => _searchService.CreateMockScope(),
-                _fhirDataStore,
-                _resourceDeserializer,
+                _groupMemberExtractor,
                 _resourceToByteArraySerializer,
                 _inMemoryDestinationClient,
                 NullLogger<ExportJobTask>.Instance);
@@ -628,22 +541,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             string connectionFailure = "Storage account connection string was updated during an export job.";
 
-            var exportJobRecordWithChangedConnection = new ExportJobRecord(
-                new Uri("https://localhost/ExportJob/"),
-                ExportJobType.Patient,
-                null,
-                "hash",
-                since: PartialDateTime.MinValue,
-                storageAccountConnectionHash: Microsoft.Health.Core.Extensions.StringExtensions.ComputeHash("different connection"),
-                storageAccountUri: _exportJobConfiguration.StorageAccountUri);
+            var exportJobRecordWithChangedConnection = CreateExportJobRecord(
+                exportJobType: ExportJobType.Patient,
+                storageAccountConnectionHash: Microsoft.Health.Core.Extensions.StringExtensions.ComputeHash("different connection"));
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithChangedConnection);
 
             var exportJobTask = new ExportJobTask(
                 () => _fhirOperationDataStore.CreateMockScope(),
                 Options.Create(_exportJobConfiguration),
                 () => _searchService.CreateMockScope(),
-                _fhirDataStore,
-                _resourceDeserializer,
+                _groupMemberExtractor,
                 _resourceToByteArraySerializer,
                 _inMemoryDestinationClient,
                 NullLogger<ExportJobTask>.Instance);
@@ -659,12 +566,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         [Fact]
         public async Task GivenStorageAccountUriChanged_WhenExecuted_ThenRecordsAreSentToOldStorageAccount()
         {
-            var exportJobRecordWithChangedConnection = new ExportJobRecord(
-                new Uri("https://localhost/ExportJob/"),
-                ExportJobType.Patient,
-                null,
-                "hash",
-                since: PartialDateTime.MinValue,
+            var exportJobRecordWithChangedConnection = CreateExportJobRecord(
+                exportJobType: ExportJobType.Patient,
                 storageAccountConnectionHash: Microsoft.Health.Core.Extensions.StringExtensions.ComputeHash(_exportJobConfiguration.StorageAccountConnection),
                 storageAccountUri: "origionalUri");
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithChangedConnection);
@@ -687,8 +590,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 () => _fhirOperationDataStore.CreateMockScope(),
                 Options.Create(_exportJobConfiguration),
                 () => _searchService.CreateMockScope(),
-                _fhirDataStore,
-                _resourceDeserializer,
+                _groupMemberExtractor,
                 _resourceToByteArraySerializer,
                 mockDestinationClient,
                 NullLogger<ExportJobTask>.Instance);
@@ -703,15 +605,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             // We are using the SearchService to throw an exception in order to simulate the export job task
             // "crashing" while in the middle of the process.
-            var exportJobRecordWithCommitPages = new ExportJobRecord(
-                new Uri("https://localhost/ExportJob/"),
-                ExportJobType.All,
-                null,
-                "hash",
-                since: PartialDateTime.MinValue,
-                storageAccountConnectionHash: string.Empty,
-                storageAccountUri: _exportJobConfiguration.StorageAccountUri,
-                maximumNumberOfResourcesPerQuery: _exportJobConfiguration.MaximumNumberOfResourcesPerQuery,
+            var exportJobRecordWithCommitPages = CreateExportJobRecord(
                 numberOfPagesPerCommit: 2);
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithCommitPages);
 
@@ -735,18 +629,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     return CreateSearchResult(
                         new[]
                         {
-                            new SearchResultEntry(
-                                new ResourceWrapper(
-                                    count.ToString(CultureInfo.InvariantCulture),
-                                    "1",
-                                    "Patient",
-                                    new RawResource("data", Core.Models.FhirResourceFormat.Json),
-                                    null,
-                                    DateTimeOffset.MinValue,
-                                    false,
-                                    null,
-                                    null,
-                                    null)),
+                            CreateSearchResultEntry(count.ToString(CultureInfo.InvariantCulture), "Patient"),
                         },
                         continuationToken: "ct");
                 });
@@ -767,8 +650,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 () => _fhirOperationDataStore.CreateMockScope(),
                 Options.Create(_exportJobConfiguration),
                 () => _searchService.CreateMockScope(),
-                _fhirDataStore,
-                _resourceDeserializer,
+                _groupMemberExtractor,
                 _resourceToByteArraySerializer,
                 _inMemoryDestinationClient,
                 NullLogger<ExportJobTask>.Instance);
@@ -794,18 +676,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     return CreateSearchResult(
                         new[]
                         {
-                            new SearchResultEntry(
-                                new ResourceWrapper(
-                                    numberOfCalls.ToString(CultureInfo.InvariantCulture),
-                                    "1",
-                                    "Patient",
-                                    new RawResource("data", Core.Models.FhirResourceFormat.Json),
-                                    null,
-                                    DateTimeOffset.MinValue,
-                                    false,
-                                    null,
-                                    null,
-                                    null)),
+                            CreateSearchResultEntry(numberOfCalls.ToString(CultureInfo.InvariantCulture), "Patient"),
                         },
                         continuationToken: numberOfCalls > 3 ? null : "ct");
                 });
@@ -823,18 +694,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     return CreateSearchResult(
                         new[]
                         {
-                            new SearchResultEntry(
-                                new ResourceWrapper(
-                                    numberOfCompartmentCalls.ToString(CultureInfo.InvariantCulture),
-                                    "1",
-                                    "Observation",
-                                    new RawResource("data", Core.Models.FhirResourceFormat.Json),
-                                    null,
-                                    DateTimeOffset.MinValue,
-                                    false,
-                                    null,
-                                    null,
-                                    null)),
+                            CreateSearchResultEntry(numberOfCompartmentCalls.ToString(CultureInfo.InvariantCulture), "Observation"),
                         },
                         continuationToken: numberOfCompartmentCalls % 2 == 0 ? null : "ct");
                 });
@@ -866,18 +726,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     return CreateSearchResult(
                         new[]
                         {
-                            new SearchResultEntry(
-                                new ResourceWrapper(
-                                    numberOfCalls.ToString(CultureInfo.InvariantCulture),
-                                    "1",
-                                    "Patient",
-                                    new RawResource("data", Core.Models.FhirResourceFormat.Json),
-                                    null,
-                                    DateTimeOffset.MinValue,
-                                    false,
-                                    null,
-                                    null,
-                                    null)),
+                            CreateSearchResultEntry(numberOfCalls.ToString(CultureInfo.InvariantCulture), "Patient"),
                         },
                         continuationToken: numberOfCalls > 3 ? null : "ct");
                 });
@@ -912,15 +761,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             // We are using the SearchService to throw an exception in order to simulate the export job task
             // "crashing" while in the middle of the process.
-            var exportJobRecordWithCommitPages = new ExportJobRecord(
-                new Uri("https://localhost/ExportJob/"),
-                ExportJobType.Patient,
-                null,
-                "hash",
-                since: PartialDateTime.MinValue,
-                storageAccountConnectionHash: string.Empty,
-                storageAccountUri: _exportJobConfiguration.StorageAccountUri,
-                maximumNumberOfResourcesPerQuery: _exportJobConfiguration.MaximumNumberOfResourcesPerQuery,
+            var exportJobRecordWithCommitPages = CreateExportJobRecord(
+                exportJobType: ExportJobType.Patient,
                 numberOfPagesPerCommit: 2);
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithCommitPages);
 
@@ -936,30 +778,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     return CreateSearchResult(
                         new[]
                         {
-                            new SearchResultEntry(
-                                new ResourceWrapper(
-                                    "1",
-                                    "1",
-                                    "Patient",
-                                    new RawResource("data", Core.Models.FhirResourceFormat.Json),
-                                    null,
-                                    DateTimeOffset.MinValue,
-                                    false,
-                                    null,
-                                    null,
-                                    null)),
-                            new SearchResultEntry(
-                                new ResourceWrapper(
-                                    "2",
-                                    "1",
-                                    "Patient",
-                                    new RawResource("data", Core.Models.FhirResourceFormat.Json),
-                                    null,
-                                    DateTimeOffset.MinValue,
-                                    false,
-                                    null,
-                                    null,
-                                    null)),
+                            CreateSearchResultEntry("1", "Patient"),
+                            CreateSearchResultEntry("2", "Patient"),
                         });
                 });
 
@@ -983,18 +803,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     return CreateSearchResult(
                         new[]
                         {
-                            new SearchResultEntry(
-                                new ResourceWrapper(
-                                    numberOfCompartmentCalls.ToString(CultureInfo.InvariantCulture),
-                                    "1",
-                                    "Observation",
-                                    new RawResource("data", Core.Models.FhirResourceFormat.Json),
-                                    null,
-                                    DateTimeOffset.MinValue,
-                                    false,
-                                    null,
-                                    null,
-                                    null)),
+                            CreateSearchResultEntry(numberOfCompartmentCalls.ToString(CultureInfo.InvariantCulture), "Observation"),
                         },
                         continuationToken: numberOfCompartmentCalls % 3 == 0 ? null : "ct");
                 });
@@ -1019,8 +828,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 () => _fhirOperationDataStore.CreateMockScope(),
                 Options.Create(_exportJobConfiguration),
                 () => _searchService.CreateMockScope(),
-                _fhirDataStore,
-                _resourceDeserializer,
+                _groupMemberExtractor,
                 _resourceToByteArraySerializer,
                 _inMemoryDestinationClient,
                 NullLogger<ExportJobTask>.Instance);
@@ -1044,15 +852,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             // We are using the SearchService to throw an exception in order to simulate the export job task
             // "crashing" while in the middle of the process.
-            var exportJobRecordWithCommitPages = new ExportJobRecord(
-                new Uri("https://localhost/ExportJob/"),
-                ExportJobType.Patient,
-                null,
-                "hash",
-                since: PartialDateTime.MinValue,
-                storageAccountConnectionHash: string.Empty,
-                storageAccountUri: _exportJobConfiguration.StorageAccountUri,
-                maximumNumberOfResourcesPerQuery: _exportJobConfiguration.MaximumNumberOfResourcesPerQuery,
+            var exportJobRecordWithCommitPages = CreateExportJobRecord(
+                exportJobType: ExportJobType.Patient,
                 numberOfPagesPerCommit: 2);
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithCommitPages);
 
@@ -1068,18 +869,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     return CreateSearchResult(
                         new[]
                         {
-                            new SearchResultEntry(
-                                new ResourceWrapper(
-                                    numberOfCalls.ToString(CultureInfo.InvariantCulture),
-                                    "1",
-                                    "Patient",
-                                    new RawResource("data", Core.Models.FhirResourceFormat.Json),
-                                    null,
-                                    DateTimeOffset.MinValue,
-                                    false,
-                                    null,
-                                    null,
-                                    null)),
+                            CreateSearchResultEntry(numberOfCalls.ToString(CultureInfo.InvariantCulture), "Patient"),
                         },
                         continuationToken: numberOfCalls > 1 ? null : "ct");
                 });
@@ -1104,18 +894,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     return CreateSearchResult(
                         new[]
                         {
-                            new SearchResultEntry(
-                                new ResourceWrapper(
-                                    numberOfCompartmentCalls.ToString(CultureInfo.InvariantCulture),
-                                    "1",
-                                    "Observation",
-                                    new RawResource("data", Core.Models.FhirResourceFormat.Json),
-                                    null,
-                                    DateTimeOffset.MinValue,
-                                    false,
-                                    null,
-                                    null,
-                                    null)),
+                            CreateSearchResultEntry(numberOfCompartmentCalls.ToString(CultureInfo.InvariantCulture), "Observation"),
                         },
                         continuationToken: numberOfCompartmentCalls % 3 == 0 ? null : "ct");
                 });
@@ -1140,8 +919,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 () => _fhirOperationDataStore.CreateMockScope(),
                 Options.Create(_exportJobConfiguration),
                 () => _searchService.CreateMockScope(),
-                _fhirDataStore,
-                _resourceDeserializer,
+                _groupMemberExtractor,
                 _resourceToByteArraySerializer,
                 _inMemoryDestinationClient,
                 NullLogger<ExportJobTask>.Instance);
@@ -1166,15 +944,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         [Fact]
         public async Task GivenAnExportJobWithTheTypeParameter_WhenExecuted_ThenOnlyResourcesOfTheGivenTypesAreExported()
         {
-            var exportJobRecordWithCommitPages = new ExportJobRecord(
-               new Uri("https://localhost/ExportJob/"),
-               ExportJobType.All,
-               KnownResourceTypes.Observation + "," + KnownResourceTypes.Encounter,
-               "hash",
+            var exportJobRecordWithCommitPages = CreateExportJobRecord(
+               resourceType: KnownResourceTypes.Observation + "," + KnownResourceTypes.Encounter,
                since: PartialDateTime.MinValue,
-               storageAccountConnectionHash: string.Empty,
-               storageAccountUri: _exportJobConfiguration.StorageAccountUri,
-               maximumNumberOfResourcesPerQuery: _exportJobConfiguration.MaximumNumberOfResourcesPerQuery,
                numberOfPagesPerCommit: 2);
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithCommitPages);
 
@@ -1189,18 +961,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
                     for (int index = 0; index < types.Length; index++)
                     {
-                        entries[index] = new SearchResultEntry(
-                                new ResourceWrapper(
-                                    index.ToString(CultureInfo.InvariantCulture),
-                                    "1",
-                                    types[index],
-                                    new RawResource("data", Core.Models.FhirResourceFormat.Json),
-                                    null,
-                                    DateTimeOffset.MinValue,
-                                    false,
-                                    null,
-                                    null,
-                                    null));
+                        entries[index] = CreateSearchResultEntry(index.ToString(CultureInfo.InvariantCulture), types[index]);
                     }
 
                     return CreateSearchResult(entries);
@@ -1220,15 +981,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         [Fact]
         public async Task GivenAPatientExportJobWithTheTypeParameter_WhenExecuted_ThenOnlyCompartmentResourcesOfTheGivenTypesAreExported()
         {
-            var exportJobRecordWithCommitPages = new ExportJobRecord(
-                new Uri("https://localhost/ExportJob/"),
-                ExportJobType.Patient,
-                KnownResourceTypes.Observation,
-                "hash",
+            var exportJobRecordWithCommitPages = CreateExportJobRecord(
+                exportJobType: ExportJobType.Patient,
+                resourceType: KnownResourceTypes.Observation,
                 since: PartialDateTime.MinValue,
-                storageAccountConnectionHash: string.Empty,
-                storageAccountUri: _exportJobConfiguration.StorageAccountUri,
-                maximumNumberOfResourcesPerQuery: _exportJobConfiguration.MaximumNumberOfResourcesPerQuery,
                 numberOfPagesPerCommit: 2);
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithCommitPages);
 
@@ -1241,18 +997,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     return CreateSearchResult(
                         new[]
                         {
-                            new SearchResultEntry(
-                                new ResourceWrapper(
-                                    "1",
-                                    "1",
-                                    "Patient",
-                                    new RawResource("data", Core.Models.FhirResourceFormat.Json),
-                                    null,
-                                    DateTimeOffset.MinValue,
-                                    false,
-                                    null,
-                                    null,
-                                    null)),
+                            CreateSearchResultEntry("1", "Patient"),
                         });
                 });
 
@@ -1269,18 +1014,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
                     for (int index = 0; index < types.Length; index++)
                     {
-                        entries[index] = new SearchResultEntry(
-                                new ResourceWrapper(
-                                    index.ToString(CultureInfo.InvariantCulture),
-                                    "1",
-                                    types[index],
-                                    new RawResource("data", Core.Models.FhirResourceFormat.Json),
-                                    null,
-                                    DateTimeOffset.MinValue,
-                                    false,
-                                    null,
-                                    null,
-                                    null));
+                        entries[index] = CreateSearchResultEntry(index.ToString(CultureInfo.InvariantCulture), types[index]);
                     }
 
                     return CreateSearchResult(entries);
@@ -1300,15 +1034,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         [Fact]
         public async Task GivenAnExportJobToResumeWithTheTypeParameter_WhenExecuted_ThenOnlyResourcesOfTheGivenTypesAreExported()
         {
-            var exportJobRecordWithCommitPages = new ExportJobRecord(
-                new Uri("https://localhost/ExportJob/"),
-                ExportJobType.All,
-                KnownResourceTypes.Observation + "," + KnownResourceTypes.Encounter,
-                "hash",
-                since: PartialDateTime.MinValue,
-                storageAccountConnectionHash: string.Empty,
-                storageAccountUri: _exportJobConfiguration.StorageAccountUri,
-                maximumNumberOfResourcesPerQuery: _exportJobConfiguration.MaximumNumberOfResourcesPerQuery,
+            var exportJobRecordWithCommitPages = CreateExportJobRecord(
+                resourceType: KnownResourceTypes.Observation + "," + KnownResourceTypes.Encounter,
                 numberOfPagesPerCommit: 1);
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithCommitPages);
 
@@ -1351,18 +1078,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
                     for (int index = 0; index < types.Length; index++)
                     {
-                        entries[index] = new SearchResultEntry(
-                            new ResourceWrapper(
-                                searchCallsMade.ToString(CultureInfo.InvariantCulture),
-                                "1",
-                                types[index],
-                                new RawResource("data", Core.Models.FhirResourceFormat.Json),
-                                null,
-                                DateTimeOffset.MinValue,
-                                false,
-                                null,
-                                null,
-                                null));
+                        entries[index] = CreateSearchResultEntry(searchCallsMade.ToString(CultureInfo.InvariantCulture), types[index]);
                     }
 
                     return CreateSearchResult(entries, searchCallsMade < 4 ? "ct" : null);
@@ -1385,8 +1101,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 () => _fhirOperationDataStore.CreateMockScope(),
                 Options.Create(_exportJobConfiguration),
                 () => _searchService.CreateMockScope(),
-                _fhirDataStore,
-                _resourceDeserializer,
+                _groupMemberExtractor,
                 _resourceToByteArraySerializer,
                 _inMemoryDestinationClient,
                 NullLogger<ExportJobTask>.Instance);
@@ -1403,6 +1118,119 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
         }
 
+        [Fact]
+        public async Task GivenAGroupExportJob_WhenExecuted_ThenAllPatientResourcesInTheGroupAreExported()
+        {
+            var exportJobRecordWithCommitPages = CreateExportJobRecord(
+              exportJobType: ExportJobType.Group,
+              numberOfPagesPerCommit: 2);
+            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithCommitPages);
+
+            _groupMemberExtractor.GetGroupMembers(
+                Arg.Any<string>(),
+                _cancellationToken).Returns(
+                    new List<Tuple<string, string>>()
+                    {
+                        Tuple.Create("1", KnownResourceTypes.Patient),
+                        Tuple.Create("2", KnownResourceTypes.Observation),
+                        Tuple.Create("3", KnownResourceTypes.Patient),
+                    });
+
+            _searchService.SearchAsync(
+                null,
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    string[] ids = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[2].Item2.Split(',');
+                    SearchResultEntry[] entries = new SearchResultEntry[ids.Length];
+
+                    for (int index = 0; index < ids.Length; index++)
+                    {
+                        entries[index] = CreateSearchResultEntry(ids[index], KnownResourceTypes.Patient);
+                    }
+
+                    return CreateSearchResult(entries);
+                });
+
+            _searchService.SearchCompartmentAsync(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(x =>
+                 {
+                     string parentId = x.ArgAt<string>(1);
+
+                     return CreateSearchResult(new SearchResultEntry[]
+                     {
+                         CreateSearchResultEntry(parentId, KnownResourceTypes.Observation),
+                     });
+                 });
+
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            string exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
+            Assert.Equal("13", exportedIds);
+            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
+            Assert.Equal("13", exportedIds);
+            Assert.Equal(2, _inMemoryDestinationClient.ExportedDataFileCount);
+
+            Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
+        }
+
+        /*
+        [Fact]
+        public async Task GivenAGroupExportJobWithNestedGroups_WhenExecuted_ThenAllPatientResourcesInTheGroupAreExported()
+        {
+
+        }
+
+        [Fact]
+        public async Task GivenAGroupExportJobWithMultiplePagesOfPatients_WhenExecuted_ThenAllPatientResourcesInTheGroupAreExported()
+        {
+
+        }
+
+        [Fact]
+        public async Task GivenAGroupExportJobToResume_WhenExecuted_ThenAllPatientResourcesInTheGroupAreExported()
+        {
+
+        }
+
+        [Fact]
+        public async Task GivenAGroupExportJobWithTheTypeParameter_WhenExecuted_ThenAllPatientResourcesInTheGroupAreExported()
+        {
+
+        }
+        */
+
+        private ExportJobRecord CreateExportJobRecord(
+            string requestEndpoint = "https://localhost/ExportJob/",
+            ExportJobType exportJobType = ExportJobType.All,
+            string resourceType = null,
+            string hash = "hash",
+            PartialDateTime since = null,
+            string groupId = null,
+            string storageAccountConnectionHash = "",
+            string storageAccountUri = null,
+            uint maximumNumberOfResourcesPerQuery = 0,
+            uint numberOfPagesPerCommit = 0)
+        {
+            return new ExportJobRecord(
+                new Uri(requestEndpoint),
+                exportJobType,
+                resourceType,
+                hash,
+                since: since,
+                groupId: groupId,
+                storageAccountConnectionHash: storageAccountConnectionHash,
+                storageAccountUri: storageAccountUri == null ? _exportJobConfiguration.StorageAccountUri : storageAccountUri,
+                maximumNumberOfResourcesPerQuery: maximumNumberOfResourcesPerQuery == 0 ? _exportJobConfiguration.MaximumNumberOfResourcesPerQuery : maximumNumberOfResourcesPerQuery,
+                numberOfPagesPerCommit: numberOfPagesPerCommit == 0 ? _exportJobConfiguration.NumberOfPagesPerCommit : numberOfPagesPerCommit);
+        }
+
         private SearchResult CreateSearchResult(IEnumerable<SearchResultEntry> resourceWrappers = null, string continuationToken = null)
         {
             if (resourceWrappers == null)
@@ -1411,6 +1239,22 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             }
 
             return new SearchResult(resourceWrappers, new Tuple<string, string>[0], Array.Empty<(string parameterName, string reason)>(), continuationToken);
+        }
+
+        private SearchResultEntry CreateSearchResultEntry(string id, string type)
+        {
+            return new SearchResultEntry(
+                            new ResourceWrapper(
+                                id,
+                                "1",
+                                type,
+                                new RawResource("data", Core.Models.FhirResourceFormat.Json),
+                                null,
+                                DateTimeOffset.MinValue,
+                                false,
+                                null,
+                                null,
+                                null));
         }
 
         private void SetupExportJobRecordAndOperationDataStore(ExportJobRecord exportJobRecord = null)
