@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// </summary>
         /// <param name="resourceSearchParameterStatus">A list of <see cref="ResourceSearchParameterStatus" /></param>
         /// <returns>A hash based on the search parameter uri and last updated value.</returns>
-        public static string CalculateSearchParameterNameHash(IEnumerable<ResourceSearchParameterStatus> resourceSearchParameterStatus)
+        public static string CalculateSearchParameterHash(IEnumerable<ResourceSearchParameterStatus> resourceSearchParameterStatus)
         {
             EnsureArg.IsNotNull(resourceSearchParameterStatus, nameof(resourceSearchParameterStatus));
             EnsureArg.IsGt(resourceSearchParameterStatus.Count(), 0, nameof(resourceSearchParameterStatus));
