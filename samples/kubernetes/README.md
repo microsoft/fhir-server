@@ -245,3 +245,37 @@ which should have something like:
 ```
 
 to work with the settings above.
+
+## Enabling `$export`
+
+To use the `$export` operator, the FHIR server must be configured with a [pod identity](https://github.com/Azure/aad-pod-identity) and the identity of the FHIR server must have access to an existing storage account.
+
+1. Ensure that AAD Pod Identity is deployed in your cluster. The [deploy-aks.sh](deploy-aks.sh) script does that. You can verify it with:
+
+    ```bash
+    kubectl get pods | grep aad-pod-identity
+    ```
+
+    you should see pods with names like `aad-pod-identity-mic-XXXXX` and `aad-pod-identity-nmi-YYYYY`.
+
+2. Create an identity in a resource group where the AKS cluster has access:
+
+    ```bash
+    # Some settings
+    RESOURCE_GROUP=$(kubectl get nodes -o json | jq -r '.items[0].metadata.labels."kubernetes.azure.com/cluster"')
+    SUBSCRIPTION_ID=$(az account show | jq -r .id)
+    IDENTITY_NAME="myfhirserveridentity"
+
+    # Create identity
+    az identity create -g $RESOURCE_GROUP -n $IDENTITY_NAME --subscription $SUBSCRIPTION_ID
+    IDENTITY_CLIENT_ID="$(az identity show -g $RESOURCE_GROUP -n $IDENTITY_NAME --subscription $SUBSCRIPTION_ID --query clientId -otsv)"
+    IDENTITY_RESOURCE_ID="$(az identity show -g $RESOURCE_GROUP -n $IDENTITY_NAME --subscription $SUBSCRIPTION_ID --query id -otsv)"
+    ```
+
+  3. Create a storage account and assign role to identity....
+
+  4. Provision FHIR server:
+
+      ```bash
+      helm upgrade --install mihansenfhir1 samples/kubernetes/helm/fhir-server/ -f test-values.yaml --set podIdentity.enabled=true,podIdentity.identityClientId=$IDENTITY_CLIENT_ID,podIdentity.clientResourceId=$IDENTITY_RESOURCE_ID
+      ```

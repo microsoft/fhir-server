@@ -6,6 +6,9 @@ metadata:
   name: {{ include "fhir-server.fullname" . }}
   labels:
     {{- include "fhir-server.labels" . | nindent 4 }}
+    {{- if .Values.podIdentity.enable }}
+    aadpodidbinding: {{ include "fhir-server.fullname" . }}
+    {{- end}}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
