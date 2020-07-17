@@ -27,6 +27,10 @@ podIdentity:
   # identityClientId: my-id
   # identityResourceId: my-identity-resource-id
 
+export:
+  enabled: false
+  blobStorageUri: https://mystorageaccount.blob.core.windows.net
+
 podSecurityContext: {}
   # fsGroup: 2000
 

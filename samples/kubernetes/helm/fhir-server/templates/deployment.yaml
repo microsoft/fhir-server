@@ -6,9 +6,6 @@ metadata:
   name: {{ include "fhir-server.fullname" . }}
   labels:
     {{- include "fhir-server.labels" . | nindent 4 }}
-    {{- if .Values.podIdentity.enable }}
-    aadpodidbinding: {{ include "fhir-server.fullname" . }}
-    {{- end}}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
@@ -18,6 +15,9 @@ spec:
     metadata:
       labels:
         {{- include "fhir-server.selectorLabels" . | nindent 8 }}
+        {{- if .Values.podIdentity.enabled }}
+        aadpodidbinding: {{ include "fhir-server.fullname" . }}
+        {{- end}}
     spec:
     {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -35,6 +35,12 @@ spec:
           env:
             - name: ASPNETCORE_FORWARDEDHEADERS_ENABLED
               value: "true"
+            {{- if .Values.export.enabled }}
+            - name: FhirServer__Operations__Export__Enabled
+              value: "true"
+            - name: FhirServer__Operations__Export__StorageAccountUri
+              value: {{ .Values.export.blobStorageUri | quote }}
+            {{- end }}
             {{- if .Values.serviceMonitor.enabled }}
             - name: PrometheusMetrics__enabled
               value: "true"

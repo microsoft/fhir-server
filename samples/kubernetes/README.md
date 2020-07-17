@@ -24,7 +24,7 @@ If you prefer to install the components manually, use the script as a guide for 
 Once AKS has been deployed and configured, deploy the FHIR server with:
 
 ```bash
-helm install my-fhir-release samples/kubernetes/helm/fhir-server/ \
+helm install my-fhir-release helm/fhir-server/ \
   --set database.resourceGroup="my-database-resource-group" \
   --set database.location="westus2"
 ```
@@ -46,7 +46,7 @@ curl -s http://localhost:8080/Patient | jq .
 If you would like the FHIR service to have a public IP address, you can use a LoadBalancer service:
 
 ```bash
-helm install my-fhir-release samples/kubernetes/helm/fhir-server/ \
+helm install my-fhir-release helm/fhir-server/ \
   --set database.resourceGroup="my-database-resource-group" \
   --set database.location="westus2" \
   --set service.type=LoadBalancer
@@ -96,7 +96,7 @@ ingress:
 Then deploy the FHIR server with:
 
 ```bash
-helm install myfhirserverrelease deploy/helm/fhir-server/ \
+helm install myfhirserverrelease helm/fhir-server/ \
   -f ingress-values.yaml \
   --set database.dataStore="SqlServer" \
   --set database.location="westus2" \
@@ -183,7 +183,7 @@ ingress:
 Then deploy the FHIR server with:
 
 ```bash
-helm install myfhirserverrelease deploy/helm/fhir-server/ \
+helm install myfhirserverrelease helm/fhir-server/ \
   -f ingress-values.yaml \
   --set database.dataStore="SqlServer" \
   --set database.location="westus2" \
@@ -263,6 +263,7 @@ To use the `$export` operator, the FHIR server must be configured with a [pod id
     ```bash
     # Some settings
     RESOURCE_GROUP=$(kubectl get nodes -o json | jq -r '.items[0].metadata.labels."kubernetes.azure.com/cluster"')
+    LOCATION=$(kubectl get nodes -o json | jq -r '.items[0].metadata.labels."topology.kubernetes.io/region"')
     SUBSCRIPTION_ID=$(az account show | jq -r .id)
     IDENTITY_NAME="myfhirserveridentity"
 
@@ -272,10 +273,38 @@ To use the `$export` operator, the FHIR server must be configured with a [pod id
     IDENTITY_RESOURCE_ID="$(az identity show -g $RESOURCE_GROUP -n $IDENTITY_NAME --subscription $SUBSCRIPTION_ID --query id -otsv)"
     ```
 
-  3. Create a storage account and assign role to identity....
+  3. Create a storage account and assign role to identity:
+
+      ```bash
+      STORAGE_ACCOUNT_NAME="myfhirstorage"
+      az storage account create -g $RESOURCE_GROUP -n $STORAGE_ACCOUNT_NAME
+      STORAGE_ACCOUNT_ID=$(az storage account show -g $RESOURCE_GROUP -n $STORAGE_ACCOUNT_NAME | jq -r .id)
+      BLOB_URI=$(az storage account show -g $RESOURCE_GROUP -n $STORAGE_ACCOUNT_NAME | jq -r .primaryEndpoints.blob)
+      az role assignment create --role "Storage Blob Data Contributor" --assignee $IDENTITY_CLIENT_ID --scope $STORAGE_ACCOUNT_ID
+      ```      
 
   4. Provision FHIR server:
 
+      First create a `fhir-server-export-values.yaml` file:
+
       ```bash
-      helm upgrade --install mihansenfhir1 samples/kubernetes/helm/fhir-server/ -f test-values.yaml --set podIdentity.enabled=true,podIdentity.identityClientId=$IDENTITY_CLIENT_ID,podIdentity.clientResourceId=$IDENTITY_RESOURCE_ID
+      cat > fhir-server-export-values.yaml <<EOF
+      database:
+        dataStore: SqlServer
+        resourceGroup: $RESOURCE_GROUP
+        location: $LOCATION
+      podIdentity:
+        enabled: true
+        identityClientId: $IDENTITY_CLIENT_ID
+        identityResourceId: $IDENTITY_RESOURCE_ID
+      export:
+        enabled: true
+        blobStorageUri: $BLOB_URI
+      EOF
+      ```
+
+      Add additional settings you might need (see ingress, CORS, etc. above) and then deploy with:
+
+      ```bash
+      helm upgrade --install mihansenfhir2 helm/fhir-server -f fhir-server-export-values.yaml
       ```
