@@ -809,15 +809,6 @@ namespace Microsoft.Health.Fhir.Core {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to truncated resources due to too many inclusions.
-        /// </summary>
-        internal static string TruncatedIncludes {
-            get {
-                return ResourceManager.GetString("TruncatedIncludes", resourceCulture);
-            }
-        }
-
-        /// <summary>
         ///   Looks up a localized string similar to Bundle type is not present. Possible values are: transaction or batch.
         /// </summary>
         internal static string TypeNotPresent {

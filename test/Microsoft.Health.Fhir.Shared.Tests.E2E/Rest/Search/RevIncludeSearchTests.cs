@@ -110,15 +110,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             Bundle bundle = await Client.SearchAsync(ResourceType.Observation, query);
 
-            // Note: The way fhir server works with paging, it asks for 1 extra match item
-            // to avoid additional call. this also gives us other includes.
-            // fhir will exclude that extra match but the extra include will be
-            // passed to the client (and will be ignoredß)
             ValidateBundle(
                 bundle,
                 Fixture.SmithSnomedDiagnosticReport,
-                Fixture.SmithSnomedObservation,
-                Fixture.TrumanSnomedDiagnosticReport);
+                Fixture.SmithSnomedObservation);
 
             ValidateSearchEntryMode(bundle, ResourceType.Observation);
 

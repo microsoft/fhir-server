@@ -50,18 +50,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         Include,
 
         /// <summary>
-        /// Represents a table expression that is used to reverse include multiple resource types in the query.
-        /// </summary>
-        RevInclude,
-
-        /// <summary>
         /// Represents a table expression that is used to union all of the includes with the base search query.
         /// </summary>
         IncludeUnionAll,
-
-        /// <summary>
-        /// Represents a table expression that is used to union all of the reverse includes with the base search query.
-        /// </summary>
-        RevIncludeUnionAll,
     }
 }

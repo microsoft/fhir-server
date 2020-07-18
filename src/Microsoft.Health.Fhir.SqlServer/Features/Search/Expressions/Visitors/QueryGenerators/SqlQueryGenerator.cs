@@ -19,8 +19,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
     {
         private string _cteMainSelect; // This is represents the CTE that is the main selector for use with includes
         private List<string> _includeCtes;
-        private List<string> _revIncludeCtes;
-
         private readonly bool _isHistorySearch;
         private int _tableExpressionCounter = -1;
         private SqlRootExpression _rootExpression;
@@ -348,7 +346,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     var includeExpression = (IncludeExpression)tableExpression.NormalizedPredicate;
 
                     StringBuilder.Append("SELECT DISTINCT ");
-                    StringBuilder.Append(VLatest.Resource.ResourceSurrogateId, referenceTargetResourceTableAlias).AppendLine(" AS Sid1, 0 AS IsMatch")
+
+                    if (includeExpression.Reversed)
+                    {
+                        // In case its revinclude, we limit the number of returned items as the resultset size is potentially
+                        // unbounded.
+                        StringBuilder.Append(" TOP (" + MaxIncludedItems + ") ");
+                    }
+
+                    var table = !includeExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias;
+                    StringBuilder.Append(VLatest.Resource.ResourceSurrogateId, table);
+                    StringBuilder.AppendLine(" AS Sid1, 0 AS IsMatch")
                         .Append("FROM ").Append(VLatest.ReferenceSearchParam).Append(' ').AppendLine(referenceSourceTableAlias)
                         .Append("INNER JOIN ").Append(VLatest.Resource).Append(' ').AppendLine(referenceTargetResourceTableAlias);
 
@@ -378,12 +386,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         AppendHistoryClause(delimited, referenceTargetResourceTableAlias);
                         AppendHistoryClause(delimited, referenceSourceTableAlias);
 
-                        delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ResourceTypeId, referenceSourceTableAlias)
+                        table = !includeExpression.Reversed ? referenceSourceTableAlias : referenceTargetResourceTableAlias;
+                        delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ResourceTypeId, referenceTargetResourceTableAlias)
                             .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.ResourceTypeId, Model.GetResourceTypeId(includeExpression.ResourceType)));
 
                         // Limit the join to the main select CTE.
                         // The main select will have max+1 items in the result set to account for paging, so we only want to join using the max amount.
-                        delimited.BeginDelimitedElement().Append(VLatest.Resource.ResourceSurrogateId, referenceSourceTableAlias)
+                        delimited.BeginDelimitedElement().Append(VLatest.Resource.ResourceSurrogateId, referenceTargetResourceTableAlias)
                             .Append(" IN (SELECT TOP(")
                             .Append(Parameters.AddParameter(context.MaxItemCount))
                             .Append(") Sid1 FROM ").Append(_cteMainSelect).Append(")");
@@ -395,71 +404,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     }
 
                     _includeCtes.Add(TableExpressionName(_tableExpressionCounter));
-                    break;
-                case TableExpressionKind.RevInclude:
-                    var revIncludeExpression = (RevIncludeExpression)tableExpression.NormalizedPredicate;
-
-                    StringBuilder.Append("SELECT ");
-                    StringBuilder.Append(VLatest.Resource.ResourceSurrogateId, referenceSourceTableAlias).AppendLine(" AS Sid1 ");
-                    StringBuilder.Append(", (CASE WHEN CountSource > " + MaxIncludedItems + " THEN ")
-                    .Append(VLatest.Resource.ResourceSurrogateId, referenceTargetResourceTableAlias)
-                    .Append(" ELSE NULL END) IsPartialTargetSid1 ");
-
-                    StringBuilder.AppendLine("FROM ").Append(VLatest.Resource).Append(' ').AppendLine(referenceTargetResourceTableAlias);
-
-                    // We want the top to work on the (rev)included resource records and not on the overall resultset, hence can't use a simple join.
-                    StringBuilder.AppendLine("CROSS APPLY");
-                    StringBuilder.AppendLine("( ");
-
-                    // Count all records before the TOP
-                    StringBuilder.AppendLine("SELECT DISTINCT TOP (" + MaxIncludedItems + ") ResourceSurrogateId")
-                    .AppendLine(", count(*) over() as CountSource ")
-                    .AppendLine("FROM ").Append(VLatest.ReferenceSearchParam).Append(' ').AppendLine(referenceSourceTableAlias);
-
-                    using (var delimited = StringBuilder.BeginDelimitedWhereClause())
-                    {
-                        delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceSourceTableAlias)
-                            .Append(" = ").Append(VLatest.Resource.ResourceTypeId, referenceTargetResourceTableAlias);
-
-                        delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ReferenceResourceId, referenceSourceTableAlias)
-                            .Append(" = ").Append(VLatest.Resource.ResourceId, referenceTargetResourceTableAlias);
-
-                        if (!revIncludeExpression.WildCard)
-                        {
-                            delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.SearchParamId, referenceSourceTableAlias)
-                                .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.SearchParamId, Model.GetSearchParamId(revIncludeExpression.ReferenceSearchParameter.Url)));
-                        }
-
-                        AppendHistoryClause(delimited, referenceSourceTableAlias);
-                    }
-
-                    // Since we might truncate the number of included resource
-                    // we sort them so we get the latest.
-                    var order = context.GetFirstSortOrderForSupportedParam();
-
-                    StringBuilder.Append("ORDER BY ")
-                        .Append(VLatest.Resource.ResourceSurrogateId, referenceSourceTableAlias).Append(" ")
-                        .AppendLine(order == SortOrder.Ascending ? "ASC" : "DESC");
-
-                    StringBuilder.AppendLine(") AS ").Append(referenceSourceTableAlias).Append(" ");
-
-                    using (var delimited = StringBuilder.BeginDelimitedWhereClause())
-                    {
-                        AppendHistoryClause(delimited, referenceTargetResourceTableAlias);
-
-                        delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ResourceTypeId, referenceTargetResourceTableAlias)
-                            .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.ResourceTypeId, Model.GetResourceTypeId(revIncludeExpression.ResourceType)));
-
-                        delimited.BeginDelimitedElement().Append(VLatest.Resource.ResourceSurrogateId, referenceTargetResourceTableAlias)
-                            .Append(" IN (SELECT Sid1 FROM ").Append(_cteMainSelect).Append(")");
-                    }
-
-                    if (_revIncludeCtes == null)
-                    {
-                        _revIncludeCtes = new List<string>();
-                    }
-
-                    _revIncludeCtes.Add(TableExpressionName(_tableExpressionCounter));
                     break;
                 case TableExpressionKind.IncludeUnionAll:
                     StringBuilder.AppendLine("SELECT Sid1, IsMatch, 0 AS IsPartial");
@@ -473,30 +417,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     }
 
                     break;
-                case TableExpressionKind.RevIncludeUnionAll:
-                    var isFirst = true;
-                    foreach (var revincludeCte in _revIncludeCtes)
-                    {
-                        if (!isFirst)
-                        {
-                            StringBuilder.AppendLine("UNION ");
-                        }
 
-                        isFirst = false;
-                        StringBuilder.AppendLine("SELECT DISTINCT ").Append(_cteMainSelect).Append(".Sid1 , 1 AS IsMatch ");
-                        StringBuilder.AppendLine(", (CASE WHEN ").Append(revincludeCte).AppendLine(".IsPartialTargetSid1 IS NULL THEN 0 ELSE 1 END) as IsPartial -- if cte2 includes the parent sid1 it means that results have been truncated");
-                        StringBuilder.AppendLine(" From ").AppendLine(_cteMainSelect);
-                        StringBuilder.AppendLine(" LEFT OUTER JOIN ").Append(revincludeCte).Append(" ON ").Append(_cteMainSelect).Append(".Sid1 = ").Append(revincludeCte).AppendLine(".IsPartialTargetSid1");
-                    }
-
-                    foreach (var revincludeCte in _revIncludeCtes)
-                    {
-                        StringBuilder.AppendLine("UNION ALL");
-                        StringBuilder.AppendLine("SELECT Sid1, 0 AS IsMatch, 0 AS IsPartial");
-                        StringBuilder.Append("FROM ").AppendLine(revincludeCte);
-                    }
-
-                    break;
                 default:
                     throw new ArgumentOutOfRangeException(tableExpression.Kind.ToString());
             }

@@ -50,24 +50,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     {
                         Mode = r.SearchEntryMode == SearchEntryMode.Match ? Bundle.SearchEntryMode.Match : Bundle.SearchEntryMode.Include,
                     },
-
-                    // Response is an optional section which we add if we want to alert the client
-                    // that the response was truncated.
-                    Response = r.IsPartial == false ? null : new Bundle.ResponseComponent
-                    {
-                        Outcome = new OperationOutcome
-                        {
-                            Issue = new List<OperationOutcome.IssueComponent>()
-                            {
-                              new OperationOutcome.IssueComponent
-                                {
-                                    Severity = OperationOutcome.IssueSeverity.Information,
-                                    Code = OperationOutcome.IssueType.Incomplete,
-                                    Diagnostics = Core.Resources.TruncatedIncludes,
-                                },
-                            },
-                        },
-                    },
                 };
             });
         }

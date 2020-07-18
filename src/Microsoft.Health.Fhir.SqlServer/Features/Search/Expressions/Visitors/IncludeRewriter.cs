@@ -19,11 +19,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         private static readonly TableExpression IncludeUnionAllExpression = new TableExpression(null, null, null, TableExpressionKind.IncludeUnionAll);
 
-        private static readonly TableExpression RevIncludeUnionAllExpression = new TableExpression(null, null, null, TableExpressionKind.RevIncludeUnionAll);
-
         public override Expression VisitSqlRoot(SqlRootExpression expression, object context)
         {
-            if (expression.TableExpressions.Count == 1 || expression.TableExpressions.All(e => e.Kind != TableExpressionKind.Include && e.Kind != TableExpressionKind.RevInclude))
+            if (expression.TableExpressions.Count == 1 || expression.TableExpressions.All(e => e.Kind != TableExpressionKind.Include))
             {
                 return expression;
             }
@@ -46,14 +44,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 }
             }).ToList();
 
-            if (containsInclude)
+            if (containsInclude || containsRevInclude)
             {
                 reorderedExpressions.Add(IncludeUnionAllExpression);
-            }
-
-            if (containsRevInclude)
-            {
-                reorderedExpressions.Add(RevIncludeUnionAllExpression);
             }
 
             return new SqlRootExpression(reorderedExpressions, expression.DenormalizedExpressions);

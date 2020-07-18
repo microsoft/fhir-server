@@ -384,9 +384,6 @@
   <data name="SortNotSupported" xml:space="preserve">
     <value>The _sort parameter is not supported.</value>
   </data>
-  <data name="TruncatedIncludes" xml:space="preserve">
-    <value>Truncated. Too many included resources</value>
-  </data>
   <data name="TypeNotPresent" xml:space="preserve">
     <value>Bundle type is not present. Possible values are: transaction or batch</value>
   </data>

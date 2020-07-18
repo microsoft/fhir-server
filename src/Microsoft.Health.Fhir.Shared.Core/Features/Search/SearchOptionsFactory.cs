@@ -183,14 +183,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             if (searchParams.Include?.Count > 0)
             {
                 searchExpressions.AddRange(searchParams.Include.Select(
-                    q => _expressionParser.ParseInclude(parsedResourceType.ToString(), q))
+                    q => _expressionParser.ParseInclude(parsedResourceType.ToString(), q, false /* reversed */))
                     .Where(item => item != null));
             }
 
             if (searchParams.RevInclude?.Count > 0)
             {
                 searchExpressions.AddRange(searchParams.RevInclude.Select(
-                    q => _expressionParser.ParseRevInclude(parsedResourceType.ToString(), q))
+                    q => _expressionParser.ParseInclude(parsedResourceType.ToString(), q, true /* reversed */))
                     .Where(item => item != null));
             }
 
