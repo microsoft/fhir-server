@@ -27,7 +27,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             }
 
             bool containsInclude = false;
-            bool containsRevInclude = false;
 
             List<TableExpression> reorderedExpressions = expression.TableExpressions.OrderByDescending(t =>
             {
@@ -36,15 +35,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                     case IncludeQueryGenerator _:
                         containsInclude = true;
                         return 0;
-                    case RevIncludeQueryGenerator _:
-                        containsRevInclude = true;
-                        return 0;
                     default:
                         return 10;
                 }
             }).ToList();
 
-            if (containsInclude || containsRevInclude)
+            if (containsInclude)
             {
                 reorderedExpressions.Add(IncludeUnionAllExpression);
             }
