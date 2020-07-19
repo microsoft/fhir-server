@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     /// </summary>
     public class IncludeExpression : Expression
     {
-         /// <summary>
+        /// <summary>
         /// Initializes a new instance of the <see cref="IncludeExpression"/> class.
         /// </summary>
         /// <param name="resourceType">The resource that supports the reference.</param>
