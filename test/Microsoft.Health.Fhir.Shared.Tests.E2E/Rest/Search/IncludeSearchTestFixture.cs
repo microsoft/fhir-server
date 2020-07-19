@@ -19,12 +19,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
         {
             Tag = Guid.NewGuid().ToString();
 
-            // Some tests (the very simple one) ask for those resources. so we clean the db before we start
-            var taskDelLoc = TestFhirClient.DeleteAllResources(ResourceType.Location);
-            var taskDelObs = TestFhirClient.DeleteAllResources(ResourceType.Observation);
-            System.Threading.Tasks.Task.WhenAll(taskDelLoc, taskDelObs).ConfigureAwait(false)
-            .GetAwaiter().GetResult();
-
             // Construct an observation pointing to a patient and a diagnostic report pointing to the observation and the patient along with some not matching entries
             var snomedCode = new CodeableConcept("http://snomed.info/sct", "429858000");
             var loincCode = new CodeableConcept("http://loinc.org", "4548-4");
@@ -58,6 +52,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
             Location = TestFhirClient.CreateAsync(new Location
             {
                 ManagingOrganization = new ResourceReference($"Organization/{Organization.Id}"),
+                Meta = new Meta { Tag = new List<Coding> { new Coding("testTag", Tag) } },
             }).Result.Resource;
 
             var group = new Group

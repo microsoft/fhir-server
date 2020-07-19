@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Web;
 using Hl7.Fhir.Model;
@@ -25,7 +26,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAnIncludeSearchExpression_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
-            string query = $"_include=Location:organization:Organization";
+            string query = $"_include=Location:organization:Organization&_tag={Fixture.Tag}";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.Location, query);
 
@@ -48,7 +49,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAnIncludeSearchExpression_WhenSearchedWithPost_ThenCorrectBundleShouldBeReturned()
         {
-            Bundle bundle = await Client.SearchPostAsync(ResourceType.Location.ToString(), default, ("_include", "Location:organization:Organization"));
+            Bundle bundle = await Client.SearchPostAsync(ResourceType.Location.ToString(), default, ("_include", "Location:organization:Organization"), ("_tag", Fixture.Tag));
 
             ValidateBundle(
                 bundle,
@@ -61,19 +62,34 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAnIncludeSearchExpressionWithMultipleDenormalizedParameters_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
+            var guid = Guid.NewGuid().ToString();
+            var organizationResponse = await Client.CreateAsync(new Organization());
+
+            var locationResponse = await Client.CreateAsync(new Location
+            {
+                ManagingOrganization = new ResourceReference($"Organization/{organizationResponse.Resource.Id}"),
+                Meta = new Meta { Tag = new List<Coding> { new Coding("testTag", guid) } },
+            });
+
             // Make sure that the second location ends up in a different bucket of resource surrogate ids
             await Task.Delay(100);
 
+            var locationResponse2 = await Client.CreateAsync(new Location
+            {
+                ManagingOrganization = new ResourceReference($"Organization/{organizationResponse.Resource.Id}"),
+                Meta = new Meta { Tag = new List<Coding> { new Coding("testTag", guid) } },
+            });
+
             // Format the time to fit yyyy-MM-ddTHH:mm:ss.fffffffzzz, and encode its special characters.
-            string lastUpdated = HttpUtility.UrlEncode($"{Fixture.Location.Meta.LastUpdated:o}");
-            string query = $"_include=Location:organization:Organization&_lastUpdated=lt{lastUpdated}";
+            string lastUpdated = HttpUtility.UrlEncode($"{locationResponse2.Resource.Meta.LastUpdated:o}");
+            var query = $"_include=Location:organization:Organization&_lastUpdated=lt{lastUpdated}&_tag={guid}";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.Location, query);
 
             ValidateBundle(
                 bundle,
-                Fixture.Organization,
-                Fixture.Location);
+                organizationResponse.Resource,
+                locationResponse.Resource);
 
             ValidateSearchEntryMode(bundle, ResourceType.Location);
         }
@@ -216,7 +232,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public async Task GivenARevIncludeSearchExpression_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             // Ask for reverse include to get all Locations which reference an org
-            string query = $"_revinclude=Location:organization";
+            string query = $"_revinclude=Location:organization&_tag={Fixture.Tag}";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.Organization, query);
 
@@ -228,9 +244,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateSearchEntryMode(bundle, ResourceType.Organization);
 
             // ensure that the included resources are not counted
-            // todo: issue xyz,fix support for summary count
-            // bundle = await Client.SearchAsync(ResourceType.Organization, $"{query}&_summary=count");
-            // Assert.Equal(1, bundle.Total);
+            bundle = await Client.SearchAsync(ResourceType.Organization, $"{query}&_summary=count");
+            Assert.Equal(1, bundle.Total);
 
             // ensure that the included resources are not counted when _total is specified and the results fit in a single bundle.
             bundle = await Client.SearchAsync(ResourceType.Organization, $"{query}&_total=accurate");
@@ -240,7 +255,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenARevIncludeSearchExpression_WhenSearchedWithPost_ThenCorrectBundleShouldBeReturned()
         {
-            Bundle bundle = await Client.SearchPostAsync(ResourceType.Organization.ToString(), default, ("_revinclude", "Location:organization"));
+            Bundle bundle = await Client.SearchPostAsync(ResourceType.Organization.ToString(), default, ("_revinclude", "Location:organization"), ("_tag", Fixture.Tag));
 
             ValidateBundle(
                 bundle,
@@ -326,7 +341,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateSearchEntryMode(bundle, ResourceType.Patient);
         }
 
-        /*[Fact]
+        [Fact]
         public async Task GivenARevIncludeSearchExpressionWithMultipleDenormalizedParametersAndTableParameters_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             var newDiagnosticReportResponse = await Fixture.TestFhirClient.CreateAsync(
@@ -357,7 +372,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             // delete the extra entry added
             await Fixture.TestFhirClient.DeleteAsync(newDiagnosticReportResponse.Resource);
-        }*/
+        }
 
         [Fact]
         public async Task GivenARevIncludeSearchExpressionWithNoReferences_WhenSearched_ThenCorrectBundleWithOnlyMatchesShouldBeReturned()
