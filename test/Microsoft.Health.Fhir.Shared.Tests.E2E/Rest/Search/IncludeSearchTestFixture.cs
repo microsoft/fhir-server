@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Rest;
 
@@ -17,6 +18,12 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
             : base(dataStore, format, testFhirServerFactory)
         {
             Tag = Guid.NewGuid().ToString();
+
+            // Some tests (the very simple one) ask for those resources. so we clean the db before we start
+            var taskDelLoc = TestFhirClient.DeleteAllResources(ResourceType.Location);
+            var taskDelObs = TestFhirClient.DeleteAllResources(ResourceType.Observation);
+            System.Threading.Tasks.Task.WhenAll(taskDelLoc, taskDelObs).ConfigureAwait(false)
+            .GetAwaiter().GetResult();
 
             // Construct an observation pointing to a patient and a diagnostic report pointing to the observation and the patient along with some not matching entries
             var snomedCode = new CodeableConcept("http://snomed.info/sct", "429858000");

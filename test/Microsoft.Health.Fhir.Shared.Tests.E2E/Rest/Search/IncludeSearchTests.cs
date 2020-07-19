@@ -157,7 +157,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateSearchEntryMode(bundle, ResourceType.DiagnosticReport);
         }
 
-        /*[Fact]
+        [Fact]
         public async Task GivenAnIncludeSearchExpressionWithMultipleDenormalizedParametersAndTableParameters_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             var newDiagnosticReportResponse = await Fixture.TestFhirClient.CreateAsync(
@@ -189,7 +189,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             // delete the extra entry added
             await Fixture.TestFhirClient.DeleteAsync(newDiagnosticReportResponse.Resource);
-        }*/
+        }
 
         [Fact]
         public async Task GivenAnIncludeSearchExpressionWithNoTargetType_WhenSearched_ThenCorrectBundleShouldBeReturned()
