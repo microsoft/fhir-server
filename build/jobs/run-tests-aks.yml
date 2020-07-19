@@ -75,7 +75,10 @@ jobs:
         $storageAccountName=$storageAccountName.Substring(0,[System.Math]::Min($storageAccountName.Length,24))
         $accKey = Get-AzStorageAccountKey -ResourceGroupName ${{parameters.clusterResourceGroup}} -Name $storageAccountName | Where-Object {$_.KeyName -eq "key1"}
         $storageSecretName = "${$storageAccountName}_secret"
+        Write-Host "storageAccountName: ${storageAccountName}"
+        Write-Host "storageKey: ${accKey.Value}"
         Write-Host "##vso[task.setvariable variable=$($storageSecretName)]$($accKey.Value)"
+        Write-Host "##vso[task.setvariable variable=$($storageSecretName)]${accKey.Value}"
         # ----------------------------------------
 
   - task: VSTest@2
