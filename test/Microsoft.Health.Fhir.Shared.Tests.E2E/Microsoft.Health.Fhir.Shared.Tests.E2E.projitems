@@ -80,7 +80,5 @@
     <None Include="$(MSBuildThisFileDirectory)xunit.runner.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\RevIncludeSearchTestFixture.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\RevIncludeSearchTests.cs" />
   </ItemGroup>
 </Project>

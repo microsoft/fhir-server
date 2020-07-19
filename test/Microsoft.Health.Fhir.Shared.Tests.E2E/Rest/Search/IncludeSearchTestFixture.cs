@@ -48,6 +48,11 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
             SmithLoincDiagnosticReport = CreateDiagnosticReport(SmithPatient, SmithLoincObservation, loincCode);
             TrumanLoincDiagnosticReport = CreateDiagnosticReport(TrumanPatient, TrumanLoincObservation, loincCode);
 
+            Location = TestFhirClient.CreateAsync(new Location
+            {
+                ManagingOrganization = new ResourceReference($"Organization/{Organization.Id}"),
+            }).Result.Resource;
+
             var group = new Group
             {
                 Meta = new Meta { Tag = new List<Coding> { new Coding("testTag", Tag) } },
@@ -124,5 +129,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
         public DiagnosticReport SmithSnomedDiagnosticReport { get; }
 
         public DiagnosticReport SmithLoincDiagnosticReport { get; }
+
+        public Location Location { get; }
     }
 }
