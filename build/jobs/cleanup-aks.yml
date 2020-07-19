@@ -26,4 +26,5 @@ jobs:
           helm delete $r
           STORAGE_ACCOUNT_NAME=$(echo $r | tr -d '-' | cut -c1-24)
           az storage account delete -n $STORAGE_ACCOUNT_NAME -g ${{parameters.clusterResourceGroup}}
+          az identity delete -g ${{parameters.clusterResourceGroup}} -n $r
         done

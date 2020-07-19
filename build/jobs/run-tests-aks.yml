@@ -72,7 +72,7 @@ jobs:
 
         $storageAccountName="$(DeploymentEnvironmentName)${{parameters.version}}${{parameters.dataStore}}".ToLower()
         Write-Host "The storageAccountName is ${storageAccountName}"
-        $storageAccountName=$storageAccountName.Substring(0,[System.Math]::Min($test.Length,24))
+        $storageAccountName=$storageAccountName.Substring(0,[System.Math]::Min($storageAccountName.Length,24))
         Write-Host "The storageAccountName is ${storageAccountName}"
         $accKey = Get-AzStorageAccountKey -ResourceGroupName ${{parameters.clusterResourceGroup}} -Name $storageAccountName | Where-Object {$_.KeyName -eq "key1"}
         $storageSecretName = "${$storageAccountName}_secret"
