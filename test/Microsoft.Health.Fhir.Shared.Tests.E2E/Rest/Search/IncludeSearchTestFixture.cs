@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Generic;
 using Hl7.Fhir.Model;
-using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Rest;
 
@@ -48,12 +47,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
             TrumanSnomedDiagnosticReport = CreateDiagnosticReport(TrumanPatient, TrumanSnomedObservation, snomedCode);
             SmithLoincDiagnosticReport = CreateDiagnosticReport(SmithPatient, SmithLoincObservation, loincCode);
             TrumanLoincDiagnosticReport = CreateDiagnosticReport(TrumanPatient, TrumanLoincObservation, loincCode);
-
-            Location = TestFhirClient.CreateAsync(new Location
-            {
-                ManagingOrganization = new ResourceReference($"Organization/{Organization.Id}"),
-                Meta = new Meta { Tag = new List<Coding> { new Coding("testTag", Tag) } },
-            }).Result.Resource;
 
             var group = new Group
             {
@@ -131,7 +124,5 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
         public DiagnosticReport SmithSnomedDiagnosticReport { get; }
 
         public DiagnosticReport SmithLoincDiagnosticReport { get; }
-
-        public Location Location { get; }
     }
 }
