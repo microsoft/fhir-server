@@ -2154,41 +2154,33 @@ END
 GO
 
 /*************************************************************
-    Search Parameter Status Registry
+    Search Parameter Status Information
 **************************************************************/
 
-CREATE TYPE dbo.SearchParamStatusRegistryTableType_1 AS TABLE
+ALTER TABLE dbo.SearchParam
+ADD
+    Status varchar(10) NULL,
+    LastUpdated datetimeoffset(7) NULL,
+    IsPartiallySupported bit NULL
+
+CREATE TYPE dbo.SearchParamTableType_1 AS TABLE
 (
     Uri varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     Status varchar(10) NOT NULL,
     IsPartiallySupported bit NOT NULL
-)
-
-CREATE TABLE dbo.SearchParamStatusRegistry
-(
-    Uri varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
-    Status varchar(10) NOT NULL,
-    LastUpdated datetimeoffset(7) NOT NULL,
-    IsPartiallySupported bit NOT NULL
-)
-
-CREATE UNIQUE CLUSTERED INDEX IXC_SearchParamStatusRegistry
-ON dbo.SearchParamStatusRegistry
-(
-    Uri
 )
 
 GO
 
 /*************************************************************
-    Stored procedures for the search parameter status registry
+    Stored procedures for search parameter information
 **************************************************************/
 --
 -- STORED PROCEDURE
 --     Gets all the search parameters and their statuses.
 --
 -- DESCRIPTION
---     Retrieves and returns the contents of the search parameter registry.
+--     Retrieves and returns select contents from the search parameter table.
 --
 -- RETURN VALUE
 --     The search parameters and their statuses.
@@ -2197,23 +2189,23 @@ CREATE PROCEDURE dbo.GetSearchParamStatuses
 AS
     SET NOCOUNT ON
 
-    SELECT * FROM dbo.SearchParamStatusRegistry
+    SELECT Uri, Status, LastUpdated, IsPartiallySupported FROM dbo.SearchParam
 GO
 
 --
 -- STORED PROCEDURE
---     Given a table of search parameters, upserts the registry.
+--     Given a set of search parameters, creates or updates the parameters.
 --
 -- DESCRIPTION
---     If a parameter with a matching URI already exists in the registry, it is updated.
+--     If a parameter with a matching URI already exists in the table, it is updated.
 --     If not, a new entry is created.
 --
 -- PARAMETERS
---     @searchParamStatuses
---         * The updated or new search parameter statuses
+--     @searchParams
+--         * The updated or new search parameters
 --
-CREATE PROCEDURE dbo.UpsertSearchParamStatuses
-    @searchParamStatuses dbo.SearchParamStatusRegistryTableType_1 READONLY
+CREATE PROCEDURE dbo.UpsertSearchParams
+    @searchParams dbo.SearchParamTableType_1 READONLY
 AS
     SET NOCOUNT ON
     SET XACT_ABORT ON
@@ -2224,18 +2216,19 @@ AS
     DECLARE @lastUpdated datetimeoffset(7) = SYSDATETIMEOFFSET()
 
     -- Acquire and hold an exclusive table lock for the entire transaction to prevent parameters from being added or modified during upsertion.
-    UPDATE dbo.SearchParamStatusRegistry
+    UPDATE dbo.SearchParam
     WITH (TABLOCKX)
     SET Status = sps.Status, LastUpdated = @lastUpdated, IsPartiallySupported = sps.IsPartiallySupported
-    FROM dbo.SearchParamStatusRegistry INNER JOIN @searchParamStatuses as sps
-    ON dbo.SearchParamStatusRegistry.Uri = sps.Uri
+    FROM dbo.SearchParam INNER JOIN @searchParams as sps
+    ON dbo.SearchParam.Uri = sps.Uri
 
-    INSERT INTO dbo.SearchParamStatusRegistry
-        (Uri, Status, LastUpdated, IsPartiallySupported)
-    SELECT sps.Uri, sps.Status, @lastUpdated, sps.IsPartiallySupported
-    FROM @searchParamStatuses AS sps
+    -- TODO: Replace Search Param Id with actual value.
+    INSERT INTO dbo.SearchParam
+        (SearchParamId, Uri, Status, LastUpdated, IsPartiallySupported)
+    SELECT 67676767, sps.Uri, sps.Status, @lastUpdated, sps.IsPartiallySupported
+    FROM @searchParams AS sps
     WHERE sps.Uri NOT IN
-        (SELECT Uri FROM dbo.SearchParamStatusRegistry)
+        (SELECT Uri FROM dbo.SearchParam)
 
     COMMIT TRANSACTION
 GO

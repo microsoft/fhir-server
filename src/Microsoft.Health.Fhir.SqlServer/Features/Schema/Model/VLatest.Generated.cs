@@ -29,7 +29,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         internal readonly static ResourceWriteClaimTable ResourceWriteClaim = new ResourceWriteClaimTable();
         internal readonly static SchemaVersionTable SchemaVersion = new SchemaVersionTable();
         internal readonly static SearchParamTable SearchParam = new SearchParamTable();
-        internal readonly static SearchParamStatusRegistryTable SearchParamStatusRegistry = new SearchParamStatusRegistryTable();
         internal readonly static StringSearchParamTable StringSearchParam = new StringSearchParamTable();
         internal readonly static SystemTable System = new SystemTable();
         internal readonly static TokenDateTimeCompositeSearchParamTable TokenDateTimeCompositeSearchParam = new TokenDateTimeCompositeSearchParamTable();
@@ -56,7 +55,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         internal readonly static UpsertInstanceSchemaProcedure UpsertInstanceSchema = new UpsertInstanceSchemaProcedure();
         internal readonly static UpsertResourceProcedure UpsertResource = new UpsertResourceProcedure();
         internal readonly static UpsertSchemaVersionProcedure UpsertSchemaVersion = new UpsertSchemaVersionProcedure();
-        internal readonly static UpsertSearchParamStatusesProcedure UpsertSearchParamStatuses = new UpsertSearchParamStatusesProcedure();
+        internal readonly static UpsertSearchParamsProcedure UpsertSearchParams = new UpsertSearchParamsProcedure();
         internal class ClaimTypeTable : Table
         {
             internal ClaimTypeTable(): base("dbo.ClaimType")
@@ -263,18 +262,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
 
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly VarCharColumn Uri = new VarCharColumn("Uri", 128, "Latin1_General_100_CS_AS");
-        }
-
-        internal class SearchParamStatusRegistryTable : Table
-        {
-            internal SearchParamStatusRegistryTable(): base("dbo.SearchParamStatusRegistry")
-            {
-            }
-
-            internal readonly VarCharColumn Uri = new VarCharColumn("Uri", 128, "Latin1_General_100_CS_AS");
-            internal readonly VarCharColumn Status = new VarCharColumn("Status", 10);
-            internal readonly DateTimeOffsetColumn LastUpdated = new DateTimeOffsetColumn("LastUpdated", 7);
-            internal readonly BitColumn IsPartiallySupported = new BitColumn("IsPartiallySupported");
         }
 
         internal class StringSearchParamTable : Table
@@ -888,48 +875,48 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
         }
 
-        internal class UpsertSearchParamStatusesProcedure : StoredProcedure
+        internal class UpsertSearchParamsProcedure : StoredProcedure
         {
-            internal UpsertSearchParamStatusesProcedure(): base("dbo.UpsertSearchParamStatuses")
+            internal UpsertSearchParamsProcedure(): base("dbo.UpsertSearchParams")
             {
             }
 
-            private readonly SearchParamStatusRegistryTableTypeTableValuedParameterDefinition _searchParamStatuses = new SearchParamStatusRegistryTableTypeTableValuedParameterDefinition("@searchParamStatuses");
-            public void PopulateCommand(SqlCommandWrapper command, global::System.Collections.Generic.IEnumerable<SearchParamStatusRegistryTableTypeRow> searchParamStatuses)
+            private readonly SearchParamTableTypeTableValuedParameterDefinition _searchParams = new SearchParamTableTypeTableValuedParameterDefinition("@searchParams");
+            public void PopulateCommand(SqlCommandWrapper command, global::System.Collections.Generic.IEnumerable<SearchParamTableTypeRow> searchParams)
             {
                 command.CommandType = global::System.Data.CommandType.StoredProcedure;
-                command.CommandText = "dbo.UpsertSearchParamStatuses";
-                _searchParamStatuses.AddParameter(command.Parameters, searchParamStatuses);
+                command.CommandText = "dbo.UpsertSearchParams";
+                _searchParams.AddParameter(command.Parameters, searchParams);
             }
 
-            public void PopulateCommand(SqlCommandWrapper command, UpsertSearchParamStatusesTableValuedParameters tableValuedParameters)
+            public void PopulateCommand(SqlCommandWrapper command, UpsertSearchParamsTableValuedParameters tableValuedParameters)
             {
-                PopulateCommand(command, searchParamStatuses: tableValuedParameters.SearchParamStatuses);
+                PopulateCommand(command, searchParams: tableValuedParameters.SearchParams);
             }
         }
 
-        internal class UpsertSearchParamStatusesTvpGenerator<TInput> : IStoredProcedureTableValuedParametersGenerator<TInput, UpsertSearchParamStatusesTableValuedParameters>
+        internal class UpsertSearchParamsTvpGenerator<TInput> : IStoredProcedureTableValuedParametersGenerator<TInput, UpsertSearchParamsTableValuedParameters>
         {
-            public UpsertSearchParamStatusesTvpGenerator(ITableValuedParameterRowGenerator<TInput, SearchParamStatusRegistryTableTypeRow> SearchParamStatusRegistryTableTypeRowGenerator)
+            public UpsertSearchParamsTvpGenerator(ITableValuedParameterRowGenerator<TInput, SearchParamTableTypeRow> SearchParamTableTypeRowGenerator)
             {
-                this.SearchParamStatusRegistryTableTypeRowGenerator = SearchParamStatusRegistryTableTypeRowGenerator;
+                this.SearchParamTableTypeRowGenerator = SearchParamTableTypeRowGenerator;
             }
 
-            private readonly ITableValuedParameterRowGenerator<TInput, SearchParamStatusRegistryTableTypeRow> SearchParamStatusRegistryTableTypeRowGenerator;
-            public UpsertSearchParamStatusesTableValuedParameters Generate(TInput input)
+            private readonly ITableValuedParameterRowGenerator<TInput, SearchParamTableTypeRow> SearchParamTableTypeRowGenerator;
+            public UpsertSearchParamsTableValuedParameters Generate(TInput input)
             {
-                return new UpsertSearchParamStatusesTableValuedParameters(SearchParamStatusRegistryTableTypeRowGenerator.GenerateRows(input));
+                return new UpsertSearchParamsTableValuedParameters(SearchParamTableTypeRowGenerator.GenerateRows(input));
             }
         }
 
-        internal struct UpsertSearchParamStatusesTableValuedParameters
+        internal struct UpsertSearchParamsTableValuedParameters
         {
-            internal UpsertSearchParamStatusesTableValuedParameters(global::System.Collections.Generic.IEnumerable<SearchParamStatusRegistryTableTypeRow> SearchParamStatuses)
+            internal UpsertSearchParamsTableValuedParameters(global::System.Collections.Generic.IEnumerable<SearchParamTableTypeRow> SearchParams)
             {
-                this.SearchParamStatuses = SearchParamStatuses;
+                this.SearchParams = SearchParams;
             }
 
-            internal global::System.Collections.Generic.IEnumerable<SearchParamStatusRegistryTableTypeRow> SearchParamStatuses
+            internal global::System.Collections.Generic.IEnumerable<SearchParamTableTypeRow> SearchParams
             {
                 get;
             }
@@ -1308,9 +1295,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
         }
 
-        private class SearchParamStatusRegistryTableTypeTableValuedParameterDefinition : TableValuedParameterDefinition<SearchParamStatusRegistryTableTypeRow>
+        private class SearchParamTableTypeTableValuedParameterDefinition : TableValuedParameterDefinition<SearchParamTableTypeRow>
         {
-            internal SearchParamStatusRegistryTableTypeTableValuedParameterDefinition(System.String parameterName): base(parameterName, "dbo.SearchParamStatusRegistryTableType_1")
+            internal SearchParamTableTypeTableValuedParameterDefinition(System.String parameterName): base(parameterName, "dbo.SearchParamTableType_1")
             {
             }
 
@@ -1318,7 +1305,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly VarCharColumn Status = new VarCharColumn("Status", 10);
             internal readonly BitColumn IsPartiallySupported = new BitColumn("IsPartiallySupported");
             protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{Uri, Status, IsPartiallySupported};
-            protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, SearchParamStatusRegistryTableTypeRow rowData)
+            protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, SearchParamTableTypeRow rowData)
             {
                 Uri.Set(record, 0, rowData.Uri);
                 Status.Set(record, 1, rowData.Status);
@@ -1326,9 +1313,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
         }
 
-        internal struct SearchParamStatusRegistryTableTypeRow
+        internal struct SearchParamTableTypeRow
         {
-            internal SearchParamStatusRegistryTableTypeRow(System.String Uri, System.String Status, System.Boolean IsPartiallySupported)
+            internal SearchParamTableTypeRow(System.String Uri, System.String Status, System.Boolean IsPartiallySupported)
             {
                 this.Uri = Uri;
                 this.Status = Status;
