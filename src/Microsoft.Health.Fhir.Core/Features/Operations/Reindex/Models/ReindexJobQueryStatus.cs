@@ -13,9 +13,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
     /// </summary>
     public class ReindexJobQueryStatus
     {
-        public ReindexJobQueryStatus(string query)
+        public ReindexJobQueryStatus(string continuationToken)
         {
-            Query = query;
+            ContinuationToken = continuationToken;
         }
 
         [JsonConstructor]
@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         }
 
         [JsonProperty(JobRecordProperties.Query)]
-        public string Query { get; set; }
+        public string ContinuationToken { get; set; }
 
         [JsonProperty(JobRecordProperties.Status)]
         public OperationStatus Status { get; set; }

@@ -20,10 +20,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             RawResource rawResource,
             ResourceRequest request,
             bool deleted,
-            string searchParameterHash,
             IReadOnlyCollection<SearchIndexEntry> searchIndices,
             CompartmentIndices compartmentIndices,
-            IReadOnlyCollection<KeyValuePair<string, string>> lastModifiedClaims)
+            IReadOnlyCollection<KeyValuePair<string, string>> lastModifiedClaims,
+            string searchParameterHash = null)
            : this(
                  EnsureArg.IsNotNull(resource).Id,
                  resource.VersionId,
@@ -32,10 +32,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                  request,
                  resource.LastUpdated ?? Clock.UtcNow,
                  deleted,
-                 searchParameterHash,
                  searchIndices,
                  compartmentIndices,
-                 lastModifiedClaims)
+                 lastModifiedClaims,
+                 searchParameterHash)
         {
         }
 
@@ -47,10 +47,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             ResourceRequest request,
             DateTimeOffset lastModified,
             bool deleted,
-            string searchParameterHash,
             IReadOnlyCollection<SearchIndexEntry> searchIndices,
             CompartmentIndices compartmentIndices,
-            IReadOnlyCollection<KeyValuePair<string, string>> lastModifiedClaims)
+            IReadOnlyCollection<KeyValuePair<string, string>> lastModifiedClaims,
+            string searchParameterHash = null)
         {
             EnsureArg.IsNotNullOrEmpty(resourceId, nameof(resourceId));
             EnsureArg.IsNotNullOrEmpty(resourceTypeName, nameof(resourceTypeName));
@@ -63,10 +63,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             Request = request;
             IsDeleted = deleted;
             LastModified = lastModified;
-            SearchParameterHash = searchParameterHash;
             SearchIndices = searchIndices;
             CompartmentIndices = compartmentIndices;
             LastModifiedClaims = lastModifiedClaims;
+            SearchParameterHash = searchParameterHash;
         }
 
         [JsonConstructor]
@@ -108,7 +108,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         public CompartmentIndices CompartmentIndices { get; protected set; }
 
         [JsonProperty(KnownResourceWrapperProperties.SearchParameterHash)]
-        public string SearchParameterHash { get; protected set; }
+        public string SearchParameterHash { get; set; }
 
         public ResourceKey ToResourceKey()
         {

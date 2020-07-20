@@ -179,20 +179,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             return searchResult;
         }
 
-        /// <inheritdoc />
         public async Task<SearchResult> SearchForReindexAsync(
             IReadOnlyList<Tuple<string, string>> queryParameters,
             string searchParameterHash,
+            bool countOnly,
             CancellationToken cancellationToken)
         {
             SearchOptions searchOptions = _searchOptionsFactory.Create(null, queryParameters);
 
-            searchOptions.CountOnly = true;
-            var countOnlyResults = await SearchForReindexInternalAsync(searchOptions, searchParameterHash, cancellationToken);
+            if (countOnly)
+            {
+                searchOptions.CountOnly = true;
+            }
 
-            searchOptions.CountOnly = false;
             var results = await SearchForReindexInternalAsync(searchOptions, searchParameterHash, cancellationToken);
-            results.TotalCount = countOnlyResults.TotalCount;
 
             return results;
         }

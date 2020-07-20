@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
         public QueryDefinition GenerateReindexSql(SearchOptions searchOptions, string searchParameterHash)
         {
-            throw new QueryBuilderHelper().GenerateReindexSql(searchOptions, searchParameterHash);
+            return new QueryBuilderHelper().GenerateReindexSql(searchOptions, searchParameterHash);
         }
 
         private class QueryBuilderHelper
