@@ -248,7 +248,7 @@ to work with the settings above.
 
 ## Enabling `$export`
 
-To use the `$export` operator, the FHIR server must be configured with a [pod identity](https://github.com/Azure/aad-pod-identity) and the identity of the FHIR server must have access to an existing storage account.
+To use the `$export` operation, the FHIR server must be configured with a [pod identity](https://github.com/Azure/aad-pod-identity) and the identity of the FHIR server must have access to an existing storage account.
 
 1. Ensure that AAD Pod Identity is deployed in your cluster. The [deploy-aks.sh](deploy-aks.sh) script does that. You can verify it with:
 
@@ -273,38 +273,38 @@ To use the `$export` operator, the FHIR server must be configured with a [pod id
     IDENTITY_RESOURCE_ID="$(az identity show -g $RESOURCE_GROUP -n $IDENTITY_NAME --subscription $SUBSCRIPTION_ID --query id -otsv)"
     ```
 
-  3. Create a storage account and assign role to identity:
+3. Create a storage account and assign role to identity:
 
-      ```bash
-      STORAGE_ACCOUNT_NAME="myfhirstorage"
-      az storage account create -g $RESOURCE_GROUP -n $STORAGE_ACCOUNT_NAME
-      STORAGE_ACCOUNT_ID=$(az storage account show -g $RESOURCE_GROUP -n $STORAGE_ACCOUNT_NAME | jq -r .id)
-      BLOB_URI=$(az storage account show -g $RESOURCE_GROUP -n $STORAGE_ACCOUNT_NAME | jq -r .primaryEndpoints.blob)
-      az role assignment create --role "Storage Blob Data Contributor" --assignee $IDENTITY_CLIENT_ID --scope $STORAGE_ACCOUNT_ID
-      ```      
+    ```bash
+    STORAGE_ACCOUNT_NAME="myfhirstorage"
+    az storage account create -g $RESOURCE_GROUP -n $STORAGE_ACCOUNT_NAME
+    STORAGE_ACCOUNT_ID=$(az storage account show -g $RESOURCE_GROUP -n $STORAGE_ACCOUNT_NAME | jq -r .id)
+    BLOB_URI=$(az storage account show -g $RESOURCE_GROUP -n $STORAGE_ACCOUNT_NAME | jq -r .primaryEndpoints.blob)
+    az role assignment create --role "Storage Blob Data Contributor" --assignee $IDENTITY_CLIENT_ID --scope $STORAGE_ACCOUNT_ID
+    ```      
 
-  4. Provision FHIR server:
+4. Provision FHIR server:
 
-      First create a `fhir-server-export-values.yaml` file:
+    First create a `fhir-server-export-values.yaml` file:
 
-      ```bash
-      cat > fhir-server-export-values.yaml <<EOF
-      database:
-        dataStore: SqlServer
-        resourceGroup: $RESOURCE_GROUP
-        location: $LOCATION
-      podIdentity:
-        enabled: true
-        identityClientId: $IDENTITY_CLIENT_ID
-        identityResourceId: $IDENTITY_RESOURCE_ID
-      export:
-        enabled: true
-        blobStorageUri: $BLOB_URI
-      EOF
-      ```
+    ```bash
+    cat > fhir-server-export-values.yaml <<EOF
+    database:
+      dataStore: SqlServer
+      resourceGroup: $RESOURCE_GROUP
+      location: $LOCATION
+    podIdentity:
+      enabled: true
+      identityClientId: $IDENTITY_CLIENT_ID
+      identityResourceId: $IDENTITY_RESOURCE_ID
+    export:
+      enabled: true
+      blobStorageUri: $BLOB_URI
+    EOF
+    ```
 
-      Add additional settings you might need (see ingress, CORS, etc. above) and then deploy with:
+    Add additional settings you might need (see ingress, CORS, etc. above) and then deploy with:
 
-      ```bash
-      helm upgrade --install mihansenfhir2 helm/fhir-server -f fhir-server-export-values.yaml
-      ```
+    ```bash
+    helm upgrade --install mihansenfhir2 helm/fhir-server -f fhir-server-export-values.yaml
+    ```
