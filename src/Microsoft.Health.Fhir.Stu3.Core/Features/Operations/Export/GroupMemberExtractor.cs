@@ -20,12 +20,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
     public class GroupMemberExtractor : IGroupMemberExtractor
     {
-        private readonly IFhirDataStore _fhirDataStore;
+        private readonly IScoped<IFhirDataStore> _fhirDataStore;
         private readonly ResourceDeserializer _resourceDeserializer;
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
 
         public GroupMemberExtractor(
-            IFhirDataStore fhirDataStore,
+            IScoped<IFhirDataStore> fhirDataStore,
             ResourceDeserializer resourceDeserializer,
             Func<IScoped<ISearchService>> searchServiceFactory)
         {
@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         public async Task<List<Tuple<string, string>>> GetGroupMembers(string groupId, CancellationToken cancellationToken)
         {
-            var groupResource = await _fhirDataStore.GetAsync(new ResourceKey(KnownResourceTypes.Group, groupId), cancellationToken);
+            var groupResource = await _fhirDataStore.Value.GetAsync(new ResourceKey(KnownResourceTypes.Group, groupId), cancellationToken);
 
             var group = _resourceDeserializer.Deserialize(groupResource);
             var groupContents = group.ToPoco<Group>().Member;

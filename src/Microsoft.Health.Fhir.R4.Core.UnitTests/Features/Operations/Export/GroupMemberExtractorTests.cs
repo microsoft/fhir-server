@@ -7,6 +7,7 @@ using System;
 using System.Threading;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
@@ -41,7 +42,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     return _resourceElement;
                 })));
 
-            _groupMemberExtractor = new GroupMemberExtractor(_fhirDataStore, _resourceDeserializer);
+            var fhirDataScope = Substitute.For<IScoped<IFhirDataStore>>();
+            fhirDataScope.Value.Returns(_fhirDataStore);
+
+            _groupMemberExtractor = new GroupMemberExtractor(
+                fhirDataScope,
+                _resourceDeserializer);
         }
 
         [Fact]

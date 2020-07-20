@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
@@ -17,11 +18,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
     public class GroupMemberExtractor : IGroupMemberExtractor
     {
-        private readonly IFhirDataStore _fhirDataStore;
+        private readonly IScoped<IFhirDataStore> _fhirDataStore;
         private readonly ResourceDeserializer _resourceDeserializer;
 
         public GroupMemberExtractor(
-            IFhirDataStore fhirDataStore,
+            IScoped<IFhirDataStore> fhirDataStore,
             ResourceDeserializer resourceDeserializer)
         {
             EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
@@ -33,7 +34,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         public async Task<List<Tuple<string, string>>> GetGroupMembers(string groupId, CancellationToken cancellationToken)
         {
-            var groupResource = await _fhirDataStore.GetAsync(new ResourceKey(KnownResourceTypes.Group, groupId), cancellationToken);
+            var groupResource = await _fhirDataStore.Value.GetAsync(new ResourceKey(KnownResourceTypes.Group, groupId), cancellationToken);
 
             var group = _resourceDeserializer.Deserialize(groupResource);
             var groupContents = group.ToPoco<Group>().Member;

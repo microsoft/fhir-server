@@ -47,13 +47,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     return _resourceElement;
                 })));
 
-            var scope = Substitute.For<IScoped<ISearchService>>();
-            scope.Value.Returns(_searchService);
+            var searchScope = Substitute.For<IScoped<ISearchService>>();
+            searchScope.Value.Returns(_searchService);
+
+            var fhirDataScope = Substitute.For<IScoped<IFhirDataStore>>();
+            fhirDataScope.Value.Returns(_fhirDataStore);
 
             _groupMemberExtractor = new GroupMemberExtractor(
-                _fhirDataStore,
+                fhirDataScope,
                 _resourceDeserializer,
-                () => scope);
+                () => searchScope);
         }
 
         [Fact]
