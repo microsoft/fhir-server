@@ -32,6 +32,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
     public class ExportJobTaskTests
     {
         private const string PatientFileName = "Patient.ndjson";
+        private const string ObservationFileName = "Observation.ndjson";
         private static readonly WeakETag _weakETag = WeakETag.FromVersionId("0");
 
         private ExportJobRecord _exportJobRecord;
@@ -72,7 +73,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var exportJobRecordWithOneResource = new ExportJobRecord(
                 new Uri("https://localhost/ExportJob/"),
-                "Patient",
+                ExportJobType.Patient,
+                null,
                 "hash",
                 storageAccountConnectionHash: string.Empty,
                 storageAccountUri: _exportJobConfiguration.StorageAccountUri,
@@ -83,8 +85,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             // First search should not have continuation token in the list of query parameters.
             _searchService.SearchAsync(
-                _exportJobRecord.ResourceType,
-                Arg.Is(CreateQueryParametersExpression()),
+                null,
+                Arg.Is(CreateQueryParametersExpression(KnownResourceTypes.Patient)),
                 _cancellationToken)
                 .Returns(x =>
                 {
@@ -105,7 +107,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var exportJobRecordWithSince = new ExportJobRecord(
                 new Uri("https://localhost/ExportJob/"),
-                "Patient",
+                ExportJobType.Patient,
+                null,
                 "hash",
                 since: Core.Models.PartialDateTime.MinValue,
                 storageAccountConnectionHash: string.Empty,
@@ -117,8 +120,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             // First search should not have continuation token in the list of query parameters.
             _searchService.SearchAsync(
-                _exportJobRecord.ResourceType,
-                Arg.Is(CreateQueryParametersExpression(_exportJobRecord.Since)),
+                null,
+                Arg.Is(CreateQueryParametersExpression(_exportJobRecord.Since, KnownResourceTypes.Patient)),
                 _cancellationToken)
                 .Returns(x =>
                 {
@@ -139,7 +142,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var exportJobRecordWithOneResource = new ExportJobRecord(
                 new Uri("https://localhost/ExportJob/"),
-                "Patient",
+                ExportJobType.Patient,
+                null,
                 "hash",
                 storageAccountConnectionHash: string.Empty,
                 storageAccountUri: _exportJobConfiguration.StorageAccountUri,
@@ -150,8 +154,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             // First search returns a search result with continuation token.
             _searchService.SearchAsync(
-                _exportJobRecord.ResourceType,
-                Arg.Is(CreateQueryParametersExpression()),
+                null,
+                Arg.Is(CreateQueryParametersExpression(KnownResourceTypes.Patient)),
                 _cancellationToken)
                 .Returns(CreateSearchResult(continuationToken: continuationToken));
 
@@ -159,8 +163,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             // Second search returns a search result without continuation token.
             _searchService.SearchAsync(
-                _exportJobRecord.ResourceType,
-                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(continuationToken)),
+                null,
+                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(continuationToken, KnownResourceTypes.Patient)),
                 _cancellationToken)
                 .Returns(x =>
                 {
@@ -181,7 +185,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var exportJobRecordWithSince = new ExportJobRecord(
                 new Uri("https://localhost/ExportJob/"),
-                "Patient",
+                ExportJobType.Patient,
+                null,
                 "hash",
                 since: PartialDateTime.MinValue,
                 storageAccountConnectionHash: string.Empty,
@@ -192,8 +197,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             // First search returns a search result with continuation token.
             _searchService.SearchAsync(
-                _exportJobRecord.ResourceType,
-                Arg.Is(CreateQueryParametersExpression(_exportJobRecord.Since)),
+                null,
+                Arg.Is(CreateQueryParametersExpression(_exportJobRecord.Since, KnownResourceTypes.Patient)),
                 _cancellationToken)
                 .Returns(CreateSearchResult(continuationToken: continuationToken));
 
@@ -201,8 +206,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             // Second search returns a search result without continuation token.
             _searchService.SearchAsync(
-                _exportJobRecord.ResourceType,
-                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(continuationToken, _exportJobRecord.Since)),
+                null,
+                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(continuationToken, _exportJobRecord.Since, KnownResourceTypes.Patient)),
                 _cancellationToken)
                 .Returns(x =>
                 {
@@ -223,7 +228,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var exportJobRecordWithOneResource = new ExportJobRecord(
                 new Uri("https://localhost/ExportJob/"),
-                "Patient",
+                ExportJobType.Patient,
+                null,
                 "hash",
                 storageAccountConnectionHash: string.Empty,
                 storageAccountUri: _exportJobConfiguration.StorageAccountUri,
@@ -234,8 +240,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             // First search returns a search result with continuation token.
             _searchService.SearchAsync(
-                _exportJobRecord.ResourceType,
-                Arg.Is(CreateQueryParametersExpression()),
+                null,
+                Arg.Is(CreateQueryParametersExpression(KnownResourceTypes.Patient)),
                 _cancellationToken)
                 .Returns(CreateSearchResult(continuationToken: continuationToken));
 
@@ -244,8 +250,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             // Second search returns a search result with continuation token.
             _searchService.SearchAsync(
-                _exportJobRecord.ResourceType,
-                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(continuationToken)),
+                null,
+                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(continuationToken, KnownResourceTypes.Patient)),
                 _cancellationToken)
                 .Returns(x =>
                 {
@@ -258,8 +264,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             // Third search returns a search result without continuation token.
             _searchService.SearchAsync(
-                _exportJobRecord.ResourceType,
-                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(newContinuationToken)),
+                null,
+                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(newContinuationToken, KnownResourceTypes.Patient)),
                 _cancellationToken)
                 .Returns(x =>
                 {
@@ -281,7 +287,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var exportJobRecordWithSince = new ExportJobRecord(
                 new Uri("https://localhost/ExportJob/"),
-                "Patient",
+                ExportJobType.Patient,
+                null,
                 "hash",
                 since: PartialDateTime.MinValue,
                 storageAccountConnectionHash: string.Empty,
@@ -292,8 +299,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             // First search returns a search result with continuation token.
             _searchService.SearchAsync(
-                _exportJobRecord.ResourceType,
-                Arg.Is(CreateQueryParametersExpression(_exportJobRecord.Since)),
+                null,
+                Arg.Is(CreateQueryParametersExpression(_exportJobRecord.Since, KnownResourceTypes.Patient)),
                 _cancellationToken)
                 .Returns(CreateSearchResult(continuationToken: continuationToken));
 
@@ -302,8 +309,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             // Second search returns a search result with continuation token.
             _searchService.SearchAsync(
-                _exportJobRecord.ResourceType,
-                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(continuationToken, _exportJobRecord.Since)),
+                null,
+                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(continuationToken, _exportJobRecord.Since, KnownResourceTypes.Patient)),
                 _cancellationToken)
                 .Returns(x =>
                 {
@@ -316,8 +323,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             // Third search returns a search result without continuation token.
             _searchService.SearchAsync(
-                _exportJobRecord.ResourceType,
-                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(newContinuationToken, _exportJobRecord.Since)),
+                null,
+                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(newContinuationToken, _exportJobRecord.Since, KnownResourceTypes.Patient)),
                 _cancellationToken)
                 .Returns(x =>
                 {
@@ -332,36 +339,40 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.True(secondCapturedSearch);
         }
 
-        private Expression<Predicate<IReadOnlyList<Tuple<string, string>>>> CreateQueryParametersExpression()
-        {
-            return arg => arg != null &&
-                Tuple.Create("_count", "1").Equals(arg[0]) &&
-                Tuple.Create("_lastUpdated", $"le{_exportJobRecord.QueuedTime.ToString("o")}").Equals(arg[1]);
-        }
-
-        private Expression<Predicate<IReadOnlyList<Tuple<string, string>>>> CreateQueryParametersExpression(PartialDateTime since)
+        private Expression<Predicate<IReadOnlyList<Tuple<string, string>>>> CreateQueryParametersExpression(string resourceType)
         {
             return arg => arg != null &&
                 Tuple.Create("_count", "1").Equals(arg[0]) &&
                 Tuple.Create("_lastUpdated", $"le{_exportJobRecord.QueuedTime.ToString("o")}").Equals(arg[1]) &&
-                Tuple.Create("_lastUpdated", $"ge{since}").Equals(arg[2]);
+                Tuple.Create("_type", resourceType).Equals(arg[2]);
         }
 
-        private Expression<Predicate<IReadOnlyList<Tuple<string, string>>>> CreateQueryParametersExpressionWithContinuationToken(string continuationToken)
-        {
-            return arg => arg != null &&
-                Tuple.Create("_count", "1").Equals(arg[0]) &&
-                Tuple.Create("_lastUpdated", $"le{_exportJobRecord.QueuedTime.ToString("o")}").Equals(arg[1]) &&
-                Tuple.Create("ct", continuationToken).Equals(arg[2]);
-        }
-
-        private Expression<Predicate<IReadOnlyList<Tuple<string, string>>>> CreateQueryParametersExpressionWithContinuationToken(string continuationToken, PartialDateTime since)
+        private Expression<Predicate<IReadOnlyList<Tuple<string, string>>>> CreateQueryParametersExpression(PartialDateTime since, string resourceType)
         {
             return arg => arg != null &&
                 Tuple.Create("_count", "1").Equals(arg[0]) &&
                 Tuple.Create("_lastUpdated", $"le{_exportJobRecord.QueuedTime.ToString("o")}").Equals(arg[1]) &&
                 Tuple.Create("_lastUpdated", $"ge{since}").Equals(arg[2]) &&
+                Tuple.Create("_type", resourceType).Equals(arg[3]);
+        }
+
+        private Expression<Predicate<IReadOnlyList<Tuple<string, string>>>> CreateQueryParametersExpressionWithContinuationToken(string continuationToken, string resourceType)
+        {
+            return arg => arg != null &&
+                Tuple.Create("_count", "1").Equals(arg[0]) &&
+                Tuple.Create("_lastUpdated", $"le{_exportJobRecord.QueuedTime.ToString("o")}").Equals(arg[1]) &&
+                Tuple.Create("_type", resourceType).Equals(arg[2]) &&
                 Tuple.Create("ct", continuationToken).Equals(arg[3]);
+        }
+
+        private Expression<Predicate<IReadOnlyList<Tuple<string, string>>>> CreateQueryParametersExpressionWithContinuationToken(string continuationToken, PartialDateTime since, string resourceType)
+        {
+            return arg => arg != null &&
+                Tuple.Create("_count", "1").Equals(arg[0]) &&
+                Tuple.Create("_lastUpdated", $"le{_exportJobRecord.QueuedTime.ToString("o")}").Equals(arg[1]) &&
+                Tuple.Create("_lastUpdated", $"ge{since}").Equals(arg[2]) &&
+                Tuple.Create("_type", resourceType).Equals(arg[3]) &&
+                Tuple.Create("ct", continuationToken).Equals(arg[4]);
         }
 
         [Fact]
@@ -422,7 +433,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             var exportJobRecordWithCommitPages = new ExportJobRecord(
                 new Uri("https://localhost/ExportJob/"),
-                "Patient",
+                ExportJobType.All,
+                null,
                 "hash",
                 since: PartialDateTime.MinValue,
                 storageAccountConnectionHash: string.Empty,
@@ -477,7 +489,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             var exportJobRecordWithCommitPages = new ExportJobRecord(
                  new Uri("https://localhost/ExportJob/"),
-                 "Patient",
+                 ExportJobType.All,
+                 null,
                  "hash",
                  since: PartialDateTime.MinValue,
                  storageAccountConnectionHash: string.Empty,
@@ -564,7 +577,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var exportJobRecordWithConnection = new ExportJobRecord(
                 new Uri("https://localhost/ExportJob/"),
-                "Patient",
+                ExportJobType.Patient,
+                null,
                 "hash",
                 since: PartialDateTime.MinValue,
                 storageAccountConnectionHash: Microsoft.Health.Core.Extensions.StringExtensions.ComputeHash(exportJobConfiguration.StorageAccountConnection),
@@ -604,7 +618,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             var exportJobRecordWithChangedConnection = new ExportJobRecord(
                 new Uri("https://localhost/ExportJob/"),
-                "Patient",
+                ExportJobType.Patient,
+                null,
                 "hash",
                 since: PartialDateTime.MinValue,
                 storageAccountConnectionHash: Microsoft.Health.Core.Extensions.StringExtensions.ComputeHash("different connection"),
@@ -632,7 +647,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             var exportJobRecordWithChangedConnection = new ExportJobRecord(
                 new Uri("https://localhost/ExportJob/"),
-                "Patient",
+                ExportJobType.Patient,
+                null,
                 "hash",
                 since: PartialDateTime.MinValue,
                 storageAccountConnectionHash: Microsoft.Health.Core.Extensions.StringExtensions.ComputeHash(_exportJobConfiguration.StorageAccountConnection),
@@ -673,7 +689,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // "crashing" while in the middle of the process.
             var exportJobRecordWithCommitPages = new ExportJobRecord(
                 new Uri("https://localhost/ExportJob/"),
-                "Patient",
+                ExportJobType.All,
+                null,
                 "hash",
                 since: PartialDateTime.MinValue,
                 storageAccountConnectionHash: string.Empty,
@@ -745,6 +762,623 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal("23", exportedIds);
         }
 
+        [Fact]
+        public async Task GivenAPatientExportJob_WhenExecuted_ThenAllCompartmentResourcesShouldBeExported()
+        {
+            int numberOfCalls = 0;
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    numberOfCalls++;
+                    return CreateSearchResult(
+                        new[]
+                        {
+                            new SearchResultEntry(
+                                new ResourceWrapper(
+                                    numberOfCalls.ToString(CultureInfo.InvariantCulture),
+                                    "1",
+                                    "Patient",
+                                    new RawResource("data", Core.Models.FhirResourceFormat.Json),
+                                    null,
+                                    DateTimeOffset.MinValue,
+                                    false,
+                                    null,
+                                    null,
+                                    null)),
+                        },
+                        continuationToken: numberOfCalls > 3 ? null : "ct");
+                });
+
+            int numberOfCompartmentCalls = 0;
+            _searchService.SearchCompartmentAsync(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    numberOfCompartmentCalls++;
+                    return CreateSearchResult(
+                        new[]
+                        {
+                            new SearchResultEntry(
+                                new ResourceWrapper(
+                                    numberOfCompartmentCalls.ToString(CultureInfo.InvariantCulture),
+                                    "1",
+                                    "Observation",
+                                    new RawResource("data", Core.Models.FhirResourceFormat.Json),
+                                    null,
+                                    DateTimeOffset.MinValue,
+                                    false,
+                                    null,
+                                    null,
+                                    null)),
+                        },
+                        continuationToken: numberOfCompartmentCalls % 2 == 0 ? null : "ct");
+                });
+
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            Assert.Equal(4, numberOfCalls);
+            Assert.Equal(8, numberOfCompartmentCalls);
+
+            string exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
+            Assert.Equal("1234", exportedIds);
+            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
+            Assert.Equal("12345678", exportedIds);
+
+            Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
+        }
+
+        [Fact]
+        public async Task GivenAPatientExportJobWithNoCompartmentResources_WhenExecuted_ThenJustAllPatientResourcesShouldBeExported()
+        {
+            int numberOfCalls = 0;
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    numberOfCalls++;
+                    return CreateSearchResult(
+                        new[]
+                        {
+                            new SearchResultEntry(
+                                new ResourceWrapper(
+                                    numberOfCalls.ToString(CultureInfo.InvariantCulture),
+                                    "1",
+                                    "Patient",
+                                    new RawResource("data", Core.Models.FhirResourceFormat.Json),
+                                    null,
+                                    DateTimeOffset.MinValue,
+                                    false,
+                                    null,
+                                    null,
+                                    null)),
+                        },
+                        continuationToken: numberOfCalls > 3 ? null : "ct");
+                });
+
+            int numberOfCompartmentCalls = 0;
+            _searchService.SearchCompartmentAsync(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    numberOfCompartmentCalls++;
+                    return CreateSearchResult();
+                });
+
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            Assert.Equal(4, numberOfCalls);
+            Assert.Equal(4, numberOfCompartmentCalls);
+
+            string exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
+            Assert.Equal("1234", exportedIds);
+            Assert.Equal(1, _inMemoryDestinationClient.ExportedDataFileCount);
+
+            Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
+        }
+
+        [Fact]
+        public async Task GivenAPatientExportJobToResumeWithinACompartment_WhenExecuted_ThenItShouldExportAllResources()
+        {
+            // We are using the SearchService to throw an exception in order to simulate the export job task
+            // "crashing" while in the middle of the process.
+            var exportJobRecordWithCommitPages = new ExportJobRecord(
+                new Uri("https://localhost/ExportJob/"),
+                ExportJobType.Patient,
+                null,
+                "hash",
+                since: PartialDateTime.MinValue,
+                storageAccountConnectionHash: string.Empty,
+                storageAccountUri: _exportJobConfiguration.StorageAccountUri,
+                maximumNumberOfResourcesPerQuery: _exportJobConfiguration.MaximumNumberOfResourcesPerQuery,
+                numberOfPagesPerCommit: 2);
+            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithCommitPages);
+
+            int numberOfCalls = 0;
+
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    numberOfCalls++;
+                    return CreateSearchResult(
+                        new[]
+                        {
+                            new SearchResultEntry(
+                                new ResourceWrapper(
+                                    "1",
+                                    "1",
+                                    "Patient",
+                                    new RawResource("data", Core.Models.FhirResourceFormat.Json),
+                                    null,
+                                    DateTimeOffset.MinValue,
+                                    false,
+                                    null,
+                                    null,
+                                    null)),
+                            new SearchResultEntry(
+                                new ResourceWrapper(
+                                    "2",
+                                    "1",
+                                    "Patient",
+                                    new RawResource("data", Core.Models.FhirResourceFormat.Json),
+                                    null,
+                                    DateTimeOffset.MinValue,
+                                    false,
+                                    null,
+                                    null,
+                                    null)),
+                        });
+                });
+
+            int numberOfCompartmentCalls = 0;
+            int numberOfSuccessfulCompartmentPages = 5;
+
+            _searchService.SearchCompartmentAsync(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    numberOfCompartmentCalls++;
+                    if (numberOfCompartmentCalls % numberOfSuccessfulCompartmentPages == 0)
+                    {
+                        throw new Exception();
+                    }
+
+                    return CreateSearchResult(
+                        new[]
+                        {
+                            new SearchResultEntry(
+                                new ResourceWrapper(
+                                    numberOfCompartmentCalls.ToString(CultureInfo.InvariantCulture),
+                                    "1",
+                                    "Observation",
+                                    new RawResource("data", Core.Models.FhirResourceFormat.Json),
+                                    null,
+                                    DateTimeOffset.MinValue,
+                                    false,
+                                    null,
+                                    null,
+                                    null)),
+                        },
+                        continuationToken: numberOfCompartmentCalls % 3 == 0 ? null : "ct");
+                });
+
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            string exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
+            Assert.Null(exportedIds);
+
+            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
+            Assert.Equal("123", exportedIds);
+
+            Assert.NotNull(_exportJobRecord.Progress);
+            Assert.NotNull(_exportJobRecord.Progress.SubSearch);
+
+            // We create a new export job task here to simulate the worker picking up the "old" export job record
+            // and resuming the export process. The export destination client contains data that has
+            // been committed up until the "crash".
+            _inMemoryDestinationClient = new InMemoryExportDestinationClient();
+
+            var secondExportJobTask = new ExportJobTask(
+                () => _fhirOperationDataStore.CreateMockScope(),
+                Options.Create(_exportJobConfiguration),
+                () => _searchService.CreateMockScope(),
+                _resourceToByteArraySerializer,
+                _inMemoryDestinationClient,
+                NullLogger<ExportJobTask>.Instance);
+
+            await secondExportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
+            Assert.Equal("12", exportedIds);
+
+            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
+
+            // 4 was in the commit buffer when the crash happened, and 5 is the one that triggered the crash.
+            // Since the 'id' is based on the number of times the mock method has been called these values never get exported.
+            Assert.Equal("6", exportedIds);
+
+            Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
+        }
+
+        [Fact]
+        public async Task GivenAPatientExportJobToResumeWithMultiplePagesOfPatientsWithinACompartment_WhenExecuted_ThenItShouldExportAllResources()
+        {
+            // We are using the SearchService to throw an exception in order to simulate the export job task
+            // "crashing" while in the middle of the process.
+            var exportJobRecordWithCommitPages = new ExportJobRecord(
+                new Uri("https://localhost/ExportJob/"),
+                ExportJobType.Patient,
+                null,
+                "hash",
+                since: PartialDateTime.MinValue,
+                storageAccountConnectionHash: string.Empty,
+                storageAccountUri: _exportJobConfiguration.StorageAccountUri,
+                maximumNumberOfResourcesPerQuery: _exportJobConfiguration.MaximumNumberOfResourcesPerQuery,
+                numberOfPagesPerCommit: 2);
+            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithCommitPages);
+
+            int numberOfCalls = 0;
+
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    numberOfCalls++;
+                    return CreateSearchResult(
+                        new[]
+                        {
+                            new SearchResultEntry(
+                                new ResourceWrapper(
+                                    numberOfCalls.ToString(CultureInfo.InvariantCulture),
+                                    "1",
+                                    "Patient",
+                                    new RawResource("data", Core.Models.FhirResourceFormat.Json),
+                                    null,
+                                    DateTimeOffset.MinValue,
+                                    false,
+                                    null,
+                                    null,
+                                    null)),
+                        },
+                        continuationToken: numberOfCalls > 1 ? null : "ct");
+                });
+
+            int numberOfCompartmentCalls = 0;
+            int numberOfSuccessfulCompartmentPages = 5;
+
+            _searchService.SearchCompartmentAsync(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    numberOfCompartmentCalls++;
+                    if (numberOfCompartmentCalls % numberOfSuccessfulCompartmentPages == 0)
+                    {
+                        throw new Exception();
+                    }
+
+                    return CreateSearchResult(
+                        new[]
+                        {
+                            new SearchResultEntry(
+                                new ResourceWrapper(
+                                    numberOfCompartmentCalls.ToString(CultureInfo.InvariantCulture),
+                                    "1",
+                                    "Observation",
+                                    new RawResource("data", Core.Models.FhirResourceFormat.Json),
+                                    null,
+                                    DateTimeOffset.MinValue,
+                                    false,
+                                    null,
+                                    null,
+                                    null)),
+                        },
+                        continuationToken: numberOfCompartmentCalls % 3 == 0 ? null : "ct");
+                });
+
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            string exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
+            Assert.Equal("1", exportedIds);
+
+            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
+            Assert.Equal("123", exportedIds);
+
+            Assert.NotNull(_exportJobRecord.Progress);
+            Assert.NotNull(_exportJobRecord.Progress.SubSearch);
+
+            // We create a new export job task here to simulate the worker picking up the "old" export job record
+            // and resuming the export process. The export destination client contains data that has
+            // been committed up until the "crash".
+            _inMemoryDestinationClient = new InMemoryExportDestinationClient();
+
+            var secondExportJobTask = new ExportJobTask(
+                () => _fhirOperationDataStore.CreateMockScope(),
+                Options.Create(_exportJobConfiguration),
+                () => _searchService.CreateMockScope(),
+                _resourceToByteArraySerializer,
+                _inMemoryDestinationClient,
+                NullLogger<ExportJobTask>.Instance);
+
+            // Reseting the number of calls so that the ressource id of the Patient is the same ('2') as it was when the crash happened.
+            numberOfCalls = 1;
+            await secondExportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
+
+            Assert.Equal("2", exportedIds);
+
+            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
+
+            // 4 was in the commit buffer when the crash happened, and 5 is the one that triggered the crash.
+            // Since the 'id' is based on the number of times the mock method has been called these values never get exported.
+            Assert.Equal("6", exportedIds);
+
+            Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
+        }
+
+        [Fact]
+        public async Task GivenAnExportJobWithTheTypeParameter_WhenExecuted_ThenOnlyResourcesOfTheGivenTypesAreExported()
+        {
+            var exportJobRecordWithCommitPages = new ExportJobRecord(
+               new Uri("https://localhost/ExportJob/"),
+               ExportJobType.All,
+               KnownResourceTypes.Observation + "," + KnownResourceTypes.Encounter,
+               "hash",
+               since: PartialDateTime.MinValue,
+               storageAccountConnectionHash: string.Empty,
+               storageAccountUri: _exportJobConfiguration.StorageAccountUri,
+               maximumNumberOfResourcesPerQuery: _exportJobConfiguration.MaximumNumberOfResourcesPerQuery,
+               numberOfPagesPerCommit: 2);
+            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithCommitPages);
+
+            _searchService.SearchAsync(
+                null,
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    string[] types = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[3].Item2.Split(',');
+                    SearchResultEntry[] entries = new SearchResultEntry[types.Length];
+
+                    for (int index = 0; index < types.Length; index++)
+                    {
+                        entries[index] = new SearchResultEntry(
+                                new ResourceWrapper(
+                                    index.ToString(CultureInfo.InvariantCulture),
+                                    "1",
+                                    types[index],
+                                    new RawResource("data", Core.Models.FhirResourceFormat.Json),
+                                    null,
+                                    DateTimeOffset.MinValue,
+                                    false,
+                                    null,
+                                    null,
+                                    null));
+                    }
+
+                    return CreateSearchResult(entries);
+                });
+
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            string exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
+            Assert.Equal("0", exportedIds);
+            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri("Encounter.ndjson", UriKind.Relative));
+            Assert.Equal("1", exportedIds);
+            Assert.Equal(2, _inMemoryDestinationClient.ExportedDataFileCount);
+
+            Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
+        }
+
+        [Fact]
+        public async Task GivenAPatientExportJobWithTheTypeParameter_WhenExecuted_ThenOnlyCompartmentResourcesOfTheGivenTypesAreExported()
+        {
+            var exportJobRecordWithCommitPages = new ExportJobRecord(
+                new Uri("https://localhost/ExportJob/"),
+                ExportJobType.Patient,
+                KnownResourceTypes.Observation,
+                "hash",
+                since: PartialDateTime.MinValue,
+                storageAccountConnectionHash: string.Empty,
+                storageAccountUri: _exportJobConfiguration.StorageAccountUri,
+                maximumNumberOfResourcesPerQuery: _exportJobConfiguration.MaximumNumberOfResourcesPerQuery,
+                numberOfPagesPerCommit: 2);
+            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithCommitPages);
+
+            _searchService.SearchAsync(
+                null,
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    return CreateSearchResult(
+                        new[]
+                        {
+                            new SearchResultEntry(
+                                new ResourceWrapper(
+                                    "1",
+                                    "1",
+                                    "Patient",
+                                    new RawResource("data", Core.Models.FhirResourceFormat.Json),
+                                    null,
+                                    DateTimeOffset.MinValue,
+                                    false,
+                                    null,
+                                    null,
+                                    null)),
+                        });
+                });
+
+            _searchService.SearchCompartmentAsync(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    string[] types = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(3)[3].Item2.Split(',');
+                    SearchResultEntry[] entries = new SearchResultEntry[types.Length];
+
+                    for (int index = 0; index < types.Length; index++)
+                    {
+                        entries[index] = new SearchResultEntry(
+                                new ResourceWrapper(
+                                    index.ToString(CultureInfo.InvariantCulture),
+                                    "1",
+                                    types[index],
+                                    new RawResource("data", Core.Models.FhirResourceFormat.Json),
+                                    null,
+                                    DateTimeOffset.MinValue,
+                                    false,
+                                    null,
+                                    null,
+                                    null));
+                    }
+
+                    return CreateSearchResult(entries);
+                });
+
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            string exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
+            Assert.Equal("1", exportedIds);
+            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
+            Assert.Equal("0", exportedIds);
+            Assert.Equal(2, _inMemoryDestinationClient.ExportedDataFileCount);
+
+            Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
+        }
+
+        [Fact]
+        public async Task GivenAnExportJobToResumeWithTheTypeParameter_WhenExecuted_ThenOnlyResourcesOfTheGivenTypesAreExported()
+        {
+            var exportJobRecordWithCommitPages = new ExportJobRecord(
+                new Uri("https://localhost/ExportJob/"),
+                ExportJobType.All,
+                KnownResourceTypes.Observation + "," + KnownResourceTypes.Encounter,
+                "hash",
+                since: PartialDateTime.MinValue,
+                storageAccountConnectionHash: string.Empty,
+                storageAccountUri: _exportJobConfiguration.StorageAccountUri,
+                maximumNumberOfResourcesPerQuery: _exportJobConfiguration.MaximumNumberOfResourcesPerQuery,
+                numberOfPagesPerCommit: 1);
+            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithCommitPages);
+
+            int searchCallsMade = 0;
+            _searchService.SearchAsync(
+                null,
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    searchCallsMade++;
+                    var queryParameterList = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1);
+
+                    bool typeParameterIncluded = false;
+                    bool continuationTokenParameterIncluded = false;
+                    string[] types = null;
+
+                    foreach (Tuple<string, string> parameter in queryParameterList)
+                    {
+                        if (parameter.Item1 == Core.Features.KnownQueryParameterNames.ContinuationToken)
+                        {
+                            continuationTokenParameterIncluded = true;
+                        }
+                        else if (parameter.Item1 == Core.Features.KnownQueryParameterNames.Type)
+                        {
+                            typeParameterIncluded = true;
+                            types = parameter.Item2.Split(',');
+                        }
+                    }
+
+                    Assert.True(typeParameterIncluded);
+                    Assert.Equal(searchCallsMade > 1 ? true : false, continuationTokenParameterIncluded);
+
+                    if (searchCallsMade == 2)
+                    {
+                        throw new Exception();
+                    }
+
+                    SearchResultEntry[] entries = new SearchResultEntry[types.Length];
+
+                    for (int index = 0; index < types.Length; index++)
+                    {
+                        entries[index] = new SearchResultEntry(
+                            new ResourceWrapper(
+                                searchCallsMade.ToString(CultureInfo.InvariantCulture),
+                                "1",
+                                types[index],
+                                new RawResource("data", Core.Models.FhirResourceFormat.Json),
+                                null,
+                                DateTimeOffset.MinValue,
+                                false,
+                                null,
+                                null,
+                                null));
+                    }
+
+                    return CreateSearchResult(entries, searchCallsMade < 4 ? "ct" : null);
+                });
+
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            string exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
+            Assert.Equal("1", exportedIds);
+            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri("Encounter.ndjson", UriKind.Relative));
+            Assert.Equal("1", exportedIds);
+            Assert.Equal(2, _inMemoryDestinationClient.ExportedDataFileCount);
+
+            // We create a new export job task here to simulate the worker picking up the "old" export job record
+            // and resuming the export process. The export destination client contains data that has
+            // been committed up until the "crash".
+            _inMemoryDestinationClient = new InMemoryExportDestinationClient();
+
+            var secondExportJobTask = new ExportJobTask(
+                () => _fhirOperationDataStore.CreateMockScope(),
+                Options.Create(_exportJobConfiguration),
+                () => _searchService.CreateMockScope(),
+                _resourceToByteArraySerializer,
+                _inMemoryDestinationClient,
+                NullLogger<ExportJobTask>.Instance);
+
+            // Reseting the number of calls so that the ressource id of the Patient is the same ('2') as it was when the crash happened.
+            await secondExportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
+            Assert.Equal("34", exportedIds);
+            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri("Encounter.ndjson", UriKind.Relative));
+            Assert.Equal("34", exportedIds);
+            Assert.Equal(2, _inMemoryDestinationClient.ExportedDataFileCount);
+
+            Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
+        }
+
         private SearchResult CreateSearchResult(IEnumerable<SearchResultEntry> resourceWrappers = null, string continuationToken = null)
         {
             if (resourceWrappers == null)
@@ -759,7 +1393,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             _exportJobRecord = exportJobRecord ?? new ExportJobRecord(
                 new Uri("https://localhost/ExportJob/"),
-                "Patient",
+                ExportJobType.Patient,
+                null,
                 "hash",
                 storageAccountConnectionHash: string.Empty,
                 storageAccountUri: _exportJobConfiguration.StorageAccountUri,

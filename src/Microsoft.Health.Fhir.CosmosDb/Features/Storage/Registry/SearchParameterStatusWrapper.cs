@@ -7,7 +7,6 @@ using System;
 using System.Text;
 using EnsureThat;
 using Microsoft.Health.Core.Extensions;
-using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Newtonsoft.Json;
 
