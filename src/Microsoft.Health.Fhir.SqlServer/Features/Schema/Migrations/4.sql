@@ -2222,10 +2222,9 @@ AS
     FROM dbo.SearchParam INNER JOIN @searchParams as sps
     ON dbo.SearchParam.Uri = sps.Uri
 
-    -- TODO: Replace Search Param Id with actual value.
     INSERT INTO dbo.SearchParam
-        (SearchParamId, Uri, Status, LastUpdated, IsPartiallySupported)
-    SELECT 67676767, sps.Uri, sps.Status, @lastUpdated, sps.IsPartiallySupported
+        (Uri, Status, LastUpdated, IsPartiallySupported)
+    SELECT sps.Uri, sps.Status, @lastUpdated, sps.IsPartiallySupported
     FROM @searchParams AS sps
     WHERE sps.Uri NOT IN
         (SELECT Uri FROM dbo.SearchParam)
