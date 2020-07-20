@@ -61,15 +61,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         queryParametersList,
                         cancellationToken);
 
-                    if (searchResult.Results.Count() > 1)
-                    {
-                        // throw exception...
-                    }
-                    else if (searchResult.Results.Count() == 0)
-                    {
-                        // throw exception...
-                    }
-
                     members.Add(new Tuple<string, string>(member.Entity.Reference, searchResult.Results.First().Resource.ResourceTypeName));
                 }
             }

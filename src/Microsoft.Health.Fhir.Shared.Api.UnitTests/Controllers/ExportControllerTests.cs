@@ -11,7 +11,6 @@ using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using NSubstitute;
 using Xunit;
@@ -49,12 +48,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         public async Task GivenAnExportResourceTypeIdRequest_WhenResourceTypeIsNotGroup_ThenRequestNotValidExceptionShouldBeThrown()
         {
             await Assert.ThrowsAsync<RequestNotValidException>(() => _exportEnabledController.ExportResourceTypeById(null, null, ResourceType.Patient.ToString(), "id"));
-        }
-
-        [Fact]
-        public async Task GivenAnExportByResourceTypeIdRequest_WhenResourceTypeIsGroup_ThenOperationNotImplementedExceptionShouldBeThrown()
-        {
-            await Assert.ThrowsAsync<OperationNotImplementedException>(() => _exportEnabledController.ExportResourceTypeById(null, null, ResourceType.Group.ToString(), "id"));
         }
 
         private ExportController GetController(ExportJobConfiguration exportConfig)
