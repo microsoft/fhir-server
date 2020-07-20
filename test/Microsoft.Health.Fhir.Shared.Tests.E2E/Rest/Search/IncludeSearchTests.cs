@@ -228,7 +228,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         // RevInclude
-        /* [Fact]
+        [Fact]
         public async Task GivenARevIncludeSearchExpression_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             // Ask for reverse include to get all Locations which reference an org
@@ -390,7 +390,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.AdamsPatient);
 
             ValidateSearchEntryMode(bundle, ResourceType.Patient);
-        }*/
+        }
 
         private static void ValidateSearchEntryMode(Bundle bundle, ResourceType matchResourceType)
         {
