@@ -36,35 +36,35 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
 
         public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses()
         {
-            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+            using (var sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
+            using (var sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
                 VLatest.GetSearchParamStatuses.PopulateCommand(sqlCommandWrapper);
 
                 var parameterStatuses = new List<ResourceSearchParameterStatus>();
 
                 // TODO: Make cancellation token an input.
-                using (SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, CancellationToken.None))
+                using (var sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, CancellationToken.None))
                 {
                     while (await sqlDataReader.ReadAsync())
                     {
-                        // (string uri, string stringStatus, DateTimeOffset? lastUpdated, bool isPartiallySupported) = sqlDataReader.ReadRow(
-                        //     VLatest.SearchParam.Uri,
-                        //     VLatest.SearchParam.Status,
-                        //     VLatest.SearchParam.LastUpdated,
-                        //     VLatest.SearchParam.IsPartiallySupported);
+                        (var uri, var stringStatus, DateTimeOffset? lastUpdated, bool? isPartiallySupported) = sqlDataReader.ReadRow(
+                            VLatest.SearchParam.Uri,
+                            VLatest.SearchParam.Status,
+                            VLatest.SearchParam.LastUpdated,
+                            VLatest.SearchParam.IsPartiallySupported);
 
-                        // var status = Enum.Parse<SearchParameterStatus>(stringStatus, true);
-                        //
-                        // var resourceSearchParameterStatus = new ResourceSearchParameterStatus()
-                        // {
-                        //     Uri = new Uri(uri),
-                        //     Status = status,
-                        //     IsPartiallySupported = isPartiallySupported,
-                        //     LastUpdated = (DateTimeOffset)lastUpdated,
-                        // };
+                        var status = Enum.Parse<SearchParameterStatus>(stringStatus, true);
 
-                        // parameterStatuses.Add(resourceSearchParameterStatus);
+                        var resourceSearchParameterStatus = new ResourceSearchParameterStatus()
+                        {
+                            Uri = new Uri(uri),
+                            Status = status,
+                            IsPartiallySupported = (bool)isPartiallySupported,
+                            LastUpdated = (DateTimeOffset)lastUpdated,
+                        };
+
+                        parameterStatuses.Add(resourceSearchParameterStatus);
                     }
                 }
 

@@ -262,6 +262,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
 
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly VarCharColumn Uri = new VarCharColumn("Uri", 128, "Latin1_General_100_CS_AS");
+            internal readonly NullableVarCharColumn Status = new NullableVarCharColumn("Status", 10);
+            internal readonly NullableDateTimeOffsetColumn LastUpdated = new NullableDateTimeOffsetColumn("LastUpdated", 7);
+            internal readonly NullableBitColumn IsPartiallySupported = new NullableBitColumn("IsPartiallySupported");
         }
 
         internal class StringSearchParamTable : Table
