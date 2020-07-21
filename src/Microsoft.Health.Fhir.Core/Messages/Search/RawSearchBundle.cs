@@ -17,5 +17,10 @@ namespace Microsoft.Health.Fhir.Core.Messages.Search
         public string Id { get; set; }
 
         public List<JRaw> Entry { get; } = new List<JRaw>();
+
+        public int Total
+        {
+            get { return Entry.Count; }
+        }
     }
 }
