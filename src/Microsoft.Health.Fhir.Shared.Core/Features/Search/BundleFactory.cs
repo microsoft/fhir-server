@@ -17,6 +17,7 @@ using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
+using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
@@ -62,7 +63,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 Id = Guid.NewGuid().ToString(),
             };
 
-            bundle.Entry.AddRange(result.Results.Select(x => x.Resource.RawResource.Data));
+            bundle.Entry.AddRange(result.Results.Select(x =>
+            {
+                var raw = new JRaw(x.Resource.RawResource.Data);
+
+                JObject meta = new JObject();
+
+                meta.Add(new JProperty("versionId", result.Version));
+                meta.Add(new JProperty("lastUpdated", result.LastModified));
+
+                raw.("meta", meta);
+
+
+                return raw;
+            }));
 
             return bundle;
         }

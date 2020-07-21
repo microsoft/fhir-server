@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Search
 {
@@ -15,6 +16,6 @@ namespace Microsoft.Health.Fhir.Core.Messages.Search
 
         public string Id { get; set; }
 
-        public List<string> Entry { get; } = new List<string>();
+        public List<JRaw> Entry { get; } = new List<JRaw>();
     }
 }
