@@ -58,26 +58,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             foreach (var result in searchResult.Results.Select(x => x.Resource))
             {
-                var raw = JObject.Parse(result.RawResource.Data);
-
-                JObject meta = (JObject)raw.GetValue("meta", StringComparison.OrdinalIgnoreCase);
-
-                bool hadValues = meta != null;
-
-                if (!hadValues)
-                {
-                    meta = new JObject();
-                }
-
-                meta.Add(new JProperty("versionId", result.Version));
-                meta.Add(new JProperty("lastUpdated", result.LastModified));
-
-                if (!hadValues)
-                {
-                    raw.Add("meta", meta);
-                }
-
-                result.RawResource = new RawResource(raw.ToString(), result.RawResource.Format);
+                result.RawResource = new RawResource(result.RawResource.Data, result.RawResource.Format);
             }
 
             RawSearchBundle bundle = _bundleFactory.CreateRawSearchBundle(searchResult);
