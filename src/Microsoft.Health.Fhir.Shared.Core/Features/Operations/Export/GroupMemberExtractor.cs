@@ -21,24 +21,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
     /// <summary>
     /// Class to get member ids and types out of a group. Split between common and version specifc code due to the change between Stu3 and R4 to the ResourceReference object.
     /// </summary>
-    public partial class GroupMemberExtractor : IGroupMemberExtractor
+    public class GroupMemberExtractor : IGroupMemberExtractor
     {
         private readonly IScoped<IFhirDataStore> _fhirDataStore;
         private readonly ResourceDeserializer _resourceDeserializer;
-        private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
+        private readonly IReferenceToElementResolver _referenceToElementResolver;
 
         public GroupMemberExtractor(
             IScoped<IFhirDataStore> fhirDataStore,
             ResourceDeserializer resourceDeserializer,
-            Func<IScoped<ISearchService>> searchServiceFactory)
+            IReferenceToElementResolver referenceToElementResolver)
         {
             EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
             EnsureArg.IsNotNull(resourceDeserializer, nameof(resourceDeserializer));
-            EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
+            EnsureArg.IsNotNull(referenceToElementResolver, nameof(referenceToElementResolver));
 
             _fhirDataStore = fhirDataStore;
             _resourceDeserializer = resourceDeserializer;
-            _searchServiceFactory = searchServiceFactory;
+            _referenceToElementResolver = referenceToElementResolver;
         }
 
         public async Task<List<Tuple<string, string>>> GetGroupMembers(string groupId, CancellationToken cancellationToken)
@@ -52,30 +52,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             foreach (Group.MemberComponent member in groupContents)
             {
-                var id = member.Entity.Reference;
-                var type = await GetResourceType(member, cancellationToken);
-                members.Add(new Tuple<string, string>(id, type));
+                var element = _referenceToElementResolver.Resolve(member.Entity.Reference);
+                string id = (string)element.Children("id").First().Value;
+                string resourceType = element.InstanceType;
+
+                members.Add(Tuple.Create(id, resourceType));
             }
 
             return members;
-        }
-
-        private async Task<string> GetResourceTypeFromDatabase(string id, CancellationToken cancellationToken)
-        {
-            using (IScoped<ISearchService> searchService = _searchServiceFactory())
-            {
-                var queryParametersList = new List<Tuple<string, string>>()
-                    {
-                        Tuple.Create(KnownQueryParameterNames.Id, id),
-                    };
-
-                var searchResult = await searchService.Value.SearchAsync(
-                    resourceType: null,
-                    queryParametersList,
-                    cancellationToken);
-
-                return searchResult.Results.First().Resource.ResourceTypeName;
-            }
         }
     }
 }

@@ -5,16 +5,17 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq.Expressions;
 using System.Threading;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
+using Hl7.Fhir.Specification;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
+using Newtonsoft.Json.Linq;
 using NSubstitute;
 using Xunit;
 
@@ -27,7 +28,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
         private readonly IFhirDataStore _fhirDataStore = Substitute.For<IFhirDataStore>();
         private readonly ResourceDeserializer _resourceDeserializer;
-        private readonly ISearchService _searchService = Substitute.For<ISearchService>();
+        private readonly IReferenceToElementResolver _referenceToElementResolver = Substitute.For<IReferenceToElementResolver>();
         private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
         private readonly CancellationToken _cancellationToken;
 
@@ -47,27 +48,51 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     return _resourceElement;
                 })));
 
-            var searchScope = Substitute.For<IScoped<ISearchService>>();
-            searchScope.Value.Returns(_searchService);
-
             var fhirDataScope = Substitute.For<IScoped<IFhirDataStore>>();
             fhirDataScope.Value.Returns(_fhirDataStore);
 
             _groupMemberExtractor = new GroupMemberExtractor(
                 fhirDataScope,
                 _resourceDeserializer,
-                () => searchScope);
+                _referenceToElementResolver);
         }
 
         [Fact]
         public async System.Threading.Tasks.Task GivenAGroupId_WhenExecuted_ThenTheMembersIdsAreReturned()
         {
+            var structureDefinitionSummaryProvider = new PocoStructureDefinitionSummaryProvider();
             var patientReference = "Patient Reference";
             var observationReference = "Observation Reference";
 
+            _referenceToElementResolver.Resolve(patientReference).Returns(x =>
+            {
+                ISourceNode node = FhirJsonNode.Create(
+                JObject.FromObject(
+                    new
+                    {
+                        resourceType = KnownResourceTypes.Patient,
+                        id = patientReference,
+                    }));
+
+                return node.ToTypedElement(structureDefinitionSummaryProvider);
+            });
+
+            _referenceToElementResolver.Resolve(observationReference).Returns(x =>
+            {
+                ISourceNode node = FhirJsonNode.Create(
+                JObject.FromObject(
+                    new
+                    {
+                        resourceType = KnownResourceTypes.Observation,
+                        id = observationReference,
+                    }));
+
+                return node.ToTypedElement(structureDefinitionSummaryProvider);
+            });
+
             var group = new Group()
             {
-                Member = new System.Collections.Generic.List<Group.MemberComponent>()
+                Member = new List<Group.MemberComponent>()
                 {
                     new Group.MemberComponent()
                     {
@@ -88,45 +113,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             _resourceElement = new ResourceElement(Substitute.For<ITypedElement>(), group);
 
-            _searchService.SearchAsync(
-                null,
-                Arg.Is(CreateQueryParametersExpression(patientReference)),
-                _cancellationToken)
-                .Returns(x => CreateSearchResult(KnownResourceTypes.Patient, patientReference));
-
-            _searchService.SearchAsync(
-                null,
-                Arg.Is(CreateQueryParametersExpression(observationReference)),
-                _cancellationToken)
-                .Returns(x => CreateSearchResult(KnownResourceTypes.Observation, observationReference));
-
             var groupMembers = await _groupMemberExtractor.GetGroupMembers("group", _cancellationToken);
 
             Assert.Equal(Tuple.Create(patientReference, KnownResourceTypes.Patient), groupMembers[0]);
             Assert.Equal(Tuple.Create(observationReference, KnownResourceTypes.Observation), groupMembers[1]);
             Assert.Equal(2, groupMembers.Count);
-        }
-
-        private Expression<Predicate<IReadOnlyList<Tuple<string, string>>>> CreateQueryParametersExpression(string id)
-        {
-            return arg => arg != null && Tuple.Create(KnownQueryParameterNames.Id, id).Equals(arg[0]);
-        }
-
-        private SearchResult CreateSearchResult(string resourceType, string id)
-        {
-            var entry = new SearchResultEntry(
-                        new ResourceWrapper(
-                            id,
-                            "1",
-                            resourceType,
-                            new RawResource("data", Core.Models.FhirResourceFormat.Json),
-                            null,
-                            DateTimeOffset.MinValue,
-                            false,
-                            null,
-                            null,
-                            null));
-            return new SearchResult(new SearchResultEntry[] { entry }, new Tuple<string, string>[0], Array.Empty<(string parameterName, string reason)>(), null);
         }
     }
 }
