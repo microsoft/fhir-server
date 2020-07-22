@@ -355,7 +355,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     }
                     else
                     {
-                        StringBuilder.Append("0 AS IsPartial "); // can't be partial as we are requesting all includes
+                        StringBuilder.Append("0 AS IsPartial, "); // can't be partial as we are requesting all includes
                     }
 
                     var table = !includeExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias;
