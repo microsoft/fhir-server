@@ -230,6 +230,8 @@ stages:
       version: R4
       dataStore: CosmosDb
       dnsSuffix: $(aksDnsSuffix)
+      clusterName: $(clusterName)
+      clusterResourceGroup: $(clusterResourceGroup)
 
 - stage: testAksR4Sql
   displayName: 'R4 SqlServer AKS Tests'
@@ -244,6 +246,8 @@ stages:
       version: R4
       dataStore: SqlServer
       dnsSuffix: $(aksDnsSuffix)
+      clusterName: $(clusterName)
+      clusterResourceGroup: $(clusterResourceGroup)
 
 - stage: testAksR4SqlContainer
   displayName: 'R4 SqlContainer AKS Tests'
@@ -258,6 +262,8 @@ stages:
       version: R4
       dataStore: SqlContainer
       dnsSuffix: $(aksDnsSuffix)
+      clusterName: $(clusterName)
+      clusterResourceGroup: $(clusterResourceGroup)
 
 - stage: testStu3
   displayName: 'Run Stu3 Tests'
@@ -313,9 +319,23 @@ stages:
 
 - stage: cleanup
   displayName: 'Cleanup Azure Environment'
+  condition: eq(variables.enableAks, false)
   dependsOn:
   - testStu3
   - testR4
   - testR5
+  jobs:
+  - template: ./jobs/cleanup.yml
+
+- stage: cleanupWaitAll
+  displayName: 'Cleanup Azure Environment'
+  condition: eq(variables.enableAks, true)
+  dependsOn:
+  - testStu3
+  - testR4
+  - testR5
+  - testAksR4Cosmos
+  - testAksR4Sql
+  - testAksR4SqlContainer
   jobs:
   - template: ./jobs/cleanup.yml

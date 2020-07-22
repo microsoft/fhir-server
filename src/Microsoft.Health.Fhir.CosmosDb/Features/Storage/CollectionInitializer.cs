@@ -39,11 +39,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             Database database = client.GetDatabase(_cosmosDataStoreConfiguration.DatabaseId);
             Container containerClient = database.GetContainer(_collectionId);
 
+            _logger.LogInformation("Finding Container: {collectionId}", _collectionId);
             var existingContainer = await database.TryGetContainerAsync(_collectionId);
 
             if (existingContainer == null)
             {
-                _logger.LogDebug("Creating Cosmos Container if not exits: {collectionId}", _collectionId);
+                _logger.LogInformation("Creating Cosmos Container if not exits: {collectionId}", _collectionId);
 
                 var containerResponse = await database.CreateContainerIfNotExistsAsync(
                     _collectionId,
@@ -52,7 +53,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                 containerResponse.Resource.DefaultTimeToLive = -1;
 
-                existingContainer = await database.GetContainer(_collectionId).ReplaceContainerAsync(containerResponse);
+                existingContainer = await containerClient.ReplaceContainerAsync(containerResponse);
 
                 if (_initialCollectionThroughput.HasValue)
                 {
