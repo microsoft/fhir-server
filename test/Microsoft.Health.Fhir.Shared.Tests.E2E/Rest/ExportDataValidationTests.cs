@@ -403,7 +403,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             return cloudAccount;
         }
 
-        private async Task<(Dictionary<(string resourceType, string resourceId), string> serverData, string groupId)> CreateGroupWithPatient(bool includeObservationInServerData)
+        private async Task<(Dictionary<(string resourceType, string resourceId), string> serverData, string groupId)> CreateGroupWithPatient(bool includeAllCompartmentResources)
         {
             // Add data for test
             var patient = new Patient();
@@ -462,9 +462,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             resourceDictionary.Add((KnownResourceTypes.Patient, patientId), patientResponse.Resource.ToJson().Trim());
             resourceDictionary.Add((KnownResourceTypes.Encounter, encounterId), encounterResponse.Resource.ToJson().Trim());
 
-            if (includeObservationInServerData)
+            if (includeAllCompartmentResources)
             {
                 resourceDictionary.Add((KnownResourceTypes.Observation, observationId), observationResponse.Resource.ToJson().Trim());
+                resourceDictionary.Add((KnownResourceTypes.Group, groupId), groupResponse.Resource.ToJson().Trim());
             }
 
             return (resourceDictionary, groupId);
