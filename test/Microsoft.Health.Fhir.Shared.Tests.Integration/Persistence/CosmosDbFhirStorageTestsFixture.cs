@@ -40,12 +40,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
         private readonly CosmosCollectionConfiguration _cosmosCollectionConfiguration;
 
-        private Container _documentClient;
+        private Container _container;
         private IFhirDataStore _fhirDataStore;
         private IFhirOperationDataStore _fhirOperationDataStore;
         private IFhirStorageTestHelper _fhirStorageTestHelper;
         private FilebasedStatusRegistryDataStore _filebasedStatusRegistryDataStore;
         private IStatusRegistryDataStore _statusRegistryDataStore;
+        private CosmosClient _cosmosClient;
 
         public CosmosDbFhirStorageTestsFixture()
         {
@@ -101,9 +102,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var cosmosResponseProcessor = Substitute.For<ICosmosResponseProcessor>();
 
             var responseProcessor = new CosmosResponseProcessor(fhirRequestContextAccessor, Substitute.For<IMediator>(), NullLogger<CosmosResponseProcessor>.Instance);
-            var handler = new FhirCosmosResponseHandler(() => new NonDisposingScope(_documentClient), _cosmosDataStoreConfiguration, fhirRequestContextAccessor, responseProcessor);
-            var documentClientInitializer = new FhirCosmosClientInitializer(testProvider, fhirRequestContextAccessor, cosmosResponseProcessor, new[] { handler }, NullLogger<FhirCosmosClientInitializer>.Instance);
-            var cosmosClient = documentClientInitializer.CreateCosmosClient(_cosmosDataStoreConfiguration);
+            var handler = new FhirCosmosResponseHandler(() => new NonDisposingScope(_container), _cosmosDataStoreConfiguration, fhirRequestContextAccessor, responseProcessor);
+            var documentClientInitializer = new FhirCosmosClientInitializer(testProvider, new[] { handler }, NullLogger<FhirCosmosClientInitializer>.Instance);
+            _cosmosClient = documentClientInitializer.CreateCosmosClient(_cosmosDataStoreConfiguration);
             var fhirCollectionInitializer = new CollectionInitializer(_cosmosCollectionConfiguration.CollectionId, _cosmosDataStoreConfiguration, _cosmosCollectionConfiguration.InitialCollectionThroughput, upgradeManager, NullLogger<CollectionInitializer>.Instance);
 
             // Cosmos DB emulators throws errors when multiple collections are initialized concurrently.
@@ -112,8 +113,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             try
             {
-                await documentClientInitializer.InitializeDataStore(cosmosClient, _cosmosDataStoreConfiguration, new List<ICollectionInitializer> { fhirCollectionInitializer });
-                _documentClient = documentClientInitializer.CreateFhirContainer(cosmosClient, _cosmosDataStoreConfiguration.DatabaseId, _cosmosCollectionConfiguration.CollectionId, _cosmosDataStoreConfiguration.ContinuationTokenSizeLimitInKb);
+                await documentClientInitializer.InitializeDataStore(_cosmosClient, _cosmosDataStoreConfiguration, new List<ICollectionInitializer> { fhirCollectionInitializer });
+                _container = documentClientInitializer.CreateFhirContainer(_cosmosClient, _cosmosDataStoreConfiguration.DatabaseId, _cosmosCollectionConfiguration.CollectionId);
             }
             finally
             {
@@ -122,7 +123,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var cosmosDocumentQueryFactory = new CosmosQueryFactory(cosmosResponseProcessor, NullFhirCosmosQueryLogger.Instance);
 
-            var documentClient = new NonDisposingScope(_documentClient);
+            var documentClient = new NonDisposingScope(_container);
 
             _statusRegistryDataStore = new CosmosDbStatusRegistryDataStore(
                 () => documentClient,
@@ -147,15 +148,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 new CosmosQueryFactory(responseProcessor, new NullFhirCosmosQueryLogger()),
                 NullLogger<CosmosFhirOperationDataStore>.Instance);
 
-            _fhirStorageTestHelper = new CosmosDbFhirStorageTestHelper(_documentClient);
+            _fhirStorageTestHelper = new CosmosDbFhirStorageTestHelper(_container);
         }
 
         public async Task DisposeAsync()
         {
-            using (_documentClient as IDisposable)
+            if (_container != null)
             {
-                await _documentClient?.DeleteContainerAsync();
+                await _container.DeleteContainerAsync();
             }
+
+            _cosmosClient.Dispose();
         }
 
         object IServiceProvider.GetService(Type serviceType)
