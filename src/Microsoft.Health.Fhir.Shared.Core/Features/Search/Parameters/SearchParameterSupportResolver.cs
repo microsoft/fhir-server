@@ -19,12 +19,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
     public class SearchParameterSupportResolver : ISearchParameterSupportResolver
     {
         private readonly ISearchParameterDefinitionManager _definitionManager;
-        private readonly IFhirElementToSearchValueTypeConverterManager _searchValueTypeConverterManager;
+        private readonly IFhirNodeToSearchValueTypeConverterManager _searchValueTypeConverterManager;
         private static readonly FhirPathCompiler _compiler = new FhirPathCompiler();
 
         public SearchParameterSupportResolver(
             ISearchParameterDefinitionManager definitionManager,
-            IFhirElementToSearchValueTypeConverterManager searchValueTypeConverterManager)
+            IFhirNodeToSearchValueTypeConverterManager searchValueTypeConverterManager)
         {
             EnsureArg.IsNotNull(definitionManager, nameof(definitionManager));
             EnsureArg.IsNotNull(searchValueTypeConverterManager, nameof(searchValueTypeConverterManager));
@@ -68,9 +68,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     .Select(result => (
                         result,
                         hasConverter: _searchValueTypeConverterManager.TryGetConverter(
-                            result.ClassMapping.NativeType,
+                            result.ClassMapping.Name,
                             SearchIndexer.GetSearchValueTypeForSearchParamType(result.SearchParamType),
-                            out IFhirElementToSearchValueTypeConverter converter),
+                            out IFhirNodeToSearchValueTypeConverter converter),
                         converter))
                     .ToArray();
 

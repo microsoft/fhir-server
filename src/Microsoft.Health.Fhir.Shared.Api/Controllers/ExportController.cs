@@ -23,6 +23,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Messages.Export;
 using Microsoft.Health.Fhir.Core.Models;
@@ -75,34 +76,27 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.Export)]
         [ServiceFilter(typeof(ValidateExportRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.Export)]
-        public async Task<IActionResult> Export([FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since)
+        public async Task<IActionResult> Export([FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since, [FromQuery(Name = KnownQueryParameterNames.Type)] string resourceType)
         {
-            if (!_exportConfig.Enabled)
-            {
-                throw new RequestNotValidException(string.Format(Resources.OperationNotEnabled, OperationsConstants.Export));
-            }
-
-            CreateExportResponse response = await _mediator.ExportAsync(_fhirRequestContextAccessor.FhirRequestContext.Uri, since, HttpContext.RequestAborted);
-
-            var exportResult = ExportResult.Accepted();
-            exportResult.SetContentLocationHeader(_urlResolver, OperationsConstants.Export, response.JobId);
-
-            return exportResult;
+            CheckIfExportIsEnabled();
+            return await SendExportRequest(ExportJobType.All, since, resourceType);
         }
 
         [HttpGet]
         [Route(KnownRoutes.ExportResourceType)]
         [ServiceFilter(typeof(ValidateExportRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.Export)]
-        public IActionResult ExportResourceType(string typeParameter)
+        public async Task<IActionResult> ExportResourceType([FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since, [FromQuery(Name = KnownQueryParameterNames.Type)] string resourceType, string typeParameter)
         {
+            CheckIfExportIsEnabled();
+
             // Export by ResourceType is supported only for Patient resource type.
             if (!string.Equals(typeParameter, ResourceType.Patient.ToString(), StringComparison.Ordinal))
             {
                 throw new RequestNotValidException(string.Format(Resources.UnsupportedResourceType, typeParameter));
             }
 
-            return CheckIfExportIsEnabledAndRespond();
+            return await SendExportRequest(ExportJobType.Patient, since, resourceType);
         }
 
         [HttpGet]
@@ -156,16 +150,31 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return new ExportResult(response.StatusCode);
         }
 
+        private async Task<IActionResult> SendExportRequest(ExportJobType exportType, PartialDateTime since, string resourceType = null)
+        {
+            CreateExportResponse response = await _mediator.ExportAsync(_fhirRequestContextAccessor.FhirRequestContext.Uri, exportType, resourceType, since, HttpContext.RequestAborted);
+
+            var exportResult = ExportResult.Accepted();
+            exportResult.SetContentLocationHeader(_urlResolver, OperationsConstants.Export, response.JobId);
+
+            return exportResult;
+        }
+
+        private void CheckIfExportIsEnabled()
+        {
+            if (!_exportConfig.Enabled)
+            {
+                throw new RequestNotValidException(string.Format(Resources.OperationNotEnabled, OperationsConstants.Export));
+            }
+        }
+
         /// <summary>
         /// Currently we don't have any export functionality. We will send the appropriate
         /// response based on whether export is enabled or not.
         /// </summary>
         private FhirResult CheckIfExportIsEnabledAndRespond()
         {
-            if (!_exportConfig.Enabled)
-            {
-                throw new RequestNotValidException(string.Format(Resources.OperationNotEnabled, OperationsConstants.Export));
-            }
+            CheckIfExportIsEnabled();
 
             throw new OperationNotImplementedException(string.Format(Resources.OperationNotImplemented, OperationsConstants.Export));
         }

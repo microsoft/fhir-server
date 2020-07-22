@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -14,10 +15,13 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
+using Hl7.Fhir.Serialization;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Client;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Polly;
 using Polly.Retry;
-using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Common.FhirClient;
+using Task = System.Threading.Tasks.Task;
 #if !R5
 using RestfulCapabilityMode = Hl7.Fhir.Model.CapabilityStatement.RestfulCapabilityMode;
 #endif
@@ -26,12 +30,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     /// <summary>
     /// Represents a FHIR server for end-to-end testing.
-    /// Creates and caches <see cref="FhirClient"/> instances that target the server.
+    /// Creates and caches <see cref="TestFhirClient"/> instances that target the server.
     /// </summary>
     public abstract class TestFhirServer : IDisposable
     {
-        private readonly ConcurrentDictionary<(ResourceFormat format, TestApplication clientApplication, TestUser user), Lazy<FhirClient>> _cache = new ConcurrentDictionary<(ResourceFormat format, TestApplication clientApplication, TestUser user), Lazy<FhirClient>>();
+        private readonly ConcurrentDictionary<(ResourceFormat format, TestApplication clientApplication, TestUser user), Lazy<TestFhirClient>> _cache = new ConcurrentDictionary<(ResourceFormat format, TestApplication clientApplication, TestUser user), Lazy<TestFhirClient>>();
         private readonly AsyncLocal<SessionTokenContainer> _asyncLocalSessionTokenContainer = new AsyncLocal<SessionTokenContainer>();
+
+        private readonly Dictionary<string, AuthenticationHttpMessageHandler> _authenticationHandlers = new Dictionary<string, AuthenticationHttpMessageHandler>();
 
         protected TestFhirServer(Uri baseAddress)
         {
@@ -40,14 +46,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             BaseAddress = baseAddress;
         }
 
+        protected internal bool SecurityEnabled { get; set; }
+
+        protected internal Uri TokenUri { get; set; }
+
+        protected internal Uri AuthorizeUri { get; set; }
+
         public Uri BaseAddress { get; }
 
-        public FhirClient GetFhirClient(ResourceFormat format, bool reusable = true)
+        public TestFhirClient GetTestFhirClient(ResourceFormat format, bool reusable = true, AuthenticationHttpMessageHandler authenticationHandler = null)
         {
-            return GetFhirClient(format, TestApplications.GlobalAdminServicePrincipal, null, reusable);
+            return GetTestFhirClient(format, TestApplications.GlobalAdminServicePrincipal, null, reusable, authenticationHandler);
         }
 
-        public FhirClient GetFhirClient(ResourceFormat format, TestApplication clientApplication, TestUser user, bool reusable = true)
+        public TestFhirClient GetTestFhirClient(ResourceFormat format, TestApplication clientApplication, TestUser user, bool reusable = true, AuthenticationHttpMessageHandler authenticationHandler = null)
         {
             if (_asyncLocalSessionTokenContainer.Value == null)
             {
@@ -57,27 +69,116 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             if (!reusable)
             {
-                return CreateFhirClient(format, clientApplication, user);
+                return CreateFhirClient(format, clientApplication, user, authenticationHandler);
             }
 
             return _cache.GetOrAdd(
                     (format, clientApplication, user),
                     (tuple, fhirServer) =>
-                        new Lazy<FhirClient>(() => CreateFhirClient(tuple.format, tuple.clientApplication, tuple.user)),
+                        new Lazy<TestFhirClient>(() => CreateFhirClient(tuple.format, tuple.clientApplication, tuple.user, authenticationHandler)),
                     this)
                 .Value;
         }
 
-        private FhirClient CreateFhirClient(ResourceFormat format, TestApplication clientApplication, TestUser user)
+        private TestFhirClient CreateFhirClient(ResourceFormat format, TestApplication clientApplication, TestUser user, AuthenticationHttpMessageHandler authenticationHandler = null)
         {
-            var httpClient = new HttpClient(new SessionMessageHandler(CreateMessageHandler(), _asyncLocalSessionTokenContainer)) { BaseAddress = BaseAddress };
+            if (SecurityEnabled && authenticationHandler == null)
+            {
+                authenticationHandler = GetAuthenticationHandler(clientApplication, user);
+            }
 
-            (bool securityEnabled, string authorizeUrl, string tokenUrl) securitySettings = (false, null, null);
+            HttpMessageHandler innerHandler = authenticationHandler ?? CreateMessageHandler();
 
-            var fhirClientWithoutSecurity = new FhirClient(httpClient, this, format, clientApplication, user, securitySettings);
+            var sessionMessageHandler = new SessionMessageHandler(innerHandler, _asyncLocalSessionTokenContainer);
 
-            FhirResponse<CapabilityStatement> readResponse = fhirClientWithoutSecurity.ReadAsync<CapabilityStatement>("metadata").GetAwaiter().GetResult();
-            CapabilityStatement metadata = readResponse.Resource;
+            var httpClient = new HttpClient(sessionMessageHandler) { BaseAddress = BaseAddress };
+
+            return new TestFhirClient(httpClient, this, format, clientApplication, user);
+        }
+
+        private AuthenticationHttpMessageHandler GetAuthenticationHandler(TestApplication clientApplication, TestUser user)
+        {
+            if (clientApplication.Equals(TestApplications.InvalidClient))
+            {
+                return null;
+            }
+
+            string authDictionaryKey = GenerateDictionaryKey();
+
+            if (_authenticationHandlers.ContainsKey(authDictionaryKey))
+            {
+                return _authenticationHandlers[authDictionaryKey];
+            }
+
+            var authHttpClient = new HttpClient(CreateMessageHandler())
+            {
+                BaseAddress = BaseAddress,
+            };
+
+            string scope = clientApplication.Equals(TestApplications.WrongAudienceClient) ? clientApplication.ClientId : AuthenticationSettings.Scope;
+            string resource = clientApplication.Equals(TestApplications.WrongAudienceClient) ? clientApplication.ClientId : AuthenticationSettings.Resource;
+
+            ICredentialProvider credentialProvider;
+            if (user == null)
+            {
+                var credentialConfiguration = new OAuth2ClientCredentialConfiguration(
+                    TokenUri,
+                    resource,
+                    scope,
+                    clientApplication.ClientId,
+                    clientApplication.ClientSecret);
+                credentialProvider = new OAuth2ClientCredentialProvider(Options.Create(credentialConfiguration), authHttpClient);
+            }
+            else
+            {
+                var credentialConfiguration = new OAuth2UserPasswordCredentialConfiguration(
+                    TokenUri,
+                    resource,
+                    scope,
+                    clientApplication.ClientId,
+                    clientApplication.ClientSecret,
+                    user.UserId,
+                    user.Password);
+                credentialProvider = new OAuth2UserPasswordCredentialProvider(Options.Create(credentialConfiguration), authHttpClient);
+            }
+
+            var authenticationHandler = new AuthenticationHttpMessageHandler(credentialProvider)
+            {
+                InnerHandler = CreateMessageHandler(),
+            };
+            _authenticationHandlers.Add(authDictionaryKey, authenticationHandler);
+
+            return authenticationHandler;
+
+            string GenerateDictionaryKey()
+            {
+                return $"{clientApplication.ClientId}:{user?.UserId}";
+            }
+        }
+
+        internal abstract HttpMessageHandler CreateMessageHandler();
+
+        /// <summary>
+        /// Set the security options on the class.
+        /// <remarks>Examines the metadata endpoint to determine if there's a token and authorize url exposed and sets the property <see cref="SecurityEnabled"/> to <value>true</value> or <value>false</value> based on this.
+        /// Additionally, the <see cref="TokenUri"/> and <see cref="AuthorizeUri"/> is set if it they are found.</remarks>
+        /// </summary>
+        /// <param name="cancellationToken">The cancellation token</param>
+        public async Task ConfigureSecurityOptions(CancellationToken cancellationToken = default)
+        {
+            bool localSecurityEnabled = false;
+
+            using HttpRequestMessage requestMessage = new HttpRequestMessage(HttpMethod.Get, new Uri(BaseAddress, "metadata"));
+            var httpClient = new HttpClient(CreateMessageHandler())
+            {
+                BaseAddress = BaseAddress,
+            };
+            HttpResponseMessage response = await httpClient.SendAsync(requestMessage, cancellationToken);
+
+            string content = await response.Content.ReadAsStringAsync();
+            response.EnsureSuccessStatusCode();
+
+            CapabilityStatement metadata = new FhirJsonParser().Parse<CapabilityStatement>(content);
 
             foreach (var rest in metadata.Rest.Where(r => r.Mode == RestfulCapabilityMode.Server))
             {
@@ -87,25 +188,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     var tokenUrl = oauth.GetExtensionValue<FhirUri>(Core.Features.Security.Constants.SmartOAuthUriExtensionToken).Value;
                     var authorizeUrl = oauth.GetExtensionValue<FhirUri>(Core.Features.Security.Constants.SmartOAuthUriExtensionAuthorize).Value;
 
-                    securitySettings = (true, authorizeUrl, tokenUrl);
+                    localSecurityEnabled = true;
+                    TokenUri = new Uri(tokenUrl);
+                    AuthorizeUri = new Uri(authorizeUrl);
 
                     break;
                 }
             }
 
-            if (securitySettings.securityEnabled)
-            {
-                return new FhirClient(httpClient, this, format, clientApplication, user, securitySettings);
-            }
-
-            return fhirClientWithoutSecurity;
+            SecurityEnabled = localSecurityEnabled;
         }
-
-        protected abstract HttpMessageHandler CreateMessageHandler();
 
         public virtual void Dispose()
         {
-            foreach (Lazy<FhirClient> cacheValue in _cache.Values)
+            foreach (Lazy<TestFhirClient> cacheValue in _cache.Values)
             {
                 if (cacheValue.IsValueCreated)
                 {

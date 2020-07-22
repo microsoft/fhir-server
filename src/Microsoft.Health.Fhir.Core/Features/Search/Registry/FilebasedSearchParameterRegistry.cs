@@ -3,15 +3,15 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Health.Core;
+using Microsoft.Health.Fhir.Core.Data;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
@@ -19,22 +19,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
     public class FilebasedSearchParameterRegistry : ISearchParameterRegistry
     {
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
-        private readonly Assembly _resourceAssembly;
-        private readonly string _unsupportedParamsEmbeddedResourceName;
+        private readonly IModelInfoProvider _modelInfoProvider;
         private ResourceSearchParameterStatus[] _statusResults;
 
         public FilebasedSearchParameterRegistry(
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
-            Assembly resourceAssembly,
-            string unsupportedParamsEmbeddedResourceName)
+            IModelInfoProvider modelInfoProvider)
         {
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
-            EnsureArg.IsNotNull(resourceAssembly, nameof(resourceAssembly));
-            EnsureArg.IsNotNullOrWhiteSpace(unsupportedParamsEmbeddedResourceName, nameof(unsupportedParamsEmbeddedResourceName));
 
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
-            _resourceAssembly = resourceAssembly;
-            _unsupportedParamsEmbeddedResourceName = unsupportedParamsEmbeddedResourceName;
+            _modelInfoProvider = modelInfoProvider;
         }
 
         public delegate ISearchParameterRegistry Resolver();
@@ -43,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         {
             if (_statusResults == null)
             {
-                using Stream stream = _resourceAssembly.GetManifestResourceStream(_unsupportedParamsEmbeddedResourceName);
+                using Stream stream = _modelInfoProvider.OpenVersionedFileStream("unsupported-search-parameters.json");
                 using TextReader reader = new StreamReader(stream);
                 UnsupportedSearchParameters unsupportedParams = JsonConvert.DeserializeObject<UnsupportedSearchParameters>(reader.ReadToEnd());
 

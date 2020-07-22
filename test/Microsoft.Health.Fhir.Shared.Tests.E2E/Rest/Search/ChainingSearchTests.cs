@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Xunit;
@@ -129,13 +130,65 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
-        public async Task GivenANestedReverseChainSearchExpressionOverADenormalizedParameter_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        public async Task GivenANestedReverseChainSearchExpressionOverTheIdDenormalizedParameter_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"_tag={Fixture.Tag}&_has:Group:member:_id={Fixture.PatientGroup.Id}";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
 
             ValidateBundle(bundle, Fixture.AdamsPatient, Fixture.SmithPatient, Fixture.TrumanPatient);
+        }
+
+        [Fact]
+        public async Task GivenANestedReverseChainSearchExpressionOverTheTypeDenormalizedParameter_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        {
+            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, $"_tag={Fixture.Tag}&_has:Group:member:_type=Group");
+
+            Assert.NotEmpty(bundle.Entry);
+
+            bundle = await Client.SearchAsync(ResourceType.Patient, $"_tag={Fixture.Tag}&_has:Group:member:_type=Patient");
+
+            Assert.Empty(bundle.Entry);
+        }
+
+        [Fact]
+        public async Task GivenAChainedSearchExpressionWithAPredicateOnSurrogateId_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        {
+            string query = $"subject:Patient._type=Patient&subject:Patient._tag={Fixture.Tag}";
+
+            Bundle completeBundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
+            Assert.True(completeBundle.Entry.Count > 2);
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query, count: 1);
+            List<Bundle.EntryComponent> resources = new List<Bundle.EntryComponent>();
+            resources.AddRange(bundle.Entry);
+            while (bundle.NextLink != null)
+            {
+                bundle = await Client.SearchAsync(bundle.NextLink.ToString());
+                resources.AddRange(bundle.Entry);
+            }
+
+            ValidateBundle(new Bundle { Entry = resources }, completeBundle.Entry.Select(e => e.Resource).ToArray());
+        }
+
+        [Fact]
+        public async Task GivenAReverseChainedSearchExpressionWithAPredicateOnSurrogateId_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        {
+            string query = $"_has:Observation:patient:_tag={Fixture.Tag}";
+
+            Bundle completeBundle = await Client.SearchAsync(ResourceType.Patient, query);
+            Assert.True(completeBundle.Entry.Count > 2);
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query, count: 1);
+            List<Bundle.EntryComponent> resources = new List<Bundle.EntryComponent>();
+            resources.AddRange(bundle.Entry);
+            while (bundle.NextLink != null)
+            {
+                bundle = await Client.SearchAsync(bundle.NextLink.ToString());
+                resources.AddRange(bundle.Entry);
+            }
+
+            ValidateBundle(new Bundle { Entry = resources }, completeBundle.Entry.Select(e => e.Resource).ToArray());
         }
 
         [Fact]
@@ -205,11 +258,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     },
                 };
 
-                var organization = FhirClient.CreateAsync(new Organization { Meta = meta, Address = new List<Address> { new Address { City = "Seattle" } } }).Result.Resource;
+                var organization = TestFhirClient.CreateAsync(new Organization { Meta = meta, Address = new List<Address> { new Address { City = "Seattle" } } }).Result.Resource;
 
-                AdamsPatient = FhirClient.CreateAsync(new Patient { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Adams" } } }).Result.Resource;
-                SmithPatient = FhirClient.CreateAsync(new Patient { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Smith" } }, ManagingOrganization = new ResourceReference($"Organization/{organization.Id}") }).Result.Resource;
-                TrumanPatient = FhirClient.CreateAsync(new Patient { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Truman" } } }).Result.Resource;
+                AdamsPatient = TestFhirClient.CreateAsync(new Patient { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Adams" } } }).Result.Resource;
+                SmithPatient = TestFhirClient.CreateAsync(new Patient { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Smith" } }, ManagingOrganization = new ResourceReference($"Organization/{organization.Id}") }).Result.Resource;
+                TrumanPatient = TestFhirClient.CreateAsync(new Patient { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Truman" } } }).Result.Resource;
 
                 var adamsLoincObservation = CreateObservation(AdamsPatient, loincCode);
                 var smithLoincObservation = CreateObservation(SmithPatient, loincCode);
@@ -225,7 +278,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 var group = new Group
                 {
                     Meta = new Meta { Tag = new List<Coding> { new Coding("testTag", Tag) } },
-                    Type = Group.GroupType.Person, Actual = true,
+                    Type = Group.GroupType.Person,
+                    Actual = true,
                     Member = new List<Group.MemberComponent>
                     {
                         new Group.MemberComponent { Entity = new ResourceReference($"Patient/{AdamsPatient.Id}") },
@@ -234,11 +288,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     },
                 };
 
-                PatientGroup = FhirClient.CreateAsync(group).Result.Resource;
+                PatientGroup = TestFhirClient.CreateAsync(group).Result.Resource;
 
                 DiagnosticReport CreateDiagnosticReport(Patient patient, Observation observation, CodeableConcept code)
                 {
-                    return FhirClient.CreateAsync(
+                    return TestFhirClient.CreateAsync(
                         new DiagnosticReport
                         {
                             Meta = meta,
@@ -251,9 +305,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
                 Observation CreateObservation(Patient patient, CodeableConcept code)
                 {
-                    return FhirClient.CreateAsync(
+                    return TestFhirClient.CreateAsync(
                         new Observation()
                         {
+                            Meta = meta,
                             Status = ObservationStatus.Final,
                             Code = code,
                             Subject = new ResourceReference($"Patient/{patient.Id}"),

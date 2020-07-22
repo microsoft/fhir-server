@@ -4,6 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
@@ -11,6 +13,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Core;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -24,6 +27,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
         private readonly ReindexJobConfiguration _reindexJobConfiguration;
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
+        private readonly ISupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager;
         private readonly ILogger _logger;
 
         private ReindexJobRecord _reindexJobRecord;
@@ -33,16 +37,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory,
             IOptions<ReindexJobConfiguration> reindexJobConfiguration,
             Func<IScoped<ISearchService>> searchServiceFactory,
+            ISupportedSearchParameterDefinitionManager supportedSearchParameterDefinitionManager,
             ILogger<ReindexJobTask> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
             EnsureArg.IsNotNull(reindexJobConfiguration?.Value, nameof(reindexJobConfiguration));
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
+            EnsureArg.IsNotNull(supportedSearchParameterDefinitionManager, nameof(supportedSearchParameterDefinitionManager));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
             _reindexJobConfiguration = reindexJobConfiguration.Value;
             _searchServiceFactory = searchServiceFactory;
+            _supportedSearchParameterDefinitionManager = supportedSearchParameterDefinitionManager;
             _logger = logger;
         }
 
@@ -59,13 +66,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 // If we are resuming a job, we can detect that by checking the progress info from the job record.
                 // If no queries have been added to the progress then this is a new job
-                if (_reindexJobRecord.Progress?.Count == 0)
+                if (_reindexJobRecord.QueryList?.Count == 0)
                 {
                     // Build query based on new search params
+                    // Find supported, but not yet searchable params
+                    var notYetIndexedParams = _supportedSearchParameterDefinitionManager.GetSupportedButNotSearchableParams();
+
+                    // From the param list, get the list of necessary resources which should be
+                    // included in our query
+                    var resourceList = new HashSet<string>();
+                    foreach (var param in notYetIndexedParams)
+                    {
+                        resourceList.UnionWith(param.TargetResourceTypes);
+
+                        // TODO: Expand the BaseResourceTypes to all child resources
+                        resourceList.UnionWith(param.BaseResourceTypes);
+                    }
+
+                    _reindexJobRecord.Resources.AddRange(resourceList);
+                    _reindexJobRecord.SearchParams.AddRange(notYetIndexedParams.Select(p => p.Name));
                 }
 
                 // This is just a shell for now, will be completed in future
-
                 await CompleteJobAsync(OperationStatus.Completed, cancellationToken);
 
                 _logger.LogTrace("Successfully completed the job.");
@@ -92,15 +114,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private async Task CompleteJobAsync(OperationStatus completionStatus, CancellationToken cancellationToken)
         {
             _reindexJobRecord.Status = completionStatus;
+            _reindexJobRecord.StartTime = Clock.UtcNow;
             _reindexJobRecord.EndTime = Clock.UtcNow;
+            _reindexJobRecord.LastModified = Clock.UtcNow;
 
-            await UpdateJobRecordAsync(cancellationToken);
-        }
-
-        private async Task UpdateJobRecordAsync(CancellationToken cancellationToken)
-        {
-            // TODO: Placeholder
-            await new Task(() => _reindexJobRecord.LastModified = Clock.UtcNow, cancellationToken);
+            using (IScoped<IFhirOperationDataStore> store = _fhirOperationDataStoreFactory())
+            {
+                await store.Value.UpdateReindexJobAsync(_reindexJobRecord, _weakETag, cancellationToken);
+            }
         }
     }
 }

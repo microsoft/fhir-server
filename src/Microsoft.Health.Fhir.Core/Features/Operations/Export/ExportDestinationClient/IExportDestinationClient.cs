@@ -6,6 +6,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Health.Fhir.Core.Configs;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient
@@ -25,6 +26,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinatio
         Task ConnectAsync(CancellationToken cancellationToken, string containerId = null);
 
         /// <summary>
+        /// Connects to a destination specified by the given configuration. Must be used in tandom with the CommitAsync that takes an ExportJobConfiguration.
+        /// </summary>
+        /// <param name="exportJobConfiguration">The job configuration to use for this call.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <param name="containerId">The id of the container to use for exporting data. We will use the default/root container if not provided.</param>
+        /// <returns>A <see cref="Task"/> representing connection operation.</returns>
+        /// <exception cref="DestinationConnectionException">Thrown when we can't connect to the destination.</exception>
+        Task ConnectAsync(ExportJobConfiguration exportJobConfiguration, CancellationToken cancellationToken, string containerId = null);
+
+        /// <summary>
         /// Creates a new file in the destination.
         /// </summary>
         /// <param name="fileName">The file name.</param>
@@ -40,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinatio
         /// <param name="bytes">The bytes array to write.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>A <see cref="Task"/> representing the asynchronous write operation.</returns>
-        Task WriteFilePartAsync(Uri fileUri, uint partId, byte[] bytes, CancellationToken cancellationToken);
+        Task WriteFilePartAsync(Uri fileUri, string partId, byte[] bytes, CancellationToken cancellationToken);
 
         /// <summary>
         /// Commits the written parts of the file.
@@ -48,6 +59,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinatio
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>A <see cref="Task"/> representing the asynchronous commit operation.</returns>
         Task CommitAsync(CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Commits the written parts of the file to a specified location.  Must be used in tandom with the ConnectAsync that takes an ExportJobConfiguration.
+        /// </summary>
+        /// <param name="exportJobConfiguration">The job configuration to use for this call.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>A <see cref="Task"/> representing the asynchronous commit operation.</returns>
+        Task CommitAsync(ExportJobConfiguration exportJobConfiguration, CancellationToken cancellationToken);
 
         /// <summary>
         /// Opens an existing file from the destination.

@@ -116,14 +116,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
         private async Task<GetExportResponse> SetupAndExecuteGetExportJobByIdAsync(OperationStatus jobStatus, bool addFailureDetails = true)
         {
-            var jobRecord = new ExportJobRecord(_createRequestUri, "Patient", "hash")
+            var jobRecord = new ExportJobRecord(_createRequestUri, ExportJobType.Patient, null, "hash")
             {
                 Status = jobStatus,
             };
 
             if ((jobStatus == OperationStatus.Canceled || jobStatus == OperationStatus.Failed) && addFailureDetails)
             {
-                jobRecord.FailureDetails = new ExportJobFailureDetails(_failureReason, _failureStatusCode);
+                jobRecord.FailureDetails = new JobFailureDetails(_failureReason, _failureStatusCode);
             }
             else if (jobStatus == OperationStatus.Completed)
             {

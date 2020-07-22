@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.Core {
     [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-    public class Resources {
+    internal class Resources {
         
         private static global::System.Resources.ResourceManager resourceMan;
         
@@ -219,15 +219,6 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string ConditionalUpdateMismatchedIds {
             get {
                 return ResourceManager.GetString("ConditionalUpdateMismatchedIds", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to The customer managed key is not accessible..
-        /// </summary>
-        internal static string CustomerManagedKeyInaccessible {
-            get {
-                return ResourceManager.GetString("CustomerManagedKeyInaccessible", resourceCulture);
             }
         }
         
@@ -442,7 +433,7 @@ namespace Microsoft.Health.Fhir.Core {
         /// <summary>
         ///   Looks up a localized string similar to The &apos;_total&apos; parameter value &apos;{0}&apos; is invalid. The supported values are: {1}..
         /// </summary>
-        public static string InvalidTotalParameter {
+        internal static string InvalidTotalParameter {
             get {
                 return ResourceManager.GetString("InvalidTotalParameter", resourceCulture);
             }
@@ -535,6 +526,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string OnlyOneModifierSeparatorSupported {
             get {
                 return ResourceManager.GetString("OnlyOneModifierSeparatorSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Only one active or paused reindex job allowed.  Cancel any previous jobs before submitting a new job..
+        /// </summary>
+        internal static string OnlyOneResourceJobAllowed {
+            get {
+                return ResourceManager.GetString("OnlyOneResourceJobAllowed", resourceCulture);
             }
         }
         
@@ -782,6 +782,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The search sort parameter &apos;{0}&apos; is not supported..
+        /// </summary>
+        internal static string SearchSortParameterNotSupported {
+            get {
+                return ResourceManager.GetString("SearchSortParameterNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Microsoft FHIR Server.
         /// </summary>
         internal static string ServerName {
@@ -856,7 +865,7 @@ namespace Microsoft.Health.Fhir.Core {
         /// <summary>
         ///   Looks up a localized string similar to The &apos;_total&apos; parameter value &apos;{0}&apos; is not supported. The supported values are: {1}..
         /// </summary>
-        public static string UnsupportedTotalParameter {
+        internal static string UnsupportedTotalParameter {
             get {
                 return ResourceManager.GetString("UnsupportedTotalParameter", resourceCulture);
             }

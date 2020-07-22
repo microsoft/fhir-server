@@ -15,18 +15,33 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
     /// <summary>
     /// Class to hold metadata for an individual export request.
     /// </summary>
-    public class ExportJobRecord
+    public class ExportJobRecord : JobRecord
     {
-        public ExportJobRecord(Uri requestUri, string resourceType, string hash, IReadOnlyCollection<KeyValuePair<string, string>> requestorClaims = null, PartialDateTime since = null)
+        public ExportJobRecord(
+            Uri requestUri,
+            ExportJobType exportType,
+            string resourceType,
+            string hash,
+            IReadOnlyCollection<KeyValuePair<string, string>> requestorClaims = null,
+            PartialDateTime since = null,
+            string storageAccountConnectionHash = null,
+            string storageAccountUri = null,
+            uint maximumNumberOfResourcesPerQuery = 100,
+            uint numberOfPagesPerCommit = 10)
         {
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
             EnsureArg.IsNotNullOrWhiteSpace(hash, nameof(hash));
 
             Hash = hash;
             RequestUri = requestUri;
+            ExportType = exportType;
             ResourceType = resourceType;
             RequestorClaims = requestorClaims;
             Since = since;
+            StorageAccountConnectionHash = storageAccountConnectionHash;
+            StorageAccountUri = storageAccountUri;
+            MaximumNumberOfResourcesPerQuery = maximumNumberOfResourcesPerQuery;
+            NumberOfPagesPerCommit = numberOfPagesPerCommit;
 
             // Default values
             SchemaVersion = 1;
@@ -44,23 +59,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         [JsonProperty(JobRecordProperties.RequestUri)]
         public Uri RequestUri { get; private set; }
 
+        [JsonProperty(JobRecordProperties.ExportType)]
+        public ExportJobType ExportType { get; private set; }
+
         [JsonProperty(JobRecordProperties.ResourceType)]
         public string ResourceType { get; private set; }
 
         [JsonProperty(JobRecordProperties.RequestorClaims)]
         public IReadOnlyCollection<KeyValuePair<string, string>> RequestorClaims { get; private set; }
 
-        [JsonProperty(JobRecordProperties.Id)]
-        public string Id { get; private set; }
-
         [JsonProperty(JobRecordProperties.Hash)]
         public string Hash { get; private set; }
-
-        [JsonProperty(JobRecordProperties.QueuedTime)]
-        public DateTimeOffset QueuedTime { get; private set; }
-
-        [JsonProperty(JobRecordProperties.SchemaVersion)]
-        public int SchemaVersion { get; private set; }
 
         [JsonProperty(JobRecordProperties.Output)]
         public IDictionary<string, ExportFileInfo> Output { get; private set; } = new Dictionary<string, ExportFileInfo>();
@@ -68,25 +77,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         [JsonProperty(JobRecordProperties.Error)]
         public IList<ExportFileInfo> Error { get; private set; } = new List<ExportFileInfo>();
 
-        [JsonProperty(JobRecordProperties.Status)]
-        public OperationStatus Status { get; set; }
-
-        [JsonProperty(JobRecordProperties.StartTime)]
-        public DateTimeOffset? StartTime { get; set; }
-
-        [JsonProperty(JobRecordProperties.EndTime)]
-        public DateTimeOffset? EndTime { get; set; }
-
-        [JsonProperty(JobRecordProperties.CanceledTime)]
-        public DateTimeOffset? CanceledTime { get; set; }
-
         [JsonProperty(JobRecordProperties.Progress)]
         public ExportJobProgress Progress { get; set; }
 
-        [JsonProperty(JobRecordProperties.FailureDetails)]
-        public ExportJobFailureDetails FailureDetails { get; set; }
-
         [JsonProperty(JobRecordProperties.Since)]
         public PartialDateTime Since { get; private set; }
+
+        [JsonProperty(JobRecordProperties.StorageAccountConnectionHash)]
+        public string StorageAccountConnectionHash { get; private set; }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage(
+            "Usage",
+            "CA1056:Uri properties should not be strings",
+            Justification = "Set from an ExportJobConfiguration where the value is a string and is never used as a URI.")]
+        [JsonProperty(JobRecordProperties.StorageAccountUri)]
+        public string StorageAccountUri { get; private set; }
+
+        [JsonProperty(JobRecordProperties.MaximumNumberOfResourcesPerQuery)]
+        public uint MaximumNumberOfResourcesPerQuery { get; private set; }
+
+        [JsonProperty(JobRecordProperties.NumberOfPagesPerCommit)]
+        public uint NumberOfPagesPerCommit { get; private set; }
     }
 }

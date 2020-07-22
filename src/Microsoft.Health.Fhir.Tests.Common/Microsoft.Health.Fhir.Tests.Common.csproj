@@ -54,6 +54,14 @@
     <None Remove="TestFiles\Patient-f001.json" />
     <None Remove="TestFiles\Patient.json" />
     <None Remove="TestFiles\Patient.xml" />
+    <None Remove="TestFiles\R4\DocumentReference-example-relatesTo-code-appends.indexes.json" />
+    <None Remove="TestFiles\R4\DocumentReference-example-relatesTo-code-appends.json" />
+    <None Remove="TestFiles\R4\DocumentReference-example-relatesTo-code-transforms-add-target.indexes.json" />
+    <None Remove="TestFiles\R4\DocumentReference-example-relatesTo-code-transforms-add-target.json" />
+    <None Remove="TestFiles\R4\DocumentReference-example-relatesTo-code-transforms-replaces-target.indexes.json" />
+    <None Remove="TestFiles\R4\DocumentReference-example-relatesTo-code-transforms-replaces-target.json" />
+    <None Remove="TestFiles\R4\DocumentReference-example-relatesTo-code-transforms.indexes.json" />
+    <None Remove="TestFiles\R4\DocumentReference-example-relatesTo-code-transforms.json" />
     <None Remove="TestFiles\R5\BasicExampleNarrative.json" />
     <None Remove="TestFiles\R5\BasicExampleNarrative.xml" />
     <None Remove="TestFiles\Normative\BloodGlucose.json" />
@@ -74,6 +82,7 @@
     <None Remove="TestFiles\Normative\Bundle-TransactionWithPOSTFullUrlMatchesWithPUTRequestUrl.json" />
     <None Remove="TestFiles\Normative\Bundle-TransactionWithValidBundleEntry.json" />
     <None Remove="TestFiles\Normative\Bundle-TypeMissing.json" />
+    <None Remove="TestFiles\Normative\list-example-long.json" />
     <None Remove="TestFiles\Normative\Observation-For-Patient-f001.json" />
     <None Remove="TestFiles\Normative\ObservationWith1MinuteApgarScore.json" />
     <None Remove="TestFiles\Normative\ObservationWith20MinuteApgarScore.json" />
@@ -98,7 +107,14 @@
     <None Remove="TestFiles\R5\Device-d1.json" />
     <None Remove="TestFiles\R5\DocumentReference-example-002.json" />
     <None Remove="TestFiles\R5\DocumentReference-example-003.json" />
-    <None Remove="TestFiles\R5\DocumentReference-example.json" />
+    <None Remove="TestFiles\R5\DocumentReference-example-relatesTo-code-appends.indexes.json" />
+    <None Remove="TestFiles\R5\DocumentReference-example-relatesTo-code-appends.json" />
+    <None Remove="TestFiles\R5\DocumentReference-example-relatesTo-code-transforms-add-target.indexes.json" />
+    <None Remove="TestFiles\R5\DocumentReference-example-relatesTo-code-transforms-add-target.json" />
+    <None Remove="TestFiles\R5\DocumentReference-example-relatesTo-code-transforms-replaces-target.indexes.json" />
+    <None Remove="TestFiles\R5\DocumentReference-example-relatesTo-code-transforms-replaces-target.json" />
+    <None Remove="TestFiles\R5\DocumentReference-example-relatesTo-code-transforms.indexes.json" />
+    <None Remove="TestFiles\R5\DocumentReference-example-relatesTo-code-transforms.json" />
     <None Remove="TestFiles\R5\Encounter-For-Patient-f001.json" />
     <None Remove="TestFiles\R5\InvalidCompartmentDefinition.json" />
     <None Remove="TestFiles\R5\Location-example-hq.json" />
@@ -113,7 +129,6 @@
     <None Remove="TestFiles\R4\Device-d1.json" />
     <None Remove="TestFiles\R4\DocumentReference-example-002.json" />
     <None Remove="TestFiles\R4\DocumentReference-example-003.json" />
-    <None Remove="TestFiles\R4\DocumentReference-example.json" />
     <None Remove="TestFiles\R4\Encounter-For-Patient-f001.json" />
     <None Remove="TestFiles\R4\InvalidCompartmentDefinition.json" />
     <None Remove="TestFiles\R4\Location-example-hq.json" />
@@ -141,7 +156,14 @@
     <None Remove="TestFiles\Stu3\Bundle-TypeMissing.json" />
     <None Remove="TestFiles\Stu3\DocumentReference-example-002.json" />
     <None Remove="TestFiles\Stu3\DocumentReference-example-003.json" />
-    <None Remove="TestFiles\Stu3\DocumentReference-example.json" />
+    <None Remove="TestFiles\Stu3\DocumentReference-example-relatesTo-code-appends.indexes.json" />
+    <None Remove="TestFiles\Stu3\DocumentReference-example-relatesTo-code-appends.json" />
+    <None Remove="TestFiles\Stu3\DocumentReference-example-relatesTo-code-transforms-add-target.indexes.json" />
+    <None Remove="TestFiles\Stu3\DocumentReference-example-relatesTo-code-transforms-add-target.json" />
+    <None Remove="TestFiles\Stu3\DocumentReference-example-relatesTo-code-transforms-replaces-target.indexes.json" />
+    <None Remove="TestFiles\Stu3\DocumentReference-example-relatesTo-code-transforms-replaces-target.json" />
+    <None Remove="TestFiles\Stu3\DocumentReference-example-relatesTo-code-transforms.indexes.json" />
+    <None Remove="TestFiles\Stu3\DocumentReference-example-relatesTo-code-transforms.json" />
     <None Remove="TestFiles\Stu3\Location-example-hq.json" />
     <None Remove="TestFiles\Stu3\ObservationWithLongEyeColor.json" />
     <None Remove="TestFiles\Stu3\PatientWithMinimalData.json" />
@@ -173,6 +195,7 @@
     <EmbeddedResource Include="TestFiles\Normative\BloodGlucose.json" />
     <EmbeddedResource Include="TestFiles\Normative\BloodPressure.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TypeMissing.json" />
+    <EmbeddedResource Include="TestFiles\Normative\list-example-long.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-Batch.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionForRollBack.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithAllValidRoutes.json" />
@@ -208,14 +231,23 @@
     <EmbeddedResource Include="TestFiles\Normative\Patient.xml" />
     <EmbeddedResource Include="TestFiles\Normative\Weight.json" />
     <EmbeddedResource Include="TestFiles\Normative\WeightInGrams.json" />
+    <EmbeddedResource Include="TestFiles\R4\DocumentReference-example-relatesTo-code-appends.indexes.json" />
+    <EmbeddedResource Include="TestFiles\R4\DocumentReference-example-relatesTo-code-appends.json" />
+    <EmbeddedResource Include="TestFiles\R4\DocumentReference-example-relatesTo-code-transforms-replaces-target.indexes.json" />
+    <EmbeddedResource Include="TestFiles\R4\DocumentReference-example-relatesTo-code-transforms-replaces-target.json" />
+    <EmbeddedResource Include="TestFiles\R4\DocumentReference-example-relatesTo-code-transforms.indexes.json" />
+    <EmbeddedResource Include="TestFiles\R4\DocumentReference-example-relatesTo-code-transforms.json" />
     <EmbeddedResource Include="TestFiles\R5\BasicExampleNarrative.json" />
     <EmbeddedResource Include="TestFiles\R5\BasicExampleNarrative.xml" />
     <EmbeddedResource Include="TestFiles\R5\Bundle-TransactionWithReferenceInResourceBody.json" />
     <EmbeddedResource Include="TestFiles\R5\Condition-For-Patient-f001.json" />
     <EmbeddedResource Include="TestFiles\R5\Device-d1.json" />
-    <EmbeddedResource Include="TestFiles\R5\DocumentReference-example-002.json" />
-    <EmbeddedResource Include="TestFiles\R5\DocumentReference-example-003.json" />
-    <EmbeddedResource Include="TestFiles\R5\DocumentReference-example.json" />
+    <EmbeddedResource Include="TestFiles\R5\DocumentReference-example-relatesTo-code-appends.indexes.json" />
+    <EmbeddedResource Include="TestFiles\R5\DocumentReference-example-relatesTo-code-appends.json" />
+    <EmbeddedResource Include="TestFiles\R5\DocumentReference-example-relatesTo-code-transforms-replaces-target.indexes.json" />
+    <EmbeddedResource Include="TestFiles\R5\DocumentReference-example-relatesTo-code-transforms-replaces-target.json" />
+    <EmbeddedResource Include="TestFiles\R5\DocumentReference-example-relatesTo-code-transforms.indexes.json" />
+    <EmbeddedResource Include="TestFiles\R5\DocumentReference-example-relatesTo-code-transforms.json" />
     <EmbeddedResource Include="TestFiles\R5\Encounter-For-Patient-f001.json" />
     <EmbeddedResource Include="TestFiles\R5\InvalidCompartmentDefinition.json" />
     <EmbeddedResource Include="TestFiles\R5\Location-example-hq.json" />
@@ -228,9 +260,6 @@
     <EmbeddedResource Include="TestFiles\R4\Bundle-TransactionWithReferenceInResourceBody.json" />
     <EmbeddedResource Include="TestFiles\R4\Condition-For-Patient-f001.json" />
     <EmbeddedResource Include="TestFiles\R4\Device-d1.json" />
-    <EmbeddedResource Include="TestFiles\R4\DocumentReference-example-002.json" />
-    <EmbeddedResource Include="TestFiles\R4\DocumentReference-example-003.json" />
-    <EmbeddedResource Include="TestFiles\R4\DocumentReference-example.json" />
     <EmbeddedResource Include="TestFiles\R4\Encounter-For-Patient-f001.json" />
     <EmbeddedResource Include="TestFiles\R4\InvalidCompartmentDefinition.json" />
     <EmbeddedResource Include="TestFiles\R4\Location-example-hq.json" />
@@ -262,9 +291,12 @@
     <EmbeddedResource Include="TestFiles\Stu3\Condition-For-Patient-f001.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Device-d1.json" />
     <EmbeddedResource Include="TestFiles\Stu3\DeviceComponent-For-Device-d1.json" />
-    <EmbeddedResource Include="TestFiles\Stu3\DocumentReference-example-002.json" />
-    <EmbeddedResource Include="TestFiles\Stu3\DocumentReference-example-003.json" />
-    <EmbeddedResource Include="TestFiles\Stu3\DocumentReference-example.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\DocumentReference-example-relatesTo-code-appends.indexes.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\DocumentReference-example-relatesTo-code-appends.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\DocumentReference-example-relatesTo-code-transforms-replaces-target.indexes.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\DocumentReference-example-relatesTo-code-transforms-replaces-target.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\DocumentReference-example-relatesTo-code-transforms.indexes.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\DocumentReference-example-relatesTo-code-transforms.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Encounter-For-Patient-f001.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Location-example-hq.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Observation-For-Patient-f001.json" />
@@ -294,9 +326,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Health.Abstractions" Version="1.0.0-master-20200518-1" />
+    <PackageReference Include="Microsoft.Health.Abstractions" Version="1.0.0-master-20200716-1" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.3.0" />
-    <PackageReference Include="NSubstitute" Version="4.2.1" />
+    <PackageReference Include="NSubstitute" Version="4.2.2" />
     <PackageReference Include="xunit" Version="2.4.1" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.4.1" />
   </ItemGroup>

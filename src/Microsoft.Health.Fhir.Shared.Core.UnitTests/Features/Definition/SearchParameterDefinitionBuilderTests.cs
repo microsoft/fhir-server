@@ -122,10 +122,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         private SearchParameterDefinitionBuilder CreateBuilder(string fileName)
         {
             return new SearchParameterDefinitionBuilder(
-                _jsonParser,
                 ModelInfoProvider.Instance,
-                typeof(EmbeddedResourceManager).Assembly,
-                $"{typeof(Definitions).Namespace}.DefinitionFiles.{ModelInfoProvider.Version}.{fileName}.json");
+                $"{fileName}.json",
+                $"{typeof(Definitions).Namespace}.DefinitionFiles",
+                typeof(EmbeddedResourceManager).Assembly);
         }
 
         private void BuildAndVerify(SearchParameterDefinitionBuilder builder, string expectedIssue)

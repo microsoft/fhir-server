@@ -16,11 +16,12 @@ using Microsoft.Azure.Storage.Blob;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+using Microsoft.Health.Fhir.Tests.E2E.Common;
+using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Xunit;
 using Xunit.Abstractions;
-using FhirClient = Microsoft.Health.Fhir.Tests.E2E.Common.FhirClient;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
@@ -29,43 +30,147 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class ExportDataValidationTests : IClassFixture<HttpIntegrationTestFixture>
     {
-        private readonly FhirClient _fhirClient;
+        private readonly TestFhirClient _testFhirClient;
         private readonly ITestOutputHelper _outputHelper;
 
         public ExportDataValidationTests(HttpIntegrationTestFixture fixture, ITestOutputHelper testOutputHelper)
         {
-            _fhirClient = fixture.FhirClient;
+            _testFhirClient = fixture.TestFhirClient;
             _outputHelper = testOutputHelper;
         }
 
         [Fact]
-        public async Task GivenFhirServer_WhenDataIsExported_ThenExportedDataIsSameAsDataInFhirServer()
+        public async Task GivenFhirServer_WhenAllDataIsExported_ThenExportedDataIsSameAsDataInFhirServer()
         {
+            // NOTE: Azure Storage Emulator is required to run these tests locally.
+
             // Trigger export request and check for export status
-            Uri contentLocation = await _fhirClient.ExportAsync();
+            Uri contentLocation = await _testFhirClient.ExportAsync();
             IList<Uri> blobUris = await CheckExportStatus(contentLocation);
 
             // Download exported data from storage account
-            Dictionary<string, string> dataFromExport = await DownloadBlobAndParse(blobUris);
+            Dictionary<(string resourceType, string resourceId), string> dataFromExport = await DownloadBlobAndParse(blobUris);
 
             // Download all resources from fhir server
-            Dictionary<string, string> dataFromFhirServer = await GetResourcesFromFhirServer(_fhirClient.HttpClient.BaseAddress);
+            Dictionary<(string resourceType, string resourceId), string> dataFromFhirServer = await GetResourcesFromFhirServer(_testFhirClient.HttpClient.BaseAddress);
 
             // Assert both data are equal
             Assert.True(ValidateDataFromBothSources(dataFromFhirServer, dataFromExport));
         }
 
-        private bool ValidateDataFromBothSources(Dictionary<string, string> dataFromServer, Dictionary<string, string> dataFromStorageAccount)
+        [Fact]
+        public async Task GivenFhirServer_WhenPatientDataIsExported_ThenExportedDataIsSameAsDataInFhirServer()
+        {
+            // NOTE: Azure Storage Emulator is required to run these tests locally.
+
+            // Trigger export request and check for export status
+            Uri contentLocation = await _testFhirClient.ExportAsync("Patient/");
+            IList<Uri> blobUris = await CheckExportStatus(contentLocation);
+
+            // Download exported data from storage account
+            Dictionary<(string resourceType, string resourceId), string> dataFromExport = await DownloadBlobAndParse(blobUris);
+
+            // Download resources from fhir server
+            Uri address = new Uri(_testFhirClient.HttpClient.BaseAddress, "Patient/");
+            Dictionary<(string resourceType, string resourceId), string> dataFromFhirServer = await GetResourcesFromFhirServer(address);
+
+            Dictionary<(string resourceType, string resourceId), string> compartmentData = new Dictionary<(string resourceType, string resourceId), string>();
+            foreach ((string resourceType, string resourceId) key in dataFromFhirServer.Keys)
+            {
+                address = new Uri(_testFhirClient.HttpClient.BaseAddress, "Patient/" + key.resourceId + "/*");
+
+                // copies all the new values into the compartment data dictionary
+                (await GetResourcesFromFhirServer(address)).ToList().ForEach(x => compartmentData.TryAdd(x.Key, x.Value));
+            }
+
+            compartmentData.ToList().ForEach(x => dataFromFhirServer.TryAdd(x.Key, x.Value));
+            dataFromFhirServer.Union(compartmentData);
+
+            // Assert both data are equal
+            Assert.True(ValidateDataFromBothSources(dataFromFhirServer, dataFromExport));
+        }
+
+        [Fact]
+        public async Task GiveFhirServer_WhenAllObservationAndPatientDataIsExported_ThenExportedDataIsSameAsDataInFhirServer()
+        {
+            // NOTE: Azure Storage Emulator is required to run these tests locally.
+
+            // Trigger export request and check for export status
+            Uri contentLocation = await _testFhirClient.ExportAsync(string.Empty, "_type=Observation,Patient");
+            IList<Uri> blobUris = await CheckExportStatus(contentLocation);
+
+            // Download exported data from storage account
+            Dictionary<(string resourceType, string resourceId), string> dataFromExport = await DownloadBlobAndParse(blobUris);
+
+            // Download resources from fhir server
+            Uri address = new Uri(_testFhirClient.HttpClient.BaseAddress, "?_type=Observation,Patient");
+            Dictionary<(string resourceType, string resourceId), string> dataFromFhirServer = await GetResourcesFromFhirServer(address);
+
+            // Assert both data are equal
+            Assert.True(ValidateDataFromBothSources(dataFromFhirServer, dataFromExport));
+        }
+
+        [Fact]
+        public async Task GiveFhirServer_WhenPatientObservationDataIsExported_ThenExportedDataIsSameAsDataInFhirServer()
+        {
+            // NOTE: Azure Storage Emulator is required to run these tests locally.
+
+            // Trigger export request and check for export status
+            Uri contentLocation = await _testFhirClient.ExportAsync("Patient/", "_type=Observation");
+            IList<Uri> blobUris = await CheckExportStatus(contentLocation);
+
+            // Download exported data from storage account
+            Dictionary<(string resourceType, string resourceId), string> dataFromExport = await DownloadBlobAndParse(blobUris);
+
+            // Download resources from fhir server
+            Uri address = new Uri(_testFhirClient.HttpClient.BaseAddress, "Patient/");
+            Dictionary<(string resourceType, string resourceId), string> dataFromFhirServer = await GetResourcesFromFhirServer(address);
+
+            Dictionary<(string resourceType, string resourceId), string> compartmentData = new Dictionary<(string resourceType, string resourceId), string>();
+            foreach ((string resourceType, string resourceId) key in dataFromFhirServer.Keys)
+            {
+                address = new Uri(_testFhirClient.HttpClient.BaseAddress, "Patient/" + key.resourceId + "/Observation");
+
+                // copies all the new values into the compartment data dictionary
+                (await GetResourcesFromFhirServer(address)).ToList().ForEach(x => compartmentData.TryAdd(x.Key, x.Value));
+            }
+
+            compartmentData.ToList().ForEach(x => dataFromFhirServer.TryAdd(x.Key, x.Value));
+            dataFromFhirServer.Union(compartmentData);
+
+            // Assert both data are equal
+            Assert.True(ValidateDataFromBothSources(dataFromFhirServer, dataFromExport));
+        }
+
+        private bool ValidateDataFromBothSources(Dictionary<(string resourceType, string resourceId), string> dataFromServer, Dictionary<(string resourceType, string resourceId), string> dataFromStorageAccount)
         {
             bool result = true;
+
             if (dataFromStorageAccount.Count != dataFromServer.Count)
             {
                 _outputHelper.WriteLine($"Count differs. Exported data count: {dataFromStorageAccount.Count} Fhir Server Count: {dataFromServer.Count}");
-                return false;
+                result = false;
+
+                foreach (KeyValuePair<(string resourceType, string resourceId), string> kvp in dataFromStorageAccount)
+                {
+                    if (!dataFromServer.ContainsKey(kvp.Key))
+                    {
+                        _outputHelper.WriteLine($"Extra resource in exported data: {kvp.Key}");
+                    }
+                }
             }
 
+            // Enable this check when creating/updating data validation tests to ensure there is data to export
+            /*
+            if (dataFromStorageAccount.Count == 0)
+            {
+                _outputHelper.WriteLine("No data exported. This test expects data to be present.");
+                return false;
+            }
+            */
+
             int wrongCount = 0;
-            foreach (KeyValuePair<string, string> kvp in dataFromServer)
+            foreach (KeyValuePair<(string resourceType, string resourceId), string> kvp in dataFromServer)
             {
                 if (!dataFromStorageAccount.ContainsKey(kvp.Key))
                 {
@@ -99,7 +204,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             {
                 await Task.Delay(5000);
 
-                response = await _fhirClient.CheckExportAsync(contentLocation);
+                response = await _testFhirClient.CheckExportAsync(contentLocation);
 
                 resultCode = response.StatusCode;
             }
@@ -116,11 +221,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             return exportJobResult.Output.Select(x => x.FileUri).ToList();
         }
 
-        private async Task<Dictionary<string, string>> DownloadBlobAndParse(IList<Uri> blobUri)
+        private async Task<Dictionary<(string resourceType, string resourceId), string>> DownloadBlobAndParse(IList<Uri> blobUri)
         {
             if (blobUri == null || blobUri.Count == 0)
             {
-                return new Dictionary<string, string>();
+                return new Dictionary<(string resourceType, string resourceId), string>();
             }
 
             // Extract storage account name from blob uri in order to get corresponding access token.
@@ -129,7 +234,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             CloudStorageAccount cloudAccount = GetCloudStorageAccountHelper(storageAccountName);
             CloudBlobClient blobClient = cloudAccount.CreateCloudBlobClient();
-            Dictionary<string, string> resourceIdToResourceMapping = new Dictionary<string, string>();
+            var resourceIdToResourceMapping = new Dictionary<(string resourceType, string resourceId), string>();
 
             foreach (Uri uri in blobUri)
             {
@@ -146,7 +251,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     }
 
                     JObject resource = JObject.Parse(entry);
-                    resourceIdToResourceMapping.Add(resource["id"].ToString(), entry);
+
+                    // Ideally this should just be Add, but until we prevent duplicates from being added to the server there is a chance the same resource being added multiple times resulting in a key conflict.
+                    resourceIdToResourceMapping.TryAdd((resource["resourceType"].ToString(), resource["id"].ToString()), entry);
                 }
             }
 
@@ -159,9 +266,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             return resourceIdToResourceMapping;
         }
 
-        private async Task<Dictionary<string, string>> GetResourcesFromFhirServer(Uri requestUri)
+        private async Task<Dictionary<(string resourceType, string resourceId), string>> GetResourcesFromFhirServer(Uri requestUri)
         {
-            Dictionary<string, string> resourceIdToResourceMapping = new Dictionary<string, string>();
+            var resourceIdToResourceMapping = new Dictionary<(string resourceType, string resourceId), string>();
 
             while (requestUri != null)
             {
@@ -171,22 +278,31 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     Method = HttpMethod.Get,
                 };
 
-                HttpResponseMessage response = await _fhirClient.HttpClient.SendAsync(request);
+                using HttpResponseMessage response = await _testFhirClient.HttpClient.SendAsync(request);
 
                 var responseString = await response.Content.ReadAsStringAsync();
 
                 JObject result = JObject.Parse(responseString);
 
                 JArray entries = (JArray)result["entry"];
-                foreach (JToken entry in entries)
-                {
-                    string id = entry["resource"]["id"].ToString();
-                    string resource = entry["resource"].ToString().Trim();
 
-                    resourceIdToResourceMapping.Add(id, resource);
+                // Fhir server has not returned any data. Return existing mapping.
+                if (entries == null)
+                {
+                    return resourceIdToResourceMapping;
                 }
 
-                // Look at whether a continutation token has been returned.
+                foreach (JToken entry in entries)
+                {
+                    string resourceType = entry["resource"]["resourceType"].ToString();
+                    string id = entry["resource"]["id"].ToString();
+
+                    string resource = entry["resource"].ToString().Trim();
+
+                    resourceIdToResourceMapping.TryAdd((resourceType, id), resource);
+                }
+
+                // Look at whether a continuation token has been returned.
                 // We will always have self link. We are looking for the "next" link
                 JArray links = (JArray)result["link"];
                 string nextUri = null;

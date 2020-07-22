@@ -4,8 +4,9 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Reflection;
 using Hl7.Fhir.Introspection;
-using Microsoft.Health.Fhir.ValueSets;
+using SearchParamType = Microsoft.Health.Fhir.ValueSets.SearchParamType;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 {
@@ -17,9 +18,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             SearchParamType = searchParamType;
             Path = path;
             Definition = definition;
+
+            FhirNodeType = ((FhirTypeAttribute)ClassMapping.NativeType.GetCustomAttribute(typeof(FhirTypeAttribute))).Name;
         }
 
         public ClassMapping ClassMapping { get; set; }
+
+        public string FhirNodeType { get; }
 
         public SearchParamType SearchParamType { get; }
 

@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// </summary>
         /// <param name="compartmentType">The compartment type that needs to be searched.</param>
         /// <param name="compartmentId">The compartment id along with the compartment type that needs to be seached.</param>
-        /// <param name="resourceType">The resource type that should be searched. If * is specified we search all resource types.</param>
+        /// <param name="resourceType">The resource type that should be searched. If null is specified we search all resource types.</param>
         /// <param name="queryParameters">The search queries.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>A <see cref="SearchResult"/> representing the result.</returns>

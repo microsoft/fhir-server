@@ -9,6 +9,7 @@
     <Import_RootNamespace>Microsoft.Health.Fhir.Api</Import_RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)Controllers\ReindexController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ExportController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\FhirController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ValidateController.cs" />
@@ -54,9 +55,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Modules\FeatureFlags\XmlFormatter\XmlFormatterConfiguration.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\FeatureFlags\XmlFormatter\XmlFormatterFeatureModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\FhirModule.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Modules\HealthChecks\CachedHealthCheck.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Modules\HealthChecks\HealthCheckConfiguration.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Modules\HealthChecks\HealthCheckModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\KnownAssemblies.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\OperationsModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\PersistenceModule.cs" />

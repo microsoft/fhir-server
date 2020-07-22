@@ -10,6 +10,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 using Task = System.Threading.Tasks.Task;
 
@@ -18,9 +19,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
     public class InMemoryExportDestinationClient : IExportDestinationClient
     {
         private Dictionary<Uri, StringBuilder> _exportedData = new Dictionary<Uri, StringBuilder>();
-        private Dictionary<(Uri FileUri, uint PartId), Stream> _streamMappings = new Dictionary<(Uri FileUri, uint PartId), Stream>();
+        private Dictionary<(Uri FileUri, string PartId), Stream> _streamMappings = new Dictionary<(Uri FileUri, string PartId), Stream>();
+
+        public int ExportedDataFileCount => _exportedData.Keys.Count;
 
         public async Task ConnectAsync(CancellationToken cancellationToken, string containerId = null)
+        {
+            await Task.CompletedTask;
+        }
+
+        public async Task ConnectAsync(ExportJobConfiguration exportJobConfiguration, CancellationToken cancellationToken, string containerId = null)
         {
             await Task.CompletedTask;
         }
@@ -39,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             return await Task.FromResult(fileUri);
         }
 
-        public async Task WriteFilePartAsync(Uri fileUri, uint partId, byte[] bytes, CancellationToken cancellationToken)
+        public async Task WriteFilePartAsync(Uri fileUri, string partId, byte[] bytes, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(fileUri, nameof(fileUri));
             EnsureArg.IsNotNull(bytes, nameof(bytes));
@@ -57,7 +65,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
         public async Task CommitAsync(CancellationToken cancellationToken)
         {
-            foreach (KeyValuePair<(Uri, uint), Stream> mapping in _streamMappings)
+            foreach (KeyValuePair<(Uri, string), Stream> mapping in _streamMappings)
             {
                 Stream stream = mapping.Value;
 
@@ -74,6 +82,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             // Now that all of the parts are committed, remove all stream mappings.
             _streamMappings.Clear();
+        }
+
+        public async Task CommitAsync(ExportJobConfiguration exportJobConfiguration, CancellationToken cancellationToken)
+        {
+            await CommitAsync(cancellationToken);
         }
 
         public Task OpenFileAsync(Uri fileUri, CancellationToken cancellationToken)
