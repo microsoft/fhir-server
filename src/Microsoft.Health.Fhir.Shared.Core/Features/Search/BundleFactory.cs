@@ -100,6 +100,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(result.ContinuationToken)),
                         true);
                 }
+
+                // if the query resulted in any item indicating it is partial, add appropriate outcome
+                // as an entry
+                var resource = new OperationOutcome();
+                resource.Issue = new List<OperationOutcome.IssueComponent>();
+                resource.Issue.Add(new OperationOutcome.IssueComponent
+                {
+                    Severity = OperationOutcome.IssueSeverity.Warning,
+                    Code = OperationOutcome.IssueType.Incomplete,
+                });
+
+                if (result.Results.Any(x => x.IsPartial))
+                {
+                    bundle.Entry.Add(new Bundle.EntryComponent()
+                    {
+                        Resource = resource,
+                    });
+                }
             }
 
             // Add the self link to indicate which search parameters were used.

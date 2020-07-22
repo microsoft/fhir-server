@@ -94,6 +94,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 // If there's a table expression, use the previously selected bit, otherwise everything in the select is considered a match
                 StringBuilder.Append(expression.TableExpressions.Count > 0 ? "CAST(IsMatch AS bit) AS IsMatch, " : "CAST(1 AS bit) AS IsMatch, ");
+                StringBuilder.Append(expression.TableExpressions.Count > 0 ? "CAST(IsPartial AS bit) AS IsPartial, " : "CAST(0 AS bit) AS IsPartial, ");
 
                 StringBuilder.AppendLine(VLatest.Resource.RawResource, resourceTableAlias);
             }
@@ -241,7 +242,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     var sortOrder = context.GetFirstSortOrderForSupportedParam();
 
                     // Everything in the top expression is considered a match
-                    StringBuilder.Append("SELECT DISTINCT TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1)).AppendLine(") Sid1, 1 AS IsMatch ")
+                    StringBuilder.Append("SELECT DISTINCT TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1)).AppendLine(") Sid1, 1 AS IsMatch, 0 AS IsPartial ")
                         .Append("FROM ").AppendLine(TableExpressionName(_tableExpressionCounter - 1))
                         .AppendLine($"ORDER BY Sid1 {(sortOrder == SortOrder.Ascending ? "ASC" : "DESC")}");
 
@@ -350,13 +351,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     {
                         // In case its revinclude, we limit the number of returned items as the resultset size is potentially
                         // unbounded.
-                        StringBuilder.Append(" TOP (" + MaxIncludedItems + ") ");
+                        StringBuilder.Append(" TOP (").Append(Parameters.AddParameter(MaxIncludedItems)).Append(") ");
+                    }
+                    else
+                    {
+                        StringBuilder.Append("0 AS IsPartial "); // can't be partial as we are requesting all includes
                     }
 
                     var table = !includeExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias;
                     StringBuilder.Append(VLatest.Resource.ResourceSurrogateId, table);
-                    StringBuilder.AppendLine(" AS Sid1, 0 AS IsMatch")
-                        .Append("FROM ").Append(VLatest.ReferenceSearchParam).Append(' ').AppendLine(referenceSourceTableAlias)
+                    StringBuilder.AppendLine(" AS Sid1, 0 AS IsMatch");
+                    if (includeExpression.Reversed)
+                    {
+                        // since we are asking for revinclude and we are limiting the number of
+                        // items, check if there are more items than allowed max
+                        StringBuilder.AppendLine(", CASE WHEN count(*) over() > ").Append(Parameters.AddParameter(MaxIncludedItems)).Append(" then 1 else 0 end as IsPartial ");
+                    }
+
+                    StringBuilder.Append("FROM ").Append(VLatest.ReferenceSearchParam).Append(' ').AppendLine(referenceSourceTableAlias)
                         .Append("INNER JOIN ").Append(VLatest.Resource).Append(' ').AppendLine(referenceTargetResourceTableAlias);
 
                     using (var delimited = StringBuilder.BeginDelimitedOnClause())
@@ -405,13 +417,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     _includeCtes.Add(TableExpressionName(_tableExpressionCounter));
                     break;
                 case TableExpressionKind.IncludeUnionAll:
-                    StringBuilder.AppendLine("SELECT Sid1, IsMatch ");
+                    StringBuilder.AppendLine("SELECT Sid1, IsMatch, IsPartial ");
                     StringBuilder.Append("FROM ").AppendLine(_cteMainSelect);
 
                     foreach (var includeCte in _includeCtes)
                     {
                         StringBuilder.AppendLine("UNION ALL");
-                        StringBuilder.AppendLine("SELECT Sid1, IsMatch ");
+                        StringBuilder.AppendLine("SELECT Sid1, IsMatch, IsPartial ");
                         StringBuilder.Append("FROM ").AppendLine(includeCte);
                     }
 
