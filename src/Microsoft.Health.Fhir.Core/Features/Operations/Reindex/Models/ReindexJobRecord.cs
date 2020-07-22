@@ -90,5 +90,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         {
             get { return string.Join(",", Resources); }
         }
+
+        [JsonIgnore]
+        public string SearchParamList
+        {
+            get { return string.Join(",", SearchParams); }
+        }
     }
 }

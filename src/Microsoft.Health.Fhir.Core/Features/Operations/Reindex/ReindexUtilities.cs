@@ -3,8 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 
@@ -12,11 +14,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 {
     public class ReindexUtilities
     {
-        private IFhirDataStore _fhirDataStore;
+        private Func<IScoped<IFhirDataStore>> _fhirDataStoreFactory;
 
-        public ReindexUtilities(IFhirDataStore fhirDataStore)
+        public ReindexUtilities(Func<IScoped<IFhirDataStore>> fhirDataStoreFactory)
         {
-            _fhirDataStore = fhirDataStore;
+            _fhirDataStoreFactory = fhirDataStoreFactory;
         }
 
         /// <summary>
@@ -32,11 +34,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             // TODO: placeholder, will be updated to extract new indices, compare with old values and update indices
             // It should update only the indices and search parameter hash as a bulk operation, and not affect lastUpdated timestamp
-
-            foreach (var result in results.Results)
+            using (IScoped<IFhirDataStore> store = _fhirDataStoreFactory())
             {
-                result.Resource.SearchParameterHash = searchParamHash;
-                await _fhirDataStore.UpsertAsync(result.Resource, WeakETag.FromVersionId(result.Resource.Version), false, true, cancellationToken);
+                foreach (var result in results.Results)
+                {
+                    result.Resource.SearchParameterHash = searchParamHash;
+                    await store.Value.UpsertAsync(result.Resource, WeakETag.FromVersionId(result.Resource.Version), false, true, cancellationToken);
+                }
             }
         }
     }

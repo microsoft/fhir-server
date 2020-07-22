@@ -503,6 +503,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to No search parameters found needing to be indexed.  Job cancelled..
+        /// </summary>
+        internal static string NoSearchParametersNeededToBeIndexed {
+            get {
+                return ResourceManager.GetString("NoSearchParametersNeededToBeIndexed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The number of composite components specified for search parameter &apos;{0}&apos; exceeded the number of components defined..
         /// </summary>
         internal static string NumberOfCompositeComponentsExceeded {

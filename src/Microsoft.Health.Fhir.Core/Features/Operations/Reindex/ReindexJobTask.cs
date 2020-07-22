@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly ReindexJobConfiguration _reindexJobConfiguration;
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly ISupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager;
-        private readonly IFhirDataStore _fhirDataStore;
+        private readonly Func<IScoped<IFhirDataStore>> _fhirDataStoreFactory;
         private readonly ReindexUtilities _updateIndices;
         private readonly ILogger _logger;
 
@@ -42,22 +42,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             IOptions<ReindexJobConfiguration> reindexJobConfiguration,
             Func<IScoped<ISearchService>> searchServiceFactory,
             ISupportedSearchParameterDefinitionManager supportedSearchParameterDefinitionManager,
-            IFhirDataStore fhirDataStore,
+            Func<IScoped<IFhirDataStore>> fhirDataStoreFactory,
             ILogger<ReindexJobTask> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
             EnsureArg.IsNotNull(reindexJobConfiguration?.Value, nameof(reindexJobConfiguration));
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(supportedSearchParameterDefinitionManager, nameof(supportedSearchParameterDefinitionManager));
-            EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
+            EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
             _reindexJobConfiguration = reindexJobConfiguration.Value;
             _searchServiceFactory = searchServiceFactory;
             _supportedSearchParameterDefinitionManager = supportedSearchParameterDefinitionManager;
-            _fhirDataStore = fhirDataStore;
-            _updateIndices = new ReindexUtilities(_fhirDataStore);
+            _fhirDataStoreFactory = fhirDataStoreFactory;
+            _updateIndices = new ReindexUtilities(_fhirDataStoreFactory);
             _logger = logger;
         }
 
@@ -72,6 +72,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             try
             {
+                if (_reindexJobRecord.Status != OperationStatus.Running)
+                {
+                    // update job record to running
+                    _reindexJobRecord.Status = OperationStatus.Running;
+                    _reindexJobRecord.StartTime = Clock.UtcNow;
+                    await UpdateJobAsync(cancellationToken);
+                }
+
                 // If we are resuming a job, we can detect that by checking the progress info from the job record.
                 // If no queries have been added to the progress then this is a new job
                 if (_reindexJobRecord.QueryList?.Count == 0)
@@ -79,6 +87,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     // Build query based on new search params
                     // Find supported, but not yet searchable params
                     var notYetIndexedParams = _supportedSearchParameterDefinitionManager.GetSupportedButNotSearchableParams();
+
+                    // if there are not any parameters which are supported but not yet indexed, then we have nothing to do
+                    if (!notYetIndexedParams.Any())
+                    {
+                        _reindexJobRecord.Error.Add(new OperationOutcomeIssue(
+                            OperationOutcomeConstants.IssueSeverity.Information,
+                            OperationOutcomeConstants.IssueType.Informational,
+                            Resources.NoSearchParametersNeededToBeIndexed));
+                        _reindexJobRecord.CanceledTime = DateTimeOffset.UtcNow;
+                        await CompleteJobAsync(OperationStatus.Canceled, cancellationToken);
+                        return;
+                    }
 
                     // From the param list, get the list of necessary resources which should be
                     // included in our query
@@ -106,37 +126,39 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     _reindexJobRecord.Count = countOnlyResults.TotalCount.Value;
 
                     // Query first batch of resources
-                    var resourcesToReindex = await ProcessQueryAsync(queryStatus, cancellationToken);
-
-                    // update job record to running
-                    _reindexJobRecord.Status = OperationStatus.Running;
-                    _reindexJobRecord.StartTime = Clock.UtcNow;
-                    await UpdateJobAsync(cancellationToken);
-
-                    // finally start task to reindex queried records
+                    await ProcessQueryAsync(queryStatus, cancellationToken);
                 }
                 else
                 {
-                    // check to see if queries remain which are not in a completed state
-                    while (_reindexJobRecord.QueryList.Where(q => q.Status != OperationStatus.Completed).Any())
+                    // check to see if queries are queued
+                    // TODO: this while loop is temporary until we multithread this task so multiple threads can
+                    // processes queries
+                    while (_reindexJobRecord.QueryList.Where(q => q.Status == OperationStatus.Queued).Any())
                     {
                         // grab the next query from the list which is labeled as queued and run it
                         var query = _reindexJobRecord.QueryList.Where(q => q.Status == OperationStatus.Queued).OrderBy(q => q.LastModified).FirstOrDefault();
 
                         if (query != null)
                         {
-                            var resourcesToReindex = await ProcessQueryAsync(query, cancellationToken);
-                            await UpdateJobAsync(cancellationToken);
-                            await _updateIndices.ProcessSearchResultsAsync(resourcesToReindex, _reindexJobRecord.Hash, cancellationToken);
+                            await ProcessQueryAsync(query, cancellationToken);
                         }
                         else
                         {
-                            await Task.Delay(_reindexJobConfiguration.QueryDelayIntervalInMilliseconds, cancellationToken);
+                            await Task.Delay(_reindexJobConfiguration.QueryDelayIntervalInMilliseconds.Milliseconds, cancellationToken);
                         }
                     }
 
-                    await CompleteJobAsync(OperationStatus.Completed, cancellationToken);
-                    _logger.LogTrace("Successfully completed the job.");
+                    // If all queries complete, then mark job as complete
+                    if (!_reindexJobRecord.QueryList.Where(q => q.Status != OperationStatus.Completed).Any())
+                    {
+                        await CompleteJobAsync(OperationStatus.Completed, cancellationToken);
+                        _logger.LogTrace("Successfully completed the job.");
+                    }
+                    else
+                    {
+                        await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
+                        _logger.LogTrace("Reindex job did not complete successfully.");
+                    }
                 }
             }
             catch (JobConflictException)
@@ -156,6 +178,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     ex.Message));
 
                 _reindexJobRecord.FailureCount++;
+                await UpdateJobAsync(cancellationToken);
+
                 if (_reindexJobRecord.FailureCount >= _reindexJobConfiguration.ConsecutiveFailuresThreshold)
                 {
                     await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
@@ -163,8 +187,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
         }
 
-        private async Task<SearchResult> ProcessQueryAsync(ReindexJobQueryStatus query, CancellationToken cancellationToken)
+        private async Task ProcessQueryAsync(ReindexJobQueryStatus query, CancellationToken cancellationToken)
         {
+            query.Status = OperationStatus.Running;
+
             // Query first batch of resources
             var results = await ExecuteReindexQueryAsync(query, false, cancellationToken);
 
@@ -177,7 +203,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 _reindexJobRecord.QueryList.Add(nextQuery);
             }
 
-            return results;
+            await UpdateJobAsync(cancellationToken);
+
+            // TODO: Release lock on job document so another thread may pick up the next query.
+
+            await _updateIndices.ProcessSearchResultsAsync(results, _reindexJobRecord.Hash, cancellationToken);
+
+            // TODO: reaquire document lock and update _etag
+
+            query.Status = OperationStatus.Completed;
+            await UpdateJobAsync(cancellationToken);
         }
 
         private async Task<SearchResult> ExecuteReindexQueryAsync(ReindexJobQueryStatus queryStatus, bool countOnly, CancellationToken cancellationToken)
@@ -223,7 +258,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _reindexJobRecord.LastModified = Clock.UtcNow;
             using (IScoped<IFhirOperationDataStore> store = _fhirOperationDataStoreFactory())
             {
-                await store.Value.UpdateReindexJobAsync(_reindexJobRecord, _weakETag, cancellationToken);
+                var wrapper = await store.Value.UpdateReindexJobAsync(_reindexJobRecord, _weakETag, cancellationToken);
+                _weakETag = wrapper.ETag;
             }
         }
     }
