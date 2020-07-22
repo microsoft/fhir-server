@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _referenceToElementResolver = referenceToElementResolver;
         }
 
-        public async Task<List<Tuple<string, string>>> GetGroupMembers(string groupId, CancellationToken cancellationToken)
+        public async Task<List<Tuple<string, string>>> GetGroupMembers(string groupId, CancellationToken cancellationToken, bool includeInactiveMembers = false)
         {
             var groupResource = await _fhirDataStore.Value.GetAsync(new ResourceKey(KnownResourceTypes.Group, groupId), cancellationToken);
 
@@ -52,11 +52,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             foreach (Group.MemberComponent member in groupContents)
             {
-                var element = _referenceToElementResolver.Resolve(member.Entity.Reference);
-                string id = (string)element.Children("id").First().Value;
-                string resourceType = element.InstanceType;
+                if (member.Inactive == null || member.Inactive == false || includeInactiveMembers)
+                {
+                    var element = _referenceToElementResolver.Resolve(member.Entity.Reference);
+                    string id = (string)element.Children("id").First().Value;
+                    string resourceType = element.InstanceType;
 
-                members.Add(Tuple.Create(id, resourceType));
+                    members.Add(Tuple.Create(id, resourceType));
+                }
             }
 
             return members;

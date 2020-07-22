@@ -226,7 +226,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         break;
                 }
 
-                if (_exportJobRecord.ExportType != ExportJobType.All)
+                if (_exportJobRecord.ExportType == ExportJobType.Patient || _exportJobRecord.ExportType == ExportJobType.Group)
                 {
                     uint resultIndex = 0;
                     foreach (SearchResultEntry result in searchResult.Results)
