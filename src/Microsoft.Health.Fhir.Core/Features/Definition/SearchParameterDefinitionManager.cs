@@ -6,9 +6,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using EnsureThat;
+using MediatR;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Definition
@@ -16,7 +20,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
     /// <summary>
     /// Provides mechanism to access search parameter definition.
     /// </summary>
-    public class SearchParameterDefinitionManager : ISearchParameterDefinitionManager, IStartable
+    public class SearchParameterDefinitionManager : ISearchParameterDefinitionManager, IStartable, INotificationHandler<SearchParametersHashUpdated>
     {
         private readonly IModelInfoProvider _modelInfoProvider;
 
@@ -33,6 +37,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         internal IDictionary<Uri, SearchParameterInfo> UrlLookup { get; set; }
 
         public IEnumerable<SearchParameterInfo> AllSearchParameters => UrlLookup.Values;
+
+        public string SearchParametersHash { get; private set; }
 
         public void Start()
         {
@@ -104,6 +110,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             SearchParameterInfo componentSearchParameter = GetSearchParameter(component.DefinitionUrl);
 
             return componentSearchParameter.Type;
+        }
+
+        public Task Handle(SearchParametersHashUpdated notification, CancellationToken cancellationToken)
+        {
+            SearchParametersHash = notification.HashValue;
+
+            return Task.CompletedTask;
         }
     }
 }
