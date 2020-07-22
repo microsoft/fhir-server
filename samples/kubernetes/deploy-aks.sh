@@ -217,9 +217,3 @@ helm upgrade --install aso ./install-aso/azure-service-operator -n azureoperator
     --set createNamespace=true \
     --set image.repository="mcr.microsoft.com/k8s/azureserviceoperator:latest"
 
-
-# Install Pod Identities (needed for export)
-# see https://github.com/Azure/aad-pod-identity for details
-helm repo add aad-pod-identity https://raw.githubusercontent.com/Azure/aad-pod-identity/master/charts
-helm install aad-pod-identity aad-pod-identity/aad-pod-identity
-

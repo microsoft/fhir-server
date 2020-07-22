@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Client
 {
@@ -34,7 +35,7 @@ namespace Microsoft.Health.Fhir.Client
         Task<FhirResponse> DeleteAsync<T>(T resource, CancellationToken cancellationToken = default)
             where T : Resource;
 
-        Task<Uri> ExportAsync(string path = "", string parameters = "", CancellationToken cancellationToken = default);
+        Task<Uri> ExportAsync(string path = "", CancellationToken cancellationToken = default);
 
         Task<FhirResponse> HardDeleteAsync<T>(T resource, CancellationToken cancellationToken = default)
             where T : Resource;

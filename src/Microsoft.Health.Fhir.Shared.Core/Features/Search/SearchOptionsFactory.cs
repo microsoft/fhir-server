@@ -231,19 +231,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     try
                     {
                         SearchParameterInfo searchParameterInfo = _searchParameterDefinitionManager.GetSearchParameter(parsedResourceType.ToString(), sorting.Item1);
-
-                        if (searchParameterInfo.IsSortSupported())
-                        {
-                            sortings.Add((searchParameterInfo, sorting.Item2.ToCoreSortOrder()));
-                        }
-                        else
-                        {
-                            throw new SearchParameterNotSupportedException(string.Format(Core.Resources.SearchSortParameterNotSupported, searchParameterInfo.Name));
-                        }
+                        sortings.Add((searchParameterInfo, sorting.Item2.ToCoreSortOrder()));
                     }
                     catch (SearchParameterNotSupportedException)
                     {
-                        (unsupportedSortings ??= new List<(string parameterName, string reason)>()).Add((sorting.Item1, string.Format(Core.Resources.SearchSortParameterNotSupported, sorting.Item1)));
+                        (unsupportedSortings ??= new List<(string parameterName, string reason)>()).Add((sorting.Item1, string.Format(Core.Resources.SearchParameterNotSupported, sorting.Item1, resourceType)));
                     }
                 }
 

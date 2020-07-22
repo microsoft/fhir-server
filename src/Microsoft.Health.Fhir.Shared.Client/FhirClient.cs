@@ -269,10 +269,9 @@ namespace Microsoft.Health.Fhir.Client
             return await CreateResponseAsync<Bundle>(response);
         }
 
-        public async Task<Uri> ExportAsync(string path = "", string parameters = "", CancellationToken cancellationToken = default)
+        public async Task<Uri> ExportAsync(string path = "", CancellationToken cancellationToken = default)
         {
-            string requestPath = $"{path}$export?{parameters}";
-            using var message = new HttpRequestMessage(HttpMethod.Get, requestPath);
+            using var message = new HttpRequestMessage(HttpMethod.Get, $"{path}$export");
             message.Headers.Add("Accept", "application/fhir+json");
             message.Headers.Add("Prefer", "respond-async");
 

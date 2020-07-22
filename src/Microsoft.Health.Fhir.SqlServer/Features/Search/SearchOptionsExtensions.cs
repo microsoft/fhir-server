@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 }
                 else
                 {
-                    throw new SearchParameterNotSupportedException(string.Format(Core.Resources.SearchSortParameterNotSupported, sortOptions.searchParameterInfo.Name));
+                    throw new SearchParameterNotSupportedException(string.Format(Core.Resources.SearchParameterNotSupported, sortOptions.searchParameterInfo.Name));
                 }
             }
 

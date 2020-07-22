@@ -5,9 +5,10 @@
 
 using System.Collections.Generic;
 using EnsureThat;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Models;
 
-namespace Microsoft.Health.Fhir.Core.Features.Search
+namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 {
     public static class SearchParameterInfoExtensions
     {

@@ -5,13 +5,11 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
@@ -24,10 +22,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
     /// </summary>
     public class CosmosContainerProvider : IStartable, IRequireInitializationOnFirstRequest, IDisposable
     {
-        private readonly ILogger<CosmosContainerProvider> _logger;
         private Lazy<Container> _container;
         private readonly RetryableInitializationOperation _initializationOperation;
-        private readonly CosmosClient _client;
 
         public CosmosContainerProvider(
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
@@ -41,18 +37,18 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(cosmosClientInitializer, nameof(cosmosClientInitializer));
             EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(collectionInitializers, nameof(collectionInitializers));
-            _logger = logger;
 
             string collectionId = collectionConfiguration.Get(Constants.CollectionConfigurationName).CollectionId;
-            _client = cosmosClientInitializer.CreateCosmosClient(cosmosDataStoreConfiguration);
+            CosmosClient client = cosmosClientInitializer.CreateCosmosClient(cosmosDataStoreConfiguration);
 
             _initializationOperation = new RetryableInitializationOperation(
-                () => cosmosClientInitializer.InitializeDataStore(_client, cosmosDataStoreConfiguration, collectionInitializers));
+                () => cosmosClientInitializer.InitializeDataStore(client, cosmosDataStoreConfiguration, collectionInitializers));
 
             _container = new Lazy<Container>(() => cosmosClientInitializer.CreateFhirContainer(
-                _client,
+                client,
                 cosmosDataStoreConfiguration.DatabaseId,
-                collectionId));
+                collectionId,
+                cosmosDataStoreConfiguration.ContinuationTokenSizeLimitInKb));
         }
 
         public Container Container
@@ -100,7 +96,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             if (disposing)
             {
-                _client.Dispose();
                 _container = null;
             }
         }
@@ -109,15 +104,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             if (!_initializationOperation.IsInitialized)
             {
-                try
-                {
-                    _initializationOperation.EnsureInitialized().GetAwaiter().GetResult();
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogCritical(ex, "Couldn't create a ContainerScope because EnsureInitialized failed.");
-                    throw new ServiceUnavailableException();
-                }
+                _initializationOperation.EnsureInitialized().GetAwaiter().GetResult();
             }
 
             return new NonDisposingScope(Container);

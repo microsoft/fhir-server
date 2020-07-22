@@ -186,15 +186,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, progress.ContinuationToken));
             }
 
-            if (_exportJobRecord.ExportType == ExportJobType.Patient)
-            {
-                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type, KnownResourceTypes.Patient));
-            }
-            else if (!string.IsNullOrEmpty(_exportJobRecord.ResourceType))
-            {
-                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type, _exportJobRecord.ResourceType));
-            }
-
             // Process the export if:
             // 1. There is continuation token, which means there is more resource to be exported.
             // 2. There is no continuation token but the page is 0, which means it's the initial export.
@@ -205,10 +196,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 // Search and process the results.
                 using (IScoped<ISearchService> searchService = _searchServiceFactory())
                 {
-                    searchResult = await searchService.Value.SearchAsync(
-                        resourceType: null,
-                        queryParametersList,
-                        cancellationToken);
+                    switch (_exportJobRecord.ExportType)
+                    {
+                        case ExportJobType.All:
+                            searchResult = await searchService.Value.SearchAsync(
+                                resourceType: null,
+                                queryParametersList,
+                                cancellationToken);
+                            break;
+                        case ExportJobType.Patient:
+                            searchResult = await searchService.Value.SearchAsync(
+                                resourceType: KnownResourceTypes.Patient,
+                                queryParametersList,
+                                cancellationToken);
+                            break;
+                    }
                 }
 
                 if (_exportJobRecord.ExportType == ExportJobType.Patient)
@@ -270,11 +272,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             if (progress.ContinuationToken != null)
             {
                 queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, progress.ContinuationToken));
-            }
-
-            if (!string.IsNullOrEmpty(_exportJobRecord.ResourceType))
-            {
-                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type, _exportJobRecord.ResourceType));
             }
 
             // Process the export if:
@@ -363,20 +360,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             CancellationToken cancellationToken)
         {
             // Update the continuation token in local cache and queryParams.
-            // We will add or udpate the continuation token in the query parameters list.
+            // We will add or udpate the continuation token to the end of the query parameters list.
             progress.UpdateContinuationToken(continuationToken);
 
-            bool replacedContinuationToken = false;
-            for (int index = 0; index < queryParametersList.Count; index++)
+            if (queryParametersList[queryParametersList.Count - 1].Item1 == KnownQueryParameterNames.ContinuationToken)
             {
-                if (queryParametersList[index].Item1 == KnownQueryParameterNames.ContinuationToken)
-                {
-                    queryParametersList[index] = Tuple.Create(KnownQueryParameterNames.ContinuationToken, progress.ContinuationToken);
-                    replacedContinuationToken = true;
-                }
+                queryParametersList[queryParametersList.Count - 1] = Tuple.Create(KnownQueryParameterNames.ContinuationToken, progress.ContinuationToken);
             }
-
-            if (!replacedContinuationToken)
+            else
             {
                 queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, progress.ContinuationToken));
             }

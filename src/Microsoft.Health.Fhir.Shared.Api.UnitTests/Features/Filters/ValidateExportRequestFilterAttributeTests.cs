@@ -14,6 +14,7 @@ using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Net.Http.Headers;
 using Xunit;
 
@@ -99,22 +100,17 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
 
-        [InlineData(KnownQueryParameterNames.Since)]
-        [InlineData(KnownQueryParameterNames.Type)]
-        [InlineData(KnownQueryParameterNames.Since, KnownQueryParameterNames.Type)]
-        [Theory]
-        public void GivenARequestWithCorrectHeaderAndSupportedQueryParam_WhenGettingAnExportOperationRequest_ThenTheResultIsSuccessful(params string[] queryParamNames)
+        [Fact]
+        public void GivenARequestWithCorrectHeaderAndSinceQueryParam_WhenGettingAnExportOperationRequest_ThenTheResultIsSuccessful()
         {
             var context = CreateContext();
             context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
             context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
 
-            var queryParams = new Dictionary<string, StringValues>();
-            foreach (string queryParamName in queryParamNames)
+            var queryParams = new Dictionary<string, StringValues>()
             {
-                queryParams.Add(queryParamName, "test");
-            }
-
+                { KnownQueryParameterNames.Since, PartialDateTime.MinValue.ToString() },
+            };
             context.HttpContext.Request.Query = new QueryCollection(queryParams);
 
             _filter.OnActionExecuting(context);

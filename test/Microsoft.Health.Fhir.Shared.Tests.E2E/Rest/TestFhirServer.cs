@@ -176,8 +176,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             HttpResponseMessage response = await httpClient.SendAsync(requestMessage, cancellationToken);
 
             string content = await response.Content.ReadAsStringAsync();
-            response.EnsureSuccessStatusCode();
-
             CapabilityStatement metadata = new FhirJsonParser().Parse<CapabilityStatement>(content);
 
             foreach (var rest in metadata.Rest.Where(r => r.Mode == RestfulCapabilityMode.Server))

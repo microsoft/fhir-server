@@ -3,14 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
-using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
@@ -103,7 +101,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             if (searchOptions.CountOnly)
             {
                 return new SearchResult(
-                    (await _fhirDataStore.ExecuteDocumentQueryAsync<int>(sqlQuerySpec, feedOptions, continuationToken, cancellationToken)).Single(),
+                    (await _fhirDataStore.ExecuteDocumentQueryAsync<int>(sqlQuerySpec, feedOptions,  continuationToken, cancellationToken)).Single(),
                     searchOptions.UnsupportedSearchParams);
             }
 
@@ -115,11 +113,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             IReadOnlyList<(string parameterName, string reason)> unsupportedSortingParameters;
             if (searchOptions.Sort?.Count > 0)
             {
-                unsupportedSortingParameters = searchOptions
-                    .UnsupportedSortingParams
-                    .Concat(searchOptions.Sort
-                        .Where(x => !string.Equals(x.searchParameterInfo.Name, KnownQueryParameterNames.LastUpdated, StringComparison.OrdinalIgnoreCase))
-                        .Select(s => (s.searchParameterInfo.Name, Core.Resources.SortNotSupported))).ToList();
+                // we don't currently support sort
+                unsupportedSortingParameters = searchOptions.UnsupportedSortingParams.Concat(searchOptions.Sort.Select(s => (s.searchParameterInfo.Name, Core.Resources.SortNotSupported))).ToList();
             }
             else
             {
