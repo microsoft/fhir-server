@@ -60,7 +60,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 throw new JobConflictException(Resources.OnlyOneResourceJobAllowed);
             }
 
-            var hash = _searchParameterDefinitionManager.SearchParametersHash;
+            // TODO: this is a placeholder until we determine how to best store and communicate
+            // hash value
+            var hash = _searchParameterDefinitionManager.SearchParametersHash ?? "hash";
 
             var jobRecord = new ReindexJobRecord(
                 hash,
