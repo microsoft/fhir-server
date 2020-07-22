@@ -5,7 +5,9 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text.Json;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
@@ -17,7 +19,6 @@ using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
@@ -66,14 +67,61 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             bundle.Entry.AddRange(result.Results.Select(x =>
             {
-                var endIndex = x.Resource.RawResource.Data.LastIndexOf('}');
+                using (var ms = new MemoryStream())
+                {
+                    using (Utf8JsonWriter writer = new Utf8JsonWriter(ms))
+                    {
+                        using (var jsonDocument = JsonDocument.Parse(x.Resource.RawResource.Data))
+                        {
+                            writer.WriteStartObject();
+                            bool foundMeta = false;
+                            foreach (var current in jsonDocument.RootElement.EnumerateObject())
+                            {
+                                if (current.Name == "meta")
+                                {
+                                    foundMeta = true;
+                                    foreach (var entry in current.Value.EnumerateObject())
+                                    {
+                                        if (entry.Name == "lastUpdated")
+                                        {
+                                            writer.WriteString("lastUpdated", x.Resource.LastModified);
+                                        }
+                                        else if (entry.Name == "versionId")
+                                        {
+                                            writer.WriteString("versionId", x.Resource.Version);
+                                        }
+                                        else
+                                        {
+                                            entry.WriteTo(writer);
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    // write
+                                    current.WriteTo(writer);
+                                }
+                            }
 
-                JObject meta = new JObject();
+                            if (!foundMeta)
+                            {
+                                writer.WriteStartObject("meta");
+                                writer.WriteString("lastUpdated", x.Resource.LastModified);
+                                writer.WriteString("versionId", x.Resource.Version);
+                                writer.WriteEndObject();
+                            }
 
-                meta.Add(new JProperty("versionId", x.Resource.Version));
-                meta.Add(new JProperty("lastUpdated", x.Resource.LastModified));
+                            writer.WriteEndObject();
+                        }
+                    }
 
-                x.Resource.RawResource.Data = x.Resource.RawResource.Data.Insert(endIndex, ", \"meta\": " + JsonConvert.SerializeObject(meta));
+                    using (var sr = new StreamReader(ms))
+                    {
+                        ms.Position = 0;
+                        x.Resource.RawResource.Data = sr.ReadToEnd();
+                    }
+                }
+
                 var raw = new JRaw(x.Resource.RawResource.Data);
 
                 return raw;
