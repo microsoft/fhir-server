@@ -353,19 +353,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         // unbounded.
                         StringBuilder.Append(" TOP (").Append(Parameters.AddParameter(MaxIncludedItems)).Append(") ");
                     }
-                    else
-                    {
-                        StringBuilder.Append("0 AS IsPartial, "); // can't be partial as we are requesting all includes
-                    }
 
                     var table = !includeExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias;
                     StringBuilder.Append(VLatest.Resource.ResourceSurrogateId, table);
-                    StringBuilder.AppendLine(" AS Sid1, 0 AS IsMatch");
+                    StringBuilder.Append(" AS Sid1, 0 AS IsMatch");
                     if (includeExpression.Reversed)
                     {
                         // since we are asking for revinclude and we are limiting the number of
                         // items, check if there are more items than allowed max
                         StringBuilder.AppendLine(", CASE WHEN count(*) over() > ").Append(Parameters.AddParameter(MaxIncludedItems)).Append(" then 1 else 0 end as IsPartial ");
+                    }
+                    else
+                    {
+                        StringBuilder.AppendLine(", 0 AS IsPartial "); // can't be partial as we are requesting all includes
                     }
 
                     StringBuilder.Append("FROM ").Append(VLatest.ReferenceSearchParam).Append(' ').AppendLine(referenceSourceTableAlias)

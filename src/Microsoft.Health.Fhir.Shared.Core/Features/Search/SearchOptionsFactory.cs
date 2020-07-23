@@ -183,7 +183,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             if (searchParams.Include?.Count > 0)
             {
                 searchExpressions.AddRange(searchParams.Include.Select(
-                    q => _expressionParser.ParseInclude(parsedResourceType.ToString(), q, false /* reversed */))
+                    q => _expressionParser.ParseInclude(parsedResourceType.ToString(), q, false /* not reversed */))
                     .Where(item => item != null));
             }
 
