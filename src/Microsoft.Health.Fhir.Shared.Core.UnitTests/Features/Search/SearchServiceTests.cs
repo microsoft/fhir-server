@@ -149,7 +149,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             protected override Task<SearchResult> SearchForReindexInternalAsync(SearchOptions searchOptions, string searchParameterHash, CancellationToken cancellationToken)
             {
-                throw new NotImplementedException();
+                return Task.FromResult(SearchImplementation(searchOptions));
             }
         }
     }
