@@ -117,7 +117,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     // generate and run first query
                     var queryStatus = new ReindexJobQueryStatus(null);
                     queryStatus.LastModified = DateTimeOffset.UtcNow;
-                    queryStatus.Status = OperationStatus.Running;
+                    queryStatus.Status = OperationStatus.Queued;
 
                     _reindexJobRecord.QueryList.Add(queryStatus);
 
@@ -146,18 +146,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         {
                             await Task.Delay(_reindexJobConfiguration.QueryDelayIntervalInMilliseconds.Milliseconds, cancellationToken);
                         }
-                    }
-
-                    // If all queries complete, then mark job as complete
-                    if (!_reindexJobRecord.QueryList.Where(q => q.Status != OperationStatus.Completed).Any())
-                    {
-                        await CompleteJobAsync(OperationStatus.Completed, cancellationToken);
-                        _logger.LogTrace("Successfully completed the job.");
-                    }
-                    else
-                    {
-                        await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
-                        _logger.LogTrace("Reindex job did not complete successfully.");
                     }
                 }
             }
@@ -191,6 +179,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             try
             {
                 query.Status = OperationStatus.Running;
+                query.LastModified = DateTimeOffset.UtcNow;
 
                 // Query first batch of resources
                 var results = await ExecuteReindexQueryAsync(query, false, cancellationToken);
@@ -199,8 +188,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 if (!string.IsNullOrEmpty(results.ContinuationToken))
                 {
                     var nextQuery = new ReindexJobQueryStatus(results.ContinuationToken);
-                    query.LastModified = DateTimeOffset.UtcNow;
-                    query.Status = OperationStatus.Queued;
+                    nextQuery.LastModified = DateTimeOffset.UtcNow;
+                    nextQuery.Status = OperationStatus.Queued;
                     _reindexJobRecord.QueryList.Add(nextQuery);
                 }
 
@@ -209,6 +198,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 // TODO: Release lock on job document so another thread may pick up the next query.
 
                 await _updateIndices.ProcessSearchResultsAsync(results, _reindexJobRecord.Hash, cancellationToken);
+
+                // TODO: reaquire document lock and update _etag
+
+                query.Status = OperationStatus.Completed;
+                await UpdateJobAsync(cancellationToken);
+
+                await CheckJobCompletionStatus(cancellationToken);
             }
             catch (Exception ex)
             {
@@ -229,11 +225,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 await UpdateJobAsync(cancellationToken);
             }
+        }
 
-            // TODO: reaquire document lock and update _etag
-
-            query.Status = OperationStatus.Completed;
-            await UpdateJobAsync(cancellationToken);
+        private async Task CheckJobCompletionStatus(CancellationToken cancellationToken)
+        {
+            // If any query still in progress then we are not done
+            if (_reindexJobRecord.QueryList.Where(q =>
+                q.Status == OperationStatus.Queued ||
+                q.Status == OperationStatus.Running).Any())
+            {
+                return;
+            }
+            else
+            {
+                // all queries marked as complete, reindex job is done, check success or failure
+                if (_reindexJobRecord.QueryList.All(q => q.Status == OperationStatus.Completed))
+                {
+                    await CompleteJobAsync(OperationStatus.Completed, cancellationToken);
+                    _logger.LogTrace("Successfully completed the job.");
+                }
+                else
+                {
+                    await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
+                    _logger.LogTrace("Reindex job did not complete successfully.");
+                }
+            }
         }
 
         private async Task<SearchResult> ExecuteReindexQueryAsync(ReindexJobQueryStatus queryStatus, bool countOnly, CancellationToken cancellationToken)

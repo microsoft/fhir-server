@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         /// <summary>
         /// Gets a hash value calculated from the current set of search parameters
         /// </summary>
-        string SearchParametersHash { get; }
+        static string SearchParametersHash { get; }
 
         /// <summary>
         /// Gets list of search parameters for the given <paramref name="resourceType"/>.

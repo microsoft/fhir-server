@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public IEnumerable<SearchParameterInfo> AllSearchParameters => UrlLookup.Values;
 
-        public string SearchParametersHash { get; private set; }
+        public static string SearchParametersHash { get; private set; }
 
         public void Start()
         {
@@ -114,7 +114,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public Task Handle(SearchParametersHashUpdated notification, CancellationToken cancellationToken)
         {
-            SearchParametersHash = notification.HashValue;
+            SearchParameterDefinitionManager.SearchParametersHash = notification.HashValue;
 
             return Task.CompletedTask;
         }
