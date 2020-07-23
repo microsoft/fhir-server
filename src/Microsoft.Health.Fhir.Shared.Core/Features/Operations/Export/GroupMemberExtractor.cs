@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _referenceToElementResolver = referenceToElementResolver;
         }
 
-        public async Task<List<Tuple<string, string>>> GetGroupMembers(string groupId, CancellationToken cancellationToken, bool includeInactiveMembers = false)
+        public async Task<List<Tuple<string, string>>> GetGroupMembers(string groupId, DateTimeOffset groupMembershipTime, CancellationToken cancellationToken, bool includeInactiveMembers = false)
         {
             var groupResource = await _fhirDataStore.Value.GetAsync(new ResourceKey(KnownResourceTypes.Group, groupId), cancellationToken);
 
@@ -52,7 +52,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             foreach (Group.MemberComponent member in groupContents)
             {
-                if (member.Inactive == null || member.Inactive == false || includeInactiveMembers)
+                var fhirGroupMembershipTime = new FhirDateTime(groupMembershipTime);
+                if (
+                    (member.Inactive == null
+                    || member.Inactive == false
+                    || member.Period?.EndElement == null
+                    || member.Period?.EndElement > fhirGroupMembershipTime
+                    || includeInactiveMembers)
+                    && (member.Period?.StartElement == null
+                    || member.Period?.StartElement < fhirGroupMembershipTime))
                 {
                     var element = _referenceToElementResolver.Resolve(member.Entity.Reference);
                     string id = (string)element.Children("id").First().Value;

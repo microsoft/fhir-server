@@ -16,9 +16,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         /// Queries the database for a Group resource and returns a list of the Group's members.
         /// </summary>
         /// <param name="groupId">The id of the Group resoruce</param>
+        /// <param name="groupMembershipTime">Only returns members that were in the Group at this time</param>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <param name="includeInactiveMembers">Should inactive group members be included in the results</param>
         /// <returns>List of Tuples for the members of the Group. The tuples' first values are the resource ids and the second values are the resource type.</returns>
-        public Task<List<Tuple<string, string>>> GetGroupMembers(string groupId, CancellationToken cancellationToken, bool includeInactiveMembers = false);
+        public Task<List<Tuple<string, string>>> GetGroupMembers(string groupId, DateTimeOffset groupMembershipTime, CancellationToken cancellationToken, bool includeInactiveMembers = false);
     }
 }

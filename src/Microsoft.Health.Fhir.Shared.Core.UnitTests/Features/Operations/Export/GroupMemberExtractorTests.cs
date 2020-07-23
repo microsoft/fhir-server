@@ -113,7 +113,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             _resourceElement = new ResourceElement(Substitute.For<ITypedElement>(), group);
 
-            var groupMembers = await _groupMemberExtractor.GetGroupMembers("group", _cancellationToken);
+            var groupMembers = await _groupMemberExtractor.GetGroupMembers("group", DateTimeOffset.Now, _cancellationToken);
 
             Assert.Equal(Tuple.Create(patientReference, KnownResourceTypes.Patient), groupMembers[0]);
             Assert.Equal(Tuple.Create(observationReference, KnownResourceTypes.Observation), groupMembers[1]);

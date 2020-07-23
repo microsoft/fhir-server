@@ -222,7 +222,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                         break;
                     case ExportJobType.Group:
-                        searchResult = await GetGroupPatients(_exportJobRecord.GroupId, queryParametersList, cancellationToken);
+                        searchResult = await GetGroupPatients(
+                            _exportJobRecord.GroupId,
+                            queryParametersList,
+                            _exportJobRecord.QueuedTime,
+                            cancellationToken);
                         break;
                 }
 
@@ -406,11 +410,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
         }
 
-        private async Task<SearchResult> GetGroupPatients(string groupId, List<Tuple<string, string>> queryParametersList, CancellationToken cancellationToken)
+        private async Task<SearchResult> GetGroupPatients(string groupId, List<Tuple<string, string>> queryParametersList, DateTimeOffset groupMembershipTime, CancellationToken cancellationToken)
         {
             if (!queryParametersList.Exists((Tuple<string, string> parameter) => parameter.Item1 == KnownQueryParameterNames.Id))
             {
-                var patientIds = await GetGroupPatientIds(groupId, cancellationToken);
+                var patientIds = await GetGroupPatientIds(groupId, groupMembershipTime, cancellationToken);
                 queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Id, string.Join(',', patientIds)));
             }
 
@@ -423,10 +427,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
         }
 
-        private async Task<HashSet<string>> GetGroupPatientIds(string groupId, CancellationToken cancellationToken, HashSet<string> groupsAlreadyChecked = null)
+        private async Task<HashSet<string>> GetGroupPatientIds(string groupId, DateTimeOffset groupMembershipTime, CancellationToken cancellationToken, HashSet<string> groupsAlreadyChecked = null)
         {
-            // need to send in the _before param so that if this restarted the same version of the group is retrieved
-
             if (groupsAlreadyChecked == null)
             {
                 groupsAlreadyChecked = new HashSet<string>();
@@ -434,7 +436,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             groupsAlreadyChecked.Add(groupId);
 
-            var groupContents = await _groupMemberExtractor.GetGroupMembers(groupId, cancellationToken);
+            var groupContents = await _groupMemberExtractor.GetGroupMembers(groupId, groupMembershipTime, cancellationToken);
 
             var patientIds = new HashSet<string>();
 
@@ -451,7 +453,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         // need to check that loops aren't happening
                         if (!groupsAlreadyChecked.Contains(resourceId))
                         {
-                            patientIds.UnionWith(await GetGroupPatientIds(resourceId, cancellationToken, groupsAlreadyChecked));
+                            patientIds.UnionWith(await GetGroupPatientIds(resourceId, groupMembershipTime, cancellationToken, groupsAlreadyChecked));
                         }
 
                         break;
