@@ -1129,6 +1129,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             _groupMemberExtractor.GetGroupMembers(
                 "group",
+                Arg.Any<DateTimeOffset>(),
                 _cancellationToken).Returns(
                     new List<Tuple<string, string>>()
                     {
@@ -1192,6 +1193,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             _groupMemberExtractor.GetGroupMembers(
                 "group",
+                Arg.Any<DateTimeOffset>(),
                 _cancellationToken).Returns(
                     new List<Tuple<string, string>>()
                     {
@@ -1201,13 +1203,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     });
 
             _groupMemberExtractor.GetGroupMembers(
-               "nested",
-               _cancellationToken).Returns(
-                   new List<Tuple<string, string>>()
-                   {
+                "nested",
+                Arg.Any<DateTimeOffset>(),
+                _cancellationToken).Returns(
+                    new List<Tuple<string, string>>()
+                    {
                         Tuple.Create("5", KnownResourceTypes.Patient),
                         Tuple.Create("6", KnownResourceTypes.Observation),
-                   });
+                    });
 
             _searchService.SearchAsync(
                 null,
@@ -1265,6 +1268,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             _groupMemberExtractor.GetGroupMembers(
                 "group",
+                Arg.Any<DateTimeOffset>(),
                 _cancellationToken).Returns(
                     new List<Tuple<string, string>>()
                     {
@@ -1333,6 +1337,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             _groupMemberExtractor.GetGroupMembers(
                 "group",
+                Arg.Any<DateTimeOffset>(),
                 _cancellationToken).Returns(
                     new List<Tuple<string, string>>()
                     {
@@ -1437,6 +1442,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             _groupMemberExtractor.GetGroupMembers(
                 "group",
+                Arg.Any<DateTimeOffset>(),
                 _cancellationToken).Returns(
                     new List<Tuple<string, string>>()
                     {
