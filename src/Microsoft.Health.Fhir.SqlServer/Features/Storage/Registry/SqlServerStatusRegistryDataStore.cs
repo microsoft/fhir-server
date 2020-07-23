@@ -21,38 +21,38 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
     internal class SqlServerStatusRegistryDataStore : IStatusRegistryDataStore
     {
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
-        private readonly VLatest.UpsertSearchParamStatusesTvpGenerator<List<ResourceSearchParameterStatus>> _updateSearchParamStatusesTvpGenerator;
+        private readonly VLatest.UpsertSearchParamsTvpGenerator<List<ResourceSearchParameterStatus>> _updateSearchParamsTvpGenerator;
 
         public SqlServerStatusRegistryDataStore(
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
-            VLatest.UpsertSearchParamStatusesTvpGenerator<List<ResourceSearchParameterStatus>> updateSearchParamStatusesTvpGenerator)
+            VLatest.UpsertSearchParamsTvpGenerator<List<ResourceSearchParameterStatus>> updateSearchParamsTvpGenerator)
         {
             EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
-            EnsureArg.IsNotNull(updateSearchParamStatusesTvpGenerator, nameof(updateSearchParamStatusesTvpGenerator));
+            EnsureArg.IsNotNull(updateSearchParamsTvpGenerator, nameof(updateSearchParamsTvpGenerator));
 
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
-            _updateSearchParamStatusesTvpGenerator = updateSearchParamStatusesTvpGenerator;
+            _updateSearchParamsTvpGenerator = updateSearchParamsTvpGenerator;
         }
 
         public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses()
         {
-            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
-            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+            using (var sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
+            using (var sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
                 VLatest.GetSearchParamStatuses.PopulateCommand(sqlCommandWrapper);
 
                 var parameterStatuses = new List<ResourceSearchParameterStatus>();
 
                 // TODO: Make cancellation token an input.
-                using (SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, CancellationToken.None))
+                using (var sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, CancellationToken.None))
                 {
                     while (await sqlDataReader.ReadAsync())
                     {
-                        (string uri, string stringStatus, DateTimeOffset? lastUpdated, bool isPartiallySupported) = sqlDataReader.ReadRow(
-                            VLatest.SearchParamStatusRegistry.Uri,
-                            VLatest.SearchParamStatusRegistry.Status,
-                            VLatest.SearchParamStatusRegistry.LastUpdated,
-                            VLatest.SearchParamStatusRegistry.IsPartiallySupported);
+                        (string uri, string stringStatus, DateTimeOffset? lastUpdated, bool? isPartiallySupported) = sqlDataReader.ReadRow(
+                            VLatest.SearchParam.Uri,
+                            VLatest.SearchParam.Status,
+                            VLatest.SearchParam.LastUpdated,
+                            VLatest.SearchParam.IsPartiallySupported);
 
                         var status = Enum.Parse<SearchParameterStatus>(stringStatus, true);
 
@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                         {
                             Uri = new Uri(uri),
                             Status = status,
-                            IsPartiallySupported = isPartiallySupported,
+                            IsPartiallySupported = (bool)isPartiallySupported,
                             LastUpdated = (DateTimeOffset)lastUpdated,
                         };
 
@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                 _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
-                VLatest.UpsertSearchParamStatuses.PopulateCommand(sqlCommandWrapper, _updateSearchParamStatusesTvpGenerator.Generate(statuses.ToList()));
+                VLatest.UpsertSearchParams.PopulateCommand(sqlCommandWrapper, _updateSearchParamsTvpGenerator.Generate(statuses.ToList()));
 
                 await sqlCommandWrapper.ExecuteNonQueryAsync(CancellationToken.None);
             }
