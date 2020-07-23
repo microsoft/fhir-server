@@ -101,18 +101,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         true);
                 }
 
-                // if the query resulted in any item indicating it is partial, add appropriate outcome
-                // as an entry
-                var resource = new OperationOutcome();
-                resource.Issue = new List<OperationOutcome.IssueComponent>();
-                resource.Issue.Add(new OperationOutcome.IssueComponent
-                {
-                    Severity = OperationOutcome.IssueSeverity.Warning,
-                    Code = OperationOutcome.IssueType.Incomplete,
-                });
-
                 if (result.Results.Any(x => x.IsPartial))
                 {
+                    // if the query resulted in any item indicating it is partial, add appropriate outcome
+                    // as an entry
+                    var resource = new OperationOutcome();
+                    resource.Issue = new List<OperationOutcome.IssueComponent>();
+                    resource.Issue.Add(new OperationOutcome.IssueComponent
+                    {
+                        Severity = OperationOutcome.IssueSeverity.Warning,
+                        Code = OperationOutcome.IssueType.Incomplete,
+                    });
+
                     bundle.Entry.Add(new Bundle.EntryComponent()
                     {
                         Resource = resource,
