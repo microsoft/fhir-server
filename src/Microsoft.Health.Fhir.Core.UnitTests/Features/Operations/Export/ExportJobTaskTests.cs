@@ -1127,15 +1127,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
               numberOfPagesPerCommit: 2);
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithCommitPages);
 
-            _groupMemberExtractor.GetGroupMembers(
+            _groupMemberExtractor.GetGroupPatientIds(
                 "group",
                 Arg.Any<DateTimeOffset>(),
                 _cancellationToken).Returns(
-                    new List<Tuple<string, string>>()
+                    new HashSet<string>()
                     {
-                        Tuple.Create("1", KnownResourceTypes.Patient),
-                        Tuple.Create("2", KnownResourceTypes.Observation),
-                        Tuple.Create("3", KnownResourceTypes.Patient),
+                        "1",
+                        "2",
                     });
 
             _searchService.SearchAsync(
@@ -1174,83 +1173,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
             string exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
-            Assert.Equal("13", exportedIds);
+            Assert.Equal("12", exportedIds);
             exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
-            Assert.Equal("13", exportedIds);
-            Assert.Equal(2, _inMemoryDestinationClient.ExportedDataFileCount);
-
-            Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
-        }
-
-        [Fact]
-        public async Task GivenAGroupExportJobWithNestedGroups_WhenExecuted_ThenAllPatientResourcesInTheGroupAreExported()
-        {
-            var exportJobRecordWithCommitPages = CreateExportJobRecord(
-              exportJobType: ExportJobType.Group,
-              groupId: "group",
-              numberOfPagesPerCommit: 2);
-            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithCommitPages);
-
-            _groupMemberExtractor.GetGroupMembers(
-                "group",
-                Arg.Any<DateTimeOffset>(),
-                _cancellationToken).Returns(
-                    new List<Tuple<string, string>>()
-                    {
-                        Tuple.Create("1", KnownResourceTypes.Patient),
-                        Tuple.Create("2", KnownResourceTypes.Observation),
-                        Tuple.Create("nested", KnownResourceTypes.Group),
-                    });
-
-            _groupMemberExtractor.GetGroupMembers(
-                "nested",
-                Arg.Any<DateTimeOffset>(),
-                _cancellationToken).Returns(
-                    new List<Tuple<string, string>>()
-                    {
-                        Tuple.Create("5", KnownResourceTypes.Patient),
-                        Tuple.Create("6", KnownResourceTypes.Observation),
-                    });
-
-            _searchService.SearchAsync(
-                null,
-                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                _cancellationToken)
-                .Returns(x =>
-                {
-                    string[] ids = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[2].Item2.Split(',');
-                    SearchResultEntry[] entries = new SearchResultEntry[ids.Length];
-
-                    for (int index = 0; index < ids.Length; index++)
-                    {
-                        entries[index] = CreateSearchResultEntry(ids[index], KnownResourceTypes.Patient);
-                    }
-
-                    return CreateSearchResult(entries);
-                });
-
-            _searchService.SearchCompartmentAsync(
-                Arg.Any<string>(),
-                Arg.Any<string>(),
-                Arg.Any<string>(),
-                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                _cancellationToken)
-                .Returns(x =>
-                {
-                    string parentId = x.ArgAt<string>(1);
-
-                    return CreateSearchResult(new SearchResultEntry[]
-                    {
-                         CreateSearchResultEntry(parentId, KnownResourceTypes.Observation),
-                    });
-                });
-
-            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
-
-            string exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
-            Assert.Equal("15", exportedIds);
-            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
-            Assert.Equal("15", exportedIds);
+            Assert.Equal("12", exportedIds);
             Assert.Equal(2, _inMemoryDestinationClient.ExportedDataFileCount);
 
             Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
@@ -1266,15 +1191,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
               numberOfPagesPerCommit: 2);
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithCommitPages);
 
-            _groupMemberExtractor.GetGroupMembers(
+            _groupMemberExtractor.GetGroupPatientIds(
                 "group",
                 Arg.Any<DateTimeOffset>(),
                 _cancellationToken).Returns(
-                    new List<Tuple<string, string>>()
+                    new HashSet<string>()
                     {
-                        Tuple.Create("1", KnownResourceTypes.Patient),
-                        Tuple.Create("2", KnownResourceTypes.Patient),
-                        Tuple.Create("3", KnownResourceTypes.Patient),
+                        "1",
+                        "2",
+                        "3",
                     });
 
             int countOfSearches = 0;
@@ -1335,15 +1260,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
               numberOfPagesPerCommit: 1);
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithCommitPages);
 
-            _groupMemberExtractor.GetGroupMembers(
+            _groupMemberExtractor.GetGroupPatientIds(
                 "group",
                 Arg.Any<DateTimeOffset>(),
                 _cancellationToken).Returns(
-                    new List<Tuple<string, string>>()
+                    new HashSet<string>()
                     {
-                        Tuple.Create("1", KnownResourceTypes.Patient),
-                        Tuple.Create("2", KnownResourceTypes.Patient),
-                        Tuple.Create("3", KnownResourceTypes.Patient),
+                        "1",
+                        "2",
+                        "3",
                     });
 
             int countOfSearches = 0;
@@ -1368,7 +1293,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     }
                     else
                     {
-                        ids = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[3].Item2.Split(',');
+                        // The ids aren't in the query parameters because of the reset
+                        ids = new string[] { "1", "2", "3" };
                         continuationTokenIndex = int.Parse(x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[2].Item2.Substring(2));
                     }
 
@@ -1440,15 +1366,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
               numberOfPagesPerCommit: 2);
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithCommitPages);
 
-            _groupMemberExtractor.GetGroupMembers(
+            _groupMemberExtractor.GetGroupPatientIds(
                 "group",
                 Arg.Any<DateTimeOffset>(),
                 _cancellationToken).Returns(
-                    new List<Tuple<string, string>>()
+                    new HashSet<string>()
                     {
-                        Tuple.Create("1", KnownResourceTypes.Patient),
-                        Tuple.Create("2", KnownResourceTypes.Patient),
-                        Tuple.Create("3", KnownResourceTypes.Patient),
+                        "1",
+                        "2",
+                        "3",
                     });
 
             _searchService.SearchAsync(

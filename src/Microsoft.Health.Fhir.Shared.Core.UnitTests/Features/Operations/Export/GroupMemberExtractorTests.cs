@@ -32,6 +32,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
         private readonly CancellationToken _cancellationToken;
 
+        private readonly string _patientReference = "Patient Reference";
+        private readonly string _observationReference = "Observation Reference";
+
         public GroupMemberExtractorTests()
         {
             _cancellationToken = _cancellationTokenSource.Token;
@@ -58,33 +61,57 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         }
 
         [Fact]
-        public async System.Threading.Tasks.Task GivenAGroupId_WhenExecuted_ThenTheMembersIdsAreReturned()
+        public async System.Threading.Tasks.Task GivenAGroupId_WhenPatientIdsAreRequested_ThenThePatientsIdsAreReturned()
+        {
+            SetUpGroupMock();
+
+            var patientSet = await _groupMemberExtractor.GetGroupPatientIds("group", DateTimeOffset.Now, _cancellationToken);
+
+            Assert.Single(patientSet);
+            Assert.Contains(_patientReference, patientSet);
+        }
+
+        [Fact]
+        public async System.Threading.Tasks.Task GivenAGroupIdForAGroupWithANestedGroup_WhenPatientIdsAreRequested_ThenThePatientsIdsAreReturned()
         {
             var structureDefinitionSummaryProvider = new PocoStructureDefinitionSummaryProvider();
-            var patientReference = "Patient Reference";
-            var observationReference = "Observation Reference";
+            var nestedGroupReference = "Nested Group";
+            var patientReference2 = "Second Patient";
 
-            _referenceToElementResolver.Resolve(patientReference).Returns(x =>
+            _referenceToElementResolver.Resolve(_patientReference).Returns(x =>
             {
                 ISourceNode node = FhirJsonNode.Create(
                 JObject.FromObject(
                     new
                     {
                         resourceType = KnownResourceTypes.Patient,
-                        id = patientReference,
+                        id = _patientReference,
                     }));
 
                 return node.ToTypedElement(structureDefinitionSummaryProvider);
             });
 
-            _referenceToElementResolver.Resolve(observationReference).Returns(x =>
+            _referenceToElementResolver.Resolve(nestedGroupReference).Returns(x =>
             {
                 ISourceNode node = FhirJsonNode.Create(
                 JObject.FromObject(
                     new
                     {
-                        resourceType = KnownResourceTypes.Observation,
-                        id = observationReference,
+                        resourceType = KnownResourceTypes.Group,
+                        id = nestedGroupReference,
+                    }));
+
+                return node.ToTypedElement(structureDefinitionSummaryProvider);
+            });
+
+            _referenceToElementResolver.Resolve(patientReference2).Returns(x =>
+            {
+                ISourceNode node = FhirJsonNode.Create(
+                JObject.FromObject(
+                    new
+                    {
+                        resourceType = KnownResourceTypes.Patient,
+                        id = patientReference2,
                     }));
 
                 return node.ToTypedElement(structureDefinitionSummaryProvider);
@@ -98,26 +125,127 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     {
                         Entity = new ResourceReference()
                         {
-                            Reference = patientReference,
+                            Reference = _patientReference,
                         },
                     },
                     new Group.MemberComponent()
                     {
                         Entity = new ResourceReference()
                         {
-                            Reference = observationReference,
+                            Reference = nestedGroupReference,
+                        },
+                    },
+                },
+            };
+
+            var nestedGroup = new Group()
+            {
+                Member = new List<Group.MemberComponent>()
+                {
+                    new Group.MemberComponent()
+                    {
+                        Entity = new ResourceReference()
+                        {
+                            Reference = patientReference2,
+                        },
+                    },
+                },
+            };
+
+            var callCount = 0;
+            var resourceDeserializer = new ResourceDeserializer(
+                (FhirResourceFormat.Json, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastUpdated) =>
+                {
+                    callCount++;
+                    if (callCount == 1)
+                    {
+                        return new ResourceElement(Substitute.For<ITypedElement>(), group);
+                    }
+                    else
+                    {
+                        return new ResourceElement(Substitute.For<ITypedElement>(), nestedGroup);
+                    }
+                })));
+
+            var fhirDataScope = Substitute.For<IScoped<IFhirDataStore>>();
+            fhirDataScope.Value.Returns(_fhirDataStore);
+
+            _groupMemberExtractor = new GroupMemberExtractor(
+                fhirDataScope,
+                resourceDeserializer,
+                _referenceToElementResolver);
+
+            var patientSet = await _groupMemberExtractor.GetGroupPatientIds("group", DateTimeOffset.Now, _cancellationToken);
+
+            Assert.Equal(2, patientSet.Count);
+            Assert.Contains(_patientReference, patientSet);
+            Assert.Contains(patientReference2, patientSet);
+        }
+
+        [Fact]
+        public async System.Threading.Tasks.Task GivenAGroupId_WhenGroupMembersAreRequested_ThenTheMembersIdsAreReturned()
+        {
+            SetUpGroupMock();
+
+            var groupMembers = await _groupMemberExtractor.GetGroupMembers("group", DateTimeOffset.Now, _cancellationToken);
+
+            Assert.Equal(Tuple.Create(_patientReference, KnownResourceTypes.Patient), groupMembers[0]);
+            Assert.Equal(Tuple.Create(_observationReference, KnownResourceTypes.Observation), groupMembers[1]);
+            Assert.Equal(2, groupMembers.Count);
+        }
+
+        private void SetUpGroupMock()
+        {
+            var structureDefinitionSummaryProvider = new PocoStructureDefinitionSummaryProvider();
+
+            _referenceToElementResolver.Resolve(_patientReference).Returns(x =>
+            {
+                ISourceNode node = FhirJsonNode.Create(
+                JObject.FromObject(
+                    new
+                    {
+                        resourceType = KnownResourceTypes.Patient,
+                        id = _patientReference,
+                    }));
+
+                return node.ToTypedElement(structureDefinitionSummaryProvider);
+            });
+
+            _referenceToElementResolver.Resolve(_observationReference).Returns(x =>
+            {
+                ISourceNode node = FhirJsonNode.Create(
+                JObject.FromObject(
+                    new
+                    {
+                        resourceType = KnownResourceTypes.Observation,
+                        id = _observationReference,
+                    }));
+
+                return node.ToTypedElement(structureDefinitionSummaryProvider);
+            });
+
+            var group = new Group()
+            {
+                Member = new List<Group.MemberComponent>()
+                {
+                    new Group.MemberComponent()
+                    {
+                        Entity = new ResourceReference()
+                        {
+                            Reference = _patientReference,
+                        },
+                    },
+                    new Group.MemberComponent()
+                    {
+                        Entity = new ResourceReference()
+                        {
+                            Reference = _observationReference,
                         },
                     },
                 },
             };
 
             _resourceElement = new ResourceElement(Substitute.For<ITypedElement>(), group);
-
-            var groupMembers = await _groupMemberExtractor.GetGroupMembers("group", DateTimeOffset.Now, _cancellationToken);
-
-            Assert.Equal(Tuple.Create(patientReference, KnownResourceTypes.Patient), groupMembers[0]);
-            Assert.Equal(Tuple.Create(observationReference, KnownResourceTypes.Observation), groupMembers[1]);
-            Assert.Equal(2, groupMembers.Count);
         }
     }
 }
