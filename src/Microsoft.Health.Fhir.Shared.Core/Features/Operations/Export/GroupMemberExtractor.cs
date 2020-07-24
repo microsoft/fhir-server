@@ -41,6 +41,45 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _referenceToElementResolver = referenceToElementResolver;
         }
 
+        public async Task<HashSet<string>> GetGroupPatientIds(string groupId, DateTimeOffset groupMembershipTime, CancellationToken cancellationToken, HashSet<string> groupsAlreadyChecked = null)
+        {
+            if (groupsAlreadyChecked == null)
+            {
+                groupsAlreadyChecked = new HashSet<string>();
+            }
+
+            groupsAlreadyChecked.Add(groupId);
+
+            var groupContents = await GetGroupMembers(groupId, groupMembershipTime, cancellationToken);
+
+            var patientIds = new HashSet<string>();
+
+            foreach (Tuple<string, string> entity in groupContents)
+            {
+                var resourceId = entity.Item1;
+                var resourceType = entity.Item2;
+
+                // Only Patient resources and their compartment resources are exported as part of a Group export. All other resource types are ignored.
+                // Nested Group resources are checked to see if they contain other Patients.
+                switch (resourceType)
+                {
+                    case KnownResourceTypes.Patient:
+                        patientIds.Add(resourceId);
+                        break;
+                    case KnownResourceTypes.Group:
+                        // need to check that loops aren't happening
+                        if (!groupsAlreadyChecked.Contains(resourceId))
+                        {
+                            patientIds.UnionWith(await GetGroupPatientIds(resourceId, groupMembershipTime, cancellationToken, groupsAlreadyChecked));
+                        }
+
+                        break;
+                }
+            }
+
+            return patientIds;
+        }
+
         public async Task<List<Tuple<string, string>>> GetGroupMembers(string groupId, DateTimeOffset groupMembershipTime, CancellationToken cancellationToken, bool includeInactiveMembers = false)
         {
             var groupResource = await _fhirDataStore.Value.GetAsync(new ResourceKey(KnownResourceTypes.Group, groupId), cancellationToken);

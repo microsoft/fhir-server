@@ -263,7 +263,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     break;
                 }
 
-                await ProcessProgressChange(exportJobConfiguration, progress, queryParametersList, searchResult.ContinuationToken, forceCommit: _exportJobRecord.ExportType == ExportJobType.Patient, cancellationToken);
+                await ProcessProgressChange(
+                    exportJobConfiguration,
+                    progress,
+                    queryParametersList,
+                    searchResult.ContinuationToken,
+                    forceCommit: _exportJobRecord.ExportType == ExportJobType.Patient || _exportJobRecord.ExportType == ExportJobType.Group,
+                    cancellationToken);
                 currentBatchId = progress.Page.ToString("d6");
             }
 
@@ -412,9 +418,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         private async Task<SearchResult> GetGroupPatients(string groupId, List<Tuple<string, string>> queryParametersList, DateTimeOffset groupMembershipTime, CancellationToken cancellationToken)
         {
-            if (!queryParametersList.Exists((Tuple<string, string> parameter) => parameter.Item1 == KnownQueryParameterNames.Id))
+            if (!queryParametersList.Exists((Tuple<string, string> parameter) => parameter.Item1 == KnownQueryParameterNames.Id || parameter.Item1 == KnownQueryParameterNames.ContinuationToken))
             {
-                var patientIds = await GetGroupPatientIds(groupId, groupMembershipTime, cancellationToken);
+                var patientIds = await _groupMemberExtractor.GetGroupPatientIds(groupId, groupMembershipTime, cancellationToken);
                 queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Id, string.Join(',', patientIds)));
             }
 
@@ -425,42 +431,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                                queryParametersList,
                                cancellationToken);
             }
-        }
-
-        private async Task<HashSet<string>> GetGroupPatientIds(string groupId, DateTimeOffset groupMembershipTime, CancellationToken cancellationToken, HashSet<string> groupsAlreadyChecked = null)
-        {
-            if (groupsAlreadyChecked == null)
-            {
-                groupsAlreadyChecked = new HashSet<string>();
-            }
-
-            groupsAlreadyChecked.Add(groupId);
-
-            var groupContents = await _groupMemberExtractor.GetGroupMembers(groupId, groupMembershipTime, cancellationToken);
-
-            var patientIds = new HashSet<string>();
-
-            foreach (Tuple<string, string> entity in groupContents)
-            {
-                var resourceId = entity.Item1;
-                var resourceType = entity.Item2;
-                switch (resourceType)
-                {
-                    case KnownResourceTypes.Patient:
-                        patientIds.Add(resourceId);
-                        break;
-                    case KnownResourceTypes.Group:
-                        // need to check that loops aren't happening
-                        if (!groupsAlreadyChecked.Contains(resourceId))
-                        {
-                            patientIds.UnionWith(await GetGroupPatientIds(resourceId, groupMembershipTime, cancellationToken, groupsAlreadyChecked));
-                        }
-
-                        break;
-                }
-            }
-
-            return patientIds;
         }
     }
 }
