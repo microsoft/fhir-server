@@ -163,8 +163,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // Download exported data from storage account
             Dictionary<(string resourceType, string resourceId), string> dataFromExport = await DownloadBlobAndParse(blobUris);
 
-            // Assert both data are equal
-            // Also remember to add support for the inactive flag in Group member (probably best in group member extractor as a flag on the Get method)
+            // Assert both sets of data are equal
             Assert.True(ValidateDataFromBothSources(dataInFhirServer, dataFromExport));
         }
 
@@ -183,7 +182,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // Download exported data from storage account
             Dictionary<(string resourceType, string resourceId), string> dataFromExport = await DownloadBlobAndParse(blobUris);
 
-            // Assert both data are equal
+            // Assert both sets of data are equal
             Assert.True(ValidateDataFromBothSources(dataInFhirServer, dataFromExport));
         }
 
@@ -245,13 +244,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             HttpStatusCode resultCode = HttpStatusCode.Accepted;
             HttpResponseMessage response = null;
-            while (resultCode == HttpStatusCode.Accepted)
+            int retryCount = 0;
+
+            // Wait until status change or 5 minutes
+            while (resultCode == HttpStatusCode.Accepted && retryCount < 60)
             {
                 await Task.Delay(5000);
 
                 response = await _testFhirClient.CheckExportAsync(contentLocation);
 
                 resultCode = response.StatusCode;
+
+                retryCount++;
+            }
+
+            if (retryCount >= 60)
+            {
+                throw new Exception($"Export request timed out");
             }
 
             if (resultCode != HttpStatusCode.OK)

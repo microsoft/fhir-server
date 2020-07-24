@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -83,6 +84,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         public async Task<List<Tuple<string, string>>> GetGroupMembers(string groupId, DateTimeOffset groupMembershipTime, CancellationToken cancellationToken, bool includeInactiveMembers = false)
         {
             var groupResource = await _fhirDataStore.Value.GetAsync(new ResourceKey(KnownResourceTypes.Group, groupId), cancellationToken);
+
+            if (groupResource == null)
+            {
+                throw new ResourceNotFoundException($"Group {groupId} was not found.");
+            }
 
             var group = _resourceDeserializer.Deserialize(groupResource);
             var groupContents = group.ToPoco<Group>().Member;
