@@ -291,12 +291,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             patient.Identifier.First().Value = patientIdentifier;
             bundle.Entry.First().Request.IfNoneExist = $"identifier=|{patientIdentifier}";
 
-            FhirResponse<Bundle> bundleResponse1 = await Client.PostBundleAsync(bundle);
+            FhirResponse<Bundle> bundleResponse1 = await _client.PostBundleAsync(bundle);
 
             var patientId = bundleResponse1.Resource.Entry.First().Resource.Id;
             ValidateReferenceToPatient(bundleResponse1.Resource.Entry[1].Resource, patientId);
 
-            FhirResponse<Bundle> bundleResponse2 = await Client.PostBundleAsync(bundle);
+            FhirResponse<Bundle> bundleResponse2 = await _client.PostBundleAsync(bundle);
             ValidateReferenceToPatient(bundleResponse2.Resource.Entry[1].Resource, patientId);
         }
 
@@ -313,12 +313,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             patient.Identifier.First().Value = patientIdentifier;
             bundle.Entry.First().Request.Url = $"Patient?identifier=|{patientIdentifier}";
 
-            FhirResponse<Bundle> bundleResponse1 = await Client.PostBundleAsync(bundle);
+            FhirResponse<Bundle> bundleResponse1 = await _client.PostBundleAsync(bundle);
 
             var patientId = bundleResponse1.Resource.Entry.First().Resource.Id;
             ValidateReferenceToPatient(bundleResponse1.Resource.Entry[1].Resource, patientId);
 
-            FhirResponse<Bundle> bundleResponse2 = await Client.PostBundleAsync(bundle);
+            FhirResponse<Bundle> bundleResponse2 = await _client.PostBundleAsync(bundle);
 
             Assert.Equal(patientId, bundleResponse2.Resource.Entry[0].Resource.Id);
             Assert.Equal("2", bundleResponse2.Resource.Entry[0].Resource.Meta.VersionId);

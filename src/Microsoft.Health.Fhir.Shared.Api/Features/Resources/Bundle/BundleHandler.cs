@@ -453,38 +453,25 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         {
             foreach (EntryComponent entry in bundleEntries)
             {
-                if (entry.Request.Method == HTTPVerb.PUT && entry.Request.Url.Contains('?', StringComparison.InvariantCultureIgnoreCase) && !string.IsNullOrEmpty(entry.FullUrl))
-                {
-                    if (!idDictionary.ContainsKey(entry.FullUrl))
-                    {
-                        // This id is new to us
-                        var insertId = _resourceIdProvider.Create();
-                        entry.Resource.Id = insertId;
-
-                        idDictionary.Add(entry.FullUrl, (insertId, entry.Resource.TypeName));
-                    }
-
-                    continue;
-                }
-
-                if (entry.Request.Method != HTTPVerb.POST)
-                {
-                    continue;
-                }
-
                 if (string.IsNullOrWhiteSpace(entry.FullUrl))
                 {
                     continue;
                 }
 
-                // We've not come across this ID
-                if (!idDictionary.ContainsKey(entry.FullUrl))
+                switch (entry.Request.Method)
                 {
-                    // This id is new to us
-                    var insertId = _resourceIdProvider.Create();
-                    entry.Resource.Id = insertId;
+                    case HTTPVerb.PUT when entry.Request.Url.Contains('?', StringComparison.InvariantCultureIgnoreCase):
+                    case HTTPVerb.POST:
+                        if (!idDictionary.ContainsKey(entry.FullUrl))
+                        {
+                            // This id is new to us
+                            var insertId = _resourceIdProvider.Create();
+                            entry.Resource.Id = insertId;
 
-                    idDictionary.Add(entry.FullUrl, (insertId, entry.Resource.TypeName));
+                            idDictionary.Add(entry.FullUrl, (insertId, entry.Resource.TypeName));
+                        }
+
+                        break;
                 }
             }
         }

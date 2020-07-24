@@ -87,8 +87,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 resourceType = conditionalUpdate[0];
                 conditionalQueries = conditionalUpdate[1];
             }
-
-            if (entry.Request.Method == HTTPVerb.POST)
+            else if (entry.Request.Method == HTTPVerb.POST)
             {
                 resourceType = entry.Request.Url;
                 conditionalQueries = entry.Request.IfNoneExist;
@@ -98,11 +97,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             if (matchedResults?.Count > 1)
             {
-                // Multiple matches: The server returns a 412 Precondition Failed error indicating the client's criteria were not selective enough
+                // Multiple matches: The server returns a 412 Precondition Failed error indicating the client's criteria were not selective enought
                 throw new PreconditionFailedException(string.Format(Api.Resources.ConditionalOperationInBundleNotSelectiveEnough, conditionalQueries));
             }
-
-            if (matchedResults?.Count == 1)
+            else if (matchedResults?.Count == 1)
             {
                 // If this entry has a fullUrl, then save it to the idDictionary for matching later
                 if (!string.IsNullOrWhiteSpace(entry.FullUrl))
