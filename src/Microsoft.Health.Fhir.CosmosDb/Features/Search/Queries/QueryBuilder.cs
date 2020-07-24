@@ -72,6 +72,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
                 AppendFilterCondition(
                    "AND",
+                   true,
                    (KnownResourceWrapperProperties.IsHistory, false),
                    (KnownResourceWrapperProperties.IsDeleted, false));
 
@@ -161,6 +162,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
                 AppendFilterCondition(
                    "AND",
+                   true,
+                   (KnownResourceWrapperProperties.IsDeleted, false));
+
+                AppendFilterCondition(
+                   "AND",
+                   false,
                    (KnownResourceWrapperProperties.SearchParameterHash, searchParameterHash));
 
                 var query = new QueryDefinition(_queryBuilder.ToString());
@@ -174,14 +181,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                 _queryHelper.AppendSelectFromRoot(selectList);
             }
 
-            private void AppendFilterCondition(string logicalOperator, params (string, object)[] conditions)
+            private void AppendFilterCondition(string logicalOperator, bool equal, params (string, object)[] conditions)
             {
-                _queryHelper.AppendFilterCondition(logicalOperator, conditions);
+                _queryHelper.AppendFilterCondition(logicalOperator, equal, conditions);
             }
 
-            private void AppendFilterCondition(string name, object value)
+            private void AppendFilterCondition(string name, object value, bool equal)
             {
-                _queryHelper.AppendFilterCondition(name, value);
+                _queryHelper.AppendFilterCondition(name, value, equal);
             }
 
             private void AppendSystemDataFilter()

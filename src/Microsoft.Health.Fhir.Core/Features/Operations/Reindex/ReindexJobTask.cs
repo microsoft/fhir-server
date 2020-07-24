@@ -122,7 +122,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     _reindexJobRecord.QueryList.Add(queryStatus);
 
                     // update the complete total
-                    var countOnlyResults = await ExecuteReindexQueryAsync(queryStatus, true, cancellationToken);
+                    var countOnlyResults = await ExecuteReindexQueryAsync(queryStatus, countOnly: true, cancellationToken);
                     _reindexJobRecord.Count = countOnlyResults.TotalCount.Value;
 
                     // Query first batch of resources
@@ -212,7 +212,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 query.FailureCount++;
 
-                _logger.LogError(ex, $"Encountered an unhandled exception. The qquery failure count increased to {_reindexJobRecord.FailureCount}.");
+                _logger.LogError(ex, $"Encountered an unhandled exception. The query failure count increased to {_reindexJobRecord.FailureCount}.");
 
                 if (query.FailureCount >= _reindexJobConfiguration.ConsecutiveFailuresThreshold)
                 {
