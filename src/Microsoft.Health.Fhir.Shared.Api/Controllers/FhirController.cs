@@ -33,7 +33,6 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
-using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
@@ -511,16 +510,16 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         private async Task<IActionResult> PerformCompartmentSearch(string compartmentType, string compartmentId, string resourceType, IReadOnlyList<Tuple<string, string>> queries)
         {
-            RawSearchBundle response = await _mediator.RawSearchResourceCompartmentAsync(compartmentType, compartmentId, resourceType, queries, HttpContext.RequestAborted);
+            var response = await _mediator.RawSearchResourceCompartmentAsync(compartmentType, compartmentId, resourceType, queries, HttpContext.RequestAborted);
 
-            return RawBundleFhirResult.Create(response);
+            return FhirResult.Create(response);
         }
 
         private async Task<IActionResult> PerformSearch(string type, IReadOnlyList<Tuple<string, string>> queries)
         {
-            RawSearchBundle response = await _mediator.RawSearchResourceAsync(type, queries, HttpContext.RequestAborted);
+            var response = await _mediator.RawSearchResourceAsync(type, queries, HttpContext.RequestAborted);
 
-            return RawBundleFhirResult.Create(response);
+            return FhirResult.Create(response);
         }
 
         /// <summary>

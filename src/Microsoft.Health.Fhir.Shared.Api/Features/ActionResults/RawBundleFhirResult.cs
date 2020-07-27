@@ -5,22 +5,22 @@
 
 using System.Net;
 using EnsureThat;
-using Microsoft.Health.Fhir.Core.Messages.Search;
+using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Health.Fhir.Api.Features.ActionResults
 {
-    public class RawBundleFhirResult : ResourceActionResult<RawSearchBundle>
+    public class RawBundleFhirResult : ResourceActionResult<JRaw>
     {
         public RawBundleFhirResult()
         {
         }
 
-        public RawBundleFhirResult(RawSearchBundle resource)
+        public RawBundleFhirResult(JRaw resource)
             : base(resource)
         {
         }
 
-        public static RawBundleFhirResult Create(RawSearchBundle resource, HttpStatusCode statusCode = HttpStatusCode.OK)
+        public static RawBundleFhirResult Create(JRaw resource, HttpStatusCode statusCode = HttpStatusCode.OK)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 

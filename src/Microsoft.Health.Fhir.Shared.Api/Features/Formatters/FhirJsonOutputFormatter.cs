@@ -60,6 +60,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 
             context.HttpContext.AllowSynchronousIO();
 
+            if (context.Object is Hl7.Fhir.Model.Bundle)
+            {
+                await Microsoft.Health.Fhir.Api.Features.Resources.Bundle.BundleSerializer.Serialize(context.Object, context.HttpContext.Response.Body);
+                return;
+            }
+
             HttpResponse response = context.HttpContext.Response;
             using (TextWriter textWriter = context.WriterFactory(response.Body, selectedEncoding))
             using (var jsonWriter = new JsonTextWriter(textWriter))
@@ -72,6 +78,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                 }
 
                 _fhirJsonSerializer.Serialize((Resource)context.Object, jsonWriter, context.HttpContext.GetSummaryType(_logger));
+
                 await jsonWriter.FlushAsync();
             }
         }

@@ -16,10 +16,9 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
-using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Shared.Core.Features.Search;
 using Microsoft.Health.Fhir.ValueSets;
-using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
@@ -58,61 +57,76 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             });
         }
 
-        public RawSearchBundle CreateRawSearchBundle(SearchResult result)
+        public ResourceElement CreateRawSearchBundle(SearchResult result)
         {
-            var bundle = new RawSearchBundle
+            var bundle = new Bundle()
             {
                 Id = Guid.NewGuid().ToString(),
             };
 
-            bundle.Entry.AddRange(result.Results.Select(x =>
+            bundle.SelfLink = _urlResolver.ResolveRouteUrl(result.UnsupportedSearchParameters, result.UnsupportedSortingParameters);
+
+            bundle.Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId;
+            bundle.Type = Bundle.BundleType.Searchset;
+            bundle.Total = result?.TotalCount;
+            bundle.Meta = new Meta
             {
+                LastUpdated = Clock.UtcNow,
+            };
+
+            var output = result.Results.Select(x =>
+            {
+                var output = new RawFhirResource();
+                output.FullUrlElement = new FhirUri(_urlResolver.ResolveRawResourceUrl(x.Resource));
+                output.Search = new Bundle.SearchComponent
+                {
+                    Mode = x.SearchEntryMode == SearchEntryMode.Match ? Bundle.SearchEntryMode.Match : Bundle.SearchEntryMode.Include,
+                };
                 using (var ms = new MemoryStream())
                 {
                     using (Utf8JsonWriter writer = new Utf8JsonWriter(ms))
                     {
-                        using (var jsonDocument = JsonDocument.Parse(x.Resource.RawResource.Data))
+                        var jsonDocument = JsonDocument.Parse(x.Resource.RawResource.Data);
+                        writer.WriteStartObject();
+                        bool foundMeta = false;
+                        foreach (var current in jsonDocument.RootElement.EnumerateObject())
                         {
-                            writer.WriteStartObject();
-                            bool foundMeta = false;
-                            foreach (var current in jsonDocument.RootElement.EnumerateObject())
+                            if (current.Name == "meta")
                             {
-                                if (current.Name == "meta")
+                                foundMeta = true;
+                                foreach (var entry in current.Value.EnumerateObject())
                                 {
-                                    foundMeta = true;
-                                    foreach (var entry in current.Value.EnumerateObject())
+                                    if (entry.Name == "lastUpdated")
                                     {
-                                        if (entry.Name == "lastUpdated")
-                                        {
-                                            writer.WriteString("lastUpdated", x.Resource.LastModified);
-                                        }
-                                        else if (entry.Name == "versionId")
-                                        {
-                                            writer.WriteString("versionId", x.Resource.Version);
-                                        }
-                                        else
-                                        {
-                                            entry.WriteTo(writer);
-                                        }
+                                        writer.WriteString("lastUpdated", x.Resource.LastModified);
+                                    }
+                                    else if (entry.Name == "versionId")
+                                    {
+                                        writer.WriteString("versionId", x.Resource.Version);
+                                    }
+                                    else
+                                    {
+                                        entry.WriteTo(writer);
                                     }
                                 }
-                                else
-                                {
-                                    // write
-                                    current.WriteTo(writer);
-                                }
                             }
-
-                            if (!foundMeta)
+                            else
                             {
-                                writer.WriteStartObject("meta");
-                                writer.WriteString("lastUpdated", x.Resource.LastModified);
-                                writer.WriteString("versionId", x.Resource.Version);
-                                writer.WriteEndObject();
+                                // write
+                                current.WriteTo(writer);
                             }
+                        }
 
+                        if (!foundMeta)
+                        {
+                            writer.WriteStartObject("meta");
+                            writer.WriteString("lastUpdated", x.Resource.LastModified);
+                            writer.WriteString("versionId", x.Resource.Version);
                             writer.WriteEndObject();
                         }
+
+                        writer.WriteEndObject();
+                        output.Content = jsonDocument;
                     }
 
                     using (var sr = new StreamReader(ms))
@@ -122,12 +136,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     }
                 }
 
-                var raw = new JRaw(x.Resource.RawResource.Data);
+                return output;
+            });
 
-                return raw;
-            }));
+            bundle.Entry.AddRange(output);
+            var rebundle = bundle.ToResourceElement();
 
-            return bundle;
+            return rebundle;
         }
 
         public ResourceElement CreateHistoryBundle(SearchResult result)

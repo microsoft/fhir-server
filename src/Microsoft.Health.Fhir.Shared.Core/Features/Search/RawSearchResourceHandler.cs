@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -14,7 +13,6 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Search;
-using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
@@ -61,7 +59,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 result.RawResource = new RawResource(result.RawResource.Data, result.RawResource.Format);
             }
 
-            RawSearchBundle bundle = _bundleFactory.CreateRawSearchBundle(searchResult);
+            var bundle = _bundleFactory.CreateRawSearchBundle(searchResult);
 
             return new RawSearchResourceResponse(bundle);
         }

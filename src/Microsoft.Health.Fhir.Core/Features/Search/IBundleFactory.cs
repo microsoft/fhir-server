@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
@@ -12,7 +11,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     {
         ResourceElement CreateSearchBundle(SearchResult result);
 
-        RawSearchBundle CreateRawSearchBundle(SearchResult result);
+        ResourceElement CreateRawSearchBundle(SearchResult result);
 
         ResourceElement CreateHistoryBundle(SearchResult result);
     }

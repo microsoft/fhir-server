@@ -4,18 +4,19 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Search
 {
     public class RawSearchCompartmentResponse
     {
-        public RawSearchCompartmentResponse(RawSearchBundle bundle)
+        public RawSearchCompartmentResponse(ResourceElement bundle)
         {
             EnsureArg.IsNotNull(bundle, nameof(bundle));
 
             Bundle = bundle;
         }
 
-        public RawSearchBundle Bundle { get; }
+        public ResourceElement Bundle { get; }
     }
 }
