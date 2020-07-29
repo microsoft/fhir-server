@@ -4,6 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.IO;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -19,20 +21,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
 {
     public class GetResourceHandler : BaseResourceHandler, IRequestHandler<GetResourceRequest, GetResourceResponse>
     {
-        private readonly ResourceDeserializer _deserializer;
-
         public GetResourceHandler(
             IFhirDataStore fhirDataStore,
             Lazy<IConformanceProvider> conformanceProvider,
             IResourceWrapperFactory resourceWrapperFactory,
-            ResourceDeserializer deserializer,
             ResourceIdProvider resourceIdProvider,
             IFhirAuthorizationService authorizationService)
             : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
-            EnsureArg.IsNotNull(deserializer, nameof(deserializer));
-
-            _deserializer = deserializer;
         }
 
         public async Task<GetResourceResponse> Handle(GetResourceRequest message, CancellationToken cancellationToken)
@@ -74,7 +70,74 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
                 throw new ResourceGoneException(new ResourceKey(currentDoc.ResourceTypeName, currentDoc.ResourceId, currentDoc.Version));
             }
 
-            return new GetResourceResponse(_deserializer.Deserialize(currentDoc));
+            if (currentDoc.RawResource.LastUpdatedSet && currentDoc.RawResource.VersionSet)
+            {
+                return new GetResourceResponse(currentDoc);
+            }
+
+            var jsonDocument = JsonDocument.Parse(currentDoc.RawResource.Data);
+
+            using (var ms = new MemoryStream())
+            {
+                using (Utf8JsonWriter writer = new Utf8JsonWriter(ms))
+                {
+                    writer.WriteStartObject();
+                    bool foundMeta = false;
+
+                    foreach (var current in jsonDocument.RootElement.EnumerateObject())
+                    {
+                        if (current.Name == "meta")
+                        {
+                            foundMeta = true;
+
+                            writer.WriteStartObject("meta");
+
+                            foreach (var metaEntry in current.Value.EnumerateObject())
+                            {
+                                if (metaEntry.Name == "lastUpdated")
+                                {
+                                    writer.WriteString("lastUpdated", currentDoc.LastModified);
+                                }
+                                else if (metaEntry.Name == "versionId")
+                                {
+                                    writer.WriteString("versionId", currentDoc.Version);
+                                }
+                                else
+                                {
+                                    metaEntry.WriteTo(writer);
+                                }
+                            }
+
+                            writer.WriteEndObject();
+                        }
+                        else
+                        {
+                            // write
+                            current.WriteTo(writer);
+                        }
+                    }
+
+                    if (!foundMeta)
+                    {
+                        writer.WriteStartObject("meta");
+                        writer.WriteString("lastUpdated", currentDoc.LastModified);
+                        writer.WriteString("versionId", currentDoc.Version);
+                        writer.WriteEndObject();
+                    }
+
+                    writer.WriteEndObject();
+                }
+
+                ms.Position = 0;
+
+                using (var sr = new StreamReader(ms))
+                {
+                    ms.Position = 0;
+                    currentDoc.RawResource.Data = sr.ReadToEnd();
+                }
+            }
+
+            return new GetResourceResponse(currentDoc);
         }
     }
 }

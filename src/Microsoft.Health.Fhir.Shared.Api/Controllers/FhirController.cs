@@ -249,24 +249,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.Read)]
         public async Task<IActionResult> Read(string typeParameter, string idParameter)
         {
-            ResourceElement response = await _mediator.GetResourceAsync(new ResourceKey(typeParameter, idParameter), HttpContext.RequestAborted);
-
-            return FhirResult.Create(response)
-                .SetETagHeader()
-                .SetLastModifiedHeader();
-        }
-
-        /// <summary>
-        /// Reads the specified resource.
-        /// </summary>
-        /// <param name="typeParameter">The type.</param>
-        /// <param name="idParameter">The identifier.</param>
-        [HttpGet]
-        [Route(KnownRoutes.RawResourceTypeById, Name = RouteNames.ReadRawResource)]
-        [AuditEventType(AuditEventSubType.Read)]
-        public async Task<IActionResult> RawRead(string typeParameter, string idParameter)
-        {
-            ResourceWrapper response = await _mediator.GetRawResourceAsync(new ResourceKey(typeParameter, idParameter), HttpContext.RequestAborted);
+            ResourceWrapper response = await _mediator.GetResourceAsync(new ResourceKey(typeParameter, idParameter), HttpContext.RequestAborted);
 
             return RawFhirResult.Create(response)
                 .SetETagHeader()
@@ -359,25 +342,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.VRead)]
         public async Task<IActionResult> VRead(string typeParameter, string idParameter, string vidParameter)
         {
-            ResourceElement response = await _mediator.GetResourceAsync(new ResourceKey(typeParameter, idParameter, vidParameter), HttpContext.RequestAborted);
-
-            return FhirResult.Create(response, HttpStatusCode.OK)
-                .SetETagHeader()
-                .SetLastModifiedHeader();
-        }
-
-        /// <summary>
-        /// Reads the specified version of the resource.
-        /// </summary>
-        /// <param name="typeParameter">The type.</param>
-        /// <param name="idParameter">The identifier.</param>
-        /// <param name="vidParameter">The versionId.</param>
-        [HttpGet]
-        [Route(KnownRoutes.RawResourceTypeByIdAndVid, Name = RouteNames.ReadRawResourceWithVersionRoute)]
-        [AuditEventType(AuditEventSubType.VRead)]
-        public async Task<IActionResult> VRawRead(string typeParameter, string idParameter, string vidParameter)
-        {
-            ResourceWrapper response = await _mediator.GetRawResourceAsync(new ResourceKey(typeParameter, idParameter, vidParameter), HttpContext.RequestAborted);
+            ResourceWrapper response = await _mediator.GetResourceAsync(new ResourceKey(typeParameter, idParameter, vidParameter), HttpContext.RequestAborted);
 
             return RawFhirResult.Create(response, HttpStatusCode.OK)
                 .SetETagHeader()

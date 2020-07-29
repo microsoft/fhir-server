@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             collection.Add(x => new UpsertResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, _authorizationService, ModelInfoProvider.Instance)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new ConditionalCreateResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, x.GetService<IMediator>(), _resourceIdProvider, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new ConditionalUpsertResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, x.GetService<IMediator>(), _resourceIdProvider, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
-            collection.Add(x => new GetResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, Deserializers.ResourceDeserializer, _resourceIdProvider, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(x => new GetResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new DeleteResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
 
             ServiceProvider provider = collection.BuildServiceProvider();
@@ -332,7 +332,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             _fhirDataStore.GetAsync(Arg.Is<ResourceKey>(x => x.Id == "readDataObservation"), Arg.Any<CancellationToken>()).Returns(latest);
 
-            var result = await _mediator.GetResourceAsync(new ResourceKey("Observation", "readDataObservation", "latest"));
+            var result = (await _mediator.GetResourceAsync(new ResourceKey("Observation", "readDataObservation", "latest"))).ToResourceElement();
 
             Assert.NotNull(result);
             Assert.Equal(observation.Id, result.Id);
@@ -351,7 +351,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             _fhirDataStore.GetAsync(Arg.Is<ResourceKey>(x => x.Id == "readDataPatient" && x.VersionId == "history"), Arg.Any<CancellationToken>()).Returns(history);
 
-            var result = await _mediator.GetResourceAsync(new ResourceKey("Patient", "readDataPatient", "history"));
+            var result = (await _mediator.GetResourceAsync(new ResourceKey("Patient", "readDataPatient", "history"))).ToResourceElement();
 
             Assert.NotNull(result);
             Assert.Equal(patient.Scalar<string>(birthDateProp), result.Scalar<string>(birthDateProp));
@@ -371,7 +371,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             _fhirDataStore.GetAsync(Arg.Is<ResourceKey>(x => x.Id == "readDataPatient"), Arg.Any<CancellationToken>()).Returns(latest);
 
-            ResourceElement result = await _mediator.GetResourceAsync(new ResourceKey("Patient", "readDataPatient", "latest"));
+            ResourceElement result = (await _mediator.GetResourceAsync(new ResourceKey("Patient", "readDataPatient", "latest"))).ToResourceElement();
 
             Assert.NotNull(result);
             Assert.Equal(patient.Scalar<string>(birthDateProp), result.Scalar<string>(birthDateProp));

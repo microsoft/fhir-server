@@ -25,5 +25,10 @@ namespace Microsoft.Health.Fhir.Tests.Common
                     resource.Meta.LastUpdated = lastModified;
                     return resource.ToTypedElement().ToResourceElement();
                 }));
+
+        public static ResourceElement ToResourceElement(this ResourceWrapper wrapper)
+        {
+            return ResourceDeserializer.Deserialize(wrapper);
+        }
     }
 }

@@ -43,22 +43,12 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             return result.Outcome;
         }
 
-        public static async Task<ResourceElement> GetResourceAsync(this IMediator mediator, ResourceKey key, CancellationToken cancellationToken = default)
+        public static async Task<ResourceWrapper> GetResourceAsync(this IMediator mediator, ResourceKey key, CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(key, nameof(key));
 
             GetResourceResponse result = await mediator.Send(new GetResourceRequest(key), cancellationToken);
-
-            return result.Resource;
-        }
-
-        public static async Task<ResourceWrapper> GetRawResourceAsync(this IMediator mediator, ResourceKey key, CancellationToken cancellationToken = default)
-        {
-            EnsureArg.IsNotNull(mediator, nameof(mediator));
-            EnsureArg.IsNotNull(key, nameof(key));
-
-            GetRawResourceResponse result = await mediator.Send(new GetRawResourceRequest(key), cancellationToken);
 
             return result.Resource;
         }
