@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 
             if (context.Object is Hl7.Fhir.Model.Bundle)
             {
-                await Microsoft.Health.Fhir.Api.Features.Resources.Bundle.BundleSerializer.Serialize(context.Object, context.HttpContext.Response.Body);
+                await Microsoft.Health.Fhir.Api.Features.Resources.Bundle.BundleSerializer.Serialize(context.Object as Hl7.Fhir.Model.Bundle, context.HttpContext.Response.Body);
                 return;
             }
 

@@ -86,9 +86,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
             if (!hadValues)
             {
                 raw.Add("meta", meta);
+                currentDoc.RawResource = new RawResource(raw.ToString(), currentDoc.RawResource.Format, false, false);
+            }
+            else
+            {
+                currentDoc.RawResource = new RawResource(raw.ToString(), currentDoc.RawResource.Format, true, true);
             }
 
-            currentDoc.RawResource = new RawResource(raw.ToString(), currentDoc.RawResource.Format);
             return new GetRawResourceResponse(currentDoc);
         }
     }

@@ -11,6 +11,7 @@ using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using MediatR;
+using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
@@ -55,11 +56,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
 
             // If an Id is supplied on create it should be removed/ignored
             resource.Id = null;
+            resource.Meta = resource.Meta ?? new Meta();
+            resource.Meta.VersionId = "1";
+            resource.Meta.LastUpdated = Clock.UtcNow;
 
             await _referenceResolver.ResolveReferencesAsync(resource, _referenceIdDictionary, resource.ResourceType.ToString(), cancellationToken);
 
-            ResourceWrapper resourceWrapper = CreateResourceWrapper(resource, deleted: false);
-
+            ResourceWrapper resourceWrapper = CreateResourceWrapper(resource, deleted: false, keepMeta: true);
             bool keepHistory = await ConformanceProvider.Value.CanKeepHistory(resource.TypeName, cancellationToken);
 
             UpsertOutcome result = await FhirDataStore.UpsertAsync(

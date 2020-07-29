@@ -82,18 +82,30 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 {
                     Mode = x.SearchEntryMode == SearchEntryMode.Match ? Bundle.SearchEntryMode.Match : Bundle.SearchEntryMode.Include,
                 };
+
+                if (x.Resource.RawResource.LastUpdatedSet && x.Resource.RawResource.VersionSet)
+                {
+                    output.Content = JsonDocument.Parse(x.Resource.RawResource.Data);
+                    return output;
+                }
+
+                var jsonDocument = JsonDocument.Parse(x.Resource.RawResource.Data);
+
                 using (var ms = new MemoryStream())
                 {
                     using (Utf8JsonWriter writer = new Utf8JsonWriter(ms))
                     {
-                        var jsonDocument = JsonDocument.Parse(x.Resource.RawResource.Data);
                         writer.WriteStartObject();
                         bool foundMeta = false;
+
                         foreach (var current in jsonDocument.RootElement.EnumerateObject())
                         {
                             if (current.Name == "meta")
                             {
                                 foundMeta = true;
+
+                                writer.WriteStartObject("meta");
+
                                 foreach (var entry in current.Value.EnumerateObject())
                                 {
                                     if (entry.Name == "lastUpdated")
@@ -109,6 +121,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                                         entry.WriteTo(writer);
                                     }
                                 }
+
+                                writer.WriteEndObject();
                             }
                             else
                             {
@@ -126,9 +140,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         }
 
                         writer.WriteEndObject();
-                        output.Content = jsonDocument;
                     }
 
+                    ms.Position = 0;
+                    output.Content = JsonDocument.Parse(ms);
+
+                    // TODO YAZAN - do we need this?
                     using (var sr = new StreamReader(ms))
                     {
                         ms.Position = 0;

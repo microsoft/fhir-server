@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
             bool allowCreate = await ConformanceProvider.Value.CanUpdateCreate(resource.TypeName, cancellationToken);
             bool keepHistory = await ConformanceProvider.Value.CanKeepHistory(resource.TypeName, cancellationToken);
 
-            ResourceWrapper resourceWrapper = CreateResourceWrapper(resource, deleted: false);
+            ResourceWrapper resourceWrapper = CreateResourceWrapper(resource, deleted: false, keepMeta: false);
 
             UpsertOutcome result = await UpsertAsync(message, resourceWrapper, allowCreate, keepHistory, cancellationToken);
 

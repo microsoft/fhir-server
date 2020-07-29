@@ -49,7 +49,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             var rawResource = new RawResource(
                 new FhirJsonSerializer().SerializeToString(_resource),
-                FhirResourceFormat.Json);
+                FhirResourceFormat.Json,
+                versionSet: false,
+                lastUpdatedSet: false);
 
             ResourceWrapper resourceWrapper = CreateResourceWrapper(rawResource);
 
@@ -63,7 +65,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             var rawResource = new RawResource(
                 new FhirXmlSerializer().SerializeToString(_resource),
-                FhirResourceFormat.Xml);
+                FhirResourceFormat.Xml,
+                versionSet: false,
+                lastUpdatedSet: false);
 
             ResourceWrapper resourceWrapper = CreateResourceWrapper(rawResource);
 

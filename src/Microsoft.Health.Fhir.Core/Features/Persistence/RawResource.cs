@@ -12,12 +12,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
     public class RawResource
     {
-        public RawResource(string data, FhirResourceFormat format)
+        public RawResource(string data, FhirResourceFormat format, bool versionSet, bool lastUpdatedSet)
         {
             EnsureArg.IsNotNullOrEmpty(data, nameof(data));
 
             Data = data;
             Format = format;
+            VersionSet = versionSet;
+            LastUpdatedSet = lastUpdatedSet;
         }
 
         [JsonConstructor]
@@ -31,5 +33,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         [JsonProperty("format")]
         [JsonConverter(typeof(StringEnumConverter))]
         public FhirResourceFormat Format { get; protected set; }
+
+        [JsonProperty("versionSet")]
+        public bool VersionSet { get; protected set; }
+
+        [JsonProperty("lastUpdatedSet")]
+        public bool LastUpdatedSet { get; protected set; }
     }
 }

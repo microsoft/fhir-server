@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         }
 
         /// <inheritdoc />
-        public RawResource Create(ResourceElement resource)
+        public RawResource Create(ResourceElement resource, bool keepMeta)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 
@@ -40,20 +40,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             var versionId = poco.Meta?.VersionId;
             var lastUpdated = poco.Meta?.LastUpdated;
 
+            bool versionSet = !string.IsNullOrEmpty(versionId) && keepMeta;
+            bool lastUpdatedSet = lastUpdated != null && keepMeta;
             try
             {
                 // Clear meta version and lastUpdated since these are set based on generated values when saving the resource
-                if (poco.Meta != null)
+                if (!keepMeta && poco.Meta != null)
                 {
                     poco.Meta.VersionId = null;
                     poco.Meta.LastUpdated = null;
                 }
 
-                return new RawResource(_fhirJsonSerializer.SerializeToString(poco), FhirResourceFormat.Json);
+                return new RawResource(_fhirJsonSerializer.SerializeToString(poco), FhirResourceFormat.Json, versionSet, lastUpdatedSet);
             }
             finally
             {
-                if (poco.Meta != null)
+                if (!keepMeta && poco.Meta != null)
                 {
                     poco.Meta.VersionId = versionId;
                     poco.Meta.LastUpdated = lastUpdated;

@@ -111,7 +111,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             {
                 return new ResourceWrapper(
                     resourceElement,
-                    new RawResource(_fhirJsonSerializer.SerializeToString(resourceElement.ToPoco<Observation>()), FhirResourceFormat.Json),
+                    new RawResource(_fhirJsonSerializer.SerializeToString(resourceElement.ToPoco<Observation>()), FhirResourceFormat.Json, versionSet: false, lastUpdatedSet: false),
                     null,
                     false,
                     null,

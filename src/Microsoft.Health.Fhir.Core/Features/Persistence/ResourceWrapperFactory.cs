@@ -53,9 +53,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         }
 
         /// <inheritdoc />
-        public ResourceWrapper Create(ResourceElement resource, bool deleted)
+        public ResourceWrapper Create(ResourceElement resource, bool deleted, bool keepMeta)
         {
-            RawResource rawResource = _rawResourceFactory.Create(resource);
+            RawResource rawResource = _rawResourceFactory.Create(resource, keepMeta);
             IReadOnlyCollection<SearchIndexEntry> searchIndices = _searchIndexer.Extract(resource);
 
             IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;

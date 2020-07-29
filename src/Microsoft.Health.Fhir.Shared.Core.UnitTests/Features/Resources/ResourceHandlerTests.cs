@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             _rawResourceFactory = Substitute.For<RawResourceFactory>(new FhirJsonSerializer());
             _resourceWrapperFactory = Substitute.For<IResourceWrapperFactory>();
             _resourceWrapperFactory
-                .Create(Arg.Any<ResourceElement>(), Arg.Any<bool>())
+                .Create(Arg.Any<ResourceElement>(), Arg.Any<bool>(), Arg.Any<bool>())
                 .Returns(x => CreateResourceWrapper(x.ArgAt<ResourceElement>(0), x.ArgAt<bool>(1)));
 
             _conformanceStatement = CapabilityStatementMock.GetMockedCapabilityStatement();
@@ -382,7 +382,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         {
             return new ResourceWrapper(
                 resource,
-                _rawResourceFactory.Create(resource),
+                _rawResourceFactory.Create(resource, false),
                 new ResourceRequest(HttpMethod.Post, "http://fhir"),
                 isDeleted,
                 null,
@@ -394,7 +394,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         {
             return Substitute.For<ResourceWrapper>(
                 resource,
-                _rawResourceFactory.Create(resource),
+                _rawResourceFactory.Create(resource, false),
                 new ResourceRequest(HttpMethod.Put, "http://fhir"),
                 isDeleted,
                 null,

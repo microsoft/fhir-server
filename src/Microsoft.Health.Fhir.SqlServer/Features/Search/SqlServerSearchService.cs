@@ -232,7 +232,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 resourceId,
                                 version.ToString(CultureInfo.InvariantCulture),
                                 _model.GetResourceTypeName(resourceTypeId),
-                                new RawResource(rawResource, FhirResourceFormat.Json),
+                                new RawResource(rawResource, FhirResourceFormat.Json, versionSet: false, lastUpdatedSet: false),
                                 new ResourceRequest(requestMethod),
                                 new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
                                 isDeleted,

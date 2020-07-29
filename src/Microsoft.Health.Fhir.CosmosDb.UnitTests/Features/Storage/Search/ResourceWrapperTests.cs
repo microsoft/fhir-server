@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             {
                 ResourceElement typedElement = observation.ToResourceElement();
 
-                var wrapper = new ResourceWrapper(typedElement, _rawResourceFactory.Create(typedElement), new ResourceRequest(HttpMethod.Post, "http://fhir"), false, null, null, null);
+                var wrapper = new ResourceWrapper(typedElement, _rawResourceFactory.Create(typedElement, keepMeta: true), new ResourceRequest(HttpMethod.Post, "http://fhir"), false, null, null, null);
                 var resource = Deserializers.ResourceDeserializer.Deserialize(wrapper);
 
                 var poco = resource.ToPoco<Observation>();

@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             foreach (var result in searchResult.Results.Select(x => x.Resource))
             {
-                result.RawResource = new RawResource(result.RawResource.Data, result.RawResource.Format);
+                result.RawResource = new RawResource(result.RawResource.Data, result.RawResource.Format, result.RawResource.VersionSet, result.RawResource.LastUpdatedSet);
             }
 
             var bundle = _bundleFactory.CreateRawSearchBundle(searchResult);

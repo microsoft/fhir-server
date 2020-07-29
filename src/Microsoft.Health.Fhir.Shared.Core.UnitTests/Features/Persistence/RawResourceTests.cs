@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
 
             Assert.NotNull(observation.VersionId);
 
-            var raw = rawResourceFactory.Create(observation);
+            var raw = rawResourceFactory.Create(observation, keepMeta: true);
 
             Assert.NotNull(raw.Data);
             Assert.Equal(versionId, observation.VersionId);
