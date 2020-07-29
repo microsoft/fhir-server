@@ -510,14 +510,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         private async Task<IActionResult> PerformCompartmentSearch(string compartmentType, string compartmentId, string resourceType, IReadOnlyList<Tuple<string, string>> queries)
         {
-            var response = await _mediator.RawSearchResourceCompartmentAsync(compartmentType, compartmentId, resourceType, queries, HttpContext.RequestAborted);
+            var response = await _mediator.SearchResourceCompartmentAsync(compartmentType, compartmentId, resourceType, queries, HttpContext.RequestAborted);
 
             return FhirResult.Create(response);
         }
 
         private async Task<IActionResult> PerformSearch(string type, IReadOnlyList<Tuple<string, string>> queries)
         {
-            var response = await _mediator.RawSearchResourceAsync(type, queries, HttpContext.RequestAborted);
+            var response = await _mediator.SearchResourceAsync(type, queries, HttpContext.RequestAborted);
 
             return FhirResult.Create(response);
         }

@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
             //// TODO YAZANAL
             if (!string.IsNullOrEmpty(resource.ResourceId) && !string.IsNullOrWhiteSpace(resource.Version))
             {
-                var url = urlResolver.ResolveRawResourceUrl(rawFhirResult.Result, true);
+                var url = urlResolver.ResolveResourceWrapperUrl(rawFhirResult.Result, true);
 
                 if (url.IsAbsoluteUri)
                 {

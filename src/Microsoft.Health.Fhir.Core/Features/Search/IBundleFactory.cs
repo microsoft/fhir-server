@@ -11,8 +11,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     {
         ResourceElement CreateSearchBundle(SearchResult result);
 
-        ResourceElement CreateRawSearchBundle(SearchResult result);
-
         ResourceElement CreateHistoryBundle(SearchResult result);
     }
 }

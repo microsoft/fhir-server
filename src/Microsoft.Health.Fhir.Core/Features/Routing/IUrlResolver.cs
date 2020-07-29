@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Routing
         /// <param name="resource">The resource whose URL should be resolved for.</param>
         /// <param name="includeVersion">Includes the version in the URL.</param>
         /// <returns>The URL for the given <paramref name="resource"/>.</returns>
-        Uri ResolveRawResourceUrl(ResourceWrapper resource, bool includeVersion = false);
+        Uri ResolveResourceWrapperUrl(ResourceWrapper resource, bool includeVersion = false);
 
         /// <summary>
         /// Resolves the URL for the specified route

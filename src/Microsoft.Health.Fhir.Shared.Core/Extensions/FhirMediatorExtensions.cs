@@ -82,15 +82,6 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             return result.Bundle;
         }
 
-        public static async Task<ResourceElement> RawSearchResourceAsync(this IMediator mediator, string type, IReadOnlyList<Tuple<string, string>> queries, CancellationToken cancellationToken = default)
-        {
-            EnsureArg.IsNotNull(mediator, nameof(mediator));
-
-            var result = await mediator.Send(new RawSearchResourceRequest(type, queries), cancellationToken);
-
-            return result.Bundle;
-        }
-
         public static async Task<ResourceElement> SearchResourceHistoryAsync(this IMediator mediator, PartialDateTime since = null, PartialDateTime before = null, PartialDateTime at = null, int? count = null, string continuationToken = null, CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
@@ -123,15 +114,6 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             EnsureArg.IsNotNull(mediator, nameof(mediator));
 
             var result = await mediator.Send(new SearchCompartmentRequest(compartmentType, compartmentId, resourceType, queries), cancellationToken);
-
-            return result.Bundle;
-        }
-
-        public static async Task<ResourceElement> RawSearchResourceCompartmentAsync(this IMediator mediator, string compartmentType, string compartmentId, string resourceType, IReadOnlyList<Tuple<string, string>> queries, CancellationToken cancellationToken = default)
-        {
-            EnsureArg.IsNotNull(mediator, nameof(mediator));
-
-            var result = await mediator.Send(new RawSearchCompartmentRequest(compartmentType, compartmentId, resourceType, queries), cancellationToken);
 
             return result.Bundle;
         }

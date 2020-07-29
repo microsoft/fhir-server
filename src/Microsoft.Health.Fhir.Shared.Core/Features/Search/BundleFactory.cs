@@ -43,123 +43,97 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         {
             return CreateBundle(result, Bundle.BundleType.Searchset, r =>
             {
-                ResourceElement resource = _deserializer.Deserialize(r.Resource);
-
-                return new Bundle.EntryComponent
+                var resource = GetResource(r);
+                resource.FullUrlElement = new FhirUri(_urlResolver.ResolveResourceWrapperUrl(r.Resource));
+                resource.Search = new Bundle.SearchComponent
                 {
-                    FullUrlElement = new FhirUri(_urlResolver.ResolveResourceUrl(resource)),
-                    Resource = resource.ToPoco<Resource>(),
-                    Search = new Bundle.SearchComponent
-                    {
-                        Mode = r.SearchEntryMode == SearchEntryMode.Match ? Bundle.SearchEntryMode.Match : Bundle.SearchEntryMode.Include,
-                    },
-                };
-            });
-        }
-
-        public ResourceElement CreateRawSearchBundle(SearchResult result)
-        {
-            var bundle = new Bundle()
-            {
-                Id = Guid.NewGuid().ToString(),
-            };
-
-            bundle.SelfLink = _urlResolver.ResolveRouteUrl(result.UnsupportedSearchParameters, result.UnsupportedSortingParameters);
-
-            bundle.Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId;
-            bundle.Type = Bundle.BundleType.Searchset;
-            bundle.Total = result?.TotalCount;
-            bundle.Meta = new Meta
-            {
-                LastUpdated = Clock.UtcNow,
-            };
-
-            var output = result.Results.Select(x =>
-            {
-                var output = new RawFhirResource();
-                output.FullUrlElement = new FhirUri(_urlResolver.ResolveRawResourceUrl(x.Resource));
-                output.Search = new Bundle.SearchComponent
-                {
-                    Mode = x.SearchEntryMode == SearchEntryMode.Match ? Bundle.SearchEntryMode.Match : Bundle.SearchEntryMode.Include,
+                    Mode = r.SearchEntryMode == SearchEntryMode.Match ? Bundle.SearchEntryMode.Match : Bundle.SearchEntryMode.Include,
                 };
 
-                if (x.Resource.RawResource.LastUpdatedSet && x.Resource.RawResource.VersionSet)
-                {
-                    output.Content = JsonDocument.Parse(x.Resource.RawResource.Data);
-                    return output;
-                }
+                return resource;
 
-                var jsonDocument = JsonDocument.Parse(x.Resource.RawResource.Data);
-
-                using (var ms = new MemoryStream())
+                RawFhirResource GetResource(SearchResultEntry entry)
                 {
-                    using (Utf8JsonWriter writer = new Utf8JsonWriter(ms))
+                    var output = new RawFhirResource();
+                    output.FullUrlElement = new FhirUri(_urlResolver.ResolveResourceWrapperUrl(entry.Resource));
+                    output.Search = new Bundle.SearchComponent
                     {
-                        writer.WriteStartObject();
-                        bool foundMeta = false;
+                        Mode = entry.SearchEntryMode == SearchEntryMode.Match ? Bundle.SearchEntryMode.Match : Bundle.SearchEntryMode.Include,
+                    };
 
-                        foreach (var current in jsonDocument.RootElement.EnumerateObject())
+                    if (entry.Resource.RawResource.LastUpdatedSet && entry.Resource.RawResource.VersionSet)
+                    {
+                        output.Content = JsonDocument.Parse(entry.Resource.RawResource.Data);
+                        return output;
+                    }
+
+                    var jsonDocument = JsonDocument.Parse(entry.Resource.RawResource.Data);
+
+                    using (var ms = new MemoryStream())
+                    {
+                        using (Utf8JsonWriter writer = new Utf8JsonWriter(ms))
                         {
-                            if (current.Name == "meta")
+                            writer.WriteStartObject();
+                            bool foundMeta = false;
+
+                            foreach (var current in jsonDocument.RootElement.EnumerateObject())
                             {
-                                foundMeta = true;
-
-                                writer.WriteStartObject("meta");
-
-                                foreach (var entry in current.Value.EnumerateObject())
+                                if (current.Name == "meta")
                                 {
-                                    if (entry.Name == "lastUpdated")
-                                    {
-                                        writer.WriteString("lastUpdated", x.Resource.LastModified);
-                                    }
-                                    else if (entry.Name == "versionId")
-                                    {
-                                        writer.WriteString("versionId", x.Resource.Version);
-                                    }
-                                    else
-                                    {
-                                        entry.WriteTo(writer);
-                                    }
-                                }
+                                    foundMeta = true;
 
+                                    writer.WriteStartObject("meta");
+
+                                    foreach (var metaEntry in current.Value.EnumerateObject())
+                                    {
+                                        if (metaEntry.Name == "lastUpdated")
+                                        {
+                                            writer.WriteString("lastUpdated", entry.Resource.LastModified);
+                                        }
+                                        else if (metaEntry.Name == "versionId")
+                                        {
+                                            writer.WriteString("versionId", entry.Resource.Version);
+                                        }
+                                        else
+                                        {
+                                            metaEntry.WriteTo(writer);
+                                        }
+                                    }
+
+                                    writer.WriteEndObject();
+                                }
+                                else
+                                {
+                                    // write
+                                    current.WriteTo(writer);
+                                }
+                            }
+
+                            if (!foundMeta)
+                            {
+                                writer.WriteStartObject("meta");
+                                writer.WriteString("lastUpdated", entry.Resource.LastModified);
+                                writer.WriteString("versionId", entry.Resource.Version);
                                 writer.WriteEndObject();
                             }
-                            else
-                            {
-                                // write
-                                current.WriteTo(writer);
-                            }
-                        }
 
-                        if (!foundMeta)
-                        {
-                            writer.WriteStartObject("meta");
-                            writer.WriteString("lastUpdated", x.Resource.LastModified);
-                            writer.WriteString("versionId", x.Resource.Version);
                             writer.WriteEndObject();
                         }
 
-                        writer.WriteEndObject();
-                    }
-
-                    ms.Position = 0;
-                    output.Content = JsonDocument.Parse(ms);
-
-                    // TODO YAZAN - do we need this?
-                    using (var sr = new StreamReader(ms))
-                    {
                         ms.Position = 0;
-                        x.Resource.RawResource.Data = sr.ReadToEnd();
+                        output.Content = JsonDocument.Parse(ms);
+
+                        // TODO YAZAN - do we need this?
+                        using (var sr = new StreamReader(ms))
+                        {
+                            ms.Position = 0;
+                            entry.Resource.RawResource.Data = sr.ReadToEnd();
+                        }
                     }
+
+                    return output;
                 }
-
-                return output;
             });
-
-            bundle.Entry.AddRange(output);
-            var rebundle = bundle.ToResourceElement();
-
-            return rebundle;
         }
 
         public ResourceElement CreateHistoryBundle(SearchResult result)
