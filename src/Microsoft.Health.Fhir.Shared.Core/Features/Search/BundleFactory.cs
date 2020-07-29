@@ -55,6 +55,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 RawFhirResource GetResource(SearchResultEntry entry)
                 {
                     var output = new RawFhirResource();
+
                     output.FullUrlElement = new FhirUri(_urlResolver.ResolveResourceWrapperUrl(entry.Resource));
                     output.Search = new Bundle.SearchComponent
                     {
