@@ -5,6 +5,9 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Text;
+using System.Text.Json;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Core.Internal;
@@ -14,6 +17,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Shared.Core.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
@@ -79,7 +83,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public void GivenASearchResult_WhenCreateSearchBundle_ThenCorrectBundleShouldBeReturned()
         {
-            _urlResolver.ResolveResourceUrl(Arg.Any<ResourceElement>()).Returns(x => new Uri(string.Format(_resourceUrlFormat, x.ArgAt<ResourceElement>(0).Id)));
+            _urlResolver.ResolveResourceWrapperUrl(Arg.Any<ResourceWrapper>()).Returns(x => new Uri(string.Format(_resourceUrlFormat, x.ArgAt<ResourceWrapper>(0).ResourceId)));
             _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters, _unsupportedSortingParameters).Returns(_selfUrl);
 
             ResourceElement observation1 = Samples.GetDefaultObservation().UpdateId("123");
@@ -122,11 +126,25 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             void ValidateEntry(Observation expected, Bundle.EntryComponent actualEntry)
             {
                 Assert.NotNull(actualEntry);
-                Assert.NotNull(actualEntry.Resource);
-                Assert.Equal(expected.Id, actualEntry.Resource.Id);
-                Assert.Equal(string.Format(_resourceUrlFormat,  expected.Id), actualEntry.FullUrl);
-                Assert.NotNull(actualEntry.Search);
-                Assert.Equal(Bundle.SearchEntryMode.Match, actualEntry.Search.Mode);
+
+                var raw = actualEntry as RawFhirResource;
+                Assert.NotNull(raw.Content);
+
+                Resource resource;
+                using (var ms = new MemoryStream())
+                using (var writer = new Utf8JsonWriter(ms))
+                {
+                    raw.Content.WriteTo(writer);
+                    writer.Flush();
+                    var serialized = Encoding.UTF8.GetString(ms.ToArray());
+
+                    resource = new FhirJsonParser().Parse(serialized) as Resource;
+                }
+
+                Assert.Equal(expected.Id, resource.Id);
+                Assert.Equal(string.Format(_resourceUrlFormat,  expected.Id), raw.FullUrl);
+                Assert.NotNull(raw.Search);
+                Assert.Equal(Bundle.SearchEntryMode.Match, raw.Search.Mode);
             }
         }
 
