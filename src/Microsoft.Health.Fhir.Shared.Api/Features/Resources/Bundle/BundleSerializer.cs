@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             {
                 writer.WriteStartObject();
 
-                writer.WriteString("resourceType", bundle.ResourceType.ToCamelCaseString());
+                writer.WriteString("resourceType", bundle.ResourceType.ToString());
                 writer.WriteString("id", bundle.Id);
 
                 SerializeMetadata();
