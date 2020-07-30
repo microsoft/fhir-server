@@ -4,8 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.IO;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -75,67 +73,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
                 return new GetResourceResponse(currentDoc);
             }
 
-            var jsonDocument = JsonDocument.Parse(currentDoc.RawResource.Data);
-
-            using (var ms = new MemoryStream())
-            {
-                using (Utf8JsonWriter writer = new Utf8JsonWriter(ms))
-                {
-                    writer.WriteStartObject();
-                    bool foundMeta = false;
-
-                    foreach (var current in jsonDocument.RootElement.EnumerateObject())
-                    {
-                        if (current.Name == "meta")
-                        {
-                            foundMeta = true;
-
-                            writer.WriteStartObject("meta");
-
-                            foreach (var metaEntry in current.Value.EnumerateObject())
-                            {
-                                if (metaEntry.Name == "lastUpdated")
-                                {
-                                    writer.WriteString("lastUpdated", currentDoc.LastModified);
-                                }
-                                else if (metaEntry.Name == "versionId")
-                                {
-                                    writer.WriteString("versionId", currentDoc.Version);
-                                }
-                                else
-                                {
-                                    metaEntry.WriteTo(writer);
-                                }
-                            }
-
-                            writer.WriteEndObject();
-                        }
-                        else
-                        {
-                            // write
-                            current.WriteTo(writer);
-                        }
-                    }
-
-                    if (!foundMeta)
-                    {
-                        writer.WriteStartObject("meta");
-                        writer.WriteString("lastUpdated", currentDoc.LastModified);
-                        writer.WriteString("versionId", currentDoc.Version);
-                        writer.WriteEndObject();
-                    }
-
-                    writer.WriteEndObject();
-                }
-
-                ms.Position = 0;
-
-                using (var sr = new StreamReader(ms))
-                {
-                    ms.Position = 0;
-                    currentDoc.RawResource.Data = sr.ReadToEnd();
-                }
-            }
+            // Update LastUpdated and VersionId in raw resource
+            _ = ResourceDeserializer.DeserializeToJsonDocument(currentDoc);
 
             return new GetResourceResponse(currentDoc);
         }

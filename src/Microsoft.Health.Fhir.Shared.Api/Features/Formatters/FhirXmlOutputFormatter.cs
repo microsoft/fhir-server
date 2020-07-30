@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 
                 foreach (var entry in bundle.Entry)
                 {
-                    var rawResource = entry as RawFhirResource;
+                    var rawResource = entry as RawBundleEntryComponent;
                     entry.Resource = _deserializer.Deserialize(rawResource.Wrapper).ToPoco<Resource>();
                 }
 

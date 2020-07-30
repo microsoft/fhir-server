@@ -40,7 +40,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         {
             return CreateBundle(result, Bundle.BundleType.Searchset, r =>
             {
-                var resource = GetResource(r);
+                var resource = new RawBundleEntryComponent(r.Resource);
+
+                resource.FullUrlElement = new FhirUri(_urlResolver.ResolveResourceWrapperUrl(r.Resource));
+                resource.Search = new Bundle.SearchComponent
+                {
+                    Mode = r.SearchEntryMode == SearchEntryMode.Match ? Bundle.SearchEntryMode.Match : Bundle.SearchEntryMode.Include,
+                };
+
                 resource.FullUrlElement = new FhirUri(_urlResolver.ResolveResourceWrapperUrl(r.Resource));
                 resource.Search = new Bundle.SearchComponent
                 {
@@ -48,19 +55,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 };
 
                 return resource;
-
-                RawFhirResource GetResource(SearchResultEntry entry)
-                {
-                    var output = new RawFhirResource(entry.Resource);
-
-                    output.FullUrlElement = new FhirUri(_urlResolver.ResolveResourceWrapperUrl(entry.Resource));
-                    output.Search = new Bundle.SearchComponent
-                    {
-                        Mode = entry.SearchEntryMode == SearchEntryMode.Match ? Bundle.SearchEntryMode.Match : Bundle.SearchEntryMode.Include,
-                    };
-
-                    return output;
-                }
             });
         }
 
@@ -68,7 +62,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         {
             return CreateBundle(result, Bundle.BundleType.History, r =>
             {
-                var resource = new RawFhirResource(r.Resource);
+                var resource = new RawBundleEntryComponent(r.Resource);
                 var hasVerb = Enum.TryParse(r.Resource.Request?.Method, true, out Bundle.HTTPVerb httpVerb);
 
                 resource.FullUrlElement = new FhirUri(_urlResolver.ResolveResourceWrapperUrl(resource.Wrapper, true));

@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     writer.WriteStartArray("entry");
                     foreach (var entry in bundle.Entry)
                     {
-                        var doc = entry as RawFhirResource;
+                        var doc = entry as RawBundleEntryComponent;
                         writer.WriteStartObject();
                         writer.WriteString("fullUrl", doc.FullUrl);
                         writer.WritePropertyName("resource");

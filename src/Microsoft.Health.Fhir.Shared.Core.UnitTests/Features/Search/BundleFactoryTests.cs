@@ -127,7 +127,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             {
                 Assert.NotNull(actualEntry);
 
-                var raw = actualEntry as RawFhirResource;
+                var raw = actualEntry as RawBundleEntryComponent;
                 Assert.NotNull(raw.Content);
 
                 Resource resource;

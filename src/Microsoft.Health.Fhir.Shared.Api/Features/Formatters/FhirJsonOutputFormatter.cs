@@ -74,6 +74,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                 {
                     textWriter.Write((context.Object as ResourceWrapper).RawResource.Data);
                     await textWriter.FlushAsync();
+                    return;
                 }
             }
 
