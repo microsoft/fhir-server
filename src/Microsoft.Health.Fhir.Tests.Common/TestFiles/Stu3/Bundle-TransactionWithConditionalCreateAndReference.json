@@ -1,0 +1,53 @@
+﻿{
+    "resourceType": "Bundle",
+    "type": "transaction",
+    "entry": [
+        {
+            "fullUrl": "urn:uuid:6fc92493-6bef-402a-bbba-d949f3812cc8",
+            "resource": {
+                "resourceType": "Patient",
+                "identifier": [
+                    {
+                        "system": "",
+                        "value": "11788759296811"
+                    }
+                ]
+            },
+            "request": {
+                "method": "POST",
+                "url": "Patient",
+                "ifNoneExist": "identifier=|11788759296811"
+            }
+        },
+        {
+            "fullUrl": "urn:uuid:70aedfe9-ad6e-4664-945a-81779945dd90",
+            "resource": {
+                "resourceType": "ImagingStudy",
+                "uid": "1.2.276.0.50.192168001099.7810872.14547392.270",
+                "identifier": [
+                    {
+                        "system": "urn:dicom:uid",
+                        "value": "urn:oid:1.2.276.0.50.192168001099.7810872.14547392.270"
+                    }
+                ],
+                "patient": {
+                    "reference": "urn:uuid:6fc92493-6bef-402a-bbba-d949f3812cc8"
+                },
+                "series": [
+                    {
+                        "uid": "1.2.276.0.50.192168001099.7810872.14547392.458",
+                        "instance": [
+                            {
+                                "uid": "1.2.276.0.50.192168001099.7810872.14547392.467"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "request": {
+                "method": "POST",
+                "url": "ImagingStudy"
+            }
+        }
+    ]
+}
