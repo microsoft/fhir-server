@@ -10,6 +10,8 @@ using System.Net;
 using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
 using Microsoft.Azure.Storage;
 using Microsoft.Azure.Storage.Auth;
 using Microsoft.Azure.Storage.Blob;
@@ -19,7 +21,6 @@ using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using Xunit;
 using Xunit.Abstractions;
 using Task = System.Threading.Tasks.Task;
@@ -32,11 +33,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     {
         private readonly TestFhirClient _testFhirClient;
         private readonly ITestOutputHelper _outputHelper;
+        private readonly FhirJsonParser _fhirJsonParser;
 
         public ExportDataValidationTests(HttpIntegrationTestFixture fixture, ITestOutputHelper testOutputHelper)
         {
             _testFhirClient = fixture.TestFhirClient;
             _outputHelper = testOutputHelper;
+            _fhirJsonParser = new FhirJsonParser();
         }
 
         [Fact]
@@ -49,10 +52,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             IList<Uri> blobUris = await CheckExportStatus(contentLocation);
 
             // Download exported data from storage account
-            Dictionary<(string resourceType, string resourceId), string> dataFromExport = await DownloadBlobAndParse(blobUris);
+            Dictionary<(string resourceType, string resourceId), Resource> dataFromExport = await DownloadBlobAndParse(blobUris);
 
             // Download all resources from fhir server
-            Dictionary<(string resourceType, string resourceId), string> dataFromFhirServer = await GetResourcesFromFhirServer(_testFhirClient.HttpClient.BaseAddress);
+            Dictionary<(string resourceType, string resourceId), Resource> dataFromFhirServer = await GetResourcesFromFhirServer(_testFhirClient.HttpClient.BaseAddress);
 
             // Assert both data are equal
             Assert.True(ValidateDataFromBothSources(dataFromFhirServer, dataFromExport));
@@ -68,13 +71,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             IList<Uri> blobUris = await CheckExportStatus(contentLocation);
 
             // Download exported data from storage account
-            Dictionary<(string resourceType, string resourceId), string> dataFromExport = await DownloadBlobAndParse(blobUris);
+            Dictionary<(string resourceType, string resourceId), Resource> dataFromExport = await DownloadBlobAndParse(blobUris);
 
             // Download resources from fhir server
             Uri address = new Uri(_testFhirClient.HttpClient.BaseAddress, "Patient/");
-            Dictionary<(string resourceType, string resourceId), string> dataFromFhirServer = await GetResourcesFromFhirServer(address);
+            Dictionary<(string resourceType, string resourceId), Resource> dataFromFhirServer = await GetResourcesFromFhirServer(address);
 
-            Dictionary<(string resourceType, string resourceId), string> compartmentData = new Dictionary<(string resourceType, string resourceId), string>();
+            Dictionary<(string resourceType, string resourceId), Resource> compartmentData = new Dictionary<(string resourceType, string resourceId), Resource>();
             foreach ((string resourceType, string resourceId) key in dataFromFhirServer.Keys)
             {
                 address = new Uri(_testFhirClient.HttpClient.BaseAddress, "Patient/" + key.resourceId + "/*");
@@ -100,11 +103,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             IList<Uri> blobUris = await CheckExportStatus(contentLocation);
 
             // Download exported data from storage account
-            Dictionary<(string resourceType, string resourceId), string> dataFromExport = await DownloadBlobAndParse(blobUris);
+            Dictionary<(string resourceType, string resourceId), Resource> dataFromExport = await DownloadBlobAndParse(blobUris);
 
             // Download resources from fhir server
             Uri address = new Uri(_testFhirClient.HttpClient.BaseAddress, "?_type=Observation,Patient");
-            Dictionary<(string resourceType, string resourceId), string> dataFromFhirServer = await GetResourcesFromFhirServer(address);
+            Dictionary<(string resourceType, string resourceId), Resource> dataFromFhirServer = await GetResourcesFromFhirServer(address);
 
             // Assert both data are equal
             Assert.True(ValidateDataFromBothSources(dataFromFhirServer, dataFromExport));
@@ -120,13 +123,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             IList<Uri> blobUris = await CheckExportStatus(contentLocation);
 
             // Download exported data from storage account
-            Dictionary<(string resourceType, string resourceId), string> dataFromExport = await DownloadBlobAndParse(blobUris);
+            Dictionary<(string resourceType, string resourceId), Resource> dataFromExport = await DownloadBlobAndParse(blobUris);
 
             // Download resources from fhir server
             Uri address = new Uri(_testFhirClient.HttpClient.BaseAddress, "Patient/");
-            Dictionary<(string resourceType, string resourceId), string> dataFromFhirServer = await GetResourcesFromFhirServer(address);
+            Dictionary<(string resourceType, string resourceId), Resource> dataFromFhirServer = await GetResourcesFromFhirServer(address);
 
-            Dictionary<(string resourceType, string resourceId), string> compartmentData = new Dictionary<(string resourceType, string resourceId), string>();
+            Dictionary<(string resourceType, string resourceId), Resource> compartmentData = new Dictionary<(string resourceType, string resourceId), Resource>();
             foreach ((string resourceType, string resourceId) key in dataFromFhirServer.Keys)
             {
                 address = new Uri(_testFhirClient.HttpClient.BaseAddress, "Patient/" + key.resourceId + "/Observation");
@@ -142,7 +145,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.True(ValidateDataFromBothSources(dataFromFhirServer, dataFromExport));
         }
 
-        private bool ValidateDataFromBothSources(Dictionary<(string resourceType, string resourceId), string> dataFromServer, Dictionary<(string resourceType, string resourceId), string> dataFromStorageAccount)
+        private bool ValidateDataFromBothSources(
+            Dictionary<(string resourceType, string resourceId), Resource> dataFromServer,
+            Dictionary<(string resourceType, string resourceId), Resource> dataFromStorageAccount)
         {
             bool result = true;
 
@@ -151,7 +156,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 _outputHelper.WriteLine($"Count differs. Exported data count: {dataFromStorageAccount.Count} Fhir Server Count: {dataFromServer.Count}");
                 result = false;
 
-                foreach (KeyValuePair<(string resourceType, string resourceId), string> kvp in dataFromStorageAccount)
+                foreach (KeyValuePair<(string resourceType, string resourceId), Resource> kvp in dataFromStorageAccount)
                 {
                     if (!dataFromServer.ContainsKey(kvp.Key))
                     {
@@ -170,7 +175,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             */
 
             int wrongCount = 0;
-            foreach (KeyValuePair<(string resourceType, string resourceId), string> kvp in dataFromServer)
+            foreach (KeyValuePair<(string resourceType, string resourceId), Resource> kvp in dataFromServer)
             {
                 if (!dataFromStorageAccount.ContainsKey(kvp.Key))
                 {
@@ -180,9 +185,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     continue;
                 }
 
-                string exportEntry = dataFromStorageAccount[kvp.Key];
-                string serverEntry = kvp.Value;
-                if (serverEntry.Equals(exportEntry))
+                Resource exportEntry = dataFromStorageAccount[kvp.Key];
+                Resource serverEntry = kvp.Value;
+                if (!serverEntry.IsExactly(exportEntry))
                 {
                     _outputHelper.WriteLine($"Exported resource does not match server resource: {kvp.Key}");
                     result = false;
@@ -221,11 +226,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             return exportJobResult.Output.Select(x => x.FileUri).ToList();
         }
 
-        private async Task<Dictionary<(string resourceType, string resourceId), string>> DownloadBlobAndParse(IList<Uri> blobUri)
+        private async Task<Dictionary<(string resourceType, string resourceId), Resource>> DownloadBlobAndParse(IList<Uri> blobUri)
         {
             if (blobUri == null || blobUri.Count == 0)
             {
-                return new Dictionary<(string resourceType, string resourceId), string>();
+                return new Dictionary<(string resourceType, string resourceId), Resource>();
             }
 
             // Extract storage account name from blob uri in order to get corresponding access token.
@@ -234,7 +239,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             CloudStorageAccount cloudAccount = GetCloudStorageAccountHelper(storageAccountName);
             CloudBlobClient blobClient = cloudAccount.CreateCloudBlobClient();
-            var resourceIdToResourceMapping = new Dictionary<(string resourceType, string resourceId), string>();
+            var resourceIdToResourceMapping = new Dictionary<(string resourceType, string resourceId), Resource>();
 
             foreach (Uri uri in blobUri)
             {
@@ -243,17 +248,27 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                 var splitData = allData.Split("\n");
 
-                foreach (var entry in splitData)
+                foreach (string entry in splitData)
                 {
                     if (string.IsNullOrWhiteSpace(entry))
                     {
                         continue;
                     }
 
-                    JObject resource = JObject.Parse(entry);
+                    Resource resource;
+                    try
+                    {
+                        resource = _fhirJsonParser.Parse<Resource>(entry);
+                    }
+                    catch (Exception ex)
+                    {
+                        _outputHelper.WriteLine($"Unable to parse ndjson string to resource: {ex}");
+                        return resourceIdToResourceMapping;
+                    }
 
-                    // Ideally this should just be Add, but until we prevent duplicates from being added to the server there is a chance the same resource being added multiple times resulting in a key conflict.
-                    resourceIdToResourceMapping.TryAdd((resource["resourceType"].ToString(), resource["id"].ToString()), entry);
+                    // Ideally this should just be Add, but until we prevent duplicates from being added to the server
+                    // there is a chance the same resource being added multiple times resulting in a key conflict.
+                    resourceIdToResourceMapping.TryAdd((resource.ResourceType.ToString(), resource.Id), resource);
                 }
             }
 
@@ -266,9 +281,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             return resourceIdToResourceMapping;
         }
 
-        private async Task<Dictionary<(string resourceType, string resourceId), string>> GetResourcesFromFhirServer(Uri requestUri)
+        private async Task<Dictionary<(string resourceType, string resourceId), Resource>> GetResourcesFromFhirServer(Uri requestUri)
         {
-            var resourceIdToResourceMapping = new Dictionary<(string resourceType, string resourceId), string>();
+            var resourceIdToResourceMapping = new Dictionary<(string resourceType, string resourceId), Resource>();
 
             while (requestUri != null)
             {
@@ -281,44 +296,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 using HttpResponseMessage response = await _testFhirClient.HttpClient.SendAsync(request);
 
                 var responseString = await response.Content.ReadAsStringAsync();
-
-                JObject result = JObject.Parse(responseString);
-
-                JArray entries = (JArray)result["entry"];
-
-                // Fhir server has not returned any data. Return existing mapping.
-                if (entries == null)
+                Bundle searchResults;
+                try
                 {
+                    searchResults = _fhirJsonParser.Parse<Bundle>(responseString);
+                }
+                catch (Exception ex)
+                {
+                    _outputHelper.WriteLine($"Unable to parse response into bundle: {ex}");
                     return resourceIdToResourceMapping;
                 }
 
-                foreach (JToken entry in entries)
+                foreach (Bundle.EntryComponent entry in searchResults.Entry)
                 {
-                    string resourceType = entry["resource"]["resourceType"].ToString();
-                    string id = entry["resource"]["id"].ToString();
-
-                    string resource = entry["resource"].ToString().Trim();
-
-                    resourceIdToResourceMapping.TryAdd((resourceType, id), resource);
+                    resourceIdToResourceMapping.TryAdd((entry.Resource.ResourceType.ToString(), entry.Resource.Id), entry.Resource);
                 }
 
                 // Look at whether a continuation token has been returned.
-                // We will always have self link. We are looking for the "next" link
-                JArray links = (JArray)result["link"];
-                string nextUri = null;
-                if (links != null && links.Count > 1)
-                {
-                    foreach (JToken link in links)
-                    {
-                        if (link["relation"].ToString() == "next")
-                        {
-                            nextUri = link["url"].ToString();
-                            break;
-                        }
-                    }
-                }
-
-                requestUri = nextUri == null ? null : new Uri(nextUri);
+                string nextLink = searchResults.NextLink?.ToString();
+                requestUri = nextLink == null ? null : new Uri(nextLink);
             }
 
             return resourceIdToResourceMapping;
