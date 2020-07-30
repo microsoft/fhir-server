@@ -14,6 +14,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Newtonsoft.Json;
 using Task = System.Threading.Tasks.Task;
 
@@ -50,7 +51,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
         {
             EnsureArg.IsNotNull(type, nameof(type));
 
-            return typeof(Resource).IsAssignableFrom(type);
+            return typeof(Resource).IsAssignableFrom(type) || typeof(ResourceWrapper).IsAssignableFrom(type);
         }
 
         public override async Task WriteResponseBodyAsync(OutputFormatterWriteContext context, Encoding selectedEncoding)
@@ -60,13 +61,22 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 
             context.HttpContext.AllowSynchronousIO();
 
+            HttpResponse response = context.HttpContext.Response;
+
             if (context.Object is Hl7.Fhir.Model.Bundle)
             {
                 await Microsoft.Health.Fhir.Api.Features.Resources.Bundle.BundleSerializer.Serialize(context.Object as Hl7.Fhir.Model.Bundle, context.HttpContext.Response.Body);
                 return;
             }
+            else if (context.Object is ResourceWrapper)
+            {
+                using (TextWriter textWriter = context.WriterFactory(response.Body, selectedEncoding))
+                {
+                    textWriter.Write((context.Object as ResourceWrapper).RawResource.Data);
+                    await textWriter.FlushAsync();
+                }
+            }
 
-            HttpResponse response = context.HttpContext.Response;
             using (TextWriter textWriter = context.WriterFactory(response.Body, selectedEncoding))
             using (var jsonWriter = new JsonTextWriter(textWriter))
             {

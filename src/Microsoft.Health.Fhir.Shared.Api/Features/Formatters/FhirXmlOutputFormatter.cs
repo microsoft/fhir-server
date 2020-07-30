@@ -14,6 +14,9 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
+using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Shared.Core.Features.Search;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.Features.Formatters
@@ -22,13 +25,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
     {
         private readonly FhirXmlSerializer _fhirXmlSerializer;
         private readonly ILogger<FhirXmlOutputFormatter> _logger;
+        private readonly ResourceDeserializer _deserializer;
 
-        public FhirXmlOutputFormatter(FhirXmlSerializer fhirXmlSerializer, ILogger<FhirXmlOutputFormatter> logger)
+        public FhirXmlOutputFormatter(FhirXmlSerializer fhirXmlSerializer, ResourceDeserializer deserializer, ILogger<FhirXmlOutputFormatter> logger)
         {
             EnsureArg.IsNotNull(fhirXmlSerializer, nameof(fhirXmlSerializer));
+            EnsureArg.IsNotNull(deserializer, nameof(deserializer));
 
             _fhirXmlSerializer = fhirXmlSerializer;
             _logger = logger;
+            _deserializer = deserializer;
 
             SupportedEncodings.Add(Encoding.UTF8);
             SupportedEncodings.Add(Encoding.Unicode);
@@ -43,7 +49,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
         {
             EnsureArg.IsNotNull(type, nameof(type));
 
-            return typeof(Resource).IsAssignableFrom(type);
+            return typeof(Resource).IsAssignableFrom(type) || typeof(ResourceWrapper).IsAssignableFrom(type);
         }
 
         public override Task WriteResponseBodyAsync(OutputFormatterWriteContext context, Encoding selectedEncoding)
@@ -52,6 +58,29 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             EnsureArg.IsNotNull(selectedEncoding, nameof(selectedEncoding));
 
             context.HttpContext.AllowSynchronousIO();
+
+            Resource resourceObject = null;
+            if (typeof(ResourceWrapper).IsAssignableFrom(context.ObjectType))
+            {
+                resourceObject = _deserializer.Deserialize(context.Object as ResourceWrapper).ToPoco<Resource>();
+            }
+            else if (typeof(Hl7.Fhir.Model.Bundle).IsAssignableFrom(context.ObjectType))
+            {
+                // Need to set Resource property for resources in entries
+                var bundle = context.Object as Hl7.Fhir.Model.Bundle;
+
+                foreach (var entry in bundle.Entry)
+                {
+                    var rawResource = entry as RawFhirResource;
+                    entry.Resource = _deserializer.Deserialize(rawResource.Wrapper).ToPoco<Resource>();
+                }
+
+                resourceObject = bundle;
+            }
+            else
+            {
+                resourceObject = (Resource)context.Object;
+            }
 
             HttpResponse response = context.HttpContext.Response;
             using (TextWriter textWriter = context.WriterFactory(response.Body, selectedEncoding))
@@ -62,7 +91,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                     writer.Formatting = Formatting.Indented;
                 }
 
-                _fhirXmlSerializer.Serialize((Resource)context.Object, writer, context.HttpContext.GetSummaryType(_logger));
+                var stringValue = _fhirXmlSerializer.SerializeToString(resourceObject, context.HttpContext.GetSummaryType(_logger));
+                _fhirXmlSerializer.Serialize(resourceObject, writer, context.HttpContext.GetSummaryType(_logger));
             }
 
             return Task.CompletedTask;

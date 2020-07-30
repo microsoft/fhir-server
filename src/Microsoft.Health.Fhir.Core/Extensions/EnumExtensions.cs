@@ -25,5 +25,24 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             return default(T);
         }
+
+        /// <summary>
+        /// Converts the passed in enum to a camel case string, by lower casing the first character.
+        /// </summary>
+        /// <param name="e">Input Enum</param>
+        /// <typeparam name="T">Enum type</typeparam>
+        /// <returns>Camel cased string</returns>
+        public static string ToCamelCaseString<T>(this T e)
+            where T : Enum
+        {
+            var s = e.ToString();
+
+            if (!string.IsNullOrEmpty(s))
+            {
+                return char.ToLowerInvariant(s[0]) + s.Substring(1);
+            }
+
+            return s;
+        }
     }
 }

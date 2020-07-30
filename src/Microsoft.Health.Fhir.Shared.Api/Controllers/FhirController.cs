@@ -251,7 +251,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             ResourceWrapper response = await _mediator.GetResourceAsync(new ResourceKey(typeParameter, idParameter), HttpContext.RequestAborted);
 
-            return RawFhirResult.Create(response)
+            return ResourceWrapperFhirResult.Create(response)
                 .SetETagHeader()
                 .SetLastModifiedHeader();
         }
@@ -344,7 +344,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             ResourceWrapper response = await _mediator.GetResourceAsync(new ResourceKey(typeParameter, idParameter, vidParameter), HttpContext.RequestAborted);
 
-            return RawFhirResult.Create(response, HttpStatusCode.OK)
+            return ResourceWrapperFhirResult.Create(response, HttpStatusCode.OK)
                 .SetETagHeader()
                 .SetLastModifiedHeader();
         }

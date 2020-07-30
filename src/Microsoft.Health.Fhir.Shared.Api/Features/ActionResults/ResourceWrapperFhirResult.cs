@@ -9,22 +9,22 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 
 namespace Microsoft.Health.Fhir.Api.Features.ActionResults
 {
-    public class RawFhirResult : ResourceActionResult<ResourceWrapper>
+    public class ResourceWrapperFhirResult : ResourceActionResult<ResourceWrapper>
     {
-        public RawFhirResult()
+        public ResourceWrapperFhirResult()
         {
         }
 
-        public RawFhirResult(ResourceWrapper resource)
+        public ResourceWrapperFhirResult(ResourceWrapper resource)
             : base(resource)
         {
         }
 
-        public static RawFhirResult Create(ResourceWrapper resource, HttpStatusCode statusCode = HttpStatusCode.OK)
+        public static ResourceWrapperFhirResult Create(ResourceWrapper resource, HttpStatusCode statusCode = HttpStatusCode.OK)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 
-            return new RawFhirResult(resource)
+            return new ResourceWrapperFhirResult(resource)
             {
                 StatusCode = statusCode,
             };
@@ -33,9 +33,9 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
         /// <summary>
         /// Creates a Gone response
         /// </summary>
-        public static RawFhirResult Gone()
+        public static ResourceWrapperFhirResult Gone()
         {
-            return new RawFhirResult
+            return new ResourceWrapperFhirResult
             {
                 StatusCode = HttpStatusCode.Gone,
             };
@@ -44,9 +44,9 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
         /// <summary>
         /// Returns a NotFound response
         /// </summary>
-        public static RawFhirResult NotFound()
+        public static ResourceWrapperFhirResult NotFound()
         {
-            return new RawFhirResult
+            return new ResourceWrapperFhirResult
             {
                 StatusCode = HttpStatusCode.NotFound,
             };
@@ -55,9 +55,9 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
         /// <summary>
         /// Returns a NoContent response
         /// </summary>
-        public static RawFhirResult NoContent()
+        public static ResourceWrapperFhirResult NoContent()
         {
-            return new RawFhirResult
+            return new ResourceWrapperFhirResult
             {
                 StatusCode = HttpStatusCode.NoContent,
             };
@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
 
         protected override object GetResultToSerialize()
         {
-            return Result.RawResource.Data;
+            return Result;
         }
 
         public override string GetResultTypeName()

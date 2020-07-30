@@ -66,15 +66,6 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
             {
                 result = new EmptyResult();
             }
-            else if (GetResultToSerialize() is string)
-            {
-                result = new ContentResult
-                {
-                    Content = GetResultToSerialize() as string,
-                    ContentType = "fhir+json",
-                    StatusCode = (int?)StatusCode,
-                };
-            }
             else
             {
                 result = new ObjectResult(GetResultToSerialize());

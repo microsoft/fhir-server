@@ -5,11 +5,8 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Text.Json;
 using EnsureThat;
-using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -54,83 +51,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                 RawFhirResource GetResource(SearchResultEntry entry)
                 {
-                    var output = new RawFhirResource();
+                    var output = new RawFhirResource(entry.Resource);
 
                     output.FullUrlElement = new FhirUri(_urlResolver.ResolveResourceWrapperUrl(entry.Resource));
                     output.Search = new Bundle.SearchComponent
                     {
                         Mode = entry.SearchEntryMode == SearchEntryMode.Match ? Bundle.SearchEntryMode.Match : Bundle.SearchEntryMode.Include,
                     };
-
-                    if (entry.Resource.RawResource.LastUpdatedSet && entry.Resource.RawResource.VersionSet)
-                    {
-                        output.Content = JsonDocument.Parse(entry.Resource.RawResource.Data);
-                        return output;
-                    }
-
-                    var jsonDocument = JsonDocument.Parse(entry.Resource.RawResource.Data);
-
-                    using (var ms = new MemoryStream())
-                    {
-                        using (Utf8JsonWriter writer = new Utf8JsonWriter(ms))
-                        {
-                            writer.WriteStartObject();
-                            bool foundMeta = false;
-
-                            foreach (var current in jsonDocument.RootElement.EnumerateObject())
-                            {
-                                if (current.Name == "meta")
-                                {
-                                    foundMeta = true;
-
-                                    writer.WriteStartObject("meta");
-
-                                    foreach (var metaEntry in current.Value.EnumerateObject())
-                                    {
-                                        if (metaEntry.Name == "lastUpdated")
-                                        {
-                                            writer.WriteString("lastUpdated", entry.Resource.LastModified);
-                                        }
-                                        else if (metaEntry.Name == "versionId")
-                                        {
-                                            writer.WriteString("versionId", entry.Resource.Version);
-                                        }
-                                        else
-                                        {
-                                            metaEntry.WriteTo(writer);
-                                        }
-                                    }
-
-                                    writer.WriteEndObject();
-                                }
-                                else
-                                {
-                                    // write
-                                    current.WriteTo(writer);
-                                }
-                            }
-
-                            if (!foundMeta)
-                            {
-                                writer.WriteStartObject("meta");
-                                writer.WriteString("lastUpdated", entry.Resource.LastModified);
-                                writer.WriteString("versionId", entry.Resource.Version);
-                                writer.WriteEndObject();
-                            }
-
-                            writer.WriteEndObject();
-                        }
-
-                        ms.Position = 0;
-                        output.Content = JsonDocument.Parse(ms);
-
-                        // TODO YAZAN - do we need this?
-                        using (var sr = new StreamReader(ms))
-                        {
-                            ms.Position = 0;
-                            entry.Resource.RawResource.Data = sr.ReadToEnd();
-                        }
-                    }
 
                     return output;
                 }
@@ -141,24 +68,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         {
             return CreateBundle(result, Bundle.BundleType.History, r =>
             {
-                var resource = _deserializer.Deserialize(r.Resource);
+                var resource = new RawFhirResource(r.Resource);
                 var hasVerb = Enum.TryParse(r.Resource.Request?.Method, true, out Bundle.HTTPVerb httpVerb);
 
-                return new Bundle.EntryComponent
+                resource.FullUrlElement = new FhirUri(_urlResolver.ResolveResourceWrapperUrl(resource.Wrapper, true));
+                resource.Request = new Bundle.RequestComponent
                 {
-                    FullUrlElement = new FhirUri(_urlResolver.ResolveResourceUrl(resource, true)),
-                    Resource = resource.ToPoco<Resource>(),
-                    Request = new Bundle.RequestComponent
-                    {
-                        Method = hasVerb ? (Bundle.HTTPVerb?)httpVerb : null,
-                        Url = hasVerb ? $"{resource.InstanceType}/{(httpVerb == Bundle.HTTPVerb.POST ? null : resource.Id)}" : null,
-                    },
-                    Response = new Bundle.ResponseComponent
-                    {
-                        LastModified = r.Resource.LastModified,
-                        Etag = WeakETag.FromVersionId(r.Resource.Version).ToString(),
-                    },
+                    Method = hasVerb ? (Bundle.HTTPVerb?)httpVerb : null,
+                    Url = hasVerb ? $"{resource.Wrapper.ResourceTypeName}/{(httpVerb == Bundle.HTTPVerb.POST ? null : resource.Wrapper.ResourceId)}" : null,
                 };
+                resource.Response = new Bundle.ResponseComponent
+                {
+                    LastModified = r.Resource.LastModified,
+                    Etag = WeakETag.FromVersionId(r.Resource.Version).ToString(),
+                };
+
+                return resource;
             });
         }
 

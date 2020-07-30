@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
 {
     public static class RawFhirResultExtensions
     {
-        public static RawFhirResult SetLocationHeader(this RawFhirResult rawFhirResult, IUrlResolver urlResolver)
+        public static ResourceWrapperFhirResult SetLocationHeader(this ResourceWrapperFhirResult rawFhirResult, IUrlResolver urlResolver)
         {
             var resource = rawFhirResult.Result;
 
@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
             return rawFhirResult;
         }
 
-        public static RawFhirResult SetETagHeader(this RawFhirResult rawFhirResult)
+        public static ResourceWrapperFhirResult SetETagHeader(this ResourceWrapperFhirResult rawFhirResult)
         {
             var resource = rawFhirResult.Result;
             if (resource != null)
@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
             return rawFhirResult;
         }
 
-        public static RawFhirResult SetETagHeader(this RawFhirResult rawFhirResult, WeakETag weakETag)
+        public static ResourceWrapperFhirResult SetETagHeader(this ResourceWrapperFhirResult rawFhirResult, WeakETag weakETag)
         {
             if (weakETag != null)
             {
@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
             return rawFhirResult;
         }
 
-        public static RawFhirResult SetLastModifiedHeader(this RawFhirResult rawFhirResult)
+        public static ResourceWrapperFhirResult SetLastModifiedHeader(this ResourceWrapperFhirResult rawFhirResult)
         {
             ResourceWrapper resource = rawFhirResult.Result;
 

@@ -6,6 +6,7 @@
 using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search;
 
 namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
@@ -18,12 +19,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             {
                 writer.WriteStartObject();
 
-                writer.WriteString("resourceType", bundle.ResourceType.ToString());
+                writer.WriteString("resourceType", bundle.ResourceType.ToCamelCaseString());
                 writer.WriteString("id", bundle.Id);
 
                 SerializeMetadata();
 
-                writer.WriteString("type", bundle.Type?.ToString());
+                writer.WriteString("type", bundle.Type?.ToCamelCaseString());
 
                 SerializeLinks();
                 SerializeEntries();
@@ -68,7 +69,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         doc.Content.Dispose();
 
                         writer.WriteStartObject("search");
-                        writer.WriteString("mode", doc.Search?.Mode?.ToString());
+                        writer.WriteString("mode", doc.Search?.Mode?.ToCamelCaseString());
 
                         writer.WriteEndObject();
                         writer.WriteEndObject();
