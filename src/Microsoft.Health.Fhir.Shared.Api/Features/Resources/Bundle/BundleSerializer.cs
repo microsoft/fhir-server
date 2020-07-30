@@ -13,9 +13,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 {
     public static class BundleSerializer
     {
+        private static readonly JsonWriterOptions WriterOptions = new JsonWriterOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+
         public static async Task Serialize(Hl7.Fhir.Model.Bundle bundle, Stream outputStream)
         {
-            using (Utf8JsonWriter writer = new Utf8JsonWriter(outputStream))
+            using (Utf8JsonWriter writer = new Utf8JsonWriter(outputStream, WriterOptions))
             {
                 writer.WriteStartObject();
 
