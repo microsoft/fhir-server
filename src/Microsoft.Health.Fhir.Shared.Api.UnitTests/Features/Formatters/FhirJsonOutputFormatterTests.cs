@@ -14,6 +14,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Api.Features.Formatters;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Newtonsoft.Json.Linq;
 using NSubstitute;
 using Xunit;
@@ -34,6 +35,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
         public void GivenAFhirObjectAndJsonContentType_WhenCheckingCanWrite_ThenTrueShouldBeReturned()
         {
             bool result = CanRead(typeof(Observation), ContentType.JSON_CONTENT_HEADER);
+
+            Assert.True(result);
+        }
+
+        [Fact]
+        public void GivenAResourceWrapperJsonContentType_WhenCheckingCanWrite_ThenTrueShouldBeReturned()
+        {
+            bool result = CanRead(typeof(ResourceWrapper), ContentType.JSON_CONTENT_HEADER);
 
             Assert.True(result);
         }

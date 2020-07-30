@@ -14,6 +14,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Api.Features.Formatters;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Tests.Common;
 using NSubstitute;
 using Xunit;
@@ -34,6 +35,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
         public void GivenAFhirObjectAndXmlContentType_WhenCheckingCanWrite_ThenTrueShouldBeReturned()
         {
             bool result = CanWrite(typeof(Observation), ContentType.XML_CONTENT_HEADER);
+
+            Assert.True(result);
+        }
+
+        [Fact]
+        public void GivenAResourceWrapperObjectAndXmlContentType_WhenCheckingCanWrite_ThenTrueShouldBeReturned()
+        {
+            bool result = CanWrite(typeof(ResourceWrapper), ContentType.XML_CONTENT_HEADER);
 
             Assert.True(result);
         }
