@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 void SerializeMetadata()
                 {
                     writer.WriteStartObject("meta");
-                    writer.WriteString("lastUpdated", bundle.Meta.LastUpdated?.ToString("o"));
+                    writer.WriteString("lastUpdated", bundle.Meta?.LastUpdated?.ToString("o"));
                     writer.WriteEndObject();
                 }
 

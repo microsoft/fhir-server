@@ -6,6 +6,7 @@
 using System;
 using System.Buffers;
 using System.IO;
+using System.Linq;
 using System.Text;
 using EnsureThat;
 using Hl7.Fhir.Model;
@@ -15,6 +16,7 @@ using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Shared.Core.Features.Search;
 using Newtonsoft.Json;
 using Task = System.Threading.Tasks.Task;
 
@@ -65,8 +67,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 
             if (context.Object is Hl7.Fhir.Model.Bundle)
             {
-                await Microsoft.Health.Fhir.Api.Features.Resources.Bundle.BundleSerializer.Serialize(context.Object as Hl7.Fhir.Model.Bundle, context.HttpContext.Response.Body);
-                return;
+                var bundle = context.Object as Hl7.Fhir.Model.Bundle;
+
+                if (bundle.Entry.All(x => x is RawBundleEntryComponent))
+                {
+                    await Microsoft.Health.Fhir.Api.Features.Resources.Bundle.BundleSerializer.Serialize(context.Object as Hl7.Fhir.Model.Bundle, context.HttpContext.Response.Body);
+                    return;
+                }
             }
             else if (context.Object is ResourceWrapper)
             {

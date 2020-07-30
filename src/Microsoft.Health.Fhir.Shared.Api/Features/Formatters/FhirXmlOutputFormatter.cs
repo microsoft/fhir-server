@@ -5,6 +5,7 @@
 
 using System;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Xml;
 using EnsureThat;
@@ -69,7 +70,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                 // Need to set Resource property for resources in entries
                 var bundle = context.Object as Hl7.Fhir.Model.Bundle;
 
-                foreach (var entry in bundle.Entry)
+                foreach (var entry in bundle.Entry.Where(x => x is RawBundleEntryComponent))
                 {
                     var rawResource = entry as RawBundleEntryComponent;
                     entry.Resource = _deserializer.Deserialize(rawResource.Wrapper).ToPoco<Resource>();
