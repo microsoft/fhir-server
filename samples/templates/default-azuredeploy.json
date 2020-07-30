@@ -79,6 +79,17 @@
                 "description": "An object representing the default consistency policy for the Cosmos DB account. See https://docs.microsoft.com/en-us/azure/templates/microsoft.documentdb/databaseaccounts#ConsistencyPolicy"
             }
         },
+        "cosmosDbFreeTier": {
+            "type": "string",
+            "allowedValues": [
+              "Yes",
+              "No"
+            ],
+            "defaultValue": "No",
+            "metadata": {
+                "description": "Use Cosmos DB free tier."
+            }
+        },
         "deployApplicationInsights": {
             "type": "bool",
             "defaultValue": true,
@@ -165,7 +176,8 @@
             "FhirServer:Operations:Export:StorageAccountUri": "[if(parameters('enableExport'), concat('https://', variables('storageAccountName'), variables('blobStorageUri')), 'null')]"
         },
         "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'))]",
-        "storageAccountName": "[concat(substring(replace(variables('serviceName'), '-', ''), 0, min(11, length(replace(variables('serviceName'), '-', '')))), uniquestring(resourceGroup().id, variables('serviceName')))]"
+        "storageAccountName": "[concat(substring(replace(variables('serviceName'), '-', ''), 0, min(11, length(replace(variables('serviceName'), '-', '')))), uniquestring(resourceGroup().id, variables('serviceName')))]",
+        "isCosmosDbFreeTier": "[equals(parameters('cosmosDbFreeTier'),'Yes')]"
     },
     "resources": [
         {
@@ -276,7 +288,8 @@
                         "locationName": "[resourceGroup().location]",
                         "failoverPriority": 0
                     }
-                ]
+                ],
+                "enableFreeTier": "[variables('isCosmosDbFreeTier')]"
             }
         },
         {
