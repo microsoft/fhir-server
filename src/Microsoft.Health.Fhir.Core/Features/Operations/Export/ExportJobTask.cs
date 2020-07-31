@@ -15,6 +15,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Core;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -140,6 +141,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 _logger.LogError(dce, "Can't connect to destination. The job will be marked as failed.");
 
                 _exportJobRecord.FailureDetails = new JobFailureDetails(dce.Message, dce.StatusCode);
+                await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
+            }
+            catch (ResourceNotFoundException rnfe)
+            {
+                _logger.LogError(rnfe, "Can't find specified resource. The job will be marked as failed.");
+
+                _exportJobRecord.FailureDetails = new JobFailureDetails(rnfe.Message, HttpStatusCode.BadRequest);
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
             catch (Exception ex)

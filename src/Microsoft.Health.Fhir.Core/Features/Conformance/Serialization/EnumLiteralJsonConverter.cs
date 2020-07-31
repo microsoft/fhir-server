@@ -21,7 +21,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance.Serialization
 
             if (value is Enum obj)
             {
-                serializer.Serialize(writer, obj.GetLiteral());
+                string enumString;
+                try
+                {
+                    enumString = obj.GetLiteral();
+                }
+                catch
+                {
+                    enumString = obj.ToString();
+                }
+
+                serializer.Serialize(writer, enumString);
             }
         }
 

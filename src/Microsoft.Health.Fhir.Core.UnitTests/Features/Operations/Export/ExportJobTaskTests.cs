@@ -15,6 +15,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Internal;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
@@ -1426,6 +1427,31 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(3, _inMemoryDestinationClient.ExportedDataFileCount);
 
             Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
+        }
+
+        [Fact]
+        public async Task GivenAGroupExportJobWithANonExistantGroup_WhenExecuted_ThenTheJobIsMarkedAsFailed()
+        {
+            var exportJobRecordWithCommitPages = CreateExportJobRecord(
+              exportJobType: ExportJobType.Group,
+              resourceType: KnownResourceTypes.Encounter + "," + KnownResourceTypes.Observation,
+              groupId: "group",
+              numberOfPagesPerCommit: 2);
+            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithCommitPages);
+
+            _groupMemberExtractor.GetGroupPatientIds(
+                "group",
+                Arg.Any<DateTimeOffset>(),
+                _cancellationToken).Returns<HashSet<string>>((x) =>
+                {
+                    throw new ResourceNotFoundException("test");
+                });
+
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            Assert.Equal(OperationStatus.Failed, _exportJobRecord.Status);
+            Assert.Equal(HttpStatusCode.BadRequest, _exportJobRecord.FailureDetails.FailureStatusCode);
+            Assert.Equal("test", _exportJobRecord.FailureDetails.FailureReason);
         }
 
         private ExportJobRecord CreateExportJobRecord(
