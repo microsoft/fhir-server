@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Text.Json;
 using EnsureThat;
 using Hl7.Fhir.Introspection;
@@ -28,8 +29,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search
 
         public override IDeepCopyable DeepCopy()
         {
-            // TODO YAZAN
-            return this;
+            throw new NotImplementedException();
         }
     }
 }
