@@ -16,6 +16,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
 using Microsoft.Health.SqlServer.Api.Registration;
 using Microsoft.Health.SqlServer.Configs;
+using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Registration;
@@ -83,6 +84,8 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add<StringOverflowRewriter>()
                 .Singleton()
                 .AsSelf();
+
+            services.AddFactory<IScoped<SqlConnectionWrapperFactory>>();
 
             return fhirServerBuilder;
         }
