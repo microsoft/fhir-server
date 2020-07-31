@@ -3,24 +3,26 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Text;
 using EnsureThat;
-using Microsoft.Azure.Documents;
-using Microsoft.Health.CosmosDb.Features.Queries;
+using Microsoft.Azure.Cosmos;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 {
     public class QueryBuilder : IQueryBuilder
     {
-        public SqlQuerySpec BuildSqlQuerySpec(SearchOptions searchOptions)
+        public QueryDefinition BuildSqlQuerySpec(SearchOptions searchOptions)
         {
             return new QueryBuilderHelper().BuildSqlQuerySpec(searchOptions);
         }
 
-        public SqlQuerySpec GenerateHistorySql(SearchOptions searchOptions)
+        public QueryDefinition GenerateHistorySql(SearchOptions searchOptions)
         {
             return new QueryBuilderHelper().GenerateHistorySql(searchOptions);
         }
@@ -38,7 +40,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                 _queryHelper = new QueryHelper(_queryBuilder, _queryParameterManager, SearchValueConstants.RootAliasName);
             }
 
-            public SqlQuerySpec BuildSqlQuerySpec(SearchOptions searchOptions)
+            public QueryDefinition BuildSqlQuerySpec(SearchOptions searchOptions)
             {
                 EnsureArg.IsNotNull(searchOptions, nameof(searchOptions));
 
@@ -68,14 +70,37 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                    (KnownResourceWrapperProperties.IsHistory, false),
                    (KnownResourceWrapperProperties.IsDeleted, false));
 
-                SqlQuerySpec query = new SqlQuerySpec(
-                    _queryBuilder.ToString(),
-                    _queryParameterManager.ToSqlParameterCollection());
+                if (!searchOptions.CountOnly)
+                {
+                    var hasOrderBy = false;
+                    foreach (var sortOptions in searchOptions.Sort)
+                    {
+                        if (string.Equals(sortOptions.searchParameterInfo.Name, KnownQueryParameterNames.LastUpdated, StringComparison.OrdinalIgnoreCase))
+                        {
+                            if (!hasOrderBy)
+                            {
+                                _queryBuilder.Append("ORDER BY ");
+                                hasOrderBy = true;
+                            }
+
+                            _queryBuilder.Append(SearchValueConstants.RootAliasName).Append(".")
+                                .Append(KnownResourceWrapperProperties.LastModified).Append(" ")
+                                .AppendLine(sortOptions.sortOrder == SortOrder.Ascending ? "ASC" : "DESC");
+                        }
+                        else
+                        {
+                            throw new SearchParameterNotSupportedException(string.Format(Core.Resources.SearchSortParameterNotSupported, sortOptions.searchParameterInfo.Name));
+                        }
+                    }
+                }
+
+                var query = new QueryDefinition(_queryBuilder.ToString());
+                _queryParameterManager.AddToQuery(query);
 
                 return query;
             }
 
-            public SqlQuerySpec GenerateHistorySql(SearchOptions searchOptions)
+            public QueryDefinition GenerateHistorySql(SearchOptions searchOptions)
             {
                 EnsureArg.IsNotNull(searchOptions, nameof(searchOptions));
 
@@ -98,16 +123,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                     .Append(SearchValueConstants.RootAliasName).Append(".").Append(KnownResourceWrapperProperties.LastModified)
                     .AppendLine(" DESC");
 
-                var sqlParameterCollection = _queryParameterManager.ToSqlParameterCollection();
-
-                var query = new SqlQuerySpec(
-                    _queryBuilder.ToString(),
-                    sqlParameterCollection);
+                var query = new QueryDefinition(_queryBuilder.ToString());
+                _queryParameterManager.AddToQuery(query);
 
                 return query;
             }
 
-            private void AppendSelectFromRoot(string selectList = SearchValueConstants.RootAliasName)
+            private void AppendSelectFromRoot(string selectList = SearchValueConstants.SelectedFields)
             {
                 _queryHelper.AppendSelectFromRoot(selectList);
             }

@@ -79,6 +79,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 var jobRecord = new ExportJobRecord(
                     request.RequestUri,
+                    request.RequestType,
                     request.ResourceType,
                     hash,
                     requestorClaims,

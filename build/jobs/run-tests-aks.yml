@@ -5,6 +5,10 @@ parameters:
   type: string
 - name: dnsSuffix
   type: string
+- name: clusterName
+  type: string
+- name: clusterResourceGroup
+  type: string
 
 jobs:
 - job: 'e2eTests'
@@ -53,7 +57,7 @@ jobs:
             exit 1    
         }
 
-        Write-Host "##vso[task.setvariable variable=TestFilter]Category!=Export&Category!=ExportDataValidation&Category!=SmartOnFhir&${testFilter}"
+        Write-Host "##vso[task.setvariable variable=TestFilter]Category!=SmartOnFhir&${testFilter}"
         Write-Host "##vso[task.setvariable variable=Resource]$(TestEnvironmentUrl)"
         
         $secrets = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info
@@ -65,6 +69,13 @@ jobs:
             $secretValue = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info -Name $secret.Name
             Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($secretValue.SecretValueText)"
         }
+
+        $storageAccountName="$(DeploymentEnvironmentName)${{parameters.version}}${{parameters.dataStore}}".ToLower()
+        $storageAccountName=$storageAccountName.Replace('-','')
+        $storageAccountName=$storageAccountName.Substring(0,[System.Math]::Min($storageAccountName.Length,24))
+        $accKey = Get-AzStorageAccountKey -ResourceGroupName ${{parameters.clusterResourceGroup}} -Name $storageAccountName | Where-Object {$_.KeyName -eq "key1"}
+        $storageSecretName = "${storageAccountName}_secret"
+        Write-Host "##vso[task.setvariable variable=$($storageSecretName)]$($accKey.Value)"
         # ----------------------------------------
 
   - task: VSTest@2

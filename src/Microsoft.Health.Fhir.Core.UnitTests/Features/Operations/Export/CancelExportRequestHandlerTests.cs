@@ -153,7 +153,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
         private ExportJobRecord CreateExportJobRecord(OperationStatus operationStatus)
         {
-            return new ExportJobRecord(new Uri("http://localhost/job/"), "Patient", "123", null)
+            return new ExportJobRecord(new Uri("http://localhost/job/"), ExportJobType.Patient, null, "123", null)
             {
                 Status = operationStatus,
             };
