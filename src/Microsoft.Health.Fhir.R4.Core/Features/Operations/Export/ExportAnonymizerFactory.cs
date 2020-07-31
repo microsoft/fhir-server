@@ -10,35 +10,38 @@ using System.Threading;
 using System.Threading.Tasks;
 using Fhir.Anonymizer.Core;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
     public class ExportAnonymizerFactory : IAnonymizerFactory
     {
-        private IExportDestinationClient _exportDestinationClient;
+        private IArtifactProvider _artifactProvider;
         private ILogger<ExportJobTask> _logger;
 
-        public ExportAnonymizerFactory(IExportDestinationClient exportDestinationClient, ILogger<ExportJobTask> logger)
+        public ExportAnonymizerFactory(IArtifactProvider artifactProvider, ILogger<ExportJobTask> logger)
         {
-            _exportDestinationClient = exportDestinationClient;
+            _artifactProvider = artifactProvider;
             _logger = logger;
         }
 
         public async Task<IAnonymizer> CreateAnonymizerAsync(string configurationLocation, string fileHash, CancellationToken cancellationToken)
         {
-            await _exportDestinationClient.ConnectAsync(cancellationToken);
-            using (MemoryStream stream = new MemoryStream())
+            using (Stream stream = new MemoryStream())
             {
                 try
                 {
-                    await _exportDestinationClient.DownloadFileToStreamAsync(new Uri(configurationLocation), stream, cancellationToken);
+                    await _artifactProvider.FetchArtifactAsync(configurationLocation, stream, cancellationToken);
                     stream.Position = 0;
                 }
                 catch (FileNotFoundException ex)
                 {
                     _logger.LogError($"Anonymization configuration file not found: {configurationLocation}");
                     throw new AnonymizationConfigurationNotFoundException(ex.Message, ex);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError($"Failed to fetch Anonymization configuration file: {configurationLocation}");
+                    throw new AnonymizationConfigurationFetchException(ex.Message, ex);
                 }
 
                 if (!string.IsNullOrEmpty(fileHash))
@@ -51,10 +54,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                             _logger.LogError($"Anonymization configuration file hash value not match: expected {fileHash}");
                             throw new AnonymizationConfigurationHashValueNotMatchException($"Configuration file hash value not match. Please double check file hash of sha256.");
                         }
+
+                        stream.Position = 0;
                     }
                 }
 
-                stream.Position = 0;
                 using (StreamReader reader = new StreamReader(stream))
                 {
                     string configurationContent = await reader.ReadToEndAsync();

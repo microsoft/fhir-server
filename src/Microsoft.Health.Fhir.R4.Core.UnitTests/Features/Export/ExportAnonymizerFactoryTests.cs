@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -11,7 +10,6 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
-using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 using NSubstitute;
 using Xunit;
 
@@ -44,8 +42,8 @@ namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Features.Export
         [Fact]
         public async Task GivenAValidAnonymizationConfiguration_WhenCreate_AnonymizerShouldBeCreated()
         {
-            IExportDestinationClient client = Substitute.For<IExportDestinationClient>();
-            client.DownloadFileToStreamAsync(Arg.Any<Uri>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>()).Returns<Task>(
+            IArtifactProvider client = Substitute.For<IArtifactProvider>();
+            client.FetchArtifactAsync(Arg.Any<string>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>()).Returns<Task>(
                 x =>
                 {
                     Stream target = x.ArgAt<Stream>(1);
@@ -65,8 +63,8 @@ namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Features.Export
         [Fact]
         public async Task GivenAnInvalidAnonymizationConfiguration_WhenCreate_CorrectExceptionShouldBeThrow()
         {
-            IExportDestinationClient client = Substitute.For<IExportDestinationClient>();
-            client.DownloadFileToStreamAsync(Arg.Any<Uri>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>()).Returns<Task>(
+            IArtifactProvider client = Substitute.For<IArtifactProvider>();
+            client.FetchArtifactAsync(Arg.Any<string>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>()).Returns<Task>(
                 x =>
                 {
                     Stream target = x.ArgAt<Stream>(1);
@@ -83,8 +81,8 @@ namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Features.Export
         [Fact]
         public async Task GivenNoAnonymizationConfiguration_WhenCreate_CorrectExceptionShouldBeThrow()
         {
-            IExportDestinationClient client = Substitute.For<IExportDestinationClient>();
-            client.DownloadFileToStreamAsync(Arg.Any<Uri>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>()).Returns<Task>(
+            IArtifactProvider client = Substitute.For<IArtifactProvider>();
+            client.FetchArtifactAsync(Arg.Any<string>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>()).Returns<Task>(
                 x =>
                 {
                     throw new FileNotFoundException();
@@ -99,8 +97,8 @@ namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Features.Export
         [Fact]
         public async Task GivenInvalidFileHashValue_WhenCreate_CorrectExceptionShouldBeThrow()
         {
-            IExportDestinationClient client = Substitute.For<IExportDestinationClient>();
-            client.DownloadFileToStreamAsync(Arg.Any<Uri>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>()).Returns<Task>(
+            IArtifactProvider client = Substitute.For<IArtifactProvider>();
+            client.FetchArtifactAsync(Arg.Any<string>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>()).Returns<Task>(
                 x =>
                 {
                     Stream target = x.ArgAt<Stream>(1);
