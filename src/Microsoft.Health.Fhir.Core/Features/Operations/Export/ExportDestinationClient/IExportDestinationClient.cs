@@ -76,14 +76,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinatio
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>A <see cref="Task"/> representing the asynchronous initialize operation.</returns>
         Task OpenFileAsync(Uri fileUri, CancellationToken cancellationToken);
-
-        /// <summary>
-        /// Downloads an existing file from the destination to the stream.
-        /// </summary>
-        /// <param name="fileUri">Uri of the file to be read.</param>
-        /// <param name="target">Target stream for the file from destination.</param>
-        /// <param name="cancellationToken">The cancellation token.</param>
-        /// <returns>A <see cref="Task"/> representing the asynchronous initialize operation.</returns>
-        Task DownloadFileToStreamAsync(Uri fileUri, Stream target, CancellationToken cancellationToken);
     }
 }

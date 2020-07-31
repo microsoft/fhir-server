@@ -255,22 +255,6 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
             _uriToBlobMapping.Add(fileUri, wrapper);
         }
 
-        public async Task DownloadFileToStreamAsync(Uri fileUri, Stream stream, CancellationToken cancellationToken)
-        {
-            EnsureArg.IsNotNull(fileUri, nameof(fileUri));
-            CheckIfClientIsConnected();
-
-            var blob = new CloudBlockBlob(fileUri, _blobClient);
-            if (await blob.ExistsAsync(cancellationToken))
-            {
-                await blob.DownloadToStreamAsync(stream, cancellationToken);
-            }
-            else
-            {
-                throw new FileNotFoundException(message: $"File not found on the destination storage. {fileUri}");
-            }
-        }
-
         private void CheckIfClientIsConnected()
         {
             if (_blobClient == null || _blobContainer == null)
