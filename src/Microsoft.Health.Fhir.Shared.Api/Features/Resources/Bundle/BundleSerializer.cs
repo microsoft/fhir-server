@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -31,53 +32,67 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 SerializeLinks();
                 SerializeEntries();
 
+                if (bundle.Total.HasValue)
+                {
+                    writer.WriteNumber("total", bundle.Total.Value);
+                }
+
                 writer.WriteEndObject();
                 await writer.FlushAsync();
 
                 void SerializeMetadata()
                 {
-                    writer.WriteStartObject("meta");
-                    writer.WriteString("lastUpdated", bundle.Meta?.LastUpdated?.ToString("o"));
-                    writer.WriteEndObject();
+                    if (bundle.Meta != null)
+                    {
+                        writer.WriteStartObject("meta");
+                        writer.WriteString("lastUpdated", bundle.Meta?.LastUpdated?.ToString("o"));
+                        writer.WriteEndObject();
+                    }
                 }
 
                 void SerializeLinks()
                 {
-                    writer.WriteStartArray("link");
-
-                    foreach (var link in bundle.Link)
+                    if (bundle.Link?.Any() == true)
                     {
-                        writer.WriteStartObject();
-                        writer.WritePropertyName("relation");
-                        writer.WriteStringValue(link.Relation);
-                        writer.WritePropertyName("url");
-                        writer.WriteStringValue(link.Url);
-                        writer.WriteEndObject();
-                    }
+                        writer.WriteStartArray("link");
 
-                    writer.WriteEndArray();
+                        foreach (var link in bundle.Link)
+                        {
+                            writer.WriteStartObject();
+                            writer.WritePropertyName("relation");
+                            writer.WriteStringValue(link.Relation);
+                            writer.WritePropertyName("url");
+                            writer.WriteStringValue(link.Url);
+                            writer.WriteEndObject();
+                        }
+
+                        writer.WriteEndArray();
+                    }
                 }
 
                 void SerializeEntries()
                 {
-                    writer.WriteStartArray("entry");
-                    foreach (var entry in bundle.Entry)
+                    if (bundle.Entry?.Any() == true)
                     {
-                        var doc = entry as RawBundleEntryComponent;
-                        writer.WriteStartObject();
-                        writer.WriteString("fullUrl", doc.FullUrl);
-                        writer.WritePropertyName("resource");
-                        doc.Content.WriteTo(writer);
-                        doc.Content.Dispose();
+                        writer.WriteStartArray("entry");
+                        foreach (var entry in bundle.Entry)
+                        {
+                            var doc = entry as RawBundleEntryComponent;
+                            writer.WriteStartObject();
+                            writer.WriteString("fullUrl", doc.FullUrl);
+                            writer.WritePropertyName("resource");
+                            doc.Content.WriteTo(writer);
+                            doc.Content.Dispose();
 
-                        writer.WriteStartObject("search");
-                        writer.WriteString("mode", doc.Search?.Mode?.ToCamelCaseString());
+                            writer.WriteStartObject("search");
+                            writer.WriteString("mode", doc.Search?.Mode?.ToCamelCaseString());
 
-                        writer.WriteEndObject();
-                        writer.WriteEndObject();
+                            writer.WriteEndObject();
+                            writer.WriteEndObject();
+                        }
+
+                        writer.WriteEndArray();
                     }
-
-                    writer.WriteEndArray();
                 }
             }
         }
