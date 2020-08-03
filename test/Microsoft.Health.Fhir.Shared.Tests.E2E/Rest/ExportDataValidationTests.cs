@@ -16,6 +16,7 @@ using Microsoft.Azure.Storage;
 using Microsoft.Azure.Storage.Auth;
 using Microsoft.Azure.Storage.Blob;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -23,6 +24,7 @@ using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
 using Xunit;
 using Xunit.Abstractions;
+using FhirGroup = Hl7.Fhir.Model.Group;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
@@ -94,7 +96,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
-        public async Task GiveFhirServer_WhenAllObservationAndPatientDataIsExported_ThenExportedDataIsSameAsDataInFhirServer()
+        public async Task GivenFhirServer_WhenAllObservationAndPatientDataIsExported_ThenExportedDataIsSameAsDataInFhirServer()
         {
             // NOTE: Azure Storage Emulator is required to run these tests locally.
 
@@ -114,7 +116,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
-        public async Task GiveFhirServer_WhenPatientObservationDataIsExported_ThenExportedDataIsSameAsDataInFhirServer()
+        public async Task GivenFhirServer_WhenPatientObservationDataIsExported_ThenExportedDataIsSameAsDataInFhirServer()
         {
             // NOTE: Azure Storage Emulator is required to run these tests locally.
 
@@ -145,9 +147,45 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.True(ValidateDataFromBothSources(dataFromFhirServer, dataFromExport));
         }
 
-        private bool ValidateDataFromBothSources(
-            Dictionary<(string resourceType, string resourceId), Resource> dataFromServer,
-            Dictionary<(string resourceType, string resourceId), Resource> dataFromStorageAccount)
+        [Fact]
+        public async Task GivenFhirServer_WhenGroupDataIsExported_ThenExportedDataIsSameAsDataInFhirServer()
+        {
+            // NOTE: Azure Storage Emulator is required to run these tests locally.
+
+            // Add data for test
+            var (dataInFhirServer, groupId) = await CreateGroupWithPatient(true);
+
+            // Trigger export request and check for export status
+            Uri contentLocation = await _testFhirClient.ExportAsync($"Group/{groupId}/");
+            IList<Uri> blobUris = await CheckExportStatus(contentLocation);
+
+            // Download exported data from storage account
+            Dictionary<(string resourceType, string resourceId), Resource> dataFromExport = await DownloadBlobAndParse(blobUris);
+
+            // Assert both sets of data are equal
+            Assert.True(ValidateDataFromBothSources(dataInFhirServer, dataFromExport));
+        }
+
+        [Fact]
+        public async Task GivenFhirServer_WhenGroupObervationDataIsExported_ThenExportedDataIsSameAsDataInFhirServer()
+        {
+            // NOTE: Azure Storage Emulator is required to run these tests locally.
+
+            // Add data for test
+            var (dataInFhirServer, groupId) = await CreateGroupWithPatient(false);
+
+            // Trigger export request and check for export status
+            Uri contentLocation = await _testFhirClient.ExportAsync($"Group/{groupId}/", "_type=Encounter");
+            IList<Uri> blobUris = await CheckExportStatus(contentLocation);
+
+            // Download exported data from storage account
+            Dictionary<(string resourceType, string resourceId), Resource> dataFromExport = await DownloadBlobAndParse(blobUris);
+
+            // Assert both sets of data are equal
+            Assert.True(ValidateDataFromBothSources(dataInFhirServer, dataFromExport));
+        }
+
+        private bool ValidateDataFromBothSources(Dictionary<(string resourceType, string resourceId), Resource> dataFromServer, Dictionary<(string resourceType, string resourceId), Resource> dataFromStorageAccount)
         {
             bool result = true;
 
@@ -205,13 +243,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             HttpStatusCode resultCode = HttpStatusCode.Accepted;
             HttpResponseMessage response = null;
-            while (resultCode == HttpStatusCode.Accepted)
+            int retryCount = 0;
+
+            // Wait until status change or 5 minutes
+            while (resultCode == HttpStatusCode.Accepted && retryCount < 60)
             {
                 await Task.Delay(5000);
 
                 response = await _testFhirClient.CheckExportAsync(contentLocation);
 
                 resultCode = response.StatusCode;
+
+                retryCount++;
+            }
+
+            if (retryCount >= 60)
+            {
+                throw new Exception($"Export request timed out");
             }
 
             if (resultCode != HttpStatusCode.OK)
@@ -352,6 +400,74 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
 
             return cloudAccount;
+        }
+
+        private async Task<(Dictionary<(string resourceType, string resourceId), Resource> serverData, string groupId)> CreateGroupWithPatient(bool includeAllCompartmentResources)
+        {
+            // Add data for test
+            var patient = new Patient();
+            var patientResponse = await _testFhirClient.CreateAsync(patient);
+            var patientId = patientResponse.Resource.Id;
+
+            var encounter = new Encounter()
+            {
+                Status = Encounter.EncounterStatus.InProgress,
+                Class = new Coding()
+                {
+                    Code = "test",
+                },
+                Subject = new ResourceReference($"{KnownResourceTypes.Patient}/{patientId}"),
+            };
+
+            var encounterResponse = await _testFhirClient.CreateAsync(encounter);
+            var encounterId = encounterResponse.Resource.Id;
+
+            var observation = new Observation()
+            {
+                Status = ObservationStatus.Final,
+                Code = new CodeableConcept()
+                {
+                    Coding = new List<Coding>()
+                    {
+                        new Coding()
+                        {
+                            Code = "test",
+                        },
+                    },
+                },
+                Subject = new ResourceReference($"{KnownResourceTypes.Patient}/{patientId}"),
+            };
+
+            var observationResponse = await _testFhirClient.CreateAsync(observation);
+            var observationId = observationResponse.Resource.Id;
+
+            var group = new FhirGroup()
+            {
+                Type = FhirGroup.GroupType.Person,
+                Actual = true,
+                Member = new List<FhirGroup.MemberComponent>()
+                {
+                    new FhirGroup.MemberComponent()
+                    {
+                        Entity = new ResourceReference($"{KnownResourceTypes.Patient}/{patientId}"),
+                    },
+                },
+            };
+
+            var groupResponse = await _testFhirClient.CreateAsync(group);
+            var groupId = groupResponse.Resource.Id;
+
+            var resourceDictionary = new Dictionary<(string resourceType, string resourceId), Resource>();
+            resourceDictionary.Add((KnownResourceTypes.Patient, patientId), patientResponse.Resource);
+            resourceDictionary.Add((KnownResourceTypes.Encounter, encounterId), encounterResponse.Resource);
+
+            if (includeAllCompartmentResources)
+            {
+                resourceDictionary.Add((KnownResourceTypes.Observation, observationId), observationResponse.Resource);
+                resourceDictionary.Add((KnownResourceTypes.Group, groupId), groupResponse.Resource);
+            }
+
+            return (resourceDictionary, groupId);
         }
     }
 }
