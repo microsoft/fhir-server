@@ -138,14 +138,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         // grab the next query from the list which is labeled as queued and run it
                         var query = _reindexJobRecord.QueryList.Where(q => q.Status == OperationStatus.Queued).OrderBy(q => q.LastModified).FirstOrDefault();
 
-                        if (query != null)
-                        {
-                            await ProcessQueryAsync(query, cancellationToken);
-                        }
-                        else
-                        {
-                            await Task.Delay(_reindexJobConfiguration.QueryDelayIntervalInMilliseconds.Milliseconds, cancellationToken);
-                        }
+                        await ProcessQueryAsync(query, cancellationToken);
                     }
                 }
             }

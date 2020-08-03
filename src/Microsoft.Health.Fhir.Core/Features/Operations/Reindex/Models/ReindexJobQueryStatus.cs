@@ -23,7 +23,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         {
         }
 
-        [JsonProperty(JobRecordProperties.Query)]
+        [JsonProperty(JobRecordProperties.ContinuationToken)]
         public string ContinuationToken { get; set; }
 
         [JsonProperty(JobRecordProperties.Status)]

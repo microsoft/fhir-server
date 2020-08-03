@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public IEnumerable<SearchParameterInfo> AllSearchParameters => _inner.AllSearchParameters.Where(x => x.IsSearchable);
 
-        public static string SearchParametersHash => SearchParameterDefinitionManager.SearchParametersHash;
+        public string SearchParametersHash => _inner.SearchParametersHash;
 
         public IEnumerable<SearchParameterInfo> GetSearchParameters(string resourceType)
         {
