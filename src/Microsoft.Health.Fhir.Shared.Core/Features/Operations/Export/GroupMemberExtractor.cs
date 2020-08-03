@@ -20,7 +20,7 @@ using Microsoft.Health.Fhir.Core.Models;
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
     /// <summary>
-    /// Class to get member ids and types out of a group. Split between common and version specifc code due to the change between Stu3 and R4 to the ResourceReference object.
+    /// Class to get member ids and types out of a group.
     /// </summary>
     public class GroupMemberExtractor : IGroupMemberExtractor
     {
@@ -42,7 +42,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _referenceToElementResolver = referenceToElementResolver;
         }
 
-        public async Task<HashSet<string>> GetGroupPatientIds(string groupId, DateTimeOffset groupMembershipTime, CancellationToken cancellationToken, HashSet<string> groupsAlreadyChecked = null)
+        public async Task<HashSet<string>> GetGroupPatientIds(string groupId, DateTimeOffset groupMembershipTime, CancellationToken cancellationToken)
+        {
+            return await GetGroupPatientIdsHelper(groupId, groupMembershipTime, null, cancellationToken);
+        }
+
+        private async Task<HashSet<string>> GetGroupPatientIdsHelper(string groupId, DateTimeOffset groupMembershipTime, HashSet<string> groupsAlreadyChecked, CancellationToken cancellationToken)
         {
             if (groupsAlreadyChecked == null)
             {
@@ -71,7 +76,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         // need to check that loops aren't happening
                         if (!groupsAlreadyChecked.Contains(resourceId))
                         {
-                            patientIds.UnionWith(await GetGroupPatientIds(resourceId, groupMembershipTime, cancellationToken, groupsAlreadyChecked));
+                            patientIds.UnionWith(await GetGroupPatientIdsHelper(resourceId, groupMembershipTime, groupsAlreadyChecked, cancellationToken));
                         }
 
                         break;

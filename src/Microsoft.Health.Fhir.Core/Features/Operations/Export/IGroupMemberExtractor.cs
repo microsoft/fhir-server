@@ -28,8 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         /// <param name="groupId">The id of the Group</param>
         /// <param name="groupMembershipTime">Only returns Patients that were in the Group at this time</param>
         /// <param name="cancellationToken">Cancellation token</param>
-        /// <param name="groupsAlreadyChecked">Internal use</param>
         /// <returns>A set of Patient ids</returns>
-        public Task<HashSet<string>> GetGroupPatientIds(string groupId, DateTimeOffset groupMembershipTime, CancellationToken cancellationToken, HashSet<string> groupsAlreadyChecked = null);
+        public Task<HashSet<string>> GetGroupPatientIds(string groupId, DateTimeOffset groupMembershipTime, CancellationToken cancellationToken);
     }
 }
