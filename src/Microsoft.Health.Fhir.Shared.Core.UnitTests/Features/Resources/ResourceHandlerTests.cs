@@ -49,6 +49,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         private readonly IMediator _mediator;
         private readonly ISearchService _searchService;
         private readonly ResourceIdProvider _resourceIdProvider;
+        private readonly ResourceDeserializer _deserializer;
+        private readonly FhirJsonParser _fhirJsonParser = new FhirJsonParser();
         private IFhirAuthorizationService _authorizationService;
 
         public ResourceHandlerTests()
@@ -103,6 +105,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             ServiceProvider provider = collection.BuildServiceProvider();
             _mediator = new Mediator(type => provider.GetService(type));
+
+            _deserializer = new ResourceDeserializer(
+                (FhirResourceFormat.Json, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastUpdated) => _fhirJsonParser.Parse(str).ToResourceElement())));
         }
 
         [Fact]
@@ -332,7 +337,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             _fhirDataStore.GetAsync(Arg.Is<ResourceKey>(x => x.Id == "readDataObservation"), Arg.Any<CancellationToken>()).Returns(latest);
 
-            var result = (await _mediator.GetResourceAsync(new ResourceKey("Observation", "readDataObservation", "latest"))).ToResourceElement();
+            var result = await _mediator.GetResourceAsync(new ResourceKey("Observation", "readDataObservation", "latest"));
 
             Assert.NotNull(result);
             Assert.Equal(observation.Id, result.Id);
@@ -351,7 +356,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             _fhirDataStore.GetAsync(Arg.Is<ResourceKey>(x => x.Id == "readDataPatient" && x.VersionId == "history"), Arg.Any<CancellationToken>()).Returns(history);
 
-            var result = (await _mediator.GetResourceAsync(new ResourceKey("Patient", "readDataPatient", "history"))).ToResourceElement();
+            ResourceElement result = (await _mediator.GetResourceAsync(new ResourceKey("Patient", "readDataPatient", "history"))).ToResourceElement(_deserializer);
 
             Assert.NotNull(result);
             Assert.Equal(patient.Scalar<string>(birthDateProp), result.Scalar<string>(birthDateProp));
@@ -371,7 +376,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             _fhirDataStore.GetAsync(Arg.Is<ResourceKey>(x => x.Id == "readDataPatient"), Arg.Any<CancellationToken>()).Returns(latest);
 
-            ResourceElement result = (await _mediator.GetResourceAsync(new ResourceKey("Patient", "readDataPatient", "latest"))).ToResourceElement();
+            ResourceElement result = (await _mediator.GetResourceAsync(new ResourceKey("Patient", "readDataPatient", "latest"))).ToResourceElement(_deserializer);
 
             Assert.NotNull(result);
             Assert.Equal(patient.Scalar<string>(birthDateProp), result.Scalar<string>(birthDateProp));

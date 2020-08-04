@@ -4,28 +4,25 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Text.Json;
 using EnsureThat;
 using Hl7.Fhir.Introspection;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Shared.Core.Features.Search
 {
     [FhirType(IsResource = true)]
     public class RawBundleEntryComponent : Bundle.EntryComponent
     {
-        public RawBundleEntryComponent(ResourceWrapper wrapper)
+        public RawBundleEntryComponent(ResourceWrapper resourceWrapper)
         {
-            EnsureArg.IsNotNull(wrapper, nameof(wrapper));
+            EnsureArg.IsNotNull(resourceWrapper, nameof(resourceWrapper));
 
-            Wrapper = wrapper;
-            Content = ResourceDeserializer.DeserializeToJsonDocument(Wrapper);
+            ResourceElement = new RawResourceElement(resourceWrapper);
         }
 
-        public JsonDocument Content { get; set; }
-
-        public ResourceWrapper Wrapper { get; set; }
+        public RawResourceElement ResourceElement { get; set; }
 
         public override IDeepCopyable DeepCopy()
         {

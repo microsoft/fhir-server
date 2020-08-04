@@ -4,19 +4,19 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Get
 {
     public class GetResourceResponse
     {
-        public GetResourceResponse(ResourceWrapper resource)
+        public GetResourceResponse(RawResourceElement resourceElement)
         {
-            EnsureArg.IsNotNull(resource, nameof(resource));
+            EnsureArg.IsNotNull(resourceElement, nameof(resourceElement));
 
-            Resource = resource;
+            Resource = resourceElement;
         }
 
-        public ResourceWrapper Resource { get; }
+        public RawResourceElement Resource { get; }
     }
 }

@@ -14,6 +14,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Get;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
 {
@@ -68,15 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
                 throw new ResourceGoneException(new ResourceKey(currentDoc.ResourceTypeName, currentDoc.ResourceId, currentDoc.Version));
             }
 
-            if (currentDoc.RawResource.LastUpdatedSet && currentDoc.RawResource.VersionSet)
-            {
-                return new GetResourceResponse(currentDoc);
-            }
-
-            // Update LastUpdated and VersionId in raw resource
-            _ = ResourceDeserializer.DeserializeToJsonDocument(currentDoc);
-
-            return new GetResourceResponse(currentDoc);
+            return new GetResourceResponse(new RawResourceElement(currentDoc));
         }
     }
 }

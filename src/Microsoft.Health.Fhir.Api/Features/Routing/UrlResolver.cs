@@ -103,7 +103,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             return new Uri(uriString);
         }
 
-        public Uri ResolveResourceUrl(ResourceElement resource, bool includeVersion = false)
+        public Uri ResolveResourceUrl(IResourceElement resource, bool includeVersion = false)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 

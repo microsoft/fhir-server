@@ -17,6 +17,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search;
 using Task = System.Threading.Tasks.Task;
 
@@ -50,7 +51,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
         {
             EnsureArg.IsNotNull(type, nameof(type));
 
-            return typeof(Resource).IsAssignableFrom(type) || typeof(ResourceWrapper).IsAssignableFrom(type);
+            return typeof(Resource).IsAssignableFrom(type) || typeof(RawResourceElement).IsAssignableFrom(type);
         }
 
         public override Task WriteResponseBodyAsync(OutputFormatterWriteContext context, Encoding selectedEncoding)
@@ -61,9 +62,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             context.HttpContext.AllowSynchronousIO();
 
             Resource resourceObject = null;
-            if (typeof(ResourceWrapper).IsAssignableFrom(context.ObjectType))
+            if (typeof(RawResourceElement).IsAssignableFrom(context.ObjectType))
             {
-                resourceObject = _deserializer.Deserialize(context.Object as ResourceWrapper).ToPoco<Resource>();
+                resourceObject = _deserializer.Deserialize(context.Object as RawResourceElement).ToPoco<Resource>();
             }
             else if (typeof(Hl7.Fhir.Model.Bundle).IsAssignableFrom(context.ObjectType))
             {
@@ -73,7 +74,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                 foreach (var entry in bundle.Entry.Where(x => x is RawBundleEntryComponent))
                 {
                     var rawResource = entry as RawBundleEntryComponent;
-                    entry.Resource = _deserializer.Deserialize(rawResource.Wrapper).ToPoco<Resource>();
+                    entry.Resource = _deserializer.Deserialize(rawResource.ResourceElement).ToPoco<Resource>();
                 }
 
                 resourceObject = bundle;
@@ -92,7 +93,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                     writer.Formatting = Formatting.Indented;
                 }
 
-                var stringValue = _fhirXmlSerializer.SerializeToString(resourceObject, context.HttpContext.GetSummaryType(_logger));
                 _fhirXmlSerializer.Serialize(resourceObject, writer, context.HttpContext.GetSummaryType(_logger));
             }
 

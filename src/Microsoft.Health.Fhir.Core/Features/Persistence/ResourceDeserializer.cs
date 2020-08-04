@@ -40,6 +40,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             return resource;
         }
 
+        public ResourceElement Deserialize(RawResourceElement rawResourceElement)
+        {
+            EnsureArg.IsNotNull(rawResourceElement, nameof(rawResourceElement));
+
+            ResourceElement resource = DeserializeRaw(rawResourceElement);
+
+            return resource;
+        }
+
         /// <summary>
         /// Deserialize RawResource in ResourceWrapper to a JsonDocument.
         /// If the RawResource's VersionSet or LastUpdatedSet are false, then the RawResource's data will be updated
@@ -132,6 +141,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             }
 
             return deserializer(rawResource.Data, version, lastModified);
+        }
+
+        internal ResourceElement DeserializeRaw(RawResourceElement rawResourceElement)
+        {
+            EnsureArg.IsNotNull(rawResourceElement, nameof(rawResourceElement));
+
+            if (!_deserializers.TryGetValue(rawResourceElement.Format, out var deserializer))
+            {
+                throw new NotSupportedException();
+            }
+
+            return deserializer(rawResourceElement.ResourceData, rawResourceElement.VersionId, rawResourceElement.LastUpdated.HasValue ? rawResourceElement.LastUpdated.Value : DateTimeOffset.MinValue);
         }
     }
 }

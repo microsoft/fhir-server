@@ -31,7 +31,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private readonly FhirJsonParser _fhirJsonParser = new FhirJsonParser();
         private readonly IUrlResolver _urlResolver = Substitute.For<IUrlResolver>();
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
-        private readonly ResourceDeserializer _resourceDeserializer;
         private readonly BundleFactory _bundleFactory;
 
         private const string _continuationToken = "ct";
@@ -46,13 +45,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         public BundleFactoryTests()
         {
-            _resourceDeserializer = new ResourceDeserializer(
-                (FhirResourceFormat.Json, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastUpdated) => _fhirJsonParser.Parse(str).ToResourceElement())));
-
             _bundleFactory = new BundleFactory(
                 _urlResolver,
-                _fhirRequestContextAccessor,
-                _resourceDeserializer);
+                _fhirRequestContextAccessor);
 
             IFhirRequestContext fhirRequestContext = Substitute.For<IFhirRequestContext>();
 
@@ -128,13 +123,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 Assert.NotNull(actualEntry);
 
                 var raw = actualEntry as RawBundleEntryComponent;
-                Assert.NotNull(raw.Content);
+                Assert.NotNull(raw?.ResourceElement?.JsonDocument);
 
                 Resource resource;
                 using (var ms = new MemoryStream())
                 using (var writer = new Utf8JsonWriter(ms))
                 {
-                    raw.Content.WriteTo(writer);
+                    raw.ResourceElement.JsonDocument.WriteTo(writer);
                     writer.Flush();
                     var serialized = Encoding.UTF8.GetString(ms.ToArray());
 

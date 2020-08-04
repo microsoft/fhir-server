@@ -7,7 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
-using Microsoft.Health.Fhir.Core.Extensions;
+using Hl7.Fhir.Utility;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search;
 
 namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
@@ -22,12 +22,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             {
                 writer.WriteStartObject();
 
-                writer.WriteString("resourceType", bundle.ResourceType.ToString());
+                writer.WriteString("resourceType", bundle.ResourceType.GetLiteral());
                 writer.WriteString("id", bundle.Id);
 
                 SerializeMetadata();
 
-                writer.WriteString("type", bundle.Type?.ToCamelCaseString());
+                writer.WriteString("type", bundle.Type?.GetLiteral());
 
                 SerializeLinks();
                 SerializeEntries();
@@ -77,15 +77,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         writer.WriteStartArray("entry");
                         foreach (var entry in bundle.Entry)
                         {
-                            var doc = entry as RawBundleEntryComponent;
+                            var rawBundleEntry = entry as RawBundleEntryComponent;
                             writer.WriteStartObject();
-                            writer.WriteString("fullUrl", doc.FullUrl);
+                            writer.WriteString("fullUrl", rawBundleEntry.FullUrl);
                             writer.WritePropertyName("resource");
-                            doc.Content.WriteTo(writer);
-                            doc.Content.Dispose();
+                            rawBundleEntry.ResourceElement.JsonDocument.WriteTo(writer);
+                            rawBundleEntry.ResourceElement.JsonDocument.Dispose();
 
                             writer.WriteStartObject("search");
-                            writer.WriteString("mode", doc.Search?.Mode?.ToCamelCaseString());
+                            writer.WriteString("mode", rawBundleEntry.Search?.Mode?.GetLiteral());
 
                             writer.WriteEndObject();
                             writer.WriteEndObject();

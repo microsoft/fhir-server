@@ -23,17 +23,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     {
         private readonly IUrlResolver _urlResolver;
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
-        private readonly ResourceDeserializer _deserializer;
 
-        public BundleFactory(IUrlResolver urlResolver, IFhirRequestContextAccessor fhirRequestContextAccessor, ResourceDeserializer deserializer)
+        public BundleFactory(IUrlResolver urlResolver, IFhirRequestContextAccessor fhirRequestContextAccessor)
         {
             EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
-            EnsureArg.IsNotNull(deserializer, nameof(deserializer));
 
             _urlResolver = urlResolver;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
-            _deserializer = deserializer;
         }
 
         public ResourceElement CreateSearchBundle(SearchResult result)
@@ -65,11 +62,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 var resource = new RawBundleEntryComponent(r.Resource);
                 var hasVerb = Enum.TryParse(r.Resource.Request?.Method, true, out Bundle.HTTPVerb httpVerb);
 
-                resource.FullUrlElement = new FhirUri(_urlResolver.ResolveResourceWrapperUrl(resource.Wrapper, true));
+                resource.FullUrlElement = new FhirUri(_urlResolver.ResolveResourceWrapperUrl(r.Resource, true));
                 resource.Request = new Bundle.RequestComponent
                 {
                     Method = hasVerb ? (Bundle.HTTPVerb?)httpVerb : null,
-                    Url = hasVerb ? $"{resource.Wrapper.ResourceTypeName}/{(httpVerb == Bundle.HTTPVerb.POST ? null : resource.Wrapper.ResourceId)}" : null,
+                    Url = hasVerb ? $"{r.Resource.ResourceTypeName}/{(httpVerb == Bundle.HTTPVerb.POST ? null : r.Resource.ResourceId)}" : null,
                 };
                 resource.Response = new Bundle.ResponseComponent
                 {
