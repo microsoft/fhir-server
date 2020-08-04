@@ -170,20 +170,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         -- result set 1
                         SELECT ResourceTypeId, Name FROM dbo.ResourceType;
 
-                        INSERT INTO dbo.SearchParam (Uri)
-                        SELECT * FROM  OPENJSON (@searchParams) 
-                        WITH (Uri varchar(128) '$.Uri')
-                        EXCEPT SELECT Uri FROM dbo.SearchParam;
+                        DECLARE @lastUpdated datetimeoffset(7) = SYSDATETIMEOFFSET()
 
-                        IF ((SELECT COUNT(*) FROM dbo.SearchParam WHERE Status IS NOT NULL) = 0)
-                        BEGIN
-                            DECLARE @lastUpdated datetimeoffset(7) = SYSDATETIMEOFFSET()
-        
-                            UPDATE dbo.SearchParam
-                            SET Status = sps.Status, LastUpdated = @lastUpdated, IsPartiallySupported = sps.IsPartiallySupported
-                            FROM dbo.SearchParam INNER JOIN @searchParamStatuses as sps
-                            ON dbo.SearchParam.Uri = sps.Uri
-                        END
+                        INSERT INTO dbo.SearchParam (Uri, Status, LastUpdated, IsPartiallySupported)
+                        SELECT sps.Uri, sps.Status, @lastUpdated, sps.IsPartiallySupported FROM @searchParamStatuses AS sps
+                        LEFT OUTER JOIN dbo.SearchParam sp ON sps.Uri = sp.Uri
+                        WHERE sp.Uri IS NULL
 
                         -- result set 2
                         SELECT Uri, SearchParamId FROM dbo.SearchParam;
@@ -211,13 +203,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         SELECT Value, QuantityCodeId FROM dbo.QuantityCode";
 
                     string commaSeparatedResourceTypes = string.Join(",", ModelInfoProvider.GetResourceTypeNames());
-                    string searchParametersJson = JsonConvert.SerializeObject(_searchParameterDefinitionManager.AllSearchParameters.Select(p => new { Name = p.Name, Uri = p.Url }));
                     string commaSeparatedClaimTypes = string.Join(',', _securityConfiguration.PrincipalClaims);
                     string commaSeparatedCompartmentTypes = string.Join(',', ModelInfoProvider.GetCompartmentTypeNames());
                     IEnumerable<ResourceSearchParameterStatus> statuses = _filebasedRegistryDataStore.GetSearchParameterStatuses().Result;
 
                     sqlCommand.Parameters.AddWithValue("@resourceTypes", commaSeparatedResourceTypes);
-                    sqlCommand.Parameters.AddWithValue("@searchParams", searchParametersJson);
                     sqlCommand.Parameters.AddWithValue("@claimTypes", commaSeparatedClaimTypes);
                     sqlCommand.Parameters.AddWithValue("@compartmentTypes", commaSeparatedCompartmentTypes);
 
