@@ -53,6 +53,10 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.Add<ReindexJobWorker>()
                 .Singleton()
                 .AsSelf();
+
+            services.Add<ReindexUtilities>()
+                .Singleton()
+                .AsSelf();
         }
     }
 }

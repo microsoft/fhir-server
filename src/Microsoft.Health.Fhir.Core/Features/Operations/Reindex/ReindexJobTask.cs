@@ -10,6 +10,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core;
@@ -19,6 +20,7 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Messages.Reindex;
 using Microsoft.Health.Fhir.Core.Models;
 using Task = System.Threading.Tasks.Task;
 
@@ -31,7 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly ISupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager;
         private readonly Func<IScoped<IFhirDataStore>> _fhirDataStoreFactory;
-        private readonly ReindexUtilities _updateIndices;
+        private readonly IMediator _mediator;
         private readonly ILogger _logger;
 
         private ReindexJobRecord _reindexJobRecord;
@@ -43,6 +45,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             Func<IScoped<ISearchService>> searchServiceFactory,
             ISupportedSearchParameterDefinitionManager supportedSearchParameterDefinitionManager,
             Func<IScoped<IFhirDataStore>> fhirDataStoreFactory,
+            ISearchIndexer searchIndexer,
+            IMediator mediator,
             ILogger<ReindexJobTask> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
@@ -50,6 +54,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(supportedSearchParameterDefinitionManager, nameof(supportedSearchParameterDefinitionManager));
             EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));
+            EnsureArg.IsNotNull(searchIndexer, nameof(searchIndexer));
+            EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
@@ -57,7 +63,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _searchServiceFactory = searchServiceFactory;
             _supportedSearchParameterDefinitionManager = supportedSearchParameterDefinitionManager;
             _fhirDataStoreFactory = fhirDataStoreFactory;
-            _updateIndices = new ReindexUtilities(_fhirDataStoreFactory);
+            _mediator = mediator;
             _logger = logger;
         }
 
@@ -190,10 +196,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 // TODO: Release lock on job document so another thread may pick up the next query.
 
-                await _updateIndices.ProcessSearchResultsAsync(results, _reindexJobRecord.Hash, cancellationToken);
+                var extractRequest = new ExtractReindexRequest(results, _reindexJobRecord.Hash);
+                await _mediator.Send(extractRequest, cancellationToken);
 
                 // TODO: reaquire document lock and update _etag
-
                 query.Status = OperationStatus.Completed;
                 await UpdateJobAsync(cancellationToken);
 

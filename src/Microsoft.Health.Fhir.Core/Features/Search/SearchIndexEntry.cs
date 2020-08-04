@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Diagnostics.CodeAnalysis;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
@@ -12,7 +14,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     /// <summary>
     /// Represents a search index entry.
     /// </summary>
-    public class SearchIndexEntry
+    public class SearchIndexEntry : IEquatable<SearchIndexEntry>
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="SearchIndexEntry"/> class.
@@ -37,5 +39,65 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// Gets the searchable value.
         /// </summary>
         public ISearchValue Value { get; }
+
+        public static bool operator ==(SearchIndexEntry left, SearchIndexEntry right)
+        {
+            if (left == null && right == null)
+            {
+                return true;
+            }
+            else if (left == null)
+            {
+                return false;
+            }
+            else
+            {
+                return left.Equals(right);
+            }
+        }
+
+        public static bool operator !=(SearchIndexEntry left, SearchIndexEntry right)
+        {
+            return !(left == right);
+        }
+
+        public bool Equals([AllowNull] SearchIndexEntry other)
+        {
+            if (other == null)
+            {
+                return false;
+            }
+
+            if (other.SearchParameter.Url == SearchParameter.Url &&
+                other.Value == Value)
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (obj == null)
+            {
+                return false;
+            }
+
+            SearchIndexEntry other = obj as SearchIndexEntry;
+            if (other == null)
+            {
+                return false;
+            }
+            else
+            {
+                return Equals(other);
+            }
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(SearchParameter.Url.GetHashCode(), Value.GetHashCode());
+        }
     }
 }
