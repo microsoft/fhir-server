@@ -57,6 +57,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         }
 
         /// <summary>
+        /// Sets to true if _at query parameter is present for history search
+        /// </summary>
+        public bool AtHistoryParam { get; internal set; }
+
+        /// <summary>
         /// Gets the search expression.
         /// </summary>
         public Expression Expression { get; internal set; }

@@ -261,6 +261,22 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
+        public void GivenSearchWithAtDateTime_WhenCreated_ThenSearchAtHistoryParamShouldBeTrue()
+        {
+            var queryParameters = new[]
+            {
+                Tuple.Create(KnownQueryParameterNames.At, "atDateTime"),
+            };
+
+            SearchOptions options = CreateSearchOptions(
+                resourceType: "Patient",
+                queryParameters: queryParameters);
+
+            Assert.NotNull(options);
+            Assert.True(options.AtHistoryParam);
+        }
+
+        [Fact]
         public void GivenSearchWithSupportedSortValue_WhenCreated_ThenSearchParamShouldBeAddedToSortList()
         {
             const string paramName = SearchParameterNames.LastUpdated;

@@ -120,6 +120,40 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 }
             }
 
+            // Semi join for _at param
+            if (searchOptions.AtHistoryParam)
+            {
+                string resourceTableAlias2 = "r2";
+                using (StringBuilder.Indent())
+                {
+                    StringBuilder.Append("AND NOT EXISTS(").AppendLine(" ");
+                    using (StringBuilder.Indent())
+                    {
+                        StringBuilder.AppendLine("SELECT *");
+                        StringBuilder.Append("FROM ").Append(VLatest.Resource).Append(" ").AppendLine(resourceTableAlias2);
+                        using (var delimitedClause = StringBuilder.BeginDelimitedWhereClause())
+                        {
+                            delimitedClause.BeginDelimitedElement();
+                            foreach (var denormalizedPredicate in expression.DenormalizedExpressions)
+                            {
+                                SearchParameterExpressionBase exp = denormalizedPredicate as SearchParameterExpressionBase;
+                                if (string.Equals(exp.Parameter.Name, "_resourceSurrogateId", StringComparison.Ordinal))
+                                {
+                                    denormalizedPredicate.AcceptVisitor(DispatchingDenormalizedSearchParameterQueryGenerator.Instance, GetContext());
+                                }
+                            }
+
+                            delimitedClause.BeginDelimitedElement();
+                            StringBuilder.Append(VLatest.Resource.ResourceId, resourceTableAlias2).Append(" = ").Append(VLatest.Resource.ResourceId, resourceTableAlias);
+                            delimitedClause.BeginDelimitedElement();
+                            StringBuilder.Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias2).Append(" > ").Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias);
+                        }
+
+                        StringBuilder.AppendLine(")");
+                    }
+                }
+            }
+
             if (!searchOptions.CountOnly)
             {
                 var sortOrder = searchOptions.GetFirstSortOrderForSupportedParam();

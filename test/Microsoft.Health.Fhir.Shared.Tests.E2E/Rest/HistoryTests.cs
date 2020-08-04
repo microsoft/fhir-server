@@ -293,6 +293,52 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Contains("Parameter _before cannot a be a value in the future", ex.Message);
         }
 
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)] // _at param is not properly implemented for Cosmosdb
+        [Fact]
+        public async Task GivenAValueForAt_WhenGettingSystemHistory_ThenTheServerShouldReturnCorrectVersionResource()
+        {
+            var resourceId = _createdResource.Resource.Id;
+
+            // created resource with version id = 1
+            _createdResource.Resource.Text = new Narrative { Div = "<div>Changed by E2E test</div>" };
+            var lastUpdatedForVersionOne = _createdResource.Resource.Meta.LastUpdated.Value.AddMilliseconds(50);
+
+            // updated resource with version id = 2
+            Thread.Sleep(100);
+            var updatedResource = await _client.UpdateAsync<Observation>(_createdResource);
+            var lastUpdatedForVersionTwo = updatedResource.Resource.Meta.LastUpdated.Value.AddMilliseconds(50);
+
+            // updated resource again with version id = 3
+            Thread.Sleep(100);
+            updatedResource.Resource.Text = new Narrative { Div = "<div>Updated by E2E test</div>" };
+            var updatedResourceAgain = await _client.UpdateAsync<Observation>(updatedResource);
+            var lastUpdatedForVersionThree = updatedResourceAgain.Resource.Meta.LastUpdated.Value.AddMilliseconds(50);
+
+            var lastUpdatedForVersionOneUriString = HttpUtility.UrlEncode(lastUpdatedForVersionOne.ToString("o"));
+            var lastUpdatedForVersionTwoUriString = HttpUtility.UrlEncode(lastUpdatedForVersionTwo.ToString("o"));
+            var lastUpdatedForVersionThreeUriString = HttpUtility.UrlEncode(lastUpdatedForVersionThree.ToString("o"));
+
+            using FhirResponse<Bundle> lastUpdatedForVersionOneMatchResponse = await _client.SearchAsync($"Observation/{resourceId}/_history?_at=" + lastUpdatedForVersionOneUriString);
+            using FhirResponse<Bundle> lastUpdatedForVersionTwoMatchResponse = await _client.SearchAsync($"Observation/{resourceId}/_history?_at=" + lastUpdatedForVersionTwoUriString);
+            using FhirResponse<Bundle> lastUpdatedForVersionThreeMatchResponse = await _client.SearchAsync($"Observation/{resourceId}/_history?_at=" + lastUpdatedForVersionThreeUriString);
+
+            Assert.NotNull(lastUpdatedForVersionOneMatchResponse);
+            var versionOneList = lastUpdatedForVersionOneMatchResponse.Resource.Entry.Where(e => e.Resource.Id.Equals(resourceId)).Select(e => e.Resource.VersionId).ToList();
+            var versionTwoList = lastUpdatedForVersionTwoMatchResponse.Resource.Entry.Where(e => e.Resource.Id.Equals(resourceId)).Select(e => e.Resource.VersionId).ToList();
+            var versionThreeList = lastUpdatedForVersionThreeMatchResponse.Resource.Entry.Where(e => e.Resource.Id.Equals(resourceId)).Select(e => e.Resource.VersionId).ToList();
+
+            Assert.Single(versionOneList);
+            Assert.Equal("1", versionOneList[0]);
+
+            Assert.NotNull(lastUpdatedForVersionTwoMatchResponse);
+            Assert.Single(versionTwoList);
+            Assert.Equal("2", versionTwoList[0]);
+
+            Assert.NotNull(lastUpdatedForVersionThreeMatchResponse);
+            Assert.Single(versionThreeList);
+            Assert.Equal("3", versionThreeList[0]);
+        }
+
         /// <summary>
         /// Find a time to use _since where there have been no results in history
         /// so we can start from clean start point
