@@ -36,8 +36,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         /// <summary>
         /// For each result in a batch of resources this will extract new search params
-        /// Then compare those to the old values to determine if a change is needed
-        /// Needed updates will br processed in a batch
+        /// Then compare those to the old values to determine if an update is needed
+        /// Needed updates will br committed in a batch
         /// </summary>
         /// <param name="results">The resource batch to process</param>
         /// <param name="searchParamHash">the current hash value of the search parameters</param>
@@ -58,14 +58,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     var newIndicesHash = new HashSet<SearchIndexEntry>(newIndices);
                     var prevIndicesHash = new HashSet<SearchIndexEntry>(entry.Resource.SearchIndices);
 
-                    if (!newIndicesHash.SetEquals(prevIndicesHash))
+                    if (newIndicesHash.SetEquals(prevIndicesHash))
                     {
-                        updateSearchIndices.Add(entry.Resource);
-                        entry.Resource.UpdateSearchIndices(newIndices);
+                        updateHashValueOnly.Add(entry);
                     }
                     else
                     {
-                        updateHashValueOnly.Add(entry);
+                        updateSearchIndices.Add(entry.Resource);
+                        entry.Resource.UpdateSearchIndices(newIndices);
                     }
 
                     // this is a place holder update until we batch update resources
