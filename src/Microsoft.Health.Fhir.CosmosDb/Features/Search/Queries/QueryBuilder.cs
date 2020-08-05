@@ -138,6 +138,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
             public QueryDefinition GenerateReindexSql(SearchOptions searchOptions, string searchParameterHash)
             {
                 EnsureArg.IsNotNull(searchOptions, nameof(searchOptions));
+                EnsureArg.IsNotNull(searchParameterHash, nameof(searchParameterHash));
 
                 if (searchOptions.CountOnly)
                 {
