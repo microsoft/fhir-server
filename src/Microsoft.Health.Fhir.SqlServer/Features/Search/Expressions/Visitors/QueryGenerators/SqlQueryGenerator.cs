@@ -24,6 +24,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private SqlRootExpression _rootExpression;
         private const int MaxIncludedItems = 100;
 
+        private HashSet<int> _cteToLimit = new HashSet<int>();
+
         public SqlQueryGenerator(IndentedStringBuilder sb, SqlQueryParameterManager parameters, SqlServerFhirModel model, bool isHistorySearch)
         {
             EnsureArg.IsNotNull(sb, nameof(sb));
@@ -350,23 +352,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     if (includeExpression.Reversed)
                     {
                         // In case its revinclude, we limit the number of returned items as the resultset size is potentially
-                        // unbounded.
-                        StringBuilder.Append(" TOP (").Append(Parameters.AddParameter(MaxIncludedItems)).Append(") ");
+                        // unbounded. we ask for +1 so in the limit expression we know if to mark at truncated...
+                        StringBuilder.Append("TOP (").Append(Parameters.AddParameter(MaxIncludedItems + 1)).Append(") ");
                     }
 
                     var table = !includeExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias;
                     StringBuilder.Append(VLatest.Resource.ResourceSurrogateId, table);
-                    StringBuilder.Append(" AS Sid1, 0 AS IsMatch");
-                    if (includeExpression.Reversed)
-                    {
-                        // since we are asking for revinclude and we are limiting the number of
-                        // items, check if there are more items than allowed max
-                        StringBuilder.AppendLine(", CASE WHEN count(*) over() > ").Append(Parameters.AddParameter(MaxIncludedItems)).Append(" then 1 else 0 end as IsPartial ");
-                    }
-                    else
-                    {
-                        StringBuilder.AppendLine(", 0 AS IsPartial "); // can't be partial as we are requesting all includes
-                    }
+                    StringBuilder.AppendLine(" AS Sid1, 0 AS IsMatch ");
 
                     StringBuilder.Append("FROM ").Append(VLatest.ReferenceSearchParam).Append(' ').AppendLine(referenceSourceTableAlias)
                         .Append("INNER JOIN ").Append(VLatest.Resource).Append(' ').AppendLine(referenceTargetResourceTableAlias);
@@ -414,6 +406,42 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         _includeCtes = new List<string>();
                     }
 
+                    if (includeExpression.Reversed)
+                    {
+                        // mark that this cte is a reverse one, meaning we need to add another items limitation
+                        // cte on top of it
+                        _cteToLimit.Add(_tableExpressionCounter);
+                    }
+
+                    break;
+                case TableExpressionKind.IncludeLimit:
+                    StringBuilder.Append("SELECT DISTINCT ");
+
+                    var isRev = _cteToLimit.Contains(_tableExpressionCounter - 1);
+                    if (isRev)
+                    {
+                        // the related cte is a reverse include, limit the number of returned items and count to
+                        // see if we are over the threshold (to produce a warning to the client)
+                        StringBuilder.Append("TOP (").Append(Parameters.AddParameter(MaxIncludedItems)).Append(") ");
+                    }
+
+                    StringBuilder.Append("Sid1, IsMatch, ");
+
+                    if (isRev)
+                    {
+                        StringBuilder.Append("CASE WHEN count(*) over() > ")
+                        .Append(Parameters.AddParameter(MaxIncludedItems))
+                        .AppendLine(" then 1 else 0 end AS IsPartial ");
+                    }
+                    else
+                    {
+                        // if forward, just mark as not partial
+                        StringBuilder.AppendLine("0 AS IsPartial ");
+                    }
+
+                    StringBuilder.Append("FROM ").AppendLine(TableExpressionName(_tableExpressionCounter - 1));
+
+                    // the 'original' include cte is not in the union, but this new layer is instead
                     _includeCtes.Add(TableExpressionName(_tableExpressionCounter));
                     break;
                 case TableExpressionKind.IncludeUnionAll:
