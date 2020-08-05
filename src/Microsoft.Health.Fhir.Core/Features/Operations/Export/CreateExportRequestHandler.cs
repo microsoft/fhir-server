@@ -88,7 +88,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     storageAccountConnectionHash,
                     _exportJobConfiguration.StorageAccountUri,
                     _exportJobConfiguration.MaximumNumberOfResourcesPerQuery,
-                    _exportJobConfiguration.NumberOfPagesPerCommit);
+                    _exportJobConfiguration.NumberOfPagesPerCommit,
+                    request.ContainerName);
 
                 outcome = await _fhirOperationDataStore.CreateExportJobAsync(jobRecord, cancellationToken);
             }

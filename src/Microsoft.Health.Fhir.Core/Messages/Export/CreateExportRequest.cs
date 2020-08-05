@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
 {
     public class CreateExportRequest : IRequest<CreateExportResponse>
     {
-        public CreateExportRequest(Uri requestUri, ExportJobType requestType, string resourceType = null, PartialDateTime since = null, string groupId = null)
+        public CreateExportRequest(Uri requestUri, ExportJobType requestType, string resourceType = null, PartialDateTime since = null, string groupId = null, string containerName = null)
         {
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
 
@@ -22,6 +22,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
             ResourceType = resourceType;
             Since = since;
             GroupId = groupId;
+            ContainerName = containerName;
         }
 
         public Uri RequestUri { get; }
@@ -33,5 +34,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
         public PartialDateTime Since { get; }
 
         public string GroupId { get; }
+
+        public string ContainerName { get; }
     }
 }

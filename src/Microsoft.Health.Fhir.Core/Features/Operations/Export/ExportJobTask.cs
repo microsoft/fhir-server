@@ -100,7 +100,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 }
 
                 // Connect to export destination using appropriate client.
-                await _exportDestinationClient.ConnectAsync(exportJobConfiguration, cancellationToken, _exportJobRecord.Id);
+                await _exportDestinationClient.ConnectAsync(exportJobConfiguration, cancellationToken, _exportJobRecord.StorageAccountContainerName);
 
                 // If we are resuming a job, we can detect that by checking the progress info from the job record.
                 // If it is null, then we know we are processing a new job.
