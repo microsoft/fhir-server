@@ -169,6 +169,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
             throw new SearchOperationNotSupportedException(Resources.ChainedExpressionNotSupported);
         }
 
+        public object VisitSortParameter(SortParameterExpression expression, Context context)
+        {
+            // TODO: This will be removed once it's implemented.
+            throw new SearchOperationNotSupportedException(Resources.ChainedExpressionNotSupported);
+        }
+
         public object VisitMissingField(MissingFieldExpression expression, Context context)
         {
             _queryBuilder

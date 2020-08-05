@@ -15,6 +15,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private static readonly IList<string> SupportedSortParameters = new List<string>
             {
                 KnownQueryParameterNames.LastUpdated,
+                KnownQueryParameterNames.BirthDate,
             };
 
         public static bool IsSortSupported(this SearchParameterInfo searchParameterInfo)

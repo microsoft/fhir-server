@@ -32,5 +32,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             return sortOrder;
         }
+
+        public static (Core.Models.SearchParameterInfo, SortOrder) GetFirstSortSupportedParam(this SearchOptions searchOptions)
+        {
+            EnsureArg.IsNotNull(searchOptions, nameof(searchOptions));
+
+            foreach (var sortOptions in searchOptions.Sort)
+            {
+                if (sortOptions.searchParameterInfo.IsSortSupported())
+                {
+                    return sortOptions;
+                }
+                else
+                {
+                    throw new SearchParameterNotSupportedException(string.Format(Core.Resources.SearchParameterNotSupported, sortOptions.searchParameterInfo.Name));
+                }
+            }
+
+            return (null, SortOrder.Ascending);
+        }
     }
 }

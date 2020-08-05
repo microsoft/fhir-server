@@ -55,5 +55,7 @@ namespace Microsoft.Health.Fhir.Core.Features
         public const string Id = "_id";
 
         public const string Type = "_type";
+
+        public const string BirthDate = "birthdate";
     }
 }

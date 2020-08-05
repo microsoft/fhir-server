@@ -129,6 +129,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             }
         }
 
+        public NormalizedSearchParameterQueryGenerator GetNormalizedSearchParameterQueryGenerator(SearchParameterInfo searchParameterInfo)
+        {
+            return VisitSearchParameterExpressionBase(searchParameterInfo, null, null);
+        }
+
         public NormalizedSearchParameterQueryGenerator VisitBinary(BinaryExpression expression, object context)
         {
             throw new InvalidOperationException("Not expecting a BinaryExpression under a Token search param.");
@@ -176,6 +181,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
         public NormalizedSearchParameterQueryGenerator VisitInclude(IncludeExpression expression, object context)
         {
             return IncludeQueryGenerator.Instance;
+        }
+
+        public NormalizedSearchParameterQueryGenerator VisitSortParameter(SortParameterExpression expression, object context)
+        {
+            return GetNormalizedSearchParameterQueryGenerator(expression.Parameter);
         }
     }
 }

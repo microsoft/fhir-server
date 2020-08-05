@@ -39,6 +39,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
     {
         private readonly SqlServerFhirModel _model;
         private readonly SqlRootExpressionRewriter _sqlRootExpressionRewriter;
+
+        private readonly SortRewriter _sortRewriter;
         private readonly ChainFlatteningRewriter _chainFlatteningRewriter;
         private readonly StringOverflowRewriter _stringOverflowRewriter;
         private readonly ILogger<SqlServerSearchService> _logger;
@@ -52,6 +54,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SqlRootExpressionRewriter sqlRootExpressionRewriter,
             ChainFlatteningRewriter chainFlatteningRewriter,
             StringOverflowRewriter stringOverflowRewriter,
+            SortRewriter sortRewriter,
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             ILogger<SqlServerSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore)
@@ -64,6 +67,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             _model = model;
             _sqlRootExpressionRewriter = sqlRootExpressionRewriter;
+            _sortRewriter = sortRewriter;
             _chainFlatteningRewriter = chainFlatteningRewriter;
             _stringOverflowRewriter = stringOverflowRewriter;
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
@@ -151,6 +155,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                                .AcceptVisitor(DateTimeEqualityRewriter.Instance)
                                                .AcceptVisitor(FlatteningRewriter.Instance)
                                                .AcceptVisitor(_sqlRootExpressionRewriter)
+                                               .AcceptVisitor(_sortRewriter, searchOptions)
                                                .AcceptVisitor(DenormalizedPredicateRewriter.Instance)
                                                .AcceptVisitor(NormalizedPredicateReorderer.Instance)
                                                .AcceptVisitor(_chainFlatteningRewriter)
