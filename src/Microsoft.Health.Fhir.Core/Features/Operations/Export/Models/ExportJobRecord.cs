@@ -24,6 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             string hash,
             IReadOnlyCollection<KeyValuePair<string, string>> requestorClaims = null,
             PartialDateTime since = null,
+            string groupId = null,
             string storageAccountConnectionHash = null,
             string storageAccountUri = null,
             uint maximumNumberOfResourcesPerQuery = 100,
@@ -38,6 +39,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             ResourceType = resourceType;
             RequestorClaims = requestorClaims;
             Since = since;
+            GroupId = groupId;
             StorageAccountConnectionHash = storageAccountConnectionHash;
             StorageAccountUri = storageAccountUri;
             MaximumNumberOfResourcesPerQuery = maximumNumberOfResourcesPerQuery;
@@ -82,6 +84,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
         [JsonProperty(JobRecordProperties.Since)]
         public PartialDateTime Since { get; private set; }
+
+        [JsonProperty(JobRecordProperties.GroupId)]
+        public string GroupId { get; private set; }
 
         [JsonProperty(JobRecordProperties.StorageAccountConnectionHash)]
         public string StorageAccountConnectionHash { get; private set; }
