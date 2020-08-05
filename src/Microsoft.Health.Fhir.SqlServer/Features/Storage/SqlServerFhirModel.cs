@@ -293,6 +293,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
+        // Investigate using the generated TVP types and converting them to SqlDataRecords.
         private static IEnumerable<SqlDataRecord> CreateSqlDataRecords(IEnumerable<ResourceSearchParameterStatus> statuses)
         {
             var record = new SqlDataRecord(
