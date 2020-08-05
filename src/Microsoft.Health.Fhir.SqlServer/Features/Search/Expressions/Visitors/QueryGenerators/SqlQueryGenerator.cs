@@ -121,7 +121,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
 
             // Semi join for _at param
-            if (searchOptions.AtHistoryParam)
+            if (searchOptions.AtParam)
             {
                 string resourceTableAlias2 = "r2";
                 using (StringBuilder.Indent())

@@ -318,22 +318,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var lastUpdatedForVersionTwoUriString = HttpUtility.UrlEncode(lastUpdatedForVersionTwo.ToString("o"));
             var lastUpdatedForVersionThreeUriString = HttpUtility.UrlEncode(lastUpdatedForVersionThree.ToString("o"));
 
-            using FhirResponse<Bundle> lastUpdatedForVersionOneMatchResponse = await _client.SearchAsync($"Observation/{resourceId}/_history?_at=" + lastUpdatedForVersionOneUriString);
-            using FhirResponse<Bundle> lastUpdatedForVersionTwoMatchResponse = await _client.SearchAsync($"Observation/{resourceId}/_history?_at=" + lastUpdatedForVersionTwoUriString);
-            using FhirResponse<Bundle> lastUpdatedForVersionThreeMatchResponse = await _client.SearchAsync($"Observation/{resourceId}/_history?_at=" + lastUpdatedForVersionThreeUriString);
+            using FhirResponse<Bundle> versionOneMatchResponse = await _client.SearchAsync($"Observation/{resourceId}/_history?_at=" + lastUpdatedForVersionOneUriString);
+            using FhirResponse<Bundle> versionTwoMatchResponse = await _client.SearchAsync($"Observation/{resourceId}/_history?_at=" + lastUpdatedForVersionTwoUriString);
+            using FhirResponse<Bundle> versionThreeMatchResponse = await _client.SearchAsync($"Observation/{resourceId}/_history?_at=" + lastUpdatedForVersionThreeUriString);
 
-            Assert.NotNull(lastUpdatedForVersionOneMatchResponse);
+            Assert.NotNull(versionOneMatchResponse);
+            Assert.NotNull(versionTwoMatchResponse);
+            Assert.NotNull(versionThreeMatchResponse);
 
-            var versionOneList = lastUpdatedForVersionOneMatchResponse.Resource.Entry.Where(e => e.Resource.Id.Equals(resourceId)).Select(e => e.Resource.VersionId).ToList();
-            var versionTwoList = lastUpdatedForVersionTwoMatchResponse.Resource.Entry.Where(e => e.Resource.Id.Equals(resourceId)).Select(e => e.Resource.VersionId).ToList();
-            var versionThreeList = lastUpdatedForVersionThreeMatchResponse.Resource.Entry.Where(e => e.Resource.Id.Equals(resourceId)).Select(e => e.Resource.VersionId).ToList();
+            var versionOneList = versionOneMatchResponse.Resource.Entry.Where(e => e.Resource.Id.Equals(resourceId)).Select(e => e.Resource.VersionId).ToList();
+            var versionTwoList = versionTwoMatchResponse.Resource.Entry.Where(e => e.Resource.Id.Equals(resourceId)).Select(e => e.Resource.VersionId).ToList();
+            var versionThreeList = versionThreeMatchResponse.Resource.Entry.Where(e => e.Resource.Id.Equals(resourceId)).Select(e => e.Resource.VersionId).ToList();
 
             Assert.Single(versionOneList);
             Assert.Equal("1", versionOneList[0]);
-            Assert.NotNull(lastUpdatedForVersionTwoMatchResponse);
+
             Assert.Single(versionTwoList);
             Assert.Equal("2", versionTwoList[0]);
-            Assert.NotNull(lastUpdatedForVersionThreeMatchResponse);
+
             Assert.Single(versionThreeList);
             Assert.Equal("3", versionThreeList[0]);
         }

@@ -117,7 +117,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 }
                 else if (query.Item1 == KnownQueryParameterNames.At)
                 {
-                    searchOptions.AtHistoryParam = true;
+                    searchOptions.AtParam = true;
                 }
                 else
                 {

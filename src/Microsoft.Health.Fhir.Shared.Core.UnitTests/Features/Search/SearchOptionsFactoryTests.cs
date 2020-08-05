@@ -261,7 +261,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
-        public void GivenSearchWithAtDateTime_WhenCreated_ThenSearchAtHistoryParamShouldBeTrue()
+        public void GivenSearchWithAtDateTime_WhenCreated_ThenSearchOptionsAtParamShouldBeTrue()
         {
             var queryParameters = new[]
             {
@@ -273,7 +273,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 queryParameters: queryParameters);
 
             Assert.NotNull(options);
-            Assert.True(options.AtHistoryParam);
+            Assert.True(options.AtParam);
         }
 
         [Fact]
