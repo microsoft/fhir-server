@@ -298,5 +298,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             sb.AppendLine(sqlCommandWrapper.CommandText);
             _logger.LogInformation(sb.ToString());
         }
+
+        protected override Task<SearchResult> SearchForReindexInternalAsync(SearchOptions searchOptions, string searchParameterHash, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
     }
 }
