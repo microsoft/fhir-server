@@ -323,17 +323,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             using FhirResponse<Bundle> lastUpdatedForVersionThreeMatchResponse = await _client.SearchAsync($"Observation/{resourceId}/_history?_at=" + lastUpdatedForVersionThreeUriString);
 
             Assert.NotNull(lastUpdatedForVersionOneMatchResponse);
+
             var versionOneList = lastUpdatedForVersionOneMatchResponse.Resource.Entry.Where(e => e.Resource.Id.Equals(resourceId)).Select(e => e.Resource.VersionId).ToList();
             var versionTwoList = lastUpdatedForVersionTwoMatchResponse.Resource.Entry.Where(e => e.Resource.Id.Equals(resourceId)).Select(e => e.Resource.VersionId).ToList();
             var versionThreeList = lastUpdatedForVersionThreeMatchResponse.Resource.Entry.Where(e => e.Resource.Id.Equals(resourceId)).Select(e => e.Resource.VersionId).ToList();
 
             Assert.Single(versionOneList);
             Assert.Equal("1", versionOneList[0]);
-
             Assert.NotNull(lastUpdatedForVersionTwoMatchResponse);
             Assert.Single(versionTwoList);
             Assert.Equal("2", versionTwoList[0]);
-
             Assert.NotNull(lastUpdatedForVersionThreeMatchResponse);
             Assert.Single(versionThreeList);
             Assert.Equal("3", versionThreeList[0]);

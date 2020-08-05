@@ -137,7 +137,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                             foreach (var denormalizedPredicate in expression.DenormalizedExpressions)
                             {
                                 SearchParameterExpressionBase exp = denormalizedPredicate as SearchParameterExpressionBase;
-                                if (string.Equals(exp.Parameter.Name, "_resourceSurrogateId", StringComparison.Ordinal))
+                                if (string.Equals(exp.Parameter.Name, SqlSearchParameters.ResourceSurrogateIdParameterName, StringComparison.Ordinal))
                                 {
                                     denormalizedPredicate.AcceptVisitor(DispatchingDenormalizedSearchParameterQueryGenerator.Instance, GetContext());
                                 }
