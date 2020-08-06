@@ -1,53 +1,54 @@
 # Schema Migration Guide
-This document describes how to perform Sql schema migration on the application server.
+As Microsoft continues to support the newer releases of FHIR, migrations for the FHIR Server for Azure SQL Server edition will be required.
 
- A database schema will evolve over time. The corresponding server in production would need to be upgraded to the next/latest version of the code, which may require schema migration.
+This document describes how to perform SQL Server schema migration on the FHIR Server for Azure application server.
 
-A migration is a T-SQL script that alters the database in some way. The script has a version encoded in its file name. This version is an incrementing integer.
+ The database schemas will evolve with each release of new features and editions of FHIR. The corresponding FHIR Server for Azure would need to be upgraded to the next/latest version of the schema, which may require migration of the SQL Server schema.
 
-## There are two ways to upgrade the schema
+The migration is a T-SQL script which alters the database. The script filename is encoded with the version. For example - The version is an incrementing integer.
+
+## Methods for upgrading
 1. Automatic schema upgrade
 
-2. Schema upgrade via schema migration tool
+2. Schema upgrade via SQL Server schema migration tool
 
-## 1. Automatic Schema Upgrade
-Here, the schema migration is performed automatically on the server startup.
-The scripts that upgrade schema are part of any upgrade package for the application and run automatically when the application launches.
+## 1. Automatic schema upgrade
+When using the automatic schema upgrade method, the SQL Server schema migration is performed automatically on the FHIR Server for Azure upgrade.
+The scripts which upgrade the SQL Server schema are part of any upgrade package for the web application and run automatically when the web application launches.
 
-In case of any errors during upgrade, the application fails to start and the upgrade script transaction is not committed.
+In case of any errors during upgrade, the web application fails to start and the upgrade script transaction is not committed.
 
 - ### Prerequisites
 
     - Application should have admin access to the database.
 
-- ### When might you choose this option
-    -  There is no specific DBA role - In this case, automatic schema upgrade is a good choice as it just requires the application with admin access to the database.
+- ### When might you choose this method?
 
     - Non-Production scenarios - The auto upgrade is a good option for dev/tests environments. This will automatically apply any pending migrations when the application launches. Hence, the testing of schema upgrade becomes part of the test cycle for the application.
 
-## 2. Upgrade via Schema migration tool
-Schema migration tool is a command-line utility that admins can run to perform schema migrations on demand.
+## 2. Upgrade via SQL Server schema migration tool
+The SQL Server schema migration tool is a command-line utility which admins can run to perform SQL Server schema migrations on demand.
 
-Schema upgrade scripts would still be part of any upgrade package for the application but the scripts will not run automatically on the server startup. In order to perform the schema upgrade, the schema admin would need to run the schema migration tool.
+The SQL Server schema upgrade scripts would still be part of any upgrade package for the web application but the scripts will not run automatically on the FHIR server for Azure upgrade. To perform the SQL Server schema upgrade, the schema admin would need to run the SQL Server schema migration tool.
 
  - ### Prerequisites
 
-    - The schema migration tool is available.
+    - The SQL Server schema migration tool is available.
 
- - ### When might you choose this option
+ - ### When might you choose this method?
     - Production environment
  
-        It is highly recommended to use schema migration tool for the production environment to avoid downtime. Automatic schema migrations can take a long time, often in proportion to the size of the database. For this reason, performing schema migrations on startup may not be a good option.
+        It is highly recommended to use SQL Server schema migration tool for the production environment to avoid downtime. Automatic SQL Server schema migrations can take a long time, often in proportion to the size of the database. For this reason, performing SQL Server schema migrations on startup may not be a good option.
  
     - Role-based security
  
-        Only Database/Schema Admin can run this tool to upgrade the schema. It allows you to setup proper roles and permissions for the application e.g. the application is assigned the role as only Database Reader/Writer.
+        Only Database/Schema Admin can run this tool to upgrade the SQL Server schema. It allows to setup proper roles and permissions for the web application. For example - the application is assigned the role as only Database Reader/Writer.
 
-- ### Schema migration tool
+- ### SQL Server schema migration tool
 
     The detailed information about this tool is provided [here](SchemaMigrationTool.md).
 
-## Best practices for schema upgrade on Sql server
+## Best practices for schema upgrade on SQL Server
 - ### Back up the data before executing.
     
     In case something goes wrong during the implementation, you can’t afford to lose data. Make sure there are backup resources and that they’ve been tested before you proceed.
@@ -66,14 +67,10 @@ There is a configurable property in the launchSettings.json which can be set to 
 
 `SqlServer:SchemaOptions:AutomaticUpdatesEnabled": "true"`
 
-* If the property sets to 'true', then the schema would be upgraded automatically on the server startup.
-* If the property sets to 'false', then the schema would remain in the same state. Moreover, the schema would only be upgraded by running the schema migration tool as needed.
+* If the property sets to 'true', then the SQL Server schema would be upgraded automatically on the server startup.
+* If the property sets to 'false', then the SQL Server schema would remain in the same state. Moreover, the schema would only be upgraded by running the schema migration tool as needed.
 
 This configurable property should be considered for each web project
-
-* Stu3 - https://github.com/microsoft/fhir-server/blob/master/src/Microsoft.Health.Fhir.Stu3.Web/Properties/launchSettings.json#L27
-* R4 - https://github.com/microsoft/fhir-server/blob/master/src/Microsoft.Health.Fhir.R4.Web/Properties/launchSettings.json#L28
-* R5 - https://github.com/microsoft/fhir-server/blob/master/src/Microsoft.Health.Fhir.R5.Web/Properties/launchSettings.json#L28
 
  Note: This guide contains generalized advice and may not take your specific environment or application into account.
 
@@ -81,9 +78,8 @@ This configurable property should be considered for each web project
 
  Q1. What is upgraded first, app service or database schema?
 
- Ans. The app service is upgraded first. Because firstly it contains the scripts to migrate the schema and secondly the code is considered to work for a number of schema versions and will specify the min and max supported versions.
+ A1. The FHIR Server for Azure app service is upgraded first. Because firstly it contains the scripts to migrate the SQL Server schema and secondly the code is considered to work for a number of SQL Server schema versions and will specify the min and max supported versions.
 
- Q2. What should we do in case of automatic schema upgrade fails?
+ Q2. What should we do in case of automatic SQL Server schema upgrade fails?
 
- Ans. If automatic schema upgrade fails and application is unable to start then you can toggle the schema auto upgrade flag as mentioned under the section (How to toggle between the options) so that the upgrade scripts would not run and application would start on the current version.
- Also, you can reach out to the concerned team with the error description to get further help on the issue.
+ A2. If automatic SQL Server schema upgrade fails and web application is unable to start then you can toggle the SQL Server schema auto upgrade flag as mentioned under the section (How to toggle between the options) so that the upgrade scripts would not run and application would start on the current version.
