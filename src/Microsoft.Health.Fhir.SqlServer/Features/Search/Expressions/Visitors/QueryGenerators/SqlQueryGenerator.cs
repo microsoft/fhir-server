@@ -431,7 +431,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     {
                         StringBuilder.Append("CASE WHEN count(*) over() > ")
                         .Append(Parameters.AddParameter(MaxIncludedItems))
-                        .AppendLine(" then 1 else 0 end AS IsPartial ");
+                        .AppendLine(" THEN 1 ELSE 0 END AS IsPartial ");
                     }
                     else
                     {

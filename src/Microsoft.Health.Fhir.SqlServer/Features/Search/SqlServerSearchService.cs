@@ -46,6 +46,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly BitColumn _isPartial = new BitColumn("IsPartial");
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
 
+        private bool _isResultPartial;
+
         public SqlServerSearchService(
             ISearchOptionsFactory searchOptionsFactory,
             IFhirDataStore fhirDataStore,
@@ -69,6 +71,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _stringOverflowRewriter = stringOverflowRewriter;
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _logger = logger;
+            _isResultPartial = false;
         }
 
         protected override async Task<SearchResult> SearchInternalAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
@@ -194,7 +197,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                     while (await reader.ReadAsync(cancellationToken))
                     {
-                        (short resourceTypeId, string resourceId, int version, bool isDeleted, long resourceSurrogateId, string requestMethod, bool isMatch, bool isPartial, Stream rawResourceStream) = reader.ReadRow(
+                        (short resourceTypeId, string resourceId, int version, bool isDeleted, long resourceSurrogateId, string requestMethod, bool isMatch, bool isPartialEntry, Stream rawResourceStream) = reader.ReadRow(
                             VLatest.Resource.ResourceTypeId,
                             VLatest.Resource.ResourceId,
                             VLatest.Resource.Version,
@@ -229,6 +232,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             rawResource = await streamReader.ReadToEndAsync();
                         }
 
+                        // as long as at least one entry was marked as partial, this resultset
+                        // should be marked as partial
+                        _isResultPartial = _isResultPartial || isPartialEntry;
+
                         resources.Add(new SearchResultEntry(
                             new ResourceWrapper(
                                 resourceId,
@@ -241,8 +248,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 null,
                                 null,
                                 null),
-                            isMatch ? SearchEntryMode.Match : SearchEntryMode.Include,
-                            isPartial));
+                            isMatch ? SearchEntryMode.Match : SearchEntryMode.Include));
                     }
 
                     // call NextResultAsync to get the info messages
@@ -262,7 +268,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         unsupportedSortingParameters = searchOptions.UnsupportedSortingParams;
                     }
 
-                    return new SearchResult(resources, searchOptions.UnsupportedSearchParams, unsupportedSortingParameters, moreResults ? newContinuationId.Value.ToString(CultureInfo.InvariantCulture) : null);
+                    return new SearchResult(resources, searchOptions.UnsupportedSearchParams, unsupportedSortingParameters, moreResults ? newContinuationId.Value.ToString(CultureInfo.InvariantCulture) : null, _isResultPartial);
                 }
             }
         }
