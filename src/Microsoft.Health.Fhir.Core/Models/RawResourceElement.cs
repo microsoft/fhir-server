@@ -17,7 +17,7 @@ namespace Microsoft.Health.Fhir.Core.Models
             EnsureArg.IsNotNull(wrapper, nameof(wrapper));
             EnsureArg.IsNotNull(wrapper.RawResource, nameof(wrapper.RawResource));
 
-            JsonDocument = ResourceDeserializer.DeserializeToJsonDocument(wrapper);
+            (ResourceData, JsonDocument) = ResourceDeserializer.DeserializeToJsonDocument(wrapper);
 
             ResourceData = wrapper.RawResource.Data;
             Format = wrapper.RawResource.Format;

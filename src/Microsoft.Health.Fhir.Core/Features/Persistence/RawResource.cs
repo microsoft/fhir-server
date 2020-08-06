@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         }
 
         [JsonProperty("data")]
-        public string Data { get; set; }
+        public string Data { get; protected set; }
 
         [JsonProperty("format")]
         [JsonConverter(typeof(StringEnumConverter))]

@@ -11,6 +11,7 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Search;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
@@ -52,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             SearchResult searchResult = await _searchService.SearchCompartmentAsync(message.CompartmentType, message.CompartmentId, message.ResourceType, message.Queries, cancellationToken);
 
-            var bundle = _bundleFactory.CreateSearchBundle(searchResult);
+            ResourceElement bundle = _bundleFactory.CreateSearchBundle(searchResult);
 
             return new SearchCompartmentResponse(bundle);
         }

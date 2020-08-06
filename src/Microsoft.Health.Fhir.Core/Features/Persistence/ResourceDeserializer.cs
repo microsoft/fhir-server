@@ -50,19 +50,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         }
 
         /// <summary>
-        /// Deserialize RawResource in ResourceWrapper to a JsonDocument.
+        /// Get the raw data from resourceWrapper as a string and JsonDocument.
         /// If the RawResource's VersionSet or LastUpdatedSet are false, then the RawResource's data will be updated
         /// to have them set to the values in the ResourceWrapper
         /// </summary>
         /// <param name="resourceWrapper">Input ResourceWrapper to convert to a JsonDocument</param>
         /// <returns>A <see cref="JsonDocument"/></returns>
-        public static JsonDocument DeserializeToJsonDocument(ResourceWrapper resourceWrapper)
+        public static (string, JsonDocument) DeserializeToJsonDocument(ResourceWrapper resourceWrapper)
         {
             EnsureArg.IsNotNull(resourceWrapper, nameof(resourceWrapper));
 
             if (resourceWrapper.RawResource.LastUpdatedSet && resourceWrapper.RawResource.VersionSet)
             {
-                return JsonDocument.Parse(resourceWrapper.RawResource.Data);
+                return (resourceWrapper.RawResource.Data, JsonDocument.Parse(resourceWrapper.RawResource.Data));
             }
 
             var jsonDocument = JsonDocument.Parse(resourceWrapper.RawResource.Data);
@@ -124,11 +124,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 using (var sr = new StreamReader(ms))
                 {
                     ms.Position = 0;
-                    resourceWrapper.RawResource.Data = sr.ReadToEnd();
+                    return (sr.ReadToEnd(), jsonDocument);
                 }
             }
-
-            return jsonDocument;
         }
 
         internal ResourceElement DeserializeRaw(RawResource rawResource, string version, DateTimeOffset lastModified)

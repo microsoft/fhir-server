@@ -387,7 +387,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         {
             return new ResourceWrapper(
                 resource,
-                _rawResourceFactory.Create(resource, false),
+                _rawResourceFactory.Create(resource, keepMeta: false),
                 new ResourceRequest(HttpMethod.Post, "http://fhir"),
                 isDeleted,
                 null,
@@ -399,7 +399,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         {
             return Substitute.For<ResourceWrapper>(
                 resource,
-                _rawResourceFactory.Create(resource, false),
+                _rawResourceFactory.Create(resource, keepMeta: false),
                 new ResourceRequest(HttpMethod.Put, "http://fhir"),
                 isDeleted,
                 null,
