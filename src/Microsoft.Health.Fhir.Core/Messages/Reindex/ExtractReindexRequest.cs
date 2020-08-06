@@ -8,7 +8,7 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Reindex
 {
-    public class ExtractReindexRequest : IRequest<ExtractReindexResponse>
+    public class ExtractReindexRequest : INotification
     {
         public ExtractReindexRequest(SearchResult result, string hash)
         {

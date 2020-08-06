@@ -11,7 +11,7 @@ using Microsoft.Health.Fhir.Core.Messages.Reindex;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 {
-    public class ReindexExtractRequestHandler : IRequestHandler<ExtractReindexRequest, ExtractReindexResponse>
+    public class ReindexExtractRequestHandler : INotificationHandler<ExtractReindexRequest>
     {
         private readonly ReindexUtilities _reindexUtilities;
 
@@ -22,10 +22,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _reindexUtilities = reindexUtilities;
         }
 
-        public async Task<ExtractReindexResponse> Handle(ExtractReindexRequest request, CancellationToken cancellationToken)
+        public async Task Handle(ExtractReindexRequest notification, CancellationToken cancellationToken)
         {
-            await _reindexUtilities.ProcessSearchResultsAsync(request.Result, request.HashValue, cancellationToken);
-            return new ExtractReindexResponse();
+            await _reindexUtilities.ProcessSearchResultsAsync(notification.Result, notification.HashValue, cancellationToken);
         }
     }
 }
