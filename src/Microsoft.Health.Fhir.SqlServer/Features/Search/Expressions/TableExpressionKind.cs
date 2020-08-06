@@ -53,5 +53,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         /// Represents a table expression that is used to union all of the includes with the base search query.
         /// </summary>
         IncludeUnionAll,
+
+        /// <summary>
+        /// Represents a table expression that is used to limit the number of included items.
+        /// </summary>
+        IncludeLimit,
     }
 }
