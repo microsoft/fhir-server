@@ -79,15 +79,23 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         {
                             var rawBundleEntry = entry as RawBundleEntryComponent;
                             writer.WriteStartObject();
-                            writer.WriteString("fullUrl", rawBundleEntry.FullUrl);
+
+                            if (!string.IsNullOrEmpty(rawBundleEntry.FullUrl))
+                            {
+                                writer.WriteString("fullUrl", rawBundleEntry.FullUrl);
+                            }
+
                             writer.WritePropertyName("resource");
                             rawBundleEntry.ResourceElement.JsonDocument.WriteTo(writer);
                             rawBundleEntry.ResourceElement.JsonDocument.Dispose();
 
-                            writer.WriteStartObject("search");
-                            writer.WriteString("mode", rawBundleEntry.Search?.Mode?.GetLiteral());
+                            if (rawBundleEntry?.Search?.Mode != null)
+                            {
+                                writer.WriteStartObject("search");
+                                writer.WriteString("mode", rawBundleEntry.Search?.Mode?.GetLiteral());
+                                writer.WriteEndObject();
+                            }
 
-                            writer.WriteEndObject();
                             writer.WriteEndObject();
                         }
 
