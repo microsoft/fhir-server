@@ -137,12 +137,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                             foreach (var denormalizedPredicate in expression.DenormalizedExpressions)
                             {
                                 SearchParameterExpressionBase exp = denormalizedPredicate as SearchParameterExpressionBase;
-                                if (string.Equals(exp.Parameter.Name, SqlSearchParameters.ResourceSurrogateIdParameterName, StringComparison.Ordinal))
+                                if (exp != null)
                                 {
-                                    denormalizedPredicate.AcceptVisitor(DispatchingDenormalizedSearchParameterQueryGenerator.Instance, GetContext());
+                                    if (string.Equals(exp.Parameter.Name, SqlSearchParameters.ResourceSurrogateIdParameterName, StringComparison.Ordinal))
+                                    {
+                                        denormalizedPredicate.AcceptVisitor(DispatchingDenormalizedSearchParameterQueryGenerator.Instance, GetContext());
+                                    }
                                 }
                             }
 
+                            delimitedClause.BeginDelimitedElement();
+                            StringBuilder.Append(VLatest.Resource.ResourceTypeId, resourceTableAlias2).Append(" = ").Append(VLatest.Resource.ResourceTypeId, resourceTableAlias);
                             delimitedClause.BeginDelimitedElement();
                             StringBuilder.Append(VLatest.Resource.ResourceId, resourceTableAlias2).Append(" = ").Append(VLatest.Resource.ResourceId, resourceTableAlias);
                             delimitedClause.BeginDelimitedElement();
