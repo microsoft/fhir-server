@@ -72,7 +72,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         public string ContinuationToken { get; }
 
         /// <summary>
-        /// Gets if this result is partia;.
+        /// Gets if this result is partial (truncated) - number of included resources (other than matches)
+        /// exceeds the configured threshold).
         /// </summary>
         public bool Partial { get; }
     }

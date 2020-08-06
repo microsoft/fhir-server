@@ -103,7 +103,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                 if (result.Partial)
                 {
-                    // if the query resulted in a partia; indication, add appropriate outcome
+                    // if the query resulted in a partial indication, add appropriate outcome
                     // as an entry
                     var resource = new OperationOutcome();
                     resource.Issue = new List<OperationOutcome.IssueComponent>();
@@ -111,7 +111,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     {
                         Severity = OperationOutcome.IssueSeverity.Warning,
                         Code = OperationOutcome.IssueType.Incomplete,
-                        Diagnostics = "Number of included items exceeded the maximum count and the returned result was truncated.",
+                        Diagnostics = Core.Resources.TruncatedIncludeMessage,
                     });
 
                     bundle.Entry.Add(new Bundle.EntryComponent()
