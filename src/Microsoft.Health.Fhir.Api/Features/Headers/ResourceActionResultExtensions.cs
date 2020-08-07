@@ -34,5 +34,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
             result.Headers.Add(HeaderNames.ContentType, contentTypeValue);
             return result;
         }
+
+        public static ResourceActionResult<TResult> SetDateHeader<TResult>(this ResourceActionResult<TResult> result, string dateTime)
+        {
+            EnsureArg.IsNotNull(result, nameof(result));
+            EnsureArg.IsNotNullOrWhiteSpace(dateTime);
+
+            result.Headers.Add(HeaderNames.Date, dateTime);
+            return result;
+        }
     }
 }

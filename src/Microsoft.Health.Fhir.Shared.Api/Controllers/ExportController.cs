@@ -168,7 +168,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             var exportResult = ExportResult.Accepted();
             exportResult.SetContentLocationHeader(_urlResolver, OperationsConstants.Export, response.JobId);
-
+            exportResult.SetDateHeader(response.JobTime.UtcDateTime.ToString("s"));
             return exportResult;
         }
 

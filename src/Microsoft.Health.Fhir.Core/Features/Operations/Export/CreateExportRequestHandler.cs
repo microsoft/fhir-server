@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 outcome = await _fhirOperationDataStore.CreateExportJobAsync(jobRecord, cancellationToken);
             }
 
-            return new CreateExportResponse(outcome.JobRecord.Id);
+            return new CreateExportResponse(outcome.JobRecord.Id, outcome.JobRecord.QueuedTime);
         }
     }
 }

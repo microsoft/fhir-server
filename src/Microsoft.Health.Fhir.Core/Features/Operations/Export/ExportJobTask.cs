@@ -365,7 +365,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     else
                     {
                         // File does not exist. Create it.
-                        string fileName = resourceType + ".ndjson";
+                        string dateTime = _exportJobRecord.QueuedTime.UtcDateTime.ToString("s")
+                            .Replace("-", string.Empty, StringComparison.OrdinalIgnoreCase)
+                            .Replace(":", string.Empty, StringComparison.OrdinalIgnoreCase);
+                        string fileName = $"{dateTime}-{_exportJobRecord.Id}/{resourceType}.ndjson";
                         Uri fileUri = await _exportDestinationClient.CreateFileAsync(fileName, cancellationToken);
 
                         exportFileInfo = new ExportFileInfo(resourceType, fileUri, sequence: 0);
