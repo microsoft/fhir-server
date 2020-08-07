@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
 
             Assert.NotNull(deserialized);
             Assert.Null(deserialized.VersionId);
-            Assert.Null(deserialized.Meta.LastUpdated);
+            Assert.Null(deserialized.Meta?.LastUpdated);
         }
     }
 }
