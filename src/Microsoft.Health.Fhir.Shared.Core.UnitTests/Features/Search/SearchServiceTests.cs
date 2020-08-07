@@ -123,6 +123,32 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Empty(searchResult.Results);
         }
 
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GivenCountOnlyValue_WhenSearchingReindexResults_ThenCountSearchOptionSetCorrectly(bool countOnly)
+        {
+            const string resourceType = "Observation";
+            const string resourceId = "abc";
+            const string hashValue = "upToDateHash";
+
+            var observation = new Observation { Id = resourceId }.ToResourceElement();
+
+            SearchOptions testOptions = new SearchOptions();
+
+            var resourceWrapper =
+                new ResourceWrapper(observation, _rawResourceFactory.Create(observation), _resourceRequest, false, null, null, null);
+            _searchService.SearchImplementation = options =>
+            {
+                testOptions = options;
+                return new SearchResult(new SearchResultEntry[0], _unsupportedQueryParameters, _unsupportedSortingParameters, null);
+            };
+
+            SearchResult searchResult = await _searchService.SearchForReindexAsync(new List<Tuple<string, string>>() { new Tuple<string, string>("_type", resourceType) }, hashValue, countOnly, CancellationToken.None);
+
+            Assert.Equal(countOnly, testOptions.CountOnly);
+        }
+
         private class TestSearchService : SearchService
         {
             public TestSearchService(ISearchOptionsFactory searchOptionsFactory, IFhirDataStore fhirDataStore)
@@ -143,6 +169,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             protected override Task<SearchResult> SearchHistoryInternalAsync(
                 SearchOptions searchOptions,
                 CancellationToken cancellationToken)
+            {
+                return Task.FromResult(SearchImplementation(searchOptions));
+            }
+
+            protected override Task<SearchResult> SearchForReindexInternalAsync(SearchOptions searchOptions, string searchParameterHash, CancellationToken cancellationToken)
             {
                 return Task.FromResult(SearchImplementation(searchOptions));
             }

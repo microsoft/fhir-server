@@ -3,12 +3,20 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
-{
-    public interface IExpressionParser
-    {
-        Expression Parse(string resourceType, string key, string value);
+using EnsureThat;
+using MediatR;
 
-        IncludeExpression ParseInclude(string resourceType, string value, bool isReversed);
+namespace Microsoft.Health.Fhir.Core.Messages.Search
+{
+    public class SearchParametersHashUpdated : INotification
+    {
+        public SearchParametersHashUpdated(string hashValue)
+        {
+            EnsureArg.IsNotNull(hashValue, nameof(hashValue));
+
+            HashValue = hashValue;
+        }
+
+        public string HashValue { get; }
     }
 }

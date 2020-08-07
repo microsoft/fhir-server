@@ -18,6 +18,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
         internal static readonly IncludeRewriter Instance = new IncludeRewriter();
 
         private static readonly TableExpression IncludeUnionAllExpression = new TableExpression(null, null, null, TableExpressionKind.IncludeUnionAll);
+        private static readonly TableExpression IncludeLimitExpression = new TableExpression(null, null, null, TableExpressionKind.IncludeLimit);
 
         public override Expression VisitSqlRoot(SqlRootExpression expression, object context)
         {
@@ -39,6 +40,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                         return 10;
                 }
             }).ToList();
+
+            // We are adding an extra CTE after each include cte, so we traverse the ordered
+            // list from the end and add a limit expression after each include expression
+            for (var i = reorderedExpressions.Count - 1; i >= 0; i--)
+            {
+                switch (reorderedExpressions[i].SearchParameterQueryGenerator)
+                {
+                    case IncludeQueryGenerator _:
+                        reorderedExpressions.Insert(i + 1, IncludeLimitExpression);
+                        break;
+                    default:
+                        break;
+                }
+            }
 
             if (containsInclude)
             {
