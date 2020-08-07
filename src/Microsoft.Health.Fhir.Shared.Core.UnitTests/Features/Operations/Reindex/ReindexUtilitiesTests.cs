@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             var entry1 = CreateSearchResultEntry("Patient", searchIndices1);
             _output.WriteLine($"Loaded Patient with id: {entry1.Resource.ResourceId}");
-            var entry2 = CreateSearchResultEntry("BloodGlucose", searchIndices2);
+            var entry2 = CreateSearchResultEntry("Observation-For-Patient-f001", searchIndices2);
             _output.WriteLine($"Loaded Observation with id: {entry2.Resource.ResourceId}");
             var resultList = new List<SearchResultEntry>();
             resultList.Add(entry1);
