@@ -229,10 +229,7 @@
                             "name": "WEBSITES_ENABLE_APP_SERVICE_STORAGE",
                             "value": "true"
                         }
-                    ],
-                    "linuxFxVersion": "[concat('DOCKER|', variables('registryName'), '/', toLower(parameters('fhirVersion')), '_fhir-server',':', parameters('imageTag'))]",
-                    "appCommandLine": "azure-fhir-api",
-                    "alwaysOn": true
+                    ]
                 },
                 "serverFarmId": "[resourceId(variables('appServicePlanResourceGroup'), 'Microsoft.Web/serverfarms/', variables('appServicePlanName'))]",
                 "clientAffinityEnabled": false
@@ -247,9 +244,25 @@
                     "type": "config",
                     "dependsOn": [
                         "[variables('appServiceResourceId')]",
-                        "[if(variables('deployAppInsights'),concat('Microsoft.Insights/components/', variables('appInsightsName')),resourceId('Microsoft.KeyVault/vaults', variables('serviceName')))]"
+                        "[if(variables('deployAppInsights'),concat('Microsoft.Insights/components/', variables('appInsightsName')),resourceId('Microsoft.KeyVault/vaults', variables('serviceName')))]",
+                        "[resourceId('Microsoft.KeyVault/vaults/secrets', variables('serviceName'), 'SqlServer--ConnectionString')]"
                     ],
                     "properties": "[if(variables('deployAppInsights'), union(variables('combinedFhirServerConfigProperties'), json(concat('{\"ApplicationInsights__InstrumentationKey\": \"', reference(concat('Microsoft.Insights/components/', variables('appInsightsName'))).InstrumentationKey, '\"}'))), variables('combinedFhirServerConfigProperties'))]"
+                },
+                {
+                    "apiVersion": "2019-08-01",
+                    "name": "web",
+                    "type": "config",
+                    "dependsOn": [
+                        "appsettings",
+                        "[variables('appServiceResourceId')]",
+                        "[if(variables('deployAppInsights'),concat('Microsoft.Insights/components/', variables('appInsightsName')),resourceId('Microsoft.KeyVault/vaults', variables('serviceName')))]"
+                    ],
+                    "properties": {
+                        "linuxFxVersion": "[concat('DOCKER|', variables('registryName'), '/', toLower(parameters('fhirVersion')), '_fhir-server',':', parameters('imageTag'))]",
+                        "appCommandLine": "azure-fhir-api",
+                        "alwaysOn": true
+                    }
                 }
             ]
         },

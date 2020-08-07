@@ -23,6 +23,8 @@ namespace Microsoft.Health.Fhir.Core.Models
 
         public const string Encounter = "Encounter";
 
+        public const string Group = "Group";
+
         public const string Immunization = "Immunization";
 
         public const string Observation = "Observation";

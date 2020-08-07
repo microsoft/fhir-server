@@ -34,6 +34,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public IEnumerable<SearchParameterInfo> AllSearchParameters => UrlLookup.Values;
 
+        public string SearchParametersHash { get; set; }
+
         public void Start()
         {
             // This method is idempotent because dependent Start methods are not guaranteed to be executed in order.
