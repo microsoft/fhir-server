@@ -269,7 +269,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 bool needToAnonymizeResource = !string.IsNullOrEmpty(_exportJobRecord.AnonymizationConfigurationLocation);
                 if (needToAnonymizeResource)
                 {
-                    IAnonymizer anonymizer = await _anonymizerFactory.Value.CreateAnonymizerAsync(_exportJobRecord.AnonymizationConfigurationLocation, _exportJobRecord.AnonymizationConfigurationFileHash, cancellationToken);
+                    string configurationWithEtag =
+                        $"{_exportJobRecord.AnonymizationConfigurationLocation}:{_exportJobRecord.AnonymizationConfigurationFileETag}";
+
+                    IAnonymizer anonymizer = await _anonymizerFactory.Value.CreateAnonymizerAsync(configurationWithEtag, cancellationToken);
                     await ProcessSearchResultsAsync(searchResult.Results, currentBatchId, anonymizer, cancellationToken);
                 }
                 else

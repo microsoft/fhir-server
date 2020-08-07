@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             {
                 KnownQueryParameterNames.Since,
                 KnownQueryParameterNames.AnonymizationConfigurationLocation,
-                KnownQueryParameterNames.AnonymizationConfigurationFileHash,
+                KnownQueryParameterNames.AnonymizationConfigurationFileEtag,
             };
         }
 

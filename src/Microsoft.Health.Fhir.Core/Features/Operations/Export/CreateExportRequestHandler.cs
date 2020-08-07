@@ -87,7 +87,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     storageAccountConnectionHash,
                     _exportJobConfiguration.StorageAccountUri,
                     request.AnonymizationConfigurationLocation,
-                    request.AnonymizationConfigurationFileHash,
+                    request.AnonymizationConfigurationFileETag,
                     _exportJobConfiguration.MaximumNumberOfResourcesPerQuery,
                     _exportJobConfiguration.NumberOfPagesPerCommit);
 

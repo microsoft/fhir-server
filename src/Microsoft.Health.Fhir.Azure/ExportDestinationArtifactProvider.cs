@@ -5,9 +5,11 @@
 
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.Azure.Storage;
 using Microsoft.Azure.Storage.Blob;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -18,6 +20,8 @@ namespace Microsoft.Health.Fhir.Azure
 {
     public class ExportDestinationArtifactProvider : IArtifactProvider
     {
+        private const string ANONYMIZATIONCONTAINER = "anonymization";
+
         private IExportClientInitializer<CloudBlobClient> _exportClientInitializer;
         private ExportJobConfiguration _exportJobConfiguration;
         private CloudBlobClient _blobClient;
@@ -30,19 +34,46 @@ namespace Microsoft.Health.Fhir.Azure
             _exportJobConfiguration = exportJobConfiguration.Value;
         }
 
-        public async Task FetchArtifactAsync(string blobUriString, Stream targetStream, CancellationToken cancellationToken)
+        public async Task FetchAsync(string blobNameWithETag, Stream targetStream, CancellationToken cancellationToken)
         {
-            EnsureArg.IsNotNull(blobUriString, nameof(blobUriString));
+            EnsureArg.IsNotNull(blobNameWithETag, nameof(blobNameWithETag));
+
+            string[] blobLocation = blobNameWithETag.Split(':', StringSplitOptions.RemoveEmptyEntries);
+            string blobName = blobLocation[0];
+            string eTag = blobLocation.Count() > 1 ? blobLocation[1] : null;
 
             CloudBlobClient blobClient = await ConnectAsync(cancellationToken);
-            var blob = new CloudBlockBlob(new Uri(blobUriString), blobClient);
+            CloudBlobContainer container = blobClient.GetContainerReference(ANONYMIZATIONCONTAINER);
+            if (!await container.ExistsAsync(cancellationToken))
+            {
+                throw new FileNotFoundException(message: $"Container not found on the destination storage. {ANONYMIZATIONCONTAINER}");
+            }
+
+            CloudBlob blob = container.GetBlobReference(blobName);
             if (await blob.ExistsAsync(cancellationToken))
             {
-                await blob.DownloadToStreamAsync(targetStream, cancellationToken);
+                if (string.IsNullOrEmpty(eTag))
+                {
+                    await blob.DownloadToStreamAsync(targetStream, cancellationToken);
+                }
+                else
+                {
+                    AccessCondition condition = AccessCondition.GenerateIfMatchCondition(eTag);
+                    var blobRequestOptions = new BlobRequestOptions();
+                    var operationContext = new OperationContext();
+                    try
+                    {
+                        await blob.DownloadToStreamAsync(targetStream, accessCondition: condition, blobRequestOptions, operationContext, cancellationToken);
+                    }
+                    catch (FormatException ex)
+                    {
+                        throw new AnonymizationConfigurationFetchException($"Etag format is invalid: {eTag}", ex);
+                    }
+                }
             }
             else
             {
-                throw new FileNotFoundException(message: $"File not found on the destination storage. {blobUriString}");
+                throw new FileNotFoundException(message: $"File not found on the destination storage. {blobName}");
             }
         }
 

@@ -5,11 +5,10 @@
 
 using System;
 using System.IO;
-using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
-using Fhir.Anonymizer.Core;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Anonymizer.Core;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
@@ -24,13 +23,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _logger = logger;
         }
 
-        public async Task<IAnonymizer> CreateAnonymizerAsync(string configurationLocation, string fileHash, CancellationToken cancellationToken)
+        public async Task<IAnonymizer> CreateAnonymizerAsync(string configurationLocation, CancellationToken cancellationToken)
         {
             using (Stream stream = new MemoryStream())
             {
                 try
                 {
-                    await _artifactProvider.FetchArtifactAsync(configurationLocation, stream, cancellationToken);
+                    await _artifactProvider.FetchAsync(configurationLocation, stream, cancellationToken);
                     stream.Position = 0;
                 }
                 catch (FileNotFoundException ex)
@@ -42,21 +41,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 {
                     _logger.LogError($"Failed to fetch Anonymization configuration file: {configurationLocation}");
                     throw new AnonymizationConfigurationFetchException(ex.Message, ex);
-                }
-
-                if (!string.IsNullOrEmpty(fileHash))
-                {
-                    using (var md5 = SHA256.Create())
-                    {
-                        var actualHashValue = BitConverter.ToString(md5.ComputeHash(stream)).Replace("-", string.Empty, StringComparison.InvariantCultureIgnoreCase);
-                        if (!string.Equals(actualHashValue, fileHash, StringComparison.InvariantCultureIgnoreCase))
-                        {
-                            _logger.LogError($"Anonymization configuration file hash value not match: expected {fileHash}");
-                            throw new AnonymizationConfigurationHashValueNotMatchException($"Configuration file hash value not match. Please double check file hash of sha256.");
-                        }
-
-                        stream.Position = 0;
-                    }
                 }
 
                 using (StreamReader reader = new StreamReader(stream))

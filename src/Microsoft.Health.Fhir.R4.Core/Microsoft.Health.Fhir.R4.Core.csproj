@@ -10,13 +10,13 @@
   <ItemGroup>
     <PackageReference Include="AngleSharp" Version="0.14.0" />
     <PackageReference Include="Ensure.That" Version="9.2.0" />
-    <PackageReference Include="Fhir.Anonymizer.Core" Version="1.1.0" />
     <PackageReference Include="FluentValidation" Version="8.6.1" />
     <PackageReference Include="MediatR" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="3.1.3" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="3.1.3" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="3.1.3" />
     <PackageReference Include="Hl7.Fhir.R4" Version="1.7.0" />
+    <PackageReference Include="Microsoft.Health.Fhir.Anonymizer.R4.Core" Version="2.0.0-20200806.4" />
     <PackageReference Include="System.Collections.Immutable" Version="1.7.1" />
     <PackageReference Include="System.Net.Http" Version="4.3.4" />
   </ItemGroup>

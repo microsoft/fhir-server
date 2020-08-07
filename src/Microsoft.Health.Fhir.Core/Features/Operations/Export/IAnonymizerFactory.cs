@@ -10,6 +10,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
     public interface IAnonymizerFactory
     {
-        public Task<IAnonymizer> CreateAnonymizerAsync(string configurationLocation, string fileHash, CancellationToken cancellationToken);
+        public Task<IAnonymizer> CreateAnonymizerAsync(string configurationLocation, CancellationToken cancellationToken);
     }
 }

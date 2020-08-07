@@ -1206,7 +1206,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     capturedSearch = true;
                     return new ResourceElement(ElementNode.FromElement(ElementNode.ForPrimitive("anonymized-resource")));
                 });
-            factory.CreateAnonymizerAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(_ => Task.FromResult<IAnonymizer>(anonymizer));
+            factory.CreateAnonymizerAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(_ => Task.FromResult<IAnonymizer>(anonymizer));
             var inMemoryDestinationClient = new InMemoryExportDestinationClient();
 
             var anonymizedExportJobTask = new ExportJobTask(
@@ -1246,7 +1246,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithOneResource);
             IAnonymizerFactory factory = Substitute.For<IAnonymizerFactory>();
-            factory.CreateAnonymizerAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns<Task<IAnonymizer>>(_ => throw new AnonymizationConfigurationNotFoundException(expectedError));
+            factory.CreateAnonymizerAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns<Task<IAnonymizer>>(_ => throw new AnonymizationConfigurationNotFoundException(expectedError));
 
             var exportJobTask = new ExportJobTask(
                 () => _fhirOperationDataStore.CreateMockScope(),
@@ -1285,7 +1285,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithOneResource);
             IAnonymizerFactory factory = Substitute.For<IAnonymizerFactory>();
-            factory.CreateAnonymizerAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns<Task<IAnonymizer>>(_ => throw new FailedToParseAnonymizationConfigurationException(expectedError));
+            factory.CreateAnonymizerAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns<Task<IAnonymizer>>(_ => throw new FailedToParseAnonymizationConfigurationException(expectedError));
 
             var exportJobTask = new ExportJobTask(
                 () => _fhirOperationDataStore.CreateMockScope(),
@@ -1324,7 +1324,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithOneResource);
             IAnonymizerFactory factory = Substitute.For<IAnonymizerFactory>();
-            factory.CreateAnonymizerAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns<Task<IAnonymizer>>(_ => throw new AnonymizationConfigurationHashValueNotMatchException(expectedError));
+            factory.CreateAnonymizerAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns<Task<IAnonymizer>>(_ => throw new AnonymizationConfigurationHashValueNotMatchException(expectedError));
 
             var exportJobTask = new ExportJobTask(
                 () => _fhirOperationDataStore.CreateMockScope(),

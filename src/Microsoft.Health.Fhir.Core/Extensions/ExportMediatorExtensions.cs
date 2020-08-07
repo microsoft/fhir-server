@@ -23,13 +23,13 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             string resourceType,
             PartialDateTime since,
             string anonymizationConfigLocation,
-            string anonymizationConfigFileHash,
+            string anonymizationConfigFileETag,
             CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
 
-            var request = new CreateExportRequest(requestUri, requestType, resourceType, since, anonymizationConfigLocation, anonymizationConfigFileHash);
+            var request = new CreateExportRequest(requestUri, requestType, resourceType, since, anonymizationConfigLocation, anonymizationConfigFileETag);
 
             CreateExportResponse response = await mediator.Send(request, cancellationToken);
             return response;

@@ -11,6 +11,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 {
     public interface IArtifactProvider
     {
-        Task FetchArtifactAsync(string blobUriString, Stream targetStream, CancellationToken cancellationToken);
+        Task FetchAsync(string location, Stream targetStream, CancellationToken cancellationToken);
     }
 }

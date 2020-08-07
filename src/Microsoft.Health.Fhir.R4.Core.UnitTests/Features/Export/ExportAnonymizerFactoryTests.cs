@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Features.Export
         public async Task GivenAValidAnonymizationConfiguration_WhenCreate_AnonymizerShouldBeCreated()
         {
             IArtifactProvider client = Substitute.For<IArtifactProvider>();
-            client.FetchArtifactAsync(Arg.Any<string>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>()).Returns<Task>(
+            client.FetchAsync(Arg.Any<string>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>()).Returns<Task>(
                 x =>
                 {
                     Stream target = x.ArgAt<Stream>(1);
@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Features.Export
         public async Task GivenAnInvalidAnonymizationConfiguration_WhenCreate_CorrectExceptionShouldBeThrow()
         {
             IArtifactProvider client = Substitute.For<IArtifactProvider>();
-            client.FetchArtifactAsync(Arg.Any<string>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>()).Returns<Task>(
+            client.FetchAsync(Arg.Any<string>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>()).Returns<Task>(
                 x =>
                 {
                     Stream target = x.ArgAt<Stream>(1);
@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Features.Export
         public async Task GivenNoAnonymizationConfiguration_WhenCreate_CorrectExceptionShouldBeThrow()
         {
             IArtifactProvider client = Substitute.For<IArtifactProvider>();
-            client.FetchArtifactAsync(Arg.Any<string>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>()).Returns<Task>(
+            client.FetchAsync(Arg.Any<string>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>()).Returns<Task>(
                 x =>
                 {
                     throw new FileNotFoundException();
@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Features.Export
         public async Task GivenInvalidFileHashValue_WhenCreate_CorrectExceptionShouldBeThrow()
         {
             IArtifactProvider client = Substitute.For<IArtifactProvider>();
-            client.FetchArtifactAsync(Arg.Any<string>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>()).Returns<Task>(
+            client.FetchAsync(Arg.Any<string>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>()).Returns<Task>(
                 x =>
                 {
                     Stream target = x.ArgAt<Stream>(1);

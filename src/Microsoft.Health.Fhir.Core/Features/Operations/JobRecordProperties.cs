@@ -93,6 +93,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string AnonymizationConfigurationLocation = "anonymizationConfigurationLocation";
 
-        public const string AnonymizationConfigurationFileHash = "anonymizationConfigurationFileHash";
+        public const string AnonymizationConfigurationFileETag = "anonymizationConfigurationFileHash";
     }
 }
