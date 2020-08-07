@@ -45,7 +45,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             Func<IScoped<ISearchService>> searchServiceFactory,
             ISupportedSearchParameterDefinitionManager supportedSearchParameterDefinitionManager,
             Func<IScoped<IFhirDataStore>> fhirDataStoreFactory,
-            ISearchIndexer searchIndexer,
             IMediator mediator,
             ILogger<ReindexJobTask> logger)
         {
@@ -54,7 +53,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(supportedSearchParameterDefinitionManager, nameof(supportedSearchParameterDefinitionManager));
             EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));
-            EnsureArg.IsNotNull(searchIndexer, nameof(searchIndexer));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(logger, nameof(logger));
 

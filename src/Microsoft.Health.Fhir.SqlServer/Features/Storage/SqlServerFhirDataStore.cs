@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using System.Globalization;
@@ -224,6 +225,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 VLatest.HardDeleteResource.PopulateCommand(sqlCommandWrapper, resourceTypeId: _model.GetResourceTypeId(key.ResourceType), resourceId: key.Id);
 
                 await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+            }
+        }
+
+        public async Task UpdateSearchParameterHashBatchAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken)
+        {
+            // TODO: use bach command to update only hash values for list updateHashValueOnly
+            // this is a place holder update until we batch update resources
+            foreach (var resource in resources)
+            {
+                await UpsertAsync(resource, WeakETag.FromVersionId(resource.Version), false, true, cancellationToken);
+            }
+        }
+
+        public async Task UpdateSearchParameterIndicesBatchAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken)
+        {
+            // TODO: use batch command to update both hash values and search index values for list updateSearchIndices
+
+            // this is a place holder update until we batch update resources
+            foreach (var resource in resources)
+            {
+                await UpsertAsync(resource, WeakETag.FromVersionId(resource.Version), false, true, cancellationToken);
             }
         }
 

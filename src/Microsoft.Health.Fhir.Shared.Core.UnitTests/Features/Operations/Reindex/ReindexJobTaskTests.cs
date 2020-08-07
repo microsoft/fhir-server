@@ -35,7 +35,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         private readonly ReindexJobConfiguration _reindexJobConfiguration = new ReindexJobConfiguration();
         private readonly ISearchService _searchService = Substitute.For<ISearchService>();
         private readonly IMediator _mediator = Substitute.For<IMediator>();
-        private readonly ISearchIndexer _searchIndexer = Substitute.For<ISearchIndexer>();
 
         private readonly ReindexJobTask _reindexJobTask;
 
@@ -63,7 +62,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 () => _searchService.CreateMockScope(),
                 SearchParameterFixtureData.SupportedSearchDefinitionManager,
                 () => _fhirDataStore.CreateMockScope(),
-                _searchIndexer,
                 _mediator,
                 NullLogger<ReindexJobTask>.Instance);
         }

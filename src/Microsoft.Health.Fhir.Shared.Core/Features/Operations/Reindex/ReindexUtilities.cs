@@ -45,36 +45,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// <returns>A Task</returns>
         public async Task ProcessSearchResultsAsync(SearchResult results, string searchParamHash, CancellationToken cancellationToken)
         {
-            var updateHashValueOnly = new List<SearchResultEntry>();
+            var updateHashValueOnly = new List<ResourceWrapper>();
             var updateSearchIndices = new List<ResourceWrapper>();
+
+            foreach (var entry in results.Results)
+            {
+                entry.Resource.SearchParameterHash = searchParamHash;
+                var resourceElement = _deserializer.Deserialize(entry.Resource);
+                var newIndices = _searchIndexer.Extract(resourceElement);
+                var newIndicesHash = new HashSet<SearchIndexEntry>(newIndices);
+                var prevIndicesHash = new HashSet<SearchIndexEntry>(entry.Resource.SearchIndices);
+
+                if (newIndicesHash.SetEquals(prevIndicesHash))
+                {
+                    updateHashValueOnly.Add(entry.Resource);
+                }
+                else
+                {
+                    entry.Resource.UpdateSearchIndices(newIndices);
+                    updateSearchIndices.Add(entry.Resource);
+                }
+            }
 
             using (IScoped<IFhirDataStore> store = _fhirDataStoreFactory())
             {
-                foreach (var entry in results.Results)
-                {
-                    entry.Resource.SearchParameterHash = searchParamHash;
-                    var resourceElement = _deserializer.Deserialize(entry.Resource);
-                    var newIndices = _searchIndexer.Extract(resourceElement);
-                    var newIndicesHash = new HashSet<SearchIndexEntry>(newIndices);
-                    var prevIndicesHash = new HashSet<SearchIndexEntry>(entry.Resource.SearchIndices);
-
-                    if (newIndicesHash.SetEquals(prevIndicesHash))
-                    {
-                        updateHashValueOnly.Add(entry);
-                    }
-                    else
-                    {
-                        updateSearchIndices.Add(entry.Resource);
-                        entry.Resource.UpdateSearchIndices(newIndices);
-                    }
-
-                    // this is a place holder update until we batch update resources
-                    await store.Value.UpsertAsync(entry.Resource, WeakETag.FromVersionId(entry.Resource.Version), false, true, cancellationToken);
-                }
-
-                // TODO: use batch command to update all hash values and search index values for list updateSearchIndices
-
-                // TODO: use bach command to update only hash values for list updateHashValueOnly
+                await store.Value.UpdateSearchParameterHashBatchAsync(updateHashValueOnly, cancellationToken);
+                await store.Value.UpdateSearchParameterIndicesBatchAsync(updateSearchIndices, cancellationToken);
             }
         }
     }

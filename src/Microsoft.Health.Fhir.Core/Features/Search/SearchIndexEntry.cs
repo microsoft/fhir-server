@@ -42,11 +42,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
         public static bool operator ==(SearchIndexEntry left, SearchIndexEntry right)
         {
-            if (left == null && right == null)
+            if (((object)left) == null && ((object)right) == null)
             {
                 return true;
             }
-            else if (left == null)
+            else if (((object)left) == null)
             {
                 return false;
             }
@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             return !(left == right);
         }
 
-        public bool Equals([AllowNull] SearchIndexEntry other)
+        public bool Equals(SearchIndexEntry other)
         {
             if (other == null)
             {
@@ -69,6 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
 
             if (other.SearchParameter.Url == SearchParameter.Url &&
+                other.SearchParameter.Name.Equals(SearchParameter.Name, StringComparison.OrdinalIgnoreCase) &&
                 other.Value == Value)
             {
                 return true;
@@ -97,7 +98,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(SearchParameter.Url.GetHashCode(), Value.GetHashCode());
+            return HashCode.Combine(
+                SearchParameter.Name.GetHashCode(System.StringComparison.OrdinalIgnoreCase),
+                SearchParameter.Url?.GetHashCode(),
+                Value.GetHashCode());
         }
     }
 }
