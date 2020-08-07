@@ -11,11 +11,11 @@ using Microsoft.Health.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
-    internal class SearchParameterStatusRegistryRowGenerator : ITableValuedParameterRowGenerator<List<ResourceSearchParameterStatus>, VLatest.SearchParamStatusRegistryTableTypeRow>
+    internal class SearchParameterStatusRowGenerator : ITableValuedParameterRowGenerator<List<ResourceSearchParameterStatus>, VLatest.SearchParamTableTypeRow>
     {
-        public IEnumerable<VLatest.SearchParamStatusRegistryTableTypeRow> GenerateRows(List<ResourceSearchParameterStatus> searchParameterStatuses)
+        public IEnumerable<VLatest.SearchParamTableTypeRow> GenerateRows(List<ResourceSearchParameterStatus> searchParameterStatuses)
         {
-            return searchParameterStatuses.Select(searchParameterStatus => new VLatest.SearchParamStatusRegistryTableTypeRow(
+            return searchParameterStatuses.Select(searchParameterStatus => new VLatest.SearchParamTableTypeRow(
                 searchParameterStatus.Uri.ToString(),
                 searchParameterStatus.Status.ToString(),
                 searchParameterStatus.IsPartiallySupported))
