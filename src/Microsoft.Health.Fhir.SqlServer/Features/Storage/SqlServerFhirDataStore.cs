@@ -247,5 +247,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 builder.AddRestInteraction(SystemRestfulInteraction.Transaction);
             }
         }
+
+        public Task<ResourceWrapper> ReplaceAsync(ResourceWrapper resourceWrapper, WeakETag weakETag, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

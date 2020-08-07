@@ -20,5 +20,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken);
 
         Task HardDeleteAsync(ResourceKey key, CancellationToken cancellationToken);
+
+        Task<ResourceWrapper> ReplaceAsync(ResourceWrapper resourceWrapper, WeakETag weakETag, CancellationToken cancellationToken);
     }
 }

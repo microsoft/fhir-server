@@ -23,6 +23,7 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.HardDelete;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Replace;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Upsert;
 using Microsoft.Health.Fhir.ValueSets;
 using Task = System.Threading.Tasks.Task;
@@ -39,6 +40,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         private static readonly UpsertWithHistory _upsertWithHistoryProc = new UpsertWithHistory();
         private static readonly HardDelete _hardDelete = new HardDelete();
+        private static readonly ReplaceWithoutVersionUpdate _replaceWithoutVersionUpdate = new ReplaceWithoutVersionUpdate();
         private readonly CoreFeatureConfiguration _coreFeatures;
 
         /// <summary>
@@ -234,6 +236,50 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             if (_coreFeatures.SupportsBatch)
             {
                 builder.AddRestInteraction(SystemRestfulInteraction.Batch);
+            }
+        }
+
+        public async Task<ResourceWrapper> ReplaceAsync(ResourceWrapper resourceWrapper, WeakETag weakETag, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(resourceWrapper, nameof(resourceWrapper));
+            EnsureArg.IsNotNull(weakETag, nameof(weakETag));
+
+            var cosmosWrapper = new FhirCosmosResourceWrapper(resourceWrapper);
+
+            try
+            {
+                _logger.LogDebug($"Replacing {resourceWrapper.ResourceTypeName}/{resourceWrapper.ResourceId}, ETag: \"{weakETag.VersionId}\"");
+
+                FhirCosmosResourceWrapper response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
+                    async ct => await _replaceWithoutVersionUpdate.Execute(
+                        _containerScope.Value.Scripts,
+                        cosmosWrapper,
+                        weakETag.VersionId,
+                        ct),
+                    cancellationToken);
+
+                return response;
+            }
+            catch (CosmosException exception)
+            {
+                switch (exception.GetSubStatusCode())
+                {
+                    case HttpStatusCode.PreconditionFailed:
+                        throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag.VersionId));
+
+                    case HttpStatusCode.NotFound:
+                        throw new ResourceNotFoundException(string.Format(
+                            Core.Resources.ResourceNotFoundByIdAndVersion,
+                            resourceWrapper.ResourceTypeName,
+                            resourceWrapper.ResourceId,
+                            weakETag.VersionId));
+
+                    case HttpStatusCode.ServiceUnavailable:
+                        throw new ServiceUnavailableException();
+                }
+
+                _logger.LogError(exception, "Unhandled Document Client Exception");
+                throw;
             }
         }
     }
