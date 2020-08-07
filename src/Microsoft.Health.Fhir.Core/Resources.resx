@@ -277,6 +277,9 @@
   <data name="MultipleQueryParametersNotAllowed" xml:space="preserve">
     <value>Query parameter '{0}' cannot be specified more than once.</value>
   </data>
+  <data name="NoSearchParametersNeededToBeIndexed" xml:space="preserve">
+    <value>No search parameters found needing to be indexed.  Job cancelled.</value>
+  </data>
   <data name="NumberOfCompositeComponentsExceeded" xml:space="preserve">
     <value>The number of composite components specified for search parameter '{0}' exceeded the number of components defined.</value>
   </data>

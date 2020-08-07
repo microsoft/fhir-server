@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             ServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
 
             var upsertResourceTvpGenerator = serviceProvider.GetRequiredService<VLatest.UpsertResourceTvpGenerator<ResourceMetadata>>();
-            var upsertSearchParamStatusTvpGenerator = serviceProvider.GetRequiredService<VLatest.UpsertSearchParamStatusesTvpGenerator<List<ResourceSearchParameterStatus>>>();
+            var upsertSearchParamsTvpGenerator = serviceProvider.GetRequiredService<VLatest.UpsertSearchParamsTvpGenerator<List<ResourceSearchParameterStatus>>>();
 
             var searchParameterToSearchValueTypeMap = new SearchParameterToSearchValueTypeMap(new SupportedSearchParameterDefinitionManager(searchParameterDefinitionManager));
 
@@ -83,7 +83,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             SqlServerStatusRegistryDataStore = new SqlServerStatusRegistryDataStore(
                 () => SqlConnectionWrapperFactory.CreateMockScope(),
-                upsertSearchParamStatusTvpGenerator);
+                upsertSearchParamsTvpGenerator);
+
             _fhirDataStore = new SqlServerFhirDataStore(config, sqlServerFhirModel, searchParameterToSearchValueTypeMap, upsertResourceTvpGenerator, Options.Create(new CoreFeatureConfiguration()), SqlConnectionWrapperFactory, NullLogger<SqlServerFhirDataStore>.Instance);
 
             _fhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, NullLogger<SqlServerFhirOperationDataStore>.Instance);

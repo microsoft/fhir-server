@@ -121,7 +121,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             using (var connection = new SqlConnection(_connectionString))
             {
-                var command = new SqlCommand("DELETE FROM dbo.SearchParamStatusRegistry WHERE Uri = @uri", connection);
+                var command = new SqlCommand("DELETE FROM dbo.SearchParam WHERE Uri = @uri", connection);
                 command.Parameters.AddWithValue("@uri", uri);
 
                 await command.Connection.OpenAsync(cancellationToken);
@@ -141,6 +141,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 await command.Connection.OpenAsync(cancellationToken);
                 await command.ExecuteNonQueryAsync(cancellationToken);
             }
+        }
+
+        public Task DeleteAllReindexJobRecordsAsync(CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
         }
 
         async Task<object> IFhirStorageTestHelper.GetSnapshotToken()
