@@ -16,6 +16,7 @@ using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using NSubstitute;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 {
@@ -24,9 +25,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         private readonly IFhirDataStore _fhirDataStore = Substitute.For<IFhirDataStore>();
         private readonly ISearchIndexer _searchIndexer = Substitute.For<ISearchIndexer>();
         private readonly ResourceDeserializer _resourceDeserializer = Deserializers.ResourceDeserializer;
+        private readonly ITestOutputHelper _output;
 
-        public ReindexUtilitiesTests()
+        public ReindexUtilitiesTests(ITestOutputHelper output)
         {
+            _output = output;
         }
 
         [Fact]
@@ -41,7 +44,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _searchIndexer.Extract(Arg.Any<Core.Models.ResourceElement>()).Returns(searchIndices1);
 
             var entry1 = CreateSearchResultEntry("Patient", searchIndices1);
+            _output.WriteLine($"Loaded Patient with id: {entry1.Resource.ResourceId}");
             var entry2 = CreateSearchResultEntry("BloodGlucose", searchIndices2);
+            _output.WriteLine($"Loaded Observation with id: {entry2.Resource.ResourceId}");
             var resultList = new List<SearchResultEntry>();
             resultList.Add(entry1);
             resultList.Add(entry2);
