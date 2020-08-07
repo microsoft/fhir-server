@@ -5,9 +5,11 @@
 
 using System;
 using System.Net.Http;
+using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -45,6 +47,41 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
 
             Assert.Equal(observation.Id, newObject.Id);
             Assert.Equal(observation.VersionId, newObject.VersionId);
+        }
+
+        [Fact]
+        public void GivenAResourceWrapper_WhenDeserializingToJsonDocumentAndVersionIdNotSet_UpdatedWithVersionIdFromResourceWrapper()
+        {
+            var patient = Samples.GetDefaultPatient().UpdateVersion("3").UpdateLastUpdated(Clock.UtcNow - TimeSpan.FromDays(30));
+
+            var wrapper = new ResourceWrapper(patient, _rawResourceFactory.Create(patient, keepMeta: false), new ResourceRequest(HttpMethod.Post, "http://fhir"), false, null, null, null);
+            wrapper.Version = "2";
+
+            var (rawString, jsonDoc) = ResourceDeserializer.DeserializeToJsonDocument(wrapper);
+            Assert.NotNull(rawString);
+
+            var deserialized = new FhirJsonParser(DefaultParserSettings.Settings).Parse<Patient>(rawString);
+
+            Assert.Equal(wrapper.Version, deserialized.VersionId);
+            Assert.Equal(wrapper.LastModified, deserialized.Meta.LastUpdated);
+        }
+
+        [Fact]
+        public void GivenAResourceWrapper_WhenDeserializingToJsonDocumentAndVersionIdSet_MaintainsVersionIdInRawResourceString()
+        {
+            var lastUpdated = Clock.UtcNow - TimeSpan.FromDays(30);
+            var patient = Samples.GetDefaultPatient().UpdateVersion("3").UpdateLastUpdated(lastUpdated);
+
+            var wrapper = new ResourceWrapper(patient, _rawResourceFactory.Create(patient, keepMeta: true), new ResourceRequest(HttpMethod.Post, "http://fhir"), false, null, null, null);
+            wrapper.Version = "2";
+
+            var (rawString, jsonDoc) = ResourceDeserializer.DeserializeToJsonDocument(wrapper);
+            Assert.NotNull(rawString);
+
+            var deserialized = new FhirJsonParser(DefaultParserSettings.Settings).Parse<Patient>(rawString);
+
+            Assert.Equal("3", deserialized.VersionId);
+            Assert.Equal(lastUpdated, deserialized.Meta.LastUpdated);
         }
     }
 }
