@@ -84,7 +84,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     hash,
                     requestorClaims,
                     request.Since,
-                    request.GroupId,
                     storageAccountConnectionHash,
                     _exportJobConfiguration.StorageAccountUri,
                     _exportJobConfiguration.MaximumNumberOfResourcesPerQuery,

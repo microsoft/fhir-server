@@ -29,8 +29,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public IEnumerable<SearchParameterInfo> AllSearchParameters => _inner.AllSearchParameters.Where(x => x.IsSupported);
 
-        public string SearchParametersHash => _inner.SearchParametersHash;
-
         public IEnumerable<SearchParameterInfo> GetSearchParameters(string resourceType)
         {
             return _inner.GetSearchParameters(resourceType)

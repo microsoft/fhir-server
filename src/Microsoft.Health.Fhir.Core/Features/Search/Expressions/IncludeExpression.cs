@@ -20,8 +20,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <param name="referenceSearchParameter">THe search parameter that establishes the reference relationship.</param>
         /// <param name="targetResourceType">The target type of the reference.</param>
         /// <param name="wildCard">If this is a wildcard reference include (include all referenced resources).</param>
-        /// <param name="reversed">If this is a reversed include (revinclude) expression.</param>
-        public IncludeExpression(string resourceType, SearchParameterInfo referenceSearchParameter, string targetResourceType, bool wildCard, bool reversed)
+        public IncludeExpression(string resourceType, SearchParameterInfo referenceSearchParameter, string targetResourceType, bool wildCard)
         {
             EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
 
@@ -34,7 +33,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             ReferenceSearchParameter = referenceSearchParameter;
             TargetResourceType = targetResourceType;
             WildCard = wildCard;
-            Reversed = reversed;
         }
 
         /// <summary>
@@ -57,11 +55,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// </summary>
         public bool WildCard { get; }
 
-        /// <summary>
-        /// Get if the expression is reversed.
-        /// </summary>
-        public bool Reversed { get; }
-
         public override TOutput AcceptVisitor<TContext, TOutput>(IExpressionVisitor<TContext, TOutput> visitor, TContext context)
         {
             EnsureArg.IsNotNull(visitor, nameof(visitor));
@@ -77,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             }
 
             var targetType = TargetResourceType != null ? $":{TargetResourceType}" : string.Empty;
-            return $"({(Reversed ? "Reverse " : string.Empty)}Include {ReferenceSearchParameter.Name}{targetType})";
+            return $"(Include {ReferenceSearchParameter.Name}{targetType})";
         }
     }
 }

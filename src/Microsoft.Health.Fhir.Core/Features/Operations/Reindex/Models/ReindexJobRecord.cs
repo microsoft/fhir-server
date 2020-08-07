@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         public DateTimeOffset LastModified { get; set; }
 
         [JsonProperty(JobRecordProperties.FailureCount)]
-        public ushort FailureCount { get; set; }
+        public ushort FaiureCount { get; set; }
 
         [JsonProperty(JobRecordProperties.Resources)]
         public List<string> Resources { get; private set; } = new List<string>();
@@ -83,18 +83,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
                     return 0;
                 }
             }
-        }
-
-        [JsonIgnore]
-        public string ResourceList
-        {
-            get { return string.Join(",", Resources); }
-        }
-
-        [JsonIgnore]
-        public string SearchParamList
-        {
-            get { return string.Join(",", SearchParams); }
         }
     }
 }

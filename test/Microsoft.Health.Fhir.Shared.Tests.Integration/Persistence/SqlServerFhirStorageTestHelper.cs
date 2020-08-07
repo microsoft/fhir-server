@@ -143,11 +143,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        public Task DeleteAllReindexJobRecordsAsync(CancellationToken cancellationToken = default)
-        {
-            throw new NotImplementedException();
-        }
-
         async Task<object> IFhirStorageTestHelper.GetSnapshotToken()
         {
             using (var connection = new SqlConnection(_connectionString))

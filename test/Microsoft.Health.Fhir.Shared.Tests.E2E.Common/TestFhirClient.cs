@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Net.Http;
+using System.Net.Http.Headers;
 using EnsureThat;
 using Hl7.Fhir.Rest;
 using Microsoft.Health.Client;

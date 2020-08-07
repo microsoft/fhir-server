@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
 
@@ -23,11 +24,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         /// Gets the list of all search parameters.
         /// </summary>
         IEnumerable<SearchParameterInfo> AllSearchParameters { get; }
-
-        /// <summary>
-        /// Gets a hash value calculated from the current set of search parameters
-        /// </summary>
-        string SearchParametersHash { get; }
 
         /// <summary>
         /// Gets list of search parameters for the given <paramref name="resourceType"/>.

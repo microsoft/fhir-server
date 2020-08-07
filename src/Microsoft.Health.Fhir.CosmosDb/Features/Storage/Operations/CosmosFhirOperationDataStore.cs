@@ -11,7 +11,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
-using Microsoft.Azure.Cosmos.Scripts;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
@@ -24,7 +23,6 @@ using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Export;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Reindex;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.AcquireExportJobs;
-using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.AcquireReindexJobs;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 {
@@ -44,7 +42,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
         private readonly ILogger _logger;
 
         private static readonly AcquireExportJobs _acquireExportJobs = new AcquireExportJobs();
-        private static readonly AcquireReindexJobs _acquireReindexJobs = new AcquireReindexJobs();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="CosmosFhirOperationDataStore"/> class.
@@ -283,28 +280,23 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 
         public async Task<IReadOnlyCollection<ReindexJobWrapper>> AcquireReindexJobsAsync(ushort maximumNumberOfConcurrentJobsAllowed, TimeSpan jobHeartbeatTimeoutThreshold, CancellationToken cancellationToken)
         {
-            try
-            {
-                StoredProcedureExecuteResponse<IReadOnlyCollection<CosmosReindexJobRecordWrapper>> response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
-                    async ct => await _acquireReindexJobs.ExecuteAsync(
-                        _containerScope.Value.Scripts,
-                        maximumNumberOfConcurrentJobsAllowed,
-                        (ushort)jobHeartbeatTimeoutThreshold.TotalSeconds,
-                        ct),
-                    cancellationToken);
+            // TODO: Shell for testing
 
-                return response.Resource.Select(cosmosReindexWrapper => new ReindexJobWrapper(cosmosReindexWrapper.JobRecord, WeakETag.FromVersionId(cosmosReindexWrapper.ETag))).ToList();
-            }
-            catch (CosmosException dce)
-            {
-                if (dce.GetSubStatusCode() == HttpStatusCode.RequestEntityTooLarge)
-                {
-                    throw new RequestRateExceededException(null);
-                }
+            var query = _queryFactory.Create<CosmosReindexJobRecordWrapper>(
+                _containerScope.Value,
+                new CosmosQueryContext(
+                    new QueryDefinition(CheckActiveJobsByStatusQuery),
+                    new QueryRequestOptions { PartitionKey = new PartitionKey(CosmosDbReindexConstants.ReindexJobPartitionKey) }));
 
-                _logger.LogError(dce, "Failed to acquire reindex jobs.");
-                throw;
+            FeedResponse<CosmosReindexJobRecordWrapper> result = await query.ExecuteNextAsync();
+            var jobList = new List<ReindexJobWrapper>();
+            CosmosReindexJobRecordWrapper cosmosJob = result.FirstOrDefault();
+            if (cosmosJob != null)
+            {
+                jobList.Add(new ReindexJobWrapper(cosmosJob.JobRecord, WeakETag.FromVersionId(cosmosJob.ETag)));
             }
+
+            return jobList;
         }
 
         public async Task<bool> CheckActiveReindexJobsAsync(CancellationToken cancellationToken)

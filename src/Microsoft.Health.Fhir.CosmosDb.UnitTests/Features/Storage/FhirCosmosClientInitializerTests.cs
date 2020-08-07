@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
 
             _initializer = new FhirCosmosClientInitializer(
                 clientTestProvider,
-                () => new[] { new TestRequestHandler() },
+                Enumerable.Empty<RequestHandler>(),
                 NullLogger<FhirCosmosClientInitializer>.Instance);
 
             _collectionInitializers = new List<ICollectionInitializer> { _collectionInitializer1, _collectionInitializer2 };
@@ -85,14 +85,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             var client = _initializer.CreateCosmosClient(_cosmosDataStoreConfiguration);
 
             Assert.Equal(TimeSpan.FromSeconds(99), client.ClientOptions.MaxRetryWaitTimeOnRateLimitedRequests);
-        }
-
-        [Fact]
-        public void CreateClient_CreatesNewHandlers()
-        {
-            // If new handlers are not created the second call will fail
-            _initializer.CreateCosmosClient(_cosmosDataStoreConfiguration);
-            _initializer.CreateCosmosClient(_cosmosDataStoreConfiguration);
         }
     }
 }

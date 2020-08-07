@@ -23,19 +23,18 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
     {
         private readonly ICosmosClientTestProvider _testProvider;
         private readonly ILogger<FhirCosmosClientInitializer> _logger;
-        private readonly Func<IEnumerable<RequestHandler>> _requestHandlerFactory;
+        private readonly IEnumerable<RequestHandler> _requestHandlers;
 
         public FhirCosmosClientInitializer(
             ICosmosClientTestProvider testProvider,
-            Func<IEnumerable<RequestHandler>> requestHandlerFactory,
+            IEnumerable<RequestHandler> requestHandlers,
             ILogger<FhirCosmosClientInitializer> logger)
         {
             EnsureArg.IsNotNull(testProvider, nameof(testProvider));
-            EnsureArg.IsNotNull(requestHandlerFactory, nameof(requestHandlerFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _testProvider = testProvider;
-            _requestHandlerFactory = requestHandlerFactory;
+            _requestHandlers = requestHandlers;
             _logger = logger;
         }
 
@@ -57,13 +56,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             _logger.LogInformation("Creating CosmosClient instance for {DatabaseId}, Host: {Host}", configuration.DatabaseId, host);
 
-            IEnumerable<RequestHandler> requestHandlers = _requestHandlerFactory.Invoke();
-
             var builder = new CosmosClientBuilder(host, key)
                 .WithConnectionModeDirect(enableTcpConnectionEndpointRediscovery: true)
                 .WithCustomSerializer(new FhirCosmosSerializer())
                 .WithThrottlingRetryOptions(TimeSpan.FromSeconds(configuration.RetryOptions.MaxWaitTimeInSeconds), configuration.RetryOptions.MaxNumberOfRetries)
-                .AddCustomHandlers(requestHandlers.ToArray());
+                .AddCustomHandlers(_requestHandlers.ToArray());
 
             if (configuration.PreferredLocations?.Any() == true)
             {

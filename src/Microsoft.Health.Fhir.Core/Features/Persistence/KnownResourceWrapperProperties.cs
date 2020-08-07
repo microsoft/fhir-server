@@ -38,7 +38,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         public const string Practitioner = "practitioner";
 
         public const string RelatedPerson = "relatedPerson";
-
-        public const string SearchParameterHash = "searchParameterHash";
     }
 }

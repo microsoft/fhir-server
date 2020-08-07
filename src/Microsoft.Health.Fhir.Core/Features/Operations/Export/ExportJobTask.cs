@@ -8,14 +8,12 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Net;
 using System.Threading;
-using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -30,7 +28,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
         private readonly ExportJobConfiguration _exportJobConfiguration;
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
-        private readonly IGroupMemberExtractor _groupMemberExtractor;
         private readonly IResourceToByteArraySerializer _resourceToByteArraySerializer;
         private readonly IExportDestinationClient _exportDestinationClient;
         private readonly ILogger _logger;
@@ -47,7 +44,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory,
             IOptions<ExportJobConfiguration> exportJobConfiguration,
             Func<IScoped<ISearchService>> searchServiceFactory,
-            IGroupMemberExtractor groupMemberExtractor,
             IResourceToByteArraySerializer resourceToByteArraySerializer,
             IExportDestinationClient exportDestinationClient,
             ILogger<ExportJobTask> logger)
@@ -55,7 +51,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
             EnsureArg.IsNotNull(exportJobConfiguration?.Value, nameof(exportJobConfiguration));
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
-            EnsureArg.IsNotNull(groupMemberExtractor, nameof(groupMemberExtractor));
             EnsureArg.IsNotNull(resourceToByteArraySerializer, nameof(resourceToByteArraySerializer));
             EnsureArg.IsNotNull(exportDestinationClient, nameof(exportDestinationClient));
             EnsureArg.IsNotNull(logger, nameof(logger));
@@ -63,7 +58,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
             _exportJobConfiguration = exportJobConfiguration.Value;
             _searchServiceFactory = searchServiceFactory;
-            _groupMemberExtractor = groupMemberExtractor;
             _resourceToByteArraySerializer = resourceToByteArraySerializer;
             _exportDestinationClient = exportDestinationClient;
             _logger = logger;
@@ -143,13 +137,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 _exportJobRecord.FailureDetails = new JobFailureDetails(dce.Message, dce.StatusCode);
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
-            catch (ResourceNotFoundException rnfe)
-            {
-                _logger.LogError(rnfe, "Can't find specified resource. The job will be marked as failed.");
-
-                _exportJobRecord.FailureDetails = new JobFailureDetails(rnfe.Message, HttpStatusCode.BadRequest);
-                await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
-            }
             catch (Exception ex)
             {
                 // The job has encountered an error it cannot recover from.
@@ -203,7 +190,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type, KnownResourceTypes.Patient));
             }
-            else if (_exportJobRecord.ExportType == ExportJobType.All && !string.IsNullOrEmpty(_exportJobRecord.ResourceType))
+            else if (!string.IsNullOrEmpty(_exportJobRecord.ResourceType))
             {
                 queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type, _exportJobRecord.ResourceType));
             }
@@ -216,29 +203,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 SearchResult searchResult = null;
 
                 // Search and process the results.
-                switch (_exportJobRecord.ExportType)
+                using (IScoped<ISearchService> searchService = _searchServiceFactory())
                 {
-                    case ExportJobType.All:
-                    case ExportJobType.Patient:
-                        using (IScoped<ISearchService> searchService = _searchServiceFactory())
-                        {
-                            searchResult = await searchService.Value.SearchAsync(
-                                resourceType: null,
-                                queryParametersList,
-                                cancellationToken);
-                        }
-
-                        break;
-                    case ExportJobType.Group:
-                        searchResult = await GetGroupPatients(
-                            _exportJobRecord.GroupId,
-                            queryParametersList,
-                            _exportJobRecord.QueuedTime,
-                            cancellationToken);
-                        break;
+                    searchResult = await searchService.Value.SearchAsync(
+                        resourceType: null,
+                        queryParametersList,
+                        cancellationToken);
                 }
 
-                if (_exportJobRecord.ExportType == ExportJobType.Patient || _exportJobRecord.ExportType == ExportJobType.Group)
+                if (_exportJobRecord.ExportType == ExportJobType.Patient)
                 {
                     uint resultIndex = 0;
                     foreach (SearchResultEntry result in searchResult.Results)
@@ -271,13 +244,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     break;
                 }
 
-                await ProcessProgressChange(
-                    exportJobConfiguration,
-                    progress,
-                    queryParametersList,
-                    searchResult.ContinuationToken,
-                    forceCommit: _exportJobRecord.ExportType == ExportJobType.Patient || _exportJobRecord.ExportType == ExportJobType.Group,
-                    cancellationToken);
+                await ProcessProgressChange(exportJobConfiguration, progress, queryParametersList, searchResult.ContinuationToken, forceCommit: _exportJobRecord.ExportType == ExportJobType.Patient, cancellationToken);
                 currentBatchId = progress.Page.ToString("d6");
             }
 
@@ -421,23 +388,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 // Update the job record.
                 await UpdateJobRecordAsync(cancellationToken);
-            }
-        }
-
-        private async Task<SearchResult> GetGroupPatients(string groupId, List<Tuple<string, string>> queryParametersList, DateTimeOffset groupMembershipTime, CancellationToken cancellationToken)
-        {
-            if (!queryParametersList.Exists((Tuple<string, string> parameter) => parameter.Item1 == KnownQueryParameterNames.Id || parameter.Item1 == KnownQueryParameterNames.ContinuationToken))
-            {
-                var patientIds = await _groupMemberExtractor.GetGroupPatientIds(groupId, groupMembershipTime, cancellationToken);
-                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Id, string.Join(',', patientIds)));
-            }
-
-            using (IScoped<ISearchService> searchService = _searchServiceFactory())
-            {
-                return await searchService.Value.SearchAsync(
-                               resourceType: null,
-                               queryParametersList,
-                               cancellationToken);
             }
         }
     }

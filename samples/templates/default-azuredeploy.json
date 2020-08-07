@@ -220,8 +220,7 @@
                     "name": "MSDeploy",
                     "dependsOn": [
                         "[variables('appServiceResourceId')]",
-                        "[concat(variables('appServiceResourceId'), '/siteextensions/AspNetCoreRuntime.3.1.x86')]",
-                        "[resourceId('Microsoft.KeyVault/vaults/secrets', variables('serviceName'), 'CosmosDb--Host')]"
+                        "[concat(variables('appServiceResourceId'), '/siteextensions/AspNetCoreRuntime.3.1.x86')]"
                     ],
                     "properties": {
                         "packageUri": "[variables('msdeployPackageUrlToUse')]"

@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
@@ -189,14 +188,10 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .ReplaceService<IStatusRegistryDataStore>();
 
-            // Each CosmosClient needs new instances of a RequestHandler
             services.TypesInSameAssemblyAs<FhirCosmosClientInitializer>()
                 .AssignableTo<RequestHandler>()
-                .Transient()
+                .Singleton()
                 .AsService<RequestHandler>();
-
-            // FhirCosmosClientInitializer is Singleton, so provide a factory that can resolve new RequestHandlers
-            services.AddFactory<IEnumerable<RequestHandler>>();
 
             return fhirServerBuilder;
         }

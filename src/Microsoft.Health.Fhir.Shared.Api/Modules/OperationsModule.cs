@@ -20,10 +20,6 @@ namespace Microsoft.Health.Fhir.Api.Modules
         {
             EnsureArg.IsNotNull(services, nameof(services));
 
-            services.Add<GroupMemberExtractor>()
-                .Singleton()
-                .AsService<IGroupMemberExtractor>();
-
             services.Add<ExportJobTask>()
                 .Transient()
                 .AsSelf();
