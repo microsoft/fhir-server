@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.Primitives;
@@ -108,7 +109,9 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Resources.Bundle
             rawBundle.Id = bundle.Id = id;
             rawBundle.Type = bundle.Type = BundleType.Searchset;
             rawBundle.Entry = new List<EntryComponent>();
+            rawBundle.Total = resources.Count();
             bundle.Entry = new List<EntryComponent>();
+            bundle.Total = resources.Count();
 
             foreach (var resource in resources)
             {

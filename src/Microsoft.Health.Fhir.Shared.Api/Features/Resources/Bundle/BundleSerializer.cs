@@ -30,12 +30,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 writer.WriteString("type", bundle.Type?.GetLiteral());
 
                 SerializeLinks();
-                SerializeEntries();
 
                 if (bundle.Total.HasValue)
                 {
                     writer.WriteNumber("total", bundle.Total.Value);
                 }
+
+                SerializeEntries();
 
                 writer.WriteEndObject();
                 await writer.FlushAsync();
