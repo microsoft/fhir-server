@@ -7,6 +7,7 @@ using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -67,11 +68,16 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             IOptions<OperationsConfiguration> optionsOperationConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
             optionsOperationConfiguration.Value.Returns(operationConfig);
 
+            var features = new FeatureConfiguration();
+            IOptions<FeatureConfiguration> optionsFeatures = Substitute.For<IOptions<FeatureConfiguration>>();
+            optionsFeatures.Value.Returns(features);
+
             return new ExportController(
                 _mediator,
                 _fhirRequestContextAccessor,
                 _urlResolver,
                 optionsOperationConfiguration,
+                optionsFeatures,
                 NullLogger<ExportController>.Instance);
         }
     }
