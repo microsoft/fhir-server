@@ -52,10 +52,9 @@ namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Features.Export
                 });
 
             ILogger<ExportJobTask> logger = Substitute.For<ILogger<ExportJobTask>>();
-            string fileHash = "819BBD695AB6608688EBC0B91C988E60B02AC760D2010A863AE82452E9DFCE7E";
 
             ExportAnonymizerFactory factory = new ExportAnonymizerFactory(client, logger);
-            IAnonymizer anonymizer = await factory.CreateAnonymizerAsync("http://dummy", fileHash, CancellationToken.None);
+            IAnonymizer anonymizer = await factory.CreateAnonymizerAsync("http://dummy", CancellationToken.None);
 
             Assert.NotNull(anonymizer);
         }
@@ -75,7 +74,7 @@ namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Features.Export
             ILogger<ExportJobTask> logger = Substitute.For<ILogger<ExportJobTask>>();
 
             ExportAnonymizerFactory factory = new ExportAnonymizerFactory(client, logger);
-            _ = await Assert.ThrowsAsync<FailedToParseAnonymizationConfigurationException>(() => factory.CreateAnonymizerAsync("http://dummy", string.Empty, CancellationToken.None));
+            _ = await Assert.ThrowsAsync<FailedToParseAnonymizationConfigurationException>(() => factory.CreateAnonymizerAsync("http://dummy", CancellationToken.None));
         }
 
         [Fact]
@@ -91,7 +90,7 @@ namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Features.Export
             ILogger<ExportJobTask> logger = Substitute.For<ILogger<ExportJobTask>>();
 
             ExportAnonymizerFactory factory = new ExportAnonymizerFactory(client, logger);
-            _ = await Assert.ThrowsAsync<AnonymizationConfigurationNotFoundException>(() => factory.CreateAnonymizerAsync("http://dummy", string.Empty, CancellationToken.None));
+            _ = await Assert.ThrowsAsync<AnonymizationConfigurationNotFoundException>(() => factory.CreateAnonymizerAsync("http://dummy", CancellationToken.None));
         }
 
         [Fact]
@@ -109,7 +108,7 @@ namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Features.Export
             ILogger<ExportJobTask> logger = Substitute.For<ILogger<ExportJobTask>>();
 
             ExportAnonymizerFactory factory = new ExportAnonymizerFactory(client, logger);
-            _ = await Assert.ThrowsAsync<AnonymizationConfigurationHashValueNotMatchException>(() => factory.CreateAnonymizerAsync("http://dummy", "InvalidValue", CancellationToken.None));
+            _ = await Assert.ThrowsAsync<AnonymizationConfigurationHashValueNotMatchException>(() => factory.CreateAnonymizerAsync("http://dummy", CancellationToken.None));
         }
     }
 }

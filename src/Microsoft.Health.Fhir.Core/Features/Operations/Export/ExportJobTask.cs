@@ -158,9 +158,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 _exportJobRecord.FailureDetails = new JobFailureDetails(ex.Message, HttpStatusCode.BadRequest);
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
-            catch (AnonymizationConfigurationHashValueNotMatchException ex)
+            catch (AnonymizationConfigurationFetchException ex)
             {
-                _logger.LogError(ex, "Anonymization configuration file hash value not match. The job will be marked as failed.");
+                _logger.LogError(ex, "Failed to fetch anonymization configuration file. The job will be marked as failed.");
 
                 _exportJobRecord.FailureDetails = new JobFailureDetails(ex.Message, HttpStatusCode.BadRequest);
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);

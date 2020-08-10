@@ -52,6 +52,11 @@ namespace Microsoft.Health.Fhir.Azure
             CloudBlob blob = container.GetBlobReference(blobName);
             if (await blob.ExistsAsync(cancellationToken))
             {
+                if (CheckConfigurationIsTooLarge(blob))
+                {
+                    throw new AnonymizationConfigurationFetchException("Anonymization configuration is too large > 1MB.");
+                }
+
                 if (string.IsNullOrEmpty(eTag))
                 {
                     await blob.DownloadToStreamAsync(targetStream, cancellationToken);
@@ -65,9 +70,9 @@ namespace Microsoft.Health.Fhir.Azure
                     {
                         await blob.DownloadToStreamAsync(targetStream, accessCondition: condition, blobRequestOptions, operationContext, cancellationToken);
                     }
-                    catch (FormatException ex)
+                    catch (StorageException ex)
                     {
-                        throw new AnonymizationConfigurationFetchException($"Etag format is invalid: {eTag}", ex);
+                        throw new AnonymizationConfigurationFetchException(ex.Message, ex);
                     }
                 }
             }
@@ -85,6 +90,11 @@ namespace Microsoft.Health.Fhir.Azure
             }
 
             return _blobClient;
+        }
+
+        private bool CheckConfigurationIsTooLarge(CloudBlob blob)
+        {
+            return blob.Properties.Length > 1 * 1024 * 1024; // Max content length is 1 MB
         }
     }
 }
