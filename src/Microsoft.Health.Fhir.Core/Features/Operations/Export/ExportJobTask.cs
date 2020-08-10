@@ -182,6 +182,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _exportJobRecord.EndTime = Clock.UtcNow;
 
             await UpdateJobRecordAsync(cancellationToken);
+            _logger.LogInformation($"Export job completed. Id: {_exportJobRecord.Id}, Queued Time: {_exportJobRecord.QueuedTime}, End Time: {_exportJobRecord.EndTime}, IsAnonymizedExport: {IsAnonymizedExportJob()}");
         }
 
         private async Task UpdateJobRecordAsync(CancellationToken cancellationToken)
@@ -266,8 +267,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     }
                 }
 
-                bool needToAnonymizeResource = !string.IsNullOrEmpty(_exportJobRecord.AnonymizationConfigurationLocation);
-                if (needToAnonymizeResource)
+                if (IsAnonymizedExportJob())
                 {
                     string configurationWithEtag =
                         $"{_exportJobRecord.AnonymizationConfigurationLocation}:{_exportJobRecord.AnonymizationConfigurationFileETag}";
@@ -427,6 +427,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 // Update the job record.
                 await UpdateJobRecordAsync(cancellationToken);
             }
+        }
+
+        private bool IsAnonymizedExportJob()
+        {
+            return !string.IsNullOrEmpty(_exportJobRecord.AnonymizationConfigurationLocation);
         }
     }
 }
