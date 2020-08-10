@@ -16,12 +16,12 @@ using Microsoft.Health.Fhir.CosmosDb.Configs;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
 {
-    public class CosmosDbStatusRegistryDataStore : IStatusRegistryDataStore
+    public class CosmosDbSearchParameterStatusDataStore : ISearchParameterStatusDataStore
     {
         private readonly Func<IScoped<Container>> _containerScopeFactory;
         private readonly ICosmosQueryFactory _queryFactory;
 
-        public CosmosDbStatusRegistryDataStore(
+        public CosmosDbSearchParameterStatusDataStore(
             Func<IScoped<Container>> containerScopeFactory,
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
             ICosmosQueryFactory queryFactory)
