@@ -11,6 +11,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Client;
@@ -20,31 +21,32 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
 {
     internal class SqlServerStatusRegistryDataStore : IStatusRegistryDataStore
     {
-        private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
+        private readonly Func<IScoped<SqlConnectionWrapperFactory>> _scopedSqlConnectionWrapperFactory;
         private readonly VLatest.UpsertSearchParamsTvpGenerator<List<ResourceSearchParameterStatus>> _updateSearchParamsTvpGenerator;
 
         public SqlServerStatusRegistryDataStore(
-            SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
+            Func<IScoped<SqlConnectionWrapperFactory>> scopedSqlConnectionWrapperFactory,
             VLatest.UpsertSearchParamsTvpGenerator<List<ResourceSearchParameterStatus>> updateSearchParamsTvpGenerator)
         {
-            EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
+            EnsureArg.IsNotNull(scopedSqlConnectionWrapperFactory, nameof(scopedSqlConnectionWrapperFactory));
             EnsureArg.IsNotNull(updateSearchParamsTvpGenerator, nameof(updateSearchParamsTvpGenerator));
 
-            _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
+            _scopedSqlConnectionWrapperFactory = scopedSqlConnectionWrapperFactory;
             _updateSearchParamsTvpGenerator = updateSearchParamsTvpGenerator;
         }
 
         public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses()
         {
-            using (var sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
-            using (var sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+            using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory())
+            using (SqlConnectionWrapper sqlConnectionWrapper = scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapper(true))
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
                 VLatest.GetSearchParamStatuses.PopulateCommand(sqlCommandWrapper);
 
                 var parameterStatuses = new List<ResourceSearchParameterStatus>();
 
                 // TODO: Make cancellation token an input.
-                using (var sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, CancellationToken.None))
+                using (SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, CancellationToken.None))
                 {
                     while (await sqlDataReader.ReadAsync())
                     {
@@ -76,8 +78,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
         {
             EnsureArg.IsNotNull(statuses, nameof(statuses));
 
-            using (SqlConnectionWrapper sqlConnectionWrapper =
-                _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
+            using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory())
+            using (SqlConnectionWrapper sqlConnectionWrapper = scopedSqlConnectionWrapperFactory.Value.ObtainSqlConnectionWrapper(true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
                 VLatest.UpsertSearchParams.PopulateCommand(sqlCommandWrapper, _updateSearchParamsTvpGenerator.Generate(statuses.ToList()));
