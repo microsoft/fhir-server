@@ -10,7 +10,6 @@ using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Features.Security;
 using NSubstitute;
 using Xunit;
-using FhirAudit = Microsoft.Health.Fhir.Api.Features.Audit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
 {
@@ -19,13 +18,13 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         private readonly IClaimsExtractor _claimsExtractor = Substitute.For<IClaimsExtractor>();
         private readonly IAuditHelper _auditHelper = Substitute.For<IAuditHelper>();
 
-        private readonly FhirAudit.AuditMiddleware _auditMiddleware;
+        private readonly AuditMiddleware _auditMiddleware;
 
         private readonly HttpContext _httpContext = new DefaultHttpContext();
 
         public AuditMiddlewareTests()
         {
-            _auditMiddleware = new FhirAudit.AuditMiddleware(
+            _auditMiddleware = new AuditMiddleware(
                 httpContext => Task.CompletedTask,
                 _claimsExtractor,
                 _auditHelper);
