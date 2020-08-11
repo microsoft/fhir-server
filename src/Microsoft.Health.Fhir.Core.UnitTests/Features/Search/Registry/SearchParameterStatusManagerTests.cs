@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
         private static readonly string ResourceQuery = "http://hl7.org/fhir/SearchParameter/Resource-query";
 
         private readonly SearchParameterStatusManager _manager;
-        private readonly IStatusRegistryDataStore _statusRegistryDataStore;
+        private readonly ISearchParameterStatusDataStore _searchParameterStatusDataStore;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly IMediator _mediator;
         private readonly SearchParameterInfo[] _searchParameterInfos;
@@ -38,18 +38,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
 
         public SearchParameterStatusManagerTests()
         {
-            _statusRegistryDataStore = Substitute.For<IStatusRegistryDataStore>();
+            _searchParameterStatusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
             _searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
             _searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
             _mediator = Substitute.For<IMediator>();
 
             _manager = new SearchParameterStatusManager(
-                _statusRegistryDataStore,
+                _searchParameterStatusDataStore,
                 _searchParameterDefinitionManager,
                 _searchParameterSupportResolver,
                 _mediator);
 
-            _statusRegistryDataStore.GetSearchParameterStatuses()
+            _searchParameterStatusDataStore.GetSearchParameterStatuses()
                 .Returns(new[]
                 {
                     new ResourceSearchParameterStatus
@@ -151,7 +151,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
         {
             await _manager.EnsureInitialized();
 
-            await _statusRegistryDataStore
+            await _searchParameterStatusDataStore
                 .DidNotReceive()
                 .UpsertStatuses(Arg.Any<IEnumerable<ResourceSearchParameterStatus>>());
         }

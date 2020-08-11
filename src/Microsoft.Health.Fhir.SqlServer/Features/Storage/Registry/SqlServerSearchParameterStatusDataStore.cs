@@ -19,12 +19,12 @@ using Microsoft.Health.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
 {
-    internal class SqlServerStatusRegistryDataStore : IStatusRegistryDataStore
+    internal class SqlServerSearchParameterStatusDataStore : ISearchParameterStatusDataStore
     {
         private readonly Func<IScoped<SqlConnectionWrapperFactory>> _scopedSqlConnectionWrapperFactory;
         private readonly VLatest.UpsertSearchParamsTvpGenerator<List<ResourceSearchParameterStatus>> _updateSearchParamsTvpGenerator;
 
-        public SqlServerStatusRegistryDataStore(
+        public SqlServerSearchParameterStatusDataStore(
             Func<IScoped<SqlConnectionWrapperFactory>> scopedSqlConnectionWrapperFactory,
             VLatest.UpsertSearchParamsTvpGenerator<List<ResourceSearchParameterStatus>> updateSearchParamsTvpGenerator)
         {

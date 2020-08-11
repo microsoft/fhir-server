@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var definitionManager = new SearchParameterDefinitionManager(modelInfoProvider);
             definitionManager.Start();
 
-            var statusRegistry = new FilebasedStatusRegistryDataStore(
+            var statusRegistry = new FilebasedSearchParameterStatusDataStore(
                 definitionManager,
                 modelInfoProvider);
             var statusManager = new SearchParameterStatusManager(

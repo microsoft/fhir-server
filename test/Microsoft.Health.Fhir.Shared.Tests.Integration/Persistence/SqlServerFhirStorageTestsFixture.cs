@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly IFhirOperationDataStore _fhirOperationDataStore;
         private readonly SqlServerFhirStorageTestHelper _testHelper;
         private readonly SchemaInitializer _schemaInitializer;
-        private readonly FilebasedStatusRegistryDataStore _filebasedStatusRegistryDataStore;
+        private readonly FilebasedSearchParameterStatusDataStore _filebasedSearchParameterStatusDataStore;
 
         public SqlServerFhirStorageTestsFixture()
         {
@@ -61,11 +61,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _schemaInitializer = new SchemaInitializer(config, schemaUpgradeRunner, schemaInformation, NullLogger<SchemaInitializer>.Instance);
 
             var searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance);
-            _filebasedStatusRegistryDataStore = new FilebasedStatusRegistryDataStore(searchParameterDefinitionManager, ModelInfoProvider.Instance);
+            _filebasedSearchParameterStatusDataStore = new FilebasedSearchParameterStatusDataStore(searchParameterDefinitionManager, ModelInfoProvider.Instance);
 
             var securityConfiguration = new SecurityConfiguration { PrincipalClaims = { "oid" } };
 
-            var sqlServerFhirModel = new SqlServerFhirModel(config, _schemaInitializer, searchParameterDefinitionManager, () => _filebasedStatusRegistryDataStore, Options.Create(securityConfiguration), NullLogger<SqlServerFhirModel>.Instance);
+            var sqlServerFhirModel = new SqlServerFhirModel(config, _schemaInitializer, searchParameterDefinitionManager, () => _filebasedSearchParameterStatusDataStore, Options.Create(securityConfiguration), NullLogger<SqlServerFhirModel>.Instance);
 
             var serviceCollection = new ServiceCollection();
             serviceCollection.AddSqlServerTableRowParameterGenerators();
@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             SqlTransactionHandler = new SqlTransactionHandler();
             SqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(config, SqlTransactionHandler, new SqlCommandWrapperFactory());
 
-            SqlServerStatusRegistryDataStore = new SqlServerStatusRegistryDataStore(
+            SqlServerSearchParameterStatusDataStore = new SqlServerSearchParameterStatusDataStore(
                 () => SqlConnectionWrapperFactory.CreateMockScope(),
                 upsertSearchParamsTvpGenerator);
 
@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         internal SqlConnectionWrapperFactory SqlConnectionWrapperFactory { get; }
 
-        internal SqlServerStatusRegistryDataStore SqlServerStatusRegistryDataStore { get; }
+        internal SqlServerSearchParameterStatusDataStore SqlServerSearchParameterStatusDataStore { get; }
 
         public async Task InitializeAsync()
         {
@@ -137,14 +137,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 return SqlTransactionHandler;
             }
 
-            if (serviceType == typeof(IStatusRegistryDataStore))
+            if (serviceType == typeof(ISearchParameterStatusDataStore))
             {
-                return SqlServerStatusRegistryDataStore;
+                return SqlServerSearchParameterStatusDataStore;
             }
 
-            if (serviceType == typeof(FilebasedStatusRegistryDataStore))
+            if (serviceType == typeof(FilebasedSearchParameterStatusDataStore))
             {
-                return _filebasedStatusRegistryDataStore;
+                return _filebasedSearchParameterStatusDataStore;
             }
 
             return null;

@@ -14,19 +14,19 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
 {
-    public class CosmosDbStatusRegistryInitializer : ICollectionUpdater
+    public class CosmosDbSearchParameterStatusInitializer : ICollectionUpdater
     {
-        private readonly IStatusRegistryDataStore _filebasedRegistryDataStore;
+        private readonly ISearchParameterStatusDataStore _filebasedSearchParameterStatusDataStore;
         private readonly ICosmosQueryFactory _queryFactory;
 
-        public CosmosDbStatusRegistryInitializer(
-            FilebasedStatusRegistryDataStore.Resolver filebasedRegistry,
+        public CosmosDbSearchParameterStatusInitializer(
+            FilebasedSearchParameterStatusDataStore.Resolver filebasedRegistry,
             ICosmosQueryFactory queryFactory)
         {
             EnsureArg.IsNotNull(filebasedRegistry, nameof(filebasedRegistry));
             EnsureArg.IsNotNull(queryFactory, nameof(queryFactory));
 
-            _filebasedRegistryDataStore = filebasedRegistry.Invoke();
+            _filebasedSearchParameterStatusDataStore = filebasedRegistry.Invoke();
             _queryFactory = queryFactory;
         }
 
@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
 
             if (!results.Any())
             {
-                var statuses = await _filebasedRegistryDataStore.GetSearchParameterStatuses();
+                var statuses = await _filebasedSearchParameterStatusDataStore.GetSearchParameterStatuses();
 
                 foreach (var batch in statuses.TakeBatch(100))
                 {

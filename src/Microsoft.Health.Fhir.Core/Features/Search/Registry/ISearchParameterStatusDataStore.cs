@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 {
-    public interface IStatusRegistryDataStore
+    public interface ISearchParameterStatusDataStore
     {
         Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses();
 
