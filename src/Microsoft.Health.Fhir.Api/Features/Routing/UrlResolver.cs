@@ -107,43 +107,29 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 
-            var routeName = RouteNames.ReadResource;
-            var routeValues = new RouteValueDictionary
-            {
-                { KnownActionParameterNames.ResourceType, resource.InstanceType },
-                { KnownActionParameterNames.Id, resource.Id },
-            };
-
-            if (includeVersion)
-            {
-                routeName = RouteNames.ReadResourceWithVersionRoute;
-                routeValues.Add(KnownActionParameterNames.Vid, resource.VersionId);
-            }
-
-            var uriString = UrlHelper.RouteUrl(
-                routeName,
-                routeValues,
-                Request.Scheme,
-                Request.Host.Value);
-
-            return new Uri(uriString);
+            return ResolveResourceUrl(resource.Id, resource.InstanceType, resource.VersionId, includeVersion);
         }
 
         public Uri ResolveResourceWrapperUrl(ResourceWrapper resource, bool includeVersion = false)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 
+            return ResolveResourceUrl(resource.ResourceId, resource.ResourceTypeName, resource.Version, includeVersion);
+        }
+
+        private Uri ResolveResourceUrl(string resourceId, string resourceTypeName, string version, bool includeVersion)
+        {
             var routeName = RouteNames.ReadResource;
             var routeValues = new RouteValueDictionary
             {
-                { KnownActionParameterNames.ResourceType, resource.ResourceTypeName },
-                { KnownActionParameterNames.Id, resource.ResourceId },
+                { KnownActionParameterNames.ResourceType, resourceTypeName },
+                { KnownActionParameterNames.Id, resourceId },
             };
 
             if (includeVersion)
             {
                 routeName = RouteNames.ReadResourceWithVersionRoute;
-                routeValues.Add(KnownActionParameterNames.Vid, resource.Version);
+                routeValues.Add(KnownActionParameterNames.Vid, version);
             }
 
             var uriString = UrlHelper.RouteUrl(

@@ -5,9 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Text;
-using System.Text.Json;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Core.Internal;
@@ -123,18 +120,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 Assert.NotNull(actualEntry);
 
                 var raw = actualEntry as RawBundleEntryComponent;
-                Assert.NotNull(raw?.ResourceElement?.JsonDocument);
+                Assert.NotNull(raw?.ResourceElement?.ResourceData);
 
                 Resource resource;
-                using (var ms = new MemoryStream())
-                using (var writer = new Utf8JsonWriter(ms))
-                {
-                    raw.ResourceElement.JsonDocument.WriteTo(writer);
-                    writer.Flush();
-                    var serialized = Encoding.UTF8.GetString(ms.ToArray());
-
-                    resource = new FhirJsonParser().Parse(serialized) as Resource;
-                }
+                resource = new FhirJsonParser().Parse(raw.ResourceElement.ResourceData) as Resource;
 
                 Assert.Equal(expected.Id, resource.Id);
                 Assert.Equal(string.Format(_resourceUrlFormat,  expected.Id), raw.FullUrl);

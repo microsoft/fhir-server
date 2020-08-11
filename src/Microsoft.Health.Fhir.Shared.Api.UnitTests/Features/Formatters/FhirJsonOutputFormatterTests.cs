@@ -14,6 +14,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Api.Features.Formatters;
+using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json.Linq;
 using NSubstitute;
@@ -49,7 +50,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
 
         private bool CanRead(Type modelType, string contentType)
         {
-            var formatter = new FhirJsonOutputFormatter(new FhirJsonSerializer(), new NullLogger<FhirJsonOutputFormatter>(), ArrayPool<char>.Shared);
+            var formatter = new FhirJsonOutputFormatter(new FhirJsonSerializer(), new NullLogger<FhirJsonOutputFormatter>(), ArrayPool<char>.Shared, new BundleSerializer());
 
             var defaultHttpContext = new DefaultHttpContext();
             defaultHttpContext.Request.ContentType = contentType;

@@ -9,16 +9,24 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Hl7.Fhir.Utility;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search;
+using Microsoft.IO;
 
 namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 {
-    public static class BundleSerializer
+    public class BundleSerializer
     {
-        private static readonly JsonWriterOptions WriterOptions = new JsonWriterOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+        private readonly JsonWriterOptions _writerOptions = new JsonWriterOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+        private readonly RecyclableMemoryStreamManager _memoryStreamManager = new RecyclableMemoryStreamManager();
 
-        public static async Task Serialize(Hl7.Fhir.Model.Bundle bundle, Stream outputStream)
+        public BundleSerializer()
         {
-            using (Utf8JsonWriter writer = new Utf8JsonWriter(outputStream, WriterOptions))
+        }
+
+        public async Task Serialize(Hl7.Fhir.Model.Bundle bundle, Stream outputStream)
+        {
+            using (RecyclableMemoryStream ms = new RecyclableMemoryStream(_memoryStreamManager))
+            using (Utf8JsonWriter writer = new Utf8JsonWriter(ms, _writerOptions))
+            using (StreamWriter streamWriter = new StreamWriter(ms))
             {
                 writer.WriteStartObject();
 
@@ -36,10 +44,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     writer.WriteNumber("total", bundle.Total.Value);
                 }
 
-                SerializeEntries();
+                await SerializeEntries();
 
                 writer.WriteEndObject();
                 await writer.FlushAsync();
+
+                ms.WriteTo(outputStream);
 
                 void SerializeMetadata()
                 {
@@ -71,7 +81,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     }
                 }
 
-                void SerializeEntries()
+                async Task SerializeEntries()
                 {
                     if (bundle.Entry?.Any() == true)
                     {
@@ -87,8 +97,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                             }
 
                             writer.WritePropertyName("resource");
-                            rawBundleEntry.ResourceElement.JsonDocument.WriteTo(writer);
-                            rawBundleEntry.ResourceElement.JsonDocument.Dispose();
+                            await writer.FlushAsync();
+
+                            // The Utf8JsonWriter does not support inserting raw json. We can write a JsonDocument, but that involves an extra parse that should be unnecessary.
+                            // Instead, we will track the current position after writing the resource property name, then write a null value, seek back to the position after
+                            // the property name, and use a StreamWriter to write the raw json string in. The WriteNullValue call is necessary for the Utf8JsonWriter to maintain
+                            // a valid state.
+                            var currentStreamPosition = ms.Position;
+                            writer.WriteNullValue();
+                            await writer.FlushAsync();
+                            ms.Seek(currentStreamPosition, SeekOrigin.Begin);
+                            await streamWriter.WriteAsync(rawBundleEntry.ResourceElement.ResourceData);
+                            streamWriter.Flush();
 
                             if (rawBundleEntry?.Search?.Mode != null)
                             {

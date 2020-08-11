@@ -10,12 +10,14 @@ using System.Linq;
 using System.Text.Json;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.IO;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
     public class ResourceDeserializer
     {
         private readonly IReadOnlyDictionary<FhirResourceFormat, Func<string, string, DateTimeOffset, ResourceElement>> _deserializers;
+        private static readonly RecyclableMemoryStreamManager _memoryStreamManager = new RecyclableMemoryStreamManager();
 
         public ResourceDeserializer(IReadOnlyDictionary<FhirResourceFormat, Func<string, string, DateTimeOffset, ResourceElement>> deserializers)
         {
@@ -56,18 +58,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         /// </summary>
         /// <param name="resourceWrapper">Input ResourceWrapper to convert to a JsonDocument</param>
         /// <returns>A <see cref="JsonDocument"/></returns>
-        public static (string, JsonDocument) DeserializeToJsonDocument(ResourceWrapper resourceWrapper)
+        public static string DeserializeToJsonDocument(ResourceWrapper resourceWrapper)
         {
             EnsureArg.IsNotNull(resourceWrapper, nameof(resourceWrapper));
 
             if (resourceWrapper.RawResource.LastUpdatedSet && resourceWrapper.RawResource.VersionSet)
             {
-                return (resourceWrapper.RawResource.Data, JsonDocument.Parse(resourceWrapper.RawResource.Data));
+                return resourceWrapper.RawResource.Data;
             }
 
             var jsonDocument = JsonDocument.Parse(resourceWrapper.RawResource.Data);
 
-            using (var ms = new MemoryStream())
+            using (var ms = new RecyclableMemoryStream(_memoryStreamManager))
             {
                 using (Utf8JsonWriter writer = new Utf8JsonWriter(ms))
                 {
@@ -119,12 +121,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 }
 
                 ms.Position = 0;
-                jsonDocument = JsonDocument.Parse(ms);
 
                 using (var sr = new StreamReader(ms))
                 {
                     ms.Position = 0;
-                    return (sr.ReadToEnd(), jsonDocument);
+                    return sr.ReadToEnd();
                 }
             }
         }

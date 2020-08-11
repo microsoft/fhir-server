@@ -20,6 +20,7 @@ using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Formatters;
+using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
@@ -58,6 +59,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton(jsonSerializer);
             services.AddSingleton(xmlParser);
             services.AddSingleton(xmlSerializer);
+            services.AddSingleton<BundleSerializer>();
 
             FhirPathCompiler.DefaultSymbolTable.AddFhirExtensions();
 

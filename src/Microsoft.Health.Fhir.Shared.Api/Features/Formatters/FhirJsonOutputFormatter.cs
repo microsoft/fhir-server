@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
+using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search;
 using Newtonsoft.Json;
@@ -27,19 +28,23 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
         private readonly FhirJsonSerializer _fhirJsonSerializer;
         private readonly ILogger<FhirJsonOutputFormatter> _logger;
         private readonly IArrayPool<char> _charPool;
+        private readonly BundleSerializer _bundleSerializer;
 
         public FhirJsonOutputFormatter(
             FhirJsonSerializer fhirJsonSerializer,
             ILogger<FhirJsonOutputFormatter> logger,
-            ArrayPool<char> charPool)
+            ArrayPool<char> charPool,
+            BundleSerializer bundleSerializer)
         {
             EnsureArg.IsNotNull(fhirJsonSerializer, nameof(fhirJsonSerializer));
             EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(charPool, nameof(charPool));
+            EnsureArg.IsNotNull(bundleSerializer, nameof(bundleSerializer));
 
             _fhirJsonSerializer = fhirJsonSerializer;
             _logger = logger;
             _charPool = new JsonArrayPool(charPool);
+            _bundleSerializer = bundleSerializer;
 
             SupportedEncodings.Add(Encoding.UTF8);
             SupportedEncodings.Add(Encoding.Unicode);
@@ -71,7 +76,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 
                 if (bundle.Entry.All(x => x is RawBundleEntryComponent))
                 {
-                    await Resources.Bundle.BundleSerializer.Serialize(context.Object as Hl7.Fhir.Model.Bundle, context.HttpContext.Response.Body);
+                    await _bundleSerializer.Serialize(context.Object as Hl7.Fhir.Model.Bundle, context.HttpContext.Response.Body);
                     return;
                 }
             }
