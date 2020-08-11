@@ -97,11 +97,17 @@ function upsertWithHistory(doc, matchVersionId, allowCreate, keepHistory) {
                 // Increment the current version
                 let nextVersion = Number(documentVersion) + 1;
                 if (!isNaN(nextVersion)) {
+                    if (nextVersion !== 1) {
+                        // We assume the version ID is 1 during upsert. If it's not, then set metaSet to false so the service will fill it in to the raw resource.
+                        doc.rawResource.metaSet = false
+                    }
+
                     doc.version = nextVersion.toString();
                 }
                 else {
                     // if version is non-numeric, use a guid
                     doc.version = generateGuid();
+                    doc.rawResource.metaSet = false
                 }
 
                 // If a document was found, copy the self link for replacing the primary record

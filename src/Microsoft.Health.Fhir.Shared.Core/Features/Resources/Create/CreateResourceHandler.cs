@@ -55,9 +55,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
 
             // If an Id is supplied on create it should be removed/ignored
             resource.Id = null;
-            resource.Meta = resource.Meta ?? new Meta();
-            resource.Meta.VersionId = "1";
-            resource.Meta.LastUpdated = Clock.UtcNow;
 
             await _referenceResolver.ResolveReferencesAsync(resource, _referenceIdDictionary, resource.ResourceType.ToString(), cancellationToken);
 

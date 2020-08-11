@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
@@ -86,7 +87,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 {
                     ResourceElement resource = x.ArgAt<ResourceElement>(0);
 
-                    return new ResourceWrapper(resource, rawResourceFactory.Create(resource, keepMeta: false), new ResourceRequest(HttpMethod.Post, "http://fhir"), x.ArgAt<bool>(1), null, null, null);
+                    return new ResourceWrapper(resource, rawResourceFactory.Create(resource, keepMeta: true), new ResourceRequest(HttpMethod.Post, "http://fhir"), x.ArgAt<bool>(1), null, null, null);
                 });
 
             var collection = new ServiceCollection();
@@ -145,7 +146,44 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         }
 
         [Fact]
-        public async Task GivenASavedResource_WhenUpserting_ThenTheExistingResourceIsUpdated()
+        public async Task GivenASavedResource_WhenUpsertIsAnUpdate_ThenTheExistingResourceIsUpdated()
+        {
+            var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
+
+            var newResourceValues = Samples.GetJsonSample("WeightInGrams").ToPoco();
+            newResourceValues.Id = saveResult.Resource.Id;
+
+            var updateResult = await Mediator.UpsertResourceAsync(newResourceValues.ToResourceElement(), WeakETag.FromVersionId(saveResult.Resource.VersionId));
+
+            Assert.NotNull(updateResult);
+            Assert.Equal(SaveOutcomeType.Updated, updateResult.Outcome);
+
+            var wrapper = await _fixture.DataStore.GetAsync(new ResourceKey("Observation", updateResult.Resource.Id), CancellationToken.None);
+
+            Assert.NotNull(wrapper);
+            Assert.False(wrapper.RawResource.MetaSet);
+        }
+
+        [Fact]
+        public async Task GivenAResource_WhenUpserting_ThenTheNewResourceHasMetaSet()
+        {
+            var instant = new DateTimeOffset(DateTimeOffset.Now.Date, TimeSpan.Zero);
+            using (Mock.Property(() => ClockResolver.UtcNowFunc, () => instant))
+            {
+                var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
+
+                Assert.NotNull(saveResult);
+                Assert.Equal(SaveOutcomeType.Created, saveResult.Outcome);
+                Assert.NotNull(saveResult.Resource);
+
+                var wrapper = await _fixture.DataStore.GetAsync(new ResourceKey("Observation", saveResult.Resource.Id), CancellationToken.None);
+                Assert.NotNull(wrapper);
+                Assert.True(wrapper.RawResource.MetaSet);
+            }
+        }
+
+        [Fact]
+        public async Task GivenASavedResource_WhenUpserting_ThenMetaSetIsSetToFalse()
         {
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
 

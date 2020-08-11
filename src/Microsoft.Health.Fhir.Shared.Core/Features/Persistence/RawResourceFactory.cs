@@ -39,17 +39,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
             var versionId = poco.Meta?.VersionId;
 
-            bool versionSet = !string.IsNullOrEmpty(versionId) && keepMeta;
-
             try
             {
-                // Clear meta version and lastUpdated since these are set based on generated values when saving the resource
-                if (!keepMeta && poco.Meta != null)
+                // Clear meta version if keepMeta is false since this is set based on generated values when saving the resource
+                if (poco.Meta != null)
                 {
-                    poco.Meta.VersionId = null;
+                    if (!keepMeta)
+                    {
+                        poco.Meta.VersionId = null;
+                    }
+                    else
+                    {
+                        // Assume it's 1, though it may get changed by the database.
+                        poco.Meta.VersionId = "1";
+                    }
                 }
 
-                return new RawResource(_fhirJsonSerializer.SerializeToString(poco), FhirResourceFormat.Json, versionSet);
+                return new RawResource(_fhirJsonSerializer.SerializeToString(poco), FhirResourceFormat.Json, keepMeta && poco.Meta != null);
             }
             finally
             {
