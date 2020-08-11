@@ -88,6 +88,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 }
             }
 
+            var searchParameterHashValue = SearchHelperUtilities.CalculateSearchParameterHash(parameters.Values);
+            await _mediator.Publish(new SearchParametersHashUpdated(searchParameterHashValue));
+
             await _mediator.Publish(new SearchParametersUpdated(updated));
         }
     }

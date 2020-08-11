@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using System.Net;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Serialization;
 using Microsoft.Health.Fhir.ValueSets;
 using Newtonsoft.Json;
@@ -17,18 +18,31 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         [Fact]
         public void GivenAnObject_WhenSerializingWithEnumLiteral_ThenLiteralIsSerialized()
         {
-            var json = GetJson();
-
-            Assert.Equal("{\"prop1\":\"number\"}", json);
-        }
-
-        private string GetJson()
-        {
             var obj = new
             {
                 Prop1 = SearchParamType.Number,
             };
 
+            var json = GetJson(obj);
+
+            Assert.Equal("{\"prop1\":\"number\"}", json);
+        }
+
+        [Fact]
+        public void GivenAnObject_WhenSerializingWithUnmappableEnumLiteral_ThenLiteralIsSerializedToString()
+        {
+            var obj = new
+            {
+                Prop1 = HttpStatusCode.BadRequest,
+            };
+
+            var json = GetJson(obj);
+
+            Assert.Equal("{\"prop1\":\"BadRequest\"}", json);
+        }
+
+        private string GetJson(object obj)
+        {
             return JsonConvert.SerializeObject(obj, new JsonSerializerSettings
             {
                 ContractResolver = new CamelCasePropertyNamesContractResolver(),

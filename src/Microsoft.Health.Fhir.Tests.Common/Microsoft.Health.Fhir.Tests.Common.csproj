@@ -70,8 +70,10 @@
     <None Remove="TestFiles\Normative\Bundle-Transaction.json" />
     <None Remove="TestFiles\Normative\Bundle-TransactionForRollBack.json" />
     <None Remove="TestFiles\Normative\Bundle-TransactionWithAllValidRoutes.json" />
+    <None Remove="TestFiles\Normative\Bundle-TransactionWithConditionalCreateAndReference.json" />
     <None Remove="TestFiles\Normative\Bundle-TransactionWithConditionalReferenceInResourceBody.json" />
     <None Remove="TestFiles\Normative\Bundle-TransactionWithConditionalReferenceReferringToSameResource.json" />
+    <None Remove="TestFiles\Normative\Bundle-TransactionWithConditionalUpdateAndReference.json" />
     <None Remove="TestFiles\Normative\Bundle-TransactionWithForeignReferenceInResourceBody.json" />
     <None Remove="TestFiles\Normative\Bundle-TransactionWithInvalidProcessingRoutes.json" />
     <None Remove="TestFiles\Normative\Bundle-TransactionWithInvalidResourceType.json" />
@@ -139,8 +141,10 @@
     <None Remove="TestFiles\Stu3\Bundle-Transaction.json" />
     <None Remove="TestFiles\Stu3\Bundle-TransactionForRollBack.json" />
     <None Remove="TestFiles\Stu3\Bundle-TransactionWithAllValidRoutes.json" />
+    <None Remove="TestFiles\Stu3\Bundle-TransactionWithConditionalCreateAndReference.json" />
     <None Remove="TestFiles\Stu3\Bundle-TransactionWithConditionalReferenceInResourceBody.json" />
     <None Remove="TestFiles\Stu3\Bundle-TransactionWithConditionalReferenceReferringToSameResource.json" />
+    <None Remove="TestFiles\Stu3\Bundle-TransactionWithConditionalUpdateAndReference.json" />
     <None Remove="TestFiles\Stu3\Bundle-TransactionWithForeignReferenceInResourceBody.json" />
     <None Remove="TestFiles\Stu3\Bundle-TransactionWithInvalidProcessingRoutes.json" />
     <None Remove="TestFiles\Stu3\Bundle-TransactionWithInvalidResourceType.json" />
@@ -148,7 +152,6 @@
     <None Remove="TestFiles\Stu3\Bundle-TransactionWithMultipleResourcesWithSameFullUrl.json" />
     <None Remove="TestFiles\Stu3\Bundle-TransactionWithPOSTFullUrlMatchesWithPUTRequestUrl.json" />
     <None Remove="TestFiles\Stu3\Bundle-TransactionWithReferenceInResourceBody.json" />
-    <None Remove="TestFiles\Stu3\Bundle-TransactionWithValidBundleEntry.json" />
     <None Remove="TestFiles\Stu3\Bundle-TypeMissing.json" />
     <None Remove="TestFiles\Stu3\DocumentReference-example-002.json" />
     <None Remove="TestFiles\Stu3\DocumentReference-example-003.json" />
@@ -195,15 +198,17 @@
     <EmbeddedResource Include="TestFiles\Normative\Bundle-Batch.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionForRollBack.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithAllValidRoutes.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithConditionalCreateAndReference.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithConditionalReferenceInResourceBody.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithConditionalReferenceReferringToSameResource.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithConditionalUpdateAndReference.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithForeignReferenceInResourceBody.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithInvalidProcessingRoutes.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithInvalidResourceType.json" />
-    <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithForeignReferenceInResourceBody.json" />
-    <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithValidBundleEntry.json" />
-    <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithConditionalReferenceInResourceBody.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithMultipleEntriesModifyingSameResource.json" />
-    <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithConditionalReferenceReferringToSameResource.json" />
-    <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithPOSTFullUrlMatchesWithPUTRequestUrl.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithMultipleResourcesWithSameFullUrl.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithPOSTFullUrlMatchesWithPUTRequestUrl.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithValidBundleEntry.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-Transaction.json" />
     <EmbeddedResource Include="TestFiles\Normative\Observation-For-Patient-f001.json" />
     <EmbeddedResource Include="TestFiles\Normative\ObservationWith1MinuteApgarScore.json" />
@@ -272,9 +277,10 @@
     <EmbeddedResource Include="TestFiles\Stu3\Bundle-TransactionWithReferenceInResourceBody.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Bundle-TransactionWithInvalidResourceType.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Bundle-TransactionWithAllValidRoutes.json" />
-    <EmbeddedResource Include="TestFiles\Stu3\Bundle-TransactionWithValidBundleEntry.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\Bundle-TransactionWithConditionalCreateAndReference.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Bundle-TransactionWithConditionalReferenceInResourceBody.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Bundle-TransactionWithConditionalReferenceReferringToSameResource.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\Bundle-TransactionWithConditionalUpdateAndReference.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Bundle-TransactionWithMultipleEntriesModifyingSameResource.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Bundle-TransactionWithMultipleResourcesWithSameFullUrl.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Bundle-Transaction.json" />
@@ -318,11 +324,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Health.Abstractions" Version="1.0.0-master-20200629-1" />
+    <PackageReference Include="Microsoft.Health.Abstractions" Version="1.0.0-master-20200716-1" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.3.0" />
-    <PackageReference Include="NSubstitute" Version="4.2.1" />
+    <PackageReference Include="NSubstitute" Version="4.2.2" />
     <PackageReference Include="xunit" Version="2.4.1" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="2.4.1" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.4.2" />
   </ItemGroup>
 
   <ItemGroup>

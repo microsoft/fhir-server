@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.Export)]
         [ServiceFilter(typeof(ValidateExportRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.Export)]
-        public async Task<IActionResult> Export([FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since, [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationLocation)] string anonymizationConfigLocation, [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationFileEtag)] string anonymizationConfigFileETag)
+        public async Task<IActionResult> Export([FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since, [FromQuery(Name = KnownQueryParameterNames.Type)] string resourceType, [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationLocation)] string anonymizationConfigLocation, [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationFileEtag)] string anonymizationConfigFileETag)
         {
             CheckIfExportIsEnabled();
 
@@ -90,14 +90,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 CheckIfAnonymizedExportIsEnabled();
             }
 
-            return await SendExportRequest(ExportJobType.All, since, anonymizationConfigLocation: anonymizationConfigLocation, anonymizationConfigFileETag: anonymizationConfigFileETag);
+            return await SendExportRequest(ExportJobType.All, since, resourceType, anonymizationConfigLocation: anonymizationConfigLocation, anonymizationConfigFileETag: anonymizationConfigFileETag);
         }
 
         [HttpGet]
         [Route(KnownRoutes.ExportResourceType)]
         [ServiceFilter(typeof(ValidateExportRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.Export)]
-        public async Task<IActionResult> ExportResourceType([FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since, string typeParameter)
+        public async Task<IActionResult> ExportResourceType([FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since, [FromQuery(Name = KnownQueryParameterNames.Type)] string resourceType, string typeParameter)
         {
             CheckIfExportIsEnabled();
 
@@ -107,14 +107,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new RequestNotValidException(string.Format(Resources.UnsupportedResourceType, typeParameter));
             }
 
-            return await SendExportRequest(ExportJobType.Patient, since);
+            return await SendExportRequest(ExportJobType.Patient, since, resourceType);
         }
 
         [HttpGet]
         [Route(KnownRoutes.ExportResourceTypeById)]
         [ServiceFilter(typeof(ValidateExportRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.Export)]
-        public IActionResult ExportResourceTypeById(string typeParameter, string idParameter)
+        public async Task<IActionResult> ExportResourceTypeById([FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since, [FromQuery(Name = KnownQueryParameterNames.Type)] string resourceType, string typeParameter, string idParameter)
         {
             // Export by ResourceTypeId is supported only for Group resource type.
             if (!string.Equals(typeParameter, ResourceType.Group.ToString(), StringComparison.Ordinal) || string.IsNullOrEmpty(idParameter))
@@ -122,7 +122,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new RequestNotValidException(string.Format(Resources.UnsupportedResourceType, typeParameter));
             }
 
-            return CheckIfExportIsEnabledAndRespond();
+            return await SendExportRequest(ExportJobType.Group, since, resourceType, idParameter);
         }
 
         [HttpGet]

@@ -15,6 +15,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     public class CosmosDbFhirStorageTestHelper : IFhirStorageTestHelper
     {
         private const string ExportJobPartitionKey = "ExportJob";
+        private const string ReindexJobPartitionKey = "ReindexJob";
 
         private readonly Container _documentClient;
         private readonly string _databaseId;
@@ -32,9 +33,24 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public async Task DeleteAllExportJobRecordsAsync(CancellationToken cancellationToken = default)
         {
+            await DeleteAllRecordsAsync(ExportJobPartitionKey, cancellationToken);
+        }
+
+        public async Task DeleteExportJobRecordAsync(string id, CancellationToken cancellationToken = default)
+        {
+            await _documentClient.DeleteItemStreamAsync(id, new PartitionKey(ExportJobPartitionKey), cancellationToken: cancellationToken);
+        }
+
+        public async Task DeleteAllReindexJobRecordsAsync(CancellationToken cancellationToken = default)
+        {
+            await DeleteAllRecordsAsync(ReindexJobPartitionKey, cancellationToken);
+        }
+
+        private async Task DeleteAllRecordsAsync(string partitionKey, CancellationToken cancellationToken)
+        {
             var query = _documentClient.GetItemQueryIterator<JObject>(
                 new QueryDefinition("SELECT doc.id FROM doc"),
-                requestOptions: new QueryRequestOptions { PartitionKey = new PartitionKey(ExportJobPartitionKey), });
+                requestOptions: new QueryRequestOptions { PartitionKey = new PartitionKey(partitionKey), });
 
             while (query.HasMoreResults)
             {
@@ -42,14 +58,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
                 foreach (dynamic doc in documents)
                 {
-                    await _documentClient.DeleteItemStreamAsync((string)doc.id, new PartitionKey(ExportJobPartitionKey), cancellationToken: cancellationToken);
+                    await _documentClient.DeleteItemStreamAsync((string)doc.id, new PartitionKey(partitionKey), cancellationToken: cancellationToken);
                 }
             }
-        }
-
-        public async Task DeleteExportJobRecordAsync(string id, CancellationToken cancellationToken = default)
-        {
-            await _documentClient.DeleteItemStreamAsync(id, new PartitionKey(ExportJobPartitionKey), cancellationToken: cancellationToken);
         }
 
         async Task<object> IFhirStorageTestHelper.GetSnapshotToken()

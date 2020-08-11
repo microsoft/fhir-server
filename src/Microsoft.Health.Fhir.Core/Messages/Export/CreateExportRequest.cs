@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
 {
     public class CreateExportRequest : IRequest<CreateExportResponse>
     {
-        public CreateExportRequest(Uri requestUri, ExportJobType requestType, string resourceType = null, PartialDateTime since = null, string anonymizationConfigurationLocation = null, string anonymizationConfigurationFileETag = null)
+        public CreateExportRequest(Uri requestUri, ExportJobType requestType, string resourceType = null, PartialDateTime since = null, string anonymizationConfigurationLocation = null, string anonymizationConfigurationFileETag = null, string groupId = null)
         {
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
 
@@ -23,6 +23,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
             Since = since;
             AnonymizationConfigurationLocation = anonymizationConfigurationLocation;
             AnonymizationConfigurationFileETag = anonymizationConfigurationFileETag;
+            GroupId = groupId;
         }
 
         public Uri RequestUri { get; }
@@ -36,5 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
         public string AnonymizationConfigurationLocation { get; }
 
         public string AnonymizationConfigurationFileETag { get; }
+
+        public string GroupId { get; }
     }
 }

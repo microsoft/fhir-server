@@ -12,9 +12,7 @@ using EnsureThat;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Azure.Cosmos.Fluent;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
-using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.IO;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
@@ -24,27 +22,20 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
     public class FhirCosmosClientInitializer : ICosmosClientInitializer
     {
         private readonly ICosmosClientTestProvider _testProvider;
-        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly ILogger<FhirCosmosClientInitializer> _logger;
-        private readonly ICosmosResponseProcessor _cosmosResponseProcessor;
-        private readonly IEnumerable<RequestHandler> _requestHandlers;
+        private readonly Func<IEnumerable<RequestHandler>> _requestHandlerFactory;
 
         public FhirCosmosClientInitializer(
             ICosmosClientTestProvider testProvider,
-            IFhirRequestContextAccessor fhirRequestContextAccessor,
-            ICosmosResponseProcessor cosmosResponseProcessor,
-            IEnumerable<RequestHandler> requestHandlers,
+            Func<IEnumerable<RequestHandler>> requestHandlerFactory,
             ILogger<FhirCosmosClientInitializer> logger)
         {
             EnsureArg.IsNotNull(testProvider, nameof(testProvider));
-            EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
-            EnsureArg.IsNotNull(cosmosResponseProcessor, nameof(cosmosResponseProcessor));
+            EnsureArg.IsNotNull(requestHandlerFactory, nameof(requestHandlerFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _testProvider = testProvider;
-            _fhirRequestContextAccessor = fhirRequestContextAccessor;
-            _cosmosResponseProcessor = cosmosResponseProcessor;
-            _requestHandlers = requestHandlers;
+            _requestHandlerFactory = requestHandlerFactory;
             _logger = logger;
         }
 
@@ -53,22 +44,26 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             EnsureArg.IsNotNull(configuration, nameof(configuration));
 
-            _logger.LogInformation("Creating CosmosClient instance for {DatabaseId}", configuration.DatabaseId);
-
             var host = configuration.Host;
             var key = configuration.Key;
 
             if (string.IsNullOrWhiteSpace(host) && string.IsNullOrWhiteSpace(key))
             {
+                _logger.LogWarning("No connection string provided, attempting to connect to local emulator.");
+
                 host = CosmosDbLocalEmulator.Host;
                 key = CosmosDbLocalEmulator.Key;
             }
 
+            _logger.LogInformation("Creating CosmosClient instance for {DatabaseId}, Host: {Host}", configuration.DatabaseId, host);
+
+            IEnumerable<RequestHandler> requestHandlers = _requestHandlerFactory.Invoke();
+
             var builder = new CosmosClientBuilder(host, key)
-                .WithConnectionModeDirect()
+                .WithConnectionModeDirect(enableTcpConnectionEndpointRediscovery: true)
                 .WithCustomSerializer(new FhirCosmosSerializer())
                 .WithThrottlingRetryOptions(TimeSpan.FromSeconds(configuration.RetryOptions.MaxWaitTimeInSeconds), configuration.RetryOptions.MaxNumberOfRetries)
-                .AddCustomHandlers(_requestHandlers.ToArray());
+                .AddCustomHandlers(requestHandlers.ToArray());
 
             if (configuration.PreferredLocations?.Any() == true)
             {
@@ -83,7 +78,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             return builder.Build();
         }
 
-        public Container CreateFhirContainer(CosmosClient client, string databaseId, string collectionId, int? continuationTokenSizeLimitInKb)
+        public Container CreateFhirContainer(CosmosClient client, string databaseId, string collectionId)
         {
             return client.GetContainer(databaseId, collectionId);
         }
@@ -121,7 +116,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                 if (cosmosDataStoreConfiguration.AllowDatabaseCreation)
                 {
-                    _logger.LogDebug("CreateDatabaseIfNotExists {DatabaseId})", cosmosDataStoreConfiguration.DatabaseId);
+                    _logger.LogInformation("CreateDatabaseIfNotExists {DatabaseId}", cosmosDataStoreConfiguration.DatabaseId);
 
                     await client.CreateDatabaseIfNotExistsAsync(
                         cosmosDataStoreConfiguration.DatabaseId,
