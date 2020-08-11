@@ -186,16 +186,5 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new RequestNotValidException(string.Format(Resources.OperationNotEnabled, OperationsConstants.AnonymizedExport));
             }
         }
-
-        /// <summary>
-        /// Currently we don't have any export functionality. We will send the appropriate
-        /// response based on whether export is enabled or not.
-        /// </summary>
-        private FhirResult CheckIfExportIsEnabledAndRespond()
-        {
-            CheckIfExportIsEnabled();
-
-            throw new OperationNotImplementedException(string.Format(Resources.OperationNotImplemented, OperationsConstants.Export));
-        }
     }
 }
