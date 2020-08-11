@@ -38,10 +38,10 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            services.Add<SqlServerStatusRegistryDataStore>()
+            services.Add<SqlServerSearchParameterStatusDataStore>()
                 .Singleton()
                 .AsSelf()
-                .ReplaceService<IStatusRegistryDataStore>();
+                .ReplaceService<ISearchParameterStatusDataStore>();
 
             services.Add<SqlServerFhirModel>()
                 .Singleton()
