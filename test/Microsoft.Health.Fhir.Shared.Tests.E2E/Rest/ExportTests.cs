@@ -32,20 +32,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _client = fixture.HttpClient;
         }
 
-        [Fact]
-        public async Task GivenExportIsEnabled_WhenRequestingExportForResourceWithId_ThenServerShouldReturnMethodNotAllowed()
-        {
-            using HttpRequestMessage request = GenerateExportRequest("Group/id/$export");
-
-            using HttpResponseMessage response = await _client.SendAsync(request);
-
-            Assert.Equal(HttpStatusCode.MethodNotAllowed, response.StatusCode);
-        }
-
         [Theory]
         [InlineData("Observation/$export")]
         [InlineData("Patient/id/$export")]
-        public async Task GivenExportIsEnabled_WhenRequestingExportByTypeWithAnInvalidResourceTyep_ThenServerShouldReturnBadRequest(string path)
+        public async Task GivenExportIsEnabled_WhenRequestingExportByTypeWithAnInvalidResourceType_ThenServerShouldReturnBadRequest(string path)
         {
             using HttpRequestMessage request = GenerateExportRequest(path);
 
@@ -57,6 +47,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Theory]
         [InlineData("$export")]
         [InlineData("Patient/$export")]
+        [InlineData("Group/123456/$export")]
         public async Task GivenExportIsEnabled_WhenRequestingExportWithCorrectHeaders_ThenServerShouldReturnAcceptedAndNonEmptyContentLocationHeader(string path)
         {
             using HttpRequestMessage request = GenerateExportRequest(path);
@@ -74,6 +65,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Theory]
         [InlineData("$export")]
         [InlineData("Patient/$export")]
+        [InlineData("Group/123456/$export")]
         public async Task GivenExportIsEnabled_WhenRequestingExportWithUnsupportedQueryParam_ThenServerShouldReturnBadRequest(string path)
         {
             var queryParam = new Dictionary<string, string>()
@@ -90,6 +82,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Theory]
         [InlineData("$export")]
         [InlineData("Patient/$export")]
+        [InlineData("Group/123456/$export")]
         public async Task GivenExportIsEnabled_WhenRequestingExportWithSinceQueryParam_ThenServerShouldReturnAcceptedAndNonEmptyContentLocationHeader(string path)
         {
             var queryParam = new Dictionary<string, string>()

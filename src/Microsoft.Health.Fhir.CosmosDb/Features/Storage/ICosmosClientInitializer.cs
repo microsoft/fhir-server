@@ -46,8 +46,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <param name="client">The Cosmos Client</param>
         /// <param name="databaseId">The database Id</param>
         /// <param name="collectionId">The collection Id</param>
-        /// <param name="continuationTokenSizeLimitInKb">The max continuation token size</param>
         /// <returns>A <see cref="Container"/> instance</returns>
-        Container CreateFhirContainer(CosmosClient client, string databaseId, string collectionId, int? continuationTokenSizeLimitInKb);
+        Container CreateFhirContainer(CosmosClient client, string databaseId, string collectionId);
     }
 }

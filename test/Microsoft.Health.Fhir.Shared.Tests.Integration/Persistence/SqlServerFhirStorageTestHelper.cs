@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     }
                 });
 
-            // TODO: re-add forceIncrementalSchemaUpgrade test functionality
+            schemaInitializer.Initialize(forceIncrementalSchemaUpgrade);
             _sqlServerFhirModel.Start();
         }
 
@@ -129,6 +129,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 await command.Connection.OpenAsync(cancellationToken);
                 await command.ExecuteNonQueryAsync(cancellationToken);
             }
+        }
+
+        public Task DeleteAllReindexJobRecordsAsync(CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
         }
 
         async Task<object> IFhirStorageTestHelper.GetSnapshotToken()
