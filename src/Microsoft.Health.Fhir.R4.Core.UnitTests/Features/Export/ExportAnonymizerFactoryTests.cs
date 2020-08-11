@@ -92,23 +92,5 @@ namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Features.Export
             ExportAnonymizerFactory factory = new ExportAnonymizerFactory(client, logger);
             _ = await Assert.ThrowsAsync<AnonymizationConfigurationNotFoundException>(() => factory.CreateAnonymizerAsync("http://dummy", CancellationToken.None));
         }
-
-        [Fact]
-        public async Task GivenInvalidFileHashValue_WhenCreate_CorrectExceptionShouldBeThrow()
-        {
-            IArtifactProvider client = Substitute.For<IArtifactProvider>();
-            client.FetchAsync(Arg.Any<string>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>()).Returns<Task>(
-                x =>
-                {
-                    Stream target = x.ArgAt<Stream>(1);
-                    target.Write(Encoding.UTF8.GetBytes(SampleConfiguration), 0, SampleConfiguration.Length);
-                    return Task.CompletedTask;
-                });
-
-            ILogger<ExportJobTask> logger = Substitute.For<ILogger<ExportJobTask>>();
-
-            ExportAnonymizerFactory factory = new ExportAnonymizerFactory(client, logger);
-            _ = await Assert.ThrowsAsync<AnonymizationConfigurationHashValueNotMatchException>(() => factory.CreateAnonymizerAsync("http://dummy", CancellationToken.None));
-        }
     }
 }

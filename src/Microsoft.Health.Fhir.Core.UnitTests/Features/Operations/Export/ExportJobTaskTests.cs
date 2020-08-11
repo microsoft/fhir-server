@@ -1630,9 +1630,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         }
 
         [Fact]
-        public async Task GivenAnInvalidConfigurationFileHash_WhenExecuted_ThenJobStatusShouldBeUpdatedToFailed()
+        public async Task GivenAnUnKnownExceptionThrowFromAnonymizerFactory_WhenExecuted_ThenJobStatusShouldBeUpdatedToFailed()
         {
-            string expectedError = "config file hash value not match";
+            // this should not happen, thise test is to make sure if any unexpected exception happen, would not block export worker.
+            string expectedError = "Unknown Error.";
 
             // Setup export destination client.
             var exportJobRecordWithOneResource = new ExportJobRecord(
@@ -1648,7 +1649,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithOneResource);
             IAnonymizerFactory factory = Substitute.For<IAnonymizerFactory>();
-            factory.CreateAnonymizerAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns<Task<IAnonymizer>>(_ => throw new AnonymizationConfigurationHashValueNotMatchException(expectedError));
+            factory.CreateAnonymizerAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns<Task<IAnonymizer>>(_ => throw new InvalidOperationException());
 
             var exportJobTask = new ExportJobTask(
                 () => _fhirOperationDataStore.CreateMockScope(),
@@ -1666,7 +1667,50 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.NotNull(_lastExportJobOutcome);
             Assert.Equal(OperationStatus.Failed, _lastExportJobOutcome.JobRecord.Status);
             Assert.Equal(expectedError, _lastExportJobOutcome.JobRecord.FailureDetails.FailureReason);
-            Assert.Equal(HttpStatusCode.BadRequest, _lastExportJobOutcome.JobRecord.FailureDetails.FailureStatusCode);
+            Assert.Equal(HttpStatusCode.InternalServerError, _lastExportJobOutcome.JobRecord.FailureDetails.FailureStatusCode);
+        }
+
+        [Fact]
+        public async Task GivenAnUnKnownExceptionThrowFromAnonymizer_WhenExecuted_ThenJobStatusShouldBeUpdatedToFailed()
+        {
+            // this should not happen, thise test is to make sure if any unexpected exception happen, would not block export worker.
+            string expectedError = "Unknown Error.";
+
+            // Setup export destination client.
+            var exportJobRecordWithOneResource = new ExportJobRecord(
+               new Uri("https://localhost/ExportJob/"),
+               ExportJobType.All,
+               null,
+               "hash",
+               storageAccountConnectionHash: string.Empty,
+               storageAccountUri: _exportJobConfiguration.StorageAccountUri,
+               maximumNumberOfResourcesPerQuery: 1,
+               numberOfPagesPerCommit: _exportJobConfiguration.NumberOfPagesPerCommit,
+               anonymizationConfigurationLocation: "anonymization-config-file");
+
+            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithOneResource);
+            IAnonymizer anonymizer = Substitute.For<IAnonymizer>();
+            anonymizer.Anonymize(Arg.Any<ResourceElement>()).Returns<ResourceElement>(_ => throw new InvalidOperationException());
+            IAnonymizerFactory factory = Substitute.For<IAnonymizerFactory>();
+            factory.CreateAnonymizerAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns<Task<IAnonymizer>>(_ => Task.FromResult(anonymizer));
+
+            var exportJobTask = new ExportJobTask(
+                () => _fhirOperationDataStore.CreateMockScope(),
+                Options.Create(_exportJobConfiguration),
+                () => _searchService.CreateMockScope(),
+                _groupMemberExtractor,
+                _resourceToByteArraySerializer,
+                _inMemoryDestinationClient,
+                _resourceDeserializer,
+                factory.CreateMockScope(),
+                NullLogger<ExportJobTask>.Instance);
+
+            await exportJobTask.ExecuteAsync(exportJobRecordWithOneResource, _weakETag, _cancellationToken);
+
+            Assert.NotNull(_lastExportJobOutcome);
+            Assert.Equal(OperationStatus.Failed, _lastExportJobOutcome.JobRecord.Status);
+            Assert.Equal(expectedError, _lastExportJobOutcome.JobRecord.FailureDetails.FailureReason);
+            Assert.Equal(HttpStatusCode.InternalServerError, _lastExportJobOutcome.JobRecord.FailureDetails.FailureStatusCode);
         }
 
         private ExportJobRecord CreateExportJobRecord(
