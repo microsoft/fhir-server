@@ -161,9 +161,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return new ExportResult(response.StatusCode);
         }
 
-        private async Task<IActionResult> SendExportRequest(ExportJobType exportType, PartialDateTime since, string resourceType = null, string anonymizationConfigLocation = null, string anonymizationConfigFileETag = null)
+        private async Task<IActionResult> SendExportRequest(ExportJobType exportType, PartialDateTime since, string resourceType = null, string groupId = null, string anonymizationConfigLocation = null, string anonymizationConfigFileETag = null)
         {
-            CreateExportResponse response = await _mediator.ExportAsync(_fhirRequestContextAccessor.FhirRequestContext.Uri, exportType, resourceType, since, anonymizationConfigLocation, anonymizationConfigFileETag, HttpContext.RequestAborted);
+            CreateExportResponse response = await _mediator.ExportAsync(_fhirRequestContextAccessor.FhirRequestContext.Uri, exportType, resourceType, since, groupId, anonymizationConfigLocation, anonymizationConfigFileETag, HttpContext.RequestAborted);
 
             var exportResult = ExportResult.Accepted();
             exportResult.SetContentLocationHeader(_urlResolver, OperationsConstants.Export, response.JobId);

@@ -22,9 +22,9 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             ExportJobType requestType,
             string resourceType,
             PartialDateTime since,
+            string groupId,
             string anonymizationConfigLocation,
             string anonymizationConfigFileETag,
-            string groupId,
             CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));

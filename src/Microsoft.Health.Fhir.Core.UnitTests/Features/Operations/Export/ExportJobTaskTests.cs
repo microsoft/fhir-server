@@ -1123,6 +1123,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 _groupMemberExtractor,
                 _resourceToByteArraySerializer,
                 _inMemoryDestinationClient,
+                _resourceDeserializer,
+                null,
                 NullLogger<ExportJobTask>.Instance);
 
             // Reseting the number of calls so that the ressource id of the Patient is the same ('2') as it was when the crash happened.
@@ -1361,6 +1363,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 _groupMemberExtractor,
                 _resourceToByteArraySerializer,
                 _inMemoryDestinationClient,
+                _resourceDeserializer,
+                null,
                 NullLogger<ExportJobTask>.Instance);
 
             // Reseting the number of calls so that the ressource id of the Patient is the same ('2') as it was when the crash happened.
@@ -1472,31 +1476,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal("test", _exportJobRecord.FailureDetails.FailureReason);
         }
 
-        private ExportJobRecord CreateExportJobRecord(
-            string requestEndpoint = "https://localhost/ExportJob/",
-            ExportJobType exportJobType = ExportJobType.All,
-            string resourceType = null,
-            string hash = "hash",
-            PartialDateTime since = null,
-            string groupId = null,
-            string storageAccountConnectionHash = "",
-            string storageAccountUri = null,
-            uint maximumNumberOfResourcesPerQuery = 0,
-            uint numberOfPagesPerCommit = 0)
-        {
-            return new ExportJobRecord(
-                new Uri(requestEndpoint),
-                exportJobType,
-                resourceType,
-                hash,
-                since: since,
-                groupId: groupId,
-                storageAccountConnectionHash: storageAccountConnectionHash,
-                storageAccountUri: storageAccountUri == null ? _exportJobConfiguration.StorageAccountUri : storageAccountUri,
-                maximumNumberOfResourcesPerQuery: maximumNumberOfResourcesPerQuery == 0 ? _exportJobConfiguration.MaximumNumberOfResourcesPerQuery : maximumNumberOfResourcesPerQuery,
-                numberOfPagesPerCommit: numberOfPagesPerCommit == 0 ? _exportJobConfiguration.NumberOfPagesPerCommit : numberOfPagesPerCommit);
-        }
-
         [Fact]
         public async Task GivenAnonymizedExportJob_WhenExecuted_ThenItShouldExportAllAnonymizedResources()
         {
@@ -1518,7 +1497,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // First search should not have continuation token in the list of query parameters.
             _searchService.SearchAsync(
                 Arg.Any<string>(),
-                Arg.Is(CreateQueryParametersExpression()),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
                 _cancellationToken)
                 .Returns(x =>
                 {
@@ -1555,6 +1534,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 () => _fhirOperationDataStore.CreateMockScope(),
                 Options.Create(_exportJobConfiguration),
                 () => _searchService.CreateMockScope(),
+                _groupMemberExtractor,
                 _resourceToByteArraySerializer,
                 inMemoryDestinationClient,
                 _resourceDeserializer,
@@ -1594,6 +1574,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 () => _fhirOperationDataStore.CreateMockScope(),
                 Options.Create(_exportJobConfiguration),
                 () => _searchService.CreateMockScope(),
+                _groupMemberExtractor,
                 _resourceToByteArraySerializer,
                 _inMemoryDestinationClient,
                 _resourceDeserializer,
@@ -1633,6 +1614,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 () => _fhirOperationDataStore.CreateMockScope(),
                 Options.Create(_exportJobConfiguration),
                 () => _searchService.CreateMockScope(),
+                _groupMemberExtractor,
                 _resourceToByteArraySerializer,
                 _inMemoryDestinationClient,
                 _resourceDeserializer,
@@ -1672,6 +1654,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 () => _fhirOperationDataStore.CreateMockScope(),
                 Options.Create(_exportJobConfiguration),
                 () => _searchService.CreateMockScope(),
+                _groupMemberExtractor,
                 _resourceToByteArraySerializer,
                 _inMemoryDestinationClient,
                 _resourceDeserializer,
@@ -1684,6 +1667,31 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(OperationStatus.Failed, _lastExportJobOutcome.JobRecord.Status);
             Assert.Equal(expectedError, _lastExportJobOutcome.JobRecord.FailureDetails.FailureReason);
             Assert.Equal(HttpStatusCode.BadRequest, _lastExportJobOutcome.JobRecord.FailureDetails.FailureStatusCode);
+        }
+
+        private ExportJobRecord CreateExportJobRecord(
+            string requestEndpoint = "https://localhost/ExportJob/",
+            ExportJobType exportJobType = ExportJobType.All,
+            string resourceType = null,
+            string hash = "hash",
+            PartialDateTime since = null,
+            string groupId = null,
+            string storageAccountConnectionHash = "",
+            string storageAccountUri = null,
+            uint maximumNumberOfResourcesPerQuery = 0,
+            uint numberOfPagesPerCommit = 0)
+        {
+            return new ExportJobRecord(
+                new Uri(requestEndpoint),
+                exportJobType,
+                resourceType,
+                hash,
+                since: since,
+                groupId: groupId,
+                storageAccountConnectionHash: storageAccountConnectionHash,
+                storageAccountUri: storageAccountUri == null ? _exportJobConfiguration.StorageAccountUri : storageAccountUri,
+                maximumNumberOfResourcesPerQuery: maximumNumberOfResourcesPerQuery == 0 ? _exportJobConfiguration.MaximumNumberOfResourcesPerQuery : maximumNumberOfResourcesPerQuery,
+                numberOfPagesPerCommit: numberOfPagesPerCommit == 0 ? _exportJobConfiguration.NumberOfPagesPerCommit : numberOfPagesPerCommit);
         }
 
         private SearchResult CreateSearchResult(IEnumerable<SearchResultEntry> resourceWrappers = null, string continuationToken = null)
