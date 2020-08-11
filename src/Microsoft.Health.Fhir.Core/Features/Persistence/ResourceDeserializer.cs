@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         {
             EnsureArg.IsNotNull(resourceWrapper, nameof(resourceWrapper));
 
-            if (resourceWrapper.RawResource.LastUpdatedSet && resourceWrapper.RawResource.VersionSet)
+            if (resourceWrapper.RawResource.MetaSet)
             {
                 return resourceWrapper.RawResource.Data;
             }
@@ -84,20 +84,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
                             writer.WriteStartObject("meta");
 
+                            writer.WriteString("lastUpdated", resourceWrapper.LastModified);
+                            writer.WriteString("versionId", resourceWrapper.Version);
+
                             foreach (var metaEntry in current.Value.EnumerateObject())
                             {
-                                if (metaEntry.Name == "lastUpdated")
-                                {
-                                    writer.WriteString("lastUpdated", resourceWrapper.LastModified);
-                                }
-                                else if (metaEntry.Name == "versionId")
-                                {
-                                    writer.WriteString("versionId", resourceWrapper.Version);
-                                }
-                                else
-                                {
-                                    metaEntry.WriteTo(writer);
-                                }
+                                metaEntry.WriteTo(writer);
                             }
 
                             writer.WriteEndObject();

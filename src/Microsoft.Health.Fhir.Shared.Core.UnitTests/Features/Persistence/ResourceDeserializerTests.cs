@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
         [Fact]
         public void GivenARawResourceOfUnknownType_WhenDeserializing_ThenANotSupportedExceptionIsThrown()
         {
-            var raw = new RawResource("{}", FhirResourceFormat.Unknown, versionSet: false, lastUpdatedSet: false);
+            var raw = new RawResource("{}", FhirResourceFormat.Unknown, metaSet: false);
             var wrapper = new ResourceWrapper("id1", "version1", "Observation", raw, new ResourceRequest(HttpMethod.Post, "http://fhir"), Clock.UtcNow, false, null, null, null);
 
             Assert.Throws<NotSupportedException>(() => Deserializers.ResourceDeserializer.Deserialize(wrapper));

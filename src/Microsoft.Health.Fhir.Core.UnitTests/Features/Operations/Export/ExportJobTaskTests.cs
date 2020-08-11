@@ -1496,7 +1496,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                                 id,
                                 "1",
                                 type,
-                                new RawResource("data", Core.Models.FhirResourceFormat.Json, versionSet: false, lastUpdatedSet: false),
+                                new RawResource("data", Core.Models.FhirResourceFormat.Json, metaSet: false),
                                 null,
                                 DateTimeOffset.MinValue,
                                 false,

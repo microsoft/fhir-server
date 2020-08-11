@@ -38,27 +38,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             var poco = resource.ToPoco<Resource>();
 
             var versionId = poco.Meta?.VersionId;
-            var lastUpdated = poco.Meta?.LastUpdated;
 
             bool versionSet = !string.IsNullOrEmpty(versionId) && keepMeta;
-            bool lastUpdatedSet = lastUpdated != null && keepMeta;
+
             try
             {
                 // Clear meta version and lastUpdated since these are set based on generated values when saving the resource
                 if (!keepMeta && poco.Meta != null)
                 {
                     poco.Meta.VersionId = null;
-                    poco.Meta.LastUpdated = null;
                 }
 
-                return new RawResource(_fhirJsonSerializer.SerializeToString(poco), FhirResourceFormat.Json, versionSet, lastUpdatedSet);
+                return new RawResource(_fhirJsonSerializer.SerializeToString(poco), FhirResourceFormat.Json, versionSet);
             }
             finally
             {
                 if (!keepMeta && poco.Meta != null)
                 {
                     poco.Meta.VersionId = versionId;
-                    poco.Meta.LastUpdated = lastUpdated;
                 }
             }
         }

@@ -201,7 +201,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             key.Id,
                             version.ToString(CultureInfo.InvariantCulture),
                             key.ResourceType,
-                            new RawResource(rawResource, FhirResourceFormat.Json, versionSet: false, lastUpdatedSet: false),
+                            new RawResource(rawResource, FhirResourceFormat.Json, metaSet: false),
                             null,
                             new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
                             isDeleted,

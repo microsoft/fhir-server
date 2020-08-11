@@ -138,8 +138,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                     new RawResource(
                         "data",
                         FhirResourceFormat.Unknown,
-                        versionSet: false,
-                        lastUpdatedSet: false),
+                        metaSet: false),
                     new ResourceRequest("POST"),
                     DateTimeOffset.UtcNow,
                     false,
