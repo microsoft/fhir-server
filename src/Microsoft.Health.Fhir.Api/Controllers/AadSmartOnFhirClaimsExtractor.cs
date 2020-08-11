@@ -9,7 +9,7 @@ using System.Linq;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
-using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Core.Features.Security;
 
 namespace Microsoft.Health.Fhir.Api.Controllers
 {

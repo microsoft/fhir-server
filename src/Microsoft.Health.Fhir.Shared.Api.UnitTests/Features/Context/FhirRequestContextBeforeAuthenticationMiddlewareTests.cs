@@ -7,7 +7,7 @@ using System.Net;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.Health.Fhir.Api.Features.Audit;
+using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using NSubstitute;

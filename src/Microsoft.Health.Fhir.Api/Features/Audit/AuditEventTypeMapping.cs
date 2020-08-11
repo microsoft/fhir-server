@@ -10,8 +10,9 @@ using EnsureThat;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
+using Microsoft.Health.Api.Extensions;
+using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Api.Extensions;
 
 namespace Microsoft.Health.Fhir.Api.Features.Audit
 {

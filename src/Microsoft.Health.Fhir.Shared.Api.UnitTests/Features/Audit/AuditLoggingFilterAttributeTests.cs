@@ -10,13 +10,14 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Health.Api.Features.Audit;
+using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
-using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.UnitTests.Features.Filters;
 using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Features.Security;
 using NSubstitute;
 using Xunit;
+using FhirAudit = Microsoft.Health.Fhir.Api.Features.Audit;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
 {
@@ -25,13 +26,13 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         private readonly IClaimsExtractor _claimsExtractor = Substitute.For<IClaimsExtractor>();
         private readonly IAuditHelper _auditHelper = Substitute.For<IAuditHelper>();
 
-        private readonly AuditLoggingFilterAttribute _filter;
+        private readonly FhirAudit.AuditLoggingFilterAttribute _filter;
 
         private readonly HttpContext _httpContext = new DefaultHttpContext();
 
         public AuditLoggingFilterAttributeTests()
         {
-            _filter = new AuditLoggingFilterAttribute(_claimsExtractor, _auditHelper);
+            _filter = new FhirAudit.AuditLoggingFilterAttribute(_claimsExtractor, _auditHelper);
         }
 
         [Fact]

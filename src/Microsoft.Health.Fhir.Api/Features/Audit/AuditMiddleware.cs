@@ -7,7 +7,8 @@ using System.Net;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Api.Features.Audit;
+using Microsoft.Health.Core.Features.Security;
 
 namespace Microsoft.Health.Fhir.Api.Features.Audit
 {

@@ -6,7 +6,8 @@
 using System;
 using EnsureThat;
 using Microsoft.AspNetCore.Mvc.Filters;
-using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Api.Features.Audit;
+using Microsoft.Health.Core.Features.Security;
 
 namespace Microsoft.Health.Fhir.Api.Features.Audit
 {
