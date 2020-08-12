@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
 }";
 
         [Fact]
-        public async Task GivenAValidAnonymizationConfiguration_WhenCreate_AnonymizerShouldBeCreated()
+        public async Task GivenAValidAnonymizationConfiguration_WhenCreatingAnonymizer_AnonymizerShouldBeCreated()
         {
             IArtifactProvider client = Substitute.For<IArtifactProvider>();
             client.FetchAsync(Arg.Any<string>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>()).Returns<Task>(
@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
         }
 
         [Fact]
-        public async Task GivenAnInvalidAnonymizationConfiguration_WhenCreate_CorrectExceptionShouldBeThrow()
+        public async Task GivenAnInvalidAnonymizationConfiguration_WhenCreatingAnonymizer_CorrectExceptionShouldBeThrow()
         {
             IArtifactProvider client = Substitute.For<IArtifactProvider>();
             client.FetchAsync(Arg.Any<string>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>()).Returns<Task>(
@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
         }
 
         [Fact]
-        public async Task GivenNoAnonymizationConfiguration_WhenCreate_CorrectExceptionShouldBeThrow()
+        public async Task GivenNoAnonymizationConfiguration_WhenCreatingAnonymizer_CorrectExceptionShouldBeThrow()
         {
             IArtifactProvider client = Substitute.For<IArtifactProvider>();
             client.FetchAsync(Arg.Any<string>(), Arg.Any<Stream>(), Arg.Any<CancellationToken>()).Returns<Task>(

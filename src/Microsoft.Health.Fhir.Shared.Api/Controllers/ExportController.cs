@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             CheckIfExportIsEnabled();
 
-            if (!string.IsNullOrWhiteSpace(anonymizationConfigLocation))
+            if (!string.IsNullOrWhiteSpace(anonymizationConfigLocation) || !string.IsNullOrWhiteSpace(anonymizationConfigFileETag))
             {
                 CheckIfAnonymizedExportIsEnabled();
             }
