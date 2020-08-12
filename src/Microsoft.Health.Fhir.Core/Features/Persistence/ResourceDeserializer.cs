@@ -5,19 +5,15 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Text.Json;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.IO;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
     public class ResourceDeserializer
     {
         private readonly IReadOnlyDictionary<FhirResourceFormat, Func<string, string, DateTimeOffset, ResourceElement>> _deserializers;
-        private static readonly RecyclableMemoryStreamManager _memoryStreamManager = new RecyclableMemoryStreamManager();
 
         public ResourceDeserializer(IReadOnlyDictionary<FhirResourceFormat, Func<string, string, DateTimeOffset, ResourceElement>> deserializers)
         {
@@ -49,77 +45,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             ResourceElement resource = DeserializeRaw(rawResourceElement);
 
             return resource;
-        }
-
-        /// <summary>
-        /// Get the raw data from resourceWrapper as a string and JsonDocument.
-        /// If the RawResource's VersionSet or LastUpdatedSet are false, then the RawResource's data will be updated
-        /// to have them set to the values in the ResourceWrapper
-        /// </summary>
-        /// <param name="resourceWrapper">Input ResourceWrapper to convert to a JsonDocument</param>
-        /// <returns>A <see cref="JsonDocument"/></returns>
-        public static string DeserializeToJsonDocument(ResourceWrapper resourceWrapper)
-        {
-            EnsureArg.IsNotNull(resourceWrapper, nameof(resourceWrapper));
-
-            if (resourceWrapper.RawResource.MetaSet)
-            {
-                return resourceWrapper.RawResource.Data;
-            }
-
-            var jsonDocument = JsonDocument.Parse(resourceWrapper.RawResource.Data);
-
-            using (var ms = new RecyclableMemoryStream(_memoryStreamManager))
-            {
-                using (Utf8JsonWriter writer = new Utf8JsonWriter(ms))
-                {
-                    writer.WriteStartObject();
-                    bool foundMeta = false;
-
-                    foreach (var current in jsonDocument.RootElement.EnumerateObject())
-                    {
-                        if (current.Name == "meta")
-                        {
-                            foundMeta = true;
-
-                            writer.WriteStartObject("meta");
-
-                            writer.WriteString("lastUpdated", resourceWrapper.LastModified);
-                            writer.WriteString("versionId", resourceWrapper.Version);
-
-                            foreach (var metaEntry in current.Value.EnumerateObject())
-                            {
-                                metaEntry.WriteTo(writer);
-                            }
-
-                            writer.WriteEndObject();
-                        }
-                        else
-                        {
-                            // write
-                            current.WriteTo(writer);
-                        }
-                    }
-
-                    if (!foundMeta)
-                    {
-                        writer.WriteStartObject("meta");
-                        writer.WriteString("lastUpdated", resourceWrapper.LastModified);
-                        writer.WriteString("versionId", resourceWrapper.Version);
-                        writer.WriteEndObject();
-                    }
-
-                    writer.WriteEndObject();
-                }
-
-                ms.Position = 0;
-
-                using (var sr = new StreamReader(ms))
-                {
-                    ms.Position = 0;
-                    return sr.ReadToEnd();
-                }
-            }
         }
 
         internal ResourceElement DeserializeRaw(RawResource rawResource, string version, DateTimeOffset lastModified)

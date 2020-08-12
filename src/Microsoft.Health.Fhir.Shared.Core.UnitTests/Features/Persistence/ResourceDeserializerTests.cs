@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
             var wrapper = new ResourceWrapper(patient, _rawResourceFactory.Create(patient, keepMeta: false), new ResourceRequest(HttpMethod.Post, "http://fhir"), false, null, null, null);
             wrapper.Version = "2";
 
-            var rawString = ResourceDeserializer.DeserializeToJsonDocument(wrapper);
+            var rawString = wrapper.SerializeToJsonString();
             Assert.NotNull(rawString);
 
             var deserialized = new FhirJsonParser(DefaultParserSettings.Settings).Parse<Patient>(rawString);
@@ -75,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
             var wrapper = new ResourceWrapper(patient, _rawResourceFactory.Create(patient, keepMeta: true), new ResourceRequest(HttpMethod.Post, "http://fhir"), false, null, null, null);
             wrapper.Version = "2";
 
-            var rawString = ResourceDeserializer.DeserializeToJsonDocument(wrapper);
+            var rawString = wrapper.SerializeToJsonString();
             Assert.NotNull(rawString);
 
             var deserialized = new FhirJsonParser(DefaultParserSettings.Settings).Parse<Patient>(rawString);

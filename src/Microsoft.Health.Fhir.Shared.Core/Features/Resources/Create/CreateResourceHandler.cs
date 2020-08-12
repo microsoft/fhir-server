@@ -10,7 +10,6 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using MediatR;
-using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;

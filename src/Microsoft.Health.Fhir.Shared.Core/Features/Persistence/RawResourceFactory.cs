@@ -51,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     else
                     {
                         // Assume it's 1, though it may get changed by the database.
-                        poco.Meta.VersionId = "1";
+                        poco.Meta.VersionId = poco.Meta.VersionId ?? "1";
                     }
                 }
 
