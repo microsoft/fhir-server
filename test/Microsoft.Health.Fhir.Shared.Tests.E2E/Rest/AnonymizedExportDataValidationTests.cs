@@ -135,7 +135,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             string responseContent = await response.Content.ReadAsStringAsync();
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-            Assert.Contains("File not found on the destination storage.", responseContent);
+            Assert.Contains("Configuration not found on the destination storage.", responseContent);
         }
 
         [Fact]
