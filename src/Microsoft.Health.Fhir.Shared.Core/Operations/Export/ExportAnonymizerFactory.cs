@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError($"Loca anonymization configuration file failed: {ex.Message}");
+                        _logger.LogError($"Failed to parse configuration file: {ex.Message}");
                         throw new FailedToParseAnonymizationConfigurationException(ex.Message, ex);
                     }
                 }

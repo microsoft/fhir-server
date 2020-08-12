@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         }
 
         [Fact]
-        public async Task GivenAValidConfigurationWithETag_WhenExportAnonymizedData_ResourceShouldBeAnonymized()
+        public async Task GivenAValidConfigurationWithETag_WhenExportingAnonymizedData_ResourceShouldBeAnonymized()
         {
             (string fileName, string etag) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
 
@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         }
 
         [Fact]
-        public async Task GivenAValidConfigurationWithoutETag_WhenExportAnonymizedData_ResourceShouldBeAnonymized()
+        public async Task GivenAValidConfigurationWithoutETag_WhenExportingAnonymizedData_ResourceShouldBeAnonymized()
         {
             (string fileName, string _) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
 
@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         }
 
         [Fact]
-        public async Task GivenInvalidConfiguration_WhenExportAnonymizedData_ThenBadRequestShouldBeReturned()
+        public async Task GivenInvalidConfiguration_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
         {
             (string fileName, string etag) = await UploadConfigurationAsync("Invalid Json.");
 
@@ -102,7 +102,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         }
 
         [Fact]
-        public async Task GivenInvalidEtagProvided_WhenExportAnonymizedData_ThenBadRequestShouldBeReturned()
+        public async Task GivenInvalidEtagProvided_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
         {
             (string fileName, string _) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
 
@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         }
 
         [Fact]
-        public async Task GivenEtagInWrongFormatProvided_WhenExportAnonymizedData_ThenBadRequestShouldBeReturned()
+        public async Task GivenEtagInWrongFormatProvided_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
         {
             (string fileName, string _) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
 
@@ -128,7 +128,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         }
 
         [Fact]
-        public async Task GivenAContainerNotExisted_WhenExportAnonymizedData_ThenBadRequestShouldBeReturned()
+        public async Task GivenAContainerNotExisted_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
         {
             Uri contentLocation = await _testFhirClient.AnonymizedExportAsync("not-exist.json");
             HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
@@ -139,7 +139,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         }
 
         [Fact]
-        public async Task GivenALargeConfigurationProvided_WhenExportAnonymizedData_ThenBadRequestShouldBeReturned()
+        public async Task GivenALargeConfigurationProvided_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
         {
             string largeConfig = new string('*', (1024 * 1024 * 8) + 1); // Large config > 1MB
             (string fileName, string etag) = await UploadConfigurationAsync(largeConfig);
