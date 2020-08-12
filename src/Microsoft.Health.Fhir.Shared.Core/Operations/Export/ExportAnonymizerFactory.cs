@@ -40,7 +40,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 }
                 catch (FileNotFoundException ex)
                 {
-                    _logger.LogError($"Anonymization configuration file not found: {configurationLocation}");
                     throw new AnonymizationConfigurationNotFoundException(ex.Message, ex);
                 }
                 catch (Exception ex)
