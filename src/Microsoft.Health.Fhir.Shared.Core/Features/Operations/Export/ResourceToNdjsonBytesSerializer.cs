@@ -33,6 +33,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         /// <inheritdoc />
         public byte[] Serialize(ResourceElement resourceElement)
         {
+            EnsureArg.IsNotNull(resourceElement, nameof(resourceElement));
+
             string resourceData = _fhirJsonSerializer.SerializeToString(resourceElement.ToPoco<Resource>());
 
             byte[] bytesToWrite = Encoding.UTF8.GetBytes($"{resourceData}\n");
