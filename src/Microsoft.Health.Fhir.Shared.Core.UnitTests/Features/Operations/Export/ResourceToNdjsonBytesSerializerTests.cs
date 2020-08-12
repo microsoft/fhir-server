@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 (FhirResourceFormat.Json, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastModified) => _jsonParser.Parse<Resource>(str).ToResourceElement())),
                 (FhirResourceFormat.Xml, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastModified) => _xmlParser.Parse<Resource>(str).ToResourceElement())));
 
-            _serializer = new ResourceToNdjsonBytesSerializer(_resourceDeserializaer, _jsonSerializer);
+            _serializer = new ResourceToNdjsonBytesSerializer(_jsonSerializer);
 
             _resource = Samples.GetDefaultObservation().ToPoco<Observation>();
             _resource.Id = "test";

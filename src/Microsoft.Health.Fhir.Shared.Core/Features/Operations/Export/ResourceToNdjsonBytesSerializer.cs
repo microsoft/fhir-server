@@ -18,15 +18,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
     /// </summary>
     public class ResourceToNdjsonBytesSerializer : IResourceToByteArraySerializer
     {
-        private readonly ResourceDeserializer _resourceDeserializer;
         private readonly FhirJsonSerializer _fhirJsonSerializer;
 
-        public ResourceToNdjsonBytesSerializer(ResourceDeserializer resourceDeserializer, FhirJsonSerializer fhirJsonSerializer)
+        public ResourceToNdjsonBytesSerializer(FhirJsonSerializer fhirJsonSerializer)
         {
-            EnsureArg.IsNotNull(resourceDeserializer, nameof(resourceDeserializer));
             EnsureArg.IsNotNull(fhirJsonSerializer, nameof(fhirJsonSerializer));
 
-            _resourceDeserializer = resourceDeserializer;
             _fhirJsonSerializer = fhirJsonSerializer;
         }
 
