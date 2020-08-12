@@ -54,9 +54,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .Singleton()
                 .AsSelf();
 
-            services.Add<ReindexUtilities>()
-                .Singleton()
-                .AsSelf();
+            services.AddSingleton<IReindexUtilities, ReindexUtilities>();
         }
     }
 }

@@ -16,7 +16,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\DefaultParserSettings.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Export\GroupMemberExtractor.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Export\ResourceToNdjsonBytesSerializer.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexExtractRequestHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexUtilities.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\RawResourceFactory.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\BaseResourceHandler.cs" />

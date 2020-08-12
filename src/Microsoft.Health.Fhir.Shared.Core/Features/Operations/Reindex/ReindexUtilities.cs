@@ -14,7 +14,7 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 {
-    public class ReindexUtilities
+    public class ReindexUtilities : IReindexUtilities
     {
         private Func<IScoped<IFhirDataStore>> _fhirDataStoreFactory;
         private ISearchIndexer _searchIndexer;
