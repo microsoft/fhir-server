@@ -23,7 +23,6 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.HardDelete;
-using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Replace;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Upsert;
 using Microsoft.Health.Fhir.ValueSets;
 using Task = System.Threading.Tasks.Task;
@@ -40,7 +39,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         private static readonly UpsertWithHistory _upsertWithHistoryProc = new UpsertWithHistory();
         private static readonly HardDelete _hardDelete = new HardDelete();
-        private static readonly ReplaceWithoutVersionUpdate _replaceWithoutVersionUpdate = new ReplaceWithoutVersionUpdate();
         private readonly CoreFeatureConfiguration _coreFeatures;
 
         /// <summary>
@@ -245,20 +243,21 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(weakETag, nameof(weakETag));
 
             var cosmosWrapper = new FhirCosmosResourceWrapper(resourceWrapper);
+            ItemRequestOptions requestOptions = new ItemRequestOptions()
+            {
+                IfMatchEtag = weakETag.VersionId,
+            };
 
             try
             {
-                _logger.LogDebug($"Replacing {resourceWrapper.ResourceTypeName}/{resourceWrapper.ResourceId}, ETag: \"{weakETag.VersionId}\"");
-
-                FhirCosmosResourceWrapper response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
-                    async ct => await _replaceWithoutVersionUpdate.Execute(
-                        _containerScope.Value.Scripts,
-                        cosmosWrapper,
-                        weakETag.VersionId,
-                        ct),
+                ItemResponse<FhirCosmosResourceWrapper> response = await _containerScope.Value.ReplaceItemAsync(
+                    cosmosWrapper,
+                    cosmosWrapper.ResourceId,
+                    new PartitionKey(cosmosWrapper.PartitionKey),
+                    requestOptions,
                     cancellationToken);
 
-                return response;
+                return response.Resource;
             }
             catch (CosmosException exception)
             {
