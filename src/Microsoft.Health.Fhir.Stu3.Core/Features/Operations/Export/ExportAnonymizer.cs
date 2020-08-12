@@ -22,6 +22,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         public ResourceElement Anonymize(ResourceElement resourceElement)
         {
+            EnsureArg.IsNotNull(resourceElement, nameof(resourceElement));
+
             return new ResourceElement(_engine.AnonymizeElement(resourceElement.Instance));
         }
     }

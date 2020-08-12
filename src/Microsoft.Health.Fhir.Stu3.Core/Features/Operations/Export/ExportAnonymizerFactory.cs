@@ -7,6 +7,7 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Anonymizer.Core;
 
@@ -19,12 +20,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         public ExportAnonymizerFactory(IArtifactProvider artifactProvider, ILogger<ExportJobTask> logger)
         {
+            EnsureArg.IsNotNull(artifactProvider, nameof(artifactProvider));
+            EnsureArg.IsNotNull(logger, nameof(logger));
+
             _artifactProvider = artifactProvider;
             _logger = logger;
         }
 
         public async Task<IAnonymizer> CreateAnonymizerAsync(string configurationLocation, CancellationToken cancellationToken)
         {
+            EnsureArg.IsNotNullOrEmpty(configurationLocation, nameof(configurationLocation));
+
             using (Stream stream = new MemoryStream())
             {
                 try

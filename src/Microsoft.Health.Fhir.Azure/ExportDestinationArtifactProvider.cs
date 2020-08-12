@@ -30,13 +30,17 @@ namespace Microsoft.Health.Fhir.Azure
             IExportClientInitializer<CloudBlobClient> exportClientInitializer,
             IOptions<ExportJobConfiguration> exportJobConfiguration)
         {
+            EnsureArg.IsNotNull(exportClientInitializer, nameof(exportClientInitializer));
+            EnsureArg.IsNotNull(exportJobConfiguration?.Value, nameof(exportJobConfiguration));
+
             _exportClientInitializer = exportClientInitializer;
             _exportJobConfiguration = exportJobConfiguration.Value;
         }
 
         public async Task FetchAsync(string blobNameWithETag, Stream targetStream, CancellationToken cancellationToken)
         {
-            EnsureArg.IsNotNull(blobNameWithETag, nameof(blobNameWithETag));
+            EnsureArg.IsNotNullOrEmpty(blobNameWithETag, nameof(blobNameWithETag));
+            EnsureArg.IsNotNull(targetStream, nameof(targetStream));
 
             string[] blobLocation = blobNameWithETag.Split(':', StringSplitOptions.RemoveEmptyEntries);
             string blobName = blobLocation[0];
