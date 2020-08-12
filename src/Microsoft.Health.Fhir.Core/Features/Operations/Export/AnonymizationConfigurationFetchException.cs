@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         {
             Issues.Add(new Models.OperationOutcomeIssue(
                 OperationOutcomeConstants.IssueSeverity.Error,
-                OperationOutcomeConstants.IssueType.NotFound,
+                OperationOutcomeConstants.IssueType.Exception,
                 message));
         }
     }

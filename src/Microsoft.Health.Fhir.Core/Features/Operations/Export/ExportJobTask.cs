@@ -237,6 +237,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type, _exportJobRecord.ResourceType));
             }
 
+            IAnonymizer anonymizer = IsAnonymizedExportJob() ? await CreateAnonymizerAsync(cancellationToken) : null;
+
             // Process the export if:
             // 1. There is continuation token, which means there is more resource to be exported.
             // 2. There is no continuation token but the page is 0, which means it's the initial export.
@@ -292,18 +294,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     }
                 }
 
-                if (IsAnonymizedExportJob())
-                {
-                    string configurationWithEtag =
-                        $"{_exportJobRecord.AnonymizationConfigurationLocation}:{_exportJobRecord.AnonymizationConfigurationFileETag}";
-
-                    IAnonymizer anonymizer = await _anonymizerFactory.Value.CreateAnonymizerAsync(configurationWithEtag, cancellationToken);
-                    await ProcessSearchResultsAsync(searchResult.Results, currentBatchId, anonymizer, cancellationToken);
-                }
-                else
-                {
-                    await ProcessSearchResultsAsync(searchResult.Results, currentBatchId, null, cancellationToken);
-                }
+                await ProcessSearchResultsAsync(searchResult.Results, currentBatchId, anonymizer, cancellationToken);
 
                 if (searchResult.ContinuationToken == null)
                 {
@@ -323,6 +314,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             // Commit one last time for any pending changes.
             await _exportDestinationClient.CommitAsync(exportJobConfiguration, cancellationToken);
+        }
+
+        private async Task<IAnonymizer> CreateAnonymizerAsync(CancellationToken cancellationToken)
+        {
+            string configurationWithEtag = $"{_exportJobRecord.AnonymizationConfigurationLocation}:{_exportJobRecord.AnonymizationConfigurationFileETag}";
+
+            return await _anonymizerFactory.Value.CreateAnonymizerAsync(configurationWithEtag, cancellationToken);
         }
 
         private async Task RunExportCompartmentSearch(
