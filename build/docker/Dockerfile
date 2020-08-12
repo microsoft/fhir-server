@@ -9,7 +9,7 @@ COPY ./ ./
 RUN dotnet build --configuration Release
 RUN dotnet publish "./src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Health.Fhir.${FHIR_VERSION}.Web.csproj" -c Release -o "/build" --no-build
 
-FROM mcr.microsoft.com/dotnet/core/aspnet:3.1.6-alpine AS runtime
+FROM mcr.microsoft.com/dotnet/core/aspnet:3.1-alpine AS runtime
 
 ARG FHIR_VERSION
 
