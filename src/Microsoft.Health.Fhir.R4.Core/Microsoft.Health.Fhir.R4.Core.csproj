@@ -6,6 +6,10 @@
   <PropertyGroup>
     <DefineConstants>R4</DefineConstants>
   </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\Microsoft.Health.Fhir.Shared.Core\Operations\Export\ExportAnonymizer.cs" Link="Features\Operations\Export\ExportAnonymizer.cs" />
+    <Compile Include="..\Microsoft.Health.Fhir.Shared.Core\Operations\Export\ExportAnonymizerFactory.cs" Link="Features\Operations\Export\ExportAnonymizerFactory.cs" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="AngleSharp" Version="0.14.0" />
@@ -23,6 +27,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Features\Operations\Export\" />
   </ItemGroup>
 
   <Import Project="..\Microsoft.Health.Fhir.Shared.Core\Microsoft.Health.Fhir.Shared.Core.projitems" Label="Shared" />
