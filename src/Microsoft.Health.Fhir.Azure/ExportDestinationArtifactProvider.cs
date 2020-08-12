@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -50,7 +51,7 @@ namespace Microsoft.Health.Fhir.Azure
             CloudBlobContainer container = blobClient.GetContainerReference(ANONYMIZATIONCONTAINER);
             if (!await container.ExistsAsync(cancellationToken))
             {
-                throw new FileNotFoundException(message: $"Container not found on the destination storage. {ANONYMIZATIONCONTAINER}");
+                throw new FileNotFoundException(message: Resources.AnonymizationContainerNotFound);
             }
 
             CloudBlob blob = container.GetBlobReference(blobName);
@@ -58,7 +59,7 @@ namespace Microsoft.Health.Fhir.Azure
             {
                 if (CheckConfigurationIsTooLarge(blob))
                 {
-                    throw new AnonymizationConfigurationFetchException("Anonymization configuration is too large > 1MB.");
+                    throw new AnonymizationConfigurationFetchException(Resources.AnonymizationConfigurationTooLarge);
                 }
 
                 if (string.IsNullOrEmpty(eTag))
@@ -82,7 +83,7 @@ namespace Microsoft.Health.Fhir.Azure
             }
             else
             {
-                throw new FileNotFoundException(message: $"File not found on the destination storage. {blobName}");
+                throw new FileNotFoundException(message: string.Format(CultureInfo.InvariantCulture, Resources.AnonymizationConfigurationNotFound, blobName));
             }
         }
 
