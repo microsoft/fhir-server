@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.Azure
 
         private bool CheckConfigurationIsTooLarge(CloudBlob blob)
         {
-            return blob.Properties.Length > 8 * 1024 * 1024; // Max content length is 1 MB
+            return blob.Properties.Length > 1 * 1024 * 1024; // Max content length is 1 MB
         }
     }
 }

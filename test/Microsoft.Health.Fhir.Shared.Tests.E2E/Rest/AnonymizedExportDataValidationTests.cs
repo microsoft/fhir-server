@@ -141,7 +141,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         [Fact]
         public async Task GivenALargeConfigurationProvided_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
         {
-            string largeConfig = new string('*', (1024 * 1024 * 8) + 1); // Large config > 1MB
+            string largeConfig = new string('*', (1024 * 1024) + 1); // Large config > 1MB
             (string fileName, string etag) = await UploadConfigurationAsync(largeConfig);
 
             Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, etag);
