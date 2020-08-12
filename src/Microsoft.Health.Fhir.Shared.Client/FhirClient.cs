@@ -285,7 +285,7 @@ namespace Microsoft.Health.Fhir.Client
 
         public async Task<Uri> AnonymizedExportAsync(string anonymizationConfig, string etag = null, CancellationToken cancellationToken = default)
         {
-            using var message = new HttpRequestMessage(HttpMethod.Get, $"$export?_anonymization_config={anonymizationConfig}&_anonymization_config_etag={etag}");
+            using var message = new HttpRequestMessage(HttpMethod.Get, $"$export?_anonymizationConfig={anonymizationConfig}&_anonymizationConfigEtag={etag}");
             message.Headers.Add("Accept", "application/fhir+json");
             message.Headers.Add("Prefer", "respond-async");
 

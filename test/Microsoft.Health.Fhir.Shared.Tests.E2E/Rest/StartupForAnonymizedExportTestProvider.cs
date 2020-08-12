@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
             FeatureConfiguration configuration = new FeatureConfiguration()
             {
-                SupportAnonymizedExport = true,
+                SupportsAnonymizedExport = true,
             };
             IOptions<FeatureConfiguration> options = Options.Create<FeatureConfiguration>(configuration);
             services.Replace(new ServiceDescriptor(typeof(IOptions<FeatureConfiguration>), options));

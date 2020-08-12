@@ -181,7 +181,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         private void CheckIfAnonymizedExportIsEnabled()
         {
-            if (!_features.SupportAnonymizedExport)
+            if (!_features.SupportsAnonymizedExport)
             {
                 throw new RequestNotValidException(string.Format(Resources.OperationNotEnabled, OperationsConstants.AnonymizedExport));
             }

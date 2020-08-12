@@ -38,6 +38,6 @@ namespace Microsoft.Health.Fhir.Api.Configs
         /// <summary>
         /// Gets or sets a value indicating whether anonymized export is enabled or not.
         /// </summary>
-        public bool SupportAnonymizedExport { get; set; }
+        public bool SupportsAnonymizedExport { get; set; }
     }
 }
