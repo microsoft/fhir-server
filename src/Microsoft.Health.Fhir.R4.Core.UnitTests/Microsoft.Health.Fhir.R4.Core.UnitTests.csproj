@@ -6,6 +6,9 @@
   <PropertyGroup>
     <DefineConstants>R4</DefineConstants>
   </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\Microsoft.Health.Fhir.Shared.Core.UnitTests\Features\Operations\Export\ExportAnonymizerFactoryTests.cs" Link="Operations\Export\ExportAnonymizerFactoryTests.cs" />
+  </ItemGroup>
   
   <ItemGroup>
     <PackageReference Include="Microsoft.Health.Test.Utilities" Version="1.0.0-master-20200716-1" />
@@ -24,6 +27,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.Tests.Common\Microsoft.Health.Fhir.Tests.Common.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Operations\Export\" />
   </ItemGroup>
 
   <Import Project="..\Microsoft.Health.Fhir.Shared.Tests\Microsoft.Health.Fhir.Shared.Tests.projitems" Label="Shared" />

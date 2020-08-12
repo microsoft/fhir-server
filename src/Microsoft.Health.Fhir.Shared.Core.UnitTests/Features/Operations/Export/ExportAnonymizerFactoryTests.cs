@@ -13,7 +13,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using NSubstitute;
 using Xunit;
 
-namespace Microsoft.Health.Fhir.STU3.Core.UnitTests.Features.Export
+namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Export
 {
     public class ExportAnonymizerFactoryTests
     {
