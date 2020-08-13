@@ -1481,16 +1481,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             bool capturedSearch = false;
 
-            var exportJobRecordWithOneResource = new ExportJobRecord(
-                new Uri("https://localhost/ExportJob/"),
-                ExportJobType.All,
-                null,
-                "hash",
-                storageAccountConnectionHash: string.Empty,
-                storageAccountUri: _exportJobConfiguration.StorageAccountUri,
-                maximumNumberOfResourcesPerQuery: 1,
-                numberOfPagesPerCommit: _exportJobConfiguration.NumberOfPagesPerCommit,
-                anonymizationConfigurationLocation: "anonymization-config-file");
+            ExportJobRecord exportJobRecordWithOneResource =
+                CreateExportJobRecord(maximumNumberOfResourcesPerQuery: 1, numberOfPagesPerCommit: _exportJobConfiguration.NumberOfPagesPerCommit, anonymizationConfigurationLocation: "anonymization-config-file");
 
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithOneResource);
 
@@ -1503,18 +1495,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 {
                     return CreateSearchResult(new[]
                         {
-                            new SearchResultEntry(
-                                new ResourceWrapper(
-                                    "1",
-                                    "1",
-                                    "Patient",
-                                    new RawResource("data", Core.Models.FhirResourceFormat.Json),
-                                    null,
-                                    DateTimeOffset.MinValue,
-                                    false,
-                                    null,
-                                    null,
-                                    null)),
+                            CreateSearchResultEntry("1", "Patient"),
                         });
                 });
 
@@ -1549,26 +1530,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.True(capturedSearch);
         }
 
-        [Fact]
-        public async Task GivenAnonymizationConfigurationNotExist_WhenExecuted_ThenJobStatusShouldBeUpdatedToFailed()
+        [Theory]
+        [InlineData(typeof(AnonymizationConfigurationNotFoundException), "config not found", HttpStatusCode.BadRequest)]
+        [InlineData(typeof(FailedToParseAnonymizationConfigurationException), "cannot parse the config", HttpStatusCode.BadRequest)]
+        [InlineData(typeof(InvalidOperationException), "Unknown Error.", HttpStatusCode.InternalServerError)]
+        public async Task GivenExceptionThrowFromAnonymizerFactory_WhenExecuted_ThenJobStatusShouldBeUpdatedToFailed(Type exceptionType, string expectedErrorMessage, HttpStatusCode expectedHttpStatusCode)
         {
-            string expectedError = "config not found";
-
             // Setup export destination client.
-            var exportJobRecordWithOneResource = new ExportJobRecord(
-               new Uri("https://localhost/ExportJob/"),
-               ExportJobType.All,
-               null,
-               "hash",
-               storageAccountConnectionHash: string.Empty,
-               storageAccountUri: _exportJobConfiguration.StorageAccountUri,
-               maximumNumberOfResourcesPerQuery: 1,
-               numberOfPagesPerCommit: _exportJobConfiguration.NumberOfPagesPerCommit,
-               anonymizationConfigurationLocation: "anonymization-config-file");
+            ExportJobRecord exportJobRecordWithOneResource =
+                 CreateExportJobRecord(maximumNumberOfResourcesPerQuery: 1, numberOfPagesPerCommit: _exportJobConfiguration.NumberOfPagesPerCommit, anonymizationConfigurationLocation: "anonymization-config-file");
 
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithOneResource);
             IAnonymizerFactory factory = Substitute.For<IAnonymizerFactory>();
-            factory.CreateAnonymizerAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns<Task<IAnonymizer>>(_ => throw new AnonymizationConfigurationNotFoundException(expectedError));
+            factory.CreateAnonymizerAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns<Task<IAnonymizer>>(_ => throw (Exception)Activator.CreateInstance(exceptionType, expectedErrorMessage));
 
             var exportJobTask = new ExportJobTask(
                 () => _fhirOperationDataStore.CreateMockScope(),
@@ -1585,89 +1559,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             Assert.NotNull(_lastExportJobOutcome);
             Assert.Equal(OperationStatus.Failed, _lastExportJobOutcome.JobRecord.Status);
-            Assert.Equal(expectedError, _lastExportJobOutcome.JobRecord.FailureDetails.FailureReason);
-            Assert.Equal(HttpStatusCode.BadRequest, _lastExportJobOutcome.JobRecord.FailureDetails.FailureStatusCode);
-        }
-
-        [Fact]
-        public async Task GivenAnInvalidAnonymizationConfiguration_WhenExecuted_ThenJobStatusShouldBeUpdatedToFailed()
-        {
-            string expectedError = "cannot parse the config";
-
-            // Setup export destination client.
-            var exportJobRecordWithOneResource = new ExportJobRecord(
-               new Uri("https://localhost/ExportJob/"),
-               ExportJobType.All,
-               null,
-               "hash",
-               storageAccountConnectionHash: string.Empty,
-               storageAccountUri: _exportJobConfiguration.StorageAccountUri,
-               maximumNumberOfResourcesPerQuery: 1,
-               numberOfPagesPerCommit: _exportJobConfiguration.NumberOfPagesPerCommit,
-               anonymizationConfigurationLocation: "anonymization-config-file");
-
-            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithOneResource);
-            IAnonymizerFactory factory = Substitute.For<IAnonymizerFactory>();
-            factory.CreateAnonymizerAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns<Task<IAnonymizer>>(_ => throw new FailedToParseAnonymizationConfigurationException(expectedError));
-
-            var exportJobTask = new ExportJobTask(
-                () => _fhirOperationDataStore.CreateMockScope(),
-                Options.Create(_exportJobConfiguration),
-                () => _searchService.CreateMockScope(),
-                _groupMemberExtractor,
-                _resourceToByteArraySerializer,
-                _inMemoryDestinationClient,
-                _resourceDeserializer,
-                factory.CreateMockScope(),
-                NullLogger<ExportJobTask>.Instance);
-
-            await exportJobTask.ExecuteAsync(exportJobRecordWithOneResource, _weakETag, _cancellationToken);
-
-            Assert.NotNull(_lastExportJobOutcome);
-            Assert.Equal(OperationStatus.Failed, _lastExportJobOutcome.JobRecord.Status);
-            Assert.Equal(expectedError, _lastExportJobOutcome.JobRecord.FailureDetails.FailureReason);
-            Assert.Equal(HttpStatusCode.BadRequest, _lastExportJobOutcome.JobRecord.FailureDetails.FailureStatusCode);
-        }
-
-        [Fact]
-        public async Task GivenAnUnKnownExceptionThrowFromAnonymizerFactory_WhenExecuted_ThenJobStatusShouldBeUpdatedToFailed()
-        {
-            // this should not happen, thise test is to make sure if any unexpected exception happen, would not block export worker.
-            string expectedError = "Unknown Error.";
-
-            // Setup export destination client.
-            var exportJobRecordWithOneResource = new ExportJobRecord(
-               new Uri("https://localhost/ExportJob/"),
-               ExportJobType.All,
-               null,
-               "hash",
-               storageAccountConnectionHash: string.Empty,
-               storageAccountUri: _exportJobConfiguration.StorageAccountUri,
-               maximumNumberOfResourcesPerQuery: 1,
-               numberOfPagesPerCommit: _exportJobConfiguration.NumberOfPagesPerCommit,
-               anonymizationConfigurationLocation: "anonymization-config-file");
-
-            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithOneResource);
-            IAnonymizerFactory factory = Substitute.For<IAnonymizerFactory>();
-            factory.CreateAnonymizerAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns<Task<IAnonymizer>>(_ => throw new InvalidOperationException());
-
-            var exportJobTask = new ExportJobTask(
-                () => _fhirOperationDataStore.CreateMockScope(),
-                Options.Create(_exportJobConfiguration),
-                () => _searchService.CreateMockScope(),
-                _groupMemberExtractor,
-                _resourceToByteArraySerializer,
-                _inMemoryDestinationClient,
-                _resourceDeserializer,
-                factory.CreateMockScope(),
-                NullLogger<ExportJobTask>.Instance);
-
-            await exportJobTask.ExecuteAsync(exportJobRecordWithOneResource, _weakETag, _cancellationToken);
-
-            Assert.NotNull(_lastExportJobOutcome);
-            Assert.Equal(OperationStatus.Failed, _lastExportJobOutcome.JobRecord.Status);
-            Assert.Equal(expectedError, _lastExportJobOutcome.JobRecord.FailureDetails.FailureReason);
-            Assert.Equal(HttpStatusCode.InternalServerError, _lastExportJobOutcome.JobRecord.FailureDetails.FailureStatusCode);
+            Assert.Equal(expectedErrorMessage, _lastExportJobOutcome.JobRecord.FailureDetails.FailureReason);
+            Assert.Equal(expectedHttpStatusCode, _lastExportJobOutcome.JobRecord.FailureDetails.FailureStatusCode);
         }
 
         [Fact]
@@ -1677,16 +1570,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             string expectedError = "Unknown Error.";
 
             // Setup export destination client.
-            var exportJobRecordWithOneResource = new ExportJobRecord(
-               new Uri("https://localhost/ExportJob/"),
-               ExportJobType.All,
-               null,
-               "hash",
-               storageAccountConnectionHash: string.Empty,
-               storageAccountUri: _exportJobConfiguration.StorageAccountUri,
-               maximumNumberOfResourcesPerQuery: 1,
-               numberOfPagesPerCommit: _exportJobConfiguration.NumberOfPagesPerCommit,
-               anonymizationConfigurationLocation: "anonymization-config-file");
+            ExportJobRecord exportJobRecordWithOneResource =
+                 CreateExportJobRecord(maximumNumberOfResourcesPerQuery: 1, numberOfPagesPerCommit: _exportJobConfiguration.NumberOfPagesPerCommit, anonymizationConfigurationLocation: "anonymization-config-file");
 
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithOneResource);
             IAnonymizer anonymizer = Substitute.For<IAnonymizer>();
@@ -1723,7 +1608,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             string storageAccountConnectionHash = "",
             string storageAccountUri = null,
             uint maximumNumberOfResourcesPerQuery = 0,
-            uint numberOfPagesPerCommit = 0)
+            uint numberOfPagesPerCommit = 0,
+            string anonymizationConfigurationLocation = null,
+            string anonymizationConfigurationFileEtag = null)
         {
             return new ExportJobRecord(
                 new Uri(requestEndpoint),
@@ -1735,7 +1622,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 storageAccountConnectionHash: storageAccountConnectionHash,
                 storageAccountUri: storageAccountUri == null ? _exportJobConfiguration.StorageAccountUri : storageAccountUri,
                 maximumNumberOfResourcesPerQuery: maximumNumberOfResourcesPerQuery == 0 ? _exportJobConfiguration.MaximumNumberOfResourcesPerQuery : maximumNumberOfResourcesPerQuery,
-                numberOfPagesPerCommit: numberOfPagesPerCommit == 0 ? _exportJobConfiguration.NumberOfPagesPerCommit : numberOfPagesPerCommit);
+                numberOfPagesPerCommit: numberOfPagesPerCommit == 0 ? _exportJobConfiguration.NumberOfPagesPerCommit : numberOfPagesPerCommit,
+                anonymizationConfigurationLocation: anonymizationConfigurationLocation,
+                anonymizationConfigurationFileETag: anonymizationConfigurationFileEtag);
         }
 
         private SearchResult CreateSearchResult(IEnumerable<SearchResultEntry> resourceWrappers = null, string continuationToken = null)
