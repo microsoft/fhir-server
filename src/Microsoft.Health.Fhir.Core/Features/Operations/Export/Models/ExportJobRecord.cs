@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
             QueuedTime = Clock.UtcNow;
 
-            if (storageAccountContainerName == null)
+            if (string.IsNullOrWhiteSpace(storageAccountContainerName))
             {
                 StorageAccountContainerName = Id;
             }

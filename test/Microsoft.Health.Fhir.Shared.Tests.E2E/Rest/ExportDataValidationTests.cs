@@ -190,7 +190,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             // NOTE: Azure Storage Emulator is required to run these tests locally.
 
-            string testContainer = "test-contianer";
+            string testContainer = "test-container";
 
             // Trigger export request and check for export status
             Uri contentLocation = await _testFhirClient.ExportAsync(parameters: $"_container={testContainer}");
