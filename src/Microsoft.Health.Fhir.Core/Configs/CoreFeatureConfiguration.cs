@@ -31,5 +31,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Gets or sets the default value for IncludeTotal in search bundles
         /// </summary>
         public TotalType IncludeTotalInBundle { get; set; } = TotalType.None;
+
+        /// <summary>
+        /// Gets or sets the default value for maximum value for _count in search.
+        /// </summary>
+        public int MaxItemCountPerSearch { get; set; } = 100;
     }
 }

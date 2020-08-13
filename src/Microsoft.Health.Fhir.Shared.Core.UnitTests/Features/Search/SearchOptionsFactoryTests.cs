@@ -13,6 +13,7 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
@@ -408,6 +409,32 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _coreFeatures.IncludeTotalInBundle = TotalType.Estimate;
 
             Assert.Throws<SearchOperationNotSupportedException>(() => CreateSearchOptions(queryParameters: null));
+        }
+
+        [Fact]
+        public void GivenNoCountParameter_WhenCreated_ThenDefaultSearchOptionShouldUseConfigurationValue()
+        {
+            _coreFeatures.MaxItemCountPerSearch = 3;
+
+            SearchOptions options = CreateSearchOptions();
+            Assert.Equal(3, options.MaxItemCount);
+        }
+
+        [Fact]
+        public void GivenCountParameterBelowThanMaximumAllowed_WhenCreated_ThenDefaultSearchOptionShouldBeCreatedAndCountParameterShouldBeUsed()
+        {
+            _coreFeatures.MaxItemCountPerSearch = 20;
+
+            SearchOptions options = CreateSearchOptions(queryParameters: new[] { Tuple.Create<string, string>("_count", "10"), });
+            Assert.Equal(10, options.MaxItemCount);
+        }
+
+        [Fact]
+        public void GivenCountParameterAboveThanMaximumAllowed_WhenCreated_ThenSearchOptionsThrowException()
+        {
+            _coreFeatures.MaxItemCountPerSearch = 10;
+
+            Assert.Throws<BadRequestException>(() => CreateSearchOptions(queryParameters: new[] { Tuple.Create<string, string>("_count", "11"), }));
         }
 
         private SearchOptions CreateSearchOptions(

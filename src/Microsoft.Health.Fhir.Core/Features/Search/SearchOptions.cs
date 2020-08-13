@@ -16,7 +16,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     public class SearchOptions
     {
         private const int DefaultItemCountPerSearch = 10;
-        private const int MaxItemCountPerSearch = 100;
 
         private int _maxItemCount = DefaultItemCountPerSearch;
 
@@ -49,10 +48,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 {
                     throw new InvalidOperationException(Core.Resources.InvalidSearchCountSpecified);
                 }
-
-                // The server is allowed to return less than what client has asked (http://hl7.org/fhir/STU3/search.html#count).
-                // Limit the maximum number of items if the client is asking too many.
-                _maxItemCount = Math.Min(value, MaxItemCountPerSearch);
             }
         }
 
