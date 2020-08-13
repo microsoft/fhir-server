@@ -168,12 +168,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 searchExpressions.Add(Expression.SearchParameter(_resourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, resourceType, false)));
             }
 
+            bool expressionForAtParamIsNotAdded = true;
+
             searchExpressions.AddRange(searchParams.Parameters.Select(
                     q =>
                     {
                         try
                         {
-                            return _expressionParser.Parse(parsedResourceType.ToString(), q.Item1, q.Item2);
+                            if (searchOptions.AtParam && expressionForAtParamIsNotAdded)
+                            {
+                                expressionForAtParamIsNotAdded = false;
+                                return _expressionParser.Parse(parsedResourceType.ToString(), q.Item1, q.Item2, true);
+                            }
+                            else
+                            {
+                                return _expressionParser.Parse(parsedResourceType.ToString(), q.Item1, q.Item2, false);
+                            }
                         }
                         catch (SearchParameterNotSupportedException)
                         {

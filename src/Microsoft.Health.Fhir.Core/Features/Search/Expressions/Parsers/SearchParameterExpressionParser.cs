@@ -54,7 +54,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
         public Expression Parse(
             SearchParameterInfo searchParameter,
             SearchModifierCode? modifier,
-            string value)
+            string value,
+            bool isAtParam = false)
         {
             EnsureArg.IsNotNull(searchParameter, nameof(searchParameter));
 
@@ -143,7 +144,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 }
             }
 
-            return Expression.SearchParameter(searchParameter, outputExpression);
+            return Expression.SearchParameter(searchParameter, outputExpression, isAtParam);
         }
 
         private Expression Build(

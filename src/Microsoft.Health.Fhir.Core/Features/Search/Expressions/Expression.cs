@@ -18,10 +18,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// </summary>
         /// <param name="searchParameter">The search parameter this expression is bound to.</param>
         /// <param name="expression">The expression over the parameter's values.</param>
+        /// <param name="isAtParam">Indicates if the expression is for _at parameter</param>
         /// <returns>A <see cref="SearchParameterExpression"/>.</returns>
-        public static SearchParameterExpression SearchParameter(SearchParameterInfo searchParameter, Expression expression)
+        public static SearchParameterExpression SearchParameter(SearchParameterInfo searchParameter, Expression expression, bool isAtParam = false)
         {
-            return new SearchParameterExpression(searchParameter, expression);
+            return new SearchParameterExpression(searchParameter, expression, isAtParam);
         }
 
         /// <summary>

@@ -13,6 +13,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
         Expression Parse(
             SearchParameterInfo searchParameter,
             SearchModifierCode? modifier,
-            string value);
+            string value,
+            bool isAtParam = false);
     }
 }

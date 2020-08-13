@@ -13,15 +13,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     /// </summary>
     public class SearchParameterExpression : SearchParameterExpressionBase
     {
-        public SearchParameterExpression(SearchParameterInfo searchParameter, Expression expression)
+        public SearchParameterExpression(SearchParameterInfo searchParameter, Expression expression, bool isAtParam = false)
             : base(searchParameter)
         {
             EnsureArg.IsNotNull(expression, nameof(expression));
 
             Expression = expression;
+            IsAtParameter = isAtParam;
         }
 
         public Expression Expression { get; }
+
+        public bool IsAtParameter { get; }
 
         public override TOutput AcceptVisitor<TContext, TOutput>(IExpressionVisitor<TContext, TOutput> visitor, TContext context)
         {
