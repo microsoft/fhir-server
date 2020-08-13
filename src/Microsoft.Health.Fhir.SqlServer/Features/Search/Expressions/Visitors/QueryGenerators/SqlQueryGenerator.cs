@@ -136,8 +136,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                             delimitedClause.BeginDelimitedElement();
                             foreach (var denormalizedPredicate in expression.DenormalizedExpressions)
                             {
-                                SearchParameterExpression exp = denormalizedPredicate as SearchParameterExpression;
-                                if (exp.IsAtParameter)
+                                SearchParameterExpression searchParameterExpression = denormalizedPredicate as SearchParameterExpression;
+                                if (searchParameterExpression != null && searchParameterExpression.IsAtParameter)
                                 {
                                     denormalizedPredicate.AcceptVisitor(DispatchingDenormalizedSearchParameterQueryGenerator.Instance, GetContext());
                                 }

@@ -175,7 +175,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     {
                         try
                         {
-                            if (searchOptions.AtParam && expressionForAtParamIsNotAdded)
+                            if (searchOptions.AtParam && expressionForAtParamIsNotAdded && string.Equals(q.Item1, SearchParameterNames.LastUpdated, StringComparison.Ordinal))
                             {
                                 expressionForAtParamIsNotAdded = false;
                                 return _expressionParser.Parse(parsedResourceType.ToString(), q.Item1, q.Item2, true);
