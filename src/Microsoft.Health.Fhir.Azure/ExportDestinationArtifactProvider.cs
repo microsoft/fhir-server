@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Azure
 {
     public class ExportDestinationArtifactProvider : IArtifactProvider
     {
-        private const string ANONYMIZATIONCONTAINER = "anonymization";
+        private const string AnonymizationContainer = "anonymization";
 
         private IExportClientInitializer<CloudBlobClient> _exportClientInitializer;
         private ExportJobConfiguration _exportJobConfiguration;
@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.Azure
             string eTag = blobLocation.Count() > 1 ? blobLocation[1] : null;
 
             CloudBlobClient blobClient = await ConnectAsync(cancellationToken);
-            CloudBlobContainer container = blobClient.GetContainerReference(ANONYMIZATIONCONTAINER);
+            CloudBlobContainer container = blobClient.GetContainerReference(AnonymizationContainer);
             if (!await container.ExistsAsync(cancellationToken))
             {
                 throw new FileNotFoundException(message: Resources.AnonymizationContainerNotFound);
