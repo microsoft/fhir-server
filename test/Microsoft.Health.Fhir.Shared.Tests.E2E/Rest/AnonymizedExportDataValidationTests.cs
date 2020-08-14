@@ -32,6 +32,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class AnonymizedExportDataValidationTests : IClassFixture<HttpIntegrationTestFixture<StartupForAnonymizedExportTestProvider>>
     {
+        private bool _isUsingInProcTestServer = false;
         private readonly TestFhirClient _testFhirClient;
         private readonly ExportJobConfiguration _exportConfiguration;
         private const string RedactResourceIdAnonymizationConfiguration = @"
@@ -44,13 +45,19 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
         public AnonymizedExportDataValidationTests(HttpIntegrationTestFixture<StartupForAnonymizedExportTestProvider> fixture)
         {
+            _isUsingInProcTestServer = fixture.IsUsingInProcTestServer;
             _testFhirClient = fixture.TestFhirClient;
-            _exportConfiguration = ((IOptions<ExportJobConfiguration>)(fixture.TestFhirServer as InProcTestFhirServer).Server.Services.GetService(typeof(IOptions<ExportJobConfiguration>))).Value;
+            _exportConfiguration = ((IOptions<ExportJobConfiguration>)(fixture.TestFhirServer as InProcTestFhirServer)?.Server?.Services?.GetService(typeof(IOptions<ExportJobConfiguration>)))?.Value;
         }
 
         [Fact]
         public async Task GivenAValidConfigurationWithETag_WhenExportingAnonymizedData_ResourceShouldBeAnonymized()
         {
+            if (!_isUsingInProcTestServer)
+            {
+                return;
+            }
+
             (string fileName, string etag) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
 
             Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, etag);
@@ -71,6 +78,11 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         [Fact]
         public async Task GivenAValidConfigurationWithoutETag_WhenExportingAnonymizedData_ResourceShouldBeAnonymized()
         {
+            if (!_isUsingInProcTestServer)
+            {
+                return;
+            }
+
             (string fileName, string _) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
 
             Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName);
@@ -91,6 +103,11 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         [Fact]
         public async Task GivenInvalidConfiguration_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
         {
+            if (!_isUsingInProcTestServer)
+            {
+                return;
+            }
+
             (string fileName, string etag) = await UploadConfigurationAsync("Invalid Json.");
 
             Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, etag);
@@ -104,6 +121,11 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         [Fact]
         public async Task GivenInvalidEtagProvided_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
         {
+            if (!_isUsingInProcTestServer)
+            {
+                return;
+            }
+
             (string fileName, string _) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
 
             Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, "\"0x000000000000000\"");
@@ -117,6 +139,11 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         [Fact]
         public async Task GivenEtagInWrongFormatProvided_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
         {
+            if (!_isUsingInProcTestServer)
+            {
+                return;
+            }
+
             (string fileName, string _) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
 
             Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, "invalid-etag");
@@ -130,6 +157,11 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         [Fact]
         public async Task GivenAContainerNotExisted_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
         {
+            if (!_isUsingInProcTestServer)
+            {
+                return;
+            }
+
             Uri contentLocation = await _testFhirClient.AnonymizedExportAsync("not-exist.json");
             HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
             string responseContent = await response.Content.ReadAsStringAsync();
@@ -141,6 +173,11 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         [Fact]
         public async Task GivenALargeConfigurationProvided_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
         {
+            if (!_isUsingInProcTestServer)
+            {
+                return;
+            }
+
             string largeConfig = new string('*', (1024 * 1024) + 1); // Large config > 1MB
             (string fileName, string etag) = await UploadConfigurationAsync(largeConfig);
 
