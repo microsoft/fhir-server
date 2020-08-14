@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// <summary>
         /// For each result in a batch of resources this will extract new search params
         /// Then compare those to the old values to determine if an update is needed
-        /// Needed updates will br committed in a batch
+        /// Needed updates will be committed in a batch
         /// </summary>
         /// <param name="results">The resource batch to process</param>
         /// <param name="searchParamHash">the current hash value of the search parameters</param>
