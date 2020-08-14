@@ -197,7 +197,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                     while (await reader.ReadAsync(cancellationToken))
                     {
-                        (short resourceTypeId, string resourceId, int version, bool isDeleted, long resourceSurrogateId, string requestMethod, bool isMatch, bool isPartialEntry, Stream rawResourceStream) = reader.ReadRow(
+                        (short resourceTypeId, string resourceId, int version, bool isDeleted, long resourceSurrogateId, string requestMethod, bool isMatch, bool isPartialEntry, bool rawResourceMetaSet, Stream rawResourceStream) = reader.ReadRow(
                             VLatest.Resource.ResourceTypeId,
                             VLatest.Resource.ResourceId,
                             VLatest.Resource.Version,
@@ -206,6 +206,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             VLatest.Resource.RequestMethod,
                             _isMatch,
                             _isPartial,
+                            VLatest.Resource.RawResourceMetaSet,
                             VLatest.Resource.RawResource);
 
                         // If we get to this point, we know there are more results so we need a continuation token

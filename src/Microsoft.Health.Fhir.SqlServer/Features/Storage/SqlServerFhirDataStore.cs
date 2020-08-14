@@ -111,6 +111,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     keepHistory: keepHistory,
                     requestMethod: resource.Request.Method,
                     rawResource: stream,
+                    rawResourceMetaSet: resource.RawResource.MetaSet,
                     tableValuedParameters: _upsertResourceTvpGenerator.Generate(resourceMetadata));
 
                 try
@@ -181,11 +182,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                         var resourceTable = VLatest.Resource;
 
-                        (long resourceSurrogateId, int version, bool isDeleted, bool isHistory, Stream rawResourceStream) = sqlDataReader.ReadRow(
+                        (long resourceSurrogateId, int version, bool isDeleted, bool isHistory, bool rawResourceMetaSet, Stream rawResourceStream) = sqlDataReader.ReadRow(
                             resourceTable.ResourceSurrogateId,
                             resourceTable.Version,
                             resourceTable.IsDeleted,
                             resourceTable.IsHistory,
+                            resourceTable.RawResourceMetaSet,
                             resourceTable.RawResource);
 
                         string rawResource;
@@ -201,7 +203,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             key.Id,
                             version.ToString(CultureInfo.InvariantCulture),
                             key.ResourceType,
-                            new RawResource(rawResource, FhirResourceFormat.Json, metaSet: false),
+                            new RawResource(rawResource, FhirResourceFormat.Json, metaSet: rawResourceMetaSet),
                             null,
                             new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
                             isDeleted,
