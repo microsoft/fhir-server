@@ -18,10 +18,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\ActionResults\FhirResultTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ApiNotifications\ApiNotificationMiddlewareTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Audit\AuditHeaderReaderTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Audit\AuditEventTypeMappingTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Audit\AuditHelperTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Audit\AuditLoggingFilterAttributeTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Audit\AuditMiddlewareTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Bundle\FhirTransactionFailedExceptionTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Context\DefaultFhirRequestContext.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Context\FhirRequestContextAfterAuthenticationMiddlewareTests.cs" />

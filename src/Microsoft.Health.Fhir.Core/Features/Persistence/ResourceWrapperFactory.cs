@@ -5,10 +5,10 @@
 
 using System.Collections.Generic;
 using EnsureThat;
+using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Compartment;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Search;
-using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
