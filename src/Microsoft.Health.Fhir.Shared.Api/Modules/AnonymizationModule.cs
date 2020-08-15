@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddFactory<IScoped<IAnonymizer>>();
 
             services.Add<ExportAnonymizerFactory>()
-                    .Singleton()
+                    .Transient()
                     .AsService<IAnonymizerFactory>();
         }
     }
