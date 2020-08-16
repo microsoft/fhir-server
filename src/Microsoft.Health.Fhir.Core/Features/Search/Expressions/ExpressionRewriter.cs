@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return expression;
         }
 
-        public virtual Expression VisitSortParameter(SortParameterExpression expression, TContext context)
+        public virtual Expression VisitSortParameter(SortExpression expression, TContext context)
         {
             return expression;
         }

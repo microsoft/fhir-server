@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             return sortOrder;
         }
 
-        public static (Core.Models.SearchParameterInfo, SortOrder) GetFirstSortSupportedParam(this SearchOptions searchOptions)
+        public static (Core.Models.SearchParameterInfo, SortOrder) GetFirstSupportedSortParam(this SearchOptions searchOptions)
         {
             EnsureArg.IsNotNull(searchOptions, nameof(searchOptions));
 

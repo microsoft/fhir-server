@@ -35,10 +35,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             return expression.Expression.AcceptVisitor(this, context);
         }
 
-        public override SearchParameterQueryGeneratorContext VisitSortParameter(SortParameterExpression expression, SearchParameterQueryGeneratorContext context)
+        public override SearchParameterQueryGeneratorContext VisitSortParameter(SortExpression expression, SearchParameterQueryGeneratorContext context)
         {
             short searchParamId = context.Model.GetSearchParamId(expression.Parameter.Url);
-            SmallIntColumn searchParamIdColumn = VLatest.SearchParam.SearchParamId;
+            var searchParamIdColumn = VLatest.SearchParam.SearchParamId;
 
             context.StringBuilder
                 .Append(searchParamIdColumn, context.TableAlias)

@@ -9,6 +9,8 @@ using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
+    /// A visitor for a Sort paramater.
+    /// It creates the correct Generator and populates the normalized predicates.
     internal class SortRewriter : SqlExpressionRewriter<SearchOptions>
     {
         private readonly NormalizedSearchParameterQueryGeneratorFactory _normalizedSearchParameterQueryGeneratorFactory;
@@ -25,6 +27,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return expression;
             }
 
+            // Proceed if we sort params were requested.
             if (context.Sort.Count == 0)
             {
                 return expression;
@@ -35,8 +38,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             var newNormalizedPredicates = new List<TableExpression>(expression.TableExpressions.Count + 1);
             newNormalizedPredicates.AddRange(expression.TableExpressions);
 
-            newNormalizedPredicates.Add(new TableExpression(queryGenerator, new SortParameterExpression(context.Sort[0].searchParameterInfo), null, TableExpressionKind.Sort));
-            //// newNormalizedPredicates.Add(new TableExpression(queryGenerator, null, null, TableExpressionKind.Sort));
+            newNormalizedPredicates.Add(new TableExpression(queryGenerator, new SortExpression(context.Sort[0].searchParameterInfo), null, TableExpressionKind.Sort));
 
             return new SqlRootExpression(newNormalizedPredicates, expression.DenormalizedExpressions);
         }

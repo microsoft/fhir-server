@@ -9,11 +9,11 @@ using Microsoft.Health.Fhir.Core.Models;
 namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 {
     /// <summary>
-    /// Represents a set of ANDed expressions over a search parameter.
+    /// Represents a sort parameter expression.
     /// </summary>
-    public class SortParameterExpression : SearchParameterExpressionBase
+    public class SortExpression : SearchParameterExpressionBase
     {
-        public SortParameterExpression(SearchParameterInfo searchParameter)
+        public SortExpression(SearchParameterInfo searchParameter)
             : base(searchParameter)
         {
         }
@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
         public override string ToString()
         {
-            return $"(Param {Parameter.Name})";
+            return $"(Sort Param: {Parameter.Name})";
         }
     }
 }

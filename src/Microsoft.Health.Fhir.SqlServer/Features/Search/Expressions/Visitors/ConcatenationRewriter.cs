@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 TableExpression tableExpression = expression.TableExpressions[i];
                 bool found = false;
 
-                // The expressions contained within a ChainExpression or IncludeExpression
+                // The expressions contained within a ChainExpression, IncludeExpression, SortExpression
                 // have been promoted to TableExpressions in this list and are not considered.
                 if (tableExpression.Kind != TableExpressionKind.Chain && tableExpression.Kind != TableExpressionKind.Include && tableExpression.Kind != TableExpressionKind.Sort)
                 {

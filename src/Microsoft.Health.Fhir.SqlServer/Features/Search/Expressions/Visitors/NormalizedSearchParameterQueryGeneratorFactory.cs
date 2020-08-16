@@ -183,7 +183,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return IncludeQueryGenerator.Instance;
         }
 
-        public NormalizedSearchParameterQueryGenerator VisitSortParameter(SortParameterExpression expression, object context)
+        /// Get the QueryGenerator for a sort expression.
+        public NormalizedSearchParameterQueryGenerator VisitSortParameter(SortExpression expression, object context)
         {
             return GetNormalizedSearchParameterQueryGenerator(expression.Parameter);
         }

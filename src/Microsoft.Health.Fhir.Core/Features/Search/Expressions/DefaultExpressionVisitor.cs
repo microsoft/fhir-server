@@ -59,6 +59,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
         public virtual TOutput VisitInclude(IncludeExpression expression, TContext context) => default;
 
-        public virtual TOutput VisitSortParameter(SortParameterExpression expression, TContext context) => default;
+        public virtual TOutput VisitSortParameter(SortExpression expression, TContext context) => default;
     }
 }
