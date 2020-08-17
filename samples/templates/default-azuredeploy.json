@@ -70,26 +70,6 @@
                 "description": "Webdeploy package to use as depoyment code. If blank, the latest code package will be deployed."
             }
         },
-        "cosmosDbAccountConsistencyPolicy": {
-            "type": "object",
-            "defaultValue": {
-                "defaultConsistencyLevel": "Strong"
-            },
-            "metadata": {
-                "description": "An object representing the default consistency policy for the Cosmos DB account. See https://docs.microsoft.com/en-us/azure/templates/microsoft.documentdb/databaseaccounts#ConsistencyPolicy"
-            }
-        },
-        "cosmosDbFreeTier": {
-            "type": "string",
-            "allowedValues": [
-              "Yes",
-              "No"
-            ],
-            "defaultValue": "No",
-            "metadata": {
-                "description": "Use Cosmos DB free tier."
-            }
-        },
         "deployApplicationInsights": {
             "type": "bool",
             "defaultValue": true,
@@ -122,8 +102,45 @@
         "solutionType": {
             "type": "string",
             "defaultValue": "FhirServerCosmosDB",
+            "allowedValues": [
+                "FhirServerCosmosDB",
+                "FhirServerSqlServer"
+            ],
             "metadata": {
                 "description": "The type of the solution"
+            }
+        },
+        "cosmosDbAccountConsistencyPolicy": {
+            "type": "object",
+            "defaultValue": {
+                "defaultConsistencyLevel": "Strong"
+            },
+            "metadata": {
+                "description": "An object representing the default consistency policy for the Cosmos DB account. See https://docs.microsoft.com/en-us/azure/templates/microsoft.documentdb/databaseaccounts#ConsistencyPolicy"
+            }
+        },
+        "cosmosDbFreeTier": {
+            "type": "string",
+            "allowedValues": [
+                "Yes",
+                "No"
+            ],
+            "defaultValue": "No",
+            "metadata": {
+                "description": "Use Cosmos DB free tier."
+            }
+        },
+        "sqlAdminPassword": {
+            "type": "securestring",
+            "metadata": {
+                "description": "The password for the sql admin user if using SQL server."
+            }
+        },
+        "sqlLocation": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().location]",
+            "metadata": {
+                "description": "An override location for the sql server database."
             }
         },
         "fhirVersion": {
@@ -178,6 +195,7 @@
             "FhirServer:Operations:Export:StorageAccountUri": "[if(parameters('enableExport'), concat('https://', variables('storageAccountName'), variables('blobStorageUri')), 'null')]"
         },
         "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'))]",
+        "computedSqlServerReference": "[concat('Microsoft.Sql/servers/', variables('serviceName'))]",
         "storageAccountName": "[concat(substring(replace(variables('serviceName'), '-', ''), 0, min(11, length(replace(variables('serviceName'), '-', '')))), uniquestring(resourceGroup().id, variables('serviceName')))]"
     },
     "resources": [
@@ -273,6 +291,7 @@
             }
         },
         {
+            "condition": "[equals(parameters('solutionType'),'FhirServerCosmosDB')]",
             "apiVersion": "2015-04-08",
             "type": "Microsoft.DocumentDB/databaseAccounts",
             "tags": {
@@ -292,6 +311,56 @@
                 ],
                 "enableFreeTier": "[variables('isCosmosDbFreeTier')]"
             }
+        },
+        {
+            "condition": "[equals(parameters('solutionType'),'FhirServerSqlServer')]",
+            "name": "[variables('serviceName')]",
+            "type": "Microsoft.Sql/servers",
+            "apiVersion": "2015-05-01-preview",
+            "location": "[parameters('sqlLocation')]",
+            "tags": {
+                "FhirServerSolution": "[parameters('solutionType')]"
+            },
+            "properties": {
+                "administratorLogin": "fhirAdmin",
+                "administratorLoginPassword": "[parameters('sqlAdminPassword')]",
+                "version": "12.0"
+            },
+            "resources": [
+                {
+                    "apiVersion": "2017-10-01-preview",
+                    "dependsOn": [
+                        "[variables('serviceName')]"
+                    ],
+                    "location": "[parameters('sqlLocation')]",
+                    "tags": {
+                        "FhirServerSolution": "[parameters('solutionType')]"
+                    },
+                    "name": "FHIR",
+                    "properties": {
+                        "collation": "SQL_Latin1_General_CP1_CI_AS"
+                    },
+                    "sku": {
+                        "name": "Standard",
+                        "tier": "Standard",
+                        "capacity": 20
+                    },
+                    "type": "databases"
+                },
+                {
+                    "apiVersion": "2014-04-01",
+                    "dependsOn": [
+                        "[variables('serviceName')]"
+                    ],
+                    "location": "[resourceGroup().location]",
+                    "name": "AllowAllWindowsAzureIps",
+                    "properties": {
+                        "endIpAddress": "0.0.0.0",
+                        "startIpAddress": "0.0.0.0"
+                    },
+                    "type": "firewallrules"
+                }
+            ]
         },
         {
             "type": "Microsoft.KeyVault/vaults",
@@ -327,6 +396,7 @@
             ]
         },
         {
+            "condition": "[equals(parameters('solutionType'),'FhirServerCosmosDB')]",
             "type": "Microsoft.KeyVault/vaults/secrets",
             "name": "[concat(variables('serviceName'), '/CosmosDb--Host')]",
             "apiVersion": "2015-06-01",
@@ -340,6 +410,7 @@
             ]
         },
         {
+            "condition": "[equals(parameters('solutionType'),'FhirServerCosmosDB')]",
             "type": "Microsoft.KeyVault/vaults/secrets",
             "name": "[concat(variables('serviceName'), '/CosmosDb--Key')]",
             "apiVersion": "2015-06-01",
@@ -350,6 +421,20 @@
             "dependsOn": [
                 "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]",
                 "[resourceId('Microsoft.DocumentDb/databaseAccounts', variables('serviceName'))]"
+            ]
+        },
+        {
+            "condition": "[equals(parameters('solutionType'),'FhirServerSqlServer')]",
+            "type": "Microsoft.KeyVault/vaults/secrets",
+            "name": "[concat(variables('serviceName'), '/SqlServer--ConnectionString')]",
+            "apiVersion": "2015-06-01",
+            "properties": {
+                "contentType": "text/plain",
+                "value": "[concat('Server=tcp:', reference(variables('computedSqlServerReference'), '2015-05-01-preview').fullyQualifiedDomainName,',1433;Initial Catalog=FHIR;Persist Security Info=False;User ID=', reference(variables('computedSqlServerReference'), '2015-05-01-preview').administratorLogin,';Password=',parameters('sqlAdminPassword'),';MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;')]"
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]",
+                "[resourceId('Microsoft.Sql/servers', variables('serviceName'))]"
             ]
         },
         {
