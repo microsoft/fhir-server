@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>netcoreapp3.1</TargetFramework>
@@ -17,8 +17,8 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="3.1.6" />
-    <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection" Version="1.0.0-master-20200716-1" />
-    <PackageReference Include="Microsoft.Health.Test.Utilities" Version="1.0.0-master-20200716-1" />
+    <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection" Version="1.0.0-master-20200812-1" />
+    <PackageReference Include="Microsoft.Health.Test.Utilities" Version="1.0.0-master-20200812-1" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.3.0" />
     <PackageReference Include="selenium.chrome.webdriver" Version="79.0.0" />
     <PackageReference Include="selenium.webdriver" Version="3.141.0" />
