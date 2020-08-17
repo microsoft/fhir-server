@@ -150,7 +150,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
             else
             {
-                searchOptions.MaxItemCount = _featureConfiguration.MaxItemCountPerSearch;
+                searchOptions.MaxItemCount = _featureConfiguration.DefaultItemCountPerSearch;
             }
 
             // Check to see if only the count should be returned

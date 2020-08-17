@@ -21,9 +21,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <param name="results">The search results.</param>
         /// <param name="unsupportedSearchParameters">The list of unsupported search parameters.</param>
         /// <param name="unsupportedSortingParameters">The list of unsupported sorting search parameters.</param>
-        /// <param name="isPartial">Should results be trucneted if number of included resources (other than matches) exceeds the configured threshold.</param>>
+        /// <param name="isPartial">Was results truncated.</param>>
         /// <param name="continuationToken">The continuation token.</param>
-        public SearchResult(IEnumerable<SearchResultEntry> results, IReadOnlyList<Tuple<string, string>> unsupportedSearchParameters, IReadOnlyList<(string parameterName, string reason)> unsupportedSortingParameters, string continuationToken, bool isPartial = false)
+        public SearchResult(
+            IEnumerable<SearchResultEntry> results,
+            IReadOnlyList<Tuple<string, string>> unsupportedSearchParameters,
+            IReadOnlyList<(string parameterName, string reason)> unsupportedSortingParameters,
+            string continuationToken,
+            bool isPartial = false)
         {
             EnsureArg.IsNotNull(results, nameof(results));
             EnsureArg.IsNotNull(unsupportedSearchParameters, nameof(unsupportedSearchParameters));

@@ -8,7 +8,7 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 namespace Microsoft.Health.Fhir.Core.Configs
 {
     /// <summary>
-    /// core feature configurations
+    /// Core feature configurations.
     /// </summary>
     public class CoreFeatureConfiguration
     {
@@ -23,12 +23,12 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public bool SupportsTransaction { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether to use the ITypedElement based search indexer
+        /// Gets or sets a value indicating whether to use the ITypedElement based search indexer.
         /// </summary>
         public bool UseTypedElementIndexer { get; set; }
 
         /// <summary>
-        /// Gets or sets the default value for IncludeTotal in search bundles
+        /// Gets or sets the default value for IncludeTotal in search bundles.
         /// </summary>
         public TotalType IncludeTotalInBundle { get; set; } = TotalType.None;
 
@@ -36,5 +36,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Gets or sets the default value for maximum value for _count in search.
         /// </summary>
         public int MaxItemCountPerSearch { get; set; } = 100;
+
+        /// <summary>
+        /// Gets or sets the default value for maximum value for _count in search.
+        /// </summary>
+        public int DefaultItemCountPerSearch { get; set; } = 10;
     }
 }

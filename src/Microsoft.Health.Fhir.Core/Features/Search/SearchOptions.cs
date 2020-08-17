@@ -15,9 +15,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     /// </summary>
     public class SearchOptions
     {
-        private const int DefaultItemCountPerSearch = 10;
-
-        private int _maxItemCount = DefaultItemCountPerSearch;
+        private int _maxItemCount;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SearchOptions"/> class.

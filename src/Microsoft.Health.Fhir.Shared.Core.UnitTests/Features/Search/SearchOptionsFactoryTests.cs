@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.NotNull(options);
 
             Assert.Null(options.ContinuationToken);
-            Assert.Equal(10, options.MaxItemCount);
+            Assert.Equal(_coreFeatures.DefaultItemCountPerSearch, options.MaxItemCount);
             ValidateResourceTypeSearchParameterExpression(options.Expression, DefaultResourceType);
         }
 
@@ -398,7 +398,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             _coreFeatures.IncludeTotalInBundle = TotalType.Accurate;
 
-            SearchOptions options = CreateSearchOptions(queryParameters: new[] { Tuple.Create<string, string>("_total", "none"),  });
+            SearchOptions options = CreateSearchOptions(queryParameters: new[] { Tuple.Create<string, string>("_total", "none"), });
 
             Assert.Equal(TotalType.None, options.IncludeTotal);
         }
@@ -414,7 +414,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public void GivenNoCountParameter_WhenCreated_ThenDefaultSearchOptionShouldUseConfigurationValue()
         {
-            _coreFeatures.MaxItemCountPerSearch = 3;
+            _coreFeatures.MaxItemCountPerSearch = 10;
+            _coreFeatures.DefaultItemCountPerSearch = 3;
 
             SearchOptions options = CreateSearchOptions();
             Assert.Equal(3, options.MaxItemCount);
@@ -424,6 +425,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public void GivenCountParameterBelowThanMaximumAllowed_WhenCreated_ThenDefaultSearchOptionShouldBeCreatedAndCountParameterShouldBeUsed()
         {
             _coreFeatures.MaxItemCountPerSearch = 20;
+            _coreFeatures.DefaultItemCountPerSearch = 1;
 
             SearchOptions options = CreateSearchOptions(queryParameters: new[] { Tuple.Create<string, string>("_count", "10"), });
             Assert.Equal(10, options.MaxItemCount);
@@ -433,6 +435,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public void GivenCountParameterAboveThanMaximumAllowed_WhenCreated_ThenSearchOptionsThrowException()
         {
             _coreFeatures.MaxItemCountPerSearch = 10;
+            _coreFeatures.DefaultItemCountPerSearch = 1;
 
             Assert.Throws<BadRequestException>(() => CreateSearchOptions(queryParameters: new[] { Tuple.Create<string, string>("_count", "11"), }));
         }
