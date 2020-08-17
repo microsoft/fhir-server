@@ -156,7 +156,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenAClientWithInvalidAuthToken_WhenCreatingAResource_TheServerShouldReturnUnauthorized()
         {
             TestFhirClient tempClient = _client.CreateClientForClientApplication(TestApplications.InvalidClient).Clone();
-            tempClient.SetBearerToken(InvalidToken);
             FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await tempClient.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>()));
             Assert.Equal(UnauthorizedMessage, fhirException.Message);
             Assert.Equal(HttpStatusCode.Unauthorized, fhirException.StatusCode);

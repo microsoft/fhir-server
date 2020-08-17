@@ -3,14 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Collections.Generic;
 using System.Net.Http;
 using EnsureThat;
 using Hl7.Fhir.Rest;
-using Microsoft.Health.Fhir.Client;
+using Microsoft.Health.Client;
 using Microsoft.Health.Fhir.Tests.E2E.Rest;
 using FhirClient = Microsoft.Health.Fhir.Client.FhirClient;
-using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Common
 {
@@ -19,7 +17,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
         private readonly TestFhirServer _testFhirServer;
         private readonly TestApplication _clientApplication;
         private readonly TestUser _user;
-        private readonly Dictionary<string, string> _bearerTokens = new Dictionary<string, string>();
 
         public TestFhirClient(
             HttpClient httpClient,
@@ -32,9 +29,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             _testFhirServer = testFhirServer;
             _clientApplication = clientApplication;
             _user = user;
-
-            ConfigureSecurityOptions().GetAwaiter().GetResult();
-            SetupAuthenticationAsync(clientApplication, user).GetAwaiter().GetResult();
         }
 
         public TestFhirClient CreateClientForUser(TestUser user, TestApplication clientApplication)
@@ -50,59 +44,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
             return _testFhirServer.GetTestFhirClient(Format, clientApplication, null);
         }
 
-        public TestFhirClient Clone()
+        public TestFhirClient Clone(AuthenticationHttpMessageHandler authenticationHandler = null)
         {
-            return _testFhirServer.GetTestFhirClient(Format, _clientApplication, _user, reusable: false);
-        }
-
-        private async Task SetupAuthenticationAsync(TestApplication clientApplication, TestUser user = null)
-        {
-            if (SecurityEnabled == true)
-            {
-                var tokenKey = $"{clientApplication.ClientId}:{(user == null ? string.Empty : user.UserId)}";
-
-                if (!_bearerTokens.ContainsKey(tokenKey))
-                {
-                    await Authenticate(clientApplication, user);
-                    _bearerTokens[tokenKey] = HttpClient.DefaultRequestHeaders?.Authorization?.Parameter;
-                }
-                else
-                {
-                    SetBearerToken(_bearerTokens[tokenKey]);
-                }
-            }
-        }
-
-        private async Task Authenticate(TestApplication clientApplication, TestUser user)
-        {
-            if (clientApplication.Equals(TestApplications.InvalidClient))
-            {
-                return;
-            }
-
-            if (user == null)
-            {
-                string scope = clientApplication.Equals(TestApplications.WrongAudienceClient) ? clientApplication.ClientId : AuthenticationSettings.Scope;
-                string resource = clientApplication.Equals(TestApplications.WrongAudienceClient) ? clientApplication.ClientId : AuthenticationSettings.Resource;
-
-                await this.AuthenticateOpenIdClientCredentials(
-                    clientApplication.ClientId,
-                    clientApplication.ClientSecret,
-                    resource,
-                    scope,
-                    cancellationToken: default);
-            }
-            else
-            {
-                await this.AuthenticateOpenIdUserPassword(
-                    clientApplication.ClientId,
-                    clientApplication.ClientSecret,
-                    AuthenticationSettings.Resource,
-                    AuthenticationSettings.Scope,
-                    user.UserId,
-                    user.Password,
-                    cancellationToken: default);
-            }
+            return _testFhirServer.GetTestFhirClient(Format, _clientApplication, _user, reusable: false, authenticationHandler);
         }
     }
 }

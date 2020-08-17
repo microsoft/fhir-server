@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <MSBuildAllProjects>$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
@@ -58,6 +58,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\ReferenceSearchTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\ReferenceSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\SearchTestsBase.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\SortTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\StringSearchTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\StringSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\TokenSearchTestFixture.cs" />

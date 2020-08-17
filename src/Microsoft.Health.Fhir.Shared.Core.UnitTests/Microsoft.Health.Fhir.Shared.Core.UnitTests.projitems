@@ -1,4 +1,3 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <MSBuildAllProjects>$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
@@ -13,9 +12,39 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Compartment\CompartmentIndexerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Compartment\SearchCompartmentHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Conformance\ConformanceBuilderTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexUtilitiesTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexJobTaskTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Export\GroupMemberExtractorTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\AddressNodeToStringSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\BooleanNodeToBooleanSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\CodeableConceptNodeToTokenSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\CodeOfTNodeToTokenSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\CodeNodeToTokenSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\CodingNodeToTokenSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\ContactPointNodeToTokenSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\DateNodeToDateTimeSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\DecimalNodeToDecimalSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\DateTimeNodeToDateTimeSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\FhirNodeInstanceToSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\UriNodeToUriSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\HumanNameNodeToStringSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\IdentifierNodeToTokenSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\IdNodeToTokenSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\InstantNodeToDateTimeSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\IntegerNodeToIntegerSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\MarkdownNodeToStringSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\OidNodeToUriSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\PeriodNodeToDateTimeSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\PositiveIntNodeToNumberSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\QuantityNodeToQuantitySearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\ResourceReferenceNodeToReferenceSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\UnsignedIntNodeToNumberSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\FhirNodeToSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\StringNodeToStringSearchValueTypeConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\LightweightReferenceToElementResolverTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchIndexerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchConverterForAllSearchTypes.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterDefinitionManagerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterFixtureData.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterSupportResolverTests.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Core.UnitTests\Features\Conformance\ProfileReferenceConverterTests.cs" />
@@ -77,5 +106,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\Narratives\NarrativeValidatorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\ValidateCapabilityPreProcessorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\ValidateRequestPreProcessorTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Behaviors\ListSearchBehaviorTests.cs" />
   </ItemGroup>
 </Project>

@@ -61,7 +61,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         public DateTimeOffset LastModified { get; set; }
 
         [JsonProperty(JobRecordProperties.FailureCount)]
-        public ushort FaiureCount { get; set; }
+        public ushort FailureCount { get; set; }
+
+        [JsonProperty(JobRecordProperties.Resources)]
+        public List<string> Resources { get; private set; } = new List<string>();
+
+        [JsonProperty(JobRecordProperties.SearchParams)]
+        public List<string> SearchParams { get; private set; } = new List<string>();
 
         [JsonIgnore]
         public int PercentComplete
@@ -77,6 +83,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
                     return 0;
                 }
             }
+        }
+
+        [JsonIgnore]
+        public string ResourceList
+        {
+            get { return string.Join(",", Resources); }
+        }
+
+        [JsonIgnore]
+        public string SearchParamList
+        {
+            get { return string.Join(",", SearchParams); }
         }
     }
 }

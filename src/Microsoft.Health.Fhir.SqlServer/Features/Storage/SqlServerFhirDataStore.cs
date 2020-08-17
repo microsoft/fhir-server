@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using System.Globalization;
@@ -77,8 +78,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<UpsertOutcome> UpsertAsync(ResourceWrapper resource, WeakETag weakETag, bool allowCreate, bool keepHistory, CancellationToken cancellationToken)
         {
-            await _model.EnsureInitialized();
-
             int etag = 0;
             if (weakETag != null && !int.TryParse(weakETag.VersionId, out etag))
             {
@@ -153,8 +152,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken)
         {
-            await _model.EnsureInitialized();
-
             using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
             {
                 int? requestedVersion = null;
@@ -222,14 +219,33 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task HardDeleteAsync(ResourceKey key, CancellationToken cancellationToken)
         {
-            await _model.EnsureInitialized();
-
             using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
                 VLatest.HardDeleteResource.PopulateCommand(sqlCommandWrapper, resourceTypeId: _model.GetResourceTypeId(key.ResourceType), resourceId: key.Id);
 
                 await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+            }
+        }
+
+        public async Task UpdateSearchParameterHashBatchAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken)
+        {
+            // TODO: use bach command to update only hash values for list updateHashValueOnly
+            // this is a place holder update until we batch update resources
+            foreach (var resource in resources)
+            {
+                await UpsertAsync(resource, WeakETag.FromVersionId(resource.Version), false, true, cancellationToken);
+            }
+        }
+
+        public async Task UpdateSearchParameterIndicesBatchAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken)
+        {
+            // TODO: use batch command to update both hash values and search index values for list updateSearchIndices
+
+            // this is a place holder update until we batch update resources
+            foreach (var resource in resources)
+            {
+                await UpsertAsync(resource, WeakETag.FromVersionId(resource.Version), false, true, cancellationToken);
             }
         }
 

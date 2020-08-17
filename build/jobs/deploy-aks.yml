@@ -49,19 +49,36 @@ jobs:
         releaseName=`echo "$(DeploymentEnvironmentName)-${{parameters.version}}-${{parameters.dataStore}}" | tr '[:upper:]' '[:lower:]'`
         hostName=`echo "${releaseName}.${{parameters.dnsSuffix}}" | tr '[:upper:]' '[:lower:]'`
         tenantId="$(tenant-id)"
-        
+
+        # Create pod identity and storage account
+        SUBSCRIPTION_ID=$(az account show | jq -r .id)
+        IDENTITY_NAME=$releaseName
+        az identity create -g ${{parameters.clusterResourceGroup}} -n $IDENTITY_NAME --subscription $SUBSCRIPTION_ID
+        IDENTITY_CLIENT_ID="$(az identity show -g ${{parameters.clusterResourceGroup}} -n $IDENTITY_NAME --subscription $SUBSCRIPTION_ID --query clientId -otsv)"
+        IDENTITY_RESOURCE_ID="$(az identity show -g ${{parameters.clusterResourceGroup}} -n $IDENTITY_NAME --subscription $SUBSCRIPTION_ID --query id -otsv)"
+        PRINCIPAL_ID="$(az identity show -g ${{parameters.clusterResourceGroup}} -n $IDENTITY_NAME --subscription $SUBSCRIPTION_ID --query principalId -otsv)"
+
+        STORAGE_ACCOUNT_NAME=$(echo $releaseName | tr -d '-' | cut -c1-24)
+        az storage account create -g ${{parameters.clusterResourceGroup}} -n $STORAGE_ACCOUNT_NAME
+        STORAGE_ACCOUNT_ID=$(az storage account show -g ${{parameters.clusterResourceGroup}} -n $STORAGE_ACCOUNT_NAME | jq -r .id)
+        BLOB_URI=$(az storage account show -g ${{parameters.clusterResourceGroup}} -n $STORAGE_ACCOUNT_NAME | jq -r .primaryEndpoints.blob)
+
+        # Note, we are using --assignee-object-id here to avoid problems with DevOps service principal credentials not having read access to the Graph
+        # https://medium.com/microsoftazure/how-to-perform-role-assignments-on-azure-resources-from-an-azure-devops-pipeline-c9f4dc10d0a4
+        az role assignment create --role "Storage Blob Data Contributor" --assignee-object-id $PRINCIPAL_ID --assignee-principal-type ServicePrincipal --scope $STORAGE_ACCOUNT_ID
+
         cat <<EOF > release-values.yaml
         image:
           repository: $repositoryName
           tag: ${{parameters.imageTag}}
         resources:
           requests:
-            cpu: 100m
+            cpu: 500m
+            memory: 500Mi
         ingress:
           enabled: true
           annotations:
             kubernetes.io/ingress.class: nginx
-            cert-manager.io/cluster-issuer: letsencrypt
             nginx.ingress.kubernetes.io/ssl-redirect: "true"
             nginx.ingress.kubernetes.io/proxy-body-size: 10m
             nginx.ingress.kubernetes.io/enable-cors: "true"
@@ -74,7 +91,7 @@ jobs:
               paths:
                   - /
           tls:
-            - secretName: $releaseName-tls
+            - secretName: aks-oss-tls
               hosts:
                 - $hostName
         database:
@@ -85,7 +102,15 @@ jobs:
             acceptEula: "Y"
             resources:
               requests:
-                cpu: 100m
+                cpu: 500m
+                memory: 2000Mi
+        podIdentity:
+          enabled: true
+          identityClientId: $IDENTITY_CLIENT_ID
+          identityResourceId: $IDENTITY_RESOURCE_ID
+        export:
+          enabled: true
+          blobStorageUri: $BLOB_URI
         security:
           enabled: true
           enableAadSmartOnFhirProxy: false

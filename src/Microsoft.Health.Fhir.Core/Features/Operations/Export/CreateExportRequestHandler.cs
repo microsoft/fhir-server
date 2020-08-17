@@ -12,6 +12,7 @@ using EnsureThat;
 using MediatR;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Extensions;
+using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
@@ -77,7 +78,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             if (outcome == null)
             {
-                var jobRecord = new ExportJobRecord(request.RequestUri, request.ResourceType, hash, requestorClaims, request.Since, storageAccountConnectionHash, _exportJobConfiguration.StorageAccountUri);
+                var jobRecord = new ExportJobRecord(
+                    request.RequestUri,
+                    request.RequestType,
+                    request.ResourceType,
+                    hash,
+                    requestorClaims,
+                    request.Since,
+                    request.GroupId,
+                    storageAccountConnectionHash,
+                    _exportJobConfiguration.StorageAccountUri,
+                    _exportJobConfiguration.MaximumNumberOfResourcesPerQuery,
+                    _exportJobConfiguration.NumberOfPagesPerCommit);
 
                 outcome = await _fhirOperationDataStore.CreateExportJobAsync(jobRecord, cancellationToken);
             }

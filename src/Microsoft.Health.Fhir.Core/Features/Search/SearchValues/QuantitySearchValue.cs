@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text;
 using EnsureThat;
@@ -108,6 +109,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
             EnsureArg.IsNotNull(visitor, nameof(visitor));
 
             visitor.Visit(this);
+        }
+
+        public bool Equals([AllowNull] ISearchValue other)
+        {
+            if (other == null)
+            {
+                return false;
+            }
+
+            var quantitytSearchValueOther = other as QuantitySearchValue;
+
+            if (quantitytSearchValueOther == null)
+            {
+                return false;
+            }
+
+            return Low == quantitytSearchValueOther.Low &&
+                   High == quantitytSearchValueOther.High &&
+                   System.Equals(quantitytSearchValueOther.System, StringComparison.OrdinalIgnoreCase) &&
+                   Code.Equals(quantitytSearchValueOther.Code, StringComparison.OrdinalIgnoreCase);
         }
 
         /// <inheritdoc />

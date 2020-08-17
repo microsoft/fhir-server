@@ -14,8 +14,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
-using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Routing;
@@ -24,6 +24,7 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
 
@@ -38,21 +39,25 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly ReindexJobConfiguration _config;
         private readonly ILogger<ReindexController> _logger;
         private static Dictionary<string, HashSet<string>> _supportedParams = InitSupportedParams();
+        private readonly IUrlResolver _urlResolver;
 
         public ReindexController(
             IMediator mediator,
             IFhirRequestContextAccessor fhirRequestContextAccessor,
             IOptions<OperationsConfiguration> operationsConfig,
+            IUrlResolver urlResolver,
             ILogger<ReindexController> logger)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(operationsConfig?.Value?.Reindex, nameof(operationsConfig));
+            EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _mediator = mediator;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _config = operationsConfig.Value.Reindex;
+            _urlResolver = urlResolver;
             _logger = logger;
         }
 
@@ -71,9 +76,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             ResourceElement response = await _mediator.CreateReindexJobAsync(maximumConcurrency, scope, HttpContext.RequestAborted);
 
-            return FhirResult.Create(response, HttpStatusCode.Created)
+            var result = FhirResult.Create(response, HttpStatusCode.Created)
                 .SetETagHeader()
                 .SetLastModifiedHeader();
+
+            result.SetContentLocationHeader(_urlResolver, OperationsConstants.Reindex, response.Id);
+            return result;
         }
 
         [HttpGet]
@@ -84,6 +92,20 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             CheckIfReindexIsEnabledAndRespond();
 
             ResourceElement response = await _mediator.GetReindexJobAsync(null, HttpContext.RequestAborted);
+
+            return FhirResult.Create(response, HttpStatusCode.OK)
+                .SetETagHeader()
+                .SetLastModifiedHeader();
+        }
+
+        [HttpGet]
+        [Route(KnownRoutes.ReindexJobLocation, Name = RouteNames.GetReindexStatusById)]
+        [AuditEventType(AuditEventSubType.Reindex)]
+        public async Task<IActionResult> GetReindexJob(string idParameter)
+        {
+            CheckIfReindexIsEnabledAndRespond();
+
+            ResourceElement response = await _mediator.GetReindexJobAsync(idParameter, HttpContext.RequestAborted);
 
             return FhirResult.Create(response, HttpStatusCode.OK)
                 .SetETagHeader()

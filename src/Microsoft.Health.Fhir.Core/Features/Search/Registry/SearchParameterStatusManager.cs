@@ -8,7 +8,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
-using Microsoft.Health.Core;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
@@ -88,6 +87,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                     updated.Add(p);
                 }
             }
+
+            var searchParameterHashValue = SearchHelperUtilities.CalculateSearchParameterHash(parameters.Values);
+            await _mediator.Publish(new SearchParametersHashUpdated(searchParameterHashValue));
 
             await _mediator.Publish(new SearchParametersUpdated(updated));
         }

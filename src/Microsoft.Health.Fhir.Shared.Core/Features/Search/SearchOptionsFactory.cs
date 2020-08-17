@@ -183,7 +183,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             if (searchParams.Include?.Count > 0)
             {
                 searchExpressions.AddRange(searchParams.Include.Select(
-                    q => _expressionParser.ParseInclude(parsedResourceType.ToString(), q))
+                    q => _expressionParser.ParseInclude(parsedResourceType.ToString(), q, false /* not reversed */))
+                    .Where(item => item != null));
+            }
+
+            if (searchParams.RevInclude?.Count > 0)
+            {
+                searchExpressions.AddRange(searchParams.RevInclude.Select(
+                    q => _expressionParser.ParseInclude(parsedResourceType.ToString(), q, true /* reversed */))
                     .Where(item => item != null));
             }
 
@@ -231,11 +238,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     try
                     {
                         SearchParameterInfo searchParameterInfo = _searchParameterDefinitionManager.GetSearchParameter(parsedResourceType.ToString(), sorting.Item1);
-                        sortings.Add((searchParameterInfo, sorting.Item2.ToCoreSortOrder()));
+
+                        if (searchParameterInfo.IsSortSupported())
+                        {
+                            sortings.Add((searchParameterInfo, sorting.Item2.ToCoreSortOrder()));
+                        }
+                        else
+                        {
+                            throw new SearchParameterNotSupportedException(string.Format(Core.Resources.SearchSortParameterNotSupported, searchParameterInfo.Name));
+                        }
                     }
                     catch (SearchParameterNotSupportedException)
                     {
-                        (unsupportedSortings ??= new List<(string parameterName, string reason)>()).Add((sorting.Item1, string.Format(Core.Resources.SearchParameterNotSupported, sorting.Item1, resourceType)));
+                        (unsupportedSortings ??= new List<(string parameterName, string reason)>()).Add((sorting.Item1, string.Format(Core.Resources.SearchSortParameterNotSupported, sorting.Item1)));
                     }
                 }
 

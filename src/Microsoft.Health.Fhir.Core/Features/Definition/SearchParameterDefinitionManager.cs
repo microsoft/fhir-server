@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
-using Hl7.Fhir.Serialization;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
@@ -22,6 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         private readonly IModelInfoProvider _modelInfoProvider;
 
         private IDictionary<string, IDictionary<string, SearchParameterInfo>> _typeLookup;
+        private bool _started;
 
         public SearchParameterDefinitionManager(IModelInfoProvider modelInfoProvider)
         {
@@ -34,18 +34,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public IEnumerable<SearchParameterInfo> AllSearchParameters => UrlLookup.Values;
 
+        public string SearchParametersHash { get; set; }
+
         public void Start()
         {
-            var builder = new SearchParameterDefinitionBuilder(
-                _modelInfoProvider,
-                "search-parameters.json");
+            // This method is idempotent because dependent Start methods are not guaranteed to be executed in order.
+            if (!_started)
+            {
+                var builder = new SearchParameterDefinitionBuilder(
+                    _modelInfoProvider,
+                    "search-parameters.json");
 
-            builder.Build();
+                builder.Build();
 
-            _typeLookup = builder.ResourceTypeDictionary;
-            UrlLookup = builder.UriDictionary;
+                _typeLookup = builder.ResourceTypeDictionary;
+                UrlLookup = builder.UriDictionary;
 
-            List<string> list = UrlLookup.Values.Where(p => p.Type == ValueSets.SearchParamType.Composite).Select(p => string.Join("|", p.Component.Select(c => UrlLookup[c.DefinitionUrl].Type))).Distinct().ToList();
+                List<string> list = UrlLookup.Values.Where(p => p.Type == ValueSets.SearchParamType.Composite).Select(p => string.Join("|", p.Component.Select(c => UrlLookup[c.DefinitionUrl].Type))).Distinct().ToList();
+
+                _started = true;
+            }
         }
 
         public IEnumerable<SearchParameterInfo> GetSearchParameters(string resourceType)

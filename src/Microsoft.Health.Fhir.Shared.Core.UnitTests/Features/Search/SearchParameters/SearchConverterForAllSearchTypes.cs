@@ -47,17 +47,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
                 Assert.True(
                     converters.Any(x => x.hasConverter),
-                    $"{parameterName} ({resourceType}) was not able to be mapped.");
+                    $"{resourceType}.{parameterName} ({converters.First().result.FhirNodeType}=>{searchParamType}) was not able to be mapped.");
 
-                string listedTypes = string.Join(",", converters.Select(x => x.result.ClassMapping.NativeType.Name));
+                string listedTypes = string.Join(",", converters.Select(x => x.result.FhirNodeType));
                 _outputHelper.WriteLine($"Info: {parameterName} ({searchParamType}) found {listedTypes} types ({converters.Count}).");
 
                 foreach (var result in converters.Where(x => x.hasConverter || !parameterInfo.IsPartiallySupported))
                 {
-                    var found = SearchParameterFixtureData.Manager.TryGetConverter(result.result.ClassMapping.NativeType, SearchIndexer.GetSearchValueTypeForSearchParamType(result.result.SearchParamType), out var converter);
+                    var found = SearchParameterFixtureData.Manager.TryGetConverter(result.result.FhirNodeType, SearchIndexer.GetSearchValueTypeForSearchParamType(result.result.SearchParamType), out var converter);
 
                     var converterText = found ? converter.GetType().Name : "None";
-                    string searchTermMapping = $"Search term '{parameterName}' ({result.result.SearchParamType}) mapped to '{result.result.ClassMapping.NativeType.Name}', converter: {converterText}";
+                    string searchTermMapping = $"Search term '{parameterName}' ({result.result.SearchParamType}) mapped to '{result.result.FhirNodeType}', converter: {converterText}";
                     _outputHelper.WriteLine(searchTermMapping);
 
                     Assert.True(found, searchTermMapping);
@@ -122,7 +122,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(systemUnsupported.PartialSupport, unsupported.PartialSupport);
         }
 
-        private IReadOnlyCollection<(SearchParameterTypeResult result, bool hasConverter, IFhirElementToSearchValueTypeConverter converter)> GetConvertsForSearchParameters(
+        private IReadOnlyCollection<(SearchParameterTypeResult result, bool hasConverter, IFhirNodeToSearchValueTypeConverter converter)> GetConvertsForSearchParameters(
             string resourceType,
             SearchParameterInfo parameterInfo)
         {
@@ -143,9 +143,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 .Select(result => (
                     result,
                     hasConverter: SearchParameterFixtureData.Manager.TryGetConverter(
-                        result.ClassMapping.NativeType,
+                        result.FhirNodeType,
                         SearchIndexer.GetSearchValueTypeForSearchParamType(result.SearchParamType),
-                        out IFhirElementToSearchValueTypeConverter converter),
+                        out IFhirNodeToSearchValueTypeConverter converter),
                     converter))
                 .ToArray();
 

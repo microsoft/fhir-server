@@ -33,6 +33,14 @@ namespace Microsoft.Health.Fhir.Tests.Common
         }
 
         /// <summary>
+        /// This returns a list sample from the json files
+        /// </summary>
+        public static ResourceElement GetDefaultList()
+        {
+            return GetJsonSample("list-example-long");
+        }
+
+        /// <summary>
         /// This returns a organization sample from the json files
         /// </summary>
         public static ResourceElement GetDefaultOrganization()

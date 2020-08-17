@@ -10,22 +10,21 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Microsoft.Azure.Documents;
-using Microsoft.Azure.Documents.Client;
-using Microsoft.Azure.Documents.Linq;
+using Microsoft.Azure.Cosmos;
+using Microsoft.Azure.Cosmos.Scripts;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
-using Microsoft.Health.CosmosDb.Configs;
-using Microsoft.Health.CosmosDb.Features.Storage;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Export;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations.Reindex;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.AcquireExportJobs;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.AcquireReindexJobs;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 {
@@ -39,49 +38,51 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
         private static readonly string CheckActiveJobsByStatusQuery =
             $"SELECT TOP 1 * FROM ROOT r WHERE r.{JobRecordProperties.JobRecord}.{JobRecordProperties.Status} IN ('{OperationStatus.Queued}', '{OperationStatus.Running}', '{OperationStatus.Paused}')";
 
-        private readonly IScoped<IDocumentClient> _documentClientScope;
+        private readonly IScoped<Container> _containerScope;
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
+        private readonly ICosmosQueryFactory _queryFactory;
         private readonly ILogger _logger;
 
-        private readonly AcquireExportJobs _acquireExportJobs = new AcquireExportJobs();
+        private static readonly AcquireExportJobs _acquireExportJobs = new AcquireExportJobs();
+        private static readonly AcquireReindexJobs _acquireReindexJobs = new AcquireReindexJobs();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="CosmosFhirOperationDataStore"/> class.
         /// </summary>
-        /// <param name="documentClientScope">The factory for <see cref="IDocumentClient"/>.</param>
+        /// <param name="containerScope">The factory for <see cref="Container"/>.</param>
         /// <param name="cosmosDataStoreConfiguration">The data store configuration.</param>
         /// <param name="namedCosmosCollectionConfigurationAccessor">The IOptions accessor to get a named version.</param>
         /// <param name="retryExceptionPolicyFactory">The retry exception policy factory.</param>
+        /// <param name="queryFactory">The Query Factory</param>
         /// <param name="logger">The logger.</param>
         public CosmosFhirOperationDataStore(
-            IScoped<IDocumentClient> documentClientScope,
+            IScoped<Container> containerScope,
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
             IOptionsMonitor<CosmosCollectionConfiguration> namedCosmosCollectionConfigurationAccessor,
             RetryExceptionPolicyFactory retryExceptionPolicyFactory,
+            ICosmosQueryFactory queryFactory,
             ILogger<CosmosFhirOperationDataStore> logger)
         {
-            EnsureArg.IsNotNull(documentClientScope, nameof(documentClientScope));
+            EnsureArg.IsNotNull(containerScope, nameof(containerScope));
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
             EnsureArg.IsNotNull(namedCosmosCollectionConfigurationAccessor, nameof(namedCosmosCollectionConfigurationAccessor));
             EnsureArg.IsNotNull(retryExceptionPolicyFactory, nameof(retryExceptionPolicyFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _documentClientScope = documentClientScope;
+            _containerScope = containerScope;
             _retryExceptionPolicyFactory = retryExceptionPolicyFactory;
+            _queryFactory = queryFactory;
             _logger = logger;
 
             CosmosCollectionConfiguration collectionConfiguration = namedCosmosCollectionConfigurationAccessor.Get(Constants.CollectionConfigurationName);
 
             DatabaseId = cosmosDataStoreConfiguration.DatabaseId;
             CollectionId = collectionConfiguration.CollectionId;
-            CollectionUri = cosmosDataStoreConfiguration.GetRelativeCollectionUri(collectionConfiguration.CollectionId);
         }
 
         private string DatabaseId { get; }
 
         private string CollectionId { get; }
-
-        private Uri CollectionUri { get; }
 
         public async Task<ExportJobOutcome> CreateExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken)
         {
@@ -91,16 +92,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 
             try
             {
-                ResourceResponse<Document> result = await _documentClientScope.Value.CreateDocumentAsync(
-                    CollectionUri,
+                var result = await _containerScope.Value.CreateItemAsync(
                     cosmosExportJob,
-                    new RequestOptions() { PartitionKey = new PartitionKey(CosmosDbExportConstants.ExportJobPartitionKey) },
-                    disableAutomaticIdGeneration: true,
+                    new PartitionKey(CosmosDbExportConstants.ExportJobPartitionKey),
                     cancellationToken: cancellationToken);
 
                 return new ExportJobOutcome(jobRecord, WeakETag.FromVersionId(result.Resource.ETag));
             }
-            catch (DocumentClientException dce)
+            catch (CosmosException dce)
             {
                 if (dce.StatusCode == HttpStatusCode.TooManyRequests)
                 {
@@ -118,16 +117,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 
             try
             {
-                DocumentResponse<CosmosExportJobRecordWrapper> cosmosExportJobRecord = await _documentClientScope.Value.ReadDocumentAsync<CosmosExportJobRecordWrapper>(
-                    UriFactory.CreateDocumentUri(DatabaseId, CollectionId, id),
-                    new RequestOptions { PartitionKey = new PartitionKey(CosmosDbExportConstants.ExportJobPartitionKey) },
-                    cancellationToken);
+                ItemResponse<CosmosExportJobRecordWrapper> cosmosExportJobRecord = await _containerScope.Value.ReadItemAsync<CosmosExportJobRecordWrapper>(
+                    id,
+                    new PartitionKey(CosmosDbExportConstants.ExportJobPartitionKey),
+                    cancellationToken: cancellationToken);
 
-                var outcome = new ExportJobOutcome(cosmosExportJobRecord.Document.JobRecord, WeakETag.FromVersionId(cosmosExportJobRecord.Document.ETag));
+                var outcome = new ExportJobOutcome(cosmosExportJobRecord.Resource.JobRecord, WeakETag.FromVersionId(cosmosExportJobRecord.Resource.ETag));
 
                 return outcome;
             }
-            catch (DocumentClientException dce)
+            catch (CosmosException dce)
             {
                 if (dce.StatusCode == HttpStatusCode.TooManyRequests)
                 {
@@ -149,18 +148,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 
             try
             {
-                IDocumentQuery<CosmosExportJobRecordWrapper> query = _documentClientScope.Value.CreateDocumentQuery<CosmosExportJobRecordWrapper>(
-                    CollectionUri,
-                    new SqlQuerySpec(
-                       GetJobByHashQuery,
-                       new SqlParameterCollection()
-                       {
-                           new SqlParameter(HashParameterName, hash),
-                       }),
-                    new FeedOptions { PartitionKey = new PartitionKey(CosmosDbExportConstants.ExportJobPartitionKey) })
-                    .AsDocumentQuery();
+                var query = _queryFactory.Create<CosmosExportJobRecordWrapper>(
+                    _containerScope.Value,
+                    new CosmosQueryContext(
+                        new QueryDefinition(GetJobByHashQuery)
+                            .WithParameter(HashParameterName, hash),
+                        new QueryRequestOptions { PartitionKey = new PartitionKey(CosmosDbExportConstants.ExportJobPartitionKey) }));
 
-                FeedResponse<CosmosExportJobRecordWrapper> result = await query.ExecuteNextAsync<CosmosExportJobRecordWrapper>();
+                FeedResponse<CosmosExportJobRecordWrapper> result = await query.ExecuteNextAsync();
 
                 if (result.Count == 1)
                 {
@@ -172,7 +167,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 
                 return null;
             }
-            catch (DocumentClientException dce)
+            catch (CosmosException dce)
             {
                 if (dce.StatusCode == HttpStatusCode.TooManyRequests)
                 {
@@ -189,35 +184,28 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             EnsureArg.IsNotNull(jobRecord, nameof(jobRecord));
 
             var cosmosExportJob = new CosmosExportJobRecordWrapper(jobRecord);
-
-            var requestOptions = new RequestOptions()
-            {
-                PartitionKey = new PartitionKey(CosmosDbExportConstants.ExportJobPartitionKey),
-            };
+            var requestOptions = new ItemRequestOptions();
 
             // Create access condition so that record is replaced only if eTag matches.
             if (eTag != null)
             {
-                requestOptions.AccessCondition = new AccessCondition()
-                {
-                    Type = AccessConditionType.IfMatch,
-                    Condition = eTag.VersionId,
-                };
+                requestOptions.IfMatchEtag = eTag.VersionId;
             }
 
             try
             {
-                ResourceResponse<Document> replaceResult = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
-                    () => _documentClientScope.Value.ReplaceDocumentAsync(
-                        UriFactory.CreateDocumentUri(DatabaseId, CollectionId, jobRecord.Id),
+                var replaceResult = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
+                    () => _containerScope.Value.ReplaceItemAsync(
                         cosmosExportJob,
-                        requestOptions,
-                        cancellationToken));
+                        jobRecord.Id,
+                        new PartitionKey(CosmosDbExportConstants.ExportJobPartitionKey),
+                        cancellationToken: cancellationToken,
+                        requestOptions: requestOptions));
 
                 var latestETag = replaceResult.Resource.ETag;
                 return new ExportJobOutcome(jobRecord, WeakETag.FromVersionId(latestETag));
             }
-            catch (DocumentClientException dce)
+            catch (CosmosException dce)
             {
                 if (dce.StatusCode == HttpStatusCode.TooManyRequests)
                 {
@@ -244,18 +232,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
         {
             try
             {
-                StoredProcedureResponse<IReadOnlyCollection<CosmosExportJobRecordWrapper>> response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
+                var response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
                     async ct => await _acquireExportJobs.ExecuteAsync(
-                        _documentClientScope.Value,
-                        CollectionUri,
+                        _containerScope.Value.Scripts,
                         maximumNumberOfConcurrentJobsAllowed,
                         (ushort)jobHeartbeatTimeoutThreshold.TotalSeconds,
                         ct),
                     cancellationToken);
 
-                return response.Response.Select(wrapper => new ExportJobOutcome(wrapper.JobRecord, WeakETag.FromVersionId(wrapper.ETag))).ToList();
+                return response.Resource.Select(wrapper => new ExportJobOutcome(wrapper.JobRecord, WeakETag.FromVersionId(wrapper.ETag))).ToList();
             }
-            catch (DocumentClientException dce)
+            catch (CosmosException dce)
             {
                 if (dce.GetSubStatusCode() == HttpStatusCode.RequestEntityTooLarge)
                 {
@@ -275,58 +262,62 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 
             try
             {
-                ResourceResponse<Document> result = await _documentClientScope.Value.CreateDocumentAsync(
-                    CollectionUri,
+                var result = await _containerScope.Value.CreateItemAsync(
                     cosmosReindexJob,
-                    new RequestOptions() { PartitionKey = new PartitionKey(CosmosDbReindexConstants.ReindexJobPartitionKey) },
-                    disableAutomaticIdGeneration: true,
+                    new PartitionKey(CosmosDbReindexConstants.ReindexJobPartitionKey),
                     cancellationToken: cancellationToken);
 
                 return new ReindexJobWrapper(jobRecord, WeakETag.FromVersionId(result.Resource.ETag));
             }
-            catch (DocumentClientException dce)
+            catch (CosmosException dce)
             {
                 if (dce.StatusCode == HttpStatusCode.TooManyRequests)
                 {
                     throw new RequestRateExceededException(dce.RetryAfter);
                 }
 
-                _logger.LogError(dce, "Failed to create an reindex job.");
+                _logger.LogError(dce, "Failed to create a reindex job.");
                 throw;
             }
         }
 
         public async Task<IReadOnlyCollection<ReindexJobWrapper>> AcquireReindexJobsAsync(ushort maximumNumberOfConcurrentJobsAllowed, TimeSpan jobHeartbeatTimeoutThreshold, CancellationToken cancellationToken)
         {
-            // TODO: Shell for testing
-            IDocumentQuery<int> query = _documentClientScope.Value.CreateDocumentQuery<int>(
-                    CollectionUri,
-                    new SqlQuerySpec(CheckActiveJobsByStatusQuery),
-                    new FeedOptions { PartitionKey = new PartitionKey(CosmosDbReindexConstants.ReindexJobPartitionKey) })
-                    .AsDocumentQuery();
-
-            FeedResponse<CosmosReindexJobRecordWrapper> result = await query.ExecuteNextAsync<CosmosReindexJobRecordWrapper>();
-            var jobList = new List<ReindexJobWrapper>();
-            CosmosReindexJobRecordWrapper cosmosJob = result.FirstOrDefault();
-            if (cosmosJob != null)
+            try
             {
-                jobList.Add(new ReindexJobWrapper(cosmosJob.JobRecord, WeakETag.FromVersionId(cosmosJob.ETag)));
-            }
+                StoredProcedureExecuteResponse<IReadOnlyCollection<CosmosReindexJobRecordWrapper>> response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
+                    async ct => await _acquireReindexJobs.ExecuteAsync(
+                        _containerScope.Value.Scripts,
+                        maximumNumberOfConcurrentJobsAllowed,
+                        (ushort)jobHeartbeatTimeoutThreshold.TotalSeconds,
+                        ct),
+                    cancellationToken);
 
-            return jobList;
+                return response.Resource.Select(cosmosReindexWrapper => new ReindexJobWrapper(cosmosReindexWrapper.JobRecord, WeakETag.FromVersionId(cosmosReindexWrapper.ETag))).ToList();
+            }
+            catch (CosmosException dce)
+            {
+                if (dce.GetSubStatusCode() == HttpStatusCode.RequestEntityTooLarge)
+                {
+                    throw new RequestRateExceededException(null);
+                }
+
+                _logger.LogError(dce, "Failed to acquire reindex jobs.");
+                throw;
+            }
         }
 
         public async Task<bool> CheckActiveReindexJobsAsync(CancellationToken cancellationToken)
         {
             try
             {
-                IDocumentQuery<int> query = _documentClientScope.Value.CreateDocumentQuery<int>(
-                    CollectionUri,
-                    new SqlQuerySpec(CheckActiveJobsByStatusQuery),
-                    new FeedOptions { PartitionKey = new PartitionKey(CosmosDbReindexConstants.ReindexJobPartitionKey) })
-                    .AsDocumentQuery();
+                var query = _queryFactory.Create<CosmosReindexJobRecordWrapper>(
+                    _containerScope.Value,
+                    new CosmosQueryContext(
+                        new QueryDefinition(CheckActiveJobsByStatusQuery),
+                        new QueryRequestOptions { PartitionKey = new PartitionKey(CosmosDbReindexConstants.ReindexJobPartitionKey) }));
 
-                FeedResponse<CosmosReindexJobRecordWrapper> result = await query.ExecuteNextAsync<CosmosReindexJobRecordWrapper>();
+                FeedResponse<CosmosReindexJobRecordWrapper> result = await query.ExecuteNextAsync();
 
                 if (result.Any())
                 {
@@ -335,7 +326,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 
                 return false;
             }
-            catch (DocumentClientException dce)
+            catch (CosmosException dce)
             {
                 if (dce.StatusCode == HttpStatusCode.TooManyRequests)
                 {
@@ -347,9 +338,37 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             }
         }
 
-        public Task<ReindexJobWrapper> GetReindexJobByIdAsync(string jobId, CancellationToken cancellationToken)
+        public async Task<ReindexJobWrapper> GetReindexJobByIdAsync(string jobId, CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            EnsureArg.IsNotNullOrWhiteSpace(jobId, nameof(jobId));
+
+            try
+            {
+                var cosmosReindexJobRecord = await _containerScope.Value.ReadItemAsync<CosmosReindexJobRecordWrapper>(
+                    jobId,
+                    new PartitionKey(CosmosDbReindexConstants.ReindexJobPartitionKey),
+                    cancellationToken: cancellationToken);
+
+                var outcome = new ReindexJobWrapper(
+                    cosmosReindexJobRecord.Resource.JobRecord,
+                    WeakETag.FromVersionId(cosmosReindexJobRecord.Resource.ETag));
+
+                return outcome;
+            }
+            catch (CosmosException dce)
+            {
+                if (dce.StatusCode == HttpStatusCode.TooManyRequests)
+                {
+                    throw new RequestRateExceededException(dce.RetryAfter);
+                }
+                else if (dce.StatusCode == HttpStatusCode.NotFound)
+                {
+                    throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, jobId));
+                }
+
+                _logger.LogError(dce, $"Failed to get reindex job by id: {jobId}.");
+                throw;
+            }
         }
 
         public async Task<ReindexJobWrapper> UpdateReindexJobAsync(ReindexJobRecord jobRecord, WeakETag eTag, CancellationToken cancellationToken)
@@ -357,35 +376,28 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             EnsureArg.IsNotNull(jobRecord, nameof(jobRecord));
 
             var cosmosReindexJob = new CosmosReindexJobRecordWrapper(jobRecord);
-
-            var requestOptions = new RequestOptions()
-            {
-                PartitionKey = new PartitionKey(CosmosDbReindexConstants.ReindexJobPartitionKey),
-            };
+            var requestOptions = new ItemRequestOptions();
 
             // Create access condition so that record is replaced only if eTag matches.
             if (eTag != null)
             {
-                requestOptions.AccessCondition = new AccessCondition()
-                {
-                    Type = AccessConditionType.IfMatch,
-                    Condition = eTag.VersionId,
-                };
+                requestOptions.IfMatchEtag = eTag.VersionId;
             }
 
             try
             {
-                ResourceResponse<Document> replaceResult = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
-                    () => _documentClientScope.Value.ReplaceDocumentAsync(
-                        UriFactory.CreateDocumentUri(DatabaseId, CollectionId, jobRecord.Id),
+                var replaceResult = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
+                    () => _containerScope.Value.ReplaceItemAsync(
                         cosmosReindexJob,
+                        jobRecord.Id,
+                        new PartitionKey(CosmosDbReindexConstants.ReindexJobPartitionKey),
                         requestOptions,
                         cancellationToken));
 
                 var latestETag = replaceResult.Resource.ETag;
                 return new ReindexJobWrapper(jobRecord, WeakETag.FromVersionId(latestETag));
             }
-            catch (DocumentClientException dce)
+            catch (CosmosException dce)
             {
                 if (dce.StatusCode == HttpStatusCode.TooManyRequests)
                 {

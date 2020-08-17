@@ -12,12 +12,14 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Controllers;
+using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Messages.Reindex;
 using NSubstitute;
 using Xunit;
@@ -32,12 +34,14 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         private IFhirRequestContextAccessor _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
         private HttpContext _httpContext = new DefaultHttpContext();
         private static ReindexJobConfiguration _reindexJobConfig = new ReindexJobConfiguration() { Enabled = true };
+        private IUrlResolver _urlResolver = Substitute.For<IUrlResolver>();
 
         public ReindexControllerTests()
         {
             _reindexEnabledController = GetController(_reindexJobConfig);
             var controllerContext = new ControllerContext() { HttpContext = _httpContext };
             _reindexEnabledController.ControllerContext = controllerContext;
+            _urlResolver.ResolveOperationResultUrl(Arg.Any<string>(), Arg.Any<string>()).Returns(new System.Uri("https://test.com"));
         }
 
         public static TheoryData<Parameters> InvalidBody =>
@@ -63,6 +67,28 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             await Assert.ThrowsAsync<RequestNotValidException>(() => reindexController.CreateReindexJob(null));
         }
 
+        [Fact]
+        public async Task GivenAGetReindexRequest_WhenDisabled_ThenRequestNotValidExceptionShouldBeThrown()
+        {
+            var reindexController = GetController(new ReindexJobConfiguration() { Enabled = false });
+
+            await Assert.ThrowsAsync<RequestNotValidException>(() => reindexController.GetReindexJob("id"));
+        }
+
+        [Fact]
+        public async Task GivenAGetReindexRequest_WhenJobExists_ThenParammetersResourceReturned()
+        {
+            _mediator.Send(Arg.Any<GetReindexRequest>()).Returns(Task.FromResult(GetReindexJobResponse()));
+
+            var result = await _reindexEnabledController.GetReindexJob("id");
+
+            await _mediator.Received().Send(
+                Arg.Is<GetReindexRequest>(r => r.JobId == "id"), Arg.Any<CancellationToken>());
+
+            var parametersResource = ((FhirResult)result).Result.ResourceInstance as Parameters;
+            Assert.Equal("Queued", parametersResource.Parameter[3].Value.ToString());
+        }
+
         [Theory]
         [MemberData(nameof(InvalidBody), MemberType = typeof(ReindexControllerTests))]
         public async Task GivenACreateReindexRequest_WhenInvalidBodySent_ThenRequestNotValidThrown(Parameters body)
@@ -77,13 +103,16 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         {
             _reindexEnabledController.ControllerContext.HttpContext.Request.Method = HttpMethods.Post;
             _mediator.Send(Arg.Any<CreateReindexRequest>()).Returns(Task.FromResult(GetCreateReindexResponse()));
-            await _reindexEnabledController.CreateReindexJob(body);
+            var result = await _reindexEnabledController.CreateReindexJob(body);
             await _mediator.Received().Send(
                 Arg.Is<CreateReindexRequest>(
                     r => r.MaximumConcurrency.ToString().Equals(body.Parameter.Find(p => p.Name.Equals(JobRecordProperties.MaximumConcurrency)).Value.ToString())
                 && r.Scope == body.Parameter.Find(p => p.Name.Equals(JobRecordProperties.Scope)).Value.ToString()),
                 Arg.Any<CancellationToken>());
             _mediator.ClearReceivedCalls();
+
+            var parametersResource = ((FhirResult)result).Result.ResourceInstance as Parameters;
+            Assert.Equal("Queued", parametersResource.Parameter[3].Value.ToString());
         }
 
         private ReindexController GetController(ReindexJobConfiguration reindexConfig)
@@ -100,6 +129,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 _mediator,
                 _fhirRequestContextAccessor,
                 optionsOperationConfiguration,
+                _urlResolver,
                 NullLogger<ReindexController>.Instance);
         }
 
@@ -110,6 +140,15 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 jobRecord,
                 WeakETag.FromVersionId("33a64df551425fcc55e4d42a148795d9f25f89d4"));
             return new CreateReindexResponse(jobWrapper);
+        }
+
+        private static GetReindexResponse GetReindexJobResponse()
+        {
+            var jobRecord = new ReindexJobRecord("hash", 5, "patient");
+            var jobWrapper = new ReindexJobWrapper(
+                jobRecord,
+                WeakETag.FromVersionId("33a64df551425fcc55e4d42a148795d9f25f89d4"));
+            return new GetReindexResponse(System.Net.HttpStatusCode.OK, jobWrapper);
         }
 
         private static Parameters GetValidReindexJobPostBody(int? maxConcurrency, string scope)

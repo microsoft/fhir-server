@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using Microsoft.Health.Extensions.Xunit;
+using Microsoft.Health.Fhir.CosmosDb.UnitTests;
 using Microsoft.Health.Fhir.Tests.Common;
 using Xunit;
 

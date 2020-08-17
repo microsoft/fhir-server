@@ -31,6 +31,7 @@ using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Storage;
+using SortOrder = Microsoft.Health.Fhir.Core.Features.Search.SortOrder;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 {
@@ -42,7 +43,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly StringOverflowRewriter _stringOverflowRewriter;
         private readonly ILogger<SqlServerSearchService> _logger;
         private readonly BitColumn _isMatch = new BitColumn("IsMatch");
+        private readonly BitColumn _isPartial = new BitColumn("IsPartial");
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
+
+        private bool _isResultPartial;
 
         public SqlServerSearchService(
             ISearchOptionsFactory searchOptionsFactory,
@@ -67,6 +71,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _stringOverflowRewriter = stringOverflowRewriter;
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _logger = logger;
+            _isResultPartial = false;
         }
 
         protected override async Task<SearchResult> SearchInternalAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
@@ -81,8 +86,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 // If this is the first page and there aren't any more pages
                 if (searchOptions.ContinuationToken == null && searchResult.ContinuationToken == null)
                 {
-                    // Count the results on the page.
-                    searchResult.TotalCount = searchResult.Results.Count();
+                    // Count the match results on the page.
+                    searchResult.TotalCount = searchResult.Results.Count(r => r.SearchEntryMode == SearchEntryMode.Match);
                 }
                 else
                 {
@@ -118,8 +123,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         private async Task<SearchResult> SearchImpl(SearchOptions searchOptions, bool historySearch, CancellationToken cancellationToken)
         {
-            await _model.EnsureInitialized();
-
             Expression searchExpression = searchOptions.Expression;
 
             // AND in the continuation token
@@ -127,13 +130,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             {
                 if (long.TryParse(searchOptions.ContinuationToken, NumberStyles.None, CultureInfo.InvariantCulture, out var token))
                 {
-                    var tokenExpression = Expression.SearchParameter(SqlSearchParameters.ResourceSurrogateIdParameter, Expression.GreaterThan(SqlFieldName.ResourceSurrogateId, null, token));
+                    var sortOrder = searchOptions.GetFirstSortOrderForSupportedParam();
+
+                    Expression lastUpdatedExpression = sortOrder == SortOrder.Ascending ? Expression.GreaterThan(SqlFieldName.ResourceSurrogateId, null, token)
+                                                                                                : Expression.LessThan(SqlFieldName.ResourceSurrogateId, null, token);
+
+                    var tokenExpression = Expression.SearchParameter(SqlSearchParameters.ResourceSurrogateIdParameter, lastUpdatedExpression);
                     searchExpression = searchExpression == null ? tokenExpression : (Expression)Expression.And(tokenExpression, searchExpression);
                 }
                 else
                 {
                     throw new BadRequestException(Resources.InvalidContinuationToken);
                 }
+            }
+
+            if (searchOptions.CountOnly)
+            {
+                // if we're only returning a count, discard any _include parameters since included resources are not counted.
+                searchExpression = searchExpression?.AcceptVisitor(RemoveIncludesRewriter.Instance);
             }
 
             SqlRootExpression expression = (SqlRootExpression)searchExpression
@@ -183,7 +197,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                     while (await reader.ReadAsync(cancellationToken))
                     {
-                        (short resourceTypeId, string resourceId, int version, bool isDeleted, long resourceSurrogateId, string requestMethod, bool isMatch, Stream rawResourceStream) = reader.ReadRow(
+                        (short resourceTypeId, string resourceId, int version, bool isDeleted, long resourceSurrogateId, string requestMethod, bool isMatch, bool isPartialEntry, Stream rawResourceStream) = reader.ReadRow(
                             VLatest.Resource.ResourceTypeId,
                             VLatest.Resource.ResourceId,
                             VLatest.Resource.Version,
@@ -191,6 +205,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             VLatest.Resource.ResourceSurrogateId,
                             VLatest.Resource.RequestMethod,
                             _isMatch,
+                            _isPartial,
                             VLatest.Resource.RawResource);
 
                         // If we get to this point, we know there are more results so we need a continuation token
@@ -217,6 +232,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             rawResource = await streamReader.ReadToEndAsync();
                         }
 
+                        // as long as at least one entry was marked as partial, this resultset
+                        // should be marked as partial
+                        _isResultPartial = _isResultPartial || isPartialEntry;
+
                         resources.Add(new SearchResultEntry(
                             new ResourceWrapper(
                                 resourceId,
@@ -238,15 +257,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     IReadOnlyList<(string parameterName, string reason)> unsupportedSortingParameters;
                     if (searchOptions.Sort?.Count > 0)
                     {
-                        // we don't currently support sort
-                        unsupportedSortingParameters = searchOptions.UnsupportedSortingParams.Concat(searchOptions.Sort.Select(s => (s.searchParameterInfo.Name, Core.Resources.SortNotSupported))).ToList();
+                        unsupportedSortingParameters = searchOptions
+                            .UnsupportedSortingParams
+                            .Concat(searchOptions.Sort
+                                .Where(x => !x.searchParameterInfo.IsSortSupported())
+                                .Select(s => (s.searchParameterInfo.Name, Core.Resources.SortNotSupported))).ToList();
                     }
                     else
                     {
                         unsupportedSortingParameters = searchOptions.UnsupportedSortingParams;
                     }
 
-                    return new SearchResult(resources, searchOptions.UnsupportedSearchParams, unsupportedSortingParameters, moreResults ? newContinuationId.Value.ToString(CultureInfo.InvariantCulture) : null);
+                    return new SearchResult(resources, searchOptions.UnsupportedSearchParams, unsupportedSortingParameters, moreResults ? newContinuationId.Value.ToString(CultureInfo.InvariantCulture) : null, _isResultPartial);
                 }
             }
         }
@@ -284,6 +306,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             sb.AppendLine(sqlCommandWrapper.CommandText);
             _logger.LogInformation(sb.ToString());
+        }
+
+        protected override Task<SearchResult> SearchForReindexInternalAsync(SearchOptions searchOptions, string searchParameterHash, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
         }
     }
 }

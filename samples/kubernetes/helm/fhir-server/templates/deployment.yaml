@@ -15,6 +15,9 @@ spec:
     metadata:
       labels:
         {{- include "fhir-server.selectorLabels" . | nindent 8 }}
+        {{- if .Values.podIdentity.enabled }}
+        aadpodidbinding: {{ include "fhir-server.fullname" . }}
+        {{- end}}
     spec:
     {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -32,6 +35,24 @@ spec:
           env:
             - name: ASPNETCORE_FORWARDEDHEADERS_ENABLED
               value: "true"
+            {{- if .Values.export.enabled }}
+            - name: FhirServer__Operations__Export__Enabled
+              value: "true"
+            - name: FhirServer__Operations__Export__StorageAccountUri
+              value: {{ .Values.export.blobStorageUri | quote }}
+            {{- end }}
+            {{- if .Values.serviceMonitor.enabled }}
+            - name: PrometheusMetrics__enabled
+              value: "true"
+            - name: PrometheusMetrics__port
+              value: {{ .Values.serviceMonitor.port | quote }}
+            - name: PrometheusMetrics__dotnetRuntimeMetrics
+              value: {{ .Values.serviceMonitor.dotnetRuntimeMetrics | quote }}
+            - name: PrometheusMetrics__httpMetrics
+              value: {{ .Values.serviceMonitor.httpMetrics | quote }}
+            - name: PrometheusMetrics__systemMetrics
+              value: {{ .Values.serviceMonitor.systemMetrics | quote }}
+            {{- end }}
             {{- if .Values.appInsights.secretName }}
             - name: ApplicationInsights__InstrumentationKey
               valueFrom:
@@ -128,6 +149,9 @@ spec:
           ports:
             - name: http
               containerPort: 8080
+              protocol: TCP
+            - name: metrics
+              containerPort: {{ .Values.serviceMonitor.port }}
               protocol: TCP
           livenessProbe:
             httpGet:

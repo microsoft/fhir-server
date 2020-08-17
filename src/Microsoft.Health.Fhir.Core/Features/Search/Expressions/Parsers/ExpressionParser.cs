@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             return ParseImpl(resourceType, key.AsSpan(), value);
         }
 
-        public IncludeExpression ParseInclude(string resourceType, string includeValue)
+        public IncludeExpression ParseInclude(string resourceType, string includeValue, bool isReversed)
         {
             var valueSpan = includeValue.AsSpan();
             if (!TrySplit(SearchSplitChar, ref valueSpan, out ReadOnlySpan<char> originalType))
@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(originalType.ToString(), searchParam.ToString());
             }
 
-            return new IncludeExpression(resourceType, refSearchParameter, targetType, wildCard);
+            return new IncludeExpression(resourceType, refSearchParameter, targetType, wildCard, isReversed);
         }
 
         private Expression ParseImpl(string resourceType, ReadOnlySpan<char> key, string value)

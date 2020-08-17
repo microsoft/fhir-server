@@ -100,6 +100,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(result.ContinuationToken)),
                         true);
                 }
+
+                if (result.Partial)
+                {
+                    // if the query resulted in a partial indication, add appropriate outcome
+                    // as an entry
+                    var resource = new OperationOutcome();
+                    resource.Issue = new List<OperationOutcome.IssueComponent>();
+                    resource.Issue.Add(new OperationOutcome.IssueComponent
+                    {
+                        Severity = OperationOutcome.IssueSeverity.Warning,
+                        Code = OperationOutcome.IssueType.Incomplete,
+                        Diagnostics = Core.Resources.TruncatedIncludeMessage,
+                    });
+
+                    bundle.Entry.Add(new Bundle.EntryComponent()
+                    {
+                        Resource = resource,
+                    });
+                }
             }
 
             // Add the self link to indicate which search parameters were used.

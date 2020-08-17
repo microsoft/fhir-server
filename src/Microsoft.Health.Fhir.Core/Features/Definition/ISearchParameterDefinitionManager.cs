@@ -25,6 +25,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         IEnumerable<SearchParameterInfo> AllSearchParameters { get; }
 
         /// <summary>
+        /// Gets a hash value calculated from the current set of search parameters
+        /// </summary>
+        string SearchParametersHash { get; }
+
+        /// <summary>
         /// Gets list of search parameters for the given <paramref name="resourceType"/>.
         /// </summary>
         /// <param name="resourceType">The resource type whose list of search parameters should be returned.</param>

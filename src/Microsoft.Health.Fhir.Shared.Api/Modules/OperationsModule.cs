@@ -20,6 +20,10 @@ namespace Microsoft.Health.Fhir.Api.Modules
         {
             EnsureArg.IsNotNull(services, nameof(services));
 
+            services.Add<GroupMemberExtractor>()
+                .Singleton()
+                .AsService<IGroupMemberExtractor>();
+
             services.Add<ExportJobTask>()
                 .Transient()
                 .AsSelf();
@@ -49,6 +53,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.Add<ReindexJobWorker>()
                 .Singleton()
                 .AsSelf();
+
+            services.AddSingleton<IReindexUtilities, ReindexUtilities>();
         }
     }
 }

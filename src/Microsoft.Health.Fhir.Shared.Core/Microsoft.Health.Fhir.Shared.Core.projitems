@@ -1,4 +1,3 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <MSBuildAllProjects>$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
@@ -15,7 +14,9 @@
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\ReindexMediatorExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\ResourceTypeExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\DefaultParserSettings.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Export\GroupMemberExtractor.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Export\ResourceToNdjsonBytesSerializer.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexUtilities.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\RawResourceFactory.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\BaseResourceHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Create\ConditionalCreateResourceHandler.cs" />
@@ -76,5 +77,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\ModelAttributeValidator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)FhirExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)VersionSpecificModelInfoProvider.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Behaviors\ListSearchPipeBehavior.cs" />
   </ItemGroup>
 </Project>

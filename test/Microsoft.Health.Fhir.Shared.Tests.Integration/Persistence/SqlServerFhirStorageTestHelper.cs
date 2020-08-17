@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.SqlServer.Dac.Compare;
@@ -25,12 +26,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly string _connectionString;
         private readonly string _initialConnectionString;
         private readonly string _masterConnectionString;
+        private readonly SqlServerFhirModel _sqlServerFhirModel;
 
-        public SqlServerFhirStorageTestHelper(string connectionString, string initialConnectionString, string masterConnectionString)
+        public SqlServerFhirStorageTestHelper(string connectionString, string initialConnectionString, string masterConnectionString, SqlServerFhirModel sqlServerFhirModel)
         {
             _connectionString = connectionString;
             _initialConnectionString = initialConnectionString;
             _masterConnectionString = masterConnectionString;
+            _sqlServerFhirModel = sqlServerFhirModel;
         }
 
         public async Task CreateAndInitializeDatabase(string databaseName, bool forceIncrementalSchemaUpgrade, SchemaInitializer schemaInitializer = null, CancellationToken cancellationToken = default)
@@ -71,6 +74,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 });
 
             schemaInitializer.Initialize(forceIncrementalSchemaUpgrade);
+            _sqlServerFhirModel.Start();
         }
 
         public async Task DeleteDatabase(string databaseName, CancellationToken cancellationToken = default)
@@ -125,6 +129,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 await command.Connection.OpenAsync(cancellationToken);
                 await command.ExecuteNonQueryAsync(cancellationToken);
             }
+        }
+
+        public Task DeleteAllReindexJobRecordsAsync(CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
         }
 
         async Task<object> IFhirStorageTestHelper.GetSnapshotToken()

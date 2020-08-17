@@ -13,34 +13,37 @@
     <EmbeddedResource Include="Data\R4\compartment.json" />
     <EmbeddedResource Include="Data\R4\search-parameters.json" />
     <EmbeddedResource Include="Data\R4\unsupported-search-parameters.json" />
+    <EmbeddedResource Include="Data\R4\resourcepath-codesystem-mappings.json" />
     <EmbeddedResource Include="Data\R5\BaseCapabilities.json" />
     <EmbeddedResource Include="Data\R5\compartment.json" />
     <EmbeddedResource Include="Data\R5\search-parameters.json" />
     <EmbeddedResource Include="Data\R5\unsupported-search-parameters.json" />
+    <EmbeddedResource Include="Data\R5\resourcepath-codesystem-mappings.json" />
     <EmbeddedResource Include="Data\Stu3\BaseCapabilities.json" />
     <EmbeddedResource Include="Data\Stu3\compartment.json" />
     <EmbeddedResource Include="Data\Stu3\search-parameters.json" />
     <EmbeddedResource Include="Data\Stu3\unsupported-search-parameters.json" />
+    <EmbeddedResource Include="Data\Stu3\resourcepath-codesystem-mappings.json" />
     <EmbeddedResource Include="Features\Security\roles.schema.json" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="AngleSharp" Version="0.13.0" />
-    <PackageReference Include="Ensure.That" Version="8.1.2" />
+    <PackageReference Include="AngleSharp" Version="0.14.0" />
+    <PackageReference Include="Ensure.That" Version="9.2.0" />
     <PackageReference Include="FluentValidation" Version="8.6.1" />
     <PackageReference Include="MediatR" Version="8.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="3.1.3" />
-    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="3.1.3" />
-    <PackageReference Include="Microsoft.Extensions.Http" Version="3.1.3" />
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="3.1.3" />
-    <PackageReference Include="Microsoft.Health.Abstractions" Version="1.0.0-master-20200611-1" />
-    <PackageReference Include="Microsoft.Health.Core" Version="1.0.0-master-20200611-1" />
-    <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection" Version="1.0.0-master-20200611-1" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="3.1.6" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="3.1.6" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="3.1.6" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="3.1.6" />
+    <PackageReference Include="Microsoft.Health.Abstractions" Version="1.0.0-master-20200812-1" />
+    <PackageReference Include="Microsoft.Health.Core" Version="1.0.0-master-20200812-1" />
+    <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection" Version="1.0.0-master-20200812-1" />
     <PackageReference Include="Hl7.Fhir.Serialization" Version="1.7.0" />
     <PackageReference Include="Hl7.FhirPath" Version="1.7.0" />
-    <PackageReference Include="Newtonsoft.Json.Schema" Version="3.0.11" />
-    <PackageReference Include="Polly" Version="7.2.0" />
-    <PackageReference Include="System.Collections.Immutable" Version="1.7.0" />
+    <PackageReference Include="Newtonsoft.Json.Schema" Version="3.0.13" />
+    <PackageReference Include="Polly" Version="7.2.1" />
+    <PackageReference Include="System.Collections.Immutable" Version="1.7.1" />
     <PackageReference Include="System.Net.Http" Version="4.3.4" />
   </ItemGroup>
 

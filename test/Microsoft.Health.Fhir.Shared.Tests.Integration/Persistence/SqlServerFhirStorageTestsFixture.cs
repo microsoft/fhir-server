@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var securityConfiguration = new SecurityConfiguration { PrincipalClaims = { "oid" } };
 
-            var sqlServerFhirModel = new SqlServerFhirModel(config, schemaInformation, () => searchParameterDefinitionManager, Options.Create(securityConfiguration), NullLogger<SqlServerFhirModel>.Instance);
+            var sqlServerFhirModel = new SqlServerFhirModel(config, _schemaInitializer, searchParameterDefinitionManager, Options.Create(securityConfiguration), NullLogger<SqlServerFhirModel>.Instance);
 
             var serviceCollection = new ServiceCollection();
             serviceCollection.AddSqlServerTableRowParameterGenerators();
@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             ServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
 
             var upsertResourceTvpGenerator = serviceProvider.GetRequiredService<VLatest.UpsertResourceTvpGenerator<ResourceMetadata>>();
-            var searchParameterToSearchValueTypeMap = new SearchParameterToSearchValueTypeMap(() => searchParameterDefinitionManager);
+            var searchParameterToSearchValueTypeMap = new SearchParameterToSearchValueTypeMap(new SupportedSearchParameterDefinitionManager(searchParameterDefinitionManager));
 
             SqlTransactionHandler = new SqlTransactionHandler();
             SqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(config, SqlTransactionHandler, new SqlCommandWrapperFactory());
@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             _fhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, NullLogger<SqlServerFhirOperationDataStore>.Instance);
 
-            _testHelper = new SqlServerFhirStorageTestHelper(TestConnectionString, initialConnectionString, masterConnectionString);
+            _testHelper = new SqlServerFhirStorageTestHelper(TestConnectionString, initialConnectionString, masterConnectionString, sqlServerFhirModel);
         }
 
         public string TestConnectionString { get; }

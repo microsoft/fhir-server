@@ -11,7 +11,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
-using Microsoft.Health.Fhir.Api.Features.Audit;
+using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -291,11 +291,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             await ExecuteAndValidate(
                 () =>
                 {
-                    TestFhirClient newClient = _client.Clone();
-
-                    newClient.HttpClient.DefaultRequestHeaders.Authorization = null;
-
-                    return newClient;
+                    var testHandler = new TestAuthenticationHttpMessageHandler(null)
+                    {
+                        InnerHandler = _fixture.TestFhirServer.CreateMessageHandler(),
+                    };
+                    return _client.Clone(testHandler);
                 },
                 HttpStatusCode.Unauthorized,
                 expectedAppId: null);
@@ -307,11 +307,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             await ExecuteAndValidate(
                 () =>
                 {
-                    TestFhirClient newClient = _client.Clone();
-
-                    newClient.HttpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "invalid");
-
-                    return newClient;
+                    var testHandler = new TestAuthenticationHttpMessageHandler(new AuthenticationHeaderValue("Bearer", "invalid"))
+                    {
+                        InnerHandler = _fixture.TestFhirServer.CreateMessageHandler(),
+                    };
+                    return _client.Clone(testHandler);
                 },
                 HttpStatusCode.Unauthorized,
                 expectedAppId: null);
@@ -603,7 +603,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 
         private async Task ExecuteAndValidate(Func<TestFhirClient> createClient, HttpStatusCode expectedStatusCode, string expectedAppId)
         {
-            if (!_fixture.IsUsingInProcTestServer || _fixture.TestFhirClient.SecurityEnabled == false)
+            if (!_fixture.IsUsingInProcTestServer || _fixture.TestFhirServer.SecurityEnabled == false)
             {
                 // This test only works with the in-proc server with customized middleware pipeline and when security is enabled.
                 return;
