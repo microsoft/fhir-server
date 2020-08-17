@@ -23,15 +23,15 @@ namespace Microsoft.Health.Fhir.Api {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     public class Resources {
-        
+
         private static global::System.Resources.ResourceManager resourceMan;
-        
+
         private static global::System.Globalization.CultureInfo resourceCulture;
-        
+
         [global::System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("Microsoft.Performance", "CA1811:AvoidUncalledPrivateCode")]
         internal Resources() {
         }
-        
+
         /// <summary>
         ///   Returns the cached ResourceManager instance used by this class.
         /// </summary>
@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return resourceMan;
             }
         }
-        
+
         /// <summary>
         ///   Overrides the current thread's CurrentUICulture property for all
         ///   resource lookups using this strongly typed resource class.
@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.Api {
                 resourceCulture = value;
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Back to top.
         /// </summary>
@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("BackToTop", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The number of entries in the bundle exceeded the configured limit of {0}..
         /// </summary>
@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("BundleEntryLimitExceeded", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The route for &quot;{0}&quot; was not found..
         /// </summary>
@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("BundleNotFound", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Operation was not attempted because search criteria was not selective enough for query parameter &apos;{0}&apos;..
         /// </summary>
@@ -95,7 +95,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("ConditionalOperationInBundleNotSelectiveEnough", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The &quot;content-type&quot; header is required..
         /// </summary>
@@ -104,7 +104,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("ContentTypeHeaderRequired", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The maximum length of a custom audit header value is {0}. The supplied custom audit header &apos;{1}&apos; has length of {2}..
         /// </summary>
@@ -113,7 +113,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("CustomAuditHeaderTooLarge", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Failed while running health check..
         /// </summary>
@@ -122,7 +122,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("FailedHealthCheckMessage", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Authorization failed..
         /// </summary>
@@ -131,7 +131,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("Forbidden", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to There was an error processing your request..
         /// </summary>
@@ -140,7 +140,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("GeneralInternalError", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Transaction was failed while processing the request..
         /// </summary>
@@ -149,7 +149,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("GeneralTransactionFailedError", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Requested operation &apos;{0}&apos; is not supported using {1}..
         /// </summary>
@@ -158,7 +158,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("InvalidBundleEntry", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Bundles of type &apos;{0}&apos; are not supported for this operation..
         /// </summary>
@@ -167,7 +167,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("InvalidBundleType", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Invalid compound authorization code..
         /// </summary>
@@ -176,7 +176,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("InvalidCompoundCode", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Given conditional reference &apos;{0}&apos; does not resolve to a resource..
         /// </summary>
@@ -185,7 +185,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("InvalidConditionalReference", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Resource type and query parameter must be present in a given request &apos;{0}&apos;..
         /// </summary>
@@ -194,7 +194,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("InvalidConditionalReferenceParameters", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Invalid launch context parameters..
         /// </summary>
@@ -203,7 +203,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("InvalidLaunchContext", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The requested &quot;_pretty&quot; parameter is invalid..
         /// </summary>
@@ -212,7 +212,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("InvalidPrettyParameter", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Provided value for redirect Uri: {0} is not a valid Uri..
         /// </summary>
@@ -221,7 +221,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("InvalidRedirectUri", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to API.
         /// </summary>
@@ -230,7 +230,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("MenuAPI", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Capability Statement.
         /// </summary>
@@ -239,7 +239,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("MenuCapabilityStatement", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The audit information is missing for Controller: {0} and Action: {1}. This usually means the action is not marked with appropriate attribute..
         /// </summary>
@@ -248,7 +248,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("MissingAuditInformation", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Only one mode can be provided between a Parameters resource and the URL.
         /// </summary>
@@ -257,7 +257,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("MultipleModesProvided", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Only one profile can be provided between a Parameters resource and the URL.
         /// </summary>
@@ -266,7 +266,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("MultipleProfilesProvided", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The requested route was not found..
         /// </summary>
@@ -275,7 +275,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("NotFoundException", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to {0} operation failed for reason: {1}.
         /// </summary>
@@ -284,7 +284,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("OperationFailed", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The requested &quot;{0}&quot; operation is not enabled.
         /// </summary>
@@ -293,7 +293,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("OperationNotEnabled", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The requested &quot;{0}&quot; operation is not supported..
         /// </summary>
@@ -302,7 +302,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("OperationNotImplemented", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to FHIR Server.
         /// </summary>
@@ -311,7 +311,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("PageTitle", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Error occurred when parsing model..
         /// </summary>
@@ -320,7 +320,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("ParsingError", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to PATCH is not currently supported..
         /// </summary>
@@ -329,7 +329,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("PatchNotSupported", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Reindex job does not support the following parameter {0} for a {1} operation..
         /// </summary>
@@ -338,7 +338,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("ReindexParameterNotValid", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Reindex operation parameters must be specified as a FHIR Parameters resource.  Provided body in this request is not valid..
         /// </summary>
@@ -347,7 +347,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("ReindexParametersNotValid", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The security configuration requires the authority to be set to an https address..
         /// </summary>
@@ -356,7 +356,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("RequireHttpsMetadataError", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Both id and the resource are required..
         /// </summary>
@@ -365,7 +365,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("ResourceAndIdRequired", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Id must be specified in the resource..
         /// </summary>
@@ -374,7 +374,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("ResourceIdRequired", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Resource type &apos;{0}&apos; in the reference &apos;{1}&apos; is not supported..
         /// </summary>
@@ -383,7 +383,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("ResourceNotSupported", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Bundle contains multiple entries that refers to the same resource &apos;{0}&apos;..
         /// </summary>
@@ -392,7 +392,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("ResourcesMustBeUnique", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Resource type in the URL must match resourceType in the resource..
         /// </summary>
@@ -401,7 +401,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("ResourceTypeMismatch", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Toggle navigation.
         /// </summary>
@@ -410,7 +410,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("ToggleNavigation", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The maximum number of concurrent API calls on this instance was reached..
         /// </summary>
@@ -419,7 +419,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("TooManyConcurrentRequests", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The maximum number of custom audit headers allowed is {0}. The number of custom audit headers supplied is {1}..
         /// </summary>
@@ -428,7 +428,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("TooManyCustomAuditHeaders", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Transaction failed on &apos;{0}&apos; for the requested url &apos;{1}&apos;..
         /// </summary>
@@ -437,7 +437,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("TransactionFailed", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Number of included resources (other than matches) exceeds the configured threshold..
         /// </summary>
@@ -446,7 +446,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("TruncatedIncludeMessage", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Unable to obtain OpenID configuration..
         /// </summary>
@@ -455,7 +455,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("UnableToObtainOpenIdConfiguration", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Authentication failed..
         /// </summary>
@@ -464,7 +464,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("Unauthorized", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The requested &quot;_format&quot; parameter is not supported..
         /// </summary>
@@ -473,7 +473,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("UnsupportedFormatParameter", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Value supplied for the &quot;{0}&quot; header is not supported..
         /// </summary>
@@ -482,7 +482,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("UnsupportedHeaderValue", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The &quot;{0}&quot; parameter is not supported..
         /// </summary>
@@ -491,7 +491,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("UnsupportedParameter", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Requested operation does not support resource type: {0}..
         /// </summary>
@@ -500,7 +500,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("UnsupportedResourceType", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Id in the URL must match id in the resource..
         /// </summary>
@@ -509,7 +509,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("UrlResourceIdMismatch", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Validation against a profile is not supported..
         /// </summary>
@@ -518,7 +518,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("ValidateWithProfileNotSupported", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Resources can not be validated for update or delete at the default endpoint. An id must be provided in the URL..
         /// </summary>
@@ -527,7 +527,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("ValidationForUpdateAndDeleteNotSupported", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to {0} is not a valid validation mode..
         /// </summary>
@@ -536,7 +536,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("ValidationModeNotRecognized", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to {0} is not a supported validation mode..
         /// </summary>
@@ -545,7 +545,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("ValidationModeNotSupported", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to $validate is not a supported endpoint..
         /// </summary>
@@ -554,7 +554,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("ValidationNotSupported", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Value cannot be null.  Parameter name: {0}..
         /// </summary>
@@ -563,7 +563,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("ValueCannotBeNull", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to View was not found..
         /// </summary>
@@ -572,7 +572,7 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("ViewNotFound", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to STU3 API &lt;small&gt;preview&lt;/small&gt;.
         /// </summary>
