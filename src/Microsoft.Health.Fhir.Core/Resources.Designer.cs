@@ -827,6 +827,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Number of included resources (other than matches) exceeds the configured threshold..
+        /// </summary>
+        internal static string TruncatedIncludeMessage {
+            get {
+                return ResourceManager.GetString("TruncatedIncludeMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Bundle type is not present. Possible values are: transaction or batch.
         /// </summary>
         internal static string TypeNotPresent {
