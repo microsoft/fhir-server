@@ -20,6 +20,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private int _maxItemCount = DefaultItemCountPerSearch;
 
         /// <summary>
+        /// Initializes a new instance of the <see cref="SearchOptions"/> class.
+        /// It hides constructor and prevent object creation not through <see cref="ISearchOptionsFactory"/>
+        /// </summary>
+        internal SearchOptions()
+        {
+        }
+
+        /// <summary>
         /// Gets the optional continuation token.
         /// </summary>
         public string ContinuationToken { get; internal set; }
@@ -46,8 +54,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             {
                 if (value <= 0)
                 {
-                    throw new InvalidOperationException(Core.Resources.InvalidSearchCountSpecified);
+                    throw new InvalidOperationException(Resources.InvalidSearchCountSpecified);
                 }
+
+                _maxItemCount = value;
             }
         }
 

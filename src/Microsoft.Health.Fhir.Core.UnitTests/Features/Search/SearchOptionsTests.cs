@@ -17,7 +17,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [InlineData(5, 5)]
         [InlineData(99, 99)]
         [InlineData(100, 100)]
-        [InlineData(105, 100)]
         public void GivenANumber_WhenMaxItemCountIsSet_ThenCorrectMaxItemCountShouldBeSet(int input, int expected)
         {
             SearchOptions searchOptions = new SearchOptions();
