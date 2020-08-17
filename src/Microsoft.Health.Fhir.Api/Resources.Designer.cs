@@ -439,6 +439,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Number of included resources (other than matches) exceeds the configured threshold..
+        /// </summary>
+        public static string TruncatedIncludeMessage {
+            get {
+                return ResourceManager.GetString("TruncatedIncludeMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Unable to obtain OpenID configuration..
         /// </summary>
         public static string UnableToObtainOpenIdConfiguration {

@@ -316,4 +316,7 @@
   <data name="TooManyConcurrentRequests" xml:space="preserve">
     <value>The maximum number of concurrent API calls on this instance was reached.</value>
   </data>
+  <data name="TruncatedIncludeMessage" xml:space="preserve">
+    <value>Number of included resources (other than matches) exceeds the configured threshold.</value>
+  </data>
 </root>
