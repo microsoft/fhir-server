@@ -143,7 +143,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             {
                 if (searchParams.Count > _featureConfiguration.MaxItemCountPerSearch)
                 {
-                    throw new BadRequestException($"_count exceeds limit configured for server ({_featureConfiguration.MaxItemCountPerSearch}).");
+                    throw new BadRequestException(string.Format(Core.Resources.SearchParamaterCountExceedLimit, _featureConfiguration.MaxItemCountPerSearch, searchParams.Count));
                 }
 
                 searchOptions.MaxItemCount = searchParams.Count.Value;

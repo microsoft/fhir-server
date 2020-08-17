@@ -341,6 +341,9 @@
   <data name="SearchComparatorNotSupported" xml:space="preserve">
     <value>Comparator is not supported when multiple values are specified using OR search parameter.</value>
   </data>
+  <data name="SearchParamaterCountExceedLimit" xml:space="preserve">
+    <value>The '_count' parameter exceeds limit configured for server. Current limit is {0} while `_count` parameter set to {1}.</value>
+  </data>
   <data name="SearchParameterByDefinitionUriNotSupported" xml:space="preserve">
     <value>The search parameter with definition URL '{0}' is not supported.</value>
   </data>
