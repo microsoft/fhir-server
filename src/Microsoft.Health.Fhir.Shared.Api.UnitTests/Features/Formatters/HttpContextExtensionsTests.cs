@@ -75,6 +75,61 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             Assert.Equal(SummaryType.False, summary);
         }
 
+        [Fact]
+        public void GivenARequestWithElementsParam_WhenSerializingTheResponse_ThenTheCorrectElementsAreReturned()
+        {
+            var context = new DefaultHttpContext();
+            context.Request.QueryString = QueryString.Create("_elements", "prop1");
+
+            var elements = context.GetElementsSearchParameter(_logger);
+
+            Assert.Collection(elements, el => Assert.Equal("prop1", el));
+        }
+
+        [Fact]
+        public void GivenARequestWithCapsElementsParam_WhenSerializingTheResponse_ThenTheCorrectElementsAreReturned()
+        {
+            var context = new DefaultHttpContext();
+            context.Request.QueryString = QueryString.Create("_ELEMENTS", "PROP2");
+
+            var elements = context.GetElementsSearchParameter(_logger);
+
+            Assert.Collection(elements, el => Assert.Equal("PROP2", el));
+        }
+
+        [Fact]
+        public void GivenARequestWithMultipleElementsParam_WhenSerializingTheResponse_ThenTheCorrectElementsAreReturned()
+        {
+            var context = new DefaultHttpContext();
+            context.Request.QueryString = QueryString.Create("_elements", "prop1,prop2");
+
+            var elements = context.GetElementsSearchParameter(_logger);
+
+            Assert.Collection(elements, el => Assert.Equal("prop1", el), el => Assert.Equal("prop2", el));
+        }
+
+        [Theory]
+        [InlineData(500)]
+        [InlineData(400)]
+        [InlineData(202)]
+        public void GivenARequestWithNon200Response_WhenSerializingTheResponse_ThenNullIsReturned(int statusCode)
+        {
+            var context = new DefaultHttpContext();
+            context.Response.StatusCode = statusCode;
+
+            Assert.Null(context.GetElementsSearchParameter(_logger));
+        }
+
+        [Fact]
+        public void GivenARequestWithNoElementsParam_WhenSerializingTheResponse_ThenNullIsReturned()
+        {
+            var context = new DefaultHttpContext();
+
+            var elements = context.GetElementsSearchParameter(_logger);
+
+            Assert.Null(elements);
+        }
+
         [Theory]
         [InlineData("true")]
         [InlineData("True")]
