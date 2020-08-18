@@ -263,7 +263,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     }
                 }
 
-                await ProcessSearchResultsAsync(searchResult.Results, currentBatchId, cancellationToken);
+                if (_exportJobRecord.ExportType == ExportJobType.All
+                    || string.IsNullOrWhiteSpace(_exportJobRecord.ResourceType)
+                    || _exportJobRecord.ResourceType.Contains(KnownResourceTypes.Patient, StringComparison.OrdinalIgnoreCase))
+                {
+                    await ProcessSearchResultsAsync(searchResult.Results, currentBatchId, cancellationToken);
+                }
 
                 if (searchResult.ContinuationToken == null)
                 {
