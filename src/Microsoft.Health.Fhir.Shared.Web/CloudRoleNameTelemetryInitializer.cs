@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.Web
     {
         public void Initialize(ITelemetry telemetry)
         {
-            telemetry.Context.Cloud.RoleName = "Microsoft Fhir Server";
+            telemetry.Context.Cloud.RoleName = "Microsoft FHIR Server";
         }
     }
 }
