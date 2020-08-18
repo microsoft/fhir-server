@@ -22,6 +22,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private readonly bool _isHistorySearch;
         private int _tableExpressionCounter = -1;
         private SqlRootExpression _rootExpression;
+        private const int MaxIncludedItems = 100;
 
         private HashSet<int> _cteToLimit = new HashSet<int>();
 
@@ -352,7 +353,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     {
                         // In case its revinclude, we limit the number of returned items as the resultset size is potentially
                         // unbounded. we ask for +1 so in the limit expression we know if to mark at truncated...
-                        StringBuilder.Append("TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1)).Append(") ");
+                        StringBuilder.Append("TOP (").Append(Parameters.AddParameter(MaxIncludedItems + 1)).Append(") ");
                     }
 
                     var table = !includeExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias;
@@ -421,7 +422,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     {
                         // the related cte is a reverse include, limit the number of returned items and count to
                         // see if we are over the threshold (to produce a warning to the client)
-                        StringBuilder.Append("TOP (").Append(Parameters.AddParameter(context.MaxItemCount)).Append(") ");
+                        StringBuilder.Append("TOP (").Append(Parameters.AddParameter(MaxIncludedItems)).Append(") ");
                     }
 
                     StringBuilder.Append("Sid1, IsMatch, ");
@@ -429,7 +430,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     if (isRev)
                     {
                         StringBuilder.Append("CASE WHEN count(*) over() > ")
-                        .Append(Parameters.AddParameter(context.MaxItemCount))
+                        .Append(Parameters.AddParameter(MaxIncludedItems))
                         .AppendLine(" THEN 1 ELSE 0 END AS IsPartial ");
                     }
                     else
