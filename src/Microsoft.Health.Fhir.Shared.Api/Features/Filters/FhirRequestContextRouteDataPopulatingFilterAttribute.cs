@@ -20,6 +20,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
     {
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly IAuditEventTypeMapping _auditEventTypeMapping;
+        private const string PartiallyIndexedParamsHeaderName = "x-ms-use-partial-indices";
 
         public FhirRequestContextRouteDataPopulatingFilterAttribute(
             IFhirRequestContextAccessor fhirRequestContextAccessor,
@@ -76,6 +77,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         }
                     }
                 }
+            }
+
+            if (context.HttpContext.Request.Headers.TryGetValue(PartiallyIndexedParamsHeaderName, out var headerValues))
+            {
+                fhirRequestContext.IncludePartiallyIndexedSearchParams = true;
             }
 
             base.OnActionExecuting(context);

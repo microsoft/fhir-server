@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
@@ -19,12 +20,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
     public class SearchableSearchParameterDefinitionManager : ISearchParameterDefinitionManager
     {
         private readonly SearchParameterDefinitionManager _inner;
+        private IFhirRequestContextAccessor _fhirReqeustContextAccessor;
 
-        public SearchableSearchParameterDefinitionManager(SearchParameterDefinitionManager inner)
+        public SearchableSearchParameterDefinitionManager(SearchParameterDefinitionManager inner, IFhirRequestContextAccessor fhirRequestContextAccessor)
         {
             EnsureArg.IsNotNull(inner, nameof(inner));
+            EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
 
             _inner = inner;
+            _fhirReqeustContextAccessor = fhirRequestContextAccessor;
         }
 
         public IEnumerable<SearchParameterInfo> AllSearchParameters => _inner.AllSearchParameters.Where(x => x.IsSearchable);
@@ -56,6 +60,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             SearchParameterInfo parameter = _inner.GetSearchParameter(resourceType, name);
 
             if (parameter.IsSearchable)
+            {
+                return parameter;
+            }
+            else if (_fhirReqeustContextAccessor.FhirRequestContext.IncludePartiallyIndexedSearchParams && parameter.IsSupported)
             {
                 return parameter;
             }

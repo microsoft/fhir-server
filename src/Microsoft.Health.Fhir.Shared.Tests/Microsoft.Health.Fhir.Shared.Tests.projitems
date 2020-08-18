@@ -9,6 +9,7 @@
     <Import_RootNamespace>Microsoft.Health.Fhir.Shared.Tests</Import_RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)Context\DefaultFhirRequestContext.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Definitions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Deserializers.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Mocks\CapabilityStatementMock.cs" />

@@ -6,11 +6,13 @@
 using System;
 using System.Threading.Tasks;
 using MediatR;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.UnitTests.Features.Context;
 using Microsoft.Health.Fhir.ValueSets;
 using NSubstitute;
 using Xunit;
@@ -34,6 +36,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private readonly SearchParameterInfo _queryParameter;
         private readonly SearchParameterInfo _testSearchParamInfo;
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver;
+        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
+        private readonly IFhirRequestContext _fhirRequestContext = new DefaultFhirRequestContext();
 
         public SearchParameterDefinitionManagerTests()
         {
@@ -41,6 +45,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _mediator = Substitute.For<IMediator>();
             _searchParameterRegistry = Substitute.For<ISearchParameterRegistry>();
             _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance);
+            _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
+            _fhirRequestContextAccessor.FhirRequestContext.Returns(_fhirRequestContext);
 
             _manager = new SearchParameterStatusManager(
                 _searchParameterRegistry,
@@ -116,7 +122,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public async Task GivenSearchableParams_WhenGettingSearchable_ThenCorrectParamsReturned()
         {
             await _manager.EnsureInitialized();
-            var searchableDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager);
+            var searchableDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor);
             var paramList = searchableDefinitionManager.AllSearchParameters;
 
             Assert.Collection(
