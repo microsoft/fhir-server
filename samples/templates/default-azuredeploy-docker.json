@@ -195,7 +195,8 @@
             "FhirServer__Security__Authentication__Authority": "[parameters('securityAuthenticationAuthority')]",
             "FhirServer__Security__Authentication__Audience": "[parameters('securityAuthenticationAudience')]",
             "CosmosDb__ContinuationTokenSizeLimitInKb": "1",
-            "DataStore": "CosmosDb",
+            "SqlServer__Initialize": "[equals(parameters('solutionType'),'FhirServerSqlServer')]",
+            "DataStore": "[if(equals(parameters('solutionType'),'FhirServerCosmosDB'), 'CosmosDb', 'SqlServer')]",
             "FhirServer__Operations__Export__Enabled": "[parameters('enableExport')]",
             "FhirServer__Operations__Export__StorageAccountUri": "[if(parameters('enableExport'), concat('https://', variables('storageAccountName'), variables('blobStorageUri')), 'null')]"
         },
