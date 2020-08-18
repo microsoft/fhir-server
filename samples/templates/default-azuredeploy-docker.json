@@ -292,6 +292,23 @@
             ]
         },
         {
+            "apiVersion": "2015-05-01",
+            "name": "[variables('appInsightsName')]",
+            "type": "Microsoft.Insights/components",
+            "location": "[parameters('applicationInsightsLocation')]",
+            "condition": "[variables('deployAppInsights')]",
+            "kind": "web",
+            "tags": {
+                "[concat('hidden-link:', variables('appServiceResourceId'))]": "Resource",
+                "displayName": "AppInsightsComponent",
+                "FhirServerSolution": "[parameters('solutionType')]"
+            },
+            "properties": {
+                "Application_Type": "web",
+                "ApplicationId": "[variables('serviceName')]"
+            }
+        },
+        {
             "condition": "[equals(parameters('solutionType'),'FhirServerCosmosDB')]",
             "apiVersion": "2015-04-08",
             "type": "Microsoft.DocumentDB/databaseAccounts",
