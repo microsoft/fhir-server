@@ -33,6 +33,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         private readonly CancellationToken _cancellationToken;
 
         private readonly string _patientReference = "Patient Reference";
+        private readonly string _secondPatientReference = "Patient Reference 2";
         private readonly string _observationReference = "Observation Reference";
 
         public GroupMemberExtractorTests()
@@ -183,7 +184,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         }
 
         [Fact]
-        public async System.Threading.Tasks.Task GivenAGroupId_WhenGroupMembersAreRequested_ThenTheMembersIdsAreReturned()
+        public async System.Threading.Tasks.Task GivenAGroupId_WhenActiveGroupMembersAreRequested_ThenTheActiveMembersIdsAreReturned()
         {
             SetUpGroupMock();
 
@@ -192,6 +193,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(Tuple.Create(_patientReference, KnownResourceTypes.Patient), groupMembers[0]);
             Assert.Equal(Tuple.Create(_observationReference, KnownResourceTypes.Observation), groupMembers[1]);
             Assert.Equal(2, groupMembers.Count);
+        }
+
+        [Fact]
+        public async System.Threading.Tasks.Task GivenAGroupId_WhenAllGroupMembersAreRequested_ThenAllTheMembersIdsAreReturned()
+        {
+            SetUpGroupMock();
+
+            var groupMembers = await _groupMemberExtractor.GetGroupMembers("group", DateTimeOffset.Now, _cancellationToken, true);
+
+            Assert.Equal(Tuple.Create(_patientReference, KnownResourceTypes.Patient), groupMembers[0]);
+            Assert.Equal(Tuple.Create(_secondPatientReference, KnownResourceTypes.Patient), groupMembers[1]);
+            Assert.Equal(Tuple.Create(_observationReference, KnownResourceTypes.Observation), groupMembers[2]);
+            Assert.Equal(3, groupMembers.Count);
         }
 
         private void SetUpGroupMock()
@@ -206,6 +220,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     {
                         resourceType = KnownResourceTypes.Patient,
                         id = _patientReference,
+                    }));
+
+                return node.ToTypedElement(structureDefinitionSummaryProvider);
+            });
+
+            _referenceToElementResolver.Resolve(_secondPatientReference).Returns(x =>
+            {
+                ISourceNode node = FhirJsonNode.Create(
+                JObject.FromObject(
+                    new
+                    {
+                        resourceType = KnownResourceTypes.Patient,
+                        id = _secondPatientReference,
                     }));
 
                 return node.ToTypedElement(structureDefinitionSummaryProvider);
@@ -234,6 +261,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                         {
                             Reference = _patientReference,
                         },
+                    },
+                    new Group.MemberComponent()
+                    {
+                        Entity = new ResourceReference()
+                        {
+                            Reference = _secondPatientReference,
+                        },
+                        Inactive = true,
                     },
                     new Group.MemberComponent()
                     {

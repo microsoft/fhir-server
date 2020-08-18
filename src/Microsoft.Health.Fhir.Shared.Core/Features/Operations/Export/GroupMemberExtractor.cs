@@ -106,9 +106,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 if (
                     (member.Inactive == null
                     || member.Inactive == false
-                    || member.Period?.EndElement == null
-                    || member.Period?.EndElement > fhirGroupMembershipTime
                     || includeInactiveMembers)
+                    && (member.Period?.EndElement == null
+                    || member.Period?.EndElement > fhirGroupMembershipTime)
                     && (member.Period?.StartElement == null
                     || member.Period?.StartElement < fhirGroupMembershipTime))
                 {
