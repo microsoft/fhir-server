@@ -100,7 +100,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 }
 
                 // Connect to export destination using appropriate client.
-                await _exportDestinationClient.ConnectAsync(exportJobConfiguration, cancellationToken, _exportJobRecord.Id);
+                await _exportDestinationClient.ConnectAsync(exportJobConfiguration, cancellationToken, _exportJobRecord.StorageAccountContainerName);
 
                 // If we are resuming a job, we can detect that by checking the progress info from the job record.
                 // If it is null, then we know we are processing a new job.
@@ -365,7 +365,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     else
                     {
                         // File does not exist. Create it.
-                        string fileName = resourceType + ".ndjson";
+                        string fileName;
+                        if (_exportJobRecord.StorageAccountContainerName.Equals(_exportJobRecord.Id, StringComparison.OrdinalIgnoreCase))
+                        {
+                            fileName = $"{resourceType}.ndjson";
+                        }
+                        else
+                        {
+                            string dateTime = _exportJobRecord.QueuedTime.UtcDateTime.ToString("s")
+                                .Replace("-", string.Empty, StringComparison.OrdinalIgnoreCase)
+                                .Replace(":", string.Empty, StringComparison.OrdinalIgnoreCase);
+                            fileName = $"{dateTime}-{_exportJobRecord.Id}/{resourceType}.ndjson";
+                        }
+
                         Uri fileUri = await _exportDestinationClient.CreateFileAsync(fileName, cancellationToken);
 
                         exportFileInfo = new ExportFileInfo(resourceType, fileUri, sequence: 0);

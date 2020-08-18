@@ -94,5 +94,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public const string ContinuationToken = "continuationToken";
 
         public const string GroupId = "groupId";
+
+        public const string StorageAccountContainerName = "storageAccountContainerName";
     }
 }

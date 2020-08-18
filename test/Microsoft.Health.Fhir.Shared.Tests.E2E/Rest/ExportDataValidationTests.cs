@@ -185,6 +185,28 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.True(ValidateDataFromBothSources(dataInFhirServer, dataFromExport));
         }
 
+        [Fact]
+        public async Task GivenFhirServer_WhenAllDataIsExportedToASpecificContainer_ThenExportedDataIsInTheSpecifiedContianer()
+        {
+            // NOTE: Azure Storage Emulator is required to run these tests locally.
+
+            string testContainer = "test-container";
+
+            // Trigger export request and check for export status
+            Uri contentLocation = await _testFhirClient.ExportAsync(parameters: $"_container={testContainer}");
+            IList<Uri> blobUris = await CheckExportStatus(contentLocation);
+
+            // Download exported data from storage account
+            Dictionary<(string resourceType, string resourceId), Resource> dataFromExport = await DownloadBlobAndParse(blobUris);
+
+            // Download all resources from fhir server
+            Dictionary<(string resourceType, string resourceId), Resource> dataFromFhirServer = await GetResourcesFromFhirServer(_testFhirClient.HttpClient.BaseAddress);
+
+            // Assert both data are equal
+            Assert.True(ValidateDataFromBothSources(dataFromFhirServer, dataFromExport));
+            Assert.True(blobUris.All((url) => url.OriginalString.Contains(testContainer)));
+        }
+
         private bool ValidateDataFromBothSources(Dictionary<(string resourceType, string resourceId), Resource> dataFromServer, Dictionary<(string resourceType, string resourceId), Resource> dataFromStorageAccount)
         {
             bool result = true;
