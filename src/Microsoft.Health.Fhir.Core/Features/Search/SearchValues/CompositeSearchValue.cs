@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using EnsureThat;
 
@@ -40,6 +41,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
             EnsureArg.IsNotNull(visitor, nameof(visitor));
 
             visitor.Visit(this);
+        }
+
+        public bool Equals([AllowNull] ISearchValue other)
+        {
+            if (other == null)
+            {
+                return false;
+            }
+
+            var compositeSearchValueOther = other as CompositeSearchValue;
+
+            if (compositeSearchValueOther == null)
+            {
+                return false;
+            }
+
+            return Components.SequenceEqual(compositeSearchValueOther.Components);
         }
 
         /// <inheritdoc />

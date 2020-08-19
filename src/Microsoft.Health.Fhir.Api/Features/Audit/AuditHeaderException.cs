@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Fhir.Core.Exceptions;
 
 namespace Microsoft.Health.Fhir.Api.Features.Audit
