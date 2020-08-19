@@ -30,7 +30,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             string anonymizationConfigurationLocation = null,
             string anonymizationConfigurationFileETag = null,
             uint maximumNumberOfResourcesPerQuery = 100,
-            uint numberOfPagesPerCommit = 10)
+            uint numberOfPagesPerCommit = 10,
+            string storageAccountContainerName = null)
         {
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
             EnsureArg.IsNotNullOrWhiteSpace(hash, nameof(hash));
@@ -56,6 +57,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             Status = OperationStatus.Queued;
 
             QueuedTime = Clock.UtcNow;
+
+            if (string.IsNullOrWhiteSpace(storageAccountContainerName))
+            {
+                StorageAccountContainerName = Id;
+            }
+            else
+            {
+                StorageAccountContainerName = storageAccountContainerName;
+            }
         }
 
         [JsonConstructor]
@@ -108,6 +118,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
         [JsonProperty(JobRecordProperties.NumberOfPagesPerCommit)]
         public uint NumberOfPagesPerCommit { get; private set; }
+
+        [JsonProperty(JobRecordProperties.StorageAccountContainerName)]
+        public string StorageAccountContainerName { get; private set; }
 
         [JsonProperty(JobRecordProperties.AnonymizationConfigurationLocation)]
         public string AnonymizationConfigurationLocation { get; private set; }

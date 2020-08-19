@@ -35,6 +35,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
     {
         private const string PatientFileName = "Patient.ndjson";
         private const string ObservationFileName = "Observation.ndjson";
+        private const string EncounterFileName = "Encounter.ndjson";
         private static readonly WeakETag _weakETag = WeakETag.FromVersionId("0");
 
         private ExportJobRecord _exportJobRecord;
@@ -990,7 +991,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             string exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
             Assert.Equal("0", exportedIds);
-            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri("Encounter.ndjson", UriKind.Relative));
+            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(EncounterFileName, UriKind.Relative));
             Assert.Equal("1", exportedIds);
             Assert.Equal(2, _inMemoryDestinationClient.ExportedDataFileCount);
 
@@ -1107,7 +1108,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             string exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
             Assert.Equal("1", exportedIds);
-            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri("Encounter.ndjson", UriKind.Relative));
+            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(EncounterFileName, UriKind.Relative));
             Assert.Equal("1", exportedIds);
             Assert.Equal(2, _inMemoryDestinationClient.ExportedDataFileCount);
 
@@ -1132,7 +1133,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
             Assert.Equal("34", exportedIds);
-            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri("Encounter.ndjson", UriKind.Relative));
+            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(EncounterFileName, UriKind.Relative));
             Assert.Equal("34", exportedIds);
             Assert.Equal(2, _inMemoryDestinationClient.ExportedDataFileCount);
 
@@ -1444,7 +1445,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal("123", exportedIds);
             exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
             Assert.Equal("123", exportedIds);
-            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri("Encounter.ndjson", UriKind.Relative));
+            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(EncounterFileName, UriKind.Relative));
             Assert.Equal("123", exportedIds);
             Assert.Equal(3, _inMemoryDestinationClient.ExportedDataFileCount);
 
@@ -1598,6 +1599,37 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(HttpStatusCode.InternalServerError, _lastExportJobOutcome.JobRecord.FailureDetails.FailureStatusCode);
         }
 
+        [Fact]
+        public async Task GivenAnExportJobWithACustomContainer_WhenExecuted_ThenAllResourcesAreExportedToThatContainer()
+        {
+            string containerName = "test_container";
+            var exportJobRecordWithCommitPages = CreateExportJobRecord(
+                 containerName: containerName);
+            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithCommitPages);
+
+            SearchResult searchResultWithContinuationToken = CreateSearchResult(continuationToken: "ct");
+
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    return CreateSearchResult(
+                        new[]
+                        {
+                            CreateSearchResultEntry("1", "Patient"),
+                        });
+                });
+
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            string actualIds = _inMemoryDestinationClient.GetExportedData(new Uri(ContainerFilePath(PatientFileName), UriKind.Relative));
+
+            Assert.Equal("1", actualIds);
+            Assert.Equal(containerName, _inMemoryDestinationClient.ConnectedContainer);
+        }
+
         private ExportJobRecord CreateExportJobRecord(
             string requestEndpoint = "https://localhost/ExportJob/",
             ExportJobType exportJobType = ExportJobType.All,
@@ -1609,6 +1641,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             string storageAccountUri = null,
             uint maximumNumberOfResourcesPerQuery = 0,
             uint numberOfPagesPerCommit = 0,
+            string containerName = null,
             string anonymizationConfigurationLocation = null,
             string anonymizationConfigurationFileEtag = null)
         {
@@ -1623,6 +1656,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 storageAccountUri: storageAccountUri == null ? _exportJobConfiguration.StorageAccountUri : storageAccountUri,
                 maximumNumberOfResourcesPerQuery: maximumNumberOfResourcesPerQuery == 0 ? _exportJobConfiguration.MaximumNumberOfResourcesPerQuery : maximumNumberOfResourcesPerQuery,
                 numberOfPagesPerCommit: numberOfPagesPerCommit == 0 ? _exportJobConfiguration.NumberOfPagesPerCommit : numberOfPagesPerCommit,
+                storageAccountContainerName: containerName,
                 anonymizationConfigurationLocation: anonymizationConfigurationLocation,
                 anonymizationConfigurationFileETag: anonymizationConfigurationFileEtag);
         }
@@ -1671,6 +1705,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
                 return _lastExportJobOutcome;
             });
+        }
+
+        private string ContainerFilePath(string fileName)
+        {
+            string dateTime = _exportJobRecord.QueuedTime.UtcDateTime.ToString("s")
+                            .Replace("-", string.Empty, StringComparison.OrdinalIgnoreCase)
+                            .Replace(":", string.Empty, StringComparison.OrdinalIgnoreCase);
+            return dateTime + "-" + _exportJobRecord.Id + "/" + fileName;
         }
     }
 }

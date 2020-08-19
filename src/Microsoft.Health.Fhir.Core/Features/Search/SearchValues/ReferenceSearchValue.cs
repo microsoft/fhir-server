@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Diagnostics.CodeAnalysis;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -66,6 +67,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
             EnsureArg.IsNotNull(visitor, nameof(visitor));
 
             visitor.Visit(this);
+        }
+
+        public bool Equals([AllowNull] ISearchValue other)
+        {
+            if (other == null)
+            {
+                return false;
+            }
+
+            var referenceSearchValueOther = other as ReferenceSearchValue;
+
+            if (referenceSearchValueOther == null)
+            {
+                return false;
+            }
+
+            return Kind == referenceSearchValueOther.Kind &&
+                   BaseUri == referenceSearchValueOther.BaseUri &&
+                   ResourceType.Equals(referenceSearchValueOther.ResourceType, StringComparison.OrdinalIgnoreCase) &&
+                   ResourceId.Equals(referenceSearchValueOther.ResourceId, StringComparison.OrdinalIgnoreCase);
         }
 
         /// <inheritdoc />

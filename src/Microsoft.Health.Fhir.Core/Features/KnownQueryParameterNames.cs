@@ -56,6 +56,8 @@ namespace Microsoft.Health.Fhir.Core.Features
 
         public const string Type = "_type";
 
+        public const string Container = "_container";
+
         /// <summary>
         /// The anonymization configuration
         /// </summary>

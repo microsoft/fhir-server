@@ -35,6 +35,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             {
                 KnownQueryParameterNames.Since,
                 KnownQueryParameterNames.Type,
+                KnownQueryParameterNames.Container,
             };
 
             _supportedQueryParamsForAnonymizedExport = new HashSet<string>(StringComparer.Ordinal)
