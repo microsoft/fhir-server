@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
@@ -26,12 +27,14 @@ using Microsoft.Health.Fhir.Core.Features.Resources.Delete;
 using Microsoft.Health.Fhir.Core.Features.Resources.Get;
 using Microsoft.Health.Fhir.Core.Features.Resources.Upsert;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Messages.Get;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Common.Mocks;
@@ -51,12 +54,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly FhirStorageTestsFixture _fixture;
         private readonly CapabilityStatement _conformance;
         private readonly ISearchService _searchService;
+        private readonly IFhirDataStore _dataStore;
 
         public FhirStorageTests(FhirStorageTestsFixture fixture)
         {
             _fixture = fixture;
             _searchService = Substitute.For<ISearchService>();
-            IFhirDataStore dataStore = fixture.DataStore;
+            _dataStore = fixture.DataStore;
 
             _conformance = CapabilityStatementMock.GetMockedCapabilityStatement();
 
@@ -91,10 +95,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var resourceIdProvider = new ResourceIdProvider();
 
-            collection.AddSingleton(typeof(IRequestHandler<CreateResourceRequest, UpsertResourceResponse>), new CreateResourceHandler(dataStore, new Lazy<IConformanceProvider>(() => provider), resourceWrapperFactory, resourceIdProvider, new ResourceReferenceResolver(_searchService, new TestQueryStringParser()), DisabledFhirAuthorizationService.Instance));
-            collection.AddSingleton(typeof(IRequestHandler<UpsertResourceRequest, UpsertResourceResponse>), new UpsertResourceHandler(dataStore, new Lazy<IConformanceProvider>(() => provider), resourceWrapperFactory, resourceIdProvider, DisabledFhirAuthorizationService.Instance, ModelInfoProvider.Instance));
-            collection.AddSingleton(typeof(IRequestHandler<GetResourceRequest, GetResourceResponse>), new GetResourceHandler(dataStore, new Lazy<IConformanceProvider>(() => provider), resourceWrapperFactory, Deserializers.ResourceDeserializer, resourceIdProvider, DisabledFhirAuthorizationService.Instance));
-            collection.AddSingleton(typeof(IRequestHandler<DeleteResourceRequest, DeleteResourceResponse>), new DeleteResourceHandler(dataStore, new Lazy<IConformanceProvider>(() => provider), resourceWrapperFactory, resourceIdProvider, DisabledFhirAuthorizationService.Instance));
+            collection.AddSingleton(typeof(IRequestHandler<CreateResourceRequest, UpsertResourceResponse>), new CreateResourceHandler(_dataStore, new Lazy<IConformanceProvider>(() => provider), resourceWrapperFactory, resourceIdProvider, new ResourceReferenceResolver(_searchService, new TestQueryStringParser()), DisabledFhirAuthorizationService.Instance));
+            collection.AddSingleton(typeof(IRequestHandler<UpsertResourceRequest, UpsertResourceResponse>), new UpsertResourceHandler(_dataStore, new Lazy<IConformanceProvider>(() => provider), resourceWrapperFactory, resourceIdProvider, DisabledFhirAuthorizationService.Instance, ModelInfoProvider.Instance));
+            collection.AddSingleton(typeof(IRequestHandler<GetResourceRequest, GetResourceResponse>), new GetResourceHandler(_dataStore, new Lazy<IConformanceProvider>(() => provider), resourceWrapperFactory, Deserializers.ResourceDeserializer, resourceIdProvider, DisabledFhirAuthorizationService.Instance));
+            collection.AddSingleton(typeof(IRequestHandler<DeleteResourceRequest, DeleteResourceResponse>), new DeleteResourceHandler(_dataStore, new Lazy<IConformanceProvider>(() => provider), resourceWrapperFactory, resourceIdProvider, DisabledFhirAuthorizationService.Instance));
 
             ServiceProvider services = collection.BuildServiceProvider();
 
@@ -573,6 +577,93 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             await Assert.ThrowsAsync<ResourceNotFoundException>(
                 async () => { await Mediator.GetResourceAsync(new ResourceKey<Observation>(createdId)); });
+        }
+
+        [Fact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
+        public async Task GivenAnUpdatedResource_WhenReplace_ThenResourceGetsUpdated()
+        {
+            ResourceElement patientResource = Samples.GetJsonSample("Patient");
+            SaveOutcome upsertResult = await Mediator.UpsertResourceAsync(patientResource);
+
+            (FhirCosmosResourceWrapper original, ResourceWrapper updated) = await CreateUpdatedWrapperFromExistingResource(upsertResult);
+
+            ResourceWrapper replaceResult = await _dataStore.ReplaceAsync(updated, WeakETag.FromVersionId(original.ETag), CancellationToken.None);
+
+            Assert.Equal(original.ResourceId, replaceResult.ResourceId);
+            Assert.Equal(original.Version, replaceResult.Version);
+            Assert.Equal(original.ResourceTypeName, replaceResult.ResourceTypeName);
+            Assert.NotEqual(original.LastModified, replaceResult.LastModified);
+        }
+
+        [Fact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
+        public async Task GivenAnUpdatedResourceWithWrongETag_WhenReplace_ThenExceptionIsThrown()
+        {
+            ResourceElement patientResource = Samples.GetJsonSample("Patient");
+            SaveOutcome upsertResult = await Mediator.UpsertResourceAsync(patientResource);
+
+            (FhirCosmosResourceWrapper originalWrapper, ResourceWrapper updatedWrapper) = await CreateUpdatedWrapperFromExistingResource(upsertResult);
+            ResourceWrapper replaceResult = await _dataStore.ReplaceAsync(updatedWrapper, WeakETag.FromVersionId(originalWrapper.ETag), CancellationToken.None);
+
+            // Let's update the resource again with new information.
+            var searchParamInfo = new SearchParameterInfo("newSearchParam2");
+            var searchIndex = new SearchIndexEntry(searchParamInfo, new TokenSearchValue("system", "code", "text"));
+            var searchIndices = new List<SearchIndexEntry>() { searchIndex };
+
+            updatedWrapper = new ResourceWrapper(
+                originalWrapper.Id,
+                originalWrapper.Version,
+                originalWrapper.ResourceTypeName,
+                originalWrapper.RawResource,
+                originalWrapper.Request,
+                DateTimeOffset.UtcNow,
+                deleted: false,
+                searchIndices,
+                originalWrapper.CompartmentIndices,
+                originalWrapper.LastModifiedClaims);
+
+            // Attempt to replace resource with the old weaketag
+            await Assert.ThrowsAsync<PreconditionFailedException>(() => _dataStore.ReplaceAsync(updatedWrapper, WeakETag.FromVersionId(originalWrapper.ETag), CancellationToken.None));
+        }
+
+        [Fact]
+        [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
+        public async Task GivenAnUpdatedResourceWithWrongResourceId_WhenReplace_ThenExceptionIsThrown()
+        {
+            ResourceElement patientResource = Samples.GetJsonSample("Patient");
+            SaveOutcome upsertResult = await Mediator.UpsertResourceAsync(patientResource);
+
+            (FhirCosmosResourceWrapper original, ResourceWrapper updated) = await CreateUpdatedWrapperFromExistingResource(upsertResult, Guid.NewGuid().ToString());
+            await Assert.ThrowsAsync<ResourceNotFoundException>(() => _dataStore.ReplaceAsync(updated, WeakETag.FromVersionId(original.ETag), CancellationToken.None));
+        }
+
+        private async Task<(FhirCosmosResourceWrapper original, ResourceWrapper updated)> CreateUpdatedWrapperFromExistingResource(
+            SaveOutcome upsertResult,
+            string updatedId = null)
+        {
+            // Get wrapper from data store directly
+            ResourceKey resourceKey = new ResourceKey(upsertResult.Resource.InstanceType, upsertResult.Resource.Id, upsertResult.Resource.VersionId);
+            FhirCosmosResourceWrapper originalWrapper = (FhirCosmosResourceWrapper)await _dataStore.GetAsync(resourceKey, CancellationToken.None);
+
+            // Add new search index entry to existing wrapper.
+            SearchParameterInfo searchParamInfo = new SearchParameterInfo("newSearchParam");
+            SearchIndexEntry searchIndex = new SearchIndexEntry(searchParamInfo, new NumberSearchValue(12));
+            List<SearchIndexEntry> searchIndices = new List<SearchIndexEntry>() { searchIndex };
+
+            var updatedWrapper = new ResourceWrapper(
+                updatedId == null ? originalWrapper.Id : updatedId,
+                originalWrapper.Version,
+                originalWrapper.ResourceTypeName,
+                originalWrapper.RawResource,
+                originalWrapper.Request,
+                DateTimeOffset.UtcNow,
+                deleted: false,
+                searchIndices,
+                originalWrapper.CompartmentIndices,
+                originalWrapper.LastModifiedClaims);
+
+            return (originalWrapper, updatedWrapper);
         }
 
         private async Task ExecuteAndVerifyException<TException>(Func<Task> action)

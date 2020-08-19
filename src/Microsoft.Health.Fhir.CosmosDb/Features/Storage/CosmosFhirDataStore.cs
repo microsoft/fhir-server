@@ -80,16 +80,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _logger = logger;
             _modelInfoProvider = modelInfoProvider;
             _coreFeatures = coreFeatures.Value;
-
-            CosmosCollectionConfiguration collectionConfiguration = namedCosmosCollectionConfigurationAccessor.Get(Constants.CollectionConfigurationName);
-
-            DatabaseId = cosmosDataStoreConfiguration.DatabaseId;
-            CollectionId = collectionConfiguration.CollectionId;
         }
-
-        private string DatabaseId { get; }
-
-        private string CollectionId { get; }
 
         public async Task<UpsertOutcome> UpsertAsync(
             ResourceWrapper resource,
@@ -261,7 +252,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (CosmosException exception)
             {
-                switch (exception.GetSubStatusCode())
+                switch (exception.StatusCode)
                 {
                     case HttpStatusCode.PreconditionFailed:
                         throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag.VersionId));
