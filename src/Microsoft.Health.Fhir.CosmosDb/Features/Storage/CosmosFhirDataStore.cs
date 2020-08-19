@@ -224,32 +224,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
-        internal async Task<FeedResponse<T>> ExecuteDocumentQueryAsync<T>(QueryDefinition sqlQuerySpec, QueryRequestOptions feedOptions, string continuationToken = null, CancellationToken cancellationToken = default)
-        {
-            EnsureArg.IsNotNull(sqlQuerySpec, nameof(sqlQuerySpec));
-
-            var context = new CosmosQueryContext(sqlQuerySpec, feedOptions, continuationToken);
-
-            var documentQuery = _cosmosQueryFactory.Create<T>(_containerScope.Value, context);
-
-            return await documentQuery.ExecuteNextAsync(cancellationToken);
-        }
-
-        public void Build(ICapabilityStatementBuilder builder)
-        {
-            EnsureArg.IsNotNull(builder, nameof(builder));
-
-            builder.AddDefaultResourceInteractions()
-                .AddDefaultSearchParameters()
-                .AddDefaultRestSearchParams();
-
-            if (_coreFeatures.SupportsBatch)
-            {
-                builder.AddRestInteraction(SystemRestfulInteraction.Batch);
-            }
-        }
-
-        public async Task<ResourceWrapper> ReplaceAsync(ResourceWrapper resourceWrapper, WeakETag weakETag, CancellationToken cancellationToken)
+        public async Task<ResourceWrapper> UpdateSearchParameterForResourceAsync(ResourceWrapper resourceWrapper, WeakETag weakETag, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(resourceWrapper, nameof(resourceWrapper));
             EnsureArg.IsNotNull(weakETag, nameof(weakETag));
@@ -291,6 +266,31 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                 _logger.LogError(exception, "Unhandled Document Client Exception");
                 throw;
+            }
+        }
+
+        internal async Task<FeedResponse<T>> ExecuteDocumentQueryAsync<T>(QueryDefinition sqlQuerySpec, QueryRequestOptions feedOptions, string continuationToken = null, CancellationToken cancellationToken = default)
+        {
+            EnsureArg.IsNotNull(sqlQuerySpec, nameof(sqlQuerySpec));
+
+            var context = new CosmosQueryContext(sqlQuerySpec, feedOptions, continuationToken);
+
+            var documentQuery = _cosmosQueryFactory.Create<T>(_containerScope.Value, context);
+
+            return await documentQuery.ExecuteNextAsync(cancellationToken);
+        }
+
+        public void Build(ICapabilityStatementBuilder builder)
+        {
+            EnsureArg.IsNotNull(builder, nameof(builder));
+
+            builder.AddDefaultResourceInteractions()
+                .AddDefaultSearchParameters()
+                .AddDefaultRestSearchParams();
+
+            if (_coreFeatures.SupportsBatch)
+            {
+                builder.AddRestInteraction(SystemRestfulInteraction.Batch);
             }
         }
     }

@@ -26,6 +26,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         Task UpdateSearchParameterIndicesBatchAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken);
 
-        Task<ResourceWrapper> ReplaceAsync(ResourceWrapper resourceWrapper, WeakETag weakETag, CancellationToken cancellationToken);
+        Task<ResourceWrapper> UpdateSearchParameterForResourceAsync(ResourceWrapper resourceWrapper, WeakETag weakETag, CancellationToken cancellationToken);
     }
 }
