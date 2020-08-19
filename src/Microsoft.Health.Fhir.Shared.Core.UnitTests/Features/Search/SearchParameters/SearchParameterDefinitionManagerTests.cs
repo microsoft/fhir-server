@@ -140,6 +140,58 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
+        public async Task GivenContextToIncludePatialIndexedParams_WhenGettingSearchable_ThenCorrectParamsReturned()
+        {
+            await _manager.EnsureInitialized();
+            _fhirRequestContext.IncludePartiallyIndexedSearchParams = true;
+            var searchableDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor);
+            var paramList = searchableDefinitionManager.AllSearchParameters;
+
+            Assert.Collection(
+                paramList,
+                p =>
+                {
+                    Assert.True(p.IsSupported);
+                    Assert.True(p.IsSearchable);
+                },
+                p2 =>
+                {
+                    Assert.True(p2.IsSupported);
+                    Assert.True(p2.IsSearchable);
+                },
+                p3 =>
+                {
+                    Assert.True(p3.IsSupported);
+                    Assert.False(p3.IsSearchable);
+                });
+
+            _fhirRequestContext.IncludePartiallyIndexedSearchParams = false;
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task GivenContextToIncludePatialIndexedParams_WhenGettingSearchableParameterByName_ThenCorrectParamReturned(bool includePartiallyIndexedParams)
+        {
+            await _manager.EnsureInitialized();
+            _fhirRequestContext.IncludePartiallyIndexedSearchParams = includePartiallyIndexedParams;
+            var searchableDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor);
+
+            if (includePartiallyIndexedParams)
+            {
+                var param = searchableDefinitionManager.GetSearchParameter(new Uri(ResourceSecurity));
+                SearchParameterInfo expectedSearchParam = _searchParameterInfos[3];
+                ValidateSearchParam(expectedSearchParam, param);
+            }
+            else
+            {
+                Assert.Throws<SearchParameterNotSupportedException>(() => searchableDefinitionManager.GetSearchParameter(new Uri(ResourceSecurity)));
+            }
+
+            _fhirRequestContext.IncludePartiallyIndexedSearchParams = false;
+        }
+
+        [Fact]
         public void GivenASearchParameterDefinitionManager_WhenGettingExistingSearchParameterByName_CorrectParameterIsReturned()
         {
             SearchParameterInfo expectedSearchParam = _searchParameterInfos[0];

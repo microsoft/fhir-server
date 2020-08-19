@@ -115,6 +115,18 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             Assert.Null(_fhirRequestContext.ResourceType);
         }
 
+        [Fact]
+        public void GivenPartialIndexHeader_WhenSearchReqeust_ThenFhirContextPropertySet()
+        {
+            _httpContext.Request.Headers.Add(
+                "x-ms-use-partial-indices",
+                new Microsoft.Extensions.Primitives.StringValues(new string[] { "true" }));
+
+            _filterAttribute.OnActionExecuting(_actionExecutingContext);
+
+            Assert.True(_fhirRequestContext.IncludePartiallyIndexedSearchParams);
+        }
+
         private void ExecuteAndValidateFilter(string auditEventTypeFromMapping, string expectedAuditEventType)
         {
             _auditEventTypeMapping.GetAuditEventType(ControllerName, ActionName).Returns(auditEventTypeFromMapping);
