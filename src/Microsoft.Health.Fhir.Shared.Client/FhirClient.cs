@@ -10,6 +10,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Web;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
@@ -285,7 +286,11 @@ namespace Microsoft.Health.Fhir.Client
 
         public async Task<Uri> AnonymizedExportAsync(string anonymizationConfig, string etag = null, CancellationToken cancellationToken = default)
         {
-            using var message = new HttpRequestMessage(HttpMethod.Get, $"$export?_anonymizationConfig={anonymizationConfig}&_anonymizationConfigEtag={etag}");
+            anonymizationConfig = HttpUtility.UrlEncode(anonymizationConfig);
+            etag = HttpUtility.UrlEncode(etag);
+            string requestUrl = $"$export?_anonymizationConfig={anonymizationConfig}&_anonymizationConfigEtag={etag}";
+
+            using var message = new HttpRequestMessage(HttpMethod.Get, requestUrl);
             message.Headers.Add("Accept", "application/fhir+json");
             message.Headers.Add("Prefer", "respond-async");
 
