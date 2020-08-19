@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -35,6 +36,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     [ServiceFilter(typeof(OperationOutcomeExceptionFilterAttribute))]
     public class ExportController : Controller
     {
+        private static readonly List<string> SupportedOutputFormats = new List<string>(new string[] { "application/fhir+ndjson", "application/ndjson", "ndjson" });
         /*
          * We are currently hardcoding the routing attribute to be specific to Export and
          * get forwarded to this controller. As we add more operations we would like to resolve
@@ -77,11 +79,13 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [ServiceFilter(typeof(ValidateExportRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.Export)]
         public async Task<IActionResult> Export(
+            [FromQuery(Name = KnownQueryParameterNames.OutputFormat)] string outputFormat,
             [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
             [FromQuery(Name = KnownQueryParameterNames.Type)] string resourceType,
             [FromQuery(Name = KnownQueryParameterNames.Container)] string containerName)
         {
             CheckIfExportIsEnabled();
+            CheckOutputFormat(outputFormat);
             return await SendExportRequest(ExportJobType.All, since, resourceType, containerName: containerName);
         }
 
@@ -90,12 +94,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [ServiceFilter(typeof(ValidateExportRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.Export)]
         public async Task<IActionResult> ExportResourceType(
+            [FromQuery(Name = KnownQueryParameterNames.OutputFormat)] string outputFormat,
             [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
             [FromQuery(Name = KnownQueryParameterNames.Type)] string resourceType,
             [FromQuery(Name = KnownQueryParameterNames.Container)] string containerName,
             string typeParameter)
         {
             CheckIfExportIsEnabled();
+            CheckOutputFormat(outputFormat);
 
             // Export by ResourceType is supported only for Patient resource type.
             if (!string.Equals(typeParameter, ResourceType.Patient.ToString(), StringComparison.Ordinal))
@@ -111,12 +117,16 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [ServiceFilter(typeof(ValidateExportRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.Export)]
         public async Task<IActionResult> ExportResourceTypeById(
+            [FromQuery(Name = KnownQueryParameterNames.OutputFormat)] string outputFormat,
             [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
             [FromQuery(Name = KnownQueryParameterNames.Type)] string resourceType,
             [FromQuery(Name = KnownQueryParameterNames.Container)] string containerName,
             string typeParameter,
             string idParameter)
         {
+            CheckIfExportIsEnabled();
+            CheckOutputFormat(outputFormat);
+
             // Export by ResourceTypeId is supported only for Group resource type.
             if (!string.Equals(typeParameter, ResourceType.Group.ToString(), StringComparison.Ordinal) || string.IsNullOrEmpty(idParameter))
             {
@@ -176,6 +186,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             if (!_exportConfig.Enabled)
             {
                 throw new RequestNotValidException(string.Format(Resources.OperationNotEnabled, OperationsConstants.Export));
+            }
+        }
+
+        private void CheckOutputFormat(string outputFormat)
+        {
+            if (!(string.IsNullOrWhiteSpace(outputFormat) || SupportedOutputFormats.Contains(outputFormat)))
+            {
+                throw new RequestNotValidException(Resources.InvalidOutputFormat);
             }
         }
     }

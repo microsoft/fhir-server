@@ -31,6 +31,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
         {
             _supportedQueryParams = new HashSet<string>(StringComparer.Ordinal)
             {
+                KnownQueryParameterNames.OutputFormat,
                 KnownQueryParameterNames.Since,
                 KnownQueryParameterNames.Type,
                 KnownQueryParameterNames.Container,

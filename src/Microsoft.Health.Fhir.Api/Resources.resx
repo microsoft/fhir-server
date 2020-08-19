@@ -316,4 +316,8 @@
   <data name="TooManyConcurrentRequests" xml:space="preserve">
     <value>The maximum number of concurrent API calls on this instance was reached.</value>
   </data>
+  <data name="InvalidOutputFormat" xml:space="preserve">
+    <value>The given output format is not supported</value>
+    <comment>Error message for an invalid output format for exported files</comment>
+  </data>
 </root>

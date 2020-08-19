@@ -57,5 +57,7 @@ namespace Microsoft.Health.Fhir.Core.Features
         public const string Type = "_type";
 
         public const string Container = "_container";
+
+        public const string OutputFormat = "_outputFormat";
     }
 }
