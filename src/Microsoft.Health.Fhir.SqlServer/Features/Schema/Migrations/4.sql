@@ -2174,10 +2174,10 @@ GO
 **************************************************************/
 --
 -- STORED PROCEDURE
---     Gets all the search parameters and their statuses.
+--     GetSearchParamStatuses
 --
 -- DESCRIPTION
---     Retrieves and returns select contents from the search parameter table.
+--     Gets all the search parameters and their statuses
 --
 -- RETURN VALUE
 --     The search parameters and their statuses.
@@ -2191,15 +2191,14 @@ GO
 
 --
 -- STORED PROCEDURE
---     Given a set of search parameters, creates or updates the parameters.
+--     UpsertSearchParams
 --
 -- DESCRIPTION
---     If a parameter with a matching URI already exists in the table, it is updated.
---     If not, a new entry is created.
+--     Given a set of search parameters, creates or updates the parameters
 --
 -- PARAMETERS
 --     @searchParams
---         * The updated or new search parameters
+--         * The updated existing search parameters or the new search parameters
 --
 CREATE PROCEDURE dbo.UpsertSearchParams
     @searchParams dbo.SearchParamTableType_1 READONLY
@@ -2212,7 +2211,7 @@ AS
 
     DECLARE @lastUpdated datetimeoffset(7) = SYSDATETIMEOFFSET()
 
-    -- Acquire and hold an exclusive table lock for the entire transaction to prevent parameters from being added or modified during upsertion.
+    -- Acquire and hold an exclusive table lock for the entire transaction to prevent parameters from being added or modified during upsert.
     UPDATE dbo.SearchParam
     WITH (TABLOCKX)
     SET Status = sps.Status, LastUpdated = @lastUpdated, IsPartiallySupported = sps.IsPartiallySupported
