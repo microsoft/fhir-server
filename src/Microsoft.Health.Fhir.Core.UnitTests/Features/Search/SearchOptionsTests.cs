@@ -35,5 +35,27 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             Assert.Throws<InvalidOperationException>(() => searchOptions.MaxItemCount = input);
         }
+
+        [Theory]
+        [InlineData(5, 5)]
+        [InlineData(99, 99)]
+        public void GivenANumber_WhenIncludeCountIsSet_ThenCorrectIncludeCountShouldBeSet(int input, int expected)
+        {
+            SearchOptions searchOptions = new SearchOptions();
+
+            searchOptions.IncludeCount = input;
+
+            Assert.Equal(expected, searchOptions.IncludeCount);
+        }
+
+        [Theory]
+        [InlineData(-1)]
+        [InlineData(0)]
+        public void GivenAnInvalidNumber_WhenIncludeCountIsSet_ThenExceptionShouldBeThrown(int input)
+        {
+            SearchOptions searchOptions = new SearchOptions();
+
+            Assert.Throws<InvalidOperationException>(() => searchOptions.IncludeCount = input);
+        }
     }
 }

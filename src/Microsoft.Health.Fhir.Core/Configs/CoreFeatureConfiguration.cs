@@ -38,8 +38,13 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public int MaxItemCountPerSearch { get; set; } = 100;
 
         /// <summary>
-        /// Gets or sets the default value for maximum value for _count in search.
+        /// Gets or sets the default value for _count in search.
         /// </summary>
         public int DefaultItemCountPerSearch { get; set; } = 10;
+
+        /// <summary>
+        /// Gets or sets the default value for included search results.
+        /// </summary>
+        public int DefaultIncludeCountPerSearch { get; set; } = 100;
     }
 }

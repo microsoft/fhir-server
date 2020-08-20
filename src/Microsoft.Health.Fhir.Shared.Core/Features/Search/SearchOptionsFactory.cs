@@ -153,6 +153,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 searchOptions.MaxItemCount = _featureConfiguration.DefaultItemCountPerSearch;
             }
 
+            searchOptions.IncludeCount = _featureConfiguration.DefaultIncludeCountPerSearch;
+
             // Check to see if only the count should be returned
             searchOptions.CountOnly = searchParams.Summary == SummaryType.Count;
 

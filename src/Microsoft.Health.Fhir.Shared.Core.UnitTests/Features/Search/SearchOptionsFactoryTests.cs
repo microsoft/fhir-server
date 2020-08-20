@@ -440,6 +440,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Throws<BadRequestException>(() => CreateSearchOptions(queryParameters: new[] { Tuple.Create<string, string>("_count", "11"), }));
         }
 
+        [Fact]
+        public void GivenSetCoreFeatureForIncludeCount_WhenCreated_ThenSearchOptionsHaveSameValue()
+        {
+            _coreFeatures.DefaultIncludeCountPerSearch = 9;
+
+            SearchOptions options = CreateSearchOptions();
+            Assert.Equal(_coreFeatures.DefaultIncludeCountPerSearch, options.IncludeCount);
+        }
+
         private SearchOptions CreateSearchOptions(
             string resourceType = DefaultResourceType,
             IReadOnlyList<Tuple<string, string>> queryParameters = null,

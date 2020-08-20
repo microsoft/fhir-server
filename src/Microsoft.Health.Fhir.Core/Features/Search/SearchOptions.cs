@@ -16,6 +16,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     public class SearchOptions
     {
         private int _maxItemCount;
+        private int _includeCount;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SearchOptions"/> class.
@@ -56,6 +57,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 }
 
                 _maxItemCount = value;
+            }
+        }
+
+        /// <summary>
+        /// Get the number of items to include in search results.
+        /// </summary>
+        public int IncludeCount
+        {
+            get => _includeCount;
+            internal set
+            {
+                if (value <= 0)
+                {
+                    throw new InvalidOperationException(Resources.InvalidSearchCountSpecified);
+                }
+
+                _includeCount = value;
             }
         }
 
