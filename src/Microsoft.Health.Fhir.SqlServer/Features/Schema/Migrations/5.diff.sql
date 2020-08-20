@@ -71,7 +71,7 @@ GO
 --     @rawResource
 --         * A compressed UTF16-encoded JSON document
 --     @rawResourceMetaSet
---         * Flag specifying if metadata in the raw resource was set
+--         * Whether the rawResource json contains updated values for the meta property
 --     @resourceWriteClaims
 --         * Claims on the principal that performed the write
 --     @compartmentAssignments
