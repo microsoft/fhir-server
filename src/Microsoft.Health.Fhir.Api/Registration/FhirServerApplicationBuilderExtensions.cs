@@ -7,6 +7,7 @@ using System;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Api.Registration;
 using Microsoft.Health.Fhir.Api.Configs;
@@ -27,13 +28,13 @@ namespace Microsoft.AspNetCore.Builder
 
             app.UseHealthChecksExtension(new PathString(KnownRoutes.HealthCheck));
 
-            var config = app.ApplicationServices.GetService(typeof(IOptions<FhirServerConfiguration>)) as IOptions<FhirServerConfiguration>;
-            EnsureArg.IsNotNull(config, nameof(config));
+            var config = app.ApplicationServices.GetRequiredService<IOptions<FhirServerConfiguration>>();
 
-            var pathBase = new PathString(config.Value.PathBase.TrimEnd('/'));
-            if (pathBase.HasValue)
+            var pathBase = config.Value.PathBase?.TrimEnd('/');
+            if (!string.IsNullOrWhiteSpace(pathBase))
             {
-                app.UseMiddleware<PathBaseMiddleware>(pathBase);
+                var pathString = new PathString(pathBase);
+                app.UseMiddleware<PathBaseMiddleware>(pathString);
             }
 
             app.UseStaticFiles();
@@ -49,10 +50,8 @@ namespace Microsoft.AspNetCore.Builder
 
             public PathBaseMiddleware(RequestDelegate next, PathString pathBase)
             {
-                if (!pathBase.HasValue)
-                {
-                    throw new ArgumentException($"{nameof(pathBase)} cannot be null or empty.");
-                }
+                EnsureArg.IsNotNull(pathBase, nameof(pathBase));
+                EnsureArg.IsNotNullOrWhiteSpace(pathBase.Value, nameof(pathBase.Value));
 
                 _next = next ?? throw new ArgumentNullException(nameof(next));
                 _pathBase = pathBase;
