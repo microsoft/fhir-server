@@ -3,15 +3,16 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
+using Microsoft.ApplicationInsights.Channel;
+using Microsoft.ApplicationInsights.Extensibility;
 
-namespace Microsoft.Health.Fhir.Api.Features.Audit
+namespace Microsoft.Health.Fhir.Web
 {
-    public class MissingAuditEventTypeMappingException : Exception
+    public class CloudRoleNameTelemetryInitializer : ITelemetryInitializer
     {
-        public MissingAuditEventTypeMappingException(string controllerName, string actionName)
-        : base(string.Format(Resources.MissingAuditInformation, controllerName, actionName))
+        public void Initialize(ITelemetry telemetry)
         {
+            telemetry.Context.Cloud.RoleName = "Microsoft FHIR Server";
         }
     }
 }
