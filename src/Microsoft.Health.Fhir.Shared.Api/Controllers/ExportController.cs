@@ -189,7 +189,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
         }
 
-        private void CheckOutputFormat(string outputFormat)
+        private static void CheckOutputFormat(string outputFormat)
         {
             if (!(string.IsNullOrWhiteSpace(outputFormat) || SupportedOutputFormats.Contains(outputFormat)))
             {
