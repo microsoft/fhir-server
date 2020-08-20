@@ -8,13 +8,17 @@
     <None Remove="Features\Schema\Migrations\2.sql" />
     <None Remove="Features\Schema\Migrations\3.diff.sql" />
     <None Remove="Features\Schema\Migrations\3.sql" />
+    <None Remove="Features\Schema\Migrations\4.diff.sql" />
+    <None Remove="Features\Schema\Migrations\4.sql" />
     <None Remove="Features\Schema\Migrations\5.diff.sql" />
     <None Remove="Features\Schema\Migrations\5.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\1.sql" />
-    <EmbeddedResource Include="Features\Schema\Migrations\3.diff.sql" />
-    <EmbeddedResource Include="Features\Schema\Migrations\3.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\2.diff.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\2.sql" />
+    <EmbeddedResource Include="Features\Schema\Migrations\3.diff.sql" />
+    <EmbeddedResource Include="Features\Schema\Migrations\3.sql" />
+    <EmbeddedResource Include="Features\Schema\Migrations\4.diff.sql" />
+    <EmbeddedResource Include="Features\Schema\Migrations\4.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\5.diff.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\5.sql" />
     <GenerateFilesInputs Include="Features\Schema\Migrations\5.sql" />
@@ -23,11 +27,11 @@
       <Namespace>Microsoft.Health.Fhir.SqlServer.Features.Schema.Model</Namespace>
       <Args>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)\Features\Schema\Migrations\5.sql'))</Args>
     </Generated>
-    <!--<GenerateFilesInputs Include="Features\Schema\Migrations\3.sql" />-->
+    <GenerateFilesInputs Include="Features\Schema\Migrations\4.sql" />
     <Generated Include="Features\Schema\Model\V4.Generated.cs">
       <Generator>SqlModelGenerator</Generator>
       <Namespace>Microsoft.Health.Fhir.SqlServer.Features.Schema.Model</Namespace>
-      <Args>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)\Features\Schema\Migrations\3.sql'))</Args>
+      <Args>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)\Features\Schema\Migrations\4.sql'))</Args>
     </Generated>
   </ItemGroup>
   <ItemGroup>
@@ -56,5 +60,9 @@
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Features\Schema\Model" />
   </ItemGroup>
 </Project>

@@ -95,7 +95,10 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 };
             });
 
-            services.AddSingleton<ResourceDeserializer>();
+            services.Add<ResourceDeserializer>()
+                    .Singleton()
+                    .AsSelf()
+                    .AsService<IResourceDeserializer>();
 
             services.Add<FormatterConfiguration>()
                 .Singleton()

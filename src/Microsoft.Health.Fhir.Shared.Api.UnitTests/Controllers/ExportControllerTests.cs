@@ -7,6 +7,7 @@ using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -35,19 +36,19 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         {
             var exportController = GetController(new ExportJobConfiguration() { Enabled = false });
 
-            await Assert.ThrowsAsync<RequestNotValidException>(() => exportController.Export(since: null, resourceType: null));
+            await Assert.ThrowsAsync<RequestNotValidException>(() => exportController.Export(since: null, resourceType: null, containerName: null, anonymizationConfigLocation: null, anonymizationConfigFileETag: null));
         }
 
         [Fact]
         public async Task GivenAnExportByResourceTypeRequest_WhenResourceTypeIsNotPatient_ThenRequestNotValidExceptionShouldBeThrown()
         {
-            await Assert.ThrowsAsync<RequestNotValidException>(() => _exportEnabledController.ExportResourceType(null, null, ResourceType.Observation.ToString()));
+            await Assert.ThrowsAsync<RequestNotValidException>(() => _exportEnabledController.ExportResourceType(null, null, null, ResourceType.Observation.ToString()));
         }
 
         [Fact]
         public async Task GivenAnExportResourceTypeIdRequest_WhenResourceTypeIsNotGroup_ThenRequestNotValidExceptionShouldBeThrown()
         {
-            await Assert.ThrowsAsync<RequestNotValidException>(() => _exportEnabledController.ExportResourceTypeById(null, null, ResourceType.Patient.ToString(), "id"));
+            await Assert.ThrowsAsync<RequestNotValidException>(() => _exportEnabledController.ExportResourceTypeById(null, null, null, ResourceType.Patient.ToString(), "id"));
         }
 
         private ExportController GetController(ExportJobConfiguration exportConfig)
@@ -60,11 +61,16 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             IOptions<OperationsConfiguration> optionsOperationConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
             optionsOperationConfiguration.Value.Returns(operationConfig);
 
+            var features = new FeatureConfiguration();
+            IOptions<FeatureConfiguration> optionsFeatures = Substitute.For<IOptions<FeatureConfiguration>>();
+            optionsFeatures.Value.Returns(features);
+
             return new ExportController(
                 _mediator,
                 _fhirRequestContextAccessor,
                 _urlResolver,
                 optionsOperationConfiguration,
+                optionsFeatures,
                 NullLogger<ExportController>.Instance);
         }
     }

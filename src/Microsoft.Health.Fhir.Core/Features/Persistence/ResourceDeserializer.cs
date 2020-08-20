@@ -11,7 +11,7 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
-    public class ResourceDeserializer
+    public class ResourceDeserializer : IResourceDeserializer
     {
         private readonly IReadOnlyDictionary<FhirResourceFormat, Func<string, string, DateTimeOffset, ResourceElement>> _deserializers;
 

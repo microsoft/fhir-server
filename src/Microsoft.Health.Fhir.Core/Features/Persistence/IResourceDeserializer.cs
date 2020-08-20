@@ -3,15 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Collections.Generic;
-using System.Threading.Tasks;
+using Microsoft.Health.Fhir.Core.Models;
 
-namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
+namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
-    public interface ISearchParameterRegistry
+    public interface IResourceDeserializer
     {
-        Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses();
-
-        Task UpdateStatuses(IEnumerable<ResourceSearchParameterStatus> statuses);
+        public ResourceElement Deserialize(ResourceWrapper resourceWrapper);
     }
 }

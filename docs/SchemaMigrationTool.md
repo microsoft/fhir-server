@@ -1,5 +1,5 @@
-# Schema Migration Tool
-The Schema migration tool is the command line utility to perform schema upgrade on demand. The tool will automatically identify the current version of the database in order to apply appropriate migration scripts.
+# SQL Server schema Migration Tool
+The SQL Server schema migration tool is the command line utility to perform SQL Server schema upgrade on demand. The tool will automatically identify the current version of the database in order to apply appropriate migration scripts.
 
 Note - The tool can't downgrade a schema version.
 
