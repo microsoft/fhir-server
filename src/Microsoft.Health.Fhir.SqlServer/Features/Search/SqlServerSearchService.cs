@@ -29,6 +29,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Features.Client;
+using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Storage;
 using SortOrder = Microsoft.Health.Fhir.Core.Features.Search.SortOrder;
@@ -45,6 +46,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly BitColumn _isMatch = new BitColumn("IsMatch");
         private readonly BitColumn _isPartial = new BitColumn("IsPartial");
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
+        private readonly SchemaInformation _schemaInformation;
 
         private bool _isResultPartial;
 
@@ -56,7 +58,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             ChainFlatteningRewriter chainFlatteningRewriter,
             StringOverflowRewriter stringOverflowRewriter,
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
-            ILogger<SqlServerSearchService> logger)
+            ILogger<SqlServerSearchService> logger,
+            SchemaInformation schemaInformation)
             : base(searchOptionsFactory, fhirDataStore)
         {
             EnsureArg.IsNotNull(sqlRootExpressionRewriter, nameof(sqlRootExpressionRewriter));
@@ -64,6 +67,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             EnsureArg.IsNotNull(stringOverflowRewriter, nameof(stringOverflowRewriter));
             EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
 
             _model = model;
             _sqlRootExpressionRewriter = sqlRootExpressionRewriter;
@@ -72,6 +76,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _logger = logger;
             _isResultPartial = false;
+            _schemaInformation = schemaInformation;
         }
 
         protected override async Task<SearchResult> SearchInternalAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
@@ -174,7 +179,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                 EnableTimeAndIoMessageLogging(stringBuilder, sqlConnectionWrapper);
 
-                var queryGenerator = new SqlQueryGenerator(stringBuilder, new SqlQueryParameterManager(sqlCommandWrapper.Parameters), _model, historySearch);
+                var queryGenerator = new SqlQueryGenerator(stringBuilder, new SqlQueryParameterManager(sqlCommandWrapper.Parameters), _model, historySearch, _schemaInformation);
 
                 expression.AcceptVisitor(queryGenerator, searchOptions);
 
@@ -197,7 +202,33 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                     while (await reader.ReadAsync(cancellationToken))
                     {
-                        (short resourceTypeId, string resourceId, int version, bool isDeleted, long resourceSurrogateId, string requestMethod, bool isMatch, bool isPartialEntry, bool rawResourceMetaSet, Stream rawResourceStream) = reader.ReadRow(
+                        short resourceTypeId;
+                        string resourceId;
+                        int version;
+                        bool isDeleted;
+                        long resourceSurrogateId;
+                        string requestMethod;
+                        bool isMatch;
+                        bool isPartialEntry;
+                        bool rawResourceMetaSet = false;
+                        Stream rawResourceStream;
+
+                        if (_schemaInformation.Current <= 3)
+                        {
+                            (resourceTypeId, resourceId, version, isDeleted, resourceSurrogateId, requestMethod, isMatch, isPartialEntry, rawResourceStream) = reader.ReadRow(
+                            V3.Resource.ResourceTypeId,
+                            V3.Resource.ResourceId,
+                            V3.Resource.Version,
+                            V3.Resource.IsDeleted,
+                            V3.Resource.ResourceSurrogateId,
+                            V3.Resource.RequestMethod,
+                            _isMatch,
+                            _isPartial,
+                            V3.Resource.RawResource);
+                        }
+                        else
+                        {
+                            (resourceTypeId, resourceId, version, isDeleted, resourceSurrogateId, requestMethod, isMatch, isPartialEntry, rawResourceMetaSet, rawResourceStream) = reader.ReadRow(
                             VLatest.Resource.ResourceTypeId,
                             VLatest.Resource.ResourceId,
                             VLatest.Resource.Version,
@@ -208,6 +239,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             _isPartial,
                             VLatest.Resource.RawResourceMetaSet,
                             VLatest.Resource.RawResource);
+                        }
 
                         // If we get to this point, we know there are more results so we need a continuation token
                         // Additionally, this resource shouldn't be included in the results
@@ -242,7 +274,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 resourceId,
                                 version.ToString(CultureInfo.InvariantCulture),
                                 _model.GetResourceTypeName(resourceTypeId),
-                                new RawResource(rawResource, FhirResourceFormat.Json, metaSet: false),
+                                new RawResource(rawResource, FhirResourceFormat.Json, metaSet: rawResourceMetaSet),
                                 new ResourceRequest(requestMethod),
                                 new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
                                 isDeleted,

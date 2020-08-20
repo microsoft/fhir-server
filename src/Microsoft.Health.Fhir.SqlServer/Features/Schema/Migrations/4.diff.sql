@@ -4,7 +4,7 @@
 **************************************************************/
 
 ALTER TABLE dbo.Resource
-    ADD RawResourceMetaSet bit NOT NULL
+    ADD RawResourceMetaSet bit NOT NULL DEFAULT 0
 GO
 
 --
@@ -70,6 +70,8 @@ GO
 --         * The HTTP method/verb used for the request
 --     @rawResource
 --         * A compressed UTF16-encoded JSON document
+--     @rawResourceMetaSet
+--         * Flag specifying if metadata in the raw resource was set
 --     @resourceWriteClaims
 --         * Claims on the principal that performed the write
 --     @compartmentAssignments

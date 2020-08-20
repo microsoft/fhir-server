@@ -28,6 +28,7 @@ GO
     Configure database
 **************************************************************/
 
+
 -- Enable RCSI
 IF ((SELECT is_read_committed_snapshot_on FROM sys.databases WHERE database_id = DB_ID()) = 0) BEGIN
     ALTER DATABASE CURRENT SET READ_COMMITTED_SNAPSHOT ON
@@ -1297,6 +1298,8 @@ GO
 --         * The HTTP method/verb used for the request
 --     @rawResource
 --         * A compressed UTF16-encoded JSON document
+--     @rawResourceMetaSet
+--         * Flag specifying if metadata in the raw resource was set
 --     @resourceWriteClaims
 --         * Claims on the principal that performed the write
 --     @compartmentAssignments

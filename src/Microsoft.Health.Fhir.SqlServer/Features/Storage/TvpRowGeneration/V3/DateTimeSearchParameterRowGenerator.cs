@@ -1,0 +1,44 @@
+﻿// -------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
+// -------------------------------------------------------------------------------------------------
+
+using System;
+using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+
+namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.V3
+{
+    internal class DateTimeSearchParameterRowGenerator : SearchParameterRowGenerator<DateTimeSearchValue, Schema.Model.V3.DateTimeSearchParamTableTypeRow>
+    {
+        private short _lastUpdatedSearchParamId;
+
+        public DateTimeSearchParameterRowGenerator(SqlServerFhirModel model)
+            : base(model)
+        {
+        }
+
+        internal override bool TryGenerateRow(short searchParamId, DateTimeSearchValue searchValue, out Schema.Model.V3.DateTimeSearchParamTableTypeRow row)
+        {
+            if (searchParamId == _lastUpdatedSearchParamId)
+            {
+                // this value is already stored on the Resource table.
+                row = default;
+                return false;
+            }
+
+            row = new Schema.Model.V3.DateTimeSearchParamTableTypeRow(
+                searchParamId,
+                searchValue.Start,
+                searchValue.End,
+                (searchValue.Start - searchValue.End).Ticks > TimeSpan.TicksPerDay);
+
+            return true;
+        }
+
+        protected override void Initialize()
+        {
+            _lastUpdatedSearchParamId = Model.GetSearchParamId(SearchParameterNames.LastUpdatedUri);
+        }
+    }
+}

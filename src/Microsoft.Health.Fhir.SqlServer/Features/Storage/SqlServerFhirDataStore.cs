@@ -25,6 +25,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Client;
+using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Storage;
 using Microsoft.IO;
 using Task = System.Threading.Tasks.Task;
@@ -41,36 +42,44 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly SqlServerDataStoreConfiguration _configuration;
         private readonly SqlServerFhirModel _model;
         private readonly SearchParameterToSearchValueTypeMap _searchParameterTypeMap;
-        private readonly VLatest.UpsertResourceTvpGenerator<ResourceMetadata> _upsertResourceTvpGenerator;
+        private readonly VLatest.UpsertResourceTvpGenerator<ResourceMetadata> _upsertResourceTvpGeneratorVLatest;
+        private readonly V3.UpsertResourceTvpGenerator<ResourceMetadata> _upsertResourceTvpGeneratorV3;
         private readonly RecyclableMemoryStreamManager _memoryStreamManager;
         private readonly CoreFeatureConfiguration _coreFeatures;
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private readonly ILogger<SqlServerFhirDataStore> _logger;
+        private readonly SchemaInformation _schemaInformation;
 
         public SqlServerFhirDataStore(
             SqlServerDataStoreConfiguration configuration,
             SqlServerFhirModel model,
             SearchParameterToSearchValueTypeMap searchParameterTypeMap,
-            VLatest.UpsertResourceTvpGenerator<ResourceMetadata> upsertResourceTvpGenerator,
+            VLatest.UpsertResourceTvpGenerator<ResourceMetadata> upsertResourceTvpGeneratorVLatest,
+            V3.UpsertResourceTvpGenerator<ResourceMetadata> upsertResourceTvpGeneratorV3,
             IOptions<CoreFeatureConfiguration> coreFeatures,
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
-            ILogger<SqlServerFhirDataStore> logger)
+            ILogger<SqlServerFhirDataStore> logger,
+            SchemaInformation schemaInformation)
         {
             EnsureArg.IsNotNull(configuration, nameof(configuration));
             EnsureArg.IsNotNull(model, nameof(model));
             EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));
-            EnsureArg.IsNotNull(upsertResourceTvpGenerator, nameof(upsertResourceTvpGenerator));
+            EnsureArg.IsNotNull(upsertResourceTvpGeneratorVLatest, nameof(upsertResourceTvpGeneratorVLatest));
+            EnsureArg.IsNotNull(upsertResourceTvpGeneratorV3, nameof(upsertResourceTvpGeneratorV3));
             EnsureArg.IsNotNull(coreFeatures, nameof(coreFeatures));
             EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
 
             _configuration = configuration;
             _model = model;
             _searchParameterTypeMap = searchParameterTypeMap;
-            _upsertResourceTvpGenerator = upsertResourceTvpGenerator;
+            _upsertResourceTvpGeneratorVLatest = upsertResourceTvpGeneratorVLatest;
+            _upsertResourceTvpGeneratorV3 = upsertResourceTvpGeneratorV3;
             _coreFeatures = coreFeatures.Value;
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _logger = logger;
+            _schemaInformation = schemaInformation;
 
             _memoryStreamManager = new RecyclableMemoryStreamManager();
         }
@@ -100,7 +109,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 stream.Seek(0, 0);
 
-                VLatest.UpsertResource.PopulateCommand(
+                if (_schemaInformation.Current <= 3)
+                {
+                    V3.UpsertResource.PopulateCommand(
+                    sqlCommandWrapper,
+                    baseResourceSurrogateId: ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.UtcDateTime),
+                    resourceTypeId: _model.GetResourceTypeId(resource.ResourceTypeName),
+                    resourceId: resource.ResourceId,
+                    eTag: weakETag == null ? null : (int?)etag,
+                    allowCreate: allowCreate,
+                    isDeleted: resource.IsDeleted,
+                    keepHistory: keepHistory,
+                    requestMethod: resource.Request.Method,
+                    rawResource: stream,
+                    tableValuedParameters: _upsertResourceTvpGeneratorV3.Generate(resourceMetadata));
+                }
+                else
+                {
+                    VLatest.UpsertResource.PopulateCommand(
                     sqlCommandWrapper,
                     baseResourceSurrogateId: ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.UtcDateTime),
                     resourceTypeId: _model.GetResourceTypeId(resource.ResourceTypeName),
@@ -112,7 +138,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     requestMethod: resource.Request.Method,
                     rawResource: stream,
                     rawResourceMetaSet: resource.RawResource.MetaSet,
-                    tableValuedParameters: _upsertResourceTvpGenerator.Generate(resourceMetadata));
+                    tableValuedParameters: _upsertResourceTvpGeneratorVLatest.Generate(resourceMetadata));
+                }
 
                 try
                 {
@@ -180,26 +207,63 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             return null;
                         }
 
-                        var resourceTable = VLatest.Resource;
-
-                        (long resourceSurrogateId, int version, bool isDeleted, bool isHistory, bool rawResourceMetaSet, Stream rawResourceStream) = sqlDataReader.ReadRow(
-                            resourceTable.ResourceSurrogateId,
-                            resourceTable.Version,
-                            resourceTable.IsDeleted,
-                            resourceTable.IsHistory,
-                            resourceTable.RawResourceMetaSet,
-                            resourceTable.RawResource);
-
-                        string rawResource;
-
-                        using (rawResourceStream)
-                        using (var gzipStream = new GZipStream(rawResourceStream, CompressionMode.Decompress))
-                        using (var reader = new StreamReader(gzipStream, ResourceEncoding))
+                        if (_schemaInformation.Current <= 3)
                         {
-                            rawResource = await reader.ReadToEndAsync();
-                        }
+                            var resourceTable = V3.Resource;
 
-                        return new ResourceWrapper(
+                            (long resourceSurrogateId, int version, bool isDeleted, bool isHistory, Stream rawResourceStream) = sqlDataReader.ReadRow(
+                                resourceTable.ResourceSurrogateId,
+                                resourceTable.Version,
+                                resourceTable.IsDeleted,
+                                resourceTable.IsHistory,
+                                resourceTable.RawResource);
+
+                            string rawResource;
+
+                            using (rawResourceStream)
+                            using (var gzipStream = new GZipStream(rawResourceStream, CompressionMode.Decompress))
+                            using (var reader = new StreamReader(gzipStream, ResourceEncoding))
+                            {
+                                rawResource = await reader.ReadToEndAsync();
+                            }
+
+                            return new ResourceWrapper(
+                            key.Id,
+                            version.ToString(CultureInfo.InvariantCulture),
+                            key.ResourceType,
+                            new RawResource(rawResource, FhirResourceFormat.Json, metaSet: false),
+                            null,
+                            new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
+                            isDeleted,
+                            searchIndices: null,
+                            compartmentIndices: null,
+                            lastModifiedClaims: null)
+                            {
+                                IsHistory = isHistory,
+                            };
+                        }
+                        else
+                        {
+                            var resourceTable = VLatest.Resource;
+
+                            (long resourceSurrogateId, int version, bool isDeleted, bool isHistory, bool rawResourceMetaSet, Stream rawResourceStream) = sqlDataReader.ReadRow(
+                                resourceTable.ResourceSurrogateId,
+                                resourceTable.Version,
+                                resourceTable.IsDeleted,
+                                resourceTable.IsHistory,
+                                resourceTable.RawResourceMetaSet,
+                                resourceTable.RawResource);
+
+                            string rawResource;
+
+                            using (rawResourceStream)
+                            using (var gzipStream = new GZipStream(rawResourceStream, CompressionMode.Decompress))
+                            using (var reader = new StreamReader(gzipStream, ResourceEncoding))
+                            {
+                                rawResource = await reader.ReadToEndAsync();
+                            }
+
+                            return new ResourceWrapper(
                             key.Id,
                             version.ToString(CultureInfo.InvariantCulture),
                             key.ResourceType,
@@ -210,9 +274,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             searchIndices: null,
                             compartmentIndices: null,
                             lastModifiedClaims: null)
-                        {
-                            IsHistory = isHistory,
-                        };
+                            {
+                                IsHistory = isHistory,
+                            };
+                        }
                     }
                 }
             }

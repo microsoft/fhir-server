@@ -1,13 +1,10 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <TargetFramework>netcoreapp3.1</TargetFramework>
   </PropertyGroup>
-
   <ItemGroup>
     <None Remove="Features\Security\roles.schema.json" />
   </ItemGroup>
-
   <ItemGroup>
     <EmbeddedResource Include="Data\R4\BaseCapabilities.json" />
     <EmbeddedResource Include="Data\R4\compartment.json" />
@@ -26,7 +23,6 @@
     <EmbeddedResource Include="Data\Stu3\resourcepath-codesystem-mappings.json" />
     <EmbeddedResource Include="Features\Security\roles.schema.json" />
   </ItemGroup>
-
   <ItemGroup>
     <PackageReference Include="AngleSharp" Version="0.14.0" />
     <PackageReference Include="Ensure.That" Version="9.2.0" />
@@ -36,9 +32,9 @@
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="3.1.6" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="3.1.6" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="3.1.6" />
-    <PackageReference Include="Microsoft.Health.Abstractions" Version="1.0.0-master-20200812-1" />
-    <PackageReference Include="Microsoft.Health.Core" Version="1.0.0-master-20200812-1" />
-    <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection" Version="1.0.0-master-20200812-1" />
+    <PackageReference Include="Microsoft.Health.Abstractions" Version="1.0.0-master-20200819-1" />
+    <PackageReference Include="Microsoft.Health.Core" Version="1.0.0-master-20200819-1" />
+    <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection" Version="1.0.0-master-20200819-1" />
     <PackageReference Include="Hl7.Fhir.Serialization" Version="1.7.0" />
     <PackageReference Include="Hl7.FhirPath" Version="1.7.0" />
     <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" Version="1.3.4" />
@@ -47,11 +43,9 @@
     <PackageReference Include="System.Collections.Immutable" Version="1.7.1" />
     <PackageReference Include="System.Net.Http" Version="4.3.4" />
   </ItemGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.ValueSets\Microsoft.Health.Fhir.ValueSets.csproj" />
   </ItemGroup>
-
   <ItemGroup>
     <Compile Update="Resources.Designer.cs">
       <DesignTime>True</DesignTime>
@@ -59,12 +53,10 @@
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
   </ItemGroup>
-
   <ItemGroup>
     <EmbeddedResource Update="Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
   </ItemGroup>
-
 </Project>
