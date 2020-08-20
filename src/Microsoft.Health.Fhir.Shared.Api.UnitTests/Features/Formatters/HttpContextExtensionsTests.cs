@@ -131,6 +131,19 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
         }
 
         [Theory]
+        [InlineData("")]
+        [InlineData(" ")]
+        public void GivenARequestWithEmptyElementsParam_WhenSerializingTheResponse_ThenNullIsReturned(string elementsParam)
+        {
+            var context = new DefaultHttpContext();
+            context.Request.QueryString = QueryString.Create("_elements", elementsParam);
+
+            var elements = context.GetElementsSearchParameter(_logger);
+
+            Assert.Null(elements);
+        }
+
+        [Theory]
         [InlineData("true")]
         [InlineData("True")]
         [InlineData("TRUE")]
