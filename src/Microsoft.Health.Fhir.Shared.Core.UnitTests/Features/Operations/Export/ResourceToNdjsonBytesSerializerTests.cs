@@ -19,6 +19,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 {
     public class ResourceToNdjsonBytesSerializerTests
     {
+        private readonly ResourceDeserializer _resourceDeserializaer;
         private readonly FhirJsonParser _jsonParser = new FhirJsonParser();
         private readonly FhirXmlParser _xmlParser = new FhirXmlParser();
         private readonly FhirJsonSerializer _jsonSerializer = new FhirJsonSerializer();
@@ -30,11 +31,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
         public ResourceToNdjsonBytesSerializerTests()
         {
-            var resourceDeserializaer = new ResourceDeserializer(
+            _resourceDeserializaer = new ResourceDeserializer(
                 (FhirResourceFormat.Json, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastModified) => _jsonParser.Parse<Resource>(str).ToResourceElement())),
                 (FhirResourceFormat.Xml, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastModified) => _xmlParser.Parse<Resource>(str).ToResourceElement())));
 
-            _serializer = new ResourceToNdjsonBytesSerializer(resourceDeserializaer, _jsonSerializer);
+            _serializer = new ResourceToNdjsonBytesSerializer(_jsonSerializer);
 
             _resource = Samples.GetDefaultObservation().ToPoco<Observation>();
             _resource.Id = "test";
@@ -52,8 +53,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 FhirResourceFormat.Json);
 
             ResourceWrapper resourceWrapper = CreateResourceWrapper(rawResource);
+            ResourceElement element = _resourceDeserializaer.DeserializeRaw(resourceWrapper.RawResource, resourceWrapper.Version, resourceWrapper.LastModified);
 
-            byte[] actualBytes = _serializer.Serialize(resourceWrapper);
+            byte[] actualBytes = _serializer.Serialize(element);
 
             Assert.Equal(_expectedBytes, actualBytes);
         }
@@ -66,8 +68,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 FhirResourceFormat.Xml);
 
             ResourceWrapper resourceWrapper = CreateResourceWrapper(rawResource);
+            ResourceElement element = _resourceDeserializaer.DeserializeRaw(resourceWrapper.RawResource, resourceWrapper.Version, resourceWrapper.LastModified);
 
-            byte[] actualBytes = _serializer.Serialize(resourceWrapper);
+            byte[] actualBytes = _serializer.Serialize(element);
 
             Assert.Equal(_expectedBytes, actualBytes);
         }
