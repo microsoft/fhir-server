@@ -593,7 +593,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.Equal(original.ResourceId, replaceResult.ResourceId);
             Assert.Equal(original.Version, replaceResult.Version);
             Assert.Equal(original.ResourceTypeName, replaceResult.ResourceTypeName);
-            Assert.NotEqual(original.LastModified, replaceResult.LastModified);
+            Assert.Equal(original.LastModified, replaceResult.LastModified);
         }
 
         [Fact]
@@ -617,7 +617,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 originalWrapper.ResourceTypeName,
                 originalWrapper.RawResource,
                 originalWrapper.Request,
-                DateTimeOffset.UtcNow,
+                originalWrapper.LastModified,
                 deleted: false,
                 searchIndices,
                 originalWrapper.CompartmentIndices,
@@ -657,7 +657,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 originalWrapper.ResourceTypeName,
                 originalWrapper.RawResource,
                 originalWrapper.Request,
-                DateTimeOffset.UtcNow,
+                originalWrapper.LastModified,
                 deleted: false,
                 searchIndices,
                 originalWrapper.CompartmentIndices,
