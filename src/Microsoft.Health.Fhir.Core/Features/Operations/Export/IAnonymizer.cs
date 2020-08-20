@@ -7,16 +7,13 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
-    /// <summary>
-    /// A serializer used to serialize the resource represented by <see cref="ResourceElement"/> to byte array.
-    /// </summary>
-    public interface IResourceToByteArraySerializer
+    public interface IAnonymizer
     {
         /// <summary>
-        /// Serializes the resource represented by <see cref="ResourceElement"/> to byte array.
+        /// Anonymize the FHIR resource
         /// </summary>
-        /// <param name="resourceElement">The resource element used to serialize.</param>
-        /// <returns>The serialized bytes.</returns>
-        byte[] Serialize(ResourceElement resourceElement);
+        /// <param name="resourceElement">The FHIR resource for anonymization.</param>
+        /// <returns>The anonymized FHIR resource.</returns>
+        ResourceElement Anonymize(ResourceElement resourceElement);
     }
 }
