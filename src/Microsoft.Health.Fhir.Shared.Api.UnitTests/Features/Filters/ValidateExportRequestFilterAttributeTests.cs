@@ -83,6 +83,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         [InlineData("since")]
         [InlineData("_SINCE")]
         [InlineData("queryParam")]
+        [InlineData(KnownQueryParameterNames.AnonymizationConfigurationFileEtag)]
+        [InlineData(KnownQueryParameterNames.AnonymizationConfigurationLocation)]
         [Theory]
         public void GivenARequestWithCorrectHeadersAndUnsupportedQueryParam_WhenGettingAnExportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown(string queryParamName)
         {
@@ -97,6 +99,28 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             context.HttpContext.Request.Query = new QueryCollection(queryParams);
 
             Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
+        }
+
+        [InlineData(KnownQueryParameterNames.AnonymizationConfigurationFileEtag)]
+        [InlineData(KnownQueryParameterNames.AnonymizationConfigurationLocation)]
+        [InlineData(KnownQueryParameterNames.AnonymizationConfigurationLocation, KnownQueryParameterNames.AnonymizationConfigurationFileEtag)]
+        [Theory]
+        public void GivenARequestWithAnonymizedExportQueryParam_WhenGettingAnDefaultExportOperationRequest_ThenTheResultIsSuccessful(params string[] queryParamNames)
+        {
+            var context = CreateContext();
+            context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
+            context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
+
+            var queryParams = new Dictionary<string, StringValues>();
+            foreach (string queryParamName in queryParamNames)
+            {
+                queryParams.Add(queryParamName, "test");
+            }
+
+            context.HttpContext.Request.Query = new QueryCollection(queryParams);
+            context.HttpContext.Request.Path = new PathString("/$export");
+
+            _filter.OnActionExecuting(context);
         }
 
         [InlineData(KnownQueryParameterNames.Since)]

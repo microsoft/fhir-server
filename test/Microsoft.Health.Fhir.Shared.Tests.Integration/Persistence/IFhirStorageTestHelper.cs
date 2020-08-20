@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -16,6 +18,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>A task.</returns>
         Task DeleteAllExportJobRecordsAsync(CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Deletes specified search parameter statuses from the database.
+        /// </summary>
+        /// <param name="uri">The string URI of the status to be deleted.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>A task.</returns>
+        Task DeleteSearchParameterStatusAsync(string uri, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Deletes the specified export job record from the database.
