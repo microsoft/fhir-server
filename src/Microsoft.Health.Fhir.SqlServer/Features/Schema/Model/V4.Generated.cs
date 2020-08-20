@@ -11,7 +11,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
     using Microsoft.Health.SqlServer.Features.Client;
     using Microsoft.Health.SqlServer.Features.Schema.Model;
 
-    internal class V3
+    internal class V4
     {
         internal readonly static ClaimTypeTable ClaimType = new ClaimTypeTable();
         internal readonly static CompartmentAssignmentTable CompartmentAssignment = new CompartmentAssignmentTable();

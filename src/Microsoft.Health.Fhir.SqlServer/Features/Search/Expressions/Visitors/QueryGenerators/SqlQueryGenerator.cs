@@ -102,9 +102,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 StringBuilder.Append(expression.TableExpressions.Count > 0 ? "CAST(IsMatch AS bit) AS IsMatch, " : "CAST(1 AS bit) AS IsMatch, ");
                 StringBuilder.Append(expression.TableExpressions.Count > 0 ? "CAST(IsPartial AS bit) AS IsPartial, " : "CAST(0 AS bit) AS IsPartial, ");
 
-                if (_schemaInfo.Current > 3)
+                if (_schemaInfo.Current > 4)
                 {
-                    // RawResourceMetaSet column was added in V4
+                    // RawResourceMetaSet column was added in V5
                     StringBuilder.AppendLine(VLatest.Resource.RawResourceMetaSet, resourceTableAlias).Append(", ");
                 }
 

@@ -8,9 +8,9 @@ using System.Linq;
 using EnsureThat;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.V3
+namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.V4
 {
-    internal class ResourceWriteClaimRowGenerator : ITableValuedParameterRowGenerator<ResourceMetadata, Schema.Model.V3.ResourceWriteClaimTableTypeRow>
+    internal class ResourceWriteClaimRowGenerator : ITableValuedParameterRowGenerator<ResourceMetadata, Schema.Model.V4.ResourceWriteClaimTableTypeRow>
     {
         private readonly SqlServerFhirModel _model;
 
@@ -20,10 +20,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.V3
             _model = model;
         }
 
-        public IEnumerable<Schema.Model.V3.ResourceWriteClaimTableTypeRow> GenerateRows(ResourceMetadata resourceMetadata)
+        public IEnumerable<Schema.Model.V4.ResourceWriteClaimTableTypeRow> GenerateRows(ResourceMetadata resourceMetadata)
         {
             return resourceMetadata.WriteClaims?.Select(c =>
-                new Schema.Model.V3.ResourceWriteClaimTableTypeRow(_model.GetClaimTypeId(c.Key), c.Value));
+                new Schema.Model.V4.ResourceWriteClaimTableTypeRow(_model.GetClaimTypeId(c.Key), c.Value));
         }
     }
 }

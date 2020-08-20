@@ -213,18 +213,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         bool rawResourceMetaSet = false;
                         Stream rawResourceStream;
 
-                        if (_schemaInformation.Current <= 3)
+                        if (_schemaInformation.Current <= 4)
                         {
                             (resourceTypeId, resourceId, version, isDeleted, resourceSurrogateId, requestMethod, isMatch, isPartialEntry, rawResourceStream) = reader.ReadRow(
-                            V3.Resource.ResourceTypeId,
-                            V3.Resource.ResourceId,
-                            V3.Resource.Version,
-                            V3.Resource.IsDeleted,
-                            V3.Resource.ResourceSurrogateId,
-                            V3.Resource.RequestMethod,
+                            V4.Resource.ResourceTypeId,
+                            V4.Resource.ResourceId,
+                            V4.Resource.Version,
+                            V4.Resource.IsDeleted,
+                            V4.Resource.ResourceSurrogateId,
+                            V4.Resource.RequestMethod,
                             _isMatch,
                             _isPartial,
-                            V3.Resource.RawResource);
+                            V4.Resource.RawResource);
                         }
                         else
                         {

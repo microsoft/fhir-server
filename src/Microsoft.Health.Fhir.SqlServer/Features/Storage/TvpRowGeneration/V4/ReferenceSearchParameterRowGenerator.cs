@@ -5,18 +5,18 @@
 
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.V3
+namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.V4
 {
-    internal class ReferenceSearchParameterRowGenerator : SearchParameterRowGenerator<ReferenceSearchValue, Schema.Model.V3.ReferenceSearchParamTableTypeRow>
+    internal class ReferenceSearchParameterRowGenerator : SearchParameterRowGenerator<ReferenceSearchValue, Schema.Model.V4.ReferenceSearchParamTableTypeRow>
     {
         public ReferenceSearchParameterRowGenerator(SqlServerFhirModel model)
             : base(model)
         {
         }
 
-        internal override bool TryGenerateRow(short searchParamId, ReferenceSearchValue searchValue, out Schema.Model.V3.ReferenceSearchParamTableTypeRow row)
+        internal override bool TryGenerateRow(short searchParamId, ReferenceSearchValue searchValue, out Schema.Model.V4.ReferenceSearchParamTableTypeRow row)
         {
-            row = new Schema.Model.V3.ReferenceSearchParamTableTypeRow(
+            row = new Schema.Model.V4.ReferenceSearchParamTableTypeRow(
                 searchParamId,
                 searchValue.BaseUri?.ToString(),
                 Model.GetResourceTypeId(searchValue.ResourceType.ToString()),

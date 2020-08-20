@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly SqlServerFhirModel _model;
         private readonly SearchParameterToSearchValueTypeMap _searchParameterTypeMap;
         private readonly VLatest.UpsertResourceTvpGenerator<ResourceMetadata> _upsertResourceTvpGeneratorVLatest;
-        private readonly V3.UpsertResourceTvpGenerator<ResourceMetadata> _upsertResourceTvpGeneratorV3;
+        private readonly V4.UpsertResourceTvpGenerator<ResourceMetadata> _upsertResourceTvpGeneratorV3;
         private readonly RecyclableMemoryStreamManager _memoryStreamManager;
         private readonly CoreFeatureConfiguration _coreFeatures;
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             SqlServerFhirModel model,
             SearchParameterToSearchValueTypeMap searchParameterTypeMap,
             VLatest.UpsertResourceTvpGenerator<ResourceMetadata> upsertResourceTvpGeneratorVLatest,
-            V3.UpsertResourceTvpGenerator<ResourceMetadata> upsertResourceTvpGeneratorV3,
+            V4.UpsertResourceTvpGenerator<ResourceMetadata> upsertResourceTvpGeneratorV3,
             IOptions<CoreFeatureConfiguration> coreFeatures,
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             ILogger<SqlServerFhirDataStore> logger,
@@ -109,9 +109,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 stream.Seek(0, 0);
 
-                if (_schemaInformation.Current <= 3)
+                if (_schemaInformation.Current <= 4)
                 {
-                    V3.UpsertResource.PopulateCommand(
+                    V4.UpsertResource.PopulateCommand(
                     sqlCommandWrapper,
                     baseResourceSurrogateId: ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.UtcDateTime),
                     resourceTypeId: _model.GetResourceTypeId(resource.ResourceTypeName),
@@ -207,9 +207,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             return null;
                         }
 
-                        if (_schemaInformation.Current <= 3)
+                        if (_schemaInformation.Current <= 4)
                         {
-                            var resourceTable = V3.Resource;
+                            var resourceTable = V4.Resource;
 
                             (long resourceSurrogateId, int version, bool isDeleted, bool isHistory, Stream rawResourceStream) = sqlDataReader.ReadRow(
                                 resourceTable.ResourceSurrogateId,
