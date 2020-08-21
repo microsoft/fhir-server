@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using Microsoft.ApplicationInsights.Extensibility;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Configuration;
@@ -35,7 +36,7 @@ namespace Microsoft.Health.Fhir.Web
             string dataStore = Configuration["DataStore"];
             if (dataStore.Equals(KnownDataStores.CosmosDb, StringComparison.InvariantCultureIgnoreCase))
             {
-                fhirServerBuilder.AddCosmosDb(Configuration);
+                fhirServerBuilder.AddCosmosDb();
             }
             else if (dataStore.Equals(KnownDataStores.SqlServer, StringComparison.InvariantCultureIgnoreCase))
             {
@@ -57,6 +58,11 @@ namespace Microsoft.Health.Fhir.Web
                 });
             }
 
+            if (bool.TryParse(Configuration["PrometheusMetrics:enabled"], out bool prometheusOn) && prometheusOn)
+            {
+                services.AddPrometheusMetrics(Configuration);
+            }
+
             AddApplicationInsightsTelemetry(services);
         }
 
@@ -68,6 +74,7 @@ namespace Microsoft.Health.Fhir.Web
                 app.UseForwardedHeaders();
             }
 
+            app.UsePrometheusHttpMetrics();
             app.UseFhirServer();
             app.UseDevelopmentIdentityProviderIfConfigured();
         }
@@ -82,6 +89,7 @@ namespace Microsoft.Health.Fhir.Web
             if (!string.IsNullOrWhiteSpace(instrumentationKey))
             {
                 services.AddApplicationInsightsTelemetry(instrumentationKey);
+                services.AddSingleton<ITelemetryInitializer, CloudRoleNameTelemetryInitializer>();
                 services.AddLogging(loggingBuilder => loggingBuilder.AddApplicationInsights(instrumentationKey));
             }
         }

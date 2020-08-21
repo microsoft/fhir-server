@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     }
                 });
 
-            // TODO: re-add forceIncrementalSchemaUpgrade test functionality
+            schemaInitializer.Initialize(forceIncrementalSchemaUpgrade);
             _sqlServerFhirModel.Start();
         }
 
@@ -117,6 +117,18 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
+        public async Task DeleteSearchParameterStatusAsync(string uri, CancellationToken cancellationToken = default)
+        {
+            using (var connection = new SqlConnection(_connectionString))
+            {
+                var command = new SqlCommand("DELETE FROM dbo.SearchParam WHERE Uri = @uri", connection);
+                command.Parameters.AddWithValue("@uri", uri);
+
+                await command.Connection.OpenAsync(cancellationToken);
+                await command.ExecuteNonQueryAsync(cancellationToken);
+            }
+        }
+
         public async Task DeleteExportJobRecordAsync(string id, CancellationToken cancellationToken = default)
         {
             using (var connection = new SqlConnection(_connectionString))
@@ -129,6 +141,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 await command.Connection.OpenAsync(cancellationToken);
                 await command.ExecuteNonQueryAsync(cancellationToken);
             }
+        }
+
+        public Task DeleteAllReindexJobRecordsAsync(CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
         }
 
         async Task<object> IFhirStorageTestHelper.GetSnapshotToken()
@@ -191,7 +208,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             var schemaOptions = new SqlServerSchemaOptions { AutomaticUpdatesEnabled = true };
             var config = new SqlServerDataStoreConfiguration { ConnectionString = testConnectionString, Initialize = true, SchemaOptions = schemaOptions };
-            var schemaInformation = new SchemaInformation((int)SchemaVersion.V1, (int)SchemaVersion.V3);
+            var schemaInformation = new SchemaInformation((int)SchemaVersion.V1, (int)SchemaVersion.V4);
             var scriptProvider = new ScriptProvider<SchemaVersion>();
             var schemaUpgradeRunner = new SchemaUpgradeRunner(scriptProvider, config, NullLogger<SchemaUpgradeRunner>.Instance);
 

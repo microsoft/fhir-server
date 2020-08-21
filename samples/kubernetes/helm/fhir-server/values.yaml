@@ -22,6 +22,15 @@ serviceAccount:
   # If not set and create is true, a name is generated using the fullname template
   name:
 
+podIdentity:
+  enabled: false
+  # identityClientId: my-id
+  # identityResourceId: my-identity-resource-id
+
+export:
+  enabled: false
+  blobStorageUri: https://mystorageaccount.blob.core.windows.net
+
 podSecurityContext: {}
   # fsGroup: 2000
 
@@ -86,6 +95,16 @@ appInsights:
   secretKey: "instrumentationKey"
 #  secretName: "cluster-app-insights"
 
+serviceMonitor:
+  enabled: false
+  port: 1234
+  labels: {}
+    # prometheus: monitor
+  interval: 30s
+  dotnetRuntimeMetrics: true
+  httpMetrics: true
+  systemMetrics: true
+  
 security:
   enabled: false
   enableAadSmartOnFhirProxy: false

@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Messages.Export;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -18,14 +19,19 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         public static async Task<CreateExportResponse> ExportAsync(
             this IMediator mediator,
             Uri requestUri,
+            ExportJobType requestType,
             string resourceType,
             PartialDateTime since,
+            string groupId,
+            string containerName,
+            string anonymizationConfigLocation,
+            string anonymizationConfigFileETag,
             CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
 
-            var request = new CreateExportRequest(requestUri, resourceType, since);
+            var request = new CreateExportRequest(requestUri, requestType, resourceType, since, groupId, containerName, anonymizationConfigLocation, anonymizationConfigFileETag);
 
             CreateExportResponse response = await mediator.Send(request, cancellationToken);
             return response;

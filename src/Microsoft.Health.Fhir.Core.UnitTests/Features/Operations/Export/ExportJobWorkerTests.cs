@@ -192,8 +192,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
         private ExportJobOutcome CreateExportJobOutcome()
         {
-            var exportRequest = new CreateExportRequest(new Uri($"http://localhost/ExportJob/"));
-            return new ExportJobOutcome(new ExportJobRecord(exportRequest.RequestUri, "Patient", "hash"), WeakETag.FromVersionId("0"));
+            var exportRequest = new CreateExportRequest(new Uri($"http://localhost/ExportJob/"), ExportJobType.All);
+            return new ExportJobOutcome(new ExportJobRecord(exportRequest.RequestUri, exportRequest.RequestType, null, "hash"), WeakETag.FromVersionId("0"));
         }
     }
 }

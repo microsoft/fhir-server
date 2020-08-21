@@ -574,6 +574,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
                         "transactionandbatchtest/XFER0",
                         "search001/SE05.5P",
                         "search001/SE05.5G",
+                        "search001/SE07P",
+                        "search001/SE07G",
                     }
                 },
                 {

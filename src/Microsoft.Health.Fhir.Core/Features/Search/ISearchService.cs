@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// </summary>
         /// <param name="compartmentType">The compartment type that needs to be searched.</param>
         /// <param name="compartmentId">The compartment id along with the compartment type that needs to be seached.</param>
-        /// <param name="resourceType">The resource type that should be searched. If * is specified we search all resource types.</param>
+        /// <param name="resourceType">The resource type that should be searched. If null is specified we search all resource types.</param>
         /// <param name="queryParameters">The search queries.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>A <see cref="SearchResult"/> representing the result.</returns>
@@ -52,6 +52,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             PartialDateTime before,
             int? count,
             string continuationToken,
+            CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Searches resources by queryParameters and returns the raw resource,
+        /// the current search param values for each resource,
+        /// the history of each resource,
+        /// and the total resource count of the query
+        /// </summary>
+        /// <param name="queryParameters">Currently composed of the _type parameter to search for set of resources</param>
+        /// <param name="searchParameterHash">Value representing a current state of the search params</param>
+        /// <param name="countOnly">Indicates that the query should return only count of the total resources</param>
+        /// <param name="cancellationToken">The cancellation token</param>
+        /// <returns>A collection of resources matching the query parameters</returns>
+        Task<SearchResult> SearchForReindexAsync(
+            IReadOnlyList<Tuple<string, string>> queryParameters,
+            string searchParameterHash,
+            bool countOnly,
             CancellationToken cancellationToken);
     }
 }

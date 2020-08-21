@@ -10,6 +10,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Web;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
@@ -269,9 +270,27 @@ namespace Microsoft.Health.Fhir.Client
             return await CreateResponseAsync<Bundle>(response);
         }
 
-        public async Task<Uri> ExportAsync(string path = "", CancellationToken cancellationToken = default)
+        public async Task<Uri> ExportAsync(string path = "", string parameters = "", CancellationToken cancellationToken = default)
         {
-            using var message = new HttpRequestMessage(HttpMethod.Get, $"{path}$export");
+            string requestPath = $"{path}$export?{parameters}";
+            using var message = new HttpRequestMessage(HttpMethod.Get, requestPath);
+            message.Headers.Add("Accept", "application/fhir+json");
+            message.Headers.Add("Prefer", "respond-async");
+
+            HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
+
+            await EnsureSuccessStatusCodeAsync(response);
+
+            return response.Content.Headers.ContentLocation;
+        }
+
+        public async Task<Uri> AnonymizedExportAsync(string anonymizationConfig, string etag = null, CancellationToken cancellationToken = default)
+        {
+            anonymizationConfig = HttpUtility.UrlEncode(anonymizationConfig);
+            etag = HttpUtility.UrlEncode(etag);
+            string requestUrl = $"$export?_anonymizationConfig={anonymizationConfig}&_anonymizationConfigEtag={etag}";
+
+            using var message = new HttpRequestMessage(HttpMethod.Get, requestUrl);
             message.Headers.Add("Accept", "application/fhir+json");
             message.Headers.Add("Prefer", "respond-async");
 

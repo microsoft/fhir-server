@@ -24,14 +24,24 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
     {
         private const string PreferHeaderName = "Prefer";
         private const string PreferHeaderExpectedValue = "respond-async";
+        private const string DefaultExportRequestPath = "/$export";
 
         private readonly HashSet<string> _supportedQueryParams;
+        private readonly HashSet<string> _supportedQueryParamsForAnonymizedExport;
 
         public ValidateExportRequestFilterAttribute()
         {
             _supportedQueryParams = new HashSet<string>(StringComparer.Ordinal)
             {
                 KnownQueryParameterNames.Since,
+                KnownQueryParameterNames.Type,
+                KnownQueryParameterNames.Container,
+            };
+
+            _supportedQueryParamsForAnonymizedExport = new HashSet<string>(StringComparer.Ordinal)
+            {
+                KnownQueryParameterNames.AnonymizationConfigurationLocation,
+                KnownQueryParameterNames.AnonymizationConfigurationFileEtag,
             };
         }
 
@@ -57,11 +67,28 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             IQueryCollection queryCollection = context.HttpContext.Request.Query;
             foreach (string paramName in queryCollection?.Keys)
             {
-                if (!_supportedQueryParams.Contains(paramName))
+                if (IsValidBasicExportRequestParam(paramName) || IsValidAnonymizedExportRequestParam(context.HttpContext.Request, paramName))
                 {
-                    throw new RequestNotValidException(string.Format(Resources.UnsupportedParameter, paramName));
+                    continue;
                 }
+
+                throw new RequestNotValidException(string.Format(Resources.UnsupportedParameter, paramName));
             }
+        }
+
+        private bool IsValidBasicExportRequestParam(string paramName)
+        {
+            return _supportedQueryParams.Contains(paramName);
+        }
+
+        private bool IsValidAnonymizedExportRequestParam(HttpRequest request, string paramName)
+        {
+            if (request.Path.StartsWithSegments(DefaultExportRequestPath, StringComparison.InvariantCultureIgnoreCase))
+            {
+                return _supportedQueryParamsForAnonymizedExport.Contains(paramName);
+            }
+
+            return false;
         }
     }
 }
