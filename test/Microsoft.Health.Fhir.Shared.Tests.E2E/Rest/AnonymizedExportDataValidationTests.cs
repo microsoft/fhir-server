@@ -15,6 +15,7 @@ using Microsoft.Azure.Storage;
 using Microsoft.Azure.Storage.Auth;
 using Microsoft.Azure.Storage.Blob;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -60,7 +61,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
             (string fileName, string etag) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
 
-            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, etag);
+            string containerName = Guid.NewGuid().ToString("N");
+            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, containerName, etag);
             HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
             IList<Uri> blobUris = await CheckExportStatus(response);
 
@@ -85,7 +87,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
             (string fileName, string _) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
 
-            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName);
+            string containerName = Guid.NewGuid().ToString("N");
+            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, containerName);
             HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
             IList<Uri> blobUris = await CheckExportStatus(response);
 
@@ -110,7 +113,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
             (string fileName, string etag) = await UploadConfigurationAsync("Invalid Json.");
 
-            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, etag);
+            string containerName = Guid.NewGuid().ToString("N");
+            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, containerName, etag);
             HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
             string responseContent = await response.Content.ReadAsStringAsync();
 
@@ -128,7 +132,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
             (string fileName, string _) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
 
-            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, "\"0x000000000000000\"");
+            string containerName = Guid.NewGuid().ToString("N");
+            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, containerName, "\"0x000000000000000\"");
             HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
             string responseContent = await response.Content.ReadAsStringAsync();
 
@@ -146,7 +151,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
             (string fileName, string _) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
 
-            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, "invalid-etag");
+            string containerName = Guid.NewGuid().ToString("N");
+            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, containerName, "invalid-etag");
             HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
             string responseContent = await response.Content.ReadAsStringAsync();
 
@@ -162,7 +168,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
                 return;
             }
 
-            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync("not-exist.json");
+            string containerName = Guid.NewGuid().ToString("N");
+            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync("not-exist.json", containerName);
             HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
             string responseContent = await response.Content.ReadAsStringAsync();
 
@@ -181,12 +188,27 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             string largeConfig = new string('*', (1024 * 1024) + 1); // Large config > 1MB
             (string fileName, string etag) = await UploadConfigurationAsync(largeConfig);
 
-            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, etag);
+            string containerName = Guid.NewGuid().ToString("N");
+            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, containerName, etag);
             HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
             string responseContent = await response.Content.ReadAsStringAsync();
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
             Assert.Contains("Anonymization configuration is too large", responseContent);
+        }
+
+        [Fact]
+        public async Task GivenAnAnonymizedExportRequestWithoutContainerName_WhenExportingAnonymizedData_ThenFhirExceptionShouldBeThrewFromFhirClient()
+        {
+            if (!_isUsingInProcTestServer)
+            {
+                return;
+            }
+
+            (string fileName, string _) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
+
+            string containerName = string.Empty;
+            await Assert.ThrowsAsync<FhirException>(() => _testFhirClient.AnonymizedExportAsync(fileName, containerName));
         }
 
         private async Task<(string, string)> UploadConfigurationAsync(string configurationContent, string blobName = null)
