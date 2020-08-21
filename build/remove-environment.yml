@@ -20,5 +20,6 @@ stages:
 
 - stage: cleanup
   displayName: 'Cleanup Azure Environment'
+  dependsOn: []
   jobs:
   - template: ./jobs/cleanup.yml
