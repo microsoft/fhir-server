@@ -14,6 +14,7 @@ using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Filters;
+using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -119,7 +120,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         public void GivenPartialIndexHeader_WhenSearchReqeust_ThenFhirContextPropertySet()
         {
             _httpContext.Request.Headers.Add(
-                "x-ms-use-partial-indices",
+                KnownFhirHeaders.PartiallyIndexedParamsHeaderName,
                 new Microsoft.Extensions.Primitives.StringValues(new string[] { "true" }));
 
             _filterAttribute.OnActionExecuting(_actionExecutingContext);

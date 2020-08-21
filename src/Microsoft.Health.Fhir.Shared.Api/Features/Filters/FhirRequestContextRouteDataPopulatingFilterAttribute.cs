@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Health.Api.Features.Audit;
+using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.ValueSets;
@@ -20,7 +21,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
     {
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly IAuditEventTypeMapping _auditEventTypeMapping;
-        private const string PartiallyIndexedParamsHeaderName = "x-ms-use-partial-indices";
 
         public FhirRequestContextRouteDataPopulatingFilterAttribute(
             IFhirRequestContextAccessor fhirRequestContextAccessor,
@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 }
             }
 
-            if (context.HttpContext.Request.Headers.TryGetValue(PartiallyIndexedParamsHeaderName, out var headerValues))
+            if (context.HttpContext.Request.Headers.TryGetValue(KnownFhirHeaders.PartiallyIndexedParamsHeaderName, out var headerValues))
             {
                 fhirRequestContext.IncludePartiallyIndexedSearchParams = true;
             }

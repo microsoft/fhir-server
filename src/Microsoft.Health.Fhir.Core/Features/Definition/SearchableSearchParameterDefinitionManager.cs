@@ -68,11 +68,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         {
             SearchParameterInfo parameter = _inner.GetSearchParameter(resourceType, name);
 
-            if (parameter.IsSearchable)
-            {
-                return parameter;
-            }
-            else if (_fhirReqeustContextAccessor.FhirRequestContext.IncludePartiallyIndexedSearchParams && parameter.IsSupported)
+            if (parameter.IsSearchable ||
+                (_fhirReqeustContextAccessor.FhirRequestContext.IncludePartiallyIndexedSearchParams && parameter.IsSupported))
             {
                 return parameter;
             }
@@ -84,11 +81,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         {
             SearchParameterInfo parameter = _inner.GetSearchParameter(definitionUri);
 
-            if (parameter.IsSearchable)
-            {
-                return parameter;
-            }
-            else if (_fhirReqeustContextAccessor.FhirRequestContext.IncludePartiallyIndexedSearchParams && parameter.IsSupported)
+            if (parameter.IsSearchable ||
+                (_fhirReqeustContextAccessor.FhirRequestContext.IncludePartiallyIndexedSearchParams && parameter.IsSupported))
             {
                 return parameter;
             }
