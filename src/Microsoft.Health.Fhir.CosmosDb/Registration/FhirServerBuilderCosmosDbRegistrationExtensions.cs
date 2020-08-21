@@ -160,7 +160,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Transient()
                 .AsService<ICollectionUpdater>();
 
-            services.Add<CosmosDbSearchParameterStatusInitializer>()
+            services.Add<CosmosDbStatusRegistryInitializer>()
                 .Transient()
                 .AsService<ICollectionUpdater>();
 
@@ -184,10 +184,10 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            services.Add<CosmosDbSearchParameterStatusDataStore>()
+            services.Add<CosmosDbStatusRegistry>()
                 .Singleton()
                 .AsSelf()
-                .ReplaceService<ISearchParameterStatusDataStore>();
+                .ReplaceService<ISearchParameterRegistry>();
 
             // Each CosmosClient needs new instances of a RequestHandler
             services.TypesInSameAssemblyAs<FhirCosmosClientInitializer>()

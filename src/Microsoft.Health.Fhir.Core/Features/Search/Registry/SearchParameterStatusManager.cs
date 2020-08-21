@@ -18,23 +18,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 {
     public class SearchParameterStatusManager : IRequireInitializationOnFirstRequest
     {
-        private readonly ISearchParameterStatusDataStore _searchParameterStatusDataStore;
+        private readonly ISearchParameterRegistry _searchParameterRegistry;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver;
         private readonly IMediator _mediator;
 
         public SearchParameterStatusManager(
-            ISearchParameterStatusDataStore searchParameterStatusDataStore,
+            ISearchParameterRegistry searchParameterRegistry,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
             ISearchParameterSupportResolver searchParameterSupportResolver,
             IMediator mediator)
         {
-            EnsureArg.IsNotNull(searchParameterStatusDataStore, nameof(searchParameterStatusDataStore));
+            EnsureArg.IsNotNull(searchParameterRegistry, nameof(searchParameterRegistry));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(searchParameterSupportResolver, nameof(searchParameterSupportResolver));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
 
-            _searchParameterStatusDataStore = searchParameterStatusDataStore;
+            _searchParameterRegistry = searchParameterRegistry;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _searchParameterSupportResolver = searchParameterSupportResolver;
             _mediator = mediator;
@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         {
             var updated = new List<SearchParameterInfo>();
 
-            var parameters = (await _searchParameterStatusDataStore.GetSearchParameterStatuses())
+            var parameters = (await _searchParameterRegistry.GetSearchParameterStatuses())
                 .ToDictionary(x => x.Uri);
 
             // Set states of known parameters
