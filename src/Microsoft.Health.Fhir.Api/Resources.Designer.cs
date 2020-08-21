@@ -205,7 +205,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The given output format is not supported.
+        ///   Looks up a localized string similar to The output format &apos;{0}&apos; is not supported..
         /// </summary>
         public static string InvalidOutputFormat {
             get {

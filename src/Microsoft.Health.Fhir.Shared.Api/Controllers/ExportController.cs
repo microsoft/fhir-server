@@ -212,9 +212,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         private static void CheckOutputFormat(string outputFormat)
         {
-            if (!(string.IsNullOrWhiteSpace(outputFormat) || SupportedOutputFormats.Contains(outputFormat)))
+            if (!(outputFormat == null || SupportedOutputFormats.Contains(outputFormat)))
             {
-                throw new RequestNotValidException(Resources.InvalidOutputFormat);
+                throw new RequestNotValidException(string.Format(Resources.InvalidOutputFormat, outputFormat));
             }
         }
     }

@@ -317,7 +317,7 @@
     <value>The maximum number of concurrent API calls on this instance was reached.</value>
   </data>
   <data name="InvalidOutputFormat" xml:space="preserve">
-    <value>The given output format is not supported</value>
-    <comment>Error message for an invalid output format for exported files</comment>
+    <value>The output format '{0}' is not supported.</value>
+    <comment>Error message for an invalid output format for exported files. {0} is the output format parameter.</comment>
   </data>
 </root>
