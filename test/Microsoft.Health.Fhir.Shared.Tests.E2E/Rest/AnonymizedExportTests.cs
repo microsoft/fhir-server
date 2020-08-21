@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 {
     [Trait(Traits.Category, Categories.Export)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
-    public class AnonymizedExportDataValidationTests : IClassFixture<HttpIntegrationTestFixture<StartupForAnonymizedExportTestProvider>>
+    public class AnonymizedExportTests : IClassFixture<HttpIntegrationTestFixture<StartupForAnonymizedExportTestProvider>>
     {
         private bool _isUsingInProcTestServer = false;
         private readonly TestFhirClient _testFhirClient;
@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
     ]
 }";
 
-        public AnonymizedExportDataValidationTests(HttpIntegrationTestFixture<StartupForAnonymizedExportTestProvider> fixture)
+        public AnonymizedExportTests(HttpIntegrationTestFixture<StartupForAnonymizedExportTestProvider> fixture)
         {
             _isUsingInProcTestServer = fixture.IsUsingInProcTestServer;
             _testFhirClient = fixture.TestFhirClient;
