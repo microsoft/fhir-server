@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly SqlServerFhirModel _model;
         private readonly SearchParameterToSearchValueTypeMap _searchParameterTypeMap;
         private readonly VLatest.UpsertResourceTvpGenerator<ResourceMetadata> _upsertResourceTvpGeneratorVLatest;
-        private readonly V4.UpsertResourceTvpGenerator<ResourceMetadata> _upsertResourceTvpGeneratorV3;
+        private readonly V4.UpsertResourceTvpGenerator<ResourceMetadata> _upsertResourceTvpGeneratorV4;
         private readonly RecyclableMemoryStreamManager _memoryStreamManager;
         private readonly CoreFeatureConfiguration _coreFeatures;
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             SqlServerFhirModel model,
             SearchParameterToSearchValueTypeMap searchParameterTypeMap,
             VLatest.UpsertResourceTvpGenerator<ResourceMetadata> upsertResourceTvpGeneratorVLatest,
-            V4.UpsertResourceTvpGenerator<ResourceMetadata> upsertResourceTvpGeneratorV3,
+            V4.UpsertResourceTvpGenerator<ResourceMetadata> upsertResourceTvpGeneratorV4,
             IOptions<CoreFeatureConfiguration> coreFeatures,
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             ILogger<SqlServerFhirDataStore> logger,
@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             EnsureArg.IsNotNull(model, nameof(model));
             EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));
             EnsureArg.IsNotNull(upsertResourceTvpGeneratorVLatest, nameof(upsertResourceTvpGeneratorVLatest));
-            EnsureArg.IsNotNull(upsertResourceTvpGeneratorV3, nameof(upsertResourceTvpGeneratorV3));
+            EnsureArg.IsNotNull(upsertResourceTvpGeneratorV4, nameof(upsertResourceTvpGeneratorV4));
             EnsureArg.IsNotNull(coreFeatures, nameof(coreFeatures));
             EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _model = model;
             _searchParameterTypeMap = searchParameterTypeMap;
             _upsertResourceTvpGeneratorVLatest = upsertResourceTvpGeneratorVLatest;
-            _upsertResourceTvpGeneratorV3 = upsertResourceTvpGeneratorV3;
+            _upsertResourceTvpGeneratorV4 = upsertResourceTvpGeneratorV4;
             _coreFeatures = coreFeatures.Value;
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _logger = logger;
@@ -123,7 +123,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     keepHistory: keepHistory,
                     requestMethod: resource.Request.Method,
                     rawResource: stream,
-                    tableValuedParameters: _upsertResourceTvpGeneratorV3.Generate(resourceMetadata));
+                    tableValuedParameters: _upsertResourceTvpGeneratorV4.Generate(resourceMetadata));
                 }
                 else
                 {
