@@ -203,9 +203,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         private static void CheckContainerNameForAnonymizedExport(string containerName)
         {
-            if (string.IsNullOrEmpty(containerName))
+            if (string.IsNullOrWhiteSpace(containerName))
             {
-                throw new RequestNotValidException(string.Format(Resources.ContainerIsRequiredForAnonymizedExport, OperationsConstants.AnonymizedExport));
+                throw new RequestNotValidException(Resources.ContainerIsRequiredForAnonymizedExport);
             }
         }
     }
