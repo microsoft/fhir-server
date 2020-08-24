@@ -294,6 +294,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     }
                 }
 
+                // Skips processing top level search results if the job only requested resources from the compartments of patients, but didn't want the patients.
                 if (_exportJobRecord.ExportType == ExportJobType.All
                     || string.IsNullOrWhiteSpace(_exportJobRecord.ResourceType)
                     || _exportJobRecord.ResourceType.Contains(KnownResourceTypes.Patient, StringComparison.OrdinalIgnoreCase))

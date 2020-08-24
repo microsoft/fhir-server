@@ -35,6 +35,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         private readonly string _patientReference = "Patient Reference";
         private readonly string _secondPatientReference = "Patient Reference 2";
         private readonly string _observationReference = "Observation Reference";
+        private readonly string _secondObservationReference = "Observation Reference 2";
+
+        private readonly DateTimeOffset _allResources = new DateTimeOffset(new DateTime(2007, 1, 1));
 
         public GroupMemberExtractorTests()
         {
@@ -66,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             SetUpGroupMock();
 
-            var patientSet = await _groupMemberExtractor.GetGroupPatientIds("group", DateTimeOffset.Now, _cancellationToken);
+            var patientSet = await _groupMemberExtractor.GetGroupPatientIds("group", _allResources, _cancellationToken);
 
             Assert.Single(patientSet);
             Assert.Contains(_patientReference, patientSet);
@@ -176,7 +179,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 resourceDeserializer,
                 _referenceToElementResolver);
 
-            var patientSet = await _groupMemberExtractor.GetGroupPatientIds("group", DateTimeOffset.Now, _cancellationToken);
+            var patientSet = await _groupMemberExtractor.GetGroupPatientIds("group", _allResources, _cancellationToken);
 
             Assert.Equal(2, patientSet.Count);
             Assert.Contains(_patientReference, patientSet);
@@ -188,24 +191,25 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             SetUpGroupMock();
 
-            var groupMembers = await _groupMemberExtractor.GetGroupMembers("group", DateTimeOffset.Now, _cancellationToken);
+            var groupMembers = await _groupMemberExtractor.GetGroupMembers("group", _allResources, _cancellationToken);
 
             Assert.Equal(Tuple.Create(_patientReference, KnownResourceTypes.Patient), groupMembers[0]);
             Assert.Equal(Tuple.Create(_observationReference, KnownResourceTypes.Observation), groupMembers[1]);
-            Assert.Equal(2, groupMembers.Count);
+            Assert.Equal(Tuple.Create(_secondObservationReference, KnownResourceTypes.Observation), groupMembers[2]);
+            Assert.Equal(3, groupMembers.Count);
         }
 
-        [Fact]
-        public async System.Threading.Tasks.Task GivenAGroupId_WhenAllGroupMembersAreRequested_ThenAllTheMembersIdsAreReturned()
+        [Theory]
+        [InlineData(2003, 1)]
+        [InlineData(2007, 3)]
+        [InlineData(2012, 2)]
+        public async System.Threading.Tasks.Task GivenAGroupId_WhenGroupMembersAreRequestedFromATime_ThenMembersIdsFromThatTimeAreReturned(int year, int numberOfResources)
         {
             SetUpGroupMock();
 
-            var groupMembers = await _groupMemberExtractor.GetGroupMembers("group", DateTimeOffset.Now, _cancellationToken, true);
+            var groupMembers = await _groupMemberExtractor.GetGroupMembers("group", new DateTimeOffset(new DateTime(year, 1, 1)), _cancellationToken);
 
-            Assert.Equal(Tuple.Create(_patientReference, KnownResourceTypes.Patient), groupMembers[0]);
-            Assert.Equal(Tuple.Create(_secondPatientReference, KnownResourceTypes.Patient), groupMembers[1]);
-            Assert.Equal(Tuple.Create(_observationReference, KnownResourceTypes.Observation), groupMembers[2]);
-            Assert.Equal(3, groupMembers.Count);
+            Assert.Equal(numberOfResources, groupMembers.Count);
         }
 
         private void SetUpGroupMock()
@@ -251,6 +255,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 return node.ToTypedElement(structureDefinitionSummaryProvider);
             });
 
+            _referenceToElementResolver.Resolve(_secondObservationReference).Returns(x =>
+            {
+                ISourceNode node = FhirJsonNode.Create(
+                JObject.FromObject(
+                    new
+                    {
+                        resourceType = KnownResourceTypes.Observation,
+                        id = _secondObservationReference,
+                    }));
+
+                return node.ToTypedElement(structureDefinitionSummaryProvider);
+            });
+
             var group = new Group()
             {
                 Member = new List<Group.MemberComponent>()
@@ -261,6 +278,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                         {
                             Reference = _patientReference,
                         },
+                        Period = new Period(new FhirDateTime(2000), new FhirDateTime(2010)),
                     },
                     new Group.MemberComponent()
                     {
@@ -268,6 +286,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                         {
                             Reference = _secondPatientReference,
                         },
+                        Period = new Period(new FhirDateTime(2005), new FhirDateTime(2015)),
                         Inactive = true,
                     },
                     new Group.MemberComponent()
@@ -276,6 +295,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                         {
                             Reference = _observationReference,
                         },
+                        Period = new Period(new FhirDateTime(2005), new FhirDateTime(2015)),
+                    },
+                    new Group.MemberComponent()
+                    {
+                        Entity = new ResourceReference()
+                        {
+                            Reference = _secondObservationReference,
+                        },
+                        Period = new Period(new FhirDateTime(2005), new FhirDateTime(2015)),
                     },
                 },
             };

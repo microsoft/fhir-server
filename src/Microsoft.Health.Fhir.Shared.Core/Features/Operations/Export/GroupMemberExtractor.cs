@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             return patientIds;
         }
 
-        public async Task<List<Tuple<string, string>>> GetGroupMembers(string groupId, DateTimeOffset groupMembershipTime, CancellationToken cancellationToken, bool includeInactiveMembers = false)
+        public async Task<List<Tuple<string, string>>> GetGroupMembers(string groupId, DateTimeOffset groupMembershipTime, CancellationToken cancellationToken)
         {
             var groupResource = await _fhirDataStore.Value.GetAsync(new ResourceKey(KnownResourceTypes.Group, groupId), cancellationToken);
 
@@ -105,8 +105,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 var fhirGroupMembershipTime = new FhirDateTime(groupMembershipTime);
                 if (
                     (member.Inactive == null
-                    || member.Inactive == false
-                    || includeInactiveMembers)
+                    || member.Inactive == false)
                     && (member.Period?.EndElement == null
                     || member.Period?.EndElement > fhirGroupMembershipTime)
                     && (member.Period?.StartElement == null
