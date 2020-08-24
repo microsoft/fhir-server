@@ -57,7 +57,7 @@ CREATE TABLE dbo.SchemaVersion
 
 INSERT INTO dbo.SchemaVersion
 VALUES
-    (3, 'started')
+    (4, 'started')
 
 GO
 

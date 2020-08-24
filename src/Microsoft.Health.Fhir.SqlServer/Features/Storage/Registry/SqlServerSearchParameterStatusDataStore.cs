@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                 {
                     while (await sqlDataReader.ReadAsync())
                     {
-                        (string uri, string stringStatus, DateTimeOffset lastUpdated, bool isPartiallySupported) = sqlDataReader.ReadRow(
+                        (string uri, string stringStatus, DateTimeOffset? lastUpdated, bool? isPartiallySupported) = sqlDataReader.ReadRow(
                             VLatest.SearchParam.Uri,
                             VLatest.SearchParam.Status,
                             VLatest.SearchParam.LastUpdated,
@@ -62,8 +62,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                         {
                             Uri = new Uri(uri),
                             Status = status,
-                            IsPartiallySupported = isPartiallySupported,
-                            LastUpdated = lastUpdated,
+                            IsPartiallySupported = (bool)isPartiallySupported,
+                            LastUpdated = (DateTimeOffset)lastUpdated,
                         };
 
                         parameterStatuses.Add(resourceSearchParameterStatus);
