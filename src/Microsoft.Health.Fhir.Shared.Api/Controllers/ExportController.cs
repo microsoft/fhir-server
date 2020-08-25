@@ -93,6 +93,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             if (!string.IsNullOrWhiteSpace(anonymizationConfigLocation) || !string.IsNullOrWhiteSpace(anonymizationConfigFileETag))
             {
                 CheckIfAnonymizedExportIsEnabled();
+                CheckContainerNameForAnonymizedExport(containerName);
             }
 
             return await SendExportRequest(ExportJobType.All, since, resourceType, containerName: containerName, anonymizationConfigLocation: anonymizationConfigLocation, anonymizationConfigFileETag: anonymizationConfigFileETag);
@@ -197,6 +198,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             if (!_features.SupportsAnonymizedExport)
             {
                 throw new RequestNotValidException(string.Format(Resources.OperationNotEnabled, OperationsConstants.AnonymizedExport));
+            }
+        }
+
+        private static void CheckContainerNameForAnonymizedExport(string containerName)
+        {
+            if (string.IsNullOrWhiteSpace(containerName))
+            {
+                throw new RequestNotValidException(Resources.ContainerIsRequiredForAnonymizedExport);
             }
         }
     }

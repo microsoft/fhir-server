@@ -97,6 +97,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Missing &apos;_container&apos; for anonymized export.
+        /// </summary>
+        public static string ContainerIsRequiredForAnonymizedExport {
+            get {
+                return ResourceManager.GetString("ContainerIsRequiredForAnonymizedExport", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The &quot;content-type&quot; header is required..
         /// </summary>
         public static string ContentTypeHeaderRequired {
