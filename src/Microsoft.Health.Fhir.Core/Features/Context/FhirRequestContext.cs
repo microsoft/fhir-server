@@ -39,6 +39,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
             CorrelationId = correlationId;
             RequestHeaders = requestHeaders;
             ResponseHeaders = responseHeaders;
+            IncludePartiallyIndexedSearchParams = false;
         }
 
         public string Method { get; }
@@ -60,5 +61,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
         public IDictionary<string, StringValues> ResponseHeaders { get; }
 
         public string ResourceType { get; set; }
+
+        public bool IncludePartiallyIndexedSearchParams { get; set; }
     }
 }

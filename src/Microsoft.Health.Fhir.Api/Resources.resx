@@ -320,4 +320,7 @@
     <value>The output format '{0}' is not supported.</value>
     <comment>Error message for an invalid output format for exported files. {0} is the output format parameter.</comment>
   </data>
+  <data name="ContainerIsRequiredForAnonymizedExport" xml:space="preserve">
+    <value>Missing '_container' for anonymized export</value>
+  </data>
 </root>
