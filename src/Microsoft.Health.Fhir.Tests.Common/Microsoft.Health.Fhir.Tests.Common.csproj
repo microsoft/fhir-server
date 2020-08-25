@@ -37,6 +37,9 @@
     <None Remove="TestFiles\Device-d1.json" />
     <None Remove="TestFiles\DeviceComponent-For-Device-d1.json" />
     <None Remove="TestFiles\Encounter-For-Patient-f001.json" />
+    <None Remove="TestFiles\Normative\Bundle-PreparePatch.json" />
+    <None Remove="TestFiles\Normative\Bundle-PreparePatchWithReferences.json" />
+    <None Remove="TestFiles\Normative\Bundle-TransactionWithReferenceInPatchDocument.json" />
     <None Remove="TestFiles\Observation-For-Patient-f001.json" />
     <None Remove="TestFiles\ObservationWith1MinuteApgarScore.json" />
     <None Remove="TestFiles\ObservationWith20MinuteApgarScore.json" />
@@ -193,6 +196,9 @@
     <EmbeddedResource Include="DefinitionFiles\Stu3\SearchParametersWithInvalidEntries.json" />
     <EmbeddedResource Include="TestFiles\Normative\BloodGlucose.json" />
     <EmbeddedResource Include="TestFiles\Normative\BloodPressure.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Bundle-PreparePatchWithReferences.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Bundle-PreparePatch.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Bundle-TransactionWithReferenceInPatchDocument.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-TypeMissing.json" />
     <EmbeddedResource Include="TestFiles\Normative\list-example-long.json" />
     <EmbeddedResource Include="TestFiles\Normative\Bundle-Batch.json" />

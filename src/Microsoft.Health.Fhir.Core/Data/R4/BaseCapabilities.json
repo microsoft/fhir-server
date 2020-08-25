@@ -20,6 +20,9 @@
     "format": [
         "application/fhir+json"
     ],
+    "patchFormat": [
+        "application/fhir+json"
+    ],
     "rest": [
         {
             "mode": "server",

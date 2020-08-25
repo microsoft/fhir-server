@@ -139,6 +139,62 @@
                 "method": "GET",
                 "url": "Patient?identifier=http:/example.org/fhir/ids|234234"
             }
+        },
+        {
+            "resource": {
+                "resourceType": "Parameters",
+                "parameter": [
+                    {
+                        "name": "operation",
+                        "part": [
+                            {
+                                "name": "type",
+                                "valueCode": "replace"
+                            },
+                            {
+                                "name": "path",
+                                "valueString": "Patient.active"
+                            },
+                            {
+                                "name": "value",
+                                "valueBoolean": false
+                            }
+                        ]
+                    }
+                ]
+            },
+            "request": {
+                "method": "PATCH",
+                "url": "Patient/456"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Parameters",
+                "parameter": [
+                    {
+                        "name": "operation",
+                        "part": [
+                            {
+                                "name": "type",
+                                "valueCode": "replace"
+                            },
+                            {
+                                "name": "path",
+                                "valueString": "Patient.active"
+                            },
+                            {
+                                "name": "value",
+                                "valueBoolean": false
+                            }
+                        ]
+                    }
+                ]
+            },
+            "request": {
+                "method": "PATCH",
+                "url": "Patient?identifier=http:/example.org/fhir/ids|789789"
+            }
         }
     ]
 }

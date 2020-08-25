@@ -40,7 +40,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Metric\MetricTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Metric\StartupWithMetricHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\OperationVersionsTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Rest\PatchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ReadTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\RemoteTestFhirServer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\BasicSearchTests.cs" />
@@ -70,6 +69,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\TestFhirServerFactory.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\TestHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\TransactionTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\PatchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\UpdateTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ValidateTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\VersionSpecificTests.cs" />

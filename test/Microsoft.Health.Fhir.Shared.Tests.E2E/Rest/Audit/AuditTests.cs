@@ -393,8 +393,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         public async Task GivenABatch_WhenPost_ThenAuditLogEntriesShouldBeCreated()
         {
             var batch = Samples.GetDefaultBatch().ToPoco<Bundle>();
+            var preparePatchBundle = Samples.GetJsonSample("Bundle-PreparePatch").ToPoco<Bundle>();
 
             await _client.UpdateAsync(batch.Entry[2].Resource as Patient);
+            await _client.PostBundleAsync(preparePatchBundle);
 
             List<(string expectedActions, string expectedPathSegments, HttpStatusCode? expectedStatusCodes, ResourceType? resourceType)> expectedList = new List<(string, string, HttpStatusCode?, ResourceType?)>
             {
@@ -405,6 +407,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                 ("update", batch.Entry[2].Request.Url, HttpStatusCode.OK, ResourceType.Patient),
                 ("update", batch.Entry[3].Request.Url, HttpStatusCode.Created, ResourceType.Patient),
                 ("update", batch.Entry[4].Request.Url, Constants.IfMatchFailureStatus, ResourceType.Patient),
+                ("patch", batch.Entry[10].Request.Url, HttpStatusCode.OK, ResourceType.Patient),
+                ("patch", batch.Entry[11].Request.Url, HttpStatusCode.OK, ResourceType.Patient),
                 ("search-type", batch.Entry[8].Request.Url, HttpStatusCode.OK, ResourceType.Patient),
                 ("read", batch.Entry[9].Request.Url, HttpStatusCode.NotFound, ResourceType.Patient),
             };

@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.Patch;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Features.Operations.Versions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -15,6 +16,7 @@ using Microsoft.Health.Fhir.Core.Messages.Bundle;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
 using Microsoft.Health.Fhir.Core.Messages.Get;
+using Microsoft.Health.Fhir.Core.Messages.Patch;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
@@ -39,6 +41,17 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             EnsureArg.IsNotNull(resource, nameof(resource));
 
             UpsertResourceResponse result = await mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(resource, weakETag), cancellationToken);
+
+            return result.Outcome;
+        }
+
+        public static async Task<SaveOutcome> PatchResourceAsync(this IMediator mediator, ResourceKey key, IPatchDocument patchDocument, WeakETag weakETag = null, CancellationToken cancellationToken = default)
+        {
+            EnsureArg.IsNotNull(mediator, nameof(mediator));
+            EnsureArg.IsNotNull(key, nameof(key));
+            EnsureArg.IsNotNull(patchDocument, nameof(patchDocument));
+
+            PatchResourceResponse result = await mediator.Send<PatchResourceResponse>(new PatchResourceRequest(key, patchDocument, weakETag), cancellationToken);
 
             return result.Outcome;
         }

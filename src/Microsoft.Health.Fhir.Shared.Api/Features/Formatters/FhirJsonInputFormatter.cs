@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
 
                 try
                 {
-                    model = _parser.Parse<Resource>(jsonReader);
+                    model = _parser.Parse(jsonReader, context.ModelType) as Resource;
                 }
                 catch (Exception ex)
                 {

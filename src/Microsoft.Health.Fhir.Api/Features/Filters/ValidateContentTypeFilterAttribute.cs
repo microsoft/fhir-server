@@ -39,7 +39,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
             // If the request is a put or post and has a content-type, check that it's supported
             if (contextHttpContext.Request.Method.Equals(HttpMethod.Post.Method, StringComparison.InvariantCultureIgnoreCase) ||
-                contextHttpContext.Request.Method.Equals(HttpMethod.Put.Method, StringComparison.InvariantCultureIgnoreCase))
+                contextHttpContext.Request.Method.Equals(HttpMethod.Put.Method, StringComparison.InvariantCultureIgnoreCase) ||
+                contextHttpContext.Request.Method.Equals(HttpMethod.Patch.Method, StringComparison.InvariantCultureIgnoreCase))
             {
                 if (contextHttpContext.Request.Headers.TryGetValue(HeaderNames.ContentType, out StringValues headerValue))
                 {

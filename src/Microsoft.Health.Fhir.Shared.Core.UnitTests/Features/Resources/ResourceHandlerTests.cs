@@ -9,7 +9,11 @@ using System.Net.Http;
 using System.Threading;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Patch;
+using Hl7.Fhir.Patch.Exceptions;
 using Hl7.Fhir.Serialization;
+using Hl7.Fhir.Specification;
+using Hl7.FhirPath;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Core.Internal;
@@ -22,6 +26,7 @@ using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Resources.Create;
 using Microsoft.Health.Fhir.Core.Features.Resources.Delete;
 using Microsoft.Health.Fhir.Core.Features.Resources.Get;
+using Microsoft.Health.Fhir.Core.Features.Resources.Patch;
 using Microsoft.Health.Fhir.Core.Features.Resources.Upsert;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Security;
@@ -96,8 +101,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             collection.Add(x => _mediator).Singleton().AsSelf();
             collection.Add(x => new CreateResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, referenceResolver, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new UpsertResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, _authorizationService, ModelInfoProvider.Instance)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(x => new PatchResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, _authorizationService, ModelInfoProvider.Instance, Deserializers.ResourceDeserializer)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new ConditionalCreateResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, x.GetService<IMediator>(), _resourceIdProvider, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new ConditionalUpsertResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, x.GetService<IMediator>(), _resourceIdProvider, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(x => new ConditionalPatchResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, _resourceIdProvider, _authorizationService, ModelInfoProvider.Instance, Deserializers.ResourceDeserializer)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new GetResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, Deserializers.ResourceDeserializer, _resourceIdProvider, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new DeleteResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
 
@@ -172,6 +179,27 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         }
 
         [Fact]
+        public async Task GivenAFhirMediator_WhenPatchingAResource_ThenLastUpdatedShouldBeSet()
+        {
+            var resource = Samples.GetDefaultObservation().UpdateId("id1");
+            DateTime baseDate = DateTimeOffset.Now.Date;
+            var instant = new DateTimeOffset(baseDate.AddTicks((6 * TimeSpan.TicksPerMillisecond) + (long)(0.7 * TimeSpan.TicksPerMillisecond)), TimeSpan.Zero);
+
+            using (Mock.Property(() => ClockResolver.UtcNowFunc, () => instant))
+            {
+                _fhirDataStore.GetAsync(Arg.Is<ResourceKey>(x => x.ResourceType == resource.InstanceType && x.Id == resource.Id), Arg.Any<CancellationToken>())
+                    .Returns(CreateResourceWrapper(resource, false));
+
+                _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), false, true, Arg.Any<CancellationToken>())
+                    .Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapper>(0), SaveOutcomeType.Updated));
+
+                resource = (await _mediator.PatchResourceAsync(new ResourceKey(resource.InstanceType, resource.Id), Substitute.For<IPatchDocument>())).Resource;
+
+                Assert.Equal(new DateTimeOffset(baseDate.AddMilliseconds(6), TimeSpan.Zero), resource.LastUpdated);
+            }
+        }
+
+        [Fact]
         public async Task GivenAFhirMediator_WhenSavingAResource_ThenVersionShouldBeSet()
         {
             var resource = Samples.GetDefaultObservation();
@@ -193,6 +221,30 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         }
 
         [Fact]
+        public async Task GivenAFhirMediator_WhenPatchingAResource_ThenVersionShouldBeSet()
+        {
+            var resource = Samples.GetDefaultObservation().UpdateId("id1");
+
+            ResourceWrapper CreateWrapper(ResourceWrapper wrapper)
+            {
+                var newResource = Samples.GetDefaultObservation().ToPoco();
+                newResource.Id = wrapper.ResourceId;
+                newResource.VersionId = "version1";
+                return CreateResourceWrapper(newResource.ToResourceElement(), false);
+            }
+
+            _fhirDataStore.GetAsync(Arg.Is<ResourceKey>(x => x.ResourceType == resource.InstanceType && x.Id == resource.Id), Arg.Any<CancellationToken>())
+                .Returns(CreateResourceWrapper(resource, false));
+
+            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), false, true, Arg.Any<CancellationToken>())
+                .Returns(x => new UpsertOutcome(CreateWrapper(x.ArgAt<ResourceWrapper>(0)), SaveOutcomeType.Updated));
+
+            var outcome = await _mediator.PatchResourceAsync(new ResourceKey(resource.InstanceType, resource.Id), Substitute.For<IPatchDocument>());
+
+            Assert.Equal("version1", outcome.Resource.VersionId);
+        }
+
+        [Fact]
         public async Task GivenAFhirMediator_WhenSavingAResourceWithoutETagAndETagIsRequired_ThenPreconditionFailExceptionIsThrown()
         {
             _conformanceStatement.Rest.First().Resource.Find(x => x.Type == ResourceType.Patient).UpdateCreate = false;
@@ -200,6 +252,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             var resource = Samples.GetDefaultPatient();
 
             await Assert.ThrowsAsync<PreconditionFailedException>(async () => await _mediator.UpsertResourceAsync(resource, null));
+        }
+
+        [Fact]
+        public async Task GivenAFhirMediator_WhenPatchingAResourceWithoutETagAndETagIsRequired_ThenPreconditionFailExceptionIsThrown()
+        {
+            _conformanceStatement.Rest.First().Resource.Find(x => x.Type == ResourceType.Patient).Versioning = CapabilityStatement.ResourceVersionPolicy.VersionedUpdate;
+
+            await Assert.ThrowsAsync<PreconditionFailedException>(async () => await _mediator.PatchResourceAsync(new ResourceKey<Patient>("id1"), Substitute.For<IPatchDocument>()));
         }
 
         [Fact]
@@ -243,6 +303,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         }
 
         [Fact]
+        public async Task GivenAFhirMediator_PatchingAnResourceThatDoesntExist_ThenANotFoundExceptionIsThrown()
+        {
+            await Assert.ThrowsAsync<ResourceNotFoundException>(async () => await _mediator.PatchResourceAsync(new ResourceKey<Observation>("id1"), Substitute.For<IPatchDocument>()));
+
+            await _fhirDataStore.Received().GetAsync(Arg.Any<ResourceKey>(), Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
         public async Task GivenAFhirMediator_GettingAnResourceThatIsDeleted_ThenAGoneExceptionIsThrown()
         {
             var observation = Samples.GetDefaultObservation()
@@ -251,6 +319,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             _fhirDataStore.GetAsync(Arg.Is<ResourceKey>(x => x.Id == "id1"), Arg.Any<CancellationToken>()).Returns(CreateResourceWrapper(observation, true));
 
             await Assert.ThrowsAsync<ResourceGoneException>(async () => await _mediator.GetResourceAsync(new ResourceKey<Observation>("id1")));
+
+            await _fhirDataStore.Received().GetAsync(Arg.Any<ResourceKey>(), Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task GivenAFhirMediator_PatchingAnResourceThatIsDeleted_ThenAGoneExceptionIsThrown()
+        {
+            var observation = Samples.GetDefaultObservation()
+                .UpdateId("id1");
+
+            _fhirDataStore.GetAsync(Arg.Is<ResourceKey>(x => x.Id == "id1"), Arg.Any<CancellationToken>()).Returns(CreateResourceWrapper(observation, true));
+
+            await Assert.ThrowsAsync<ResourceGoneException>(async () => await _mediator.PatchResourceAsync(new ResourceKey<Observation>("id1"), Substitute.For<IPatchDocument>()));
 
             await _fhirDataStore.Received().GetAsync(Arg.Any<ResourceKey>(), Arg.Any<CancellationToken>());
         }
@@ -322,6 +403,23 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         }
 
         [Fact]
+        public async Task GivenAFhirMediator_WhenPatchingAnOldVersion_ThenReturnMethodNotAllowed()
+        {
+            var observation = Samples.GetDefaultObservation()
+                .UpdateId("readDataObservation");
+
+            var history = CreateMockResourceWrapper(observation, false);
+            history.IsHistory.Returns(true);
+
+            _fhirDataStore.GetAsync(Arg.Is<ResourceKey>(x => x.Id == "readDataObservation" && x.VersionId == "history"), Arg.Any<CancellationToken>()).Returns(history);
+
+            await Assert.ThrowsAsync<MethodNotAllowedException>(async () =>
+            {
+                await _mediator.PatchResourceAsync(new ResourceKey("Observation", "readDataObservation", "history"), Substitute.For<IPatchDocument>());
+            });
+        }
+
+        [Fact]
         public async Task GivenAFhirMediator_WhenConfiguredWithoutReadHistory_ThenReturnObservationForLatestVersion()
         {
             var observation = Samples.GetDefaultObservation()
@@ -376,6 +474,47 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             Assert.NotNull(result);
             Assert.Equal(patient.Scalar<string>(birthDateProp), result.Scalar<string>(birthDateProp));
             Assert.Equal(patient.Scalar<string>(genderDateProp), result.Scalar<string>(genderDateProp));
+        }
+
+        [Theory]
+        [InlineData(".id")]
+        [InlineData(".meta.versionId")]
+        public async Task GivenAFhirMediator_WhenPatchingImmutableProperties_ThenBadRequestExceptionIsThrown(string fhirPath)
+        {
+            var resource = Samples.GetDefaultObservation().UpdateId("id1").UpdateVersion("version1");
+            var resource2 = Samples.GetDefaultPatient().UpdateId("id2").UpdateVersion("version2");
+
+            _fhirDataStore.GetAsync(Arg.Is<ResourceKey>(x => x.ResourceType == resource.InstanceType && x.Id == resource.Id), Arg.Any<CancellationToken>())
+                .Returns(CreateResourceWrapper(resource, false));
+
+            var context = EvaluationContext.CreateDefault();
+            var compiler = new FhirPathCompiler();
+            var newValue = compiler.Compile($"Patient{fhirPath}")(resource2.Instance, context).First();
+
+            var patchDocument = Substitute.For<IPatchDocument>();
+            patchDocument.ApplyTo(Arg.Do<ElementNode>(x => (compiler.Compile($"Observation{fhirPath}")(x, context).First() as ElementNode).ReplaceWith(new PocoStructureDefinitionSummaryProvider(), ElementNode.FromElement(newValue))));
+
+            await Assert.ThrowsAsync<RequestNotValidException>(async () =>
+            {
+                await _mediator.PatchResourceAsync(new ResourceKey<Observation>("id1"), patchDocument);
+            });
+        }
+
+        [Fact]
+        public async Task GivenAFhirMediator_WhenPatchDocumentInvalid_ThenBadRequestExceptionIsThrown()
+        {
+            var resource = Samples.GetDefaultObservation().UpdateId("id1").UpdateVersion("version1");
+
+            _fhirDataStore.GetAsync(Arg.Is<ResourceKey>(x => x.ResourceType == resource.InstanceType && x.Id == resource.Id), Arg.Any<CancellationToken>())
+                .Returns(CreateResourceWrapper(resource, false));
+
+            var patchDocument = Substitute.For<IPatchDocument>();
+            patchDocument.When(x => x.ApplyTo(Arg.Any<ElementNode>())).Throw(new PatchException());
+
+            await Assert.ThrowsAsync<RequestNotValidException>(async () =>
+            {
+                await _mediator.PatchResourceAsync(new ResourceKey<Observation>("id1"), patchDocument);
+            });
         }
 
         private ResourceWrapper CreateResourceWrapper(ResourceElement resource, bool isDeleted)

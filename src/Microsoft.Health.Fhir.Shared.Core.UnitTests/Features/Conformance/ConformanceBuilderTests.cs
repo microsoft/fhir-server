@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         }
 
         [Fact]
-        public void GivenAConformanceBuilder_WhenAddingDefaultInteractions_ThenAuditEventDoesntHaveUpdateDelete()
+        public void GivenAConformanceBuilder_WhenAddingDefaultInteractions_ThenAuditEventDoesntHaveUpdatePatchDelete()
         {
             _builder.AddDefaultResourceInteractions();
 
@@ -77,10 +77,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
 
             bool hasCreate = (bool)statement.Scalar($"{ResourceQuery("AuditEvent")}.interaction.where(code = '{TypeRestfulInteraction.Create}').exists()");
             bool noUpdate = (bool)statement.Scalar($"{ResourceQuery("AuditEvent")}.interaction.where(code = '{TypeRestfulInteraction.Update}').exists()");
+            bool noPatch = (bool)statement.Scalar($"{ResourceQuery("AuditEvent")}.interaction.where(code = '{TypeRestfulInteraction.Patch}').exists()");
             bool noDelete = (bool)statement.Scalar($"{ResourceQuery("AuditEvent")}.interaction.where(code = '{TypeRestfulInteraction.Delete}').exists()");
 
             Assert.True(hasCreate);
             Assert.False(noUpdate);
+            Assert.False(noPatch);
             Assert.False(noDelete);
         }
 

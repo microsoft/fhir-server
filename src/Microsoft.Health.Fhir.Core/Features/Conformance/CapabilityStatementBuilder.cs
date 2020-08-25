@@ -163,6 +163,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                 if (!string.Equals(resource, KnownResourceTypes.AuditEvent, StringComparison.Ordinal))
                 {
                     AddRestInteraction(resource, TypeRestfulInteraction.Update);
+                    AddRestInteraction(resource, TypeRestfulInteraction.Patch);
                     AddRestInteraction(resource, TypeRestfulInteraction.Delete);
                 }
 

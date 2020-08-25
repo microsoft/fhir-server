@@ -168,6 +168,9 @@
   <data name="CompositeSeparatorNotFound" xml:space="preserve">
     <value>The composite separator cannot be found.</value>
   </data>
+  <data name="ConditionalOperationNotMatchedAndResource" xml:space="preserve">
+    <value>Operation was not attempted because search criteria did not match any resources.</value>
+  </data>
   <data name="ConditionalOperationNotSelectiveEnough" xml:space="preserve">
     <value>Operation was not attempted because search criteria was not selective enough.</value>
   </data>
@@ -303,6 +306,12 @@
     <value> or </value>
     <comment>Used as a list delimiter. Note the spaces.</comment>
   </data>
+  <data name="PatchImmutablePropertiesIsNotValid" xml:space="preserve">
+    <value>Patching immutable properties is not allowed.</value>
+  </data>
+  <data name="PatchVersionNotAllowed" xml:space="preserve">
+    <value>Patching a specific record version is not supported.</value>
+  </data>
   <data name="ReadHistoryDisabled" xml:space="preserve">
     <value>ReadHistory is disabled for resources of type '{0}'.</value>
   </data>
@@ -386,6 +395,9 @@
   </data>
   <data name="SortNotSupported" xml:space="preserve">
     <value>The _sort parameter is not supported.</value>
+  </data>
+  <data name="TruncatedIncludeMessage" xml:space="preserve">
+    <value>Number of included resources (other than matches) exceeds the configured threshold.</value>
   </data>
   <data name="TypeNotPresent" xml:space="preserve">
     <value>Bundle type is not present. Possible values are: transaction or batch</value>

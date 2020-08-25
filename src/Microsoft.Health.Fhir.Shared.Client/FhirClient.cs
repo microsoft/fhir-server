@@ -205,19 +205,27 @@ namespace Microsoft.Health.Fhir.Client
             return DeleteAsync($"{resource.ResourceType}/{resource.Id}?hardDelete=true", cancellationToken);
         }
 
-        public async Task<FhirResponse> PatchAsync(string uri, string content, CancellationToken cancellationToken = default)
+        public async Task<FhirResponse<T>> PatchAsync<T>(string uri, Parameters patchDocument, string ifMatchVersion = null, CancellationToken cancellationToken = default)
+            where T : Resource
         {
             var message = new HttpRequestMessage(HttpMethod.Patch, uri)
             {
-                Content = new StringContent(content),
+                Content = CreateStringContent(patchDocument),
             };
             message.Headers.Accept.Add(_mediaType);
+
+            if (ifMatchVersion != null)
+            {
+                var weakETag = $"W/\"{ifMatchVersion}\"";
+
+                message.Headers.Add(IfMatchHeaderName, weakETag);
+            }
 
             HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
             await EnsureSuccessStatusCodeAsync(response);
 
-            return new FhirResponse(response);
+            return await CreateResponseAsync<T>(response);
         }
 
         public Task<FhirResponse<Bundle>> SearchAsync(ResourceType resourceType, string query = null, int? count = null, CancellationToken cancellationToken = default)

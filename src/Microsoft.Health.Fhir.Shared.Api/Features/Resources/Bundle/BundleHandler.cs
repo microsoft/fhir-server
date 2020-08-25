@@ -291,8 +291,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             AddHeaderIfNeeded(HeaderNames.IfNoneMatch, entry.Request.IfNoneMatch, httpContext);
             AddHeaderIfNeeded(KnownFhirHeaders.IfNoneExist, entry.Request.IfNoneExist, httpContext);
 
+#if !STU3
+            if (requestMethod == HTTPVerb.POST ||
+                requestMethod == HTTPVerb.PUT ||
+                requestMethod == HTTPVerb.PATCH)
+#else
             if (requestMethod == HTTPVerb.POST ||
                 requestMethod == HTTPVerb.PUT)
+#endif
             {
                 httpContext.Request.Headers.Add(HeaderNames.ContentType, new StringValues(KnownContentTypes.JsonContentType));
 

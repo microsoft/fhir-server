@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             {
                 using (var textReader = XmlDictionaryReader.CreateTextReader(request.Body, encoding, XmlDictionaryReaderQuotas.Max, onClose: null))
                 {
-                    var model = _parser.Parse<Resource>(textReader);
+                    var model = _parser.Parse(textReader, context.ModelType) as Resource;
                     return InputFormatterResult.Success(model);
                 }
             }

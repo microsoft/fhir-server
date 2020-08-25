@@ -53,6 +53,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var insertedId = response.Resource.Id;
 
+            // Create resources to test patch
+            var preparePatchBundle = Samples.GetJsonSample("Bundle-PreparePatch").ToPoco<Bundle>();
+            await _client.PostBundleAsync(preparePatchBundle);
+
             var requestBundle = Samples.GetJsonSample("Bundle-TransactionWithAllValidRoutes").ToPoco<Bundle>();
 
             // Make the criteria unique so that the tests behave consistently for update
@@ -81,7 +85,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.True("201".Equals(fhirResponse.Resource.Entry[3].Response.Status), "Conditional Update");
             Assert.True("200".Equals(fhirResponse.Resource.Entry[4].Response.Status), "Get");
             Assert.True("200".Equals(fhirResponse.Resource.Entry[5].Response.Status), "Get");
-            Assert.True("204".Equals(fhirResponse.Resource.Entry[6].Response.Status), "Delete");
+            Assert.True("200".Equals(fhirResponse.Resource.Entry[6].Response.Status), "Patch");
+            Assert.True("200".Equals(fhirResponse.Resource.Entry[7].Response.Status), "Conditional Patch");
+            Assert.True("204".Equals(fhirResponse.Resource.Entry[8].Response.Status), "Delete");
         }
 
         [Fact]
@@ -255,6 +261,38 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await _client.CreateAsync(resource.ToPoco<Patient>());
 
             var bundleWithConditionalReference = Samples.GetJsonSample("Bundle-TransactionWithReferenceInResourceBody");
+
+            var bundle = bundleWithConditionalReference.ToPoco<Bundle>();
+
+            using FhirResponse<Bundle> fhirResponseForReferenceResolution = await _client.PostBundleAsync(bundle);
+
+            Assert.NotNull(fhirResponseForReferenceResolution);
+            Assert.Equal(HttpStatusCode.OK, fhirResponseForReferenceResolution.StatusCode);
+
+            foreach (var entry in fhirResponseForReferenceResolution.Resource.Entry)
+            {
+                IEnumerable<ResourceReference> references = entry.Resource.GetAllChildren<ResourceReference>();
+
+                foreach (var reference in references)
+                {
+                    // Asserting the conditional reference value after resolution
+                    Assert.True(reference.Reference.Contains("/", StringComparison.Ordinal));
+
+                    // Also asserting that the conditional reference is resolved correctly
+                    Assert.False(reference.Reference.Contains("?", StringComparison.Ordinal));
+                }
+            }
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenATransactionBundleReferencesInPatchDocument_WhenSuccessfulExecution_ReferencesAreResolvedCorrectlyAsync()
+        {
+            // Insert a resource that has a predefined identifier.
+            var preparePatchBundle = Samples.GetJsonSample("Bundle-PreparePatchWithReferences").ToPoco<Bundle>();
+            await _client.PostBundleAsync(preparePatchBundle);
+
+            var bundleWithConditionalReference = Samples.GetJsonSample("Bundle-TransactionWithReferenceInPatchDocument");
 
             var bundle = bundleWithConditionalReference.ToPoco<Bundle>();
 

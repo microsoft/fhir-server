@@ -44,8 +44,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async Task GivenAValidBundle_WhenSubmittingABatch_ThenSuccessIsReturnedForBatchAndExpectedStatusCodesPerRequests()
         {
             var requestBundle = Samples.GetDefaultBatch().ToPoco<Bundle>();
+            var preparePatchBundle = Samples.GetJsonSample("Bundle-PreparePatch").ToPoco<Bundle>();
 
             await _client.UpdateAsync(requestBundle.Entry[2].Resource as Patient);
+            await _client.PostBundleAsync(preparePatchBundle);
 
             using FhirResponse<Bundle> fhirResponse = await _client.PostBundleAsync(requestBundle);
             Assert.NotNull(fhirResponse);
@@ -63,6 +65,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             ValidateOperationOutcome(resource.Entry[7].Response.Status, resource.Entry[7].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "The route for \"/ValueSet/$lookup\" was not found.", IssueType.NotFound);
             Assert.Equal("200", resource.Entry[8].Response.Status);
             ValidateOperationOutcome(resource.Entry[9].Response.Status, resource.Entry[9].Response.Outcome as OperationOutcome, _statusCodeMap[HttpStatusCode.NotFound], "Resource type 'Patient' with id '12334' couldn't be found.", IssueType.NotFound);
+            Assert.Equal("200", resource.Entry[10].Response.Status);
+            Assert.Equal("200", resource.Entry[11].Response.Status);
         }
 
         [Fact]

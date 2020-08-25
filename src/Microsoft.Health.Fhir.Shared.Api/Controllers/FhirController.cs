@@ -10,6 +10,7 @@ using System.Net;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Patch;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -24,7 +25,6 @@ using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Routing;
-using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -33,6 +33,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
+using Microsoft.Health.Fhir.Core.Messages.Patch;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
@@ -370,14 +371,37 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// </summary>
         /// <param name="typeParameter">The type.</param>
         /// <param name="idParameter">The identifier.</param>
+        /// <param name="patchDocument">The FHIRPath Patch document.</param>
+        /// <param name="ifMatchHeader">Optional If-Match header</param>
         [HttpPatch]
         [Route(KnownRoutes.ResourceTypeById)]
         [AuditEventType(AuditEventSubType.Patch)]
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Controller methods won't be called if static.")]
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA1801:Review unused parameters", Justification = "Need the parameters for routing to work.")]
-        public Task<IActionResult> Patch(string typeParameter, string idParameter)
+        public async Task<IActionResult> Patch(string typeParameter, string idParameter, [FromBody] FhirPatchParameters patchDocument, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
         {
-            throw new MethodNotAllowedException(Resources.PatchNotSupported);
+            SaveOutcome response = await _mediator.PatchResourceAsync(new ResourceKey(typeParameter, idParameter), (PatchDocument)patchDocument, ifMatchHeader, HttpContext.RequestAborted);
+
+            return ToSaveOutcomeResult(response);
+        }
+
+        /// <summary>
+        /// Patches the specified resource
+        /// </summary>
+        /// <param name="typeParameter">The type.</param>
+        /// <param name="patchDocument">The FHIRPath Patch document.</param>
+        [HttpPatch]
+        [Route(KnownRoutes.ResourceType)]
+        [AuditEventType(AuditEventSubType.Patch)]
+        public async Task<IActionResult> ConditionalPatch(string typeParameter, [FromBody] FhirPatchParameters patchDocument)
+        {
+            IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
+
+            PatchResourceResponse response = await _mediator.Send<PatchResourceResponse>(
+                new ConditionalPatchResourceRequest(typeParameter, (PatchDocument)patchDocument, conditionalParameters),
+                HttpContext.RequestAborted);
+
+            SaveOutcome saveOutcome = response.Outcome;
+
+            return ToSaveOutcomeResult(saveOutcome);
         }
 
         /// <summary>

@@ -81,7 +81,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             string resourceType = null;
             StringValues conditionalQueries;
 
+#if !STU3
+            if (entry.Request.Method == HTTPVerb.PUT || entry.Request.Method == HTTPVerb.PATCH)
+#else
             if (entry.Request.Method == HTTPVerb.PUT)
+#endif
             {
                 string[] conditionalUpdate = entry.Request.Url.Split('?');
                 resourceType = conditionalUpdate[0];
