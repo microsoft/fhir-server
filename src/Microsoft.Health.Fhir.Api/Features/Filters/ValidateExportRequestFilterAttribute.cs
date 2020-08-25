@@ -22,6 +22,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
     [AttributeUsage(AttributeTargets.Method)]
     internal class ValidateExportRequestFilterAttribute : ActionFilterAttribute
     {
+        private static readonly HashSet<string> SupportedOutputFormats = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "application/fhir+ndjson",
+            "application/ndjson",
+            "ndjson",
+        };
+
         private const string PreferHeaderName = "Prefer";
         private const string PreferHeaderExpectedValue = "respond-async";
         private const string DefaultExportRequestPath = "/$export";
@@ -74,6 +81,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 }
 
                 throw new RequestNotValidException(string.Format(Resources.UnsupportedParameter, paramName));
+            }
+
+            if (queryCollection.TryGetValue(KnownQueryParameterNames.OutputFormat, out var outputFormats))
+            {
+                foreach (var outputFormat in outputFormats)
+                {
+                    if (!(outputFormat == null || SupportedOutputFormats.Contains(outputFormat)))
+                    {
+                        throw new RequestNotValidException(string.Format(Resources.InvalidOutputFormat, outputFormat));
+                    }
+                }
             }
         }
 
