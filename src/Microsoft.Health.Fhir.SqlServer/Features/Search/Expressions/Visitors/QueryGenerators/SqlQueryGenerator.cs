@@ -113,6 +113,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     denormalizedPredicate.AcceptVisitor(DispatchingDenormalizedSearchParameterQueryGenerator.Instance, GetContext());
                 }
 
+                if (searchOptions.AtParam != null)
+                {
+                    delimitedClause.BeginDelimitedElement();
+                    searchOptions.AtParam.AcceptVisitor(DispatchingDenormalizedSearchParameterQueryGenerator.Instance, GetContext());
+                }
+
                 if (expression.TableExpressions.Count == 0)
                 {
                     AppendHistoryClause(delimitedClause);
@@ -121,7 +127,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
 
             // Semi join for _at param
-            if (searchOptions.AtParam)
+            if (searchOptions.AtParam != null)
             {
                 string resourceTableAlias2 = "r2";
                 using (StringBuilder.Indent())
@@ -134,15 +140,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         using (var delimitedClause = StringBuilder.BeginDelimitedWhereClause())
                         {
                             delimitedClause.BeginDelimitedElement();
-                            foreach (var denormalizedPredicate in expression.DenormalizedExpressions)
-                            {
-                                SearchParameterExpression searchParameterExpression = denormalizedPredicate as SearchParameterExpression;
-                                if (searchParameterExpression != null && searchParameterExpression.IsAtParameter)
-                                {
-                                    denormalizedPredicate.AcceptVisitor(DispatchingDenormalizedSearchParameterQueryGenerator.Instance, GetContext());
-                                }
-                            }
-
+                            searchOptions.AtParam.AcceptVisitor(DispatchingDenormalizedSearchParameterQueryGenerator.Instance, GetContext());
                             delimitedClause.BeginDelimitedElement();
                             StringBuilder.Append(VLatest.Resource.ResourceTypeId, resourceTableAlias2).Append(" = ").Append(VLatest.Resource.ResourceTypeId, resourceTableAlias);
                             delimitedClause.BeginDelimitedElement();

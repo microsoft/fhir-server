@@ -100,7 +100,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             const string paramName1 = "address-city";
             const string value1 = "Seattle";
 
-            _expressionParser.Parse(resourceType.ToString(), paramName1, value1, false).Returns(
+            _expressionParser.Parse(resourceType.ToString(), paramName1, value1).Returns(
                 x => throw new SearchParameterNotSupportedException(typeof(Patient), paramName1));
 
             var queryParameters = new[]
@@ -261,7 +261,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
-        public void GivenSearchWithAtDateTime_WhenCreated_ThenSearchOptionsAtParamShouldBeTrue()
+        public void GivenSearchWithAtDateTime_WhenCreated_ThenSearchOptionsAtParamShouldNotBeNull()
         {
             var queryParameters = new[]
             {
@@ -273,7 +273,23 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 queryParameters: queryParameters);
 
             Assert.NotNull(options);
-            Assert.True(options.AtParam);
+            Assert.NotNull(options.AtParam);
+        }
+
+        [Fact]
+        public void GivenSearchWithoutAtDateTime_WhenCreated_ThenSearchOptionsAtParamShouldBeNull()
+        {
+            var queryParameters = new[]
+            {
+                Tuple.Create(KnownQueryParameterNames.Since, "sinceDateTime"),
+            };
+
+            SearchOptions options = CreateSearchOptions(
+                resourceType: "Patient",
+                queryParameters: queryParameters);
+
+            Assert.NotNull(options);
+            Assert.Null(options.AtParam);
         }
 
         [Fact]

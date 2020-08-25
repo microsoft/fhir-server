@@ -56,14 +56,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
         /// <param name="resourceType">The resource type.</param>
         /// <param name="key">The query key.</param>
         /// <param name="value">The query value.</param>
-        /// <param name="isAtParam">The value to identify if the expression is for _at parameter</param>
         /// <returns>An instance of search expression representing the search.</returns>
-        public Expression Parse(string resourceType, string key, string value, bool isAtParam = false)
+        public Expression Parse(string resourceType, string key, string value)
         {
             EnsureArg.IsNotNullOrWhiteSpace(key, nameof(key));
             EnsureArg.IsNotNullOrWhiteSpace(value, nameof(value));
 
-            return ParseImpl(resourceType, key.AsSpan(), value, isAtParam);
+            return ParseImpl(resourceType, key.AsSpan(), value);
         }
 
         public IncludeExpression ParseInclude(string resourceType, string includeValue)
@@ -105,7 +104,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             return new IncludeExpression(resourceType, refSearchParameter, targetType, wildCard);
         }
 
-        private Expression ParseImpl(string resourceType, ReadOnlySpan<char> key, string value, bool isAtParam = false)
+        private Expression ParseImpl(string resourceType, ReadOnlySpan<char> key, string value)
         {
             if (TryConsume(ReverseChainParameter.AsSpan(), ref key))
             {
@@ -164,7 +163,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             // Check to see if the search parameter is supported for this type or not.
             SearchParameterInfo searchParameter = _searchParameterDefinitionManager.GetSearchParameter(resourceType, paramName.ToString());
 
-            return ParseSearchValueExpression(searchParameter, modifier.ToString(), value, isAtParam);
+            return ParseSearchValueExpression(searchParameter, modifier.ToString(), value);
         }
 
         private Expression ParseChainedExpression(string resourceType, SearchParameterInfo searchParameter, string targetResourceType, ReadOnlySpan<char> remainingKey, string value, bool reversed)
@@ -245,11 +244,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             return chainedExpression;
         }
 
-        private Expression ParseSearchValueExpression(SearchParameterInfo searchParameter, string modifier, string value, bool isAtParam)
+        private Expression ParseSearchValueExpression(SearchParameterInfo searchParameter, string modifier, string value)
         {
             SearchModifierCode? parsedModifier = ParseSearchParamModifier();
 
-            return _searchParameterExpressionParser.Parse(searchParameter, parsedModifier, value, isAtParam);
+            return _searchParameterExpressionParser.Parse(searchParameter, parsedModifier, value);
 
             SearchModifierCode? ParseSearchParamModifier()
             {

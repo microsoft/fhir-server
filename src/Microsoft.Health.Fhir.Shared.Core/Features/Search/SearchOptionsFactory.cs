@@ -68,6 +68,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             var unsupportedSearchParameters = new List<Tuple<string, string>>();
             bool setDefaultBundleTotal = true;
 
+            // If the resource type is not specified, then the common
+            // search parameters should be used.
+            ResourceType parsedResourceType = ResourceType.DomainResource;
+
+            if (!string.IsNullOrWhiteSpace(resourceType) &&
+                !Enum.TryParse(resourceType, out parsedResourceType))
+            {
+                throw new ResourceNotSupportedException(resourceType);
+            }
+
             // Extract the continuation token, filter out the other known query parameters that's not search related.
             foreach (Tuple<string, string> query in queryParameters ?? Enumerable.Empty<Tuple<string, string>>())
             {
@@ -117,7 +127,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 }
                 else if (query.Item1 == KnownQueryParameterNames.At)
                 {
-                    searchOptions.AtParam = true;
+                    searchOptions.AtParam = _expressionParser.Parse(parsedResourceType.ToString(), SearchParameterNames.LastUpdated, query.Item2);
                 }
                 else
                 {
@@ -151,16 +161,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             // Check to see if only the count should be returned
             searchOptions.CountOnly = searchParams.Summary == SummaryType.Count;
 
-            // If the resource type is not specified, then the common
-            // search parameters should be used.
-            ResourceType parsedResourceType = ResourceType.DomainResource;
-
-            if (!string.IsNullOrWhiteSpace(resourceType) &&
-                !Enum.TryParse(resourceType, out parsedResourceType))
-            {
-                throw new ResourceNotSupportedException(resourceType);
-            }
-
             var searchExpressions = new List<Expression>();
 
             if (!string.IsNullOrWhiteSpace(resourceType))
@@ -168,22 +168,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 searchExpressions.Add(Expression.SearchParameter(_resourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, resourceType, false)));
             }
 
-            bool expressionForAtParamIsNotAdded = true;
-
             searchExpressions.AddRange(searchParams.Parameters.Select(
                     q =>
                     {
                         try
                         {
-                            if (searchOptions.AtParam && expressionForAtParamIsNotAdded && string.Equals(q.Item1, SearchParameterNames.LastUpdated, StringComparison.Ordinal))
-                            {
-                                expressionForAtParamIsNotAdded = false;
-                                return _expressionParser.Parse(parsedResourceType.ToString(), q.Item1, q.Item2, true);
-                            }
-                            else
-                            {
-                                return _expressionParser.Parse(parsedResourceType.ToString(), q.Item1, q.Item2, false);
-                            }
+                            return _expressionParser.Parse(parsedResourceType.ToString(), q.Item1, q.Item2);
                         }
                         catch (SearchParameterNotSupportedException)
                         {
