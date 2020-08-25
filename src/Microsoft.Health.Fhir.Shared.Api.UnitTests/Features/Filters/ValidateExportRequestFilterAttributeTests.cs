@@ -147,19 +147,15 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         [InlineData("application/fhir+ndjson")]
         [InlineData("application/ndjson")]
         [InlineData("ndjson")]
-        [InlineData("application/fhir+ndjson", "application/ndjson", "ndjson")]
         [Theory]
-        public void GivenARequestWithCorrectHeaderAndSupportedOutputFormatQueryParam_WhenGettingAnExportOperationRequest_ThenTheResultIsSuccessful(params string[] outputFormats)
+        public void GivenARequestWithCorrectHeaderAndSupportedOutputFormatQueryParam_WhenGettingAnExportOperationRequest_ThenTheResultIsSuccessful(string outputFormat)
         {
             var context = CreateContext();
             context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
             context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
 
             var queryParams = new Dictionary<string, StringValues>();
-            foreach (string outputFormat in outputFormats)
-            {
-                queryParams.Add(KnownQueryParameterNames.OutputFormat, outputFormat);
-            }
+            queryParams.Add(KnownQueryParameterNames.OutputFormat, outputFormat);
 
             context.HttpContext.Request.Query = new QueryCollection(queryParams);
 

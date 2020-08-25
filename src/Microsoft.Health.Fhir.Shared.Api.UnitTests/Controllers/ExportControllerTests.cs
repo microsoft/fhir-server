@@ -70,24 +70,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         }
 
         [Fact]
-        public async Task GivenAnExportRequest_WhenOutputFormatIsNotNdjson_ThenRequestNotValidExceptionShouldBeThrown()
-        {
-            await Assert.ThrowsAsync<RequestNotValidException>(() => _exportEnabledController.Export(null, null, null, null, null));
-        }
-
-        [Fact]
-        public async Task GivenAnExportByResourceTypeRequest_WhenOutputFormatIsNotNdjson_ThenRequestNotValidExceptionShouldBeThrown()
-        {
-            await Assert.ThrowsAsync<RequestNotValidException>(() => _exportEnabledController.ExportResourceType(null, null, null, ResourceType.Patient.ToString()));
-        }
-
-        [Fact]
-        public async Task GivenAnExportByIdRequest_WhenOutputFormatIsNotNdjson_ThenRequestNotValidExceptionShouldBeThrown()
-        {
-            await Assert.ThrowsAsync<RequestNotValidException>(() => _exportEnabledController.ExportResourceTypeById(null, null, null, ResourceType.Group.ToString(), "id"));
-        }
-
-        [Fact]
         public async Task GivenAnExportByResourceTypeRequest_WhenResourceTypeIsNotPatient_ThenRequestNotValidExceptionShouldBeThrown()
         {
             await Assert.ThrowsAsync<RequestNotValidException>(() => _exportEnabledController.ExportResourceType(null, null, null, ResourceType.Observation.ToString()));
