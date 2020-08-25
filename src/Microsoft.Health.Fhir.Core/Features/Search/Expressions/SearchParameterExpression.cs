@@ -23,8 +23,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
         public Expression Expression { get; }
 
-        public bool IsAtParameter { get; }
-
         public override TOutput AcceptVisitor<TContext, TOutput>(IExpressionVisitor<TContext, TOutput> visitor, TContext context)
         {
             EnsureArg.IsNotNull(visitor, nameof(visitor));

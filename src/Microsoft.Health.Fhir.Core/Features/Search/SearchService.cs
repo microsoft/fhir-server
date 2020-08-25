@@ -140,7 +140,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             if (at != null)
             {
                 queryParameters.Add(Tuple.Create(KnownQueryParameterNames.At, $"le{at}"));
-               }
+            }
             else
             {
                 if (since != null)
