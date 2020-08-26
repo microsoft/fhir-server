@@ -224,15 +224,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
-        public async Task<ResourceWrapper> UpdateSearchParameterForResourceAsync(ResourceWrapper resourceWrapper, WeakETag weakETag, CancellationToken cancellationToken)
+        public async Task<ResourceWrapper> UpdateSearchIndexForResourceAsync(ResourceWrapper resourceWrapper, string eTag, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(resourceWrapper, nameof(resourceWrapper));
-            EnsureArg.IsNotNull(weakETag, nameof(weakETag));
+            EnsureArg.IsNotNullOrWhiteSpace(eTag, nameof(eTag));
 
             var cosmosWrapper = new FhirCosmosResourceWrapper(resourceWrapper);
             ItemRequestOptions requestOptions = new ItemRequestOptions()
             {
-                IfMatchEtag = weakETag.VersionId,
+                IfMatchEtag = eTag,
             };
 
             try
@@ -251,14 +251,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 switch (exception.StatusCode)
                 {
                     case HttpStatusCode.PreconditionFailed:
-                        throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag.VersionId));
+                        throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, eTag));
 
                     case HttpStatusCode.NotFound:
                         throw new ResourceNotFoundException(string.Format(
                             Core.Resources.ResourceNotFoundByIdAndVersion,
                             resourceWrapper.ResourceTypeName,
                             resourceWrapper.ResourceId,
-                            weakETag.VersionId));
+                            eTag));
 
                     case HttpStatusCode.ServiceUnavailable:
                         throw new ServiceUnavailableException();

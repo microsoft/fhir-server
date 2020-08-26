@@ -270,7 +270,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        public Task<ResourceWrapper> UpdateSearchParameterForResourceAsync(ResourceWrapper resourceWrapper, WeakETag weakETag, CancellationToken cancellationToken)
+        public Task<ResourceWrapper> UpdateSearchIndexForResourceAsync(ResourceWrapper resourceWrapper, string eTag, CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }
