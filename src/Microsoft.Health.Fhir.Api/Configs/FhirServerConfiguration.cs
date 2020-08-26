@@ -5,6 +5,7 @@
 
 using Microsoft.Health.Api.Configuration;
 using Microsoft.Health.Api.Features.Cors;
+using Microsoft.Health.Core.Configs;
 using Microsoft.Health.Fhir.Core.Configs;
 
 namespace Microsoft.Health.Fhir.Api.Configs
@@ -19,7 +20,7 @@ namespace Microsoft.Health.Fhir.Api.Configs
 
         public OperationsConfiguration Operations { get; } = new OperationsConfiguration();
 
-        public AuditConfiguration Audit { get; } = new AuditConfiguration();
+        public AuditConfiguration Audit { get; } = new AuditConfiguration("X-MS-AZUREFHIR-AUDIT-");
 
         public CoreFeatureConfiguration CoreFeatures { get; } = new CoreFeatureConfiguration();
 
