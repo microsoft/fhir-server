@@ -118,7 +118,7 @@ ALTER PROCEDURE dbo.UpsertResource
     @keepHistory bit,
     @requestMethod varchar(10),
     @rawResource varbinary(max),
-    @rawResourceMetaSet bit,
+    @rawResourceMetaSet bit = 0,
     @resourceWriteClaims dbo.ResourceWriteClaimTableType_1 READONLY,
     @compartmentAssignments dbo.CompartmentAssignmentTableType_1 READONLY,
     @referenceSearchParams dbo.ReferenceSearchParamTableType_1 READONLY,
