@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
     public class AnonymizationConfigurationFetchException : FhirException
     {
         public AnonymizationConfigurationFetchException()
-        : base()
+        : base(Resources.AnonymizationConfigurationFetchException)
         {
         }
 

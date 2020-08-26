@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
     public class FailedToParseAnonymizationConfigurationException : FhirException
     {
         public FailedToParseAnonymizationConfigurationException()
-        : base()
+        : base(Resources.FailedToParseAnonymizationConfigurationException)
             {
             }
 

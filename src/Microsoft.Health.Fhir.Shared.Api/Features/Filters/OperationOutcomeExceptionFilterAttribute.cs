@@ -14,7 +14,6 @@ using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Api.Features.Audit;
-using Microsoft.Health.Core.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
@@ -140,31 +139,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 context.Result = operationOutcomeResult;
                 context.ExceptionHandled = true;
             }
-            else if (context.Exception is HealthException healthException)
-            {
-                OperationOutcomeResult healthExceptionResult;
-
-                switch (healthException)
-                {
-                    case AuditException _:
-                        healthExceptionResult = CreateOperationOutcomeResult(healthException.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Invalid, HttpStatusCode.BadRequest);
-                        break;
-                    case AuditHeaderCountExceededException _:
-                    case AuditHeaderTooLargeException _:
-                        healthExceptionResult = CreateOperationOutcomeResult(healthException.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Invalid, HttpStatusCode.RequestHeaderFieldsTooLarge);
-                        break;
-                    default:
-                        healthExceptionResult = new OperationOutcomeResult(
-                            new OperationOutcome
-                            {
-                                Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,
-                            }, HttpStatusCode.InternalServerError);
-                        break;
-                }
-
-                context.Result = healthExceptionResult;
-                context.ExceptionHandled = true;
-            }
             else if (context.Exception is MicrosoftHealthException microsoftHealthException)
             {
                 OperationOutcomeResult healthExceptionResult;
@@ -190,6 +164,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         break;
                     case TransactionFailedException transactionFailedException:
                         healthExceptionResult = CreateOperationOutcomeResult(transactionFailedException.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Processing, HttpStatusCode.InternalServerError);
+                        break;
+                    case AuditException _:
+                        healthExceptionResult = CreateOperationOutcomeResult(microsoftHealthException.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Invalid, HttpStatusCode.BadRequest);
+                        break;
+                    case AuditHeaderCountExceededException _:
+                    case AuditHeaderTooLargeException _:
+                        healthExceptionResult = CreateOperationOutcomeResult(microsoftHealthException.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Invalid, HttpStatusCode.RequestHeaderFieldsTooLarge);
                         break;
                     default:
                         healthExceptionResult = new OperationOutcomeResult(

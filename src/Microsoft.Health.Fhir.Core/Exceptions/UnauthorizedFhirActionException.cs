@@ -10,6 +10,7 @@ namespace Microsoft.Health.Fhir.Core.Exceptions
     public class UnauthorizedFhirActionException : FhirException
     {
         public UnauthorizedFhirActionException()
+            : base(Resources.UnauthorizedFhirActionException)
         {
             Issues.Add(new OperationOutcomeIssue(
                 OperationOutcomeConstants.IssueSeverity.Error,

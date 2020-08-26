@@ -55,7 +55,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         {
             var filter = new OperationOutcomeExceptionFilterAttribute(_fhirRequestContextAccessor);
 
-            _context.Exception = Substitute.For<FhirException>();
+            string message = "This is a test message.";
+            _context.Exception = Substitute.For<FhirException>(message);
 
             filter.OnActionExecuted(_context);
 
@@ -97,7 +98,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             var reason = "This is a test reason.";
 
             var operation = ValidateOperationOutcome(
-                Substitute.For<FhirException>(new OperationOutcomeIssue(
+                Substitute.For<FhirException>(reason, new OperationOutcomeIssue(
                     OperationOutcomeConstants.IssueSeverity.Error,
                     OperationOutcomeConstants.IssueType.Invalid,
                     reason)),

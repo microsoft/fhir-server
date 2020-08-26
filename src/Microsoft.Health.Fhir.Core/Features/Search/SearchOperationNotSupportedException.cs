@@ -19,6 +19,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// </summary>
         /// <param name="message">The error message.</param>
         public SearchOperationNotSupportedException(string message)
+            : base(message)
         {
             Debug.Assert(!string.IsNullOrWhiteSpace(message), $"{nameof(message)} should not be null or whitespace.");
 

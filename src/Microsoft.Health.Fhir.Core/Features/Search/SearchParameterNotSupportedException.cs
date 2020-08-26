@@ -22,10 +22,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <param name="resourceType">The resource type.</param>
         /// <param name="paramName">The parameter name.</param>
         public SearchParameterNotSupportedException(Type resourceType, string paramName)
+            : base(string.Format(Resources.SearchParameterNotSupported, paramName ?? string.Empty, resourceType?.Name ?? string.Empty))
         {
             Debug.Assert(resourceType != null, $"{nameof(resourceType)} should not be null.");
             Debug.Assert(!string.IsNullOrWhiteSpace(paramName), $"{nameof(paramName)} should not be null or whitespace.");
-
             AddIssue(string.Format(Core.Resources.SearchParameterNotSupported, paramName, resourceType.Name));
         }
 
@@ -35,6 +35,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <param name="resourceType">The resource type.</param>
         /// <param name="paramName">The parameter name.</param>
         public SearchParameterNotSupportedException(string resourceType, string paramName)
+            : base(string.Format(Resources.SearchParameterNotSupported, paramName ?? string.Empty, resourceType ?? string.Empty))
         {
             Debug.Assert(!string.IsNullOrWhiteSpace(paramName), $"{nameof(paramName)} should not be null or whitespace.");
 
@@ -46,6 +47,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// </summary>
         /// <param name="definitionUri">The search parameter definition URL.</param>
         public SearchParameterNotSupportedException(Uri definitionUri)
+            : base(string.Format(Resources.SearchParameterByDefinitionUriNotSupported, definitionUri?.ToString() ?? string.Empty))
         {
             EnsureArg.IsNotNull(definitionUri, nameof(definitionUri));
 
@@ -57,6 +59,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// </summary>
         /// <param name="issueMessage">The issue message.</param>
         public SearchParameterNotSupportedException(string issueMessage)
+            : base(issueMessage)
         {
             Debug.Assert(!string.IsNullOrWhiteSpace(issueMessage), $"{nameof(issueMessage)} should not be null or whitespace.");
 
