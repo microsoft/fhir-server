@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -131,6 +132,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             string typeParameter,
             string idParameter)
         {
+            CheckIfExportIsEnabled();
+
             // Export by ResourceTypeId is supported only for Group resource type.
             if (!string.Equals(typeParameter, ResourceType.Group.ToString(), StringComparison.Ordinal) || string.IsNullOrEmpty(idParameter))
             {
