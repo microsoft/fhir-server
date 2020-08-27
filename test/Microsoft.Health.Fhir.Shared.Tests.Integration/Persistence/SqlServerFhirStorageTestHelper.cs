@@ -198,7 +198,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var config = new SqlServerDataStoreConfiguration { ConnectionString = testConnectionString, Initialize = true, SchemaOptions = schemaOptions };
             var schemaInformation = new SchemaInformation((int)SchemaVersion.V1, (int)SchemaVersion.V3);
             var scriptProvider = new ScriptProvider<SchemaVersion>();
-            var schemaUpgradeRunner = new SchemaUpgradeRunner(scriptProvider, config, NullLogger<SchemaUpgradeRunner>.Instance);
+            var baseScriptProvider = new BaseScriptProvider();
+            var schemaUpgradeRunner = new SchemaUpgradeRunner(scriptProvider, baseScriptProvider, config, NullLogger<SchemaUpgradeRunner>.Instance);
 
             return new SchemaInitializer(config, schemaUpgradeRunner, schemaInformation, NullLogger<SchemaInitializer>.Instance);
         }

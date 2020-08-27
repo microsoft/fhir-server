@@ -10,7 +10,6 @@ namespace Microsoft.Health.Fhir.Core.Exceptions
     public class RequestEntityTooLargeException : FhirException
     {
         public RequestEntityTooLargeException()
-            : base(Resources.RequestEntityTooLargeException)
         {
             Issues.Add(new OperationOutcomeIssue(
                     OperationOutcomeConstants.IssueSeverity.Error,

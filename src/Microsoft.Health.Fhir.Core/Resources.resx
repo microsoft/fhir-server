@@ -117,12 +117,6 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="AnonymizationConfigurationFetchException" xml:space="preserve">
-    <value>There was an error while fetching anonymization configuration.</value>
-  </data>
-  <data name="AnonymizationConfigurationNotFound" xml:space="preserve">
-    <value>Anonymization configuration not found.</value>
-  </data>
   <data name="AtCannotBeSpecifiedWithBeforeOrSince" xml:space="preserve">
     <value>{0} and {1} cannot both be specified.</value>
   </data>
@@ -202,9 +196,6 @@
     <value>Error validating roles:
 {0}</value>
   </data>
-  <data name="FailedToParseAnonymizationConfigurationException" xml:space="preserve">
-    <value>There was an error while parsing anonymization configuration.</value>
-  </data>
   <data name="Forbidden" xml:space="preserve">
     <value>Authorization failed.</value>
   </data>
@@ -267,9 +258,6 @@
   <data name="InvalidValueTypeForMissingModifier" xml:space="preserve">
     <value>Invalid value for :missing modifier. Valid values are: true, false.</value>
   </data>
-  <data name="JobConflictException" xml:space="preserve">
-    <value>A conflict was encountered.</value>
-  </data>
   <data name="JobNotFound" xml:space="preserve">
     <value>The requested job "{0}" was not found.</value>
     <comment>{0} is the job id</comment>
@@ -325,17 +313,8 @@
   <data name="RequestedActionNotAllowed" xml:space="preserve">
     <value>The requested action is not allowed.</value>
   </data>
-  <data name="RequestEntityTooLargeException" xml:space="preserve">
-    <value>Request entity was too large.</value>
-  </data>
-  <data name="ResourceConflictException" xml:space="preserve">
-    <value>Resource conflict was encountered.</value>
-  </data>
   <data name="ResourceCreationNotAllowed" xml:space="preserve">
     <value>Resource creation is not allowed.</value>
-  </data>
-  <data name="ResourceGoneException" xml:space="preserve">
-    <value>Resource has already been deleted.</value>
   </data>
   <data name="ResourceNotFoundById" xml:space="preserve">
     <value>Resource type '{0}' with id '{1}' couldn't be found.</value>
@@ -345,9 +324,6 @@
   </data>
   <data name="ResourceNotSupported" xml:space="preserve">
     <value>Resource type '{0}' is not supported.</value>
-  </data>
-  <data name="ResourceNotValidException" xml:space="preserve">
-    <value>Resource was not valid.</value>
   </data>
   <data name="ResourceTooLarge" xml:space="preserve">
     <value>The requested resource exceeded the backing database's size limit.</value>
@@ -428,9 +404,6 @@
   </data>
   <data name="UnableToSetSecret" xml:space="preserve">
     <value>Unable to set secret in SecretStore</value>
-  </data>
-  <data name="UnauthorizedFhirActionException" xml:space="preserve">
-    <value>Unauthorized FHIR action exception was encountered.</value>
   </data>
   <data name="UnknownError" xml:space="preserve">
     <value>Unknown Error.</value>

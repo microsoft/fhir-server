@@ -61,24 +61,6 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to There was an error while fetching anonymization configuration..
-        /// </summary>
-        internal static string AnonymizationConfigurationFetchException {
-            get {
-                return ResourceManager.GetString("AnonymizationConfigurationFetchException", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Anonymization configuration not found..
-        /// </summary>
-        internal static string AnonymizationConfigurationNotFound {
-            get {
-                return ResourceManager.GetString("AnonymizationConfigurationNotFound", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to {0} and {1} cannot both be specified..
         /// </summary>
         internal static string AtCannotBeSpecifiedWithBeforeOrSince {
@@ -296,15 +278,6 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to There was an error while parsing anonymization configuration..
-        /// </summary>
-        internal static string FailedToParseAnonymizationConfigurationException {
-            get {
-                return ResourceManager.GetString("FailedToParseAnonymizationConfigurationException", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Authorization failed..
         /// </summary>
         internal static string Forbidden {
@@ -476,15 +449,6 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to A conflict was encountered..
-        /// </summary>
-        internal static string JobConflictException {
-            get {
-                return ResourceManager.GetString("JobConflictException", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to The requested job &quot;{0}&quot; was not found..
         /// </summary>
         internal static string JobNotFound {
@@ -638,38 +602,11 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Request entity was too large..
-        /// </summary>
-        internal static string RequestEntityTooLargeException {
-            get {
-                return ResourceManager.GetString("RequestEntityTooLargeException", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Resource conflict was encountered..
-        /// </summary>
-        internal static string ResourceConflictException {
-            get {
-                return ResourceManager.GetString("ResourceConflictException", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Resource creation is not allowed..
         /// </summary>
         internal static string ResourceCreationNotAllowed {
             get {
                 return ResourceManager.GetString("ResourceCreationNotAllowed", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Resource has already been deleted..
-        /// </summary>
-        internal static string ResourceGoneException {
-            get {
-                return ResourceManager.GetString("ResourceGoneException", resourceCulture);
             }
         }
         
@@ -697,15 +634,6 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string ResourceNotSupported {
             get {
                 return ResourceManager.GetString("ResourceNotSupported", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Resource was not valid..
-        /// </summary>
-        internal static string ResourceNotValidException {
-            get {
-                return ResourceManager.GetString("ResourceNotValidException", resourceCulture);
             }
         }
         
@@ -940,15 +868,6 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string UnableToSetSecret {
             get {
                 return ResourceManager.GetString("UnableToSetSecret", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Unauthorized FHIR action exception was encountered..
-        /// </summary>
-        internal static string UnauthorizedFhirActionException {
-            get {
-                return ResourceManager.GetString("UnauthorizedFhirActionException", resourceCulture);
             }
         }
         

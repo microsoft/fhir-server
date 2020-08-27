@@ -11,7 +11,6 @@ namespace Microsoft.Health.Fhir.Core.Exceptions
     public class ResourceGoneException : FhirException
     {
         public ResourceGoneException(ResourceKey deletedResource)
-            : base(Resources.ResourceGoneException)
         {
             EnsureArg.IsNotNull(deletedResource);
 

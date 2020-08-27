@@ -12,7 +12,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
     public class ResourceConflictException : FhirException
     {
         public ResourceConflictException(WeakETag etag)
-            : base(Resources.ResourceConflictException)
         {
             Debug.Assert(etag != null, "ETag should not be null");
 
