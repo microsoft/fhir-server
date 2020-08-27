@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
@@ -36,6 +37,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         protected async Task<Bundle> ExecuteAndValidateBundle(string searchUrl, bool sort, params Resource[] expectedResources)
         {
             return await ExecuteAndValidateBundle(searchUrl, searchUrl, sort, expectedResources);
+        }
+
+        protected async Task<Bundle> ExecuteAndValidateBundleSuperset(string searchUrl, bool sort, params Resource[] expectedResources)
+        {
+            Bundle bundle = await Client.SearchAsync(searchUrl);
+
+            ValidateBundleIsSuperset(bundle, sort, expectedResources);
+
+            return bundle;
         }
 
         protected async Task<Bundle> ExecuteAndValidateBundle(string searchUrl, string selfLink, params Resource[] expectedResources)
@@ -112,6 +122,37 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Collection(
                 bundle.Entry.Select(e => e.Resource),
                 expectedResources.Select(er => new Action<Resource>(r => Assert.True(er.IsExactly(r)))).ToArray());
+        }
+
+        protected void ValidateBundleIsSuperset(Bundle bundle, bool sort, params Resource[] expectedResources)
+        {
+            Assert.NotNull(bundle);
+
+            if (sort)
+            {
+                bundle.Entry.Sort((a, b) => string.CompareOrdinal(a.Resource.Id, b.Resource.Id));
+                Array.Sort(expectedResources, (a, b) => string.CompareOrdinal(a.Id, b.Id));
+            }
+
+            // make sure the result is not empty
+            Assert.NotEmpty(bundle.Entry.Select(e => e.Resource));
+
+            // make sure the returned result contains all of the expected item
+            // and maybe some more items (if the db is not empty, if we didn't use tag to filter) ...
+            var set = new HashSet<string>();
+            foreach (var r in bundle.Entry)
+            {
+                set.Add(r.Resource.Id);
+            }
+
+            foreach (var r in expectedResources)
+            {
+                Assert.Contains(r.Id, set);
+            }
+
+            // make sure items are sorted
+            var expectedList = expectedResources.OrderBy(x => ((Patient)x).BirthDate);
+            Assert.True(expectedList.SequenceEqual(expectedResources));
         }
     }
 }
