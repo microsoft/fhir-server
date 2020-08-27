@@ -214,6 +214,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The output format &apos;{0}&apos; is not supported..
+        /// </summary>
+        public static string InvalidOutputFormat {
+            get {
+                return ResourceManager.GetString("InvalidOutputFormat", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The requested &quot;_pretty&quot; parameter is invalid..
         /// </summary>
         public static string InvalidPrettyParameter {
