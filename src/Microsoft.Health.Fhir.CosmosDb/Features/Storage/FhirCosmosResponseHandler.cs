@@ -59,10 +59,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         private void UpdateOptions(RequestMessage options)
         {
-            if (_cosmosDataStoreConfiguration.InitialDatabaseThroughput != null)
-            {
-                options.Headers[_continuationTokenLimitHeaderName] = _cosmosDataStoreConfiguration.ContinuationTokenSizeLimitInKb?.ToString();
-            }
+            options.Headers[_continuationTokenLimitHeaderName] = _cosmosDataStoreConfiguration.ContinuationTokenSizeLimitInKb?.ToString();
 
             (ConsistencyLevel? consistencyLevel, string sessionToken) = GetConsistencyHeaders();
 
