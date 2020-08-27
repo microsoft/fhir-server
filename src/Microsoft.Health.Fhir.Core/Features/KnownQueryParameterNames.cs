@@ -67,5 +67,7 @@ namespace Microsoft.Health.Fhir.Core.Features
         public const string AnonymizationConfigurationLocation = "_anonymizationConfig";
 
         public const string AnonymizationConfigurationFileEtag = "_anonymizationConfigEtag";
+
+        public const string OutputFormat = "_outputFormat";
     }
 }
