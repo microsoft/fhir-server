@@ -5,9 +5,9 @@
 
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.V4
+namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.V3
 {
-    internal class ReferenceTokenCompositeSearchParameterRowGenerator : CompositeSearchParameterRowGenerator<(ReferenceSearchValue component1, TokenSearchValue component2), Schema.Model.V4.ReferenceTokenCompositeSearchParamTableTypeRow>
+    internal class ReferenceTokenCompositeSearchParameterRowGenerator : CompositeSearchParameterRowGenerator<(ReferenceSearchValue component1, TokenSearchValue component2), Schema.Model.V3.ReferenceTokenCompositeSearchParamTableTypeRow>
     {
         private readonly ReferenceSearchParameterRowGenerator _referenceRowGenerator;
         private readonly TokenSearchParameterRowGenerator _tokenRowGenerator;
@@ -22,12 +22,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.V4
             _tokenRowGenerator = tokenRowGenerator;
         }
 
-        internal override bool TryGenerateRow(short searchParamId, (ReferenceSearchValue component1, TokenSearchValue component2) searchValue, out Schema.Model.V4.ReferenceTokenCompositeSearchParamTableTypeRow row)
+        internal override bool TryGenerateRow(short searchParamId, (ReferenceSearchValue component1, TokenSearchValue component2) searchValue, out Schema.Model.V3.ReferenceTokenCompositeSearchParamTableTypeRow row)
         {
             if (_referenceRowGenerator.TryGenerateRow(default, searchValue.component1, out var reference1Row) &&
                 _tokenRowGenerator.TryGenerateRow(default, searchValue.component2, out var token2Row))
             {
-                row = new Schema.Model.V4.ReferenceTokenCompositeSearchParamTableTypeRow(
+                row = new Schema.Model.V3.ReferenceTokenCompositeSearchParamTableTypeRow(
                     searchParamId,
                     reference1Row.BaseUri,
                     reference1Row.ReferenceResourceTypeId,

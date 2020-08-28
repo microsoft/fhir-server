@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly SqlServerFhirModel _model;
         private readonly SearchParameterToSearchValueTypeMap _searchParameterTypeMap;
         private readonly VLatest.UpsertResourceTvpGenerator<ResourceMetadata> _upsertResourceTvpGeneratorVLatest;
-        private readonly V4.UpsertResourceTvpGenerator<ResourceMetadata> _upsertResourceTvpGeneratorV4;
+        private readonly V3.UpsertResourceTvpGenerator<ResourceMetadata> _upsertResourceTvpGeneratorV3;
         private readonly RecyclableMemoryStreamManager _memoryStreamManager;
         private readonly CoreFeatureConfiguration _coreFeatures;
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             SqlServerFhirModel model,
             SearchParameterToSearchValueTypeMap searchParameterTypeMap,
             VLatest.UpsertResourceTvpGenerator<ResourceMetadata> upsertResourceTvpGeneratorVLatest,
-            V4.UpsertResourceTvpGenerator<ResourceMetadata> upsertResourceTvpGeneratorV4,
+            V3.UpsertResourceTvpGenerator<ResourceMetadata> upsertResourceTvpGeneratorV3,
             IOptions<CoreFeatureConfiguration> coreFeatures,
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             ILogger<SqlServerFhirDataStore> logger,
@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             EnsureArg.IsNotNull(model, nameof(model));
             EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));
             EnsureArg.IsNotNull(upsertResourceTvpGeneratorVLatest, nameof(upsertResourceTvpGeneratorVLatest));
-            EnsureArg.IsNotNull(upsertResourceTvpGeneratorV4, nameof(upsertResourceTvpGeneratorV4));
+            EnsureArg.IsNotNull(upsertResourceTvpGeneratorV3, nameof(upsertResourceTvpGeneratorV3));
             EnsureArg.IsNotNull(coreFeatures, nameof(coreFeatures));
             EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _model = model;
             _searchParameterTypeMap = searchParameterTypeMap;
             _upsertResourceTvpGeneratorVLatest = upsertResourceTvpGeneratorVLatest;
-            _upsertResourceTvpGeneratorV4 = upsertResourceTvpGeneratorV4;
+            _upsertResourceTvpGeneratorV3 = upsertResourceTvpGeneratorV3;
             _coreFeatures = coreFeatures.Value;
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _logger = logger;
@@ -110,9 +110,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 stream.Seek(0, 0);
 
-                if (_schemaInformation.Current <= 4)
+                if (_schemaInformation.Current <= 3)
                 {
-                    V4.UpsertResource.PopulateCommand(
+                    V3.UpsertResource.PopulateCommand(
                     sqlCommandWrapper,
                     baseResourceSurrogateId: ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.UtcDateTime),
                     resourceTypeId: _model.GetResourceTypeId(resource.ResourceTypeName),
@@ -123,7 +123,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     keepHistory: keepHistory,
                     requestMethod: resource.Request.Method,
                     rawResource: stream,
-                    tableValuedParameters: _upsertResourceTvpGeneratorV4.Generate(resourceMetadata));
+                    tableValuedParameters: _upsertResourceTvpGeneratorV3.Generate(resourceMetadata));
                 }
                 else
                 {
@@ -208,9 +208,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             return null;
                         }
 
-                        if (_schemaInformation.Current <= 4)
+                        if (_schemaInformation.Current <= 3)
                         {
-                            var resourceTable = V4.Resource;
+                            var resourceTable = V3.Resource;
 
                             (long resourceSurrogateId, int version, bool isDeleted, bool isHistory, Stream rawResourceStream) = sqlDataReader.ReadRow(
                                 resourceTable.ResourceSurrogateId,

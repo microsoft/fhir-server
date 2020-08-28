@@ -5,18 +5,18 @@
 
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.V4
+namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.V3
 {
-    internal class StringSearchParameterRowGenerator : SearchParameterRowGenerator<StringSearchValue, Schema.Model.V4.StringSearchParamTableTypeRow>
+    internal class StringSearchParameterRowGenerator : SearchParameterRowGenerator<StringSearchValue, Schema.Model.V3.StringSearchParamTableTypeRow>
     {
-        private readonly int _indexedTextMaxLength = (int)Schema.Model.V4.StringSearchParam.Text.Metadata.MaxLength;
+        private readonly int _indexedTextMaxLength = (int)Schema.Model.V3.StringSearchParam.Text.Metadata.MaxLength;
 
         public StringSearchParameterRowGenerator(SqlServerFhirModel model)
             : base(model)
         {
         }
 
-        internal override bool TryGenerateRow(short searchParamId, StringSearchValue searchValue, out Schema.Model.V4.StringSearchParamTableTypeRow row)
+        internal override bool TryGenerateRow(short searchParamId, StringSearchValue searchValue, out Schema.Model.V3.StringSearchParamTableTypeRow row)
         {
             string indexedPrefix;
             string overflow;
@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.V4
                 overflow = null;
             }
 
-            row = new Schema.Model.V4.StringSearchParamTableTypeRow(searchParamId, indexedPrefix, overflow);
+            row = new Schema.Model.V3.StringSearchParamTableTypeRow(searchParamId, indexedPrefix, overflow);
             return true;
         }
     }

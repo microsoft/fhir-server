@@ -5,24 +5,24 @@
 
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.V4
+namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.V3
 {
-    internal class NumberSearchParameterRowGenerator : SearchParameterRowGenerator<NumberSearchValue, Schema.Model.V4.NumberSearchParamTableTypeRow>
+    internal class NumberSearchParameterRowGenerator : SearchParameterRowGenerator<NumberSearchValue, Schema.Model.V3.NumberSearchParamTableTypeRow>
     {
         public NumberSearchParameterRowGenerator(SqlServerFhirModel model)
             : base(model)
         {
         }
 
-        internal override bool TryGenerateRow(short searchParamId, NumberSearchValue searchValue, out Schema.Model.V4.NumberSearchParamTableTypeRow row)
+        internal override bool TryGenerateRow(short searchParamId, NumberSearchValue searchValue, out Schema.Model.V3.NumberSearchParamTableTypeRow row)
         {
             bool isSingleValue = searchValue.Low == searchValue.High;
 
-            row = new Schema.Model.V4.NumberSearchParamTableTypeRow(
+            row = new Schema.Model.V3.NumberSearchParamTableTypeRow(
                 searchParamId,
                 isSingleValue ? searchValue.Low : null,
-                isSingleValue ? null : searchValue.Low ?? (decimal?)Schema.Model.V4.NumberSearchParam.LowValue.MinValue,
-                isSingleValue ? null : searchValue.High ?? (decimal?)Schema.Model.V4.NumberSearchParam.HighValue.MaxValue);
+                isSingleValue ? null : searchValue.Low ?? (decimal?)Schema.Model.V3.NumberSearchParam.LowValue.MinValue,
+                isSingleValue ? null : searchValue.High ?? (decimal?)Schema.Model.V3.NumberSearchParam.HighValue.MaxValue);
 
             return true;
         }

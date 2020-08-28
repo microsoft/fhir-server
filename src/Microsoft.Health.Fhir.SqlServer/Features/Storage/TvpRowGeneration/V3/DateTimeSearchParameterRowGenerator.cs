@@ -7,9 +7,9 @@ using System;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.V4
+namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.V3
 {
-    internal class DateTimeSearchParameterRowGenerator : SearchParameterRowGenerator<DateTimeSearchValue, Schema.Model.V4.DateTimeSearchParamTableTypeRow>
+    internal class DateTimeSearchParameterRowGenerator : SearchParameterRowGenerator<DateTimeSearchValue, Schema.Model.V3.DateTimeSearchParamTableTypeRow>
     {
         private short _lastUpdatedSearchParamId;
 
@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.V4
         {
         }
 
-        internal override bool TryGenerateRow(short searchParamId, DateTimeSearchValue searchValue, out Schema.Model.V4.DateTimeSearchParamTableTypeRow row)
+        internal override bool TryGenerateRow(short searchParamId, DateTimeSearchValue searchValue, out Schema.Model.V3.DateTimeSearchParamTableTypeRow row)
         {
             if (searchParamId == _lastUpdatedSearchParamId)
             {
@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.V4
                 return false;
             }
 
-            row = new Schema.Model.V4.DateTimeSearchParamTableTypeRow(
+            row = new Schema.Model.V3.DateTimeSearchParamTableTypeRow(
                 searchParamId,
                 searchValue.Start,
                 searchValue.End,

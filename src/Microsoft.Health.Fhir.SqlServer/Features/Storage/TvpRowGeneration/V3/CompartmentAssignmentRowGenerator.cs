@@ -9,9 +9,9 @@ using EnsureThat;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.V4
+namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.V3
 {
-    internal class CompartmentAssignmentRowGenerator : ITableValuedParameterRowGenerator<ResourceMetadata, Schema.Model.V4.CompartmentAssignmentTableTypeRow>
+    internal class CompartmentAssignmentRowGenerator : ITableValuedParameterRowGenerator<ResourceMetadata, Schema.Model.V3.CompartmentAssignmentTableTypeRow>
     {
         private readonly SqlServerFhirModel _model;
         private bool _initialized;
@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.V4
             _model = model;
         }
 
-        public IEnumerable<Schema.Model.V4.CompartmentAssignmentTableTypeRow> GenerateRows(ResourceMetadata resourceMetadata)
+        public IEnumerable<Schema.Model.V3.CompartmentAssignmentTableTypeRow> GenerateRows(ResourceMetadata resourceMetadata)
         {
             EnsureInitialized();
 
@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.V4
             {
                 foreach (var entry in compartments.PatientCompartmentEntry)
                 {
-                    yield return new Schema.Model.V4.CompartmentAssignmentTableTypeRow(_patientCompartmentId, entry);
+                    yield return new Schema.Model.V3.CompartmentAssignmentTableTypeRow(_patientCompartmentId, entry);
                 }
             }
 
@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.V4
             {
                 foreach (var entry in compartments.EncounterCompartmentEntry)
                 {
-                    yield return new Schema.Model.V4.CompartmentAssignmentTableTypeRow(_encounterCompartmentId, entry);
+                    yield return new Schema.Model.V3.CompartmentAssignmentTableTypeRow(_encounterCompartmentId, entry);
                 }
             }
 
@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.V4
             {
                 foreach (var entry in compartments.RelatedPersonCompartmentEntry)
                 {
-                    yield return new Schema.Model.V4.CompartmentAssignmentTableTypeRow(_relatedPersonCompartmentId, entry);
+                    yield return new Schema.Model.V3.CompartmentAssignmentTableTypeRow(_relatedPersonCompartmentId, entry);
                 }
             }
 
@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.V4
             {
                 foreach (var entry in compartments.PractitionerCompartmentEntry)
                 {
-                    yield return new Schema.Model.V4.CompartmentAssignmentTableTypeRow(_practitionerCompartmentId, entry);
+                    yield return new Schema.Model.V3.CompartmentAssignmentTableTypeRow(_practitionerCompartmentId, entry);
                 }
             }
 
@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.V4
             {
                 foreach (var entry in compartments.DeviceCompartmentEntry)
                 {
-                    yield return new Schema.Model.V4.CompartmentAssignmentTableTypeRow(_deviceCompartmentId, entry);
+                    yield return new Schema.Model.V3.CompartmentAssignmentTableTypeRow(_deviceCompartmentId, entry);
                 }
             }
         }

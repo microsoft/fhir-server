@@ -6,9 +6,9 @@
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.V4
+namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.V3
 {
-    internal class TokenSearchParameterRowGenerator : SearchParameterRowGenerator<TokenSearchValue, Schema.Model.V4.TokenSearchParamTableTypeRow>
+    internal class TokenSearchParameterRowGenerator : SearchParameterRowGenerator<TokenSearchValue, Schema.Model.V3.TokenSearchParamTableTypeRow>
     {
         private short _resourceIdSearchParamId;
 
@@ -17,7 +17,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.V4
         {
         }
 
-        internal override bool TryGenerateRow(short searchParamId, TokenSearchValue searchValue, out Schema.Model.V4.TokenSearchParamTableTypeRow row)
+        internal override bool TryGenerateRow(short searchParamId, TokenSearchValue searchValue, out Schema.Model.V3.TokenSearchParamTableTypeRow row)
         {
             // don't store if the code is empty or if this is the Resource _id parameter. The id is already maintained on the Resource table.
             if (string.IsNullOrWhiteSpace(searchValue.Code) ||
@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration.V4
                 return false;
             }
 
-            row = new Schema.Model.V4.TokenSearchParamTableTypeRow(
+            row = new Schema.Model.V3.TokenSearchParamTableTypeRow(
                 searchParamId,
                 searchValue.System == null ? (int?)null : Model.GetSystemId(searchValue.System),
                 searchValue.Code);
