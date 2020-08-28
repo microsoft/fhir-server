@@ -19,6 +19,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
     {
         private string _cteMainSelect; // This is represents the CTE that is the main selector for use with includes
         private List<string> _includeCtes;
+        private Dictionary<string, List<string>> _includeCtesByTargetType; // ctes of each include value, by their resource type
+
+        private const int MaxRecursionDepth = 5;
+
+        private int _curRecursionDepth = 0;
+
+        // Include:iterate may be applied on results from multiple ctes
+        private List<string> _fromCtes;
+        private int _curFromCteIndex = -1;
         private readonly bool _isHistorySearch;
         private int _tableExpressionCounter = -1;
         private SqlRootExpression _rootExpression;
@@ -79,7 +88,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
             else
             {
-                StringBuilder.Append("SELECT ");
+                StringBuilder.Append("SELECT DISTINCT ");
 
                 if (expression.TableExpressions.Count == 0)
                 {
@@ -357,7 +366,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                     var table = !includeExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias;
                     StringBuilder.Append(VLatest.Resource.ResourceSurrogateId, table);
-                    StringBuilder.AppendLine(" AS Sid1, 0 AS IsMatch ");
+                    StringBuilder.AppendLine(" AS Sid1, 1 AS IsMatch, 0 AS IsPartial ");
 
                     StringBuilder.Append("FROM ").Append(VLatest.ReferenceSearchParam).Append(' ').AppendLine(referenceSourceTableAlias)
                         .Append("INNER JOIN ").Append(VLatest.Resource).Append(' ').AppendLine(referenceTargetResourceTableAlias);
@@ -392,12 +401,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ResourceTypeId, table)
                             .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.ResourceTypeId, Model.GetResourceTypeId(includeExpression.ResourceType)));
 
+                        if (_includeCtesByTargetType == null)
+                        {
+                            _includeCtesByTargetType = new Dictionary<string, List<string>>();
+                        }
+
+                        string fromCte = _cteMainSelect;
+                        if (includeExpression.Iterate)
+                        {
+                            // _include:iterate may appear without a preceding _include, in case of circular reference
+                            // On that case, the fromCte is _cteMainSelect
+                            if (TryGetIncludeCtes(includeExpression.ResourceType, out _fromCtes))
+                            {
+                                fromCte = includeExpression.Circular ? _fromCtes[_fromCtes.Count - 1] : _fromCtes[++_curFromCteIndex];
+                            }
+                        }
+
                         // Limit the join to the main select CTE.
                         // The main select will have max+1 items in the result set to account for paging, so we only want to join using the max amount.
                         delimited.BeginDelimitedElement().Append(VLatest.Resource.ResourceSurrogateId, table)
                             .Append(" IN (SELECT TOP(")
                             .Append(Parameters.AddParameter(context.MaxItemCount))
-                            .Append(") Sid1 FROM ").Append(_cteMainSelect).Append(")");
+                            .Append(") Sid1 FROM ").Append(fromCte).Append(")");
                     }
 
                     if (_includeCtes == null)
@@ -412,10 +437,59 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         _cteToLimit.Add(_tableExpressionCounter);
                     }
 
+                    // Update target reference cte dictionary
+                    var curCte = TableExpressionName(_tableExpressionCounter);
+                    _includeCtes.Add(curCte);
+
+                    // Add current cte to the dictionary
+                    if (includeExpression.ReferenceSearchParameter != null)
+                    {
+                        // A specific target type is provided as the 3rd part of include value
+                        if (includeExpression.TargetResourceType != null)
+                        {
+                            AddIncludeCte(includeExpression.TargetResourceType, curCte);
+                        }
+                        else if (includeExpression.ReferenceSearchParameter.TargetResourceTypes != null)
+                        {
+                            // A specific target type is not provided, add all valid target resource types
+                            foreach (var t in includeExpression.ReferenceSearchParameter.TargetResourceTypes)
+                            {
+                                AddIncludeCte(t, curCte);
+                            }
+                        }
+                    }
+
+                    // Handle recursive (circular) _include:iterate (cte for first level has already been created)
+                    if (includeExpression.Circular)
+                    {
+                        if (++_curRecursionDepth < MaxRecursionDepth)
+                        {
+                            StringBuilder.Append($"),{Environment.NewLine}");
+                            StringBuilder.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
+                            tableExpression.AcceptVisitor(this, context);
+                        }
+                        else
+                        {
+                            // Reset circular depth for following recursions
+                            _curRecursionDepth = 0;
+                        }
+                    }
+                    else if (_fromCtes != null && _fromCtes.Count > 1 && _curFromCteIndex < _fromCtes.Count - 1)
+                    {
+                        StringBuilder.Append($"),{Environment.NewLine}");
+                        StringBuilder.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
+                        tableExpression.AcceptVisitor(this, context);
+                    }
+                    else
+                    {
+                        _curFromCteIndex = -1;
+                    }
+
                     break;
                 case TableExpressionKind.IncludeLimit:
                     StringBuilder.Append("SELECT DISTINCT ");
 
+                    // TODO: We should limit Include as well for the same reason, even though it is less risky than _revinclude. Also useful for :include:iterate, especially if recursive.
                     var isRev = _cteToLimit.Contains(_tableExpressionCounter - 1);
                     if (isRev)
                     {
@@ -521,6 +595,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 StringBuilder.Append(VLatest.Resource.IsHistory, tableAlias).Append(" = 0");
             }
+        }
+
+        private void AddIncludeCte(string resourceType, string cte)
+        {
+            _includeCtesByTargetType ??= new Dictionary<string, List<string>>();
+            List<string> ctes;
+            if (!_includeCtesByTargetType.TryGetValue(resourceType, out ctes))
+            {
+                _includeCtesByTargetType.Add(resourceType, new List<string>());
+            }
+
+            _includeCtesByTargetType[resourceType].Add(cte);
+        }
+
+        private bool TryGetIncludeCtes(string resourceType, out List<string> ctes)
+        {
+            if (_includeCtesByTargetType == null)
+            {
+                ctes = null;
+                return false;
+            }
+
+            return _includeCtesByTargetType.TryGetValue(resourceType, out ctes);
         }
 
         /// <summary>

@@ -27,19 +27,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return expression;
             }
 
-            bool containsInclude = false;
+            List<TableExpression> reorderedExpressions = expression.TableExpressions.OrderByDescending(t => t, new TableExpressionComparer()).ToList();
 
-            List<TableExpression> reorderedExpressions = expression.TableExpressions.OrderByDescending(t =>
-            {
-                switch (t.SearchParameterQueryGenerator)
-                {
-                    case IncludeQueryGenerator _:
-                        containsInclude = true;
-                        return 0;
-                    default:
-                        return 10;
-                }
-            }).ToList();
+            bool containsInclude = expression.TableExpressions.AsEnumerable().Where(e => e.SearchParameterQueryGenerator is IncludeQueryGenerator).Any();
 
             // We are adding an extra CTE after each include cte, so we traverse the ordered
             // list from the end and add a limit expression after each include expression
@@ -61,6 +51,50 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             }
 
             return new SqlRootExpression(reorderedExpressions, expression.DenormalizedExpressions);
+        }
+
+        private class TableExpressionComparer : IComparer<TableExpression>
+        {
+            public int Compare(TableExpression x, TableExpression y)
+            {
+                if (x.SearchParameterQueryGenerator is IncludeQueryGenerator)
+                {
+                    if (!(y.SearchParameterQueryGenerator is IncludeQueryGenerator))
+                    {
+                        return -1;
+                    }
+
+                    // Both expressions are Include expressions
+                    var xInclude = (IncludeExpression)(IncludeExpression)x.NormalizedPredicate;
+                    var yInclude = (IncludeExpression)(IncludeExpression)y.NormalizedPredicate;
+
+                    if (!xInclude.Iterate && yInclude.Iterate)
+                    {
+                        return 1;
+                    }
+
+                    if (xInclude.Iterate && !yInclude.Iterate)
+                    {
+                        return -1;
+                    }
+
+                    // Both expressions are Include:iterate expressions, order so that _include:iterate source type will appear after relevant include target
+                    var xTargetTypes = !string.IsNullOrEmpty(xInclude.TargetResourceType) ? new List<string>() { xInclude.TargetResourceType } : xInclude.ReferenceSearchParameter.TargetResourceTypes;
+
+                    if (xTargetTypes.Contains(yInclude.ResourceType))
+                    {
+                        return 1;
+                    }
+
+                    return 0;
+                }
+                else if (!(y.SearchParameterQueryGenerator is IncludeQueryGenerator))
+                {
+                    return 0;
+                }
+
+                return 1;
+            }
         }
     }
 }

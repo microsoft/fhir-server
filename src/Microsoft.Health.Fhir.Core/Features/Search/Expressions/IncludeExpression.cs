@@ -21,7 +21,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <param name="targetResourceType">The target type of the reference.</param>
         /// <param name="wildCard">If this is a wildcard reference include (include all referenced resources).</param>
         /// <param name="reversed">If this is a reversed include (revinclude) expression.</param>
-        public IncludeExpression(string resourceType, SearchParameterInfo referenceSearchParameter, string targetResourceType, bool wildCard, bool reversed)
+        /// <param name="iterate"> If :iterate (:recurse) modifer was applied.</param>
+        public IncludeExpression(string resourceType, SearchParameterInfo referenceSearchParameter, string targetResourceType, bool wildCard, bool reversed, bool iterate)
         {
             EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
 
@@ -35,6 +36,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             TargetResourceType = targetResourceType;
             WildCard = wildCard;
             Reversed = reversed;
+            Iterate = iterate;
+            SetCircular();
         }
 
         /// <summary>
@@ -57,10 +60,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// </summary>
         public bool WildCard { get; }
 
-        /// <summary>
         /// Get if the expression is reversed.
         /// </summary>
         public bool Reversed { get; }
+
+        /// <summary>
+        /// Gets if the include has :iterate (:recurse) modifier.
+        /// </summary>
+        public bool Iterate { get; }
+
+        /// <summary>
+        /// Gets if the include is circular (target reference is of the same resource type, e.g., Organization:partof)
+        /// </summary>
+        public bool Circular { get; private set; }
 
         public override TOutput AcceptVisitor<TContext, TOutput>(IExpressionVisitor<TContext, TOutput> visitor, TContext context)
         {
@@ -77,7 +89,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             }
 
             var targetType = TargetResourceType != null ? $":{TargetResourceType}" : string.Empty;
-            return $"({(Reversed ? "Reverse " : string.Empty)}Include {ReferenceSearchParameter.Name}{targetType})";
+            var iterate = Iterate ? "Iterate" : string.Empty;
+            var reversed = Reversed ? "Reversed" : string.Empty;
+            return $"({reversed} Include {iterate} {ReferenceSearchParameter.Name}{targetType})";
+        }
+
+        /// <summary>
+        /// Returns if the include expression is circular (target reference is of the same resource type, e.g., Organization:partof)
+        private void SetCircular()
+        {
+            Circular = false;
+
+            if (TargetResourceType != null)
+            {
+                Circular = ResourceType == TargetResourceType;
+            }
+            else if (ReferenceSearchParameter?.TargetResourceTypes != null)
+            {
+                foreach (var t in ReferenceSearchParameter.TargetResourceTypes)
+                {
+                    if (t == ResourceType)
+                    {
+                        Circular = true;
+                        return;
+                    }
+                }
+            }
         }
     }
 }

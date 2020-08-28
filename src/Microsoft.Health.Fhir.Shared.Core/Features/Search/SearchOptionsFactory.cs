@@ -28,6 +28,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private static readonly Regex Base64FormatRegex = new Regex("^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$", RegexOptions.Compiled | RegexOptions.Singleline);
         private static readonly string SupportedTotalTypes = $"'{TotalType.Accurate}', '{TotalType.None}'".ToLower(CultureInfo.CurrentCulture);
 
+        private static readonly List<string> IncludeIterateModifiers = new List<string> { "_include:iterate", "_include:recurse" };
+        private static readonly List<string> RevIncludeIterateModifiers = new List<string> { "_revinclude:iterate", "_revinclude:recurse" };
+
         private readonly IExpressionParser _expressionParser;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ILogger _logger;
@@ -194,16 +197,39 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             if (searchParams.Include?.Count > 0)
             {
                 searchExpressions.AddRange(searchParams.Include.Select(
-                    q => _expressionParser.ParseInclude(parsedResourceType.ToString(), q, false /* not reversed */))
+                    q => _expressionParser.ParseInclude(parsedResourceType.ToString(), q, false /* not reversed */, false))
                     .Where(item => item != null));
             }
 
             if (searchParams.RevInclude?.Count > 0)
             {
                 searchExpressions.AddRange(searchParams.RevInclude.Select(
-                    q => _expressionParser.ParseInclude(parsedResourceType.ToString(), q, true /* reversed */))
+                    q => _expressionParser.ParseInclude(parsedResourceType.ToString(), q, true /* reversed */, false))
                     .Where(item => item != null));
             }
+
+            // Parse _include:iterate (_include:recurse) parameters.
+            // :iterate (:recurse) modifiers are not supported by Hl7.Fhir.Rest, hence not added to the Include collection and exist in the Parameters list.
+            // See https://github.com/FirelyTeam/fhir-net-api/issues/222
+            // _include:iterate (_include:recurse) expression may appear without a preceding _include parameter
+            // when applied on a circular reference
+            searchExpressions.AddRange(ParseIncludeIterateExpressions(searchParams, false /* reversed */));
+            searchExpressions.AddRange(ParseIncludeIterateExpressions(searchParams, true /* reversed */));
+
+            /* searchExpressions.AddRange(searchParams.Parameters
+                .Where(p => p != null && IncludeIterateModifiers.Where(m => string.Equals(p.Item1, m, StringComparison.OrdinalIgnoreCase)).Any())
+                .Select(p =>
+                {
+                    ResourceType parsedIncludeResourceType = ResourceType.DomainResource;
+                    var includeResourceType = p.Item2.Split(':')[0];
+                    if (!string.IsNullOrWhiteSpace(includeResourceType) &&
+                        !Enum.TryParse(includeResourceType, out parsedIncludeResourceType))
+                    {
+                        throw new ResourceNotSupportedException(includeResourceType);
+                    }
+
+                    return _expressionParser.ParseInclude(parsedIncludeResourceType.ToString(), p.Item2, true);
+                })); */
 
             if (!string.IsNullOrWhiteSpace(compartmentType))
             {
@@ -275,6 +301,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
 
             return searchOptions;
+
+            IEnumerable<IncludeExpression> ParseIncludeIterateExpressions(SearchParams searchParams, bool reversed)
+            {
+                var iterateModifiers = reversed ? RevIncludeIterateModifiers : IncludeIterateModifiers;
+
+                return searchParams.Parameters
+                .Where(p => p != null && iterateModifiers.Where(m => string.Equals(p.Item1, m, StringComparison.OrdinalIgnoreCase)).Any())
+                .Select(p =>
+                {
+                    ResourceType parsedIncludeResourceType = ResourceType.DomainResource;
+                    var includeResourceType = p.Item2.Split(':')[0];
+                    if (!string.IsNullOrWhiteSpace(includeResourceType) &&
+                        !Enum.TryParse(includeResourceType, out parsedIncludeResourceType))
+                    {
+                        throw new ResourceNotSupportedException(includeResourceType);
+                    }
+
+                    return _expressionParser.ParseInclude(parsedIncludeResourceType.ToString(), p.Item2, reversed, true);
+                });
+            }
 
             void ValidateTotalType(TotalType totalType)
             {
