@@ -36,7 +36,37 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         {
             var exportController = GetController(new ExportJobConfiguration() { Enabled = false });
 
-            await Assert.ThrowsAsync<RequestNotValidException>(() => exportController.Export(since: null, resourceType: null, containerName: null, anonymizationConfigLocation: null, anonymizationConfigFileETag: null));
+            await Assert.ThrowsAsync<RequestNotValidException>(() => exportController.Export(
+                since: null,
+                resourceType: null,
+                containerName: null,
+                anonymizationConfigLocation: null,
+                anonymizationConfigFileETag: null));
+        }
+
+        [Fact]
+        public async Task GivenAnExportByResourceTypeRequest_WhenDisabled_ThenRequestNotValidExceptionShouldBeThrown()
+        {
+            var exportController = GetController(new ExportJobConfiguration() { Enabled = false });
+
+            await Assert.ThrowsAsync<RequestNotValidException>(() => exportController.ExportResourceType(
+                since: null,
+                resourceType: null,
+                containerName: null,
+                typeParameter: ResourceType.Patient.ToString()));
+        }
+
+        [Fact]
+        public async Task GivenAnExportByIdRequest_WhenDisabled_ThenRequestNotValidExceptionShouldBeThrown()
+        {
+            var exportController = GetController(new ExportJobConfiguration() { Enabled = false });
+
+            await Assert.ThrowsAsync<RequestNotValidException>(() => exportController.ExportResourceTypeById(
+                since: null,
+                resourceType: null,
+                containerName: null,
+                typeParameter: ResourceType.Group.ToString(),
+                idParameter: "id"));
         }
 
         [Fact]

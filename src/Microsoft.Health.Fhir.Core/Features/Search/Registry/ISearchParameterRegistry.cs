@@ -8,10 +8,10 @@ using System.Threading.Tasks;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 {
-    public interface ISearchParameterStatusDataStore
+    public interface ISearchParameterRegistry
     {
         Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses();
 
-        Task UpsertStatuses(IEnumerable<ResourceSearchParameterStatus> statuses);
+        Task UpdateStatuses(IEnumerable<ResourceSearchParameterStatus> statuses);
     }
 }

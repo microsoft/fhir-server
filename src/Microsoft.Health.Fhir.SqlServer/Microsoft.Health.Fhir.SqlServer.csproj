@@ -10,20 +10,16 @@
     <None Remove="Features\Schema\Migrations\2.sql" />
     <None Remove="Features\Schema\Migrations\3.diff.sql" />
     <None Remove="Features\Schema\Migrations\3.sql" />
-    <None Remove="Features\Schema\Migrations\4.diff.sql" />
-    <None Remove="Features\Schema\Migrations\4.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\1.sql" />
-    <EmbeddedResource Include="Features\Schema\Migrations\2.diff.sql" />
-    <EmbeddedResource Include="Features\Schema\Migrations\2.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\3.diff.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\3.sql" />
-    <EmbeddedResource Include="Features\Schema\Migrations\4.diff.sql" />
-    <EmbeddedResource Include="Features\Schema\Migrations\4.sql" />
-    <GenerateFilesInputs Include="Features\Schema\Migrations\4.sql" />
+    <EmbeddedResource Include="Features\Schema\Migrations\2.diff.sql" />
+    <EmbeddedResource Include="Features\Schema\Migrations\2.sql" />
+    <GenerateFilesInputs Include="Features\Schema\Migrations\2.sql" />
     <Generated Include="Features\Schema\Model\VLatest.Generated.cs">
       <Generator>SqlModelGenerator</Generator>
       <Namespace>Microsoft.Health.Fhir.SqlServer.Features.Schema.Model</Namespace>
-      <Args>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)\Features\Schema\Migrations\4.sql'))</Args>
+      <Args>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)\Features\Schema\Migrations\3.sql'))</Args>
     </Generated>
   </ItemGroup>
 
@@ -33,10 +29,10 @@
     <PackageReference Include="Microsoft.Health.SqlServer" Version="1.0.0-master-20200812-1" />
     <PackageReference Include="Microsoft.Health.SqlServer.Api" Version="1.0.0-master-20200812-1" />
     <PackageReference Include="Microsoft.Health.Extensions.BuildTimeCodeGenerator" Version="1.0.0-master-20200812-1" />
-    <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" Version="1.3.2" />
+    <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" Version="1.3.5" />
     <PackageReference Include="Microsoft.SqlServer.SqlManagementObjects" Version="150.18208.0" />
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions" Version="3.1.7" />
-    <PackageReference Include="System.Data.SqlClient" Version="4.8.0" />
+    <PackageReference Include="System.Data.SqlClient" Version="4.8.2" />
   </ItemGroup>
 
   <ItemGroup>
@@ -56,9 +52,5 @@
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Features\Schema\Model" />
   </ItemGroup>
 </Project>
