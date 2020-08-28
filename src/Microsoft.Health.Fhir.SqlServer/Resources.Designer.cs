@@ -79,6 +79,15 @@ namespace Microsoft.Health.Fhir.SqlServer {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Search parameter status information should not be null..
+        /// </summary>
+        internal static string SearchParameterStatusShouldNotBeNull {
+            get {
+                return ResourceManager.GetString("SearchParameterStatusShouldNotBeNull", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to There was an internal server error while processing the transaction..
         /// </summary>
         internal static string TransactionProcessingException {

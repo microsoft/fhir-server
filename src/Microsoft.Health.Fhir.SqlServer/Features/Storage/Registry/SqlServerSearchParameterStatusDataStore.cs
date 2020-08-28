@@ -8,13 +8,11 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
-using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Client;
@@ -75,6 +73,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                             VLatest.SearchParam.LastUpdated,
                             VLatest.SearchParam.IsPartiallySupported);
 
+                        if (string.IsNullOrEmpty(stringStatus) || lastUpdated == null || isPartiallySupported == null)
+                        {
+                            // These columns are nullable because they are added to dbo.SearchParam in a later schema version.
+                            // They should be populated as soon as they are added to the table and should never be null.
+                            throw new NullReferenceException(Resources.SearchParameterStatusShouldNotBeNull);
+                        }
+
                         var status = Enum.Parse<SearchParameterStatus>(stringStatus, true);
 
                         var resourceSearchParameterStatus = new ResourceSearchParameterStatus()
@@ -99,7 +104,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
 
             if (_schemaInformation.Current < 4)
             {
-                throw new NotImplementedException(Resources.SchemaVersionNeedsUpgrading);
+                throw new BadRequestException(Resources.SchemaVersionNeedsUpgrading);
             }
 
             using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory())
