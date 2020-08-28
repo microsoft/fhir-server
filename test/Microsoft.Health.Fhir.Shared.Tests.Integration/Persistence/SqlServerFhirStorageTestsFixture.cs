@@ -83,7 +83,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             SqlServerSearchParameterStatusDataStore = new SqlServerSearchParameterStatusDataStore(
                 () => SqlConnectionWrapperFactory.CreateMockScope(),
-                upsertSearchParamsTvpGenerator);
+                upsertSearchParamsTvpGenerator,
+                () => _filebasedSearchParameterStatusDataStore,
+                schemaInformation);
 
             _fhirDataStore = new SqlServerFhirDataStore(config, sqlServerFhirModel, searchParameterToSearchValueTypeMap, upsertResourceTvpGenerator, Options.Create(new CoreFeatureConfiguration()), SqlConnectionWrapperFactory, NullLogger<SqlServerFhirDataStore>.Instance);
 
