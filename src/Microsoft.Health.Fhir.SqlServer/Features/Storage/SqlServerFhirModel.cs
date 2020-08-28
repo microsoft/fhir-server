@@ -340,7 +340,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     tableValuedParameter.SqlDbType = SqlDbType.Structured;
                     tableValuedParameter.TypeName = "dbo.SearchParamTableType_1";
 
-                    sqlCommand.ExecuteScalar();
+                    sqlCommand.ExecuteNonQuery();
                 }
             }
         }
