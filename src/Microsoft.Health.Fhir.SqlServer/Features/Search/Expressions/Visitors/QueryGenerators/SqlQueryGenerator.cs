@@ -366,7 +366,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                     var table = !includeExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias;
                     StringBuilder.Append(VLatest.Resource.ResourceSurrogateId, table);
-                    StringBuilder.AppendLine(" AS Sid1, 1 AS IsMatch, 0 AS IsPartial ");
+                    StringBuilder.AppendLine(" AS Sid1, 0 AS IsMatch ");
 
                     StringBuilder.Append("FROM ").Append(VLatest.ReferenceSearchParam).Append(' ').AppendLine(referenceSourceTableAlias)
                         .Append("INNER JOIN ").Append(VLatest.Resource).Append(' ').AppendLine(referenceTargetResourceTableAlias);
@@ -413,7 +413,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                             // On that case, the fromCte is _cteMainSelect
                             if (TryGetIncludeCtes(includeExpression.ResourceType, out _fromCtes))
                             {
-                                fromCte = includeExpression.Circular ? _fromCtes[_fromCtes.Count - 1] : _fromCtes[++_curFromCteIndex];
+                                fromCte = includeExpression.Recursive ? _fromCtes[_fromCtes.Count - 1] : _fromCtes[++_curFromCteIndex];
                             }
                         }
 
@@ -439,7 +439,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                     // Update target reference cte dictionary
                     var curCte = TableExpressionName(_tableExpressionCounter);
-                    _includeCtes.Add(curCte);
+
+                    // TODO: Add limits to each recursive include
+                    if (includeExpression.Iterate && includeExpression.Recursive)
+                    {
+                        _includeCtes.Add(curCte);
+                    }
 
                     // Add current cte to the dictionary
                     if (includeExpression.ReferenceSearchParameter != null)
@@ -460,7 +465,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     }
 
                     // Handle recursive (circular) _include:iterate (cte for first level has already been created)
-                    if (includeExpression.Circular)
+                    if (includeExpression.Recursive)
                     {
                         if (++_curRecursionDepth < MaxRecursionDepth)
                         {

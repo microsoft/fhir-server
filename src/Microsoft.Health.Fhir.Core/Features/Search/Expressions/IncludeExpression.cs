@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             WildCard = wildCard;
             Reversed = reversed;
             Iterate = iterate;
-            SetCircular();
+            SetRecursive();
         }
 
         /// <summary>
@@ -70,9 +70,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         public bool Iterate { get; }
 
         /// <summary>
-        /// Gets if the include is circular (target reference is of the same resource type, e.g., Organization:partof)
+        /// Gets if the include is recursive (i.e., circular reference: target reference is of the same resource type, e.g., Organization:partof)
         /// </summary>
-        public bool Circular { get; private set; }
+        public bool Recursive { get; private set; }
 
         public override TOutput AcceptVisitor<TContext, TOutput>(IExpressionVisitor<TContext, TOutput> visitor, TContext context)
         {
@@ -96,13 +96,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
         /// <summary>
         /// Returns if the include expression is circular (target reference is of the same resource type, e.g., Organization:partof)
-        private void SetCircular()
+        private void SetRecursive()
         {
-            Circular = false;
+            Recursive = false;
 
             if (TargetResourceType != null)
             {
-                Circular = ResourceType == TargetResourceType;
+                Recursive = ResourceType == TargetResourceType;
             }
             else if (ReferenceSearchParameter?.TargetResourceTypes != null)
             {
@@ -110,7 +110,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 {
                     if (t == ResourceType)
                     {
-                        Circular = true;
+                        Recursive = true;
                         return;
                     }
                 }
