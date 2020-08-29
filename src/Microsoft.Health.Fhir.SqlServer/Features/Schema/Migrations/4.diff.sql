@@ -4,9 +4,9 @@
 
 ALTER TABLE dbo.SearchParam
 ADD
-    Status varchar(10) NOT NULL,
-    LastUpdated datetimeoffset(7) NOT NULL,
-    IsPartiallySupported bit NOT NULL
+    Status varchar(10) NULL,
+    LastUpdated datetimeoffset(7) NULL,
+    IsPartiallySupported bit NULL
 
 CREATE TYPE dbo.SearchParamTableType_1 AS TABLE
 (

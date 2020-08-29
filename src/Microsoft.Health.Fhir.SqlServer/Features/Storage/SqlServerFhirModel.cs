@@ -38,6 +38,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     {
         private readonly SqlServerDataStoreConfiguration _configuration;
         private readonly SchemaInitializer _schemaInitializer;
+        private readonly SchemaInformation _schemaInformation;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ISearchParameterStatusDataStore _filebasedSearchParameterStatusDataStore;
         private readonly SecurityConfiguration _securityConfiguration;
@@ -54,6 +55,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public SqlServerFhirModel(
             SqlServerDataStoreConfiguration configuration,
             SchemaInitializer schemaInitializer,
+            SchemaInformation schemaInformation,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
             FilebasedSearchParameterStatusDataStore.Resolver filebasedRegistry,
             IOptions<SecurityConfiguration> securityConfiguration,
@@ -61,6 +63,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             EnsureArg.IsNotNull(configuration, nameof(configuration));
             EnsureArg.IsNotNull(schemaInitializer, nameof(schemaInitializer));
+            EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(filebasedRegistry, nameof(filebasedRegistry));
             EnsureArg.IsNotNull(securityConfiguration?.Value, nameof(securityConfiguration));
@@ -68,6 +71,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             _configuration = configuration;
             _schemaInitializer = schemaInitializer;
+            _schemaInformation = schemaInformation;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _filebasedSearchParameterStatusDataStore = filebasedRegistry.Invoke();
             _securityConfiguration = securityConfiguration.Value;
@@ -170,12 +174,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         -- result set 1
                         SELECT ResourceTypeId, Name FROM dbo.ResourceType;
 
-                        DECLARE @lastUpdated datetimeoffset(7) = SYSDATETIMEOFFSET()
-
-                        INSERT INTO dbo.SearchParam (Uri, Status, LastUpdated, IsPartiallySupported)
-                        SELECT sps.Uri, sps.Status, @lastUpdated, sps.IsPartiallySupported FROM @searchParamStatuses AS sps
-                        LEFT OUTER JOIN dbo.SearchParam sp ON sps.Uri = sp.Uri
-                        WHERE sp.Uri IS NULL
+                        INSERT INTO dbo.SearchParam (Uri)
+                        SELECT * FROM  OPENJSON (@searchParams) 
+                        WITH (Uri varchar(128) '$.Uri')
+                        EXCEPT SELECT Uri FROM dbo.SearchParam
 
                         -- result set 2
                         SELECT Uri, SearchParamId FROM dbo.SearchParam;
@@ -202,18 +204,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         -- result set 6
                         SELECT Value, QuantityCodeId FROM dbo.QuantityCode";
 
+                    string searchParametersJson = JsonConvert.SerializeObject(_searchParameterDefinitionManager.AllSearchParameters.Select(p => new { Name = p.Name, Uri = p.Url }));
                     string commaSeparatedResourceTypes = string.Join(",", ModelInfoProvider.GetResourceTypeNames());
                     string commaSeparatedClaimTypes = string.Join(',', _securityConfiguration.PrincipalClaims);
                     string commaSeparatedCompartmentTypes = string.Join(',', ModelInfoProvider.GetCompartmentTypeNames());
-                    IEnumerable<ResourceSearchParameterStatus> statuses = _filebasedSearchParameterStatusDataStore.GetSearchParameterStatuses().GetAwaiter().GetResult();
 
+                    sqlCommand.Parameters.AddWithValue("@searchParams", searchParametersJson);
                     sqlCommand.Parameters.AddWithValue("@resourceTypes", commaSeparatedResourceTypes);
                     sqlCommand.Parameters.AddWithValue("@claimTypes", commaSeparatedClaimTypes);
                     sqlCommand.Parameters.AddWithValue("@compartmentTypes", commaSeparatedCompartmentTypes);
-
-                    SqlParameter tableValuedParameter = sqlCommand.Parameters.AddWithValue("@searchParamStatuses", CreateSqlDataRecords(statuses));
-                    tableValuedParameter.SqlDbType = SqlDbType.Structured;
-                    tableValuedParameter.TypeName = "dbo.SearchParamTableType_1";
 
                     using (SqlDataReader reader = sqlCommand.ExecuteReader(CommandBehavior.SequentialAccess))
                     {
@@ -286,10 +285,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         _quantityCodeToId = quantityCodeToId;
                         _claimNameToId = claimNameToId;
                         _compartmentTypeToId = compartmentTypeToId;
-
-                        _started = true;
                     }
                 }
+
+                // Search parameter statuses are only supported in version four and higher.
+                if (_schemaInformation.Current >= 4)
+                {
+                    InitializeSearchParameterStatusInformation();
+                }
+
+                _started = true;
             }
         }
 
@@ -307,6 +312,36 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 record.SetString(1, status.Status.ToString());
                 record.SetSqlBoolean(2, status.IsPartiallySupported);
                 yield return record;
+            }
+        }
+
+        private void InitializeSearchParameterStatusInformation()
+        {
+            using (var connection = new SqlConnection(_configuration.ConnectionString))
+            {
+                connection.Open();
+
+                using (SqlCommand sqlCommand = connection.CreateCommand())
+                {
+                    sqlCommand.CommandText = @"
+                        SET XACT_ABORT ON
+                        BEGIN TRANSACTION
+                        DECLARE @lastUpdated datetimeoffset(7) = SYSDATETIMEOFFSET()
+    
+                        UPDATE dbo.SearchParam
+                        SET Status = sps.Status, LastUpdated = @lastUpdated, IsPartiallySupported = sps.IsPartiallySupported
+                        FROM dbo.SearchParam INNER JOIN @searchParamStatuses as sps
+                        ON dbo.SearchParam.Uri = sps.Uri
+                        COMMIT TRANSACTION";
+
+                    IEnumerable<ResourceSearchParameterStatus> statuses = _filebasedSearchParameterStatusDataStore.GetSearchParameterStatuses().GetAwaiter().GetResult();
+
+                    SqlParameter tableValuedParameter = sqlCommand.Parameters.AddWithValue("@searchParamStatuses", CreateSqlDataRecords(statuses));
+                    tableValuedParameter.SqlDbType = SqlDbType.Structured;
+                    tableValuedParameter.TypeName = "dbo.SearchParamTableType_1";
+
+                    sqlCommand.ExecuteNonQuery();
+                }
             }
         }
 
