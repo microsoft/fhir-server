@@ -26,6 +26,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search
 
         public override IDeepCopyable DeepCopy()
         {
+            if (Resource != null)
+            {
+                return base.DeepCopy();
+            }
+
             throw new NotImplementedException();
         }
     }
