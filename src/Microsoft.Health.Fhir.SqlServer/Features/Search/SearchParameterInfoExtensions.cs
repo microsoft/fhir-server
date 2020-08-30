@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features;
@@ -15,8 +16,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private static readonly IList<string> SupportedSortParameters = new List<string>
             {
                 KnownQueryParameterNames.LastUpdated,
-                KnownQueryParameterNames.BirthDate,
             };
+
+        static SearchParameterInfoExtensions()
+        {
+            Array.ForEach(SupportedSortParameterNames.Names, item => SupportedSortParameters.Add(item));
+        }
 
         public static bool IsSortSupported(this SearchParameterInfo searchParameterInfo)
         {
