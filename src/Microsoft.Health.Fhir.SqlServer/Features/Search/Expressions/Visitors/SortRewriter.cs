@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 
@@ -29,6 +30,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             // Proceed if we sort params were requested.
             if (context.Sort.Count == 0)
+            {
+                return expression;
+            }
+
+            // _lastUpdated sort param is handled differently than others, because it's can be
+            // infered dorectly from the resource table itself.
+            if (context.Sort[0].searchParameterInfo.Name == KnownQueryParameterNames.LastUpdated)
             {
                 return expression;
             }

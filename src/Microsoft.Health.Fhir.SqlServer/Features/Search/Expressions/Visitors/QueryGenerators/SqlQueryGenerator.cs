@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using EnsureThat;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -123,11 +124,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             if (!searchOptions.CountOnly)
             {
                 var (searchParamInfo, sortOrder) = searchOptions.GetFirstSupportedSortParam();
-
-                StringBuilder.Append("ORDER BY ")
-                    .Append(searchParamInfo == null ? string.Empty : $"{TableExpressionName(_tableExpressionCounter)}.SortExpr, ")
+                if (searchParamInfo == null || searchParamInfo.Name == KnownQueryParameterNames.LastUpdated)
+                {
+                    StringBuilder.Append("ORDER BY ")
                     .Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).Append(" ")
                     .AppendLine(sortOrder == SortOrder.Ascending ? "ASC" : "DESC");
+                }
+                else
+                {
+                    // TODO: should Sid1 be ordered by ASC/DESC if other sort param is requested?
+                    StringBuilder.Append("ORDER BY ")
+                    .Append($"{TableExpressionName(_tableExpressionCounter)}.SortExpr ")
+                    .Append(sortOrder == SortOrder.Ascending ? "ASC" : "DESC").Append(", ")
+                    .Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).AppendLine(" ASC ");
+                }
             }
 
             StringBuilder.Append("OPTION(RECOMPILE)");
@@ -242,13 +252,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     var (paramInfo, sort) = context.GetFirstSupportedSortParam();
                     FindRestrictingPredecessorTableExpressionIndex();
                     var tableExpressionName = TableExpressionName(_tableExpressionCounter - 1);
-                    var sortExpression = paramInfo == null ? null : $"{tableExpressionName}.SortExpr";
+                    var sortExpression = (paramInfo == null || paramInfo.Name == KnownQueryParameterNames.LastUpdated) ? null : $"{tableExpressionName}.SortExpr";
 
                     // Everything in the top expression is considered a match
                     StringBuilder.Append("SELECT DISTINCT TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1)).Append(") Sid1, 1 AS IsMatch ")
                         .AppendLine(sortExpression == null ? string.Empty : $", {sortExpression}")
                         .Append("FROM ").AppendLine(tableExpressionName)
-                        .AppendLine($"ORDER BY {(sortExpression == null ? string.Empty : $"{sortExpression} {(sort == SortOrder.Ascending ? "ASC" : "DESC")}, ")} Sid1 {(sortOrder == SortOrder.Ascending ? "ASC" : "DESC")}");
+                        .AppendLine($"ORDER BY {(sortExpression == null ? string.Empty : $"{sortExpression} {(sort == SortOrder.Ascending ? "ASC" : "DESC")}, ")} Sid1 {((sortExpression != null || sortOrder == SortOrder.Ascending) ? "ASC" : "DESC")}");
 
                     // For any includes, the source of the resource surrogate ids to join on is saved
                     _cteMainSelect = TableExpressionName(_tableExpressionCounter);
@@ -424,27 +434,30 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         sortColumnName = VLatest.DateTimeSearchParam.StartDateTime;
                     }
 
-                    StringBuilder.Append("SELECT ").Append(VLatest.Resource.ResourceSurrogateId, null).Append(" AS Sid1, ")
-                        .Append(sortColumnName, null).AppendLine(" as SortExpr")
-                        .Append("FROM ").AppendLine(tableExpression.SearchParameterQueryGenerator.Table);
-
-                    using (var delimited = StringBuilder.BeginDelimitedWhereClause())
+                    if (!string.IsNullOrEmpty(sortColumnName) && tableExpression.SearchParameterQueryGenerator != null)
                     {
-                        AppendHistoryClause(delimited);
+                        StringBuilder.Append("SELECT ").Append(VLatest.Resource.ResourceSurrogateId, null).Append(" AS Sid1, ")
+                            .Append(sortColumnName, null).AppendLine(" as SortExpr")
+                            .Append("FROM ").AppendLine(tableExpression.SearchParameterQueryGenerator.Table);
 
-                        if (tableExpression.DenormalizedPredicate != null)
+                        using (var delimited = StringBuilder.BeginDelimitedWhereClause())
                         {
-                            delimited.BeginDelimitedElement();
-                            tableExpression.DenormalizedPredicate?.AcceptVisitor(DispatchingDenormalizedSearchParameterQueryGenerator.Instance, GetContext());
-                        }
+                            AppendHistoryClause(delimited);
 
-                        if (tableExpression.NormalizedPredicate != null)
-                        {
-                            delimited.BeginDelimitedElement();
-                            tableExpression.NormalizedPredicate.AcceptVisitor(tableExpression.SearchParameterQueryGenerator, GetContext());
-                        }
+                            if (tableExpression.DenormalizedPredicate != null)
+                            {
+                                delimited.BeginDelimitedElement();
+                                tableExpression.DenormalizedPredicate?.AcceptVisitor(DispatchingDenormalizedSearchParameterQueryGenerator.Instance, GetContext());
+                            }
 
-                        AppendIntersectionWithPredecessor(delimited, tableExpression);
+                            if (tableExpression.NormalizedPredicate != null)
+                            {
+                                delimited.BeginDelimitedElement();
+                                tableExpression.NormalizedPredicate.AcceptVisitor(tableExpression.SearchParameterQueryGenerator, GetContext());
+                            }
+
+                            AppendIntersectionWithPredecessor(delimited, tableExpression);
+                        }
                     }
 
                     break;
