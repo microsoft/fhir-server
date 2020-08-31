@@ -93,6 +93,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         // uncomment only when db cleanup happens on each run, otherwise the paging might cause expected resources to not arrive
         /*[Fact]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
         public async Task GivenQueryWithNoFilter_WhenSearchedWithSortParam_ThenResourcesAreReturnedInAscendingOrder()
         {
             var tag = Guid.NewGuid().ToString();
@@ -107,6 +108,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }*/
 
         [Fact]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
         public async Task GivenQueryWithDatetimeFilter_WhenSearchedWithSortParamOnDatetime_ThenResourcesAreReturnedInAscendingOrder()
         {
             var tag = Guid.NewGuid().ToString();
@@ -131,6 +133,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
         public async Task GivenQueryWithTagFilter_WhenSearchedWithSortParamOnDatetime_ThenResourcesAreReturnedInAscendingOrder()
         {
             var tag = Guid.NewGuid().ToString();
@@ -144,6 +147,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
         public async Task GivenQueryWithMultipleFilters_WhenSearchedWithSortParamOnDatetime_ThenResourcesAreReturnedInAscendingOrder()
         {
             var tag = Guid.NewGuid().ToString();
