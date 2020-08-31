@@ -101,17 +101,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         {
             Recursive = false;
 
-            if (TargetResourceType != null)
+            if (Iterate)
             {
-                Recursive = ReferenceSearchParameter != null && ReferenceSearchParameter.IsBaseResourceType(TargetResourceType);
-            }
-            else if (ReferenceSearchParameter?.TargetResourceTypes != null)
-            {
-                // Todo (limorl) Use Intersect / Contains
-                foreach (var t in ReferenceSearchParameter.TargetResourceTypes)
+                if (TargetResourceType != null)
                 {
-                    // if (ReferenceSearchParameter.IsBaseResourceType(t))
-                    if (ResourceType == t)
+                    Recursive = ResourceType == TargetResourceType;
+                }
+                else if (ReferenceSearchParameter?.TargetResourceTypes != null)
+                {
+                    if (new List<string>(ReferenceSearchParameter.TargetResourceTypes).Contains(ResourceType))
                     {
                         Recursive = true;
                         return;

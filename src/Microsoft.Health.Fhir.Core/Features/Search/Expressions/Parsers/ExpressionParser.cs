@@ -101,9 +101,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(originalType.ToString(), searchParam.ToString());
             }
 
-            // This is a BUG. It assumes the domain resource type is the same as the include search parameter resource type
-            // return new IncludeExpression(resourceType, refSearchParameter, targetType, wildCard, isReversed, iterate);
-            return new IncludeExpression(originalType.ToString(), refSearchParameter, targetType, wildCard, isReversed, iterate);
+            // Open issue on using resourceType instead of originalType:
+            // https://github.com/microsoft/fhir-server/issues/1236
+            return new IncludeExpression(resourceType, refSearchParameter, targetType, wildCard, isReversed, iterate);
         }
 
         private Expression ParseImpl(string resourceType, ReadOnlySpan<char> key, string value)

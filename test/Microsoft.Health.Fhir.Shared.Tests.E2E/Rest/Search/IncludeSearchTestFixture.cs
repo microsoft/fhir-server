@@ -31,7 +31,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
                     },
             };
 
-            Medication = TestFhirClient.CreateAsync(new Medication { Meta = meta, Code = new CodeableConcept("http://snomed.info/sct", "16590-619-30", "Percocet tablet") }).Result.Resource;
+            PercocetMedication = TestFhirClient.CreateAsync(new Medication { Meta = meta, Code = new CodeableConcept("http://snomed.info/sct", "16590-619-30", "Percocet tablet") }).Result.Resource;
+            TramadolMedication = TestFhirClient.CreateAsync(new Medication { Meta = meta, Code = new CodeableConcept("http://snomed.info/sct", "108505002", "Tramadol hydrochloride (substance)") }).Result.Resource;
             Organization = TestFhirClient.CreateAsync(new Organization { Meta = meta, Address = new List<Address> { new Address { City = "Seattle" } } }).Result.Resource;
             Practitioner = TestFhirClient.CreateAsync(new Practitioner { Meta = meta }).Result.Resource;
 
@@ -62,13 +63,13 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
             SmithLoincDiagnosticReport = CreateDiagnosticReport(SmithPatient, SmithLoincObservation, loincCode);
             TrumanLoincDiagnosticReport = CreateDiagnosticReport(TrumanPatient, TrumanLoincObservation, loincCode);
 
-            AdamsMedicationRequest = CreateMedicationRequest(AdamsPatient);
-            SmithMedicationRequest = CreateMedicationRequest(SmithPatient);
-            TrumanMedicationRequest = CreateMedicationRequest(TrumanPatient);
+            AdamsMedicationRequest = CreateMedicationRequest(AdamsPatient, PercocetMedication);
+            SmithMedicationRequest = CreateMedicationRequest(SmithPatient, PercocetMedication);
+            TrumanMedicationRequest = CreateMedicationRequest(TrumanPatient, PercocetMedication);
 
-            AdamsMedicationDispense = CreateMedicationDispense(AdamsMedicationRequest, AdamsPatient, Organization);
-            SmithMedicationDispense = CreateMedicationDispense(SmithMedicationRequest, SmithPatient, Organization);
-            TrumanMedicationDispense = CreateMedicationDispense(TrumanMedicationRequest, TrumanPatient, Organization);
+            AdamsMedicationDispense = CreateMedicationDispense(AdamsMedicationRequest, AdamsPatient, TramadolMedication, Organization);
+            SmithMedicationDispense = CreateMedicationDispense(SmithMedicationRequest, SmithPatient, TramadolMedication, Organization);
+            TrumanMedicationDispense = CreateMedicationDispense(TrumanMedicationRequest, TrumanPatient, TramadolMedication, Organization);
 
             CareTeam = CreateCareTeam();
 
@@ -137,7 +138,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
                     }).Result.Resource;
             }
 
-            MedicationDispense CreateMedicationDispense(MedicationRequest medicationRequest, Patient patient, Organization organization)
+            MedicationDispense CreateMedicationDispense(MedicationRequest medicationRequest, Patient patient, Medication medication, Organization organization)
             {
                return TestFhirClient.CreateAsync(
                     new MedicationDispense
@@ -158,11 +159,11 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
 #if R5
                         Medication = new CodeableReference
                         {
-                            Concept = new CodeableConcept("http://snomed.info/sct", "16590-619-30", "Percocet tablet"),
-                            Reference = new ResourceReference($"Medication/{Medication.Id}"),
+                            Concept = medication.Code, // new CodeableConcept("http://snomed.info/sct", "16590-619-30", "Percocet tablet"),
+                            Reference = new ResourceReference($"Medication/{medication.Id}"),
                         },
 #else
-                        Medication = new CodeableConcept("http://snomed.info/sct", "16590-619-30", "Percocet tablet"),
+                        Medication = medication.Code, // new CodeableConcept("http://snomed.info/sct", "16590-619-30", "Percocet tablet"),
 #endif
 #if Stu3
                         Status = MedicationDispense.MedicationDispenseStatus.InProgress,
@@ -172,7 +173,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
                     }).Result.Resource;
             }
 
-            MedicationRequest CreateMedicationRequest(Patient patient)
+            MedicationRequest CreateMedicationRequest(Patient patient, Medication medication)
             {
                 return TestFhirClient.CreateAsync(
                     new MedicationRequest
@@ -195,11 +196,11 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
 #if R5
                         Medication = new CodeableReference
                         {
-                            Concept = new CodeableConcept("http://snomed.info/sct", "16590-619-30", "Percocet tablet"),
-                            Reference = new ResourceReference($"Medication/{Medication.Id}"),
+                            Concept = medication.Code, // new CodeableConcept("http://snomed.info/sct", "16590-619-30", "Percocet tablet"),
+                            Reference = new ResourceReference($"Medication/{medication.Id}"),
                         },
 #else
-                        Medication = new CodeableConcept("http://snomed.info/sct", "16590-619-30", "Percocet tablet"),
+                        Medication = medication.Code, // new CodeableConcept("http://snomed.info/sct", "16590-619-30", "Percocet tablet"),
 #endif
                     }).Result.Resource;
             }
@@ -224,7 +225,9 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
 
         public CareTeam CareTeam { get; }
 
-        public Medication Medication { get; }
+        public Medication PercocetMedication { get; }
+
+        public Medication TramadolMedication { get; }
 
         public Organization Organization { get; }
 

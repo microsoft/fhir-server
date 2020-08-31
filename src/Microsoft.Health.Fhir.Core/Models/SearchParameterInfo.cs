@@ -95,25 +95,5 @@ namespace Microsoft.Health.Fhir.Core.Models
         public bool IsPartiallySupported { get; set; }
 
         public IReadOnlyList<SearchParameterComponentInfo> Component { get; }
-
-        /// <summary>
-        /// Returns true if BaseResourceTypes contains the given type
-        /// </summary>
-        /// <param name="type">A resource type</param>
-        public bool IsBaseResourceType(string type)
-        {
-            if (BaseResourceTypes != null)
-            {
-                foreach (var t in BaseResourceTypes)
-                {
-                    if (t == type)
-                    {
-                        return true;
-                    }
-                }
-            }
-
-            return false;
-        }
     }
 }
