@@ -226,12 +226,26 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateSearchEntryMode(bundle, ResourceType.Observation);
         }
 
+        [Fact]
+        public async Task GivenAnIncludeSearchExpressionWithIncludeResourceTypeNotAsEntryMode_WhenSearched_ThenCorrectBundleShouldBeReturnedAndIncludeIsIgnored()
+        {
+            string query = $"_include=MedicationDispense:patient&_tag={Fixture.Tag}";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.MedicationRequest, query);
+
+            ValidateBundle(
+                bundle,
+                Fixture.AdamsMedicationRequest,
+                Fixture.SmithMedicationRequest,
+                Fixture.TrumanMedicationRequest);
+        }
+
         // RevInclude
         [Fact]
         public async Task GivenARevIncludeSearchExpression_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             // Ask for reverse include to get all Locations which reference an org
-            string query = $"_revinclude=Location:organization&_tag={Fixture.Tag}";
+            string query = $"_revinclude=Location:organization&_id={Fixture.Organization.Id}&_tag={Fixture.Tag}";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.Organization, query);
 
@@ -394,7 +408,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         // Include Iterate
 
         [Fact]
-        public async Task GivenAnNonRecursiveIncludeIterateSearchExpressionWithSingleIteration_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
+        public async Task GivenANonRecursiveIncludeIterateSearchExpressionWithSingleIteration_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
             // Non-recursive iteration- Single iteration (_include:iterate)
             string query = $"_include=MedicationDispense:prescription&_include:iterate=MedicationRequest:patient&_tag={Fixture.Tag}";
@@ -417,7 +431,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
-        public async Task GivenAnNonRecursiveIncludeRecurseSearchExpressionWithSingleIteration_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
+        public async Task GivenANonRecursiveIncludeRecurseSearchExpressionWithSingleIteration_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
             // Non-recursive iteration- Single iteration (_include:recurse)
             string query = $"_include=MedicationDispense:prescription&_include:recurse=MedicationRequest:patient&_tag={Fixture.Tag}";
@@ -440,7 +454,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact] // FAIL with _tag
-        public async Task GivenAnNonRecursiveIncludeIterateSearchExpressionWithWithSearchAdditionalParameters_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
+        public async Task GivenANonRecursiveIncludeIterateSearchExpressionWithAdditionalParameters_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
             // Non-recursive iteration- Single iteration (_include:iterate)
             string query = $"_include=MedicationDispense:prescription&_include:iterate=MedicationRequest:patient&_id={Fixture.AdamsMedicationDispense.Id}";
@@ -455,6 +469,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             ValidateSearchEntryMode(bundle, ResourceType.MedicationDispense);
         }
+
+        /*[Fact]
+        public async Task GivenANonRecursiveIncludeIterateSearchExpressionWithOrphanIncludeeIterate_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
+        {
+            string query = $"_include=MedicationDispense:prescription&_include:iterate=Patient:general-practitioner&_tag={Fixture.Tag}";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.MedicationDispense, query);
+
+            ValidateBundle(
+                bundle,
+                Fixture.AdamsMedicationDispense,
+                Fixture.SmithMedicationDispense,
+                Fixture.TrumanMedicationDispense,
+                Fixture.AdamsMedicationRequest,
+                Fixture.SmithMedicationRequest,
+                Fixture.TrumanMedicationRequest);
+
+            ValidateSearchEntryMode(bundle, ResourceType.MedicationDispense);
+        }*/
 
         [Fact]
         public async Task GivenANonRecursiveIncludeIterateSearchExpressionWithMultipleIterations_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
@@ -536,11 +569,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateSearchEntryMode(bundle, ResourceType.MedicationDispense);
         }
 
-        [Fact] // Recursive???
+        [Fact]
         public async Task GivenANonRecursiveIncludeIterateSearchExpressionWithMultitypeArrayReference_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
             // Non-recursive iteration - Reference array of multiple target types: CareTeam:participant of type Patient, Practitioner, Organization, etc.
-            string query = $"_include=CareTeam:participant&_include:iterate=Patient:general-practitioner&_tag={Fixture.Tag}";
+            string query = $"_include=CareTeam:participant:Patient&_include:iterate=Patient:general-practitioner&_tag={Fixture.Tag}";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.CareTeam, query);
 
@@ -550,8 +583,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.AdamsPatient,
                 Fixture.SmithPatient,
                 Fixture.TrumanPatient,
-                Fixture.Organization,
-                Fixture.Practitioner,
                 Fixture.AndersonPractitioner,
                 Fixture.SanchezPractitioner,
                 Fixture.TaylorPractitioner);
@@ -633,7 +664,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateSearchEntryMode(bundle, ResourceType.MedicationDispense);
         }
 
-        [Fact]
+        /*[Fact]
         public async Task GivenARecursiveIncludeIterateSearchExpressionWithRecursionLevelEqualToMaxRecursionDepth_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
             // Recursive iteration - Circular reference Organization:partof
@@ -696,7 +727,30 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
-        public async Task GivenAnIncludeIterateSearchExpressionWithIncludeIterateWithoutResultSet_WhenSearched_TheIterativeExpressionIsIgnored()
+        public async Task GivenARecursiveIncludeIterateSearchExpressionWithMultitypeArrayReference_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
+        {
+            // Non-recursive iteration - Reference array of multiple target types: CareTeam:participant of type Patient, CareTeam, Practitioner, Organization, etc.
+            string query = $"_include=CareTeam:participant&_include:iterate=Patient:general-practitioner&_tag={Fixture.Tag}";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.CareTeam, query);
+
+            ValidateBundle(
+                bundle,
+                Fixture.CareTeam,
+                Fixture.AdamsPatient,
+                Fixture.SmithPatient,
+                Fixture.TrumanPatient,
+                Fixture.Organization,
+                Fixture.Practitioner,
+                Fixture.AndersonPractitioner,
+                Fixture.SanchezPractitioner,
+                Fixture.TaylorPractitioner);
+
+            ValidateSearchEntryMode(bundle, ResourceType.CareTeam);
+        }*/
+
+        /*[Fact]
+        public async Task GivenAnIncludeIterateSearchExpressionWithOrphanRecursiveIncludeIterate_WhenSearched_TheIterativeExpressionIsIgnored()
         {
             // Include Iterate without relevant result set
             string query = $"_include=MedicationDispense:patient&_include:iterate=Organization:partof&_tag={Fixture.Tag}";
@@ -713,7 +767,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.TrumanPatient);
 
             ValidateSearchEntryMode(bundle, ResourceType.MedicationDispense);
-        }
+        }*/
 
         // This will not work for recursive queries (circular reference)
         private static void ValidateSearchEntryMode(Bundle bundle, ResourceType matchResourceType)

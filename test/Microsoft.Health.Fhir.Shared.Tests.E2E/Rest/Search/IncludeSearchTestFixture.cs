@@ -75,12 +75,12 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
             Location = TestFhirClient.CreateAsync(new Location
             {
                 ManagingOrganization = new ResourceReference($"Organization/{Organization.Id}"),
-                Meta = new Meta { Tag = new List<Coding> { new Coding("testTag", Tag) } },
+                Meta = meta,
             }).Result.Resource;
 
             var group = new Group
             {
-                Meta = new Meta { Tag = new List<Coding> { new Coding("testTag", Tag) } },
+                Meta = meta,
                 Type = Group.GroupType.Person, Actual = true,
                 Member = new List<Group.MemberComponent>
                     {

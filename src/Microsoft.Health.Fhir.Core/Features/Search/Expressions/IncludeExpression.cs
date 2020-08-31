@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -95,20 +96,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         }
 
         /// <summary>
-        /// Returns if the include expression is circular (target reference is of the same resource type, e.g., Organization:partof)
+        /// Returns if the include expression is Recursive (target reference is of the same as base resource type, e.g., Organization:partof)
         private void SetRecursive()
         {
             Recursive = false;
 
             if (TargetResourceType != null)
             {
-                Recursive = ResourceType == TargetResourceType;
+                Recursive = ReferenceSearchParameter != null && ReferenceSearchParameter.IsBaseResourceType(TargetResourceType);
             }
             else if (ReferenceSearchParameter?.TargetResourceTypes != null)
             {
+                // Todo (limorl) Use Intersect / Contains
                 foreach (var t in ReferenceSearchParameter.TargetResourceTypes)
                 {
-                    if (t == ResourceType)
+                    // if (ReferenceSearchParameter.IsBaseResourceType(t))
+                    if (ResourceType == t)
                     {
                         Recursive = true;
                         return;
