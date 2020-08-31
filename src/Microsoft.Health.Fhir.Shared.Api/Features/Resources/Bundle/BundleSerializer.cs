@@ -18,6 +18,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly JsonWriterOptions _writerOptions = new JsonWriterOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
         private readonly RecyclableMemoryStreamManager _memoryStreamManager = new RecyclableMemoryStreamManager();
 
+        private const string DateTimeOffsetFormat = "yyyy-MM-dd'T'HH:mm:ss.FFFFFFFK";
+
         public BundleSerializer()
         {
         }
@@ -56,7 +58,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                     if (bundle.Meta != null)
                     {
                         writer.WriteStartObject("meta");
-                        writer.WriteString("lastUpdated", bundle.Meta?.LastUpdated?.ToString("o"));
+                        writer.WriteString("lastUpdated", bundle.Meta?.LastUpdated?.ToString(DateTimeOffsetFormat));
                         writer.WriteEndObject();
                     }
                 }
@@ -114,6 +116,26 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                             {
                                 writer.WriteStartObject("search");
                                 writer.WriteString("mode", rawBundleEntry.Search?.Mode?.GetLiteral());
+                                writer.WriteEndObject();
+                            }
+
+                            if (rawBundleEntry.Request != null)
+                            {
+                                writer.WriteStartObject("request");
+
+                                writer.WriteString("method", rawBundleEntry.Request.Method.GetLiteral());
+                                writer.WriteString("url", rawBundleEntry.Request.Url);
+
+                                writer.WriteEndObject();
+                            }
+
+                            if (rawBundleEntry.Response != null)
+                            {
+                                writer.WriteStartObject("response");
+
+                                writer.WriteString("etag", rawBundleEntry.Response.Etag);
+                                writer.WriteString("lastModified", rawBundleEntry.Response.LastModified?.ToString(DateTimeOffsetFormat));
+
                                 writer.WriteEndObject();
                             }
 

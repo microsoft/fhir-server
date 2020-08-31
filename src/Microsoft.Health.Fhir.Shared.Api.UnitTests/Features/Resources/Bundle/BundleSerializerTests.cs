@@ -119,10 +119,21 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Resources.Bundle
                 var poco = resource.ToPoco();
                 poco.VersionId = "1";
                 poco.Meta.LastUpdated = Clock.UtcNow;
+                poco.Meta.Tag = new List<Hl7.Fhir.Model.Coding>
+                {
+                    new Hl7.Fhir.Model.Coding { System = "testTag", Code = Guid.NewGuid().ToString() },
+                };
                 var wrapper = _wrapperFactory.Create(poco.ToResourceElement(), deleted: false, keepMeta: true);
                 wrapper.Version = "1";
-                rawBundle.Entry.Add(new RawBundleEntryComponent(wrapper));
-                bundle.Entry.Add(new EntryComponent { Resource = poco });
+
+                var requestComponent = new RequestComponent { Method = HTTPVerb.POST, Url = "patient/" };
+                var responseComponent = new ResponseComponent { Etag = "W/\"1\"", LastModified = DateTimeOffset.UtcNow };
+                rawBundle.Entry.Add(new RawBundleEntryComponent(wrapper)
+                {
+                    Request = requestComponent,
+                    Response = responseComponent,
+                });
+                bundle.Entry.Add(new EntryComponent { Resource = poco, Request = requestComponent, Response = responseComponent });
             }
 
             return (rawBundle, bundle);
