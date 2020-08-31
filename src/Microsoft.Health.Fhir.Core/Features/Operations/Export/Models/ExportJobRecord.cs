@@ -24,10 +24,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             string hash,
             IReadOnlyCollection<KeyValuePair<string, string>> requestorClaims = null,
             PartialDateTime since = null,
+            string groupId = null,
             string storageAccountConnectionHash = null,
             string storageAccountUri = null,
+            string anonymizationConfigurationLocation = null,
+            string anonymizationConfigurationFileETag = null,
             uint maximumNumberOfResourcesPerQuery = 100,
-            uint numberOfPagesPerCommit = 10)
+            uint numberOfPagesPerCommit = 10,
+            string storageAccountContainerName = null)
         {
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
             EnsureArg.IsNotNullOrWhiteSpace(hash, nameof(hash));
@@ -38,10 +42,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             ResourceType = resourceType;
             RequestorClaims = requestorClaims;
             Since = since;
+            GroupId = groupId;
             StorageAccountConnectionHash = storageAccountConnectionHash;
             StorageAccountUri = storageAccountUri;
             MaximumNumberOfResourcesPerQuery = maximumNumberOfResourcesPerQuery;
             NumberOfPagesPerCommit = numberOfPagesPerCommit;
+
+            AnonymizationConfigurationLocation = anonymizationConfigurationLocation;
+            AnonymizationConfigurationFileETag = anonymizationConfigurationFileETag;
 
             // Default values
             SchemaVersion = 1;
@@ -49,6 +57,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             Status = OperationStatus.Queued;
 
             QueuedTime = Clock.UtcNow;
+
+            if (string.IsNullOrWhiteSpace(storageAccountContainerName))
+            {
+                StorageAccountContainerName = Id;
+            }
+            else
+            {
+                StorageAccountContainerName = storageAccountContainerName;
+            }
         }
 
         [JsonConstructor]
@@ -83,6 +100,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         [JsonProperty(JobRecordProperties.Since)]
         public PartialDateTime Since { get; private set; }
 
+        [JsonProperty(JobRecordProperties.GroupId)]
+        public string GroupId { get; private set; }
+
         [JsonProperty(JobRecordProperties.StorageAccountConnectionHash)]
         public string StorageAccountConnectionHash { get; private set; }
 
@@ -98,5 +118,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
         [JsonProperty(JobRecordProperties.NumberOfPagesPerCommit)]
         public uint NumberOfPagesPerCommit { get; private set; }
+
+        [JsonProperty(JobRecordProperties.StorageAccountContainerName)]
+        public string StorageAccountContainerName { get; private set; }
+
+        [JsonProperty(JobRecordProperties.AnonymizationConfigurationLocation)]
+        public string AnonymizationConfigurationLocation { get; private set; }
+
+        [JsonProperty(JobRecordProperties.AnonymizationConfigurationFileETag)]
+        public string AnonymizationConfigurationFileETag { get; private set; }
     }
 }

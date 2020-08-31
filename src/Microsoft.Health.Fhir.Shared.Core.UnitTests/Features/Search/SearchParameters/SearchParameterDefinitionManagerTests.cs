@@ -6,10 +6,13 @@
 using System;
 using System.Threading.Tasks;
 using MediatR;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.UnitTests.Features.Context;
 using Microsoft.Health.Fhir.ValueSets;
 using NSubstitute;
 using Xunit;
@@ -23,6 +26,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private static readonly string ResourceProfile = "http://hl7.org/fhir/SearchParameter/Resource-profile";
         private static readonly string ResourceSecurity = "http://hl7.org/fhir/SearchParameter/Resource-security";
         private static readonly string ResourceQuery = "http://hl7.org/fhir/SearchParameter/Resource-query";
+        private static readonly string ResourceTest = "http://hl7.org/fhir/SearchParameter/Resource-test";
 
         private readonly SearchParameterStatusManager _manager;
         private readonly ISearchParameterRegistry _searchParameterRegistry;
@@ -30,7 +34,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private readonly IMediator _mediator;
         private readonly SearchParameterInfo[] _searchParameterInfos;
         private readonly SearchParameterInfo _queryParameter;
+        private readonly SearchParameterInfo _testSearchParamInfo;
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver;
+        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
+        private readonly IFhirRequestContext _fhirRequestContext = new DefaultFhirRequestContext();
 
         public SearchParameterDefinitionManagerTests()
         {
@@ -38,6 +45,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _mediator = Substitute.For<IMediator>();
             _searchParameterRegistry = Substitute.For<ISearchParameterRegistry>();
             _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance);
+            _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
+            _fhirRequestContextAccessor.FhirRequestContext.Returns(_fhirRequestContext);
 
             _manager = new SearchParameterStatusManager(
                 _searchParameterRegistry,
@@ -81,6 +90,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 _queryParameter,
             };
 
+            _testSearchParamInfo = new SearchParameterInfo("_test", SearchParamType.Special, new Uri(ResourceTest));
+
             _searchParameterSupportResolver
                 .IsSearchParameterSupported(Arg.Any<SearchParameterInfo>())
                 .Returns((false, false));
@@ -88,12 +99,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _searchParameterSupportResolver
                 .IsSearchParameterSupported(Arg.Is(_searchParameterInfos[4]))
                 .Returns((true, false));
+
+            _searchParameterDefinitionManager.Start();
         }
 
         [Fact]
         public async Task GivenSupportedParams_WhenGettingSupported_ThenSupportedParamsReturned()
         {
-            _searchParameterDefinitionManager.Start();
             await _manager.EnsureInitialized();
             var supportedDefinitionManager = new SupportedSearchParameterDefinitionManager(_searchParameterDefinitionManager);
             var paramList = supportedDefinitionManager.GetSupportedButNotSearchableParams();
@@ -109,9 +121,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public async Task GivenSearchableParams_WhenGettingSearchable_ThenCorrectParamsReturned()
         {
-            _searchParameterDefinitionManager.Start();
             await _manager.EnsureInitialized();
-            var searchableDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager);
+            var searchableDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor);
             var paramList = searchableDefinitionManager.AllSearchParameters;
 
             Assert.Collection(
@@ -126,6 +137,132 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                     Assert.True(p2.IsSupported);
                     Assert.True(p2.IsSearchable);
                 });
+        }
+
+        [Fact]
+        public async Task GivenContextToIncludePatialIndexedParams_WhenGettingSearchable_ThenCorrectParamsReturned()
+        {
+            await _manager.EnsureInitialized();
+            _fhirRequestContext.IncludePartiallyIndexedSearchParams = true;
+            var searchableDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor);
+            var paramList = searchableDefinitionManager.AllSearchParameters;
+
+            Assert.Collection(
+                paramList,
+                p =>
+                {
+                    Assert.True(p.IsSupported);
+                    Assert.True(p.IsSearchable);
+                },
+                p2 =>
+                {
+                    Assert.True(p2.IsSupported);
+                    Assert.True(p2.IsSearchable);
+                },
+                p3 =>
+                {
+                    Assert.True(p3.IsSupported);
+                    Assert.False(p3.IsSearchable);
+                });
+
+            _fhirRequestContext.IncludePartiallyIndexedSearchParams = false;
+        }
+
+        [Fact]
+        public async Task GivenNoHeaderForPatiallyIndexedParams_WhenSearchingSupportedParameterByName_ThenExceptionThrown()
+        {
+            await _manager.EnsureInitialized();
+            _fhirRequestContext.IncludePartiallyIndexedSearchParams = false;
+            var searchableDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor);
+
+            Assert.Throws<SearchParameterNotSupportedException>(() => searchableDefinitionManager.GetSearchParameter(new Uri(ResourceSecurity)));
+
+            _fhirRequestContext.IncludePartiallyIndexedSearchParams = false;
+        }
+
+        [Fact]
+        public async Task GivenHeaderToIncludePatialIndexedParams_WhenSearchingSupportedParameterByName_ThenSupportedParamsReturned()
+        {
+            await _manager.EnsureInitialized();
+            _fhirRequestContext.IncludePartiallyIndexedSearchParams = true;
+            var searchableDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor);
+
+            var param = searchableDefinitionManager.GetSearchParameter(new Uri(ResourceSecurity));
+            SearchParameterInfo expectedSearchParam = _searchParameterInfos[3];
+            ValidateSearchParam(expectedSearchParam, param);
+
+            _fhirRequestContext.IncludePartiallyIndexedSearchParams = false;
+        }
+
+        [Fact]
+        public void GivenASearchParameterDefinitionManager_WhenGettingExistingSearchParameterByName_CorrectParameterIsReturned()
+        {
+            SearchParameterInfo expectedSearchParam = _searchParameterInfos[0];
+            SearchParameterInfo actualSearchParam = _searchParameterDefinitionManager.GetSearchParameter(
+                "SearchParameter",
+                expectedSearchParam.Name);
+
+            ValidateSearchParam(expectedSearchParam, actualSearchParam);
+        }
+
+        [Fact]
+        public void GivenASearchParameterDefinitionManager_WhenGettingNonexistentSearchParameterByName_ExceptionIsThrown()
+        {
+            Assert.Throws<SearchParameterNotSupportedException>(() => _searchParameterDefinitionManager.GetSearchParameter(
+                "SearchParameter",
+                _testSearchParamInfo.Name));
+        }
+
+        [Fact]
+        public void GivenASearchParameterDefinitionManager_WhenTryingToGetExistingSearchParameter_ReturnsTrue()
+        {
+            SearchParameterInfo expectedSearchParam = _searchParameterInfos[0];
+            Assert.True(_searchParameterDefinitionManager.TryGetSearchParameter(
+                "SearchParameter",
+                expectedSearchParam.Name,
+                out SearchParameterInfo actualSearchParam));
+
+            ValidateSearchParam(expectedSearchParam, actualSearchParam);
+        }
+
+        [Fact]
+        public void GivenASearchParameterDefinitionManager_WhenTryingToGetNonexistentSearchParameter_ReturnsFalse()
+        {
+            Assert.False(_searchParameterDefinitionManager.TryGetSearchParameter(
+                "SearchParameter",
+                _testSearchParamInfo.Name,
+                out SearchParameterInfo _));
+        }
+
+        [Fact]
+        public void GivenASearchParameterDefinitionManager_WhenGettingExistingSearchParameterByUrl_CorrectParameterIsReturned()
+        {
+            SearchParameterInfo expectedSearchParam = _searchParameterInfos[0];
+            SearchParameterInfo actualSearchParam = _searchParameterDefinitionManager.GetSearchParameter(expectedSearchParam.Url);
+
+            ValidateSearchParam(expectedSearchParam, actualSearchParam);
+        }
+
+        [Fact]
+        public void GivenASearchParameterDefinitionManager_WhenGettingNonexistentSearchParameterByUrl_ExceptionIsThrown()
+        {
+            Assert.Throws<SearchParameterNotSupportedException>(() => _searchParameterDefinitionManager.GetSearchParameter(_testSearchParamInfo.Url));
+        }
+
+        [Fact]
+        public void GivenSearchParameter_WhenGettingSearchParameterType_CorrectTypeIsReturned()
+        {
+            SearchParameterInfo searchParam = _searchParameterInfos[0];
+            SearchParamType type = _searchParameterDefinitionManager.GetSearchParameterType(searchParam, null);
+
+            Assert.Equal(searchParam.Type, type);
+        }
+
+        private static void ValidateSearchParam(SearchParameterInfo expectedSearchParam, SearchParameterInfo actualSearchParam)
+        {
+            Assert.Equal(expectedSearchParam.Name, actualSearchParam.Name);
+            Assert.Equal(expectedSearchParam.Type, actualSearchParam.Type);
+            Assert.Equal(expectedSearchParam.Url, actualSearchParam.Url);
         }
     }
 }

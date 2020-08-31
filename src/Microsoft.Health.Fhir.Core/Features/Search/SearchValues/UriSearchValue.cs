@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Diagnostics.CodeAnalysis;
 using EnsureThat;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
@@ -51,6 +52,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
             EnsureArg.IsNotNull(visitor, nameof(visitor));
 
             visitor.Visit(this);
+        }
+
+        public bool Equals([AllowNull] ISearchValue other)
+        {
+            if (other == null)
+            {
+                return false;
+            }
+
+            var uriSearchValueOther = other as UriSearchValue;
+
+            if (uriSearchValueOther == null)
+            {
+                return false;
+            }
+
+            return Uri == uriSearchValueOther.Uri;
         }
 
         /// <inheritdoc />

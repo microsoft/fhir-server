@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
@@ -35,6 +36,7 @@ namespace Microsoft.Extensions.DependencyInjection
         /// Adds Cosmos Db as the data store for the FHIR server.
         /// </summary>
         /// <param name="fhirServerBuilder">The FHIR server builder.</param>
+        /// <param name="configureAction">Configure action. Defaulted to null.</param>
         /// <returns>The builder.</returns>
         public static IFhirServerBuilder AddCosmosDb(this IFhirServerBuilder fhirServerBuilder, Action<CosmosDataStoreConfiguration> configureAction = null)
         {
@@ -60,13 +62,6 @@ namespace Microsoft.Extensions.DependencyInjection
                     var config = new CosmosDataStoreConfiguration();
                     provider.GetService<IConfiguration>().GetSection("CosmosDb").Bind(config);
                     configureAction?.Invoke(config);
-
-                    if (string.IsNullOrEmpty(config.Host))
-                    {
-                        config.Host = CosmosDbLocalEmulator.Host;
-                        config.Key = CosmosDbLocalEmulator.Key;
-                    }
-
                     return config;
                 })
                 .Singleton()
@@ -194,10 +189,14 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .ReplaceService<ISearchParameterRegistry>();
 
+            // Each CosmosClient needs new instances of a RequestHandler
             services.TypesInSameAssemblyAs<FhirCosmosClientInitializer>()
                 .AssignableTo<RequestHandler>()
-                .Singleton()
+                .Transient()
                 .AsService<RequestHandler>();
+
+            // FhirCosmosClientInitializer is Singleton, so provide a factory that can resolve new RequestHandlers
+            services.AddFactory<IEnumerable<RequestHandler>>();
 
             return fhirServerBuilder;
         }

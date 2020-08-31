@@ -503,6 +503,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to No search parameters found needing to be indexed.  Job cancelled..
+        /// </summary>
+        internal static string NoSearchParametersNeededToBeIndexed {
+            get {
+                return ResourceManager.GetString("NoSearchParametersNeededToBeIndexed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The number of composite components specified for search parameter &apos;{0}&apos; exceeded the number of components defined..
         /// </summary>
         internal static string NumberOfCompositeComponentsExceeded {
@@ -674,6 +683,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The &apos;_count&apos; parameter exceeds limit configured for server. Current limit is {0} while `_count` parameter set to {1}..
+        /// </summary>
+        internal static string SearchParamaterCountExceedLimit {
+            get {
+                return ResourceManager.GetString("SearchParamaterCountExceedLimit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The search parameter with definition URL &apos;{0}&apos; is not supported..
         /// </summary>
         internal static string SearchParameterByDefinitionUriNotSupported {
@@ -805,6 +823,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string SortNotSupported {
             get {
                 return ResourceManager.GetString("SortNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Include result was truncated.
+        /// </summary>
+        internal static string TruncatedIncludeMessage {
+            get {
+                return ResourceManager.GetString("TruncatedIncludeMessage", resourceCulture);
             }
         }
         

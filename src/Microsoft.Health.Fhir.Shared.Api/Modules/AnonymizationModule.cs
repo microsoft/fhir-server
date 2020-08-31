@@ -3,23 +3,24 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using EnsureThat;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Diagnostics.HealthChecks;
-using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Anonymizer.Core;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 
-namespace Microsoft.Health.Fhir.Api.Modules.HealthChecks
+namespace Microsoft.Health.Fhir.Api.Modules
 {
-    public class HealthCheckModule : IStartupModule
+    public class AnonymizationModule : IStartupModule
     {
         public void Load(IServiceCollection services)
         {
-            EnsureArg.IsNotNull(services, nameof(services));
+            AnonymizerEngine.InitializeFhirPathExtensionSymbols();
 
-            services.Add<HealthCheckConfiguration>()
-                .Transient()
-                .AsService<IPostConfigureOptions<HealthCheckServiceOptions>>();
+            services.AddFactory<IScoped<IAnonymizer>>();
+
+            services.Add<ExportAnonymizerFactory>()
+                    .Transient()
+                    .AsService<IAnonymizerFactory>();
         }
     }
 }

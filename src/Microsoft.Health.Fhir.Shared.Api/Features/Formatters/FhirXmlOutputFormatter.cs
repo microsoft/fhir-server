@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                     writer.Formatting = Formatting.Indented;
                 }
 
-                _fhirXmlSerializer.Serialize((Resource)context.Object, writer, context.HttpContext.GetSummaryType(_logger));
+                _fhirXmlSerializer.Serialize((Resource)context.Object, writer, context.HttpContext.GetSummaryType(_logger), elements: context.HttpContext.GetElementsSearchParameter(_logger));
             }
 
             return Task.CompletedTask;

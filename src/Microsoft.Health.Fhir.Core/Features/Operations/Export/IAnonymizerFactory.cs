@@ -3,18 +3,13 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Api.Features.Audit
-{
-    public enum AuditAction
-    {
-        /// <summary>
-        /// Executing
-        /// </summary>
-        Executing,
+using System.Threading;
+using System.Threading.Tasks;
 
-        /// <summary>
-        /// Executed
-        /// </summary>
-        Executed,
+namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
+{
+    public interface IAnonymizerFactory
+    {
+        public Task<IAnonymizer> CreateAnonymizerAsync(string configurationLocation, CancellationToken cancellationToken);
     }
 }

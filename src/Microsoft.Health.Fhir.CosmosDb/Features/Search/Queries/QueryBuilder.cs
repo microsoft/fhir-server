@@ -3,9 +3,11 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Text;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -23,6 +25,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
         public QueryDefinition GenerateHistorySql(SearchOptions searchOptions)
         {
             return new QueryBuilderHelper().GenerateHistorySql(searchOptions);
+        }
+
+        public QueryDefinition GenerateReindexSql(SearchOptions searchOptions, string searchParameterHash)
+        {
+            return new QueryBuilderHelper().GenerateReindexSql(searchOptions, searchParameterHash);
         }
 
         private class QueryBuilderHelper
@@ -65,8 +72,33 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
                 AppendFilterCondition(
                    "AND",
+                   true,
                    (KnownResourceWrapperProperties.IsHistory, false),
                    (KnownResourceWrapperProperties.IsDeleted, false));
+
+                if (!searchOptions.CountOnly)
+                {
+                    var hasOrderBy = false;
+                    foreach (var sortOptions in searchOptions.Sort)
+                    {
+                        if (string.Equals(sortOptions.searchParameterInfo.Name, KnownQueryParameterNames.LastUpdated, StringComparison.OrdinalIgnoreCase))
+                        {
+                            if (!hasOrderBy)
+                            {
+                                _queryBuilder.Append("ORDER BY ");
+                                hasOrderBy = true;
+                            }
+
+                            _queryBuilder.Append(SearchValueConstants.RootAliasName).Append(".")
+                                .Append(KnownResourceWrapperProperties.LastModified).Append(" ")
+                                .AppendLine(sortOptions.sortOrder == SortOrder.Ascending ? "ASC" : "DESC");
+                        }
+                        else
+                        {
+                            throw new SearchParameterNotSupportedException(string.Format(Core.Resources.SearchSortParameterNotSupported, sortOptions.searchParameterInfo.Name));
+                        }
+                    }
+                }
 
                 var query = new QueryDefinition(_queryBuilder.ToString());
                 _queryParameterManager.AddToQuery(query);
@@ -103,19 +135,61 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                 return query;
             }
 
+            public QueryDefinition GenerateReindexSql(SearchOptions searchOptions, string searchParameterHash)
+            {
+                EnsureArg.IsNotNull(searchOptions, nameof(searchOptions));
+                EnsureArg.IsNotNull(searchParameterHash, nameof(searchParameterHash));
+
+                if (searchOptions.CountOnly)
+                {
+                    AppendSelectFromRoot("VALUE COUNT(1)");
+                }
+                else
+                {
+                    AppendSelectFromRoot();
+                }
+
+                AppendSystemDataFilter();
+
+                var expressionQueryBuilder = new ExpressionQueryBuilder(
+                    _queryBuilder,
+                    _queryParameterManager);
+
+                if (searchOptions.Expression != null)
+                {
+                    _queryBuilder.Append("AND ");
+                    searchOptions.Expression.AcceptVisitor(expressionQueryBuilder);
+                }
+
+                AppendFilterCondition(
+                   "AND",
+                   true,
+                   (KnownResourceWrapperProperties.IsDeleted, false));
+
+                AppendFilterCondition(
+                   "AND",
+                   false,
+                   (KnownResourceWrapperProperties.SearchParameterHash, searchParameterHash));
+
+                var query = new QueryDefinition(_queryBuilder.ToString());
+                _queryParameterManager.AddToQuery(query);
+
+                return query;
+            }
+
             private void AppendSelectFromRoot(string selectList = SearchValueConstants.SelectedFields)
             {
                 _queryHelper.AppendSelectFromRoot(selectList);
             }
 
-            private void AppendFilterCondition(string logicalOperator, params (string, object)[] conditions)
+            private void AppendFilterCondition(string logicalOperator, bool equal, params (string, object)[] conditions)
             {
-                _queryHelper.AppendFilterCondition(logicalOperator, conditions);
+                _queryHelper.AppendFilterCondition(logicalOperator, equal, conditions);
             }
 
-            private void AppendFilterCondition(string name, object value)
+            private void AppendFilterCondition(string name, object value, bool equal)
             {
-                _queryHelper.AppendFilterCondition(name, value);
+                _queryHelper.AppendFilterCondition(name, value, equal);
             }
 
             private void AppendSystemDataFilter()

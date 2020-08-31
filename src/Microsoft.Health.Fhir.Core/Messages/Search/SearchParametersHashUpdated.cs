@@ -4,18 +4,19 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
-using Microsoft.AspNetCore.Builder;
+using MediatR;
 
-namespace Microsoft.Health.Fhir.Api.Features.Audit
+namespace Microsoft.Health.Fhir.Core.Messages.Search
 {
-    public static class AuditMiddlewareExtensions
+    public class SearchParametersHashUpdated : INotification
     {
-        public static IApplicationBuilder UseAudit(
-            this IApplicationBuilder builder)
+        public SearchParametersHashUpdated(string hashValue)
         {
-            EnsureArg.IsNotNull(builder, nameof(builder));
+            EnsureArg.IsNotNull(hashValue, nameof(hashValue));
 
-            return builder.UseMiddleware<AuditMiddleware>();
+            HashValue = hashValue;
         }
+
+        public string HashValue { get; }
     }
 }

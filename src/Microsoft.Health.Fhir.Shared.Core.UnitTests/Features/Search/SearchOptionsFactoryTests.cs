@@ -13,6 +13,7 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
@@ -35,14 +36,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private readonly IExpressionParser _expressionParser = Substitute.For<IExpressionParser>();
         private readonly SearchOptionsFactory _factory;
         private readonly SearchParameterInfo _resourceTypeSearchParameterInfo;
+        private readonly SearchParameterInfo _lastUpdatedSearchParameterInfo;
         private readonly CoreFeatureConfiguration _coreFeatures;
 
         public SearchOptionsFactoryTests()
         {
             var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
             _resourceTypeSearchParameterInfo = new SearchParameter { Name = SearchParameterNames.ResourceType, Type = SearchParamType.String }.ToInfo();
+            _lastUpdatedSearchParameterInfo = new SearchParameter { Name = SearchParameterNames.LastUpdated, Type = SearchParamType.String }.ToInfo();
             searchParameterDefinitionManager.GetSearchParameter(Arg.Any<string>(), Arg.Any<string>()).Throws(ci => new SearchParameterNotSupportedException(ci.ArgAt<string>(0), ci.ArgAt<string>(1)));
             searchParameterDefinitionManager.GetSearchParameter(Arg.Any<string>(), SearchParameterNames.ResourceType).Returns(_resourceTypeSearchParameterInfo);
+            searchParameterDefinitionManager.GetSearchParameter(Arg.Any<string>(), SearchParameterNames.LastUpdated).Returns(_lastUpdatedSearchParameterInfo);
             _coreFeatures = new CoreFeatureConfiguration();
 
             _factory = new SearchOptionsFactory(
@@ -60,7 +64,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.NotNull(options);
 
             Assert.Null(options.ContinuationToken);
-            Assert.Equal(10, options.MaxItemCount);
+            Assert.Equal(_coreFeatures.DefaultItemCountPerSearch, options.MaxItemCount);
             ValidateResourceTypeSearchParameterExpression(options.Expression, DefaultResourceType);
         }
 
@@ -235,7 +239,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
-        public void GivenSearchWithSortValue_WhenCreated_ThenSearchParamShouldBeAddedToSortList()
+        public void GivenSearchWithUnsupportedSortValue_WhenCreated_ThenSearchParamShouldNotBeAddedToSortList()
         {
             const string paramName = SearchParameterNames.ResourceType;
 
@@ -251,9 +255,32 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             Assert.NotNull(options);
             Assert.NotNull(options.Sort);
+            Assert.Empty(options.Sort);
+
+            Assert.Equal(2, options.UnsupportedSortingParams.Count);
+            Assert.Equal(paramName, options.UnsupportedSortingParams.First().parameterName);
+        }
+
+        [Fact]
+        public void GivenSearchWithSupportedSortValue_WhenCreated_ThenSearchParamShouldBeAddedToSortList()
+        {
+            const string paramName = SearchParameterNames.LastUpdated;
+
+            var queryParameters = new[]
+            {
+                Tuple.Create(KnownQueryParameterNames.Sort, paramName),
+                Tuple.Create(KnownQueryParameterNames.Sort, "-" + paramName),
+            };
+
+            SearchOptions options = CreateSearchOptions(
+                resourceType: "Patient",
+                queryParameters: queryParameters);
+
+            Assert.NotNull(options);
+            Assert.NotNull(options.Sort);
             Assert.Equal(2, options.Sort.Count());
-            Assert.Equal((_resourceTypeSearchParameterInfo, Core.Features.Search.SortOrder.Ascending), options.Sort.First());
-            Assert.Equal((_resourceTypeSearchParameterInfo, Core.Features.Search.SortOrder.Descending), options.Sort.Last());
+            Assert.Equal((_lastUpdatedSearchParameterInfo, Core.Features.Search.SortOrder.Ascending), options.Sort.First());
+            Assert.Equal((_lastUpdatedSearchParameterInfo, Core.Features.Search.SortOrder.Descending), options.Sort.Last());
         }
 
         [Fact]
@@ -371,7 +398,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             _coreFeatures.IncludeTotalInBundle = TotalType.Accurate;
 
-            SearchOptions options = CreateSearchOptions(queryParameters: new[] { Tuple.Create<string, string>("_total", "none"),  });
+            SearchOptions options = CreateSearchOptions(queryParameters: new[] { Tuple.Create<string, string>("_total", "none"), });
 
             Assert.Equal(TotalType.None, options.IncludeTotal);
         }
@@ -382,6 +409,44 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _coreFeatures.IncludeTotalInBundle = TotalType.Estimate;
 
             Assert.Throws<SearchOperationNotSupportedException>(() => CreateSearchOptions(queryParameters: null));
+        }
+
+        [Fact]
+        public void GivenNoCountParameter_WhenCreated_ThenDefaultSearchOptionShouldUseConfigurationValue()
+        {
+            _coreFeatures.MaxItemCountPerSearch = 10;
+            _coreFeatures.DefaultItemCountPerSearch = 3;
+
+            SearchOptions options = CreateSearchOptions();
+            Assert.Equal(3, options.MaxItemCount);
+        }
+
+        [Fact]
+        public void GivenCountParameterBelowThanMaximumAllowed_WhenCreated_ThenDefaultSearchOptionShouldBeCreatedAndCountParameterShouldBeUsed()
+        {
+            _coreFeatures.MaxItemCountPerSearch = 20;
+            _coreFeatures.DefaultItemCountPerSearch = 1;
+
+            SearchOptions options = CreateSearchOptions(queryParameters: new[] { Tuple.Create<string, string>("_count", "10"), });
+            Assert.Equal(10, options.MaxItemCount);
+        }
+
+        [Fact]
+        public void GivenCountParameterAboveThanMaximumAllowed_WhenCreated_ThenSearchOptionsThrowException()
+        {
+            _coreFeatures.MaxItemCountPerSearch = 10;
+            _coreFeatures.DefaultItemCountPerSearch = 1;
+
+            Assert.Throws<BadRequestException>(() => CreateSearchOptions(queryParameters: new[] { Tuple.Create<string, string>("_count", "11"), }));
+        }
+
+        [Fact]
+        public void GivenSetCoreFeatureForIncludeCount_WhenCreated_ThenSearchOptionsHaveSameValue()
+        {
+            _coreFeatures.DefaultIncludeCountPerSearch = 9;
+
+            SearchOptions options = CreateSearchOptions();
+            Assert.Equal(_coreFeatures.DefaultIncludeCountPerSearch, options.IncludeCount);
         }
 
         private SearchOptions CreateSearchOptions(

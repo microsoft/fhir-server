@@ -1,5 +1,5 @@
-# Schema Migration Tool
-The Schema migration tool is the command line utility to perform schema upgrade on demand. The tool will automatically identify the current version of the database in order to apply appropriate migration scripts.
+# SQL Server schema Migration Tool
+The SQL Server schema migration tool is the command line utility to perform SQL Server schema upgrade on demand. The tool will automatically identify the current version of the database in order to apply appropriate migration scripts.
 
 Note - The tool can't downgrade a schema version.
 
@@ -21,8 +21,8 @@ Note - The tool can't downgrade a schema version.
             
         - Visual Studio setup - Start Visual Studio as admin. On the Tools menu, select Options > NuGet Package Manager > Package Sources. Select the green plus in the upper-right corner and enter the name and source URL as below:
 
-                Name: InternalBuilds
-                Source: https://microsofthealthoss.pkgs.visualstudio.com/_packaging/InternalBuilds/nuget/v3/index.json
+                Name: "Microsoft Health OSS"
+                Source: https://microsofthealthoss.pkgs.visualstudio.com/FhirServer/_packaging/Public/nuget/v3/index.json
         
         - In the Package Manager Console, type the below command
         

@@ -12,12 +12,13 @@ using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.Health.Fhir.Api.Features.Audit;
+using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Filters;
+using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Routing;
-using Microsoft.Health.Fhir.Api.UnitTests.Features.Context;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.UnitTests.Features.Context;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.ValueSets;
 using NSubstitute;
@@ -113,6 +114,18 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             _filterAttribute.OnActionExecuted(_actionExecutedContext);
 
             Assert.Null(_fhirRequestContext.ResourceType);
+        }
+
+        [Fact]
+        public void GivenPartialIndexHeader_WhenSearchReqeust_ThenFhirContextPropertySet()
+        {
+            _httpContext.Request.Headers.Add(
+                KnownFhirHeaders.PartiallyIndexedParamsHeaderName,
+                new Microsoft.Extensions.Primitives.StringValues(new string[] { "true" }));
+
+            _filterAttribute.OnActionExecuting(_actionExecutingContext);
+
+            Assert.True(_fhirRequestContext.IncludePartiallyIndexedSearchParams);
         }
 
         private void ExecuteAndValidateFilter(string auditEventTypeFromMapping, string expectedAuditEventType)

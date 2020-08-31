@@ -24,6 +24,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private int _tableExpressionCounter = -1;
         private SqlRootExpression _rootExpression;
 
+        private HashSet<int> _cteToLimit = new HashSet<int>();
+
         public SqlQueryGenerator(IndentedStringBuilder sb, SqlQueryParameterManager parameters, SqlServerFhirModel model, bool isHistorySearch)
         {
             EnsureArg.IsNotNull(sb, nameof(sb));
@@ -94,6 +96,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 // If there's a table expression, use the previously selected bit, otherwise everything in the select is considered a match
                 StringBuilder.Append(expression.TableExpressions.Count > 0 ? "CAST(IsMatch AS bit) AS IsMatch, " : "CAST(1 AS bit) AS IsMatch, ");
+                StringBuilder.Append(expression.TableExpressions.Count > 0 ? "CAST(IsPartial AS bit) AS IsPartial, " : "CAST(0 AS bit) AS IsPartial, ");
 
                 StringBuilder.AppendLine(VLatest.Resource.RawResource, resourceTableAlias);
             }
@@ -255,7 +258,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     var sortExpression = (paramInfo == null || paramInfo.Name == KnownQueryParameterNames.LastUpdated) ? null : $"{tableExpressionName}.SortExpr";
 
                     // Everything in the top expression is considered a match
-                    StringBuilder.Append("SELECT DISTINCT TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1)).Append(") Sid1, 1 AS IsMatch ")
+                    StringBuilder.Append("SELECT DISTINCT TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1)).Append(") Sid1, 1 AS IsMatch, 0 AS IsPartial ")
                         .AppendLine(sortExpression == null ? string.Empty : $", {sortExpression}")
                         .Append("FROM ").AppendLine(tableExpressionName)
                         .AppendLine($"ORDER BY {(sortExpression == null ? string.Empty : $"{sortExpression} {(sort == SortOrder.Ascending ? "ASC" : "DESC")}, ")} Sid1 {((sortExpression != null || sortOrder == SortOrder.Ascending) ? "ASC" : "DESC")}");
@@ -360,8 +363,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     var includeExpression = (IncludeExpression)tableExpression.NormalizedPredicate;
 
                     StringBuilder.Append("SELECT DISTINCT ");
-                    StringBuilder.Append(VLatest.Resource.ResourceSurrogateId, referenceTargetResourceTableAlias).AppendLine(" AS Sid1, 0 AS IsMatch")
-                        .Append("FROM ").Append(VLatest.ReferenceSearchParam).Append(' ').AppendLine(referenceSourceTableAlias)
+
+                    if (includeExpression.Reversed)
+                    {
+                        // In case its revinclude, we limit the number of returned items as the resultset size is potentially
+                        // unbounded. we ask for +1 so in the limit expression we know if to mark at truncated...
+                        StringBuilder.Append("TOP (").Append(Parameters.AddParameter(context.IncludeCount + 1)).Append(") ");
+                    }
+
+                    var table = !includeExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias;
+                    StringBuilder.Append(VLatest.Resource.ResourceSurrogateId, table);
+                    StringBuilder.AppendLine(" AS Sid1, 0 AS IsMatch ");
+
+                    StringBuilder.Append("FROM ").Append(VLatest.ReferenceSearchParam).Append(' ').AppendLine(referenceSourceTableAlias)
                         .Append("INNER JOIN ").Append(VLatest.Resource).Append(' ').AppendLine(referenceTargetResourceTableAlias);
 
                     using (var delimited = StringBuilder.BeginDelimitedOnClause())
@@ -390,12 +404,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         AppendHistoryClause(delimited, referenceTargetResourceTableAlias);
                         AppendHistoryClause(delimited, referenceSourceTableAlias);
 
-                        delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ResourceTypeId, referenceSourceTableAlias)
+                        table = !includeExpression.Reversed ? referenceSourceTableAlias : referenceTargetResourceTableAlias;
+                        delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ResourceTypeId, table)
                             .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.ResourceTypeId, Model.GetResourceTypeId(includeExpression.ResourceType)));
 
                         // Limit the join to the main select CTE.
                         // The main select will have max+1 items in the result set to account for paging, so we only want to join using the max amount.
-                        delimited.BeginDelimitedElement().Append(VLatest.Resource.ResourceSurrogateId, referenceSourceTableAlias)
+                        delimited.BeginDelimitedElement().Append(VLatest.Resource.ResourceSurrogateId, table)
                             .Append(" IN (SELECT TOP(")
                             .Append(Parameters.AddParameter(context.MaxItemCount))
                             .Append(") Sid1 FROM ").Append(_cteMainSelect).Append(")");
@@ -406,16 +421,52 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         _includeCtes = new List<string>();
                     }
 
+                    if (includeExpression.Reversed)
+                    {
+                        // mark that this cte is a reverse one, meaning we need to add another items limitation
+                        // cte on top of it
+                        _cteToLimit.Add(_tableExpressionCounter);
+                    }
+
+                    break;
+                case TableExpressionKind.IncludeLimit:
+                    StringBuilder.Append("SELECT DISTINCT ");
+
+                    var isRev = _cteToLimit.Contains(_tableExpressionCounter - 1);
+                    if (isRev)
+                    {
+                        // the related cte is a reverse include, limit the number of returned items and count to
+                        // see if we are over the threshold (to produce a warning to the client)
+                        StringBuilder.Append("TOP (").Append(Parameters.AddParameter(context.IncludeCount)).Append(") ");
+                    }
+
+                    StringBuilder.Append("Sid1, IsMatch, ");
+
+                    if (isRev)
+                    {
+                        StringBuilder.Append("CASE WHEN count(*) over() > ")
+                        .Append(Parameters.AddParameter(context.IncludeCount))
+                        .AppendLine(" THEN 1 ELSE 0 END AS IsPartial ");
+                    }
+                    else
+                    {
+                        // if forward, just mark as not partial
+                        StringBuilder.AppendLine("0 AS IsPartial ");
+                    }
+
+                    StringBuilder.Append("FROM ").AppendLine(TableExpressionName(_tableExpressionCounter - 1));
+
+                    // the 'original' include cte is not in the union, but this new layer is instead
                     _includeCtes.Add(TableExpressionName(_tableExpressionCounter));
                     break;
                 case TableExpressionKind.IncludeUnionAll:
-                    StringBuilder.AppendLine("SELECT Sid1, IsMatch");
+                    StringBuilder.AppendLine("SELECT Sid1, IsMatch, IsPartial ");
                     StringBuilder.Append("FROM ").AppendLine(_cteMainSelect);
 
                     foreach (var includeCte in _includeCtes)
                     {
                         StringBuilder.AppendLine("UNION ALL");
-                        StringBuilder.AppendLine("SELECT Sid1, IsMatch ");
+                        StringBuilder.AppendLine("SELECT Sid1, IsMatch, IsPartial ");
                         StringBuilder.Append("FROM ").AppendLine(includeCte);
                     }
 

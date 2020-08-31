@@ -18,26 +18,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
     /// </summary>
     public class ResourceToNdjsonBytesSerializer : IResourceToByteArraySerializer
     {
-        private readonly ResourceDeserializer _resourceDeserializer;
         private readonly FhirJsonSerializer _fhirJsonSerializer;
 
-        public ResourceToNdjsonBytesSerializer(ResourceDeserializer resourceDeserializer, FhirJsonSerializer fhirJsonSerializer)
+        public ResourceToNdjsonBytesSerializer(FhirJsonSerializer fhirJsonSerializer)
         {
-            EnsureArg.IsNotNull(resourceDeserializer, nameof(resourceDeserializer));
             EnsureArg.IsNotNull(fhirJsonSerializer, nameof(fhirJsonSerializer));
 
-            _resourceDeserializer = resourceDeserializer;
             _fhirJsonSerializer = fhirJsonSerializer;
         }
 
         /// <inheritdoc />
-        public byte[] Serialize(ResourceWrapper resourceWrapper)
+        public byte[] Serialize(ResourceElement resourceElement)
         {
-            EnsureArg.IsNotNull(resourceWrapper, nameof(resourceWrapper));
+            EnsureArg.IsNotNull(resourceElement, nameof(resourceElement));
 
-            ResourceElement resource = _resourceDeserializer.DeserializeRaw(resourceWrapper.RawResource, resourceWrapper.Version, resourceWrapper.LastModified);
-
-            string resourceData = _fhirJsonSerializer.SerializeToString(resource.ToPoco<Resource>());
+            string resourceData = _fhirJsonSerializer.SerializeToString(resourceElement.ToPoco<Resource>());
 
             byte[] bytesToWrite = Encoding.UTF8.GetBytes($"{resourceData}\n");
 

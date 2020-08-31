@@ -656,6 +656,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
                     {
                         "search001/SE05.5P",
                         "search001/SE05.5G",
+                        "search001/SE07P",
+                        "search001/SE07G",
                     }
                 },
                 {
@@ -664,7 +666,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
                     {
                         "history001/HI01",
                         "history001/HI02",
-                        "history001/HI06",
                         "history001/HI08",
                     }
                 },
@@ -691,6 +692,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             "connectathon-15-patient-fhirserver-99-all-server-id-xml/02-UpdatePatient",
             "connectathon-15-patient-fhirserver-99-all-server-id-json/07-PatientDelete",
             "connectathon-15-patient-fhirserver-99-all-server-id-xml/07-PatientDelete",
+            "history001/HI06", // Appears related to incomplete support for Validation
             "history001/HI09",  // Related to Cosmos DB failure, issue: https://github.com/microsoft/fhir-server/issues/475"
             "resourcetest_questionnaire/X030_Questionnaire", // POCO RequestGroup is not a valid enumeration value for  CarePlanActivityKind
             "resourcetest_clinicalimpression/X010_ClinicalImpression",
