@@ -166,6 +166,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Patient[] patients = await Client.CreateResourcesAsync<Patient>(
                 p => SetPatientInfo(p, "Seattle", "Robinson", tag, DateTime.Now.Subtract(TimeSpan.FromDays(90))),
                 p => SetPatientInfo(p, "Portland", "Williamas", tag, DateTime.Now.Subtract(TimeSpan.FromDays(60))),
+                p => SetPatientInfo(p, "New York", "Williamas", tag, DateTime.Now.Subtract(TimeSpan.FromDays(40))),
                 p => SetPatientInfo(p, "Seattle", "Jones", tag, DateTime.Now.Subtract(TimeSpan.FromDays(30))));
 
             return patients;
