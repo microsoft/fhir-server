@@ -126,17 +126,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             if (!searchOptions.CountOnly)
             {
+                StringBuilder.Append("ORDER BY ");
                 var (searchParamInfo, sortOrder) = searchOptions.GetFirstSupportedSortParam();
                 if (searchParamInfo == null || searchParamInfo.Name == KnownQueryParameterNames.LastUpdated)
                 {
-                    StringBuilder.Append("ORDER BY ")
+                    StringBuilder
                     .Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).Append(" ")
                     .AppendLine(sortOrder == SortOrder.Ascending ? "ASC" : "DESC");
                 }
                 else
                 {
                     // TODO: should Sid1 be ordered by ASC/DESC if other sort param is requested?
-                    StringBuilder.Append("ORDER BY ")
+                    StringBuilder
                     .Append($"{TableExpressionName(_tableExpressionCounter)}.SortExpr ")
                     .Append(sortOrder == SortOrder.Ascending ? "ASC" : "DESC").Append(", ")
                     .Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).AppendLine(" ASC ");
@@ -251,8 +252,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     break;
 
                 case TableExpressionKind.Top:
-                    var sortOrder = context.GetFirstSortOrderForSupportedParam();
-                    var (paramInfo, sort) = context.GetFirstSupportedSortParam();
+                    var (paramInfo, sortOrder) = context.GetFirstSupportedSortParam();
                     FindRestrictingPredecessorTableExpressionIndex();
                     var tableExpressionName = TableExpressionName(_tableExpressionCounter - 1);
                     var sortExpression = (paramInfo == null || paramInfo.Name == KnownQueryParameterNames.LastUpdated) ? null : $"{tableExpressionName}.SortExpr";
@@ -261,7 +261,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     StringBuilder.Append("SELECT DISTINCT TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1)).Append(") Sid1, 1 AS IsMatch, 0 AS IsPartial ")
                         .AppendLine(sortExpression == null ? string.Empty : $", {sortExpression}")
                         .Append("FROM ").AppendLine(tableExpressionName)
-                        .AppendLine($"ORDER BY {(sortExpression == null ? string.Empty : $"{sortExpression} {(sort == SortOrder.Ascending ? "ASC" : "DESC")}, ")} Sid1 {((sortExpression != null || sortOrder == SortOrder.Ascending) ? "ASC" : "DESC")}");
+                        .AppendLine($"ORDER BY {(sortExpression == null ? string.Empty : $"{sortExpression} {(sortOrder == SortOrder.Ascending ? "ASC" : "DESC")}, ")} Sid1 {((sortExpression != null || sortOrder == SortOrder.Ascending) ? "ASC" : "DESC")}");
 
                     // For any includes, the source of the resource surrogate ids to join on is saved
                     _cteMainSelect = TableExpressionName(_tableExpressionCounter);
