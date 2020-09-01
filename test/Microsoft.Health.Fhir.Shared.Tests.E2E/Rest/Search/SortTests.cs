@@ -129,7 +129,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // Format the time to fit yyyy-MM-ddTHH:mm:ss.fffffffzzz, and encode its special characters.
             // sort and filter are based on same type (datetime)
             string lastUpdated = HttpUtility.UrlEncode($"{time:o}");
-            await ExecuteAndValidateBundleSuperset($"Patient?_lastUpdated=gt{lastUpdated}&_sort=birthdate", false, patients.Cast<Resource>().ToArray());
+            await ExecuteAndValidateBundleSuperset($"Patient?_lastUpdated=gt{lastUpdated}&_sort=birthdate&_tag={tag}", false, patients.Cast<Resource>().ToArray());
         }
 
         [Fact]
