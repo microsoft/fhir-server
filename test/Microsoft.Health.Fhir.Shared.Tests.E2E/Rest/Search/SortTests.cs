@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             // save the timestamp prior to creating the resources
             var now = DateTime.Now;
-            var time = now.AddSeconds(-1);
+            var time = now.AddSeconds(-10);
 
             // create the resources which will have an timestamp bigger than the 'now' var
             var patients = await CreatePatients(tag);
