@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
 
             var deserialized = new FhirJsonParser(DefaultParserSettings.Settings).Parse<Patient>(rawString);
 
-            Assert.Equal("3", deserialized.VersionId);
+            Assert.NotEqual(wrapper.Version, deserialized.VersionId);
             Assert.Equal(lastUpdated, deserialized.Meta.LastUpdated);
         }
     }

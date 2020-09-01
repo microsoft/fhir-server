@@ -170,7 +170,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var instant = new DateTimeOffset(DateTimeOffset.Now.Date, TimeSpan.Zero);
             using (Mock.Property(() => ClockResolver.UtcNowFunc, () => instant))
             {
-                var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
+                var versionId = Guid.NewGuid().ToString();
+                var resource = Samples.GetJsonSample("Weight").UpdateVersion(versionId);
+                var saveResult = await Mediator.UpsertResourceAsync(resource);
 
                 Assert.NotNull(saveResult);
                 Assert.Equal(SaveOutcomeType.Created, saveResult.Outcome);
@@ -179,13 +181,19 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 var wrapper = await _fixture.DataStore.GetAsync(new ResourceKey("Observation", saveResult.Resource.Id), CancellationToken.None);
                 Assert.NotNull(wrapper);
                 Assert.True(wrapper.RawResource.MetaSet);
+                Assert.NotEqual(wrapper.Version, versionId);
+
+                var deserialized = _fhirJsonParser.Parse<Observation>(wrapper.RawResource.Data);
+                Assert.NotEqual(versionId, deserialized.VersionId);
             }
         }
 
         [Fact]
         public async Task GivenASavedResource_WhenUpserting_ThenMetaSetIsSetToFalse()
         {
-            var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
+            var versionId = Guid.NewGuid().ToString();
+            var resource = Samples.GetJsonSample("Weight").UpdateVersion(versionId);
+            var saveResult = await Mediator.UpsertResourceAsync(resource);
 
             var newResourceValues = Samples.GetJsonSample("WeightInGrams").ToPoco();
             newResourceValues.Id = saveResult.Resource.Id;
@@ -197,6 +205,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             Assert.NotNull(updateResult.Resource);
             Assert.Equal(saveResult.Resource.Id, updateResult.Resource.Id);
+
+            var wrapper = await _fixture.DataStore.GetAsync(new ResourceKey("Observation", saveResult.Resource.Id), CancellationToken.None);
+
+            Assert.NotNull(wrapper);
+            Assert.False(wrapper.RawResource.MetaSet);
+            Assert.NotEqual(wrapper.Version, versionId);
+
+            var deserialized = _fhirJsonParser.Parse<Observation>(wrapper.RawResource.Data);
+            Assert.Equal("1", deserialized.VersionId);
         }
 
         [Theory]

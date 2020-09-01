@@ -16,8 +16,8 @@ function upsertWithHistory(doc, matchVersionId, allowCreate, keepHistory) {
     const response = getContext().getResponse();
 
 
-
-    const initialVersion = "1";
+    const initialVersionInt = 1;
+    const initialVersion = initialVersionInt.toString();
 
     // Validate input
     if (!doc) {
@@ -97,7 +97,7 @@ function upsertWithHistory(doc, matchVersionId, allowCreate, keepHistory) {
                 // Increment the current version
                 let nextVersion = Number(documentVersion) + 1;
                 if (!isNaN(nextVersion)) {
-                    if (nextVersion !== 1) {
+                    if (nextVersion !== initialVersionInt) {
                         // We assume the version ID is 1 during upsert. If it's not, then set metaSet to false so the service will fill it in to the raw resource.
                         doc.rawResource.metaSet = false
                     }

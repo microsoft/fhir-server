@@ -17,24 +17,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
     public class RawResourceTests
     {
         [Fact]
-        public void GivenAResource_WhenCreatingARawResource_ThenTheObjectPassInIsNotModified()
-        {
-            var serializer = new FhirJsonSerializer();
-            var rawResourceFactory = new RawResourceFactory(serializer);
-
-            string versionId = Guid.NewGuid().ToString();
-            var observation = Samples.GetDefaultObservation()
-                .UpdateVersion(versionId);
-
-            Assert.NotNull(observation.VersionId);
-
-            var raw = rawResourceFactory.Create(observation, keepMeta: true);
-
-            Assert.NotNull(raw.Data);
-            Assert.Equal(versionId, observation.VersionId);
-        }
-
-        [Fact]
         public void GivenAResource_WhenCreateARawResourceWithKeepMetaFalse_ThenTheObjectPassedInIsModified()
         {
             var serializer = new FhirJsonSerializer();
