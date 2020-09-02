@@ -139,20 +139,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             // make sure the returned result contains all of the expected item
             // and maybe some more items (if the db is not empty, if we didn't use tag to filter) ...
-            var set = new HashSet<string>();
-            foreach (var r in bundle.Entry)
-            {
-                set.Add(r.Resource.Id);
-            }
-
-            foreach (var r in expectedResources)
-            {
-                Assert.Contains(r.Id, set);
-            }
-
-            // make sure items are sorted
-            var expectedList = expectedResources.OrderBy(x => ((Patient)x).BirthDate);
-            Assert.True(expectedList.SequenceEqual(expectedResources));
+            var resultList = bundle.Entry.Select(x => x.Resource.Id);
+            var expectedList = expectedResources.Select(x => x.Id);
+            Assert.True(expectedList.SequenceEqual(resultList));
         }
     }
 }

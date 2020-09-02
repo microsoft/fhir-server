@@ -134,6 +134,31 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         [Fact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenQueryWitDatetimeFilter_WhenSearchedWithHyphenSortParamOnDatetime_ThenResourcesAreReturnedInDescendingOrder()
+        {
+            var tag = Guid.NewGuid().ToString();
+
+            // save the timestamp prior to creating the resources
+            var now = DateTime.Now;
+            var time = now.AddSeconds(-10);
+
+            // create the resources which will have an timestamp bigger than the 'now' var
+            var patients = await CreatePatients(tag);
+
+            // Ask to get all patient with datetime filter
+            // Note: this might result in getting Patients that were created on other tests (concurrent tests),
+            // e.g. previous runs which were not cleaned yet, or concurrent tests.
+            // we overcome this issue by not looking for specific results, rather just make sure they are
+            // sorted.
+
+            // Format the time to fit yyyy-MM-ddTHH:mm:ss.fffffffzzz, and encode its special characters.
+            // sort and filter are based on same type (datetime)
+            string lastUpdated = HttpUtility.UrlEncode($"{time:o}");
+            await ExecuteAndValidateBundleSuperset($"Patient?_lastUpdated=gt{lastUpdated}&_sort=-birthdate&_tag={tag}", false, patients.OrderByDescending(x => x.BirthDate).Cast<Resource>().ToArray());
+        }
+
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
         public async Task GivenQueryWithTagFilter_WhenSearchedWithSortParamOnDatetime_ThenResourcesAreReturnedInAscendingOrder()
         {
             var tag = Guid.NewGuid().ToString();
@@ -148,6 +173,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         [Fact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenQueryWithTagFilter_WhenSearchedWithHyphenSortParamOnDatetime_ThenResourcesAreReturnedInDescendingOrder()
+        {
+            var tag = Guid.NewGuid().ToString();
+
+            // create the resources which will have an timestamp bigger than the 'now' var
+            var patients = await CreatePatients(tag);
+
+            // Ask to get all patient with specific tag order by birthdate (timestamp)
+            // filter and sort are different based on different types
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=-birthdate", false, patients.OrderByDescending(x => x.BirthDate).Cast<Resource>().ToArray());
+        }
+
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
         public async Task GivenQueryWithMultipleFilters_WhenSearchedWithSortParamOnDatetime_ThenResourcesAreReturnedInAscendingOrder()
         {
             var tag = Guid.NewGuid().ToString();
@@ -158,6 +197,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // filter and sort are different based on different types
             var filteredFamilyName = "Williamas";
             await ExecuteAndValidateBundle($"Patient?_tag={tag}&family={filteredFamilyName}&_sort=birthdate", false, patients.Reverse().Where(x => x.Name[0].Family == filteredFamilyName).OrderBy(x => x.BirthDate).Cast<Resource>().ToArray());
+        }
+
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenQueryWithMultipleFilters_WhenSearchedWithHyphenSortParamOnDatetime_ThenResourcesAreReturnedInDescendingOrder()
+        {
+            var tag = Guid.NewGuid().ToString();
+
+            var patients = await CreatePatients(tag);
+
+            // Ask to get all patient with specific tag and family name order by birthdate (timestamp)
+            // filter and sort are different based on different types
+            var filteredFamilyName = "Williamas";
+            await ExecuteAndValidateBundle($"Patient?_tag={tag}&family={filteredFamilyName}&_sort=-birthdate", false, patients.Where(x => x.Name[0].Family == filteredFamilyName).OrderByDescending(x => x.BirthDate).Cast<Resource>().ToArray());
         }
 
         private async Task<Patient[]> CreatePatients(string tag)
