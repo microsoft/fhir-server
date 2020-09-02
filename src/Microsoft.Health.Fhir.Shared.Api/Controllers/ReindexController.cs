@@ -84,6 +84,28 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return result;
         }
 
+        [HttpPost]
+        [Route(KnownRoutes.ReindexSingleResource)]
+        [ServiceFilter(typeof(ValidateReindexRequestFilterAttribute))]
+        [AuditEventType(AuditEventSubType.Reindex)]
+        public async Task<IActionResult> ReindexSingleResource([FromBody] Parameters inputParams, string typeParameter, string idParameter)
+        {
+            CheckIfReindexIsEnabledAndRespond();
+
+            ValidateParams(inputParams);
+
+            ushort? maximumConcurrency = ReadNumericParameter(inputParams, JobRecordProperties.MaximumConcurrency);
+            string scope = ReadStringParameter(inputParams, JobRecordProperties.Scope);
+
+            var response = await _mediator.SendReindexSingleResourceRequestAsync(typeParameter, idParameter, HttpContext.RequestAborted);
+
+            var result = FhirResult.Create(response, HttpStatusCode.Created)
+                .SetETagHeader()
+                .SetLastModifiedHeader();
+
+            return result;
+        }
+
         [HttpGet]
         [Route(KnownRoutes.Reindex)]
         [AuditEventType(AuditEventSubType.Reindex)]
