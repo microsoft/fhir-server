@@ -467,10 +467,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateSearchEntryMode(bundle, ResourceType.MedicationDispense);
         }
 
-        [Fact] // FAIL with _tag
+        [Fact]
         public async Task GivenANonRecursiveIncludeIterateSearchExpressionWithAdditionalParameters_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
-            // Non-recursive iteration- Single iteration (_include:iterate)
+            // Non-recursive iteration - Single iteration (_include:iterate)
+            // _tag parameter is not used due to issue https://github.com/microsoft/fhir-server/issues/1235
             string query = $"_include=MedicationDispense:prescription&_include:iterate=MedicationRequest:patient&_id={Fixture.AdamsMedicationDispense.Id}";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.MedicationDispense, query);
@@ -604,7 +605,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateSearchEntryMode(bundle, ResourceType.CareTeam);
         }
 
-        [Fact] // FAIL
+        [Fact]
         public async Task GivenANonRecursiveIncludeIterateSearchExpressionWithSpecificTargetType_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
             // Non-recursive iteration - Specific target type: CareTeam:participant:Patient
@@ -674,6 +675,81 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.AndersonPractitioner,
                 Fixture.SanchezPractitioner,
                 Fixture.TaylorPractitioner);
+
+            ValidateSearchEntryMode(bundle, ResourceType.MedicationDispense);
+        }
+
+        [Fact]
+        public async Task GivenANonRecursiveIncludeIterateSearchExpressionWithIncludeWildCard_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
+        {
+            string query = $"_include=MedicationDispense:*&_include:iterate=Patient:general-practitioner&_tag={Fixture.Tag}";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.MedicationDispense, query);
+
+            ValidateBundle(
+                bundle,
+                Fixture.AdamsMedicationDispense,
+                Fixture.SmithMedicationDispense,
+                Fixture.TrumanMedicationDispense,
+                Fixture.Practitioner,
+                Fixture.AdamsMedicationRequest,
+                Fixture.SmithMedicationRequest,
+                Fixture.TrumanMedicationRequest,
+                Fixture.AdamsPatient,
+                Fixture.SmithPatient,
+                Fixture.TrumanPatient,
+                Fixture.AndersonPractitioner,
+                Fixture.SanchezPractitioner,
+                Fixture.TaylorPractitioner);
+
+            ValidateSearchEntryMode(bundle, ResourceType.MedicationDispense);
+        }
+
+        [Fact]
+        public async Task GivenANonRecursiveIncludeIterateSearchExpressionWithIncludeIterateWildCard_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
+        {
+            string query = $"_include=MedicationDispense:patient&_include:iterate=Patient:*&_tag={Fixture.Tag}";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.MedicationDispense, query);
+
+            ValidateBundle(
+                bundle,
+                Fixture.AdamsMedicationDispense,
+                Fixture.SmithMedicationDispense,
+                Fixture.TrumanMedicationDispense,
+                Fixture.AdamsPatient,
+                Fixture.SmithPatient,
+                Fixture.TrumanPatient,
+                Fixture.AndersonPractitioner,
+                Fixture.SanchezPractitioner,
+                Fixture.TaylorPractitioner,
+                Fixture.Organization);
+
+            ValidateSearchEntryMode(bundle, ResourceType.MedicationDispense);
+        }
+
+        [Fact]
+        public async Task GivenANonRecursiveIncludeIterateSearchExpressionWithWildCardWithIncludeirdAndIncludeIterateWildcard_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
+        {
+            // string query = $"_include=MedicationDispense:*&_include:iterate=Patient:general-practitioner&_tag={Fixture.Tag}";
+            string query = $"_include=MedicationDispense:*&_include:iterate=MedicationRequest:*&_tag={Fixture.Tag}";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.MedicationDispense, query);
+
+            ValidateBundle(
+                bundle,
+                Fixture.AdamsMedicationDispense,
+                Fixture.SmithMedicationDispense,
+                Fixture.TrumanMedicationDispense,
+                Fixture.Practitioner,
+                Fixture.AdamsMedicationRequest,
+                Fixture.SmithMedicationRequest,
+                Fixture.TrumanMedicationRequest,
+                Fixture.AdamsPatient,
+                Fixture.SmithPatient,
+                Fixture.TrumanPatient,
+                Fixture.TramadolMedication,
+                Fixture.PercocetMedication);
 
             ValidateSearchEntryMode(bundle, ResourceType.MedicationDispense);
         }
@@ -761,7 +837,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.TaylorPractitioner);
 
             ValidateSearchEntryMode(bundle, ResourceType.CareTeam);
-        }*/
+       }
+
+       Use case: Organization?_include:iterate=Organization:*
+        */
 
         /*[Fact]
         public async Task GivenAnIncludeIterateSearchExpressionWithOrphanRecursiveIncludeIterate_WhenSearched_TheIterativeExpressionIsIgnored()

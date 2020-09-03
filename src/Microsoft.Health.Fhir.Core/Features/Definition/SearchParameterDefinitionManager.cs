@@ -107,5 +107,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             return componentSearchParameter.Type;
         }
+
+        public bool TryGetAllReferences(string resourceType, out IEnumerable<SearchParameterInfo> references)
+        {
+            IDictionary<string, SearchParameterInfo> searchParameters = null;
+
+            if (_typeLookup.TryGetValue(resourceType, out searchParameters))
+            {
+                references = searchParameters.Values.Where(v => v.Type == ValueSets.SearchParamType.Reference);
+                return true;
+            }
+
+            references = null;
+            return false;
+        }
     }
 }

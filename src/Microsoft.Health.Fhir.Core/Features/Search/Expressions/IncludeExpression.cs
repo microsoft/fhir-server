@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using System.Linq;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -20,10 +21,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <param name="resourceType">The resource that supports the reference.</param>
         /// <param name="referenceSearchParameter">THe search parameter that establishes the reference relationship.</param>
         /// <param name="targetResourceType">The target type of the reference.</param>
+        /// <param name="referencedTypes">All the resource types referenced by resourceType</param>
         /// <param name="wildCard">If this is a wildcard reference include (include all referenced resources).</param>
         /// <param name="reversed">If this is a reversed include (revinclude) expression.</param>
         /// <param name="iterate"> If :iterate (:recurse) modifer was applied.</param>
-        public IncludeExpression(string resourceType, SearchParameterInfo referenceSearchParameter, string targetResourceType, bool wildCard, bool reversed, bool iterate)
+        public IncludeExpression(string resourceType, SearchParameterInfo referenceSearchParameter, string targetResourceType, IEnumerable<string> referencedTypes, bool wildCard, bool reversed, bool iterate)
         {
             EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
 
@@ -35,6 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             ResourceType = resourceType;
             ReferenceSearchParameter = referenceSearchParameter;
             TargetResourceType = targetResourceType;
+            ReferencedTypes = referencedTypes?.ToList().AsReadOnly();
             WildCard = wildCard;
             Reversed = reversed;
             Iterate = iterate;
@@ -57,10 +60,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         public string TargetResourceType { get; }
 
         /// <summary>
+        ///  Gets the type of resources referenced by resourceType.
+        /// </summary>
+        public IReadOnlyCollection<string> ReferencedTypes { get; }
+
+        /// <summary>
         /// Gets if the include is a wildcard include.
         /// </summary>
         public bool WildCard { get; }
 
+        /// <summary>
         /// Get if the expression is reversed.
         /// </summary>
         public bool Reversed { get; }
@@ -84,15 +93,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
         public override string ToString()
         {
-            if (WildCard)
-            {
-                return "(Include wildcard)";
-            }
-
             var targetType = TargetResourceType != null ? $":{TargetResourceType}" : string.Empty;
             var iterate = Iterate ? "Iterate" : string.Empty;
             var reversed = Reversed ? "Reversed" : string.Empty;
-            return $"({reversed} Include {iterate} {ReferenceSearchParameter.Name}{targetType})";
+            var wildcard = WildCard ? "Wildcard" : string.Empty;
+            var paramName = ReferenceSearchParameter != null ? ReferenceSearchParameter.Name : string.Empty;
+            return $"({reversed} Include {iterate} {wildcard} {paramName}{targetType})";
         }
 
         /// <summary>

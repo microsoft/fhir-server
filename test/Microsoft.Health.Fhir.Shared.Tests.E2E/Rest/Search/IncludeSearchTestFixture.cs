@@ -67,9 +67,9 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
             SmithMedicationRequest = CreateMedicationRequest(SmithPatient, PercocetMedication);
             TrumanMedicationRequest = CreateMedicationRequest(TrumanPatient, PercocetMedication);
 
-            AdamsMedicationDispense = CreateMedicationDispense(AdamsMedicationRequest, AdamsPatient, TramadolMedication, Organization);
-            SmithMedicationDispense = CreateMedicationDispense(SmithMedicationRequest, SmithPatient, TramadolMedication, Organization);
-            TrumanMedicationDispense = CreateMedicationDispense(TrumanMedicationRequest, TrumanPatient, TramadolMedication, Organization);
+            AdamsMedicationDispense = CreateMedicationDispense(AdamsMedicationRequest, AdamsPatient, TramadolMedication);
+            SmithMedicationDispense = CreateMedicationDispense(SmithMedicationRequest, SmithPatient, TramadolMedication);
+            TrumanMedicationDispense = CreateMedicationDispense(TrumanMedicationRequest, TrumanPatient, TramadolMedication);
 
             CareTeam = CreateCareTeam();
 
@@ -138,7 +138,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
                     }).Result.Resource;
             }
 
-            MedicationDispense CreateMedicationDispense(MedicationRequest medicationRequest, Patient patient, Medication medication, Organization organization)
+            MedicationDispense CreateMedicationDispense(MedicationRequest medicationRequest, Patient patient, Medication medication)
             {
                return TestFhirClient.CreateAsync(
                     new MedicationDispense

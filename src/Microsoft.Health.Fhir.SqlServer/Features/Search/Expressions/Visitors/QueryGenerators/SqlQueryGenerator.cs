@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -447,7 +448,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         _includeCtes.Add(curLimitCte);
                     }
 
-                    // Add current cte to the dictionary
+                    // Add current cte limit to the dictionary
                     if (!includeExpression.Reversed && includeExpression.ReferenceSearchParameter != null)
                     {
                         // A specific target type is provided as the 3rd part of include value
@@ -455,13 +456,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         {
                             AddIncludeLimitCte(includeExpression.TargetResourceType, curLimitCte);
                         }
-                        else if (includeExpression.ReferenceSearchParameter.TargetResourceTypes != null)
+                        else
                         {
-                            // A specific target type is not provided, add all valid target resource types
-                            foreach (var t in includeExpression.ReferenceSearchParameter.TargetResourceTypes)
-                            {
-                                AddIncludeLimitCte(t, curLimitCte);
-                            }
+                            includeExpression.ReferenceSearchParameter.TargetResourceTypes?.ToList().ForEach(t => AddIncludeLimitCte(t, curLimitCte));
                         }
                     }
 
@@ -489,6 +486,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     else
                     {
                         _curFromCteIndex = -1;
+
+                        if (includeExpression.WildCard)
+                        {
+                            includeExpression.ReferencedTypes?.ToList().ForEach(t => AddIncludeLimitCte(t, curLimitCte));
+                        }
                     }
 
                     break;
@@ -609,10 +611,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             List<string> ctes;
             if (!_includeLimitCtesByTargetType.TryGetValue(resourceType, out ctes))
             {
-                _includeLimitCtesByTargetType.Add(resourceType, new List<string>());
+                ctes = new List<string>();
+                _includeLimitCtesByTargetType.Add(resourceType, ctes);
             }
 
-            _includeLimitCtesByTargetType[resourceType].Add(cte);
+            if (!ctes.Contains(cte))
+            {
+                _includeLimitCtesByTargetType[resourceType].Add(cte);
+            }
         }
 
         private bool TryGetIncludeCtes(string resourceType, out List<string> ctes)
