@@ -132,19 +132,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             // AND in the continuation token
             if (!string.IsNullOrWhiteSpace(searchOptions.ContinuationToken) && !searchOptions.CountOnly)
             {
-                if (long.TryParse(searchOptions.ContinuationToken, NumberStyles.None, CultureInfo.InvariantCulture, out var token))
+                var continuationToken = ContinuationToken.FromString(searchOptions.ContinuationToken);
+                if (string.IsNullOrEmpty(continuationToken.SortExpr)) // in case it's a _lastUpdated sort optimization
                 {
                     var sortOrder = searchOptions.GetFirstSortOrderForSupportedParam();
 
-                    Expression lastUpdatedExpression = sortOrder == SortOrder.Ascending ? Expression.GreaterThan(SqlFieldName.ResourceSurrogateId, null, token)
-                                                                                                : Expression.LessThan(SqlFieldName.ResourceSurrogateId, null, token);
+                    Expression lastUpdatedExpression = sortOrder == SortOrder.Ascending ? Expression.GreaterThan(SqlFieldName.ResourceSurrogateId, null, continuationToken.ResourceSourogateId)
+                                                                                                : Expression.LessThan(SqlFieldName.ResourceSurrogateId, null, continuationToken.ResourceSourogateId);
 
                     var tokenExpression = Expression.SearchParameter(SqlSearchParameters.ResourceSurrogateIdParameter, lastUpdatedExpression);
                     searchExpression = searchExpression == null ? tokenExpression : (Expression)Expression.And(tokenExpression, searchExpression);
-                }
-                else
-                {
-                    throw new BadRequestException(Resources.InvalidContinuationToken);
                 }
             }
 
@@ -199,6 +196,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     long? newContinuationId = null;
                     bool moreResults = false;
                     int matchCount = 0;
+                    DateTime? sortExpr = null;
 
                     while (await reader.ReadAsync(cancellationToken))
                     {
@@ -221,13 +219,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             continue;
                         }
 
-                        // See if this resource is a continuation token candidate and increase the count
-                        if (isMatch)
-                        {
-                            newContinuationId = resourceSurrogateId;
-                            matchCount++;
-                        }
-
                         string rawResource;
 
                         using (rawResourceStream)
@@ -235,6 +226,34 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         using (var streamReader = new StreamReader(gzipStream, SqlServerFhirDataStore.ResourceEncoding))
                         {
                             rawResource = await streamReader.ReadToEndAsync();
+                        }
+
+                        // if we have more columns, it means sort expressions were added.
+                        if (reader.FieldCount > 9)
+                        {
+                            try
+                            {
+                                // if sort is requested asc keep the first result for continuation token
+                                if (matchCount == 0 && searchOptions.Sort?[0].sortOrder == SortOrder.Ascending)
+                                {
+                                    sortExpr = reader.GetValue("SortExpr") as DateTime?;
+                                }
+                                else if (matchCount > 0 && searchOptions.Sort?[0].sortOrder == SortOrder.Descending)
+                                {
+                                    // Otherwise keep getting this, until we got the last result for Desc
+                                    sortExpr = reader.GetValue("SortExpr") as DateTime?;
+                                }
+                            }
+                            catch
+                            {
+                            }
+                        }
+
+                        // See if this resource is a continuation token candidate and increase the count
+                        if (isMatch)
+                        {
+                            newContinuationId = resourceSurrogateId;
+                            matchCount++;
                         }
 
                         // as long as at least one entry was marked as partial, this resultset
@@ -273,7 +292,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         unsupportedSortingParameters = searchOptions.UnsupportedSortingParams;
                     }
 
-                    return new SearchResult(resources, searchOptions.UnsupportedSearchParams, unsupportedSortingParameters, moreResults ? newContinuationId.Value.ToString(CultureInfo.InvariantCulture) : null, _isResultPartial);
+                    ContinuationToken continuationToken = new ContinuationToken { ResourceSourogateId = newContinuationId.Value, SortExpr = sortExpr?.ToString("o") };
+                    return new SearchResult(resources, searchOptions.UnsupportedSearchParams, unsupportedSortingParameters, moreResults ? continuationToken.ToJson() : null, _isResultPartial);
                 }
             }
         }

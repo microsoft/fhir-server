@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -73,6 +74,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
 
             string resourceTableAlias = "r";
+            var (searchParamInfo, sortOrder) = searchOptions.GetFirstSupportedSortParam();
 
             if (searchOptions.CountOnly)
             {
@@ -98,7 +100,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 StringBuilder.Append(expression.TableExpressions.Count > 0 ? "CAST(IsMatch AS bit) AS IsMatch, " : "CAST(1 AS bit) AS IsMatch, ");
                 StringBuilder.Append(expression.TableExpressions.Count > 0 ? "CAST(IsPartial AS bit) AS IsPartial, " : "CAST(0 AS bit) AS IsPartial, ");
 
-                StringBuilder.AppendLine(VLatest.Resource.RawResource, resourceTableAlias);
+                StringBuilder.Append(VLatest.Resource.RawResource, resourceTableAlias);
+                StringBuilder.AppendLine((searchParamInfo == null || searchParamInfo.Name == KnownQueryParameterNames.LastUpdated) ? string.Empty : $", {TableExpressionName(_tableExpressionCounter)}.SortExpr");
             }
 
             StringBuilder.Append("FROM ").Append(VLatest.Resource).Append(" ").AppendLine(resourceTableAlias);
@@ -127,7 +130,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             if (!searchOptions.CountOnly)
             {
                 StringBuilder.Append("ORDER BY ");
-                var (searchParamInfo, sortOrder) = searchOptions.GetFirstSupportedSortParam();
                 if (searchParamInfo == null || searchParamInfo.Name == KnownQueryParameterNames.LastUpdated)
                 {
                     StringBuilder
@@ -478,11 +480,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     }
 
                     var (searchParamInfo, searchSort) = context.GetFirstSupportedSortParam();
+                    var continuationToken = ContinuationToken.FromString(context.ContinuationToken);
+                    object sortValue = null;
                     Health.SqlServer.Features.Schema.Model.Column sortColumnName = default(Health.SqlServer.Features.Schema.Model.Column);
 
                     if (searchParamInfo.Type == ValueSets.SearchParamType.Date)
                     {
                         sortColumnName = VLatest.DateTimeSearchParam.StartDateTime;
+
+                        if (continuationToken != null)
+                        {
+                            DateTime dateSortValue;
+                            if (DateTime.TryParseExact(continuationToken.SortExpr, "o", null, DateTimeStyles.None, out dateSortValue))
+                            {
+                                sortValue = dateSortValue;
+                            }
+                        }
                     }
 
                     if (!string.IsNullOrEmpty(sortColumnName) && tableExpression.SearchParameterQueryGenerator != null)
@@ -505,6 +518,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                             {
                                 delimited.BeginDelimitedElement();
                                 tableExpression.NormalizedPredicate.AcceptVisitor(tableExpression.SearchParameterQueryGenerator, GetContext());
+                            }
+
+                            // if continuation token exists, add it to the query
+                            if (continuationToken != null)
+                            {
+                                var sortOperand = searchSort == SortOrder.Ascending ? ">" : "<";
+
+                                delimited.BeginDelimitedElement();
+                                StringBuilder.Append("((").Append(sortColumnName, null).Append($" = ").Append(Parameters.AddParameter(sortColumnName, sortValue));
+                                StringBuilder.Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append($" >= ").Append(Parameters.AddParameter(VLatest.Resource.ResourceSurrogateId, continuationToken.ResourceSourogateId)).Append(")");
+                                StringBuilder.Append(" OR ").Append(sortColumnName, null).Append($" {sortOperand} ").Append(Parameters.AddParameter(sortColumnName, sortValue)).AppendLine(")");
                             }
 
                             AppendIntersectionWithPredecessor(delimited, tableExpression);
