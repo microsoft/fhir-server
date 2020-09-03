@@ -78,6 +78,32 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         }
 
         [Fact]
+        public async Task GivenAValidConfigurationWithETagNoQuotes_WhenExportingAnonymizedData_ResourceShouldBeAnonymized()
+        {
+            if (!_isUsingInProcTestServer)
+            {
+                return;
+            }
+
+            (string fileName, string etag) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
+            etag = etag.Substring(1, 17);
+            string containerName = Guid.NewGuid().ToString("N");
+            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, containerName, etag);
+            HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
+            IList<Uri> blobUris = await CheckExportStatus(response);
+
+            IEnumerable<string> dataFromExport = await DownloadBlobAndParse(blobUris);
+            FhirJsonParser parser = new FhirJsonParser();
+
+            foreach (string content in dataFromExport)
+            {
+                Resource result = parser.Parse<Resource>(content);
+
+                Assert.Contains(result.Meta.Security, c => "REDACTED".Equals(c.Code));
+            }
+        }
+
+        [Fact]
         public async Task GivenAValidConfigurationWithoutETag_WhenExportingAnonymizedData_ResourceShouldBeAnonymized()
         {
             if (!_isUsingInProcTestServer)
@@ -152,12 +178,12 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             (string fileName, string _) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
 
             string containerName = Guid.NewGuid().ToString("N");
-            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, containerName, "invalid-etag");
+            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, containerName, "\"invalid-etag");
             HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
             string responseContent = await response.Content.ReadAsStringAsync();
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-            Assert.Contains("The format of value 'invalid-etag' is invalid.", responseContent);
+            Assert.Contains("invalid-etag' is invalid.", responseContent);
         }
 
         [Fact]

@@ -1,6 +1,6 @@
 # Bulk Export
 
-This feature allows data from the FHIR server to be exported. More details can be found in the [spec](https://github.com/HL7/bulk-data/blob/master/spec/export/index.md). The feature is currently turned off by default. To enable the feature, update the `FhirServer:Operations:Export:Enabled` setting to be true.
+This feature allows data from the FHIR server to be exported. More details can be found in the [spec](https://hl7.org/fhir/uv/bulkdata/export/index.html). The feature is currently turned on by default. To disable the feature, update the `FhirServer:Operations:Export:Enabled` setting to be false.
 
 ## Specifying destination
 
@@ -38,4 +38,10 @@ https://test-fhir-server/$export
 
 ## What is supported
 
-Currently, only system-wide export is supported. Patient compartment is coming shortly. Checking the export status through the URL returned by the location header during the queuing is also supported. Cancelling the actual export job is supported.
+System-wide, Patient compartment, and Group exports are supported. Checking the export status through the URL returned by the location header during the queuing is also supported. Cancelling the actual export job is supported.
+
+In addition to the features mentioned in the FHIR export specification the query parameter ```_container``` can be used to specify a specific container in the blob storage to export to.
+If a container is specified, the data will be exported to that container in a new folder with the name <timestamp>-<id>
+If no container is specified, the data will be exported to a new container with the name <id>
+
+Exported data can be deidentified using the [FHIR Tools for Anonymization](https://github.com/microsoft/FHIR-Tools-for-Anonymization#how-to-perform-de-identified-export-operation-on-the-fhir-server)

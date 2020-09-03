@@ -46,6 +46,7 @@ namespace Microsoft.Health.Fhir.Azure
             string[] blobLocation = blobNameWithETag.Split(':', StringSplitOptions.RemoveEmptyEntries);
             string blobName = blobLocation[0];
             string eTag = blobLocation.Count() > 1 ? blobLocation[1] : null;
+            eTag = AddDoubleQuotesIfMissing(eTag);
 
             CloudBlobClient blobClient = await ConnectAsync(cancellationToken);
             CloudBlobContainer container = blobClient.GetContainerReference(AnonymizationContainer);
@@ -85,6 +86,16 @@ namespace Microsoft.Health.Fhir.Azure
             {
                 throw new FileNotFoundException(message: string.Format(CultureInfo.InvariantCulture, Resources.AnonymizationConfigurationNotFound, blobName));
             }
+        }
+
+        private string AddDoubleQuotesIfMissing(string eTag)
+        {
+            if (string.IsNullOrWhiteSpace(eTag) || eTag.StartsWith('\"'))
+            {
+                return eTag;
+            }
+
+            return $"\"{eTag}\"";
         }
 
         private async Task<CloudBlobClient> ConnectAsync(CancellationToken cancellationToken)
