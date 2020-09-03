@@ -133,7 +133,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             if (!string.IsNullOrWhiteSpace(searchOptions.ContinuationToken) && !searchOptions.CountOnly)
             {
                 var continuationToken = ContinuationToken.FromString(searchOptions.ContinuationToken);
-                
+
                 // in case it's a _lastUpdated sort optimization
                 if (string.IsNullOrEmpty(continuationToken.SortExpr))
                 {
