@@ -11,7 +11,7 @@ using Microsoft.Health.SqlServer.Features.Schema.Messages.Notifications;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 {
-    public class SchemaUpgradedHandler : INotificationHandler<SchemaUpgraded>
+    public class SchemaUpgradedHandler : INotificationHandler<SchemaUpgradedNotification>
     {
         private SqlServerFhirModel _sqlServerFhirModel;
 
@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _sqlServerFhirModel = sqlServerFhirModel;
         }
 
-        public Task Handle(SchemaUpgraded notification, CancellationToken cancellationToken)
+        public Task Handle(SchemaUpgradedNotification notification, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(notification, nameof(notification));
 
