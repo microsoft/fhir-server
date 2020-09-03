@@ -58,6 +58,72 @@ and locate the public IP address with:
 kubectl get svc my-fhir-release-fhir-server
 ```
 
+## Deploying the FHIR service with AKS Engine on Azure Stack Hub
+
+In order to provision the FHIR server to AKS Engine cluster on Azure Stack Hub, you need the following:
+1. A [Service Principal](https://docs.microsoft.com/en-us/azure-stack/operator/azure-stack-create-service-principals?view=azs-2002) for managing the AKS Engine. Be sure to assign Contributor access on the resource group / subscription to the service principal 
+1. An [AKS Engine client VM](https://docs.microsoft.com/en-us/azure-stack/user/azure-stack-kubernetes-aks-engine-deploy-linux?view=azs-2002) for managing your kubernetes cluster
+1. An [AKSE Kubernetes cluster](https://docs.microsoft.com/en-us/azure-stack/user/azure-stack-kubernetes-aks-engine-deploy-cluster?view=azs-2002) created using the above mentioned AKS Engine client vm
+1. [Cert Manager](https://cert-manager.io/) - Sample installation steps can be found in the [deploy-aks.sh](./deploy-aks.sh) script
+1. [NGINX ingress controller](https://kubernetes.github.io/ingress-nginx/) - Sample installation steps can be found in the [deploy-aks.sh](./deploy-aks.sh) script
+
+Once you have created a Kubernetes cluster using the AKS Engine, deploy a basic FHIR server with:
+
+```bash
+helm install my-fhir-release helm/fhir-server/ \
+  --set database.dataStore="SqlContainer" \
+  --set database.SqlContainer.acceptEula="Y"
+```
+
+You will need to supply the dataStore type and accept the EULA to enable the container-based SQL backend which is required on Azure Stack Hub. 
+
+The default settings will deploy the FHIR server with a cluster IP address, which is not accessible from the outside, but you can map a local port to the FHIR service with:
+
+```bash
+kubectl port-forward service/my-fhir-release-fhir-server 8080:80
+```
+
+And the access the FHIR server with:
+
+```bash
+curl -s http://localhost:8080/Patient | jq .
+```
+
+If you would like the FHIR service to have a public IP address, you can use a LoadBalancer service:
+
+```bash
+helm install my-fhir-release helm/fhir-server/ \
+  --set database.dataStore="SqlContainer" \
+  --set database.SqlContainer.acceptEula="Y"
+  --set service.type=LoadBalancer
+```
+
+and locate the public IP address with:
+
+```bash
+kubectl get svc my-fhir-release-fhir-server
+```
+
+> **Note:** you may want to enable some optional features of the FHIR service like authentication. See the below table for common values to set provide when installing the server on Azure Stack Hub. To set these values, add additional --set flags to the above command to customize your configuration.
+
+|Value to set|Description|
+|------------|-----------|
+|appInsights.secretKey|Instrumentation key to use if Application insights is to be used|
+|security.enabled|Set to true if you would like to enable security features. If set to true, then security.authority and security.audience values are required. For detailed instructions on configuring security, please refer to the [Azure Active Directory Application Registrations Documentation](https://github.com/microsoft/fhir-server/blob/master/docs/PortalAppRegistration.md)|
+|security.authority|Provide the authority created when configuring the AAD Authority. E.g. https://login.microsoftonline.com/your-AAD-tenant-ID |
+|security.audience|The configured audience. This is usually the IP or URL of the FHIR server|
+
+
+**Authentication Setup**
+
+For authentication to be enabled, the following will need to be setup in you Azure environment 
+
+- Review the [Roles.md](https://github.com/microsoft/fhir-server/blob/master/docs/Roles.md) documentation to configure and associate roles in Azure 
+- [Register the Azure Active Directory apps for Azure API for FHIR](https://docs.microsoft.com/en-us/azure/healthcare-apis/fhir-app-registration)
+- [Register a confidential client application in Azure Active Directory](https://docs.microsoft.com/en-us/azure/healthcare-apis/register-resource-azure-ad-client-app).  You also have the option to register by [Public](https://docs.microsoft.com/en-us/azure/healthcare-apis/register-public-azure-ad-client-app) or [Service](https://docs.microsoft.com/en-us/azure/healthcare-apis/register-service-azure-ad-client-app) client.
+- [Add app roles in your application and receive them in the token](https://docs.microsoft.com/en-us/azure/active-directory/develop/howto-add-app-roles-in-azure-ad-apps)
+
+
 ## Configuring FHIR server with ingress controller
 
 The cluster deployment script adds an nginx ingress controller to cluster. Use the ingress controller for directing traffic to specific FHIR instances and for SSL termination. The ingress controller needs an SSL certificate. You have two options:
