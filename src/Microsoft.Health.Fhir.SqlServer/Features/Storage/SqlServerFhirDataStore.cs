@@ -208,77 +208,60 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             return null;
                         }
 
+                        long resourceSurrogateId;
+                        int version;
+                        bool isDeleted;
+                        bool isHistory;
+                        bool isRawResourceMetaSet = false;
+                        Stream rawResourceStream;
+
                         if (_schemaInformation.Current <= 3)
                         {
                             var resourceTable = V3.Resource;
 
-                            (long resourceSurrogateId, int version, bool isDeleted, bool isHistory, Stream rawResourceStream) = sqlDataReader.ReadRow(
+                            (resourceSurrogateId, version, isDeleted, isHistory, rawResourceStream) = sqlDataReader.ReadRow(
                                 resourceTable.ResourceSurrogateId,
                                 resourceTable.Version,
                                 resourceTable.IsDeleted,
                                 resourceTable.IsHistory,
                                 resourceTable.RawResource);
-
-                            string rawResource;
-
-                            using (rawResourceStream)
-                            using (var gzipStream = new GZipStream(rawResourceStream, CompressionMode.Decompress))
-                            using (var reader = new StreamReader(gzipStream, ResourceEncoding))
-                            {
-                                rawResource = await reader.ReadToEndAsync();
-                            }
-
-                            return new ResourceWrapper(
-                            key.Id,
-                            version.ToString(CultureInfo.InvariantCulture),
-                            key.ResourceType,
-                            new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: false),
-                            null,
-                            new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
-                            isDeleted,
-                            searchIndices: null,
-                            compartmentIndices: null,
-                            lastModifiedClaims: null)
-                            {
-                                IsHistory = isHistory,
-                            };
                         }
                         else
                         {
                             var resourceTable = VLatest.Resource;
 
-                            (long resourceSurrogateId, int version, bool isDeleted, bool isHistory, bool isRawResourceMetaSet, Stream rawResourceStream) = sqlDataReader.ReadRow(
+                            (resourceSurrogateId, version, isDeleted, isHistory, isRawResourceMetaSet, rawResourceStream) = sqlDataReader.ReadRow(
                                 resourceTable.ResourceSurrogateId,
                                 resourceTable.Version,
                                 resourceTable.IsDeleted,
                                 resourceTable.IsHistory,
                                 resourceTable.IsRawResourceMetaSet,
                                 resourceTable.RawResource);
-
-                            string rawResource;
-
-                            using (rawResourceStream)
-                            using (var gzipStream = new GZipStream(rawResourceStream, CompressionMode.Decompress))
-                            using (var reader = new StreamReader(gzipStream, ResourceEncoding))
-                            {
-                                rawResource = await reader.ReadToEndAsync();
-                            }
-
-                            return new ResourceWrapper(
-                            key.Id,
-                            version.ToString(CultureInfo.InvariantCulture),
-                            key.ResourceType,
-                            new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
-                            null,
-                            new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
-                            isDeleted,
-                            searchIndices: null,
-                            compartmentIndices: null,
-                            lastModifiedClaims: null)
-                            {
-                                IsHistory = isHistory,
-                            };
                         }
+
+                        string rawResource;
+
+                        using (rawResourceStream)
+                        using (var gzipStream = new GZipStream(rawResourceStream, CompressionMode.Decompress))
+                        using (var reader = new StreamReader(gzipStream, ResourceEncoding))
+                        {
+                            rawResource = await reader.ReadToEndAsync();
+                        }
+
+                        return new ResourceWrapper(
+                        key.Id,
+                        version.ToString(CultureInfo.InvariantCulture),
+                        key.ResourceType,
+                        new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
+                        null,
+                        new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
+                        isDeleted,
+                        searchIndices: null,
+                        compartmentIndices: null,
+                        lastModifiedClaims: null)
+                        {
+                            IsHistory = isHistory,
+                        };
                     }
                 }
             }
