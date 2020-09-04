@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Net;
-using System.Threading;
+using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -255,6 +255,83 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync($"Patient?{key}={val}"));
 
             Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenListOfResources_WhenSearchedWithElements_ThenOnlySpecifiedPropertiesShouldBeReturned()
+        {
+            const int numberOfResources = 3;
+            string[] elements = new[] { "gender", "birthDate" };
+
+            var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
+
+            Patient patient = Samples.GetDefaultPatient().ToPoco<Patient>();
+            var patients = new Patient[numberOfResources];
+
+            for (int i = 0; i < numberOfResources; i++)
+            {
+                patient.Meta = new Meta();
+                patient.Meta.Tag.Add(tag);
+
+                FhirResponse<Patient> createdPatient = await Client.CreateAsync(patient);
+                patients[i] = MaskingNode.ForElements(new ScopedNode(createdPatient.Resource.ToTypedElement()), elements).ToPoco<Patient>();
+            }
+
+            Bundle bundle = await Client.SearchAsync($"Patient?_tag={tag.Code}&_elements={string.Join(',', elements)}");
+
+            ValidateBundle(bundle, patients);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenListOfResources_WhenSearchedWithEmptyElements_ThenAllPropertiesShouldBeReturned()
+        {
+            const int numberOfResources = 3;
+
+            var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
+
+            Patient patient = Samples.GetDefaultPatient().ToPoco<Patient>();
+            var patients = new Patient[numberOfResources];
+
+            for (int i = 0; i < numberOfResources; i++)
+            {
+                patient.Meta = new Meta();
+                patient.Meta.Tag.Add(tag);
+
+                FhirResponse<Patient> createdPatient = await Client.CreateAsync(patient);
+                patients[i] = createdPatient.Resource;
+            }
+
+            Bundle bundle = await Client.SearchAsync($"Patient?_tag={tag.Code}&_elements=");
+
+            ValidateBundle(bundle, patients);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenListOfResources_WhenSearchedWithInvalidElements_ThenOnlyValidSpecifiedPropertiesShouldBeReturned()
+        {
+            const int numberOfResources = 3;
+            string[] elements = new[] { "gender", "birthDate" };
+
+            var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
+
+            Patient patient = Samples.GetDefaultPatient().ToPoco<Patient>();
+            var patients = new Patient[numberOfResources];
+
+            for (int i = 0; i < numberOfResources; i++)
+            {
+                patient.Meta = new Meta();
+                patient.Meta.Tag.Add(tag);
+
+                FhirResponse<Patient> createdPatient = await Client.CreateAsync(patient);
+                patients[i] = MaskingNode.ForElements(new ScopedNode(createdPatient.Resource.ToTypedElement()), elements).ToPoco<Patient>();
+            }
+
+            Bundle bundle = await Client.SearchAsync($"Patient?_tag={tag.Code}&_elements=invalidProperty,{string.Join(',', elements)}");
+
+            ValidateBundle(bundle, patients);
         }
 
         [Fact]

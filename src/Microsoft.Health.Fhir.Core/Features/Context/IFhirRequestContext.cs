@@ -10,5 +10,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
     public interface IFhirRequestContext : IRequestContext
     {
         string ResourceType { get; set; }
+
+        bool IncludePartiallyIndexedSearchParams { get; set; }
     }
 }

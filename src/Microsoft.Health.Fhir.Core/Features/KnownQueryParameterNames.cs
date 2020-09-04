@@ -44,6 +44,8 @@ namespace Microsoft.Health.Fhir.Core.Features
 
         public const string Summary = "_summary";
 
+        public const string Elements = "_elements";
+
         /// <summary>
         /// The total query parameter.
         /// </summary>
@@ -57,5 +59,15 @@ namespace Microsoft.Health.Fhir.Core.Features
         public const string Type = "_type";
 
         public const string Container = "_container";
+
+        /// <summary>
+        /// The anonymization configuration
+        /// </summary>
+        /// <remarks>The anonymization configuration location and addition information. </remarks>
+        public const string AnonymizationConfigurationLocation = "_anonymizationConfig";
+
+        public const string AnonymizationConfigurationFileEtag = "_anonymizationConfigEtag";
+
+        public const string OutputFormat = "_outputFormat";
     }
 }
