@@ -103,8 +103,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 if (_schemaInfo.Current > 3)
                 {
-                    // RawResourceMetaSet column was added in V4
-                    StringBuilder.AppendLine(VLatest.Resource.RawResourceMetaSet, resourceTableAlias).Append(", ");
+                    // IsRawResourceMetaSet column was added in V4
+                    StringBuilder.AppendLine(VLatest.Resource.IsRawResourceMetaSet, resourceTableAlias).Append(", ");
                 }
 
                 StringBuilder.AppendLine(VLatest.Resource.RawResource, resourceTableAlias);

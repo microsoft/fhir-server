@@ -210,7 +210,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         string requestMethod;
                         bool isMatch;
                         bool isPartialEntry;
-                        bool rawResourceMetaSet = false;
+                        bool isRawResourceMetaSet = false;
                         Stream rawResourceStream;
 
                         if (_schemaInformation.Current <= 3)
@@ -228,7 +228,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         }
                         else
                         {
-                            (resourceTypeId, resourceId, version, isDeleted, resourceSurrogateId, requestMethod, isMatch, isPartialEntry, rawResourceMetaSet, rawResourceStream) = reader.ReadRow(
+                            (resourceTypeId, resourceId, version, isDeleted, resourceSurrogateId, requestMethod, isMatch, isPartialEntry, isRawResourceMetaSet, rawResourceStream) = reader.ReadRow(
                             VLatest.Resource.ResourceTypeId,
                             VLatest.Resource.ResourceId,
                             VLatest.Resource.Version,
@@ -237,7 +237,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             VLatest.Resource.RequestMethod,
                             _isMatch,
                             _isPartial,
-                            VLatest.Resource.RawResourceMetaSet,
+                            VLatest.Resource.IsRawResourceMetaSet,
                             VLatest.Resource.RawResource);
                         }
 
@@ -274,7 +274,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 resourceId,
                                 version.ToString(CultureInfo.InvariantCulture),
                                 _model.GetResourceTypeName(resourceTypeId),
-                                new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: rawResourceMetaSet),
+                                new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
                                 new ResourceRequest(requestMethod),
                                 new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
                                 isDeleted,

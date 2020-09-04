@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -84,6 +85,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         writer.WriteStartArray("entry");
                         foreach (var entry in bundle.Entry)
                         {
+                            if (!(entry is RawBundleEntryComponent))
+                            {
+                                throw new ArgumentException("BundleSerializer can only be used when all Entry elements are of type RawBundleEntryComponent.", nameof(bundle));
+                            }
+
                             var rawBundleEntry = (RawBundleEntryComponent)entry;
                             bool wroteFullUrl = false;
                             writer.WriteStartObject();

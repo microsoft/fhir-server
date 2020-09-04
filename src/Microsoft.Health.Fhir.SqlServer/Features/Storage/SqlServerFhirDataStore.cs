@@ -138,7 +138,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     keepHistory: keepHistory,
                     requestMethod: resource.Request.Method,
                     rawResource: stream,
-                    rawResourceMetaSet: resource.RawResource.IsMetaSet,
+                    isRawResourceMetaSet: resource.RawResource.IsMetaSet,
                     tableValuedParameters: _upsertResourceTvpGeneratorVLatest.Generate(resourceMetadata));
                 }
 
@@ -247,12 +247,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         {
                             var resourceTable = VLatest.Resource;
 
-                            (long resourceSurrogateId, int version, bool isDeleted, bool isHistory, bool rawResourceMetaSet, Stream rawResourceStream) = sqlDataReader.ReadRow(
+                            (long resourceSurrogateId, int version, bool isDeleted, bool isHistory, bool isRawResourceMetaSet, Stream rawResourceStream) = sqlDataReader.ReadRow(
                                 resourceTable.ResourceSurrogateId,
                                 resourceTable.Version,
                                 resourceTable.IsDeleted,
                                 resourceTable.IsHistory,
-                                resourceTable.RawResourceMetaSet,
+                                resourceTable.IsRawResourceMetaSet,
                                 resourceTable.RawResource);
 
                             string rawResource;
@@ -268,7 +268,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             key.Id,
                             version.ToString(CultureInfo.InvariantCulture),
                             key.ResourceType,
-                            new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: rawResourceMetaSet),
+                            new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
                             null,
                             new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
                             isDeleted,

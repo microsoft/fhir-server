@@ -4,7 +4,7 @@
 **************************************************************/
 
 ALTER TABLE dbo.Resource
-    ADD RawResourceMetaSet bit NOT NULL DEFAULT 0
+    ADD IsRawResourceMetaSet bit NOT NULL DEFAULT 0
 GO
 
 --
@@ -32,12 +32,12 @@ AS
     SET NOCOUNT ON
 
     IF (@version IS NULL) BEGIN
-        SELECT ResourceSurrogateId, Version, IsDeleted, IsHistory, RawResourceMetaSet, RawResource
+        SELECT ResourceSurrogateId, Version, IsDeleted, IsHistory, IsRawResourceMetaSet, RawResource
         FROM dbo.Resource
         WHERE ResourceTypeId = @resourceTypeId AND ResourceId = @resourceId AND IsHistory = 0
     END
     ELSE BEGIN
-        SELECT ResourceSurrogateId, Version, IsDeleted, IsHistory, RawResourceMetaSet, RawResource
+        SELECT ResourceSurrogateId, Version, IsDeleted, IsHistory, IsRawResourceMetaSet, RawResource
         FROM dbo.Resource
         WHERE ResourceTypeId = @resourceTypeId AND ResourceId = @resourceId AND Version = @version
     END
@@ -70,7 +70,7 @@ GO
 --         * The HTTP method/verb used for the request
 --     @rawResource
 --         * A compressed UTF16-encoded JSON document
---     @rawResourceMetaSet
+--     @isRawResourceMetaSet
 --         * Whether the rawResource json contains updated values for the meta property
 --     @resourceWriteClaims
 --         * Claims on the principal that performed the write
@@ -118,7 +118,7 @@ ALTER PROCEDURE dbo.UpsertResource
     @keepHistory bit,
     @requestMethod varchar(10),
     @rawResource varbinary(max),
-    @rawResourceMetaSet bit = 0,
+    @isRawResourceMetaSet bit = 0,
     @resourceWriteClaims dbo.ResourceWriteClaimTableType_1 READONLY,
     @compartmentAssignments dbo.CompartmentAssignmentTableType_1 READONLY,
     @referenceSearchParams dbo.ReferenceSearchParamTableType_1 READONLY,
@@ -187,7 +187,7 @@ AS
         END
 
         SET @version = @previousVersion + 1
-        SET @rawResourceMetaSet = 0
+        SET @isRawResourceMetaSet = 0
 
         IF (@keepHistory = 1) BEGIN
 
@@ -321,9 +321,9 @@ AS
     DECLARE @resourceSurrogateId bigint = @baseResourceSurrogateId + (NEXT VALUE FOR ResourceSurrogateIdUniquifierSequence)
 
     INSERT INTO dbo.Resource
-        (ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, RawResourceMetaSet)
+        (ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet)
     VALUES
-        (@resourceTypeId, @resourceId, @version, 0, @resourceSurrogateId, @isDeleted, @requestMethod, @rawResource, @rawResourceMetaSet)
+        (@resourceTypeId, @resourceId, @version, 0, @resourceSurrogateId, @isDeleted, @requestMethod, @rawResource, @isRawResourceMetaSet)
 
     INSERT INTO dbo.ResourceWriteClaim
         (ResourceSurrogateId, ClaimTypeId, ClaimValue)
