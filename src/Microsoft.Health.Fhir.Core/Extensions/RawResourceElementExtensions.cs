@@ -22,87 +22,93 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         /// </summary>
         /// <param name="rawResource">Input RawResourceElement to convert to a JsonDocument</param>
         /// <param name="outputStream">Stream to serialize to</param>
-        public static async Task SerializeToStreamAsJson(this RawResourceElement rawResource, Stream outputStream)
+        public static async Task SerializeToStreamAsUtf8Json(this RawResourceElement rawResource, Stream outputStream)
         {
             EnsureArg.IsNotNull(rawResource, nameof(rawResource));
 
             if (rawResource.RawResource.IsMetaSet)
             {
-                using (var sw = new StreamWriter(outputStream, leaveOpen: true))
-                {
-                    await sw.WriteAsync(rawResource.RawResource.Data);
-                    await sw.FlushAsync();
-                    return;
-                }
+                await using var sw = new StreamWriter(outputStream, leaveOpen: true);
+                await sw.WriteAsync(rawResource.RawResource.Data);
+                return;
             }
 
             var jsonDocument = JsonDocument.Parse(rawResource.RawResource.Data);
 
-            using (Utf8JsonWriter writer = new Utf8JsonWriter(outputStream, WriterOptions))
+            await using Utf8JsonWriter writer = new Utf8JsonWriter(outputStream, WriterOptions);
+
+            writer.WriteStartObject();
+            bool foundMeta = false;
+
+            var enumerator = jsonDocument.RootElement.EnumerateObject();
+
+            while (enumerator.MoveNext())
             {
-                writer.WriteStartObject();
-                bool foundMeta = false;
+                var current = enumerator.Current;
 
-                foreach (var current in jsonDocument.RootElement.EnumerateObject())
+                if (current.NameEquals("meta"))
                 {
-                    if (current.Name == "meta")
+                    foundMeta = true;
+
+                    writer.WriteStartObject("meta");
+
+                    bool versionIdFound = false, lastUpdatedFound = false;
+
+                    foreach (var metaEntry in current.Value.EnumerateObject())
                     {
-                        foundMeta = true;
-
-                        writer.WriteStartObject("meta");
-
-                        bool versionIdFound = false, lastUpdatedFound = false;
-
-                        foreach (var metaEntry in current.Value.EnumerateObject())
+                        if (metaEntry.Name == "lastUpdated" && rawResource.LastUpdated.HasValue)
                         {
-                            if (metaEntry.Name == "lastUpdated" && rawResource.LastUpdated.HasValue)
-                            {
-                                string toWrite = rawResource.LastUpdated.HasValue ? rawResource.LastUpdated.Value.ToInstantString() : metaEntry.Value.GetString();
-                                writer.WriteString("lastUpdated", toWrite);
-                                lastUpdatedFound = true;
-                            }
-                            else if (metaEntry.Name == "versionId")
-                            {
-                                writer.WriteString("versionId", rawResource.VersionId);
-                                versionIdFound = true;
-                            }
-                            else
-                            {
-                                metaEntry.WriteTo(writer);
-                            }
+                            string toWrite = rawResource.LastUpdated.HasValue ? rawResource.LastUpdated.Value.ToInstantString() : metaEntry.Value.GetString();
+                            writer.WriteString("lastUpdated", toWrite);
+                            lastUpdatedFound = true;
                         }
-
-                        if (!lastUpdatedFound && rawResource.LastUpdated.HasValue)
-                        {
-                            writer.WriteString("lastUpdated", rawResource.LastUpdated.Value.ToInstantString());
-                        }
-
-                        if (!versionIdFound)
+                        else if (metaEntry.Name == "versionId")
                         {
                             writer.WriteString("versionId", rawResource.VersionId);
+                            versionIdFound = true;
                         }
-
-                        writer.WriteEndObject();
+                        else
+                        {
+                            metaEntry.WriteTo(writer);
+                        }
                     }
-                    else
+
+                    if (!lastUpdatedFound && rawResource.LastUpdated.HasValue)
                     {
-                        // write
-                        current.WriteTo(writer);
+                        writer.WriteString("lastUpdated", rawResource.LastUpdated.Value.ToInstantString());
                     }
-                }
 
-                if (!foundMeta)
-                {
-                    writer.WriteStartObject("meta");
-                    writer.WriteString("lastUpdated", rawResource.LastUpdated.Value.ToInstantString());
-                    writer.WriteString("versionId", rawResource.VersionId);
+                    if (!versionIdFound)
+                    {
+                        writer.WriteString("versionId", rawResource.VersionId);
+                    }
+
                     writer.WriteEndObject();
+
+                    break;
                 }
-
-                writer.WriteEndObject();
-
-                await writer.FlushAsync();
+                else
+                {
+                    current.WriteTo(writer);
+                }
             }
+
+            while (enumerator.MoveNext())
+            {
+                enumerator.Current.WriteTo(writer);
+            }
+
+            if (!foundMeta)
+            {
+                writer.WriteStartObject("meta");
+                writer.WriteString("lastUpdated", rawResource.LastUpdated.Value.ToInstantString());
+                writer.WriteString("versionId", rawResource.VersionId);
+                writer.WriteEndObject();
+            }
+
+            writer.WriteEndObject();
+
+            await writer.FlushAsync();
         }
     }
 }

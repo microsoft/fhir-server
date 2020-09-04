@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
             using (var ms = new MemoryStream())
             using (var sr = new StreamReader(ms))
             {
-                await rawResourceElement.SerializeToStreamAsJson(ms);
+                await rawResourceElement.SerializeToStreamAsUtf8Json(ms);
                 ms.Seek(0, SeekOrigin.Begin);
                 return await sr.ReadToEndAsync();
             }

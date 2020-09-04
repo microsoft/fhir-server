@@ -24,130 +24,128 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         public async Task Serialize(Hl7.Fhir.Model.Bundle bundle, Stream outputStream)
         {
-            using (Utf8JsonWriter writer = new Utf8JsonWriter(outputStream, _writerOptions))
-            using (StreamWriter streamWriter = new StreamWriter(outputStream, leaveOpen: true))
+            await using Utf8JsonWriter writer = new Utf8JsonWriter(outputStream, _writerOptions);
+            await using StreamWriter streamWriter = new StreamWriter(outputStream, leaveOpen: true);
+
+            writer.WriteStartObject();
+
+            writer.WriteString("resourceType", bundle.ResourceType.GetLiteral());
+            writer.WriteString("id", bundle.Id);
+
+            SerializeMetadata();
+
+            writer.WriteString("type", bundle.Type?.GetLiteral());
+
+            SerializeLinks();
+
+            if (bundle.Total.HasValue)
             {
-                writer.WriteStartObject();
+                writer.WriteNumber("total", bundle.Total.Value);
+            }
 
-                writer.WriteString("resourceType", bundle.ResourceType.GetLiteral());
-                writer.WriteString("id", bundle.Id);
+            await SerializeEntries();
 
-                SerializeMetadata();
+            writer.WriteEndObject();
+            await writer.FlushAsync();
 
-                writer.WriteString("type", bundle.Type?.GetLiteral());
-
-                SerializeLinks();
-
-                if (bundle.Total.HasValue)
+            void SerializeMetadata()
+            {
+                if (bundle.Meta != null)
                 {
-                    writer.WriteNumber("total", bundle.Total.Value);
+                    writer.WriteStartObject("meta");
+                    writer.WriteString("lastUpdated", bundle.Meta?.LastUpdated?.ToInstantString());
+                    writer.WriteEndObject();
                 }
+            }
 
-                await SerializeEntries();
-
-                writer.WriteEndObject();
-                await writer.FlushAsync();
-
-                void SerializeMetadata()
+            void SerializeLinks()
+            {
+                if (bundle.Link?.Any() == true)
                 {
-                    if (bundle.Meta != null)
+                    writer.WriteStartArray("link");
+
+                    foreach (var link in bundle.Link)
                     {
-                        writer.WriteStartObject("meta");
-                        writer.WriteString("lastUpdated", bundle.Meta?.LastUpdated?.ToInstantString());
+                        writer.WriteStartObject();
+                        writer.WritePropertyName("relation");
+                        writer.WriteStringValue(link.Relation);
+                        writer.WritePropertyName("url");
+                        writer.WriteStringValue(link.Url);
                         writer.WriteEndObject();
                     }
+
+                    writer.WriteEndArray();
                 }
+            }
 
-                void SerializeLinks()
+            async Task SerializeEntries()
+            {
+                if (bundle.Entry?.Any() == true)
                 {
-                    if (bundle.Link?.Any() == true)
+                    writer.WriteStartArray("entry");
+                    foreach (var entry in bundle.Entry)
                     {
-                        writer.WriteStartArray("link");
-
-                        foreach (var link in bundle.Link)
+                        if (!(entry is RawBundleEntryComponent rawBundleEntry))
                         {
-                            writer.WriteStartObject();
-                            writer.WritePropertyName("relation");
-                            writer.WriteStringValue(link.Relation);
-                            writer.WritePropertyName("url");
-                            writer.WriteStringValue(link.Url);
-                            writer.WriteEndObject();
+                            throw new ArgumentException("BundleSerializer can only be used when all Entry elements are of type RawBundleEntryComponent.", nameof(bundle));
                         }
 
-                        writer.WriteEndArray();
-                    }
-                }
+                        bool wroteFullUrl = false;
+                        writer.WriteStartObject();
 
-                async Task SerializeEntries()
-                {
-                    if (bundle.Entry?.Any() == true)
-                    {
-                        writer.WriteStartArray("entry");
-                        foreach (var entry in bundle.Entry)
+                        if (!string.IsNullOrEmpty(rawBundleEntry.FullUrl))
                         {
-                            if (!(entry is RawBundleEntryComponent))
-                            {
-                                throw new ArgumentException("BundleSerializer can only be used when all Entry elements are of type RawBundleEntryComponent.", nameof(bundle));
-                            }
-
-                            var rawBundleEntry = (RawBundleEntryComponent)entry;
-                            bool wroteFullUrl = false;
-                            writer.WriteStartObject();
-
-                            if (!string.IsNullOrEmpty(rawBundleEntry.FullUrl))
-                            {
-                                writer.WriteString("fullUrl", rawBundleEntry.FullUrl);
-                                await writer.FlushAsync();
-                                await streamWriter.WriteAsync(",");
-                                wroteFullUrl = true;
-                            }
-
+                            writer.WriteString("fullUrl", rawBundleEntry.FullUrl);
                             await writer.FlushAsync();
-                            await streamWriter.WriteAsync("\"resource\":");
+                            await streamWriter.WriteAsync(",");
+                            wroteFullUrl = true;
+                        }
+
+                        await writer.FlushAsync();
+                        await streamWriter.WriteAsync("\"resource\":");
+                        await streamWriter.FlushAsync();
+
+                        await rawBundleEntry.ResourceElement.SerializeToStreamAsUtf8Json(outputStream);
+
+                        if (!wroteFullUrl && (rawBundleEntry?.Search?.Mode != null || rawBundleEntry.Request != null || rawBundleEntry.Response != null))
+                        {
+                            // If fullUrl was written, the Utf8JsonWriter knows it needs to write a comma before the next property since a comma is needed, and will do so.
+                            // If fullUrl wasn't written, since we are writing resource in a separate writer, we need to add this comma manually.
+                            await streamWriter.WriteAsync(",");
                             await streamWriter.FlushAsync();
+                        }
 
-                            await rawBundleEntry.ResourceElement.SerializeToStreamAsJson(outputStream);
+                        if (rawBundleEntry?.Search?.Mode != null)
+                        {
+                            writer.WriteStartObject("search");
+                            writer.WriteString("mode", rawBundleEntry.Search?.Mode?.GetLiteral());
+                            writer.WriteEndObject();
+                        }
 
-                            if (!wroteFullUrl && (rawBundleEntry?.Search?.Mode != null || rawBundleEntry.Request != null || rawBundleEntry.Response != null))
-                            {
-                                // If fullUrl was written, the Utf8JsonWriter knows it needs to write a comma before the next property since a comma is needed, and will do so.
-                                // If fullUrl wasn't written, since we are writing resource in a separate writer, we need to add this comma manually.
-                                await streamWriter.WriteAsync(",");
-                                await streamWriter.FlushAsync();
-                            }
+                        if (rawBundleEntry.Request != null)
+                        {
+                            writer.WriteStartObject("request");
 
-                            if (rawBundleEntry?.Search?.Mode != null)
-                            {
-                                writer.WriteStartObject("search");
-                                writer.WriteString("mode", rawBundleEntry.Search?.Mode?.GetLiteral());
-                                writer.WriteEndObject();
-                            }
-
-                            if (rawBundleEntry.Request != null)
-                            {
-                                writer.WriteStartObject("request");
-
-                                writer.WriteString("method", rawBundleEntry.Request.Method.GetLiteral());
-                                writer.WriteString("url", rawBundleEntry.Request.Url);
-
-                                writer.WriteEndObject();
-                            }
-
-                            if (rawBundleEntry.Response != null)
-                            {
-                                writer.WriteStartObject("response");
-
-                                writer.WriteString("etag", rawBundleEntry.Response.Etag);
-                                writer.WriteString("lastModified", rawBundleEntry.Response.LastModified?.ToInstantString());
-
-                                writer.WriteEndObject();
-                            }
+                            writer.WriteString("method", rawBundleEntry.Request.Method.GetLiteral());
+                            writer.WriteString("url", rawBundleEntry.Request.Url);
 
                             writer.WriteEndObject();
                         }
 
-                        writer.WriteEndArray();
+                        if (rawBundleEntry.Response != null)
+                        {
+                            writer.WriteStartObject("response");
+
+                            writer.WriteString("etag", rawBundleEntry.Response.Etag);
+                            writer.WriteString("lastModified", rawBundleEntry.Response.LastModified?.ToInstantString());
+
+                            writer.WriteEndObject();
+                        }
+
+                        writer.WriteEndObject();
                     }
+
+                    writer.WriteEndArray();
                 }
             }
         }

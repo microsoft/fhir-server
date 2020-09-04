@@ -126,7 +126,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 using (var ms = new MemoryStream())
                 using (var sr = new StreamReader(ms))
                 {
-                    await raw?.ResourceElement?.SerializeToStreamAsJson(ms);
+                    await raw?.ResourceElement?.SerializeToStreamAsUtf8Json(ms);
                     ms.Seek(0, SeekOrigin.Begin);
                     var resourceData = await sr.ReadToEndAsync();
                     Assert.NotNull(resourceData);

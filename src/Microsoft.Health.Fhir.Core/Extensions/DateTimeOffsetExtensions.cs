@@ -11,6 +11,12 @@ namespace Microsoft.Health.Fhir.Core.Extensions
     {
         private const string DateTimeOffsetFormat = "yyyy-MM-dd'T'HH:mm:ss.FFFFFFFK";
 
+        /// <summary>
+        /// Formats the input DateTimeOffset as an ISO 8601 string. This is different from the standard format string "o"
+        /// in that the fractional digits are omitted once zero.
+        /// </summary>
+        /// <param name="offset">The input date to format</param>
+        /// <returns>ISO 8601 formatted string from <paramref name="offset"/></returns>
         public static string ToInstantString(this DateTimeOffset offset)
         {
             return offset.ToString(DateTimeOffsetFormat);
