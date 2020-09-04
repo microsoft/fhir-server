@@ -5,7 +5,6 @@
 
 using System;
 using EnsureThat;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 
 namespace Microsoft.Health.Fhir.Core.Models
@@ -17,7 +16,7 @@ namespace Microsoft.Health.Fhir.Core.Models
             EnsureArg.IsNotNull(wrapper, nameof(wrapper));
             EnsureArg.IsNotNull(wrapper.RawResource, nameof(wrapper.RawResource));
 
-            ResourceData = wrapper.SerializeToJsonString();
+            RawResource = wrapper.RawResource;
 
             Format = wrapper.RawResource.Format;
             Id = wrapper.ResourceId;
@@ -26,7 +25,7 @@ namespace Microsoft.Health.Fhir.Core.Models
             LastUpdated = wrapper.LastModified;
         }
 
-        public string ResourceData { get; protected set; }
+        public RawResource RawResource { get; protected set; }
 
         public FhirResourceFormat Format { get; protected set; }
 

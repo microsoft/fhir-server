@@ -45,12 +45,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     Mode = r.SearchEntryMode == SearchEntryMode.Match ? Bundle.SearchEntryMode.Match : Bundle.SearchEntryMode.Include,
                 };
 
-                resource.FullUrlElement = new FhirUri(_urlResolver.ResolveResourceWrapperUrl(r.Resource));
-                resource.Search = new Bundle.SearchComponent
-                {
-                    Mode = r.SearchEntryMode == SearchEntryMode.Match ? Bundle.SearchEntryMode.Match : Bundle.SearchEntryMode.Include,
-                };
-
                 return resource;
             });
         }

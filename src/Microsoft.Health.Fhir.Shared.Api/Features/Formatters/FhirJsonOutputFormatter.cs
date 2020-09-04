@@ -111,12 +111,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                 }
                 else
                 {
-                    using (TextWriter textWriter = context.WriterFactory(response.Body, selectedEncoding))
-                    {
-                        textWriter.Write((context.Object as RawResourceElement).ResourceData);
-                        await textWriter.FlushAsync();
-                        return;
-                    }
+                    await (context.Object as RawResourceElement).SerializeToStreamAsJson(context.HttpContext.Response.Body);
+                    return;
                 }
             }
             else

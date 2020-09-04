@@ -183,7 +183,7 @@ CREATE TABLE dbo.Resource
     IsDeleted bit NOT NULL,
     RequestMethod varchar(10) NULL,
     RawResource varbinary(max) NOT NULL,
-    RawResourceMetaSet bit NOT NULL
+    RawResourceMetaSet bit NOT NULL DEFAULT 0
 )
 
 CREATE UNIQUE CLUSTERED INDEX IXC_Resource ON dbo.Resource

@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         private SearchResultEntry CreateSearchResultEntry(string jsonName, IReadOnlyCollection<SearchIndexEntry> searchIndices)
         {
             var json = Samples.GetJson(jsonName);
-            var rawResource = new RawResource(json, FhirResourceFormat.Json, metaSet: false);
+            var rawResource = new RawResource(json, FhirResourceFormat.Json, isMetaSet: false);
             var resourceRequest = Substitute.For<ResourceRequest>();
             var compartmentIndices = Substitute.For<CompartmentIndices>();
             var resourceElement = _resourceDeserializer.DeserializeRaw(rawResource, "v1", DateTimeOffset.UtcNow);

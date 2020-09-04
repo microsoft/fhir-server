@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Resources.Bundle
             string serialized;
 
             using (var ms = new MemoryStream())
-            using (var sr = new StreamReader(ms))
+               using (var sr = new StreamReader(ms))
             {
                 await _bundleSerializer.Serialize(rawBundle, ms);
 

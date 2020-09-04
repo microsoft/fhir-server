@@ -138,7 +138,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     keepHistory: keepHistory,
                     requestMethod: resource.Request.Method,
                     rawResource: stream,
-                    rawResourceMetaSet: resource.RawResource.MetaSet,
+                    rawResourceMetaSet: resource.RawResource.IsMetaSet,
                     tableValuedParameters: _upsertResourceTvpGeneratorVLatest.Generate(resourceMetadata));
                 }
 
@@ -232,7 +232,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             key.Id,
                             version.ToString(CultureInfo.InvariantCulture),
                             key.ResourceType,
-                            new RawResource(rawResource, FhirResourceFormat.Json, metaSet: false),
+                            new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: false),
                             null,
                             new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
                             isDeleted,
@@ -268,7 +268,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             key.Id,
                             version.ToString(CultureInfo.InvariantCulture),
                             key.ResourceType,
-                            new RawResource(rawResource, FhirResourceFormat.Json, metaSet: rawResourceMetaSet),
+                            new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: rawResourceMetaSet),
                             null,
                             new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
                             isDeleted,

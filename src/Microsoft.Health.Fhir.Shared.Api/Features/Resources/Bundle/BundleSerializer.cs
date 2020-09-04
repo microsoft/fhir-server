@@ -8,17 +8,14 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Hl7.Fhir.Utility;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search;
-using Microsoft.IO;
 
 namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 {
     public class BundleSerializer
     {
         private readonly JsonWriterOptions _writerOptions = new JsonWriterOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
-        private readonly RecyclableMemoryStreamManager _memoryStreamManager = new RecyclableMemoryStreamManager();
-
-        private const string DateTimeOffsetFormat = "yyyy-MM-dd'T'HH:mm:ss.FFFFFFFK";
 
         public BundleSerializer()
         {
@@ -26,9 +23,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         public async Task Serialize(Hl7.Fhir.Model.Bundle bundle, Stream outputStream)
         {
-            using (RecyclableMemoryStream ms = new RecyclableMemoryStream(_memoryStreamManager))
-            using (Utf8JsonWriter writer = new Utf8JsonWriter(ms, _writerOptions))
-            using (StreamWriter streamWriter = new StreamWriter(ms))
+            using (Utf8JsonWriter writer = new Utf8JsonWriter(outputStream, _writerOptions))
+            using (StreamWriter streamWriter = new StreamWriter(outputStream, leaveOpen: true))
             {
                 writer.WriteStartObject();
 
@@ -51,14 +47,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 writer.WriteEndObject();
                 await writer.FlushAsync();
 
-                ms.WriteTo(outputStream);
-
                 void SerializeMetadata()
                 {
                     if (bundle.Meta != null)
                     {
                         writer.WriteStartObject("meta");
-                        writer.WriteString("lastUpdated", bundle.Meta?.LastUpdated?.ToString(DateTimeOffsetFormat));
+                        writer.WriteString("lastUpdated", bundle.Meta?.LastUpdated?.ToInstantString());
                         writer.WriteEndObject();
                     }
                 }
@@ -90,27 +84,31 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                         writer.WriteStartArray("entry");
                         foreach (var entry in bundle.Entry)
                         {
-                            var rawBundleEntry = entry as RawBundleEntryComponent;
+                            var rawBundleEntry = (RawBundleEntryComponent)entry;
+                            bool wroteFullUrl = false;
                             writer.WriteStartObject();
 
                             if (!string.IsNullOrEmpty(rawBundleEntry.FullUrl))
                             {
                                 writer.WriteString("fullUrl", rawBundleEntry.FullUrl);
+                                await writer.FlushAsync();
+                                await streamWriter.WriteAsync(",");
+                                wroteFullUrl = true;
                             }
 
-                            writer.WritePropertyName("resource");
                             await writer.FlushAsync();
+                            await streamWriter.WriteAsync("\"resource\":");
+                            await streamWriter.FlushAsync();
 
-                            // The Utf8JsonWriter does not support inserting raw json. We can write a JsonDocument, but that involves an extra parse that should be unnecessary.
-                            // Instead, we will track the current position after writing the resource property name, then write a null value, seek back to the position after
-                            // the property name, and use a StreamWriter to write the raw json string in. The WriteNullValue call is necessary for the Utf8JsonWriter to maintain
-                            // a valid state.
-                            var currentStreamPosition = ms.Position;
-                            writer.WriteNullValue();
-                            await writer.FlushAsync();
-                            ms.Seek(currentStreamPosition, SeekOrigin.Begin);
-                            await streamWriter.WriteAsync(rawBundleEntry.ResourceElement.ResourceData);
-                            streamWriter.Flush();
+                            await rawBundleEntry.ResourceElement.SerializeToStreamAsJson(outputStream);
+
+                            if (!wroteFullUrl && (rawBundleEntry?.Search?.Mode != null || rawBundleEntry.Request != null || rawBundleEntry.Response != null))
+                            {
+                                // If fullUrl was written, the Utf8JsonWriter knows it needs to write a comma before the next property since a comma is needed, and will do so.
+                                // If fullUrl wasn't written, since we are writing resource in a separate writer, we need to add this comma manually.
+                                await streamWriter.WriteAsync(",");
+                                await streamWriter.FlushAsync();
+                            }
 
                             if (rawBundleEntry?.Search?.Mode != null)
                             {
@@ -134,7 +132,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                                 writer.WriteStartObject("response");
 
                                 writer.WriteString("etag", rawBundleEntry.Response.Etag);
-                                writer.WriteString("lastModified", rawBundleEntry.Response.LastModified?.ToString(DateTimeOffsetFormat));
+                                writer.WriteString("lastModified", rawBundleEntry.Response.LastModified?.ToInstantString());
 
                                 writer.WriteEndObject();
                             }

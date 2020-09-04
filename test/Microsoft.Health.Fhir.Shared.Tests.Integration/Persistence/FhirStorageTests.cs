@@ -161,7 +161,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var wrapper = await _fixture.DataStore.GetAsync(new ResourceKey("Observation", updateResult.Resource.Id), CancellationToken.None);
 
             Assert.NotNull(wrapper);
-            Assert.False(wrapper.RawResource.MetaSet);
+            Assert.False(wrapper.RawResource.IsMetaSet);
         }
 
         [Fact]
@@ -180,7 +180,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
                 var wrapper = await _fixture.DataStore.GetAsync(new ResourceKey("Observation", saveResult.Resource.Id), CancellationToken.None);
                 Assert.NotNull(wrapper);
-                Assert.True(wrapper.RawResource.MetaSet);
+                Assert.True(wrapper.RawResource.IsMetaSet);
                 Assert.NotEqual(wrapper.Version, versionId);
 
                 var deserialized = _fhirJsonParser.Parse<Observation>(wrapper.RawResource.Data);
@@ -209,7 +209,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var wrapper = await _fixture.DataStore.GetAsync(new ResourceKey("Observation", saveResult.Resource.Id), CancellationToken.None);
 
             Assert.NotNull(wrapper);
-            Assert.False(wrapper.RawResource.MetaSet);
+            Assert.False(wrapper.RawResource.IsMetaSet);
             Assert.NotEqual(wrapper.Version, versionId);
 
             var deserialized = _fhirJsonParser.Parse<Observation>(wrapper.RawResource.Data);

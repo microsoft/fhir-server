@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             EnsureArg.IsNotNull(resource, nameof(resource));
             EnsureArg.IsNotNull(deserializer, nameof(deserializer));
 
-            var deserialized = deserializer.DeserializeRaw(resource);
+            var deserialized = deserializer.DeserializeRawResourceElement(resource);
             return deserialized.ToPoco<T>();
         }
 

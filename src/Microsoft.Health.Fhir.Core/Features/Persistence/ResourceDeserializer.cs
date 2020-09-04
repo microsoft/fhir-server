@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         {
             EnsureArg.IsNotNull(rawResourceElement, nameof(rawResourceElement));
 
-            ResourceElement resource = DeserializeRaw(rawResourceElement);
+            ResourceElement resource = DeserializeRawResourceElement(rawResourceElement);
 
             return resource;
         }
@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             return deserializer(rawResource.Data, version, lastModified);
         }
 
-        internal ResourceElement DeserializeRaw(RawResourceElement rawResourceElement)
+        internal ResourceElement DeserializeRawResourceElement(RawResourceElement rawResourceElement)
         {
             EnsureArg.IsNotNull(rawResourceElement, nameof(rawResourceElement));
 
@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 throw new NotSupportedException();
             }
 
-            return deserializer(rawResourceElement.ResourceData, rawResourceElement.VersionId, rawResourceElement.LastUpdated.HasValue ? rawResourceElement.LastUpdated.Value : DateTimeOffset.MinValue);
+            return deserializer(rawResourceElement.RawResource.Data, rawResourceElement.VersionId, rawResourceElement.LastUpdated.HasValue ? rawResourceElement.LastUpdated.Value : DateTimeOffset.MinValue);
         }
     }
 }

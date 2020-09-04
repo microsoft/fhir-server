@@ -145,7 +145,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                    resourceId,
                    "1",
                    resourceType,
-                   new RawResource("data", FhirResourceFormat.Json, metaSet: false),
+                   new RawResource("data", FhirResourceFormat.Json, isMetaSet: false),
                    null,
                    DateTimeOffset.MinValue,
                    false,
