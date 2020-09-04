@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search
                 return base.DeepCopy();
             }
 
-            throw new NotImplementedException();
+            throw new NotSupportedException();
         }
     }
 }
