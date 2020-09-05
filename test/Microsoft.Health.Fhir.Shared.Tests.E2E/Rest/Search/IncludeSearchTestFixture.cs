@@ -159,11 +159,11 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
 #if R5
                         Medication = new CodeableReference
                         {
-                            Concept = medication.Code, // new CodeableConcept("http://snomed.info/sct", "16590-619-30", "Percocet tablet"),
+                            Concept = medication.Code,
                             Reference = new ResourceReference($"Medication/{medication.Id}"),
                         },
 #else
-                        Medication = medication.Code, // new CodeableConcept("http://snomed.info/sct", "16590-619-30", "Percocet tablet"),
+                        Medication = medication.Code,
 #endif
 #if Stu3
                         Status = MedicationDispense.MedicationDispenseStatus.InProgress,
@@ -196,11 +196,11 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
 #if R5
                         Medication = new CodeableReference
                         {
-                            Concept = medication.Code, // new CodeableConcept("http://snomed.info/sct", "16590-619-30", "Percocet tablet"),
+                            Concept = medication.Code,
                             Reference = new ResourceReference($"Medication/{medication.Id}"),
                         },
 #else
-                        Medication = medication.Code, // new CodeableConcept("http://snomed.info/sct", "16590-619-30", "Percocet tablet"),
+                        Medication = medication.Code,
 #endif
                     }).Result.Resource;
             }

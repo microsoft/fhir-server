@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         public string TargetResourceType { get; }
 
         /// <summary>
-        ///  Gets the type of resources referenced by resourceType.
+        ///  Gets the type of resources referenced by resourceType. Used when iterating over wildcard results.
         /// </summary>
         public IReadOnlyCollection<string> ReferencedTypes { get; }
 

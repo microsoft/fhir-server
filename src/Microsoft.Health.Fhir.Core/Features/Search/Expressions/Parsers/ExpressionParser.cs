@@ -87,11 +87,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             {
                 refSearchParameter = null;
                 wildCard = true;
-                referencedTypes = new List<string>();
-
-                _searchParameterDefinitionManager.GetSearchParameters(resourceType)
-                .Where(p => p.Type == ValueSets.SearchParamType.Reference).ToList()
-                .ForEach(p => referencedTypes.AddRange(p.TargetResourceTypes?.ToList()));
             }
             else
             {
@@ -106,6 +101,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 
                 refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(originalType.ToString(), searchParam.ToString());
             }
+
+            referencedTypes = new List<string>();
+            _searchParameterDefinitionManager.GetSearchParameters(resourceType)
+            .Where(p => p.Type == ValueSets.SearchParamType.Reference).ToList()
+            .ForEach(p => referencedTypes.AddRange(p.TargetResourceTypes?.ToList()));
+
+            referencedTypes = referencedTypes.Distinct().ToList();
 
             // Open issue on using resourceType instead of originalType:
             // https://github.com/microsoft/fhir-server/issues/1236
