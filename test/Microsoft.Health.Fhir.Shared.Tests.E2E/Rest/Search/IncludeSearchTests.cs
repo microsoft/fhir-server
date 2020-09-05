@@ -679,6 +679,28 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateSearchEntryMode(bundle, ResourceType.MedicationDispense);
         }
 
+        // TEMP
+        [Fact]
+        public async Task GivenANonRecursiveIncludeMedication_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
+        {
+            // If R5 MedicationDispense:medication is a codable reference. Otherwise, It's a codeable concept.
+            // string query = $"_include=MedicationDispense:*&_include:iterate=Patient:general-practitioner&_tag={Fixture.Tag}";
+            string query = $"_include=MedicationDispense:medication&_tag={Fixture.Tag}";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.MedicationDispense, query);
+
+            ValidateBundle(
+                bundle,
+#if R5
+                Fixture.TramadolMedication,
+#endif
+                Fixture.AdamsMedicationDispense,
+                Fixture.SmithMedicationDispense,
+                Fixture.TrumanMedicationDispense);
+
+            ValidateSearchEntryMode(bundle, ResourceType.MedicationDispense);
+        }
+
         [Fact]
         public async Task GivenANonRecursiveIncludeIterateSearchExpressionWithIncludeWildCard_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
@@ -688,6 +710,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             ValidateBundle(
                 bundle,
+#if R5
+                Fixture.TramadolMedication,
+#endif
                 Fixture.AdamsMedicationDispense,
                 Fixture.SmithMedicationDispense,
                 Fixture.TrumanMedicationDispense,
@@ -738,6 +763,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             ValidateBundle(
                 bundle,
+#if R5
+                Fixture.TramadolMedication,
+                Fixture.PercocetMedication,
+#endif
                 Fixture.AdamsMedicationDispense,
                 Fixture.SmithMedicationDispense,
                 Fixture.TrumanMedicationDispense,
@@ -747,9 +776,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.TrumanMedicationRequest,
                 Fixture.AdamsPatient,
                 Fixture.SmithPatient,
-                Fixture.TrumanPatient,
-                Fixture.TramadolMedication,
-                Fixture.PercocetMedication);
+                Fixture.TrumanPatient);
 
             ValidateSearchEntryMode(bundle, ResourceType.MedicationDispense);
         }
