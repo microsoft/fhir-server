@@ -350,10 +350,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateSearchEntryMode(bundle, ResourceType.Observation);
         }
 
+        /*
+         * Commented out due to bug: https://github.com/microsoft/fhir-server/issues/1243
         [Fact]
         public async Task GivenARevIncludeSearchExpressionWithMultipleIncludes_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
-            string query = $"_tag={Fixture.Tag}&_revinclude=DiagnosticReport:result&_revinclude=Observation:patient&family=Truman";
+            string query = $"_tag={Fixture.Tag}&_revinclude=DiagnosticReport:patient&_revinclude=Observation:patient&family=Truman";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
 
@@ -366,7 +368,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.TrumanLoincObservation);
 
             ValidateSearchEntryMode(bundle, ResourceType.Patient);
-        }
+        }*/
 
         [Fact]
         public async Task GivenARevIncludeSearchExpressionWithMultipleDenormalizedParametersAndTableParameters_WhenSearched_ThenCorrectBundleShouldBeReturned()
