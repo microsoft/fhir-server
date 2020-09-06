@@ -41,6 +41,22 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
             return SummaryType.False;
         }
 
+        public static string[] GetElementsSearchParameter(this HttpContext context, ILogger logger)
+        {
+            var query = context.Request.Query[KnownQueryParameterNames.Elements].FirstOrDefault();
+
+            if (!string.IsNullOrWhiteSpace(query) && context.Response.StatusCode == (int)HttpStatusCode.OK)
+            {
+                var elements = query.Split(new char[1] { ',' });
+
+                logger.LogDebug("Setting elements to return: '{0}'", string.Join(", ", elements));
+
+                return elements;
+            }
+
+            return null;
+        }
+
         public static bool GetIsPretty(this HttpContext context)
         {
             var query = context.Request.Query[KnownQueryParameterNames.Pretty].FirstOrDefault();

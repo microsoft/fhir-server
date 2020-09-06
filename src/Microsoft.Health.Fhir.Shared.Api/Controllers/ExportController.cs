@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -12,8 +13,9 @@ using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Api.Features.Audit;
+using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
-using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Routing;
@@ -50,6 +52,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly IUrlResolver _urlResolver;
         private readonly ExportJobConfiguration _exportConfig;
+        private readonly FeatureConfiguration _features;
         private readonly ILogger<ExportController> _logger;
 
         public ExportController(
@@ -57,18 +60,21 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             IFhirRequestContextAccessor fhirRequestContextAccessor,
             IUrlResolver urlResolver,
             IOptions<OperationsConfiguration> operationsConfig,
+            IOptions<FeatureConfiguration> features,
             ILogger<ExportController> logger)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
             EnsureArg.IsNotNull(operationsConfig?.Value?.Export, nameof(operationsConfig));
+            EnsureArg.IsNotNull(features?.Value, nameof(features));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _mediator = mediator;
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _urlResolver = urlResolver;
             _exportConfig = operationsConfig.Value.Export;
+            _features = features.Value;
             _logger = logger;
         }
 
@@ -76,17 +82,33 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [Route(KnownRoutes.Export)]
         [ServiceFilter(typeof(ValidateExportRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.Export)]
-        public async Task<IActionResult> Export([FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since, [FromQuery(Name = KnownQueryParameterNames.Type)] string resourceType)
+        public async Task<IActionResult> Export(
+            [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
+            [FromQuery(Name = KnownQueryParameterNames.Type)] string resourceType,
+            [FromQuery(Name = KnownQueryParameterNames.Container)] string containerName,
+            [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationLocation)] string anonymizationConfigLocation,
+            [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationFileEtag)] string anonymizationConfigFileETag)
         {
             CheckIfExportIsEnabled();
-            return await SendExportRequest(ExportJobType.All, since, resourceType);
+
+            if (!string.IsNullOrWhiteSpace(anonymizationConfigLocation) || !string.IsNullOrWhiteSpace(anonymizationConfigFileETag))
+            {
+                CheckIfAnonymizedExportIsEnabled();
+                CheckContainerNameForAnonymizedExport(containerName);
+            }
+
+            return await SendExportRequest(ExportJobType.All, since, resourceType, containerName: containerName, anonymizationConfigLocation: anonymizationConfigLocation, anonymizationConfigFileETag: anonymizationConfigFileETag);
         }
 
         [HttpGet]
         [Route(KnownRoutes.ExportResourceType)]
         [ServiceFilter(typeof(ValidateExportRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.Export)]
-        public async Task<IActionResult> ExportResourceType([FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since, [FromQuery(Name = KnownQueryParameterNames.Type)] string resourceType, string typeParameter)
+        public async Task<IActionResult> ExportResourceType(
+            [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
+            [FromQuery(Name = KnownQueryParameterNames.Type)] string resourceType,
+            [FromQuery(Name = KnownQueryParameterNames.Container)] string containerName,
+            string typeParameter)
         {
             CheckIfExportIsEnabled();
 
@@ -96,22 +118,29 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new RequestNotValidException(string.Format(Resources.UnsupportedResourceType, typeParameter));
             }
 
-            return await SendExportRequest(ExportJobType.Patient, since, resourceType);
+            return await SendExportRequest(ExportJobType.Patient, since, resourceType, containerName: containerName);
         }
 
         [HttpGet]
         [Route(KnownRoutes.ExportResourceTypeById)]
         [ServiceFilter(typeof(ValidateExportRequestFilterAttribute))]
         [AuditEventType(AuditEventSubType.Export)]
-        public IActionResult ExportResourceTypeById(string typeParameter, string idParameter)
+        public async Task<IActionResult> ExportResourceTypeById(
+            [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
+            [FromQuery(Name = KnownQueryParameterNames.Type)] string resourceType,
+            [FromQuery(Name = KnownQueryParameterNames.Container)] string containerName,
+            string typeParameter,
+            string idParameter)
         {
+            CheckIfExportIsEnabled();
+
             // Export by ResourceTypeId is supported only for Group resource type.
             if (!string.Equals(typeParameter, ResourceType.Group.ToString(), StringComparison.Ordinal) || string.IsNullOrEmpty(idParameter))
             {
                 throw new RequestNotValidException(string.Format(Resources.UnsupportedResourceType, typeParameter));
             }
 
-            return CheckIfExportIsEnabledAndRespond();
+            return await SendExportRequest(ExportJobType.Group, since, resourceType, idParameter, containerName);
         }
 
         [HttpGet]
@@ -150,13 +179,12 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return new ExportResult(response.StatusCode);
         }
 
-        private async Task<IActionResult> SendExportRequest(ExportJobType exportType, PartialDateTime since, string resourceType = null)
+        private async Task<IActionResult> SendExportRequest(ExportJobType exportType, PartialDateTime since, string resourceType = null, string groupId = null, string containerName = null, string anonymizationConfigLocation = null, string anonymizationConfigFileETag = null)
         {
-            CreateExportResponse response = await _mediator.ExportAsync(_fhirRequestContextAccessor.FhirRequestContext.Uri, exportType, resourceType, since, HttpContext.RequestAborted);
+            CreateExportResponse response = await _mediator.ExportAsync(_fhirRequestContextAccessor.FhirRequestContext.Uri, exportType, resourceType, since, groupId, containerName, anonymizationConfigLocation, anonymizationConfigFileETag, HttpContext.RequestAborted);
 
             var exportResult = ExportResult.Accepted();
             exportResult.SetContentLocationHeader(_urlResolver, OperationsConstants.Export, response.JobId);
-
             return exportResult;
         }
 
@@ -168,15 +196,20 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
         }
 
-        /// <summary>
-        /// Currently we don't have any export functionality. We will send the appropriate
-        /// response based on whether export is enabled or not.
-        /// </summary>
-        private FhirResult CheckIfExportIsEnabledAndRespond()
+        private void CheckIfAnonymizedExportIsEnabled()
         {
-            CheckIfExportIsEnabled();
+            if (!_features.SupportsAnonymizedExport)
+            {
+                throw new RequestNotValidException(string.Format(Resources.OperationNotEnabled, OperationsConstants.AnonymizedExport));
+            }
+        }
 
-            throw new OperationNotImplementedException(string.Format(Resources.OperationNotImplemented, OperationsConstants.Export));
+        private static void CheckContainerNameForAnonymizedExport(string containerName)
+        {
+            if (string.IsNullOrWhiteSpace(containerName))
+            {
+                throw new RequestNotValidException(Resources.ContainerIsRequiredForAnonymizedExport);
+            }
         }
     }
 }

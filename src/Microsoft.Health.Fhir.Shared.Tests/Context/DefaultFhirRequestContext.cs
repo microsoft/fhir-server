@@ -9,7 +9,7 @@ using System.Security.Claims;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Core.Features.Context;
 
-namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
+namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Context
 {
     public class DefaultFhirRequestContext : IFhirRequestContext
     {
@@ -32,5 +32,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Context
         public IDictionary<string, StringValues> ResponseHeaders { get; set; }
 
         public string ResourceType { get; set; }
+
+        public bool IncludePartiallyIndexedSearchParams { get; set; }
     }
 }

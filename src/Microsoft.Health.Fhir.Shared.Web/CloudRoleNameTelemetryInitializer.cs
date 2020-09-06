@@ -3,13 +3,16 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Collections.Generic;
-using Microsoft.AspNetCore.Http;
+using Microsoft.ApplicationInsights.Channel;
+using Microsoft.ApplicationInsights.Extensibility;
 
-namespace Microsoft.Health.Fhir.Api.Features.Audit
+namespace Microsoft.Health.Fhir.Web
 {
-    public interface IAuditHeaderReader
+    public class CloudRoleNameTelemetryInitializer : ITelemetryInitializer
     {
-        IReadOnlyDictionary<string, string> Read(HttpContext httpContext);
+        public void Initialize(ITelemetry telemetry)
+        {
+            telemetry.Context.Cloud.RoleName = "Microsoft FHIR Server";
+        }
     }
 }

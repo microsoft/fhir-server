@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
@@ -275,6 +276,70 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     Assert.False(reference.Reference.Contains("?", StringComparison.Ordinal));
                 }
             }
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenATransactionWithConditionalCreateAndReference_WhenExecutedASecondTime_ReferencesAreResolvedCorrectlyAsync()
+        {
+            var bundleWithConditionalReference = Samples.GetJsonSample("Bundle-TransactionWithConditionalCreateAndReference");
+
+            var bundle = bundleWithConditionalReference.ToPoco<Bundle>();
+            var patient = bundle.Entry.First().Resource.ToResourceElement().ToPoco<Patient>();
+            var patientIdentifier = Guid.NewGuid().ToString();
+
+            patient.Identifier.First().Value = patientIdentifier;
+            bundle.Entry.First().Request.IfNoneExist = $"identifier=|{patientIdentifier}";
+
+            FhirResponse<Bundle> bundleResponse1 = await _client.PostBundleAsync(bundle);
+
+            var patientId = bundleResponse1.Resource.Entry.First().Resource.Id;
+            ValidateReferenceToPatient(bundleResponse1.Resource.Entry[1].Resource, patientId);
+
+            FhirResponse<Bundle> bundleResponse2 = await _client.PostBundleAsync(bundle);
+            ValidateReferenceToPatient(bundleResponse2.Resource.Entry[1].Resource, patientId);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenATransactionWithConditionalUpdateAndReference_WhenExecutedASecondTime_ReferencesAreResolvedCorrectlyAsync()
+        {
+            var bundleWithConditionalReference = Samples.GetJsonSample("Bundle-TransactionWithConditionalUpdateAndReference");
+
+            var bundle = bundleWithConditionalReference.ToPoco<Bundle>();
+            var patient = bundle.Entry.First().Resource.ToResourceElement().ToPoco<Patient>();
+            var patientIdentifier = Guid.NewGuid().ToString();
+
+            patient.Identifier.First().Value = patientIdentifier;
+            bundle.Entry.First().Request.Url = $"Patient?identifier=|{patientIdentifier}";
+
+            FhirResponse<Bundle> bundleResponse1 = await _client.PostBundleAsync(bundle);
+
+            var patientId = bundleResponse1.Resource.Entry.First().Resource.Id;
+            ValidateReferenceToPatient(bundleResponse1.Resource.Entry[1].Resource, patientId);
+
+            FhirResponse<Bundle> bundleResponse2 = await _client.PostBundleAsync(bundle);
+
+            Assert.Equal(patientId, bundleResponse2.Resource.Entry[0].Resource.Id);
+            Assert.Equal("2", bundleResponse2.Resource.Entry[0].Resource.Meta.VersionId);
+            ValidateReferenceToPatient(bundleResponse2.Resource.Entry[1].Resource, patientId);
+        }
+
+        private static void ValidateReferenceToPatient(Resource resource, string patientId)
+        {
+            IEnumerable<ResourceReference> imagingStudyReferences = resource.GetAllChildren<ResourceReference>();
+            bool foundReference = false;
+
+            foreach (var reference in imagingStudyReferences)
+            {
+                if (reference.Reference.StartsWith("Patient"))
+                {
+                    Assert.Equal($"Patient/{patientId}", reference.Reference);
+                    foundReference = true;
+                }
+            }
+
+            Assert.True(foundReference, "Patient reference wasn't found.");
         }
     }
 }
