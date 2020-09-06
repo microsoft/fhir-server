@@ -681,12 +681,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateSearchEntryMode(bundle, ResourceType.MedicationDispense);
         }
 
-        // TEMP
         [Fact]
         public async Task GivenANonRecursiveIncludeMedication_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
-            // If R5 MedicationDispense:medication is a codable reference. Otherwise, It's a codeable concept.
-            // string query = $"_include=MedicationDispense:*&_include:iterate=Patient:general-practitioner&_tag={Fixture.Tag}";
             string query = $"_include=MedicationDispense:medication&_tag={Fixture.Tag}";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.MedicationDispense, query);
@@ -694,6 +691,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(
                 bundle,
 #if R5
+                // In R5 Medication is a codeable reference, otherwise, an embedded codebale concept.
                 Fixture.TramadolMedication,
 #endif
                 Fixture.AdamsMedicationDispense,
@@ -713,6 +711,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(
                 bundle,
 #if R5
+                // In R5 Medication is a codeable reference, otherwise, an embedded codebale concept.
                 Fixture.TramadolMedication,
 #endif
                 Fixture.AdamsMedicationDispense,
@@ -756,9 +755,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
-        public async Task GivenANonRecursiveIncludeIterateSearchExpressionWithWildCardWithIncludeirdAndIncludeIterateWildcard_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
+        public async Task GivenANonRecursiveIncludeIterateSearchExpressionWithIncludeWildcardAndIncludeIterateWildcard_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
-            // string query = $"_include=MedicationDispense:*&_include:iterate=Patient:general-practitioner&_tag={Fixture.Tag}";
             string query = $"_include=MedicationDispense:*&_include:iterate=MedicationRequest:*&_tag={Fixture.Tag}";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.MedicationDispense, query);
@@ -766,6 +764,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(
                 bundle,
 #if R5
+                // In R5 Medication is a codeable reference, otherwise, an embedded codebale concept.
                 Fixture.TramadolMedication,
                 Fixture.PercocetMedication,
 #endif
