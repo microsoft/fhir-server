@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
@@ -19,27 +20,41 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
     public class SearchableSearchParameterDefinitionManager : ISearchParameterDefinitionManager
     {
         private readonly SearchParameterDefinitionManager _inner;
+        private IFhirRequestContextAccessor _fhirReqeustContextAccessor;
 
-        public SearchableSearchParameterDefinitionManager(SearchParameterDefinitionManager inner)
+        public SearchableSearchParameterDefinitionManager(SearchParameterDefinitionManager inner, IFhirRequestContextAccessor fhirRequestContextAccessor)
         {
             EnsureArg.IsNotNull(inner, nameof(inner));
+            EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
 
             _inner = inner;
+            _fhirReqeustContextAccessor = fhirRequestContextAccessor;
         }
 
-        public IEnumerable<SearchParameterInfo> AllSearchParameters => _inner.AllSearchParameters.Where(x => x.IsSearchable);
+        public IEnumerable<SearchParameterInfo> AllSearchParameters => GetAllSearchParameters();
+
+        public string SearchParametersHash => _inner.SearchParametersHash;
 
         public IEnumerable<SearchParameterInfo> GetSearchParameters(string resourceType)
         {
-            return _inner.GetSearchParameters(resourceType)
-                .Where(x => x.IsSearchable);
+            if (_fhirReqeustContextAccessor.FhirRequestContext.IncludePartiallyIndexedSearchParams)
+            {
+                return _inner.GetSearchParameters(resourceType)
+                .Where(x => x.IsSupported);
+            }
+            else
+            {
+                return _inner.GetSearchParameters(resourceType)
+                    .Where(x => x.IsSearchable);
+            }
         }
 
         public bool TryGetSearchParameter(string resourceType, string name, out SearchParameterInfo searchParameter)
         {
             searchParameter = null;
 
-            if (_inner.TryGetSearchParameter(resourceType, name, out var parameter) && parameter.IsSearchable)
+            if (_inner.TryGetSearchParameter(resourceType, name, out var parameter) &&
+                (parameter.IsSearchable || (_fhirReqeustContextAccessor.FhirRequestContext.IncludePartiallyIndexedSearchParams && parameter.IsSupported)))
             {
                 searchParameter = parameter;
 
@@ -53,7 +68,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         {
             SearchParameterInfo parameter = _inner.GetSearchParameter(resourceType, name);
 
-            if (parameter.IsSearchable)
+            if (parameter.IsSearchable ||
+                (_fhirReqeustContextAccessor.FhirRequestContext.IncludePartiallyIndexedSearchParams && parameter.IsSupported))
             {
                 return parameter;
             }
@@ -65,7 +81,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         {
             SearchParameterInfo parameter = _inner.GetSearchParameter(definitionUri);
 
-            if (parameter.IsSearchable)
+            if (parameter.IsSearchable ||
+                (_fhirReqeustContextAccessor.FhirRequestContext.IncludePartiallyIndexedSearchParams && parameter.IsSupported))
             {
                 return parameter;
             }
@@ -76,6 +93,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         public SearchParamType GetSearchParameterType(SearchParameterInfo searchParameter, int? componentIndex)
         {
             return _inner.GetSearchParameterType(searchParameter, componentIndex);
+        }
+
+        private IEnumerable<SearchParameterInfo> GetAllSearchParameters()
+        {
+            if (_fhirReqeustContextAccessor.FhirRequestContext.IncludePartiallyIndexedSearchParams)
+            {
+                return _inner.AllSearchParameters.Where(x => x.IsSupported);
+            }
+            else
+            {
+                return _inner.AllSearchParameters.Where(x => x.IsSearchable);
+            }
         }
     }
 }

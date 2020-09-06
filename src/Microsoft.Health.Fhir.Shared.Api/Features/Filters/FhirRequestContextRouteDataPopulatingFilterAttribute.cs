@@ -8,7 +8,8 @@ using EnsureThat;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.Health.Fhir.Api.Features.Audit;
+using Microsoft.Health.Api.Features.Audit;
+using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.ValueSets;
@@ -76,6 +77,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         }
                     }
                 }
+            }
+
+            if (context.HttpContext.Request.Headers.TryGetValue(KnownFhirHeaders.PartiallyIndexedParamsHeaderName, out var headerValues))
+            {
+                fhirRequestContext.IncludePartiallyIndexedSearchParams = true;
             }
 
             base.OnActionExecuting(context);

@@ -22,7 +22,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             bool deleted,
             IReadOnlyCollection<SearchIndexEntry> searchIndices,
             CompartmentIndices compartmentIndices,
-            IReadOnlyCollection<KeyValuePair<string, string>> lastModifiedClaims)
+            IReadOnlyCollection<KeyValuePair<string, string>> lastModifiedClaims,
+            string searchParameterHash = null)
            : this(
                  EnsureArg.IsNotNull(resource).Id,
                  resource.VersionId,
@@ -33,7 +34,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                  deleted,
                  searchIndices,
                  compartmentIndices,
-                 lastModifiedClaims)
+                 lastModifiedClaims,
+                 searchParameterHash)
         {
         }
 
@@ -47,7 +49,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             bool deleted,
             IReadOnlyCollection<SearchIndexEntry> searchIndices,
             CompartmentIndices compartmentIndices,
-            IReadOnlyCollection<KeyValuePair<string, string>> lastModifiedClaims)
+            IReadOnlyCollection<KeyValuePair<string, string>> lastModifiedClaims,
+            string searchParameterHash = null)
         {
             EnsureArg.IsNotNullOrEmpty(resourceId, nameof(resourceId));
             EnsureArg.IsNotNullOrEmpty(resourceTypeName, nameof(resourceTypeName));
@@ -63,6 +66,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             SearchIndices = searchIndices;
             CompartmentIndices = compartmentIndices;
             LastModifiedClaims = lastModifiedClaims;
+            SearchParameterHash = searchParameterHash;
         }
 
         [JsonConstructor]
@@ -103,9 +107,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         [JsonProperty(KnownResourceWrapperProperties.CompartmentIndices)]
         public CompartmentIndices CompartmentIndices { get; protected set; }
 
+        [JsonProperty(KnownResourceWrapperProperties.SearchParameterHash)]
+        public string SearchParameterHash { get; set; }
+
         public ResourceKey ToResourceKey()
         {
             return new ResourceKey(ResourceTypeName, ResourceId, Version);
+        }
+
+        public void UpdateSearchIndices(IReadOnlyCollection<SearchIndexEntry> searchIndices)
+        {
+            SearchIndices = searchIndices;
         }
     }
 }

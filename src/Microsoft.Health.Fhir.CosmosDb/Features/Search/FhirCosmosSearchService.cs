@@ -88,6 +88,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 cancellationToken);
         }
 
+        protected override async Task<SearchResult> SearchForReindexInternalAsync(
+            SearchOptions searchOptions,
+            string searchParameterHash,
+            CancellationToken cancellationToken)
+        {
+            return await ExecuteSearchAsync(
+                _queryBuilder.GenerateReindexSql(searchOptions, searchParameterHash),
+                searchOptions,
+                cancellationToken);
+        }
+
         private async Task<SearchResult> ExecuteSearchAsync(
             QueryDefinition sqlQuerySpec,
             SearchOptions searchOptions,

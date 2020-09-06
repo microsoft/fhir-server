@@ -5,6 +5,7 @@
 
 using EnsureThat;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Api.Features.Audit;

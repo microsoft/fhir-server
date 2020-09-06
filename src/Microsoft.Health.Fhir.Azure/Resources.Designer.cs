@@ -61,6 +61,33 @@ namespace Microsoft.Health.Fhir.Azure {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Configuration not found on the destination storage. {0}.
+        /// </summary>
+        internal static string AnonymizationConfigurationNotFound {
+            get {
+                return ResourceManager.GetString("AnonymizationConfigurationNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Anonymization configuration is too large &gt; 1MB..
+        /// </summary>
+        internal static string AnonymizationConfigurationTooLarge {
+            get {
+                return ResourceManager.GetString("AnonymizationConfigurationTooLarge", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Anonymization container not found on the destination storage..
+        /// </summary>
+        internal static string AnonymizationContainerNotFound {
+            get {
+                return ResourceManager.GetString("AnonymizationContainerNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Unable to get access token for storage account for export..
         /// </summary>
         internal static string CannotGetAccessToken {

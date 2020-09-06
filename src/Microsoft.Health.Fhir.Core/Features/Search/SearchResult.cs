@@ -21,8 +21,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <param name="results">The search results.</param>
         /// <param name="unsupportedSearchParameters">The list of unsupported search parameters.</param>
         /// <param name="unsupportedSortingParameters">The list of unsupported sorting search parameters.</param>
+        /// <param name="isPartial">Was results truncated.</param>>
         /// <param name="continuationToken">The continuation token.</param>
-        public SearchResult(IEnumerable<SearchResultEntry> results, IReadOnlyList<Tuple<string, string>> unsupportedSearchParameters, IReadOnlyList<(string parameterName, string reason)> unsupportedSortingParameters, string continuationToken)
+        public SearchResult(
+            IEnumerable<SearchResultEntry> results,
+            IReadOnlyList<Tuple<string, string>> unsupportedSearchParameters,
+            IReadOnlyList<(string parameterName, string reason)> unsupportedSortingParameters,
+            string continuationToken,
+            bool isPartial = false)
         {
             EnsureArg.IsNotNull(results, nameof(results));
             EnsureArg.IsNotNull(unsupportedSearchParameters, nameof(unsupportedSearchParameters));
@@ -32,9 +38,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             UnsupportedSearchParameters = unsupportedSearchParameters;
             ContinuationToken = continuationToken;
             UnsupportedSortingParameters = unsupportedSortingParameters;
+            Partial = isPartial;
         }
 
-        public SearchResult(int totalCount, IReadOnlyList<Tuple<string, string>> unsupportedSearchParameters)
+        public SearchResult(int totalCount, IReadOnlyList<Tuple<string, string>> unsupportedSearchParameters, bool isPartial = false)
         {
             EnsureArg.IsNotNull(unsupportedSearchParameters, nameof(unsupportedSearchParameters));
 
@@ -42,6 +49,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             UnsupportedSearchParameters = unsupportedSearchParameters;
             TotalCount = totalCount;
             UnsupportedSortingParameters = Array.Empty<(string parameterName, string reason)>();
+            Partial = isPartial;
         }
 
         /// <summary>
@@ -68,5 +76,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// Gets the continuation token.
         /// </summary>
         public string ContinuationToken { get; }
+
+        /// <summary>
+        /// Gets if this result is partial (truncated) - number of included resources (other than matches)
+        /// exceeds the configured threshold.
+        /// </summary>
+        public bool Partial { get; }
     }
 }

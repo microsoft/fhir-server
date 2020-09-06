@@ -141,8 +141,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             // Check the item count.
             if (searchParams.Count != null)
             {
+                if (searchParams.Count > _featureConfiguration.MaxItemCountPerSearch)
+                {
+                    throw new BadRequestException(string.Format(Core.Resources.SearchParamaterCountExceedLimit, _featureConfiguration.MaxItemCountPerSearch, searchParams.Count));
+                }
+
                 searchOptions.MaxItemCount = searchParams.Count.Value;
             }
+            else
+            {
+                searchOptions.MaxItemCount = _featureConfiguration.DefaultItemCountPerSearch;
+            }
+
+            searchOptions.IncludeCount = _featureConfiguration.DefaultIncludeCountPerSearch;
 
             // Check to see if only the count should be returned
             searchOptions.CountOnly = searchParams.Summary == SummaryType.Count;
@@ -183,7 +194,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             if (searchParams.Include?.Count > 0)
             {
                 searchExpressions.AddRange(searchParams.Include.Select(
-                    q => _expressionParser.ParseInclude(parsedResourceType.ToString(), q))
+                    q => _expressionParser.ParseInclude(parsedResourceType.ToString(), q, false /* not reversed */))
+                    .Where(item => item != null));
+            }
+
+            if (searchParams.RevInclude?.Count > 0)
+            {
+                searchExpressions.AddRange(searchParams.RevInclude.Select(
+                    q => _expressionParser.ParseInclude(parsedResourceType.ToString(), q, true /* reversed */))
                     .Where(item => item != null));
             }
 

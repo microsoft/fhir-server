@@ -238,11 +238,12 @@
                     "apiVersion": "2015-04-01",
                     "location": "[resourceGroup().location]",
                     "properties": {
-                        "version": "3.1.3"
+                        "version": "3.1.6"
                     },
                     "dependsOn": [
                         "[variables('appServiceResourceId')]",
-                        "[if(variables('deployAppInsights'),concat('Microsoft.Insights/components/', variables('appInsightsName')),resourceId('Microsoft.KeyVault/vaults', variables('serviceName')))]"
+                        "[if(variables('deployAppInsights'),concat('Microsoft.Insights/components/', variables('appInsightsName')),resourceId('Microsoft.KeyVault/vaults', variables('serviceName')))]",
+                        "[resourceId('Microsoft.KeyVault/vaults/secrets', variables('serviceName'), 'SqlServer--ConnectionString')]"
                     ]
                 }
             ]

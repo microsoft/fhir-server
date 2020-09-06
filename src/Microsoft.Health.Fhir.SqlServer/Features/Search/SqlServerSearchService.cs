@@ -43,7 +43,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly StringOverflowRewriter _stringOverflowRewriter;
         private readonly ILogger<SqlServerSearchService> _logger;
         private readonly BitColumn _isMatch = new BitColumn("IsMatch");
+        private readonly BitColumn _isPartial = new BitColumn("IsPartial");
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
+
+        private bool _isResultPartial;
 
         public SqlServerSearchService(
             ISearchOptionsFactory searchOptionsFactory,
@@ -68,6 +71,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _stringOverflowRewriter = stringOverflowRewriter;
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _logger = logger;
+            _isResultPartial = false;
         }
 
         protected override async Task<SearchResult> SearchInternalAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
@@ -193,7 +197,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                     while (await reader.ReadAsync(cancellationToken))
                     {
-                        (short resourceTypeId, string resourceId, int version, bool isDeleted, long resourceSurrogateId, string requestMethod, bool isMatch, Stream rawResourceStream) = reader.ReadRow(
+                        (short resourceTypeId, string resourceId, int version, bool isDeleted, long resourceSurrogateId, string requestMethod, bool isMatch, bool isPartialEntry, Stream rawResourceStream) = reader.ReadRow(
                             VLatest.Resource.ResourceTypeId,
                             VLatest.Resource.ResourceId,
                             VLatest.Resource.Version,
@@ -201,6 +205,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             VLatest.Resource.ResourceSurrogateId,
                             VLatest.Resource.RequestMethod,
                             _isMatch,
+                            _isPartial,
                             VLatest.Resource.RawResource);
 
                         // If we get to this point, we know there are more results so we need a continuation token
@@ -226,6 +231,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         {
                             rawResource = await streamReader.ReadToEndAsync();
                         }
+
+                        // as long as at least one entry was marked as partial, this resultset
+                        // should be marked as partial
+                        _isResultPartial = _isResultPartial || isPartialEntry;
 
                         resources.Add(new SearchResultEntry(
                             new ResourceWrapper(
@@ -259,7 +268,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         unsupportedSortingParameters = searchOptions.UnsupportedSortingParams;
                     }
 
-                    return new SearchResult(resources, searchOptions.UnsupportedSearchParams, unsupportedSortingParameters, moreResults ? newContinuationId.Value.ToString(CultureInfo.InvariantCulture) : null);
+                    return new SearchResult(resources, searchOptions.UnsupportedSearchParams, unsupportedSortingParameters, moreResults ? newContinuationId.Value.ToString(CultureInfo.InvariantCulture) : null, _isResultPartial);
                 }
             }
         }
@@ -297,6 +306,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             sb.AppendLine(sqlCommandWrapper.CommandText);
             _logger.LogInformation(sb.ToString());
+        }
+
+        protected override Task<SearchResult> SearchForReindexInternalAsync(SearchOptions searchOptions, string searchParameterHash, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
         }
     }
 }

@@ -79,6 +79,17 @@
                 "description": "An object representing the default consistency policy for the Cosmos DB account. See https://docs.microsoft.com/en-us/azure/templates/microsoft.documentdb/databaseaccounts#ConsistencyPolicy"
             }
         },
+        "cosmosDbFreeTier": {
+            "type": "string",
+            "allowedValues": [
+              "Yes",
+              "No"
+            ],
+            "defaultValue": "No",
+            "metadata": {
+                "description": "Use Cosmos DB free tier."
+            }
+        },
         "deployApplicationInsights": {
             "type": "bool",
             "defaultValue": true,
@@ -138,6 +149,7 @@
     "variables": {
         "defaultMsdeployPackageUrl": "[concat('https://fhirserverforazure.blob.core.windows.net/builds/ci/Microsoft.Health.Fhir.', parameters('fhirVersion'),'.Web.zip')]",
         "isMAG": "[or(contains(resourceGroup().location,'usgov'),contains(resourceGroup().location,'usdod'))]",
+        "isCosmosDbFreeTier": "[equals(parameters('cosmosDbFreeTier'),'Yes')]",
         "serviceName": "[toLower(parameters('serviceName'))]",
         "keyvaultEndpoint": "[if(variables('isMAG'), concat('https://', variables('serviceName'), '.vault.usgovcloudapi.net/'), concat('https://', variables('serviceName'), '.vault.azure.net/'))]",
         "appServicePlanResourceGroup": "[if(empty(parameters('appServicePlanResourceGroup')), resourceGroup().name, parameters('appServicePlanResourceGroup'))]",
@@ -155,6 +167,7 @@
             "APPINSIGHTS_SNAPSHOTFEATURE_VERSION": "1.0.0",
             "WEBSITE_NODE_DEFAULT_VERSION": "6.9.4",
             "KeyVault:Endpoint": "[variables('keyvaultEndpoint')]",
+            "FhirServer:CosmosDb:InitialCollectionThroughput": "[if(variables('isCosmosDbFreeTier'), '400', '1000')]",
             "FhirServer:Security:Enabled": "[variables('securityAuthenticationEnabled')]",
             "FhirServer:Security:EnableAadSmartOnFhirProxy": "[parameters('enableAadSmartOnFhirProxy')]",
             "FhirServer:Security:Authentication:Authority": "[parameters('securityAuthenticationAuthority')]",
@@ -220,7 +233,8 @@
                     "name": "MSDeploy",
                     "dependsOn": [
                         "[variables('appServiceResourceId')]",
-                        "[concat(variables('appServiceResourceId'), '/siteextensions/AspNetCoreRuntime.3.1.x86')]"
+                        "[concat(variables('appServiceResourceId'), '/siteextensions/AspNetCoreRuntime.3.1.x86')]",
+                        "[resourceId('Microsoft.KeyVault/vaults/secrets', variables('serviceName'), 'CosmosDb--Host')]"
                     ],
                     "properties": {
                         "packageUri": "[variables('msdeployPackageUrlToUse')]"
@@ -232,7 +246,7 @@
                     "apiVersion": "2015-04-01",
                     "location": "[resourceGroup().location]",
                     "properties": {
-                        "version": "3.1.3"
+                        "version": "3.1.6"
                     },
                     "dependsOn": [
                         "[variables('appServiceResourceId')]",
@@ -275,7 +289,8 @@
                         "locationName": "[resourceGroup().location]",
                         "failoverPriority": 0
                     }
-                ]
+                ],
+                "enableFreeTier": "[variables('isCosmosDbFreeTier')]"
             }
         },
         {

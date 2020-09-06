@@ -3,14 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Api.Features.Audit
+using Microsoft.Health.Fhir.Core.Models;
+
+namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
-    public static class AuditConstants
+    public interface IResourceDeserializer
     {
-        public const string CustomAuditHeaderKeyValue = "CustomAuditHeaderCollectionKeyValue";
-
-        public const int MaximumNumberOfCustomHeaders = 10;
-
-        public const int MaximumLengthOfCustomHeader = 2048;
+        public ResourceElement Deserialize(ResourceWrapper resourceWrapper);
     }
 }
