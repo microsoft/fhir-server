@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             return ParseImpl(resourceType, key.AsSpan(), value);
         }
 
-        public IncludeExpression ParseInclude(string resourceType, string includeValue, bool isReversed)
+        public IncludeExpression ParseInclude(string resourceType, string includeValue, bool isReversed, bool iterate)
         {
             var valueSpan = includeValue.AsSpan();
             if (!TrySplit(SearchSplitChar, ref valueSpan, out ReadOnlySpan<char> originalType))
@@ -79,6 +79,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             }
 
             SearchParameterInfo refSearchParameter;
+            List<string> referencedTypes = null;
             bool wildCard = false;
             string targetType = null;
 
@@ -101,7 +102,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(originalType.ToString(), searchParam.ToString());
             }
 
-            return new IncludeExpression(resourceType, refSearchParameter, targetType, wildCard, isReversed);
+            referencedTypes = new List<string>();
+            _searchParameterDefinitionManager.GetSearchParameters(resourceType)
+            .Where(p => p.Type == ValueSets.SearchParamType.Reference).ToList()
+            .ForEach(p => referencedTypes.AddRange(p.TargetResourceTypes?.ToList()));
+
+            referencedTypes = referencedTypes.Distinct().ToList();
+
+            // Open issue on using resourceType instead of originalType:
+            // https://github.com/microsoft/fhir-server/issues/1236
+            return new IncludeExpression(resourceType, refSearchParameter, targetType, referencedTypes, wildCard, isReversed, iterate);
         }
 
         private Expression ParseImpl(string resourceType, ReadOnlySpan<char> key, string value)

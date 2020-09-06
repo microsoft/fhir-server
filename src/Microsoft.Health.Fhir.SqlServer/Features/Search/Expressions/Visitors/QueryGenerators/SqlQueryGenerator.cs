@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -19,6 +20,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
     {
         private string _cteMainSelect; // This is represents the CTE that is the main selector for use with includes
         private List<string> _includeCtes;
+        private Dictionary<string, List<string>> _includeLimitCtesByTargetType; // ctes of each include value, by their resource type
+
+        private const int MaxRecursionDepth = 5;
+
+        private int _curRecursionDepth = 0;
+
+        // Include:iterate may be applied on results from multiple ctes
+        private List<string> _fromCtes;
+        private int _curFromCteIndex = -1;
         private readonly bool _isHistorySearch;
         private int _tableExpressionCounter = -1;
         private SqlRootExpression _rootExpression;
@@ -79,7 +89,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
             else
             {
-                StringBuilder.Append("SELECT ");
+                // DISTINCT is used since different ctes may return the same resources due to _include and _include:iterate search parameters
+                StringBuilder.Append("SELECT DISTINCT ");
 
                 if (expression.TableExpressions.Count == 0)
                 {
@@ -249,7 +260,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                     // For any includes, the source of the resource surrogate ids to join on is saved
                     _cteMainSelect = TableExpressionName(_tableExpressionCounter);
-
                     break;
 
                 case TableExpressionKind.Chain:
@@ -392,12 +402,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ResourceTypeId, table)
                             .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.ResourceTypeId, Model.GetResourceTypeId(includeExpression.ResourceType)));
 
+                        if (_includeLimitCtesByTargetType == null)
+                        {
+                            _includeLimitCtesByTargetType = new Dictionary<string, List<string>>();
+                        }
+
+                        string fromCte = _cteMainSelect;
+                        if (includeExpression.Iterate)
+                        {
+                            // _include:iterate may appear without a preceding _include, in case of circular reference
+                            // On that case, the fromCte is _cteMainSelect
+                            if (TryGetIncludeCtes(includeExpression.ResourceType, out _fromCtes))
+                            {
+                                fromCte = includeExpression.Recursive ? _fromCtes[_fromCtes.Count - 1] : _fromCtes[++_curFromCteIndex];
+                            }
+                        }
+
                         // Limit the join to the main select CTE.
                         // The main select will have max+1 items in the result set to account for paging, so we only want to join using the max amount.
                         delimited.BeginDelimitedElement().Append(VLatest.Resource.ResourceSurrogateId, table)
                             .Append(" IN (SELECT TOP(")
                             .Append(Parameters.AddParameter(context.MaxItemCount))
-                            .Append(") Sid1 FROM ").Append(_cteMainSelect).Append(")");
+                            .Append(") Sid1 FROM ").Append(fromCte).Append(")");
                     }
 
                     if (_includeCtes == null)
@@ -412,10 +438,66 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         _cteToLimit.Add(_tableExpressionCounter);
                     }
 
+                    // Update target reference cte dictionary
+                    // var curCte = TableExpressionName(_tableExpressionCounter);
+                    var curLimitCte = TableExpressionName(_tableExpressionCounter + 1);
+
+                    // TODO: Add limits to each recursive include
+                    if (includeExpression.Iterate && includeExpression.Recursive)
+                    {
+                        _includeCtes.Add(curLimitCte);
+                    }
+
+                    // Add current cte limit to the dictionary
+                    if (!includeExpression.Reversed && includeExpression.ReferenceSearchParameter != null)
+                    {
+                        // A specific target type is provided as the 3rd part of include value
+                        if (includeExpression.TargetResourceType != null)
+                        {
+                            AddIncludeLimitCte(includeExpression.TargetResourceType, curLimitCte);
+                        }
+                        else
+                        {
+                            includeExpression.ReferenceSearchParameter.TargetResourceTypes?.ToList().ForEach(t => AddIncludeLimitCte(t, curLimitCte));
+                        }
+                    }
+
+                    // Handle recursive (circular) _include:iterate (cte for first level has already been created)
+                    if (includeExpression.Recursive /* && and exists in dictionary and equalt to main resource type*/)
+                    {
+                        if (++_curRecursionDepth < MaxRecursionDepth)
+                        {
+                            StringBuilder.Append($"),{Environment.NewLine}");
+                            StringBuilder.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
+                            tableExpression.AcceptVisitor(this, context);
+                        }
+                        else
+                        {
+                            // Reset circular depth for following recursions
+                            _curRecursionDepth = 0;
+                        }
+                    }
+                    else if (_fromCtes != null && _fromCtes.Count > 1 && _curFromCteIndex < _fromCtes.Count - 1)
+                    {
+                        StringBuilder.Append($"),{Environment.NewLine}");
+                        StringBuilder.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
+                        tableExpression.AcceptVisitor(this, context);
+                    }
+                    else
+                    {
+                        _curFromCteIndex = -1;
+
+                        if (includeExpression.WildCard)
+                        {
+                            includeExpression.ReferencedTypes?.ToList().ForEach(t => AddIncludeLimitCte(t, curLimitCte));
+                        }
+                    }
+
                     break;
                 case TableExpressionKind.IncludeLimit:
                     StringBuilder.Append("SELECT DISTINCT ");
 
+                    // TODO: We should limit Include as well for the same reason, even though it is less risky than _revinclude. Also useful for :include:iterate, especially if recursive.
                     var isRev = _cteToLimit.Contains(_tableExpressionCounter - 1);
                     if (isRev)
                     {
@@ -521,6 +603,33 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 StringBuilder.Append(VLatest.Resource.IsHistory, tableAlias).Append(" = 0");
             }
+        }
+
+        private void AddIncludeLimitCte(string resourceType, string cte)
+        {
+            _includeLimitCtesByTargetType ??= new Dictionary<string, List<string>>();
+            List<string> ctes;
+            if (!_includeLimitCtesByTargetType.TryGetValue(resourceType, out ctes))
+            {
+                ctes = new List<string>();
+                _includeLimitCtesByTargetType.Add(resourceType, ctes);
+            }
+
+            if (!ctes.Contains(cte))
+            {
+                _includeLimitCtesByTargetType[resourceType].Add(cte);
+            }
+        }
+
+        private bool TryGetIncludeCtes(string resourceType, out List<string> ctes)
+        {
+            if (_includeLimitCtesByTargetType == null)
+            {
+                ctes = null;
+                return false;
+            }
+
+            return _includeLimitCtesByTargetType.TryGetValue(resourceType, out ctes);
         }
 
         /// <summary>
