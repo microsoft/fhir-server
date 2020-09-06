@@ -294,7 +294,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         unsupportedSortingParameters = searchOptions.UnsupportedSortingParams;
                     }
 
-                    ContinuationToken continuationToken = new ContinuationToken { ResourceSourogateId = newContinuationId.Value, SortExpr = sortExpr?.ToString("o") };
+                    var continuationToken = new ContinuationToken
+                    {
+                        ResourceSourogateId = newContinuationId.HasValue ? newContinuationId.Value : 0,
+                        SortExpr = sortExpr.HasValue ? string.Format("{0:o}", sortExpr) : null,
+                    };
                     return new SearchResult(resources, searchOptions.UnsupportedSearchParams, unsupportedSortingParameters, moreResults ? continuationToken.ToJson() : null, _isResultPartial);
                 }
             }
