@@ -110,37 +110,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                 stream.Seek(0, 0);
 
-                if (_schemaInformation.Current <= 3)
-                {
-                    V3.UpsertResource.PopulateCommand(
-                    sqlCommandWrapper,
-                    baseResourceSurrogateId: ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.UtcDateTime),
-                    resourceTypeId: _model.GetResourceTypeId(resource.ResourceTypeName),
-                    resourceId: resource.ResourceId,
-                    eTag: weakETag == null ? null : (int?)etag,
-                    allowCreate: allowCreate,
-                    isDeleted: resource.IsDeleted,
-                    keepHistory: keepHistory,
-                    requestMethod: resource.Request.Method,
-                    rawResource: stream,
-                    tableValuedParameters: _upsertResourceTvpGeneratorV3.Generate(resourceMetadata));
-                }
-                else
-                {
-                    VLatest.UpsertResource.PopulateCommand(
-                    sqlCommandWrapper,
-                    baseResourceSurrogateId: ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.UtcDateTime),
-                    resourceTypeId: _model.GetResourceTypeId(resource.ResourceTypeName),
-                    resourceId: resource.ResourceId,
-                    eTag: weakETag == null ? null : (int?)etag,
-                    allowCreate: allowCreate,
-                    isDeleted: resource.IsDeleted,
-                    keepHistory: keepHistory,
-                    requestMethod: resource.Request.Method,
-                    rawResource: stream,
-                    isRawResourceMetaSet: resource.RawResource.IsMetaSet,
-                    tableValuedParameters: _upsertResourceTvpGeneratorVLatest.Generate(resourceMetadata));
-                }
+                VLatest.UpsertResource.PopulateCommand(
+                sqlCommandWrapper,
+                baseResourceSurrogateId: ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.UtcDateTime),
+                resourceTypeId: _model.GetResourceTypeId(resource.ResourceTypeName),
+                resourceId: resource.ResourceId,
+                eTag: weakETag == null ? null : (int?)etag,
+                allowCreate: allowCreate,
+                isDeleted: resource.IsDeleted,
+                keepHistory: keepHistory,
+                requestMethod: resource.Request.Method,
+                rawResource: stream,
+                tableValuedParameters: _upsertResourceTvpGeneratorVLatest.Generate(resourceMetadata));
 
                 try
                 {

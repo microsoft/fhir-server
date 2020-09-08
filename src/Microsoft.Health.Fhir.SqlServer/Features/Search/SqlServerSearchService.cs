@@ -213,22 +213,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         bool isRawResourceMetaSet = false;
                         Stream rawResourceStream;
 
-                        if (_schemaInformation.Current <= 3)
-                        {
-                            (resourceTypeId, resourceId, version, isDeleted, resourceSurrogateId, requestMethod, isMatch, isPartialEntry, rawResourceStream) = reader.ReadRow(
-                            V3.Resource.ResourceTypeId,
-                            V3.Resource.ResourceId,
-                            V3.Resource.Version,
-                            V3.Resource.IsDeleted,
-                            V3.Resource.ResourceSurrogateId,
-                            V3.Resource.RequestMethod,
-                            _isMatch,
-                            _isPartial,
-                            V3.Resource.RawResource);
-                        }
-                        else
-                        {
-                            (resourceTypeId, resourceId, version, isDeleted, resourceSurrogateId, requestMethod, isMatch, isPartialEntry, isRawResourceMetaSet, rawResourceStream) = reader.ReadRow(
+                        (resourceTypeId, resourceId, version, isDeleted, resourceSurrogateId, requestMethod, isMatch, isPartialEntry, isRawResourceMetaSet, rawResourceStream) = reader.ReadRow(
                             VLatest.Resource.ResourceTypeId,
                             VLatest.Resource.ResourceId,
                             VLatest.Resource.Version,
@@ -239,7 +224,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             _isPartial,
                             VLatest.Resource.IsRawResourceMetaSet,
                             VLatest.Resource.RawResource);
-                        }
 
                         // If we get to this point, we know there are more results so we need a continuation token
                         // Additionally, this resource shouldn't be included in the results

@@ -104,7 +104,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 if (_schemaInfo.Current > 3)
                 {
                     // IsRawResourceMetaSet column was added in V4
-                    StringBuilder.AppendLine(VLatest.Resource.IsRawResourceMetaSet, resourceTableAlias).Append(", ");
+                    StringBuilder.Append(VLatest.Resource.IsRawResourceMetaSet, resourceTableAlias).Append(", ");
+                }
+                else
+                {
+                    StringBuilder.Append("CAST(0 AS bit) AS IsRawResourceMetaSet, ");
                 }
 
                 StringBuilder.AppendLine(VLatest.Resource.RawResource, resourceTableAlias);

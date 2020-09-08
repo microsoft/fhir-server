@@ -1297,8 +1297,6 @@ GO
 --         * The HTTP method/verb used for the request
 --     @rawResource
 --         * A compressed UTF16-encoded JSON document
---     @isRawResourceMetaSet
---         * Whether the rawResource json contains updated values for the meta property
 --     @resourceWriteClaims
 --         * Claims on the principal that performed the write
 --     @compartmentAssignments
@@ -1345,7 +1343,6 @@ CREATE PROCEDURE dbo.UpsertResource
     @keepHistory bit,
     @requestMethod varchar(10),
     @rawResource varbinary(max),
-    @isRawResourceMetaSet bit = 0,
     @resourceWriteClaims dbo.ResourceWriteClaimTableType_1 READONLY,
     @compartmentAssignments dbo.CompartmentAssignmentTableType_1 READONLY,
     @referenceSearchParams dbo.ReferenceSearchParamTableType_1 READONLY,
@@ -1414,7 +1411,6 @@ AS
         END
 
         SET @version = @previousVersion + 1
-        SET @isRawResourceMetaSet = 0
 
         IF (@keepHistory = 1) BEGIN
 
@@ -1546,6 +1542,9 @@ AS
     END
 
     DECLARE @resourceSurrogateId bigint = @baseResourceSurrogateId + (NEXT VALUE FOR ResourceSurrogateIdUniquifierSequence)
+    DECLARE @isRawResourceMetaSet bit
+    
+    IF (@version = 1) BEGIN SET @isRawResourceMetaSet = 1 END ELSE BEGIN SET @isRawResourceMetaSet = 0 END
 
     INSERT INTO dbo.Resource
         (ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet)
