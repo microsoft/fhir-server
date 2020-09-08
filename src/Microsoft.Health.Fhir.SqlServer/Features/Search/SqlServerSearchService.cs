@@ -139,8 +139,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 {
                     var sortOrder = searchOptions.GetFirstSortOrderForSupportedParam();
 
-                    Expression lastUpdatedExpression = sortOrder == SortOrder.Ascending ? Expression.GreaterThan(SqlFieldName.ResourceSurrogateId, null, continuationToken.ResourceSourogateId)
-                                                                                                : Expression.LessThan(SqlFieldName.ResourceSurrogateId, null, continuationToken.ResourceSourogateId);
+                    Expression lastUpdatedExpression = sortOrder == SortOrder.Ascending ? Expression.GreaterThan(SqlFieldName.ResourceSurrogateId, null, continuationToken.ResourceSurrogateId)
+                                                                                                : Expression.LessThan(SqlFieldName.ResourceSurrogateId, null, continuationToken.ResourceSurrogateId);
 
                     var tokenExpression = Expression.SearchParameter(SqlSearchParameters.ResourceSurrogateIdParameter, lastUpdatedExpression);
                     searchExpression = searchExpression == null ? tokenExpression : (Expression)Expression.And(tokenExpression, searchExpression);
@@ -294,11 +294,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         unsupportedSortingParameters = searchOptions.UnsupportedSortingParams;
                     }
 
-                    var continuationToken = new ContinuationToken
+                    // Continuation token prep
+                    var continuationToken = new ContinuationToken(new object[]
                     {
-                        ResourceSourogateId = newContinuationId.HasValue ? newContinuationId.Value : 0,
-                        SortExpr = sortExpr.HasValue ? string.Format("{0:o}", sortExpr) : null,
-                    };
+                        newContinuationId ?? 0,
+                    });
+
+                    if (sortExpr.HasValue)
+                    {
+                        continuationToken.SortExpr = string.Format("{0:o}", sortExpr);
+                    }
+
                     return new SearchResult(resources, searchOptions.UnsupportedSearchParams, unsupportedSortingParameters, moreResults ? continuationToken.ToJson() : null, _isResultPartial);
                 }
             }
