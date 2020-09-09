@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
         }
 
         [Fact]
-        public async Task GivenNewSearchIndices_WhenHandle_ThenTheyArePresentInResponse()
+        public async Task GivenNewSearchIndices_WhenHandle_ThenTheirValuesArePresentInResponse()
         {
             SetupDataStoreToReturnDummyResourceWrapper();
 
@@ -88,22 +88,29 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             Assert.NotNull(response.ParameterResource);
 
             Parameters parameterResponse = response.ParameterResource.ToPoco<Parameters>();
-            bool newSearchIndicesPresent = false;
+            bool newSearchParamPresent = false;
+            bool newSearchParam2Present = false;
             foreach (Parameters.ParameterComponent param in parameterResponse.Parameter)
             {
-                if (param.Name == "newSearchIndices")
+                if (param.Name == "newSearchParam")
                 {
-                    newSearchIndicesPresent = true;
-                    Assert.Contains("newSearchParam", param.Value.ToString());
-                    Assert.Contains("newSearchParam2", param.Value.ToString());
+                    newSearchParamPresent = true;
+                    Assert.Equal("1", param.Value.ToString());
+                }
+
+                if (param.Name == "newSearchParam2")
+                {
+                    newSearchParam2Present = true;
+                    Assert.Equal("paramValue", param.Value.ToString());
                 }
             }
 
-            Assert.True(newSearchIndicesPresent);
+            Assert.True(newSearchParamPresent);
+            Assert.True(newSearchParam2Present);
         }
 
         [Fact]
-        public async Task GivenDuplicateNewSearchIndices_WhenHandle_ThenOnlyOneInstanceIsPresentInResponse()
+        public async Task GivenDuplicateNewSearchIndices_WhenHandle_ThenBothValuesArePresentInResponse()
         {
             SetupDataStoreToReturnDummyResourceWrapper();
 
@@ -120,25 +127,30 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             Assert.NotNull(response.ParameterResource);
 
             Parameters parameterResponse = response.ParameterResource.ToPoco<Parameters>();
-            bool newSearchIndicesPresent = false;
+            bool newSearchParamPresent = false;
+            bool name1Present = false;
+            bool name2Present = false;
+
             foreach (Parameters.ParameterComponent param in parameterResponse.Parameter)
             {
-                if (param.Name == "newSearchIndices")
+                if (param.Name == "newSearchParam")
                 {
-                    newSearchIndicesPresent = true;
-                    Assert.Contains("newSearchParam", param.Value.ToString());
+                    newSearchParamPresent = true;
+                    if (param.Value.ToString() == "name1")
+                    {
+                        name1Present = true;
+                    }
 
-                    // Validate that there is only one instance present.
-                    string paramValue = param.Value.ToString();
-                    int index = paramValue.IndexOf("newSearchParam");
-                    Assert.True(index >= 0);
-
-                    index = paramValue.IndexOf("newSearchParam", index + 1);
-                    Assert.True(index == -1);
+                    if (param.Value.ToString() == "name2")
+                    {
+                        name2Present = true;
+                    }
                 }
             }
 
-            Assert.True(newSearchIndicesPresent);
+            Assert.True(newSearchParamPresent);
+            Assert.True(name1Present);
+            Assert.True(name2Present);
         }
 
         private void SetupDataStoreToReturnDummyResourceWrapper()

@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -68,15 +67,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             ResourceElement resourceElement = _resourceDeserializer.Deserialize(storedResource);
             IReadOnlyCollection<SearchIndexEntry> newIndices = _searchIndexer.Extract(resourceElement);
 
-            string searchIndexString = string.Empty;
-            if (newIndices.Count > 0)
-            {
-                // A resource can have multiple values for the same search param (eg: name for Patient).
-                // Hence using a HashSet to avoid duplicate values in the response.
-                searchIndexString = string.Join(",", newIndices.Select(x => x.SearchParameter.Name).ToHashSet());
-            }
-
-            // Create a new parameter resource and include the new search indices.
+            // Create a new parameter resource and include the new search indices and the corresponding values.
             var parametersResource = new Parameters
             {
                 Id = Guid.NewGuid().ToString(),
@@ -85,7 +76,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             };
             parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = "originalResourceId", Value = new FhirString(request.ResourceId) });
             parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = "originalResourceType", Value = new FhirString(request.ResourceType) });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = "newSearchIndices", Value = new FhirString(searchIndexString) });
+
+            foreach (SearchIndexEntry searchIndex in newIndices)
+            {
+                parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = searchIndex.SearchParameter.Name.ToString(), Value = new FhirString(searchIndex.Value.ToString()) });
+            }
 
             return new ReindexSingleResourceResponse(parametersResource.ToResourceElement());
         }
