@@ -47,6 +47,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly BitColumn _isMatch = new BitColumn("IsMatch");
         private readonly BitColumn _isPartial = new BitColumn("IsPartial");
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
+        private const int SortExprColumnNumber = 9;
 
         private bool _isResultPartial;
 
@@ -237,23 +238,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         }
 
                         // if we have more columns, it means sort expressions were added.
-                        if (reader.FieldCount > 9)
+                        if (reader.FieldCount > 9 && searchOptions.Sort != null && searchOptions.Sort.Count > 0)
                         {
-                            try
+                            SortOrder sortOrder = searchOptions.Sort[0].sortOrder;
+
+                            // if sort is requested asc keep the first result for continuation token
+                            if (matchCount == 0 && sortOrder == SortOrder.Ascending)
                             {
-                                // if sort is requested asc keep the first result for continuation token
-                                if (matchCount == 0 && searchOptions.Sort?[0].sortOrder == SortOrder.Ascending)
-                                {
-                                    sortExpr = reader.GetValue("SortExpr") as DateTime?;
-                                }
-                                else if (matchCount > 0 && searchOptions.Sort?[0].sortOrder == SortOrder.Descending)
-                                {
-                                    // Otherwise keep getting this, until we got the last result for Desc
-                                    sortExpr = reader.GetValue("SortExpr") as DateTime?;
-                                }
+                                sortExpr = reader.GetValue(SortExprColumnNumber) as DateTime?;
                             }
-                            catch
+                            else if (matchCount > 0 && sortOrder == SortOrder.Descending)
                             {
+                                // Otherwise keep getting this, until we got the last result for Desc
+                                sortExpr = reader.GetValue(SortExprColumnNumber) as DateTime?;
                             }
                         }
 

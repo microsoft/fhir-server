@@ -94,16 +94,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         result = new object[] { sid };
                         return new ContinuationToken(result);
                     }
-                    else
-                    {
-                        throw new Exception("Continuation Token is malformed.");
-                    }
                 }
             }
             catch
             {
-                throw new Exception("Continuation Token is malformed.");
             }
+
+            return null;
         }
     }
 }
