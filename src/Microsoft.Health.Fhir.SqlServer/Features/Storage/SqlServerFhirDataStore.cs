@@ -196,29 +196,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         bool isRawResourceMetaSet = false;
                         Stream rawResourceStream;
 
-                        if (_schemaInformation.Current <= 3)
-                        {
-                            var resourceTable = V3.Resource;
+                        var resourceTable = VLatest.Resource;
 
-                            (resourceSurrogateId, version, isDeleted, isHistory, rawResourceStream) = sqlDataReader.ReadRow(
-                                resourceTable.ResourceSurrogateId,
-                                resourceTable.Version,
-                                resourceTable.IsDeleted,
-                                resourceTable.IsHistory,
-                                resourceTable.RawResource);
-                        }
-                        else
-                        {
-                            var resourceTable = VLatest.Resource;
-
-                            (resourceSurrogateId, version, isDeleted, isHistory, isRawResourceMetaSet, rawResourceStream) = sqlDataReader.ReadRow(
-                                resourceTable.ResourceSurrogateId,
-                                resourceTable.Version,
-                                resourceTable.IsDeleted,
-                                resourceTable.IsHistory,
-                                resourceTable.IsRawResourceMetaSet,
-                                resourceTable.RawResource);
-                        }
+                        (resourceSurrogateId, version, isDeleted, isHistory, rawResourceStream) = sqlDataReader.ReadRow(
+                            resourceTable.ResourceSurrogateId,
+                            resourceTable.Version,
+                            resourceTable.IsDeleted,
+                            resourceTable.IsHistory,
+                            resourceTable.RawResource);
 
                         string rawResource;
 
@@ -227,6 +212,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         using (var reader = new StreamReader(gzipStream, ResourceEncoding))
                         {
                             rawResource = await reader.ReadToEndAsync();
+                        }
+
+                        if (_schemaInformation.Current >= 4)
+                        {
+                            isRawResourceMetaSet = sqlDataReader.Read(resourceTable.IsRawResourceMetaSet, 5);
                         }
 
                         return new ResourceWrapper(

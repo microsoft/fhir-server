@@ -1661,12 +1661,12 @@ AS
     SET NOCOUNT ON
 
     IF (@version IS NULL) BEGIN
-        SELECT ResourceSurrogateId, Version, IsDeleted, IsHistory, IsRawResourceMetaSet, RawResource
+        SELECT ResourceSurrogateId, Version, IsDeleted, IsHistory, RawResource, IsRawResourceMetaSet
         FROM dbo.Resource
         WHERE ResourceTypeId = @resourceTypeId AND ResourceId = @resourceId AND IsHistory = 0
     END
     ELSE BEGIN
-        SELECT ResourceSurrogateId, Version, IsDeleted, IsHistory, IsRawResourceMetaSet, RawResource
+        SELECT ResourceSurrogateId, Version, IsDeleted, IsHistory, RawResource, IsRawResourceMetaSet
         FROM dbo.Resource
         WHERE ResourceTypeId = @resourceTypeId AND ResourceId = @resourceId AND Version = @version
     END
