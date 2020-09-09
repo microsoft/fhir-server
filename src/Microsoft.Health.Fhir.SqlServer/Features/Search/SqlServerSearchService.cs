@@ -228,6 +228,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         if (matchCount >= searchOptions.MaxItemCount && isMatch)
                         {
                             moreResults = true;
+
+                            // At this point we are at the last row.
+                            // if we have more columns, it means sort expressions were added.
+                            if (reader.FieldCount > 9)
+                            {
+                                sortExpr = reader.GetValue(SortExprColumnNumber) as DateTime?;
+                            }
+
                             continue;
                         }
 
@@ -238,23 +246,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         using (var streamReader = new StreamReader(gzipStream, SqlServerFhirDataStore.ResourceEncoding))
                         {
                             rawResource = await streamReader.ReadToEndAsync();
-                        }
-
-                        // if we have more columns, it means sort expressions were added.
-                        if (reader.FieldCount > 9 && searchOptions.Sort != null && searchOptions.Sort.Count > 0)
-                        {
-                            SortOrder sortOrder = searchOptions.Sort[0].sortOrder;
-
-                            // if sort is requested asc keep the first result for continuation token
-                            if (matchCount == 0 && sortOrder == SortOrder.Ascending)
-                            {
-                                sortExpr = reader.GetValue(SortExprColumnNumber) as DateTime?;
-                            }
-                            else if (matchCount > 0 && sortOrder == SortOrder.Descending)
-                            {
-                                // Otherwise keep getting this, until we got the last result for Desc
-                                sortExpr = reader.GetValue(SortExprColumnNumber) as DateTime?;
-                            }
                         }
 
                         // See if this resource is a continuation token candidate and increase the count

@@ -84,7 +84,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 var result = JsonConvert.DeserializeObject<object[]>(json, settings);
                 if (success)
                 {
-                    return new ContinuationToken(result);
+                    return new ContinuationToken(result).ValidateSortType();
                 }
                 else
                 {
@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     if (long.TryParse(json, NumberStyles.None, CultureInfo.InvariantCulture, out var sid))
                     {
                         result = new object[] { sid };
-                        return new ContinuationToken(result);
+                        return new ContinuationToken(result).ValidateSortType();
                     }
                 }
             }
@@ -101,6 +101,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
 
             return null;
+        }
+
+        private ContinuationToken ValidateSortType()
+        {
+            if (_tokens.Length > 1 && _tokens[0] is DateTime time)
+            {
+                _tokens[0] = string.Format("{0:O}", time);
+            }
+
+            return this;
         }
     }
 }
