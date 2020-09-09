@@ -77,6 +77,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _logger = logger;
             _isResultPartial = false;
+
+            // Initialise supported sort params with SQL related values
+            SearchParameterInfoExtensions.AppendSearchParameterInfoExtensions(SupportedSortParameterNames.Names);
         }
 
         protected override async Task<SearchResult> SearchInternalAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
