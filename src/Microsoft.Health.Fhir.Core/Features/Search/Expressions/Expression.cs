@@ -72,10 +72,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <summary>
         /// Creates a <see cref="IncludeExpression"/> that represents an include operation.
         /// </summary>
-        /// <param name="resourceType">The source resource type.</param>
+        /// <param name="resourceType">The resource that supports the reference.</param>
         /// <param name="referenceSearchParameter">The search parameter that establishes the reference between resources</param>
-        /// <param name="sourceResourceType">The source resource type.</param>
-        /// <param name="targetResourceType">The target resource type.</param>
+        /// <param name="sourceResourceType">The source resource type (used in revinclude).</param>
+        /// <param name="targetResourceType">The target resource type (used in include).</param>
         /// <param name="wildCard">If this is a wildcard include.</param>
         /// <param name="reversed">If this is a reversed include (revinclude) expression.</param>
         /// <returns>A <see cref="IncludeExpression"/> that represents an include on <param name="targetResourceType"> through <paramref name="referenceSearchParameter"/>.</param></returns>

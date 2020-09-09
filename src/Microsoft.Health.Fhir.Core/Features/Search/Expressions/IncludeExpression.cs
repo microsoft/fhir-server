@@ -31,6 +31,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 EnsureArg.IsNotNull(referenceSearchParameter, nameof(referenceSearchParameter));
             }
 
+            if (reversed)
+            {
+                EnsureArg.IsNotNull(sourceResourceType, nameof(sourceResourceType));
+            }
+
             ResourceType = resourceType;
             ReferenceSearchParameter = referenceSearchParameter;
             TargetResourceType = targetResourceType;
