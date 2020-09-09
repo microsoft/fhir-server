@@ -104,7 +104,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // e.g. previous runs which were not cleaned yet, or concurrent tests.
             // we overcome this issue by not looking for specific results, rather just make sure they are
             // sorted.
-            await ExecuteAndValidateBundleSuperset($"Patient?_sort=birthdate", false, patients.Cast<Resource>().ToArray());
+            await ExecuteAndValidateBundle($"Patient?_sort=birthdate", false, patients.Cast<Resource>().ToArray());
         }*/
 
         [Fact]
@@ -129,7 +129,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // Format the time to fit yyyy-MM-ddTHH:mm:ss.fffffffzzz, and encode its special characters.
             // sort and filter are based on same type (datetime)
             string lastUpdated = HttpUtility.UrlEncode($"{time:o}");
-            await ExecuteAndValidateBundleSuperset($"Patient?_lastUpdated=gt{lastUpdated}&_sort=birthdate&_tag={tag}", false, patients.Cast<Resource>().ToArray());
+            await ExecuteAndValidateBundle($"Patient?_lastUpdated=gt{lastUpdated}&_sort=birthdate&_tag={tag}", false, patients.Cast<Resource>().ToArray());
         }
 
         [Fact]
@@ -154,7 +154,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // Format the time to fit yyyy-MM-ddTHH:mm:ss.fffffffzzz, and encode its special characters.
             // sort and filter are based on same type (datetime)
             string lastUpdated = HttpUtility.UrlEncode($"{time:o}");
-            await ExecuteAndValidateBundleSuperset($"Patient?_lastUpdated=gt{lastUpdated}&_sort=-birthdate&_tag={tag}", false, patients.OrderByDescending(x => x.BirthDate).Cast<Resource>().ToArray());
+            await ExecuteAndValidateBundle($"Patient?_lastUpdated=gt{lastUpdated}&_sort=-birthdate&_tag={tag}", false, patients.OrderByDescending(x => x.BirthDate).Cast<Resource>().ToArray());
         }
 
         [Fact]
