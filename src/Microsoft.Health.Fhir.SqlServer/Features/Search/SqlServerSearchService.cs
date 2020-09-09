@@ -133,17 +133,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             if (!string.IsNullOrWhiteSpace(searchOptions.ContinuationToken) && !searchOptions.CountOnly)
             {
                 var continuationToken = ContinuationToken.FromString(searchOptions.ContinuationToken);
-
-                // in case it's a _lastUpdated sort optimization
-                if (string.IsNullOrEmpty(continuationToken.SortExpr))
+                if (continuationToken != null)
                 {
-                    var sortOrder = searchOptions.GetFirstSortOrderForSupportedParam();
+                    // in case it's a _lastUpdated sort optimization
+                    if (string.IsNullOrEmpty(continuationToken.SortExpr))
+                    {
+                        var sortOrder = searchOptions.GetFirstSortOrderForSupportedParam();
 
-                    Expression lastUpdatedExpression = sortOrder == SortOrder.Ascending ? Expression.GreaterThan(SqlFieldName.ResourceSurrogateId, null, continuationToken.ResourceSurrogateId)
-                                                                                                : Expression.LessThan(SqlFieldName.ResourceSurrogateId, null, continuationToken.ResourceSurrogateId);
+                        Expression lastUpdatedExpression = sortOrder == SortOrder.Ascending ? Expression.GreaterThan(SqlFieldName.ResourceSurrogateId, null, continuationToken.ResourceSurrogateId)
+                                                                                                    : Expression.LessThan(SqlFieldName.ResourceSurrogateId, null, continuationToken.ResourceSurrogateId);
 
-                    var tokenExpression = Expression.SearchParameter(SqlSearchParameters.ResourceSurrogateIdParameter, lastUpdatedExpression);
-                    searchExpression = searchExpression == null ? tokenExpression : (Expression)Expression.And(tokenExpression, searchExpression);
+                        var tokenExpression = Expression.SearchParameter(SqlSearchParameters.ResourceSurrogateIdParameter, lastUpdatedExpression);
+                        searchExpression = searchExpression == null ? tokenExpression : (Expression)Expression.And(tokenExpression, searchExpression);
+                    }
+                }
+                else
+                {
+                    throw new BadRequestException(Resources.InvalidContinuationToken);
                 }
             }
 
