@@ -202,18 +202,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                     while (await reader.ReadAsync(cancellationToken))
                     {
-                        short resourceTypeId;
-                        string resourceId;
-                        int version;
-                        bool isDeleted;
-                        long resourceSurrogateId;
-                        string requestMethod;
-                        bool isMatch;
-                        bool isPartialEntry;
-                        bool isRawResourceMetaSet = false;
-                        Stream rawResourceStream;
-
-                        (resourceTypeId, resourceId, version, isDeleted, resourceSurrogateId, requestMethod, isMatch, isPartialEntry, isRawResourceMetaSet, rawResourceStream) = reader.ReadRow(
+                        (short resourceTypeId, string resourceId, int version, bool isDeleted, long resourceSurrogateId, string requestMethod, bool isMatch, bool isPartialEntry, bool isRawResourceMetaSet, Stream rawResourceStream) = reader.ReadRow(
                             VLatest.Resource.ResourceTypeId,
                             VLatest.Resource.ResourceId,
                             VLatest.Resource.Version,

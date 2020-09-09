@@ -185,16 +185,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             return null;
                         }
 
-                        long resourceSurrogateId;
-                        int version;
-                        bool isDeleted;
-                        bool isHistory;
-                        bool isRawResourceMetaSet = false;
-                        Stream rawResourceStream;
-
                         var resourceTable = VLatest.Resource;
 
-                        (resourceSurrogateId, version, isDeleted, isHistory, rawResourceStream) = sqlDataReader.ReadRow(
+                        (long resourceSurrogateId, int version, bool isDeleted, bool isHistory, Stream rawResourceStream) = sqlDataReader.ReadRow(
                             resourceTable.ResourceSurrogateId,
                             resourceTable.Version,
                             resourceTable.IsDeleted,
@@ -210,25 +203,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             rawResource = await reader.ReadToEndAsync();
                         }
 
+                        bool isRawResourceMetaSet = false;
+
                         if (_schemaInformation.Current >= 4)
                         {
                             isRawResourceMetaSet = sqlDataReader.Read(resourceTable.IsRawResourceMetaSet, 5);
                         }
 
                         return new ResourceWrapper(
-                        key.Id,
-                        version.ToString(CultureInfo.InvariantCulture),
-                        key.ResourceType,
-                        new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
-                        null,
-                        new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
-                        isDeleted,
-                        searchIndices: null,
-                        compartmentIndices: null,
-                        lastModifiedClaims: null)
-                        {
-                            IsHistory = isHistory,
-                        };
+                            key.Id,
+                            version.ToString(CultureInfo.InvariantCulture),
+                            key.ResourceType,
+                            new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
+                            null,
+                            new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
+                            isDeleted,
+                            searchIndices: null,
+                            compartmentIndices: null,
+                            lastModifiedClaims: null)
+                            {
+                                IsHistory = isHistory,
+                            };
                     }
                 }
             }
