@@ -38,9 +38,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             {
                 Expression childExpression = expression.Expressions[i];
 
-                // The TryGetNormalizedGenerator need to figure out if we have reached a "sort" expression, and then create the relevant  TableExpression and add it to the normalizedPredicates list.
-                // Once this is done, it will be available for the "Sort" section in SQLGen
-
                 if (TryGetNormalizedGenerator(childExpression, out var normalizedGenerator, out var tableExpressionKind))
                 {
                     EnsureAllocatedAndPopulated(ref denormalizedPredicates, expression.Expressions, i);

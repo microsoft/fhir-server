@@ -476,7 +476,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 case TableExpressionKind.Sort:
                     if (tableExpression.ChainLevel != 0)
                     {
-                        throw new InvalidOperationException("Multiple chain level is not supported.");
+                        throw new InvalidOperationException("Multiple chain level is not possible.");
                     }
 
                     var (searchParamInfo, searchSort) = context.GetFirstSupportedSortParam();
