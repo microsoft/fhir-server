@@ -281,5 +281,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 builder.AddRestInteraction(SystemRestfulInteraction.Transaction);
             }
         }
+
+        public Task<ResourceWrapper> UpdateSearchIndexForResourceAsync(ResourceWrapper resourceWrapper, string eTag, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
     }
 }
