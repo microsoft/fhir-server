@@ -19,6 +19,9 @@ parameters:
   type: string
 - name: imageTag
   type: string
+- name: schemaAutomaticUpdatesEnabled
+  type: boolean
+  default: false
 
 jobs:
 - job: provisionEnvironment
@@ -62,6 +65,7 @@ jobs:
             enableAadSmartOnFhirProxy = $true
             enableExport = $true
             imageTag = '${{ parameters.imageTag }}'
+            sqlSchemaAutomaticUpdatesEnabled = ${{ parameters.schemaAutomaticUpdatesEnabled }}
         }
      
         if("${{ parameters.sql }}" -eq "true"){
