@@ -6,8 +6,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+<<<<<<< HEAD
     <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="3.1.7" />
     <PackageReference Include="Microsoft.Health.Test.Utilities" Version="1.0.0-master-20200812-1" />
+=======
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="3.1.6" />
+    <PackageReference Include="Microsoft.Health.Test.Utilities" Version="1.0.0-master-20200909-3" />
+>>>>>>> origin/auto-nuget-update/healthcare-components-1.0.0-master-20200909-3
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.7.0" />
     <PackageReference Include="Microsoft.SqlServer.DACFx" Version="150.4573.2" />
     <PackageReference Include="xunit" Version="2.4.1" />
