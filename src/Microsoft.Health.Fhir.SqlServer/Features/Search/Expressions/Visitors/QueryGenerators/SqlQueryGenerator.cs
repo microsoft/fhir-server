@@ -273,7 +273,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                 case TableExpressionKind.Top:
                     var (paramInfo, sortOrder) = context.GetFirstSupportedSortParam();
-                    FindRestrictingPredecessorTableExpressionIndex();
                     var tableExpressionName = TableExpressionName(_tableExpressionCounter - 1);
                     var sortExpression = (paramInfo == null || paramInfo.Name == KnownQueryParameterNames.LastUpdated) ? null : $"{tableExpressionName}.SortValue";
 
