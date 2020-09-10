@@ -13,6 +13,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer;
+using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
@@ -24,19 +25,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private readonly bool _isHistorySearch;
         private int _tableExpressionCounter = -1;
         private SqlRootExpression _rootExpression;
+        private readonly SchemaInformation _schemaInfo;
 
         private HashSet<int> _cteToLimit = new HashSet<int>();
 
-        public SqlQueryGenerator(IndentedStringBuilder sb, SqlQueryParameterManager parameters, SqlServerFhirModel model, bool isHistorySearch)
+        public SqlQueryGenerator(IndentedStringBuilder sb, SqlQueryParameterManager parameters, SqlServerFhirModel model, bool isHistorySearch, SchemaInformation schemaInfo)
         {
             EnsureArg.IsNotNull(sb, nameof(sb));
             EnsureArg.IsNotNull(parameters, nameof(parameters));
             EnsureArg.IsNotNull(model, nameof(model));
+            EnsureArg.IsNotNull(schemaInfo, nameof(schemaInfo));
 
             StringBuilder = sb;
             Parameters = parameters;
             Model = model;
             _isHistorySearch = isHistorySearch;
+            _schemaInfo = schemaInfo;
         }
 
         public IndentedStringBuilder StringBuilder { get; }
@@ -99,6 +103,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 // If there's a table expression, use the previously selected bit, otherwise everything in the select is considered a match
                 StringBuilder.Append(expression.TableExpressions.Count > 0 ? "CAST(IsMatch AS bit) AS IsMatch, " : "CAST(1 AS bit) AS IsMatch, ");
                 StringBuilder.Append(expression.TableExpressions.Count > 0 ? "CAST(IsPartial AS bit) AS IsPartial, " : "CAST(0 AS bit) AS IsPartial, ");
+
+                if (_schemaInfo.Current > 3)
+                {
+                    // IsRawResourceMetaSet column was added in V4
+                    StringBuilder.Append(VLatest.Resource.IsRawResourceMetaSet, resourceTableAlias).Append(", ");
+                }
+                else
+                {
+                    StringBuilder.Append("CAST(0 AS bit) AS IsRawResourceMetaSet, ");
+                }
 
                 StringBuilder.Append(VLatest.Resource.RawResource, resourceTableAlias);
                 StringBuilder.AppendLine((searchParamInfo == null || searchParamInfo.Name == KnownQueryParameterNames.LastUpdated) ? string.Empty : $", {TableExpressionName(_tableExpressionCounter)}.SortExpr");
@@ -409,6 +423,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         table = !includeExpression.Reversed ? referenceSourceTableAlias : referenceTargetResourceTableAlias;
                         delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ResourceTypeId, table)
                             .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.ResourceTypeId, Model.GetResourceTypeId(includeExpression.ResourceType)));
+
+                        if (includeExpression.Reversed)
+                        {
+                            delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ResourceTypeId, referenceSourceTableAlias)
+                                .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.ResourceTypeId, Model.GetResourceTypeId(includeExpression.SourceResourceType)));
+                        }
 
                         // Limit the join to the main select CTE.
                         // The main select will have max+1 items in the result set to account for paging, so we only want to join using the max amount.
