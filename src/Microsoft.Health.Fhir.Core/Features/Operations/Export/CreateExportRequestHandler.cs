@@ -76,12 +76,37 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             // Otherwise, we will create a new export job. This will be a best effort since the likelihood of this happen should be small.
             ExportJobOutcome outcome = await _fhirOperationDataStore.GetExportJobByHashAsync(hash, cancellationToken);
 
+            var filters = new List<ExportJobFilter>();
+
+            if (!string.IsNullOrWhiteSpace(request.Filters))
+            {
+                var filterArray = request.Filters.Split(",");
+                foreach (string filter in filterArray)
+                {
+                    var parameterIndex = filter.IndexOf("?", StringComparison.Ordinal);
+                    var filterType = filter.Substring(0, parameterIndex);
+
+                    var filterParameters = filter.Substring(parameterIndex + 1).Split("&");
+                    var parameterTupleList = new List<Tuple<string, string>>();
+
+                    foreach (string parameter in filterParameters)
+                    {
+                        var keyValue = parameter.Split("=");
+                        parameterTupleList.Add(new Tuple<string, string>(keyValue[0], keyValue[1]));
+                    }
+
+                    filters.Add(new ExportJobFilter(filterType, parameterTupleList));
+                }
+            }
+
             if (outcome == null)
             {
                 var jobRecord = new ExportJobRecord(
                     request.RequestUri,
                     request.RequestType,
                     request.ResourceType,
+                    filters,
+                    request.Elements,
                     hash,
                     requestorClaims,
                     request.Since,

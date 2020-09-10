@@ -237,6 +237,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type, _exportJobRecord.ResourceType));
             }
 
+            if (!string.IsNullOrWhiteSpace(_exportJobRecord.Elements))
+            {
+                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Elements, _exportJobRecord.Elements));
+            }
+
             IAnonymizer anonymizer = IsAnonymizedExportJob() ? await CreateAnonymizerAsync(cancellationToken) : null;
 
             // Process the export if:

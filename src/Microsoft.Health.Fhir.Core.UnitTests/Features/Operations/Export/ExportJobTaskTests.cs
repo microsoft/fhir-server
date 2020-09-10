@@ -1645,6 +1645,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 new Uri(requestEndpoint),
                 exportJobType,
                 resourceType,
+                null,
                 hash,
                 since: since,
                 groupId: groupId,
@@ -1688,6 +1689,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _exportJobRecord = exportJobRecord ?? new ExportJobRecord(
                 new Uri("https://localhost/ExportJob/"),
                 ExportJobType.Patient,
+                null,
                 null,
                 "hash",
                 storageAccountConnectionHash: string.Empty,

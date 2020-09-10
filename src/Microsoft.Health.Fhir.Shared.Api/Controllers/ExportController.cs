@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using System.Net;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -86,6 +85,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
             [FromQuery(Name = KnownQueryParameterNames.Type)] string resourceType,
             [FromQuery(Name = KnownQueryParameterNames.Container)] string containerName,
+            [FromQuery(Name = KnownQueryParameterNames.TypeFilter)] string typeFilter,
+            [FromQuery(Name = KnownQueryParameterNames.Elements)] string elements,
             [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationLocation)] string anonymizationConfigLocation,
             [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationFileEtag)] string anonymizationConfigFileETag)
         {
@@ -97,7 +98,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 CheckContainerNameForAnonymizedExport(containerName);
             }
 
-            return await SendExportRequest(ExportJobType.All, since, resourceType, containerName: containerName, anonymizationConfigLocation: anonymizationConfigLocation, anonymizationConfigFileETag: anonymizationConfigFileETag);
+            return await SendExportRequest(ExportJobType.All, since, typeFilter, elements, resourceType, containerName: containerName, anonymizationConfigLocation: anonymizationConfigLocation, anonymizationConfigFileETag: anonymizationConfigFileETag);
         }
 
         [HttpGet]
@@ -108,6 +109,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
             [FromQuery(Name = KnownQueryParameterNames.Type)] string resourceType,
             [FromQuery(Name = KnownQueryParameterNames.Container)] string containerName,
+            [FromQuery(Name = KnownQueryParameterNames.TypeFilter)] string typeFilter,
+            [FromQuery(Name = KnownQueryParameterNames.Elements)] string elements,
             string typeParameter)
         {
             CheckIfExportIsEnabled();
@@ -118,7 +121,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new RequestNotValidException(string.Format(Resources.UnsupportedResourceType, typeParameter));
             }
 
-            return await SendExportRequest(ExportJobType.Patient, since, resourceType, containerName: containerName);
+            return await SendExportRequest(ExportJobType.Patient, since, typeFilter, elements, resourceType, containerName: containerName);
         }
 
         [HttpGet]
@@ -129,6 +132,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
             [FromQuery(Name = KnownQueryParameterNames.Type)] string resourceType,
             [FromQuery(Name = KnownQueryParameterNames.Container)] string containerName,
+            [FromQuery(Name = KnownQueryParameterNames.TypeFilter)] string typeFilter,
+            [FromQuery(Name = KnownQueryParameterNames.Elements)] string elements,
             string typeParameter,
             string idParameter)
         {
@@ -140,7 +145,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new RequestNotValidException(string.Format(Resources.UnsupportedResourceType, typeParameter));
             }
 
-            return await SendExportRequest(ExportJobType.Group, since, resourceType, idParameter, containerName);
+            return await SendExportRequest(ExportJobType.Group, since, typeFilter, elements, resourceType, idParameter, containerName);
         }
 
         [HttpGet]
@@ -179,9 +184,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return new ExportResult(response.StatusCode);
         }
 
-        private async Task<IActionResult> SendExportRequest(ExportJobType exportType, PartialDateTime since, string resourceType = null, string groupId = null, string containerName = null, string anonymizationConfigLocation = null, string anonymizationConfigFileETag = null)
+        private async Task<IActionResult> SendExportRequest(ExportJobType exportType, PartialDateTime since, string filters, string elements, string resourceType = null, string groupId = null, string containerName = null, string anonymizationConfigLocation = null, string anonymizationConfigFileETag = null)
         {
-            CreateExportResponse response = await _mediator.ExportAsync(_fhirRequestContextAccessor.FhirRequestContext.Uri, exportType, resourceType, since, groupId, containerName, anonymizationConfigLocation, anonymizationConfigFileETag, HttpContext.RequestAborted);
+            CreateExportResponse response = await _mediator.ExportAsync(_fhirRequestContextAccessor.FhirRequestContext.Uri, exportType, resourceType, since, filters, elements, groupId, containerName, anonymizationConfigLocation, anonymizationConfigFileETag, HttpContext.RequestAborted);
 
             var exportResult = ExportResult.Accepted();
             exportResult.SetContentLocationHeader(_urlResolver, OperationsConstants.Export, response.JobId);
