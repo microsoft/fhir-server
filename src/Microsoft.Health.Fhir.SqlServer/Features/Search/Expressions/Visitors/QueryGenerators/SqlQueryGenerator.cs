@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 }
 
                 StringBuilder.Append(VLatest.Resource.RawResource, resourceTableAlias);
-                if (searchParamInfo == null || searchParamInfo.Name == KnownQueryParameterNames.LastUpdated)
+                if (searchParamInfo != null && searchParamInfo.Name != KnownQueryParameterNames.LastUpdated)
                 {
                     StringBuilder.Append(", ").Append(TableExpressionName(_tableExpressionCounter)).Append(".SortValue");
                 }
