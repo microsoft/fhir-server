@@ -80,16 +80,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _logger = logger;
             _modelInfoProvider = modelInfoProvider;
             _coreFeatures = coreFeatures.Value;
-
-            CosmosCollectionConfiguration collectionConfiguration = namedCosmosCollectionConfigurationAccessor.Get(Constants.CollectionConfigurationName);
-
-            DatabaseId = cosmosDataStoreConfiguration.DatabaseId;
-            CollectionId = collectionConfiguration.CollectionId;
         }
-
-        private string DatabaseId { get; }
-
-        private string CollectionId { get; }
 
         public async Task<UpsertOutcome> UpsertAsync(
             ResourceWrapper resource,
@@ -230,6 +221,51 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             foreach (var resource in resources)
             {
                 await UpsertAsync(resource, WeakETag.FromVersionId(resource.Version), false, true, cancellationToken);
+            }
+        }
+
+        public async Task<ResourceWrapper> UpdateSearchIndexForResourceAsync(ResourceWrapper resourceWrapper, string eTag, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(resourceWrapper, nameof(resourceWrapper));
+            EnsureArg.IsNotNullOrWhiteSpace(eTag, nameof(eTag));
+
+            var cosmosWrapper = new FhirCosmosResourceWrapper(resourceWrapper);
+            ItemRequestOptions requestOptions = new ItemRequestOptions()
+            {
+                IfMatchEtag = eTag,
+            };
+
+            try
+            {
+                ItemResponse<FhirCosmosResourceWrapper> response = await _containerScope.Value.ReplaceItemAsync(
+                    cosmosWrapper,
+                    cosmosWrapper.ResourceId,
+                    new PartitionKey(cosmosWrapper.PartitionKey),
+                    requestOptions,
+                    cancellationToken);
+
+                return response.Resource;
+            }
+            catch (CosmosException exception)
+            {
+                switch (exception.StatusCode)
+                {
+                    case HttpStatusCode.PreconditionFailed:
+                        throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, eTag));
+
+                    case HttpStatusCode.NotFound:
+                        throw new ResourceNotFoundException(string.Format(
+                            Core.Resources.ResourceNotFoundByIdAndVersion,
+                            resourceWrapper.ResourceTypeName,
+                            resourceWrapper.ResourceId,
+                            eTag));
+
+                    case HttpStatusCode.ServiceUnavailable:
+                        throw new ServiceUnavailableException();
+                }
+
+                _logger.LogError(exception, "Unhandled Document Client Exception");
+                throw;
             }
         }
 

@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
 
         public static FhirResult SetLastModifiedHeader(this FhirResult fhirResult)
         {
-            ResourceElement resource = fhirResult.Result;
+            IResourceElement resource = fhirResult.Result;
 
             var lastUpdated = resource?.LastUpdated;
             if (lastUpdated != null)

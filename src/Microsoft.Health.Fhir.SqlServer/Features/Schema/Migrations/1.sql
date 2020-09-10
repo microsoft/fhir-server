@@ -1670,7 +1670,7 @@ GO
 
 --
 -- STORED PROCEDURE
---     Reads a single resource
+--     Deletes a single resource
 --
 -- DESCRIPTION
 --     Permanently deletes all data related to a resource.
