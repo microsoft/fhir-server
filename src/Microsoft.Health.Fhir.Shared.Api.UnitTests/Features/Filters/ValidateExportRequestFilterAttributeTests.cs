@@ -144,6 +144,39 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             _filter.OnActionExecuting(context);
         }
 
+        [InlineData("application/fhir+ndjson")]
+        [InlineData("application/ndjson")]
+        [InlineData("ndjson")]
+        [Theory]
+        public void GivenARequestWithCorrectHeaderAndSupportedOutputFormatQueryParam_WhenGettingAnExportOperationRequest_ThenTheResultIsSuccessful(string outputFormat)
+        {
+            var context = CreateContext();
+            context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
+            context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
+
+            var queryParams = new Dictionary<string, StringValues>();
+            queryParams.Add(KnownQueryParameterNames.OutputFormat, outputFormat);
+
+            context.HttpContext.Request.Query = new QueryCollection(queryParams);
+
+            _filter.OnActionExecuting(context);
+        }
+
+        [Fact]
+        public void GivenARequestWithCorrectHeaderAndUnsupportedOutputFormatQueryParam_WhenGettingAnExportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown()
+        {
+            var context = CreateContext();
+            context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
+            context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
+
+            var queryParams = new Dictionary<string, StringValues>();
+            queryParams.Add(KnownQueryParameterNames.OutputFormat, "invalid");
+
+            context.HttpContext.Request.Query = new QueryCollection(queryParams);
+
+            Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
+        }
+
         [Fact]
         public void GivenARequestWithCorrectHeaderAndNoQueryParams_WhenGettingAnExportOperationRequest_ThenTheResultIsSuccessful()
         {

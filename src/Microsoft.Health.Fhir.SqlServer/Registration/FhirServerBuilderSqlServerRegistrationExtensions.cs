@@ -33,7 +33,7 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddSqlServerBase<SchemaVersion>(configureAction);
             services.AddSqlServerApi();
 
-            services.Add(provider => new SchemaInformation((int)SchemaVersion.V1, (int)SchemaVersion.V4))
+            services.Add(provider => new SchemaInformation((int)SchemaVersion.V1, (int)SchemaVersion.V5))
                 .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();
@@ -92,9 +92,12 @@ namespace Microsoft.Extensions.DependencyInjection
 
         internal static void AddSqlServerTableRowParameterGenerators(this IServiceCollection serviceCollection)
         {
-            foreach (var type in typeof(SqlServerFhirDataStore).Assembly.GetTypes().Where(t => t.IsClass && !t.IsAbstract))
+            var types = typeof(SqlServerFhirDataStore).Assembly.GetTypes().Where(t => t.IsClass && !t.IsAbstract).ToArray();
+            foreach (var type in types)
             {
-                foreach (var interfaceType in type.GetInterfaces())
+                var interfaces = type.GetInterfaces().ToArray();
+
+                foreach (var interfaceType in interfaces)
                 {
                     if (interfaceType.IsGenericType && interfaceType.GetGenericTypeDefinition() == typeof(IStoredProcedureTableValuedParametersGenerator<,>))
                     {

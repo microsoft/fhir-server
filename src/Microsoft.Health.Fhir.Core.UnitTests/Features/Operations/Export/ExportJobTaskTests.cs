@@ -1042,11 +1042,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
-            string exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
-            Assert.Equal("1", exportedIds);
-            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
+            string exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
             Assert.Equal("0", exportedIds);
-            Assert.Equal(2, _inMemoryDestinationClient.ExportedDataFileCount);
+            Assert.Equal(1, _inMemoryDestinationClient.ExportedDataFileCount);
 
             Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
         }
@@ -1441,13 +1439,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
-            string exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
-            Assert.Equal("123", exportedIds);
-            exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
+            string exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
             Assert.Equal("123", exportedIds);
             exportedIds = _inMemoryDestinationClient.GetExportedData(new Uri(EncounterFileName, UriKind.Relative));
             Assert.Equal("123", exportedIds);
-            Assert.Equal(3, _inMemoryDestinationClient.ExportedDataFileCount);
+            Assert.Equal(2, _inMemoryDestinationClient.ExportedDataFileCount);
 
             Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
         }
@@ -1678,7 +1674,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                                 id,
                                 "1",
                                 type,
-                                new RawResource("data", Core.Models.FhirResourceFormat.Json),
+                                new RawResource("data", Core.Models.FhirResourceFormat.Json, isMetaSet: false),
                                 null,
                                 DateTimeOffset.MinValue,
                                 false,

@@ -137,6 +137,13 @@
             "metadata": {
                 "description": "Determines whether export will be enabled for this fhir instance. If true, a storage account will be created as part of the deployment. You will need owner or user-administrator permissions for this."
             }
+        },
+        "sqlSchemaAutomaticUpdatesEnabled": {
+            "type": "bool",
+            "defaultValue": false,
+            "metadata": {
+                "description": "Determine whether the sql schema should be automatically upgraded on server startup"
+            }
         }
     },
     "variables": {
@@ -165,6 +172,7 @@
             "FhirServer:Security:Authentication:Audience": "[parameters('securityAuthenticationAudience')]",
             "CosmosDb:ContinuationTokenSizeLimitInKb": "1",
             "SqlServer:Initialize": "true",
+            "SqlServer:SchemaOptions:AutomaticUpdatesEnabled": "[parameters('sqlSchemaAutomaticUpdatesEnabled')]",
             "DataStore": "SqlServer",
             "FhirServer:Operations:Export:Enabled": "[parameters('enableExport')]",
             "FhirServer:Operations:Export:StorageAccountUri": "[if(parameters('enableExport'), concat('https://', variables('storageAccountName'), variables('blobStorageUri')), 'null')]"

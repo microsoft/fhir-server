@@ -284,11 +284,12 @@ namespace Microsoft.Health.Fhir.Client
             return response.Content.Headers.ContentLocation;
         }
 
-        public async Task<Uri> AnonymizedExportAsync(string anonymizationConfig, string etag = null, CancellationToken cancellationToken = default)
+        public async Task<Uri> AnonymizedExportAsync(string anonymizationConfig, string container, string etag = null, CancellationToken cancellationToken = default)
         {
             anonymizationConfig = HttpUtility.UrlEncode(anonymizationConfig);
             etag = HttpUtility.UrlEncode(etag);
-            string requestUrl = $"$export?_anonymizationConfig={anonymizationConfig}&_anonymizationConfigEtag={etag}";
+            container = HttpUtility.UrlEncode(container);
+            string requestUrl = $"$export?_container={container}&_anonymizationConfig={anonymizationConfig}&_anonymizationConfigEtag={etag}";
 
             using var message = new HttpRequestMessage(HttpMethod.Get, requestUrl);
             message.Headers.Add("Accept", "application/fhir+json");
