@@ -307,8 +307,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         {
                             continuationToken = new ContinuationToken(new object[]
                             {
+                                sortValue.Value.ToString("o"),
                                 newContinuationId ?? 0,
-                                string.Format("{0:o}", sortValue),
                             });
                         }
                         else

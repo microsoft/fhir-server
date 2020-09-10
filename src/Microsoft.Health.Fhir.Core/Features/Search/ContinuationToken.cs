@@ -5,8 +5,7 @@
 
 using System;
 using System.Globalization;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
+using System.Text.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
@@ -17,6 +16,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     {
         // the token is an array.
         private object[] _tokens;
+        private static readonly JsonSerializerOptions Options = new JsonSerializerOptions() { Converters = { new ContinuationTokenConverter() } };
 
         public ContinuationToken(object[] tokens)
         {
@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
         public string ToJson()
         {
-            return JArray.FromObject(_tokens).ToString();
+            return JsonSerializer.Serialize(_tokens);
         }
 
         public override string ToString()
@@ -57,48 +57,30 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
         public static ContinuationToken FromString(string json)
         {
-            try
+            if (json == null)
             {
-                bool success = true;
-                var settings = new JsonSerializerSettings
-                {
-                    Error = (sender, args) =>
-                    {
-                        success = false;
-                        args.ErrorContext.Handled = true;
-                    },
-                    MissingMemberHandling = MissingMemberHandling.Error,
-                };
-                var result = JsonConvert.DeserializeObject<object[]>(json, settings);
-                if (success)
-                {
-                    return new ContinuationToken(result).ValidateSortType();
-                }
-                else
-                {
-                    // backward compatibilty support
-                    if (long.TryParse(json, NumberStyles.None, CultureInfo.InvariantCulture, out var sid))
-                    {
-                        result = new object[] { sid };
-                        return new ContinuationToken(result).ValidateSortType();
-                    }
-                }
-            }
-            catch
-            {
+                return null;
             }
 
-            return null;
+            if (long.TryParse(json, NumberStyles.None, CultureInfo.InvariantCulture, out var sid))
+            {
+                return new ContinuationToken(new object[] { sid });
+            }
+
+            var result = JsonSerializer.Deserialize<object[]>(json, Options);
+            return new ContinuationToken(result);
         }
 
-        private ContinuationToken ValidateSortType()
+        private class ContinuationTokenConverter : System.Text.Json.Serialization.JsonConverter<object>
         {
-            if (_tokens.Length > 1 && _tokens[0] is DateTime time)
+            public override object Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) => reader.TokenType switch
             {
-                _tokens[0] = string.Format("{0:O}", time);
-            }
+                JsonTokenType.String => reader.GetString(),
+                JsonTokenType.Number => reader.GetInt64(),
+                _ => throw new NotSupportedException()
+            };
 
-            return this;
+            public override void Write(Utf8JsonWriter writer, object value, JsonSerializerOptions options) => throw new NotImplementedException();
         }
     }
 }
