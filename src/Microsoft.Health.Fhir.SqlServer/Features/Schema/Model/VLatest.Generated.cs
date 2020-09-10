@@ -219,6 +219,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly BitColumn IsDeleted = new BitColumn("IsDeleted");
             internal readonly NullableVarCharColumn RequestMethod = new NullableVarCharColumn("RequestMethod", 10);
             internal readonly VarBinaryColumn RawResource = new VarBinaryColumn("RawResource", -1);
+            internal readonly BitColumn IsRawResourceMetaSet = new BitColumn("IsRawResourceMetaSet");
         }
 
         internal class ResourceTypeTable : Table

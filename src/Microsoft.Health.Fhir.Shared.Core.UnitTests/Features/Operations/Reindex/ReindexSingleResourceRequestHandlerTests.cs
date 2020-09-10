@@ -157,7 +157,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
         {
             ResourceElement patientResourceElement = Samples.GetDefaultPatient();
             Patient patientResource = patientResourceElement.ToPoco<Patient>();
-            RawResource rawResource = new RawResource(new FhirJsonSerializer().SerializeToString(patientResource), FhirResourceFormat.Json);
+            RawResource rawResource = new RawResource(new FhirJsonSerializer().SerializeToString(patientResource), FhirResourceFormat.Json, isMetaSet: false);
 
             ResourceWrapper dummyResourceWrapper = new ResourceWrapper(
                 patientResourceElement,

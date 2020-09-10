@@ -14,6 +14,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.Api.Features.Formatters;
+using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Tests.Common;
 using NSubstitute;
 using Xunit;
 
@@ -38,10 +40,18 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
         }
 
         [Fact]
+        public void GivenAResourceWrapperObjectAndXmlContentType_WhenCheckingCanWrite_ThenTrueShouldBeReturned()
+        {
+            bool result = CanWrite(typeof(RawResourceElement), ContentType.XML_CONTENT_HEADER);
+
+            Assert.True(result);
+        }
+
+        [Fact]
         public async System.Threading.Tasks.Task GivenAFhirObjectAndXmlContentType_WhenSerializing_ThenTheObjectIsSerializedToTheResponseStream()
         {
             var serializer = new FhirXmlSerializer();
-            var formatter = new FhirXmlOutputFormatter(serializer, NullLogger<FhirXmlOutputFormatter>.Instance);
+            var formatter = new FhirXmlOutputFormatter(serializer, Deserializers.ResourceDeserializer, NullLogger<FhirXmlOutputFormatter>.Instance);
 
             var resource = new OperationOutcome();
 
@@ -77,7 +87,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
 
         private bool CanWrite(Type modelType, string contentType)
         {
-            var formatter = new FhirXmlOutputFormatter(new FhirXmlSerializer(), NullLogger<FhirXmlOutputFormatter>.Instance);
+            var formatter = new FhirXmlOutputFormatter(new FhirXmlSerializer(), Deserializers.ResourceDeserializer, NullLogger<FhirXmlOutputFormatter>.Instance);
 
             var defaultHttpContext = new DefaultHttpContext();
             defaultHttpContext.Request.ContentType = contentType;

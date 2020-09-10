@@ -4,8 +4,10 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Tests.Common;
 using Xunit;
@@ -15,7 +17,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
     public class RawResourceTests
     {
         [Fact]
-        public void GivenAResource_WhenCreatingARawResource_ThenTheObjectPassInIsNotModified()
+        public void GivenAResource_WhenCreateARawResourceWithKeepMetaFalse_ThenTheObjectPassedInIsModified()
         {
             var serializer = new FhirJsonSerializer();
             var rawResourceFactory = new RawResourceFactory(serializer);
@@ -26,10 +28,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Persistence
 
             Assert.NotNull(observation.VersionId);
 
-            var raw = rawResourceFactory.Create(observation);
+            var raw = rawResourceFactory.Create(observation, keepMeta: false);
 
             Assert.NotNull(raw.Data);
-            Assert.Equal(versionId, observation.VersionId);
+
+            var parser = new FhirJsonParser(DefaultParserSettings.Settings);
+
+            var deserialized = parser.Parse<Observation>(raw.Data);
+
+            Assert.NotNull(deserialized);
+            Assert.Null(deserialized.VersionId);
+            Assert.Null(deserialized.Meta?.LastUpdated);
         }
     }
 }

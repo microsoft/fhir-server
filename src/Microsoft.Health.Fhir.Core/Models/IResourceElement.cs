@@ -3,20 +3,18 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using EnsureThat;
-using Microsoft.Health.Fhir.Core.Models;
+using System;
 
-namespace Microsoft.Health.Fhir.Core.Messages.Search
+namespace Microsoft.Health.Fhir.Core.Models
 {
-    public class SearchCompartmentResponse
+    public interface IResourceElement
     {
-        public SearchCompartmentResponse(ResourceElement bundle)
-        {
-            EnsureArg.IsNotNull(bundle, nameof(bundle));
+        string Id { get; }
 
-            Bundle = bundle;
-        }
+        string VersionId { get; }
 
-        public ResourceElement Bundle { get; }
+        string InstanceType { get; }
+
+        DateTimeOffset? LastUpdated { get; }
     }
 }
