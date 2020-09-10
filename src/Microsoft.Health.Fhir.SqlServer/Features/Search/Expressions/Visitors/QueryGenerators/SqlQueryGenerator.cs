@@ -115,7 +115,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 }
 
                 StringBuilder.Append(VLatest.Resource.RawResource, resourceTableAlias);
-                StringBuilder.AppendLine((searchParamInfo == null || searchParamInfo.Name == KnownQueryParameterNames.LastUpdated) ? string.Empty : $", {TableExpressionName(_tableExpressionCounter)}.SortValue");
+                if (searchParamInfo == null || searchParamInfo.Name == KnownQueryParameterNames.LastUpdated)
+                {
+                    StringBuilder.Append(", ").Append(TableExpressionName(_tableExpressionCounter)).Append(".SortValue");
+                }
+
+                StringBuilder.AppendLine();
             }
 
             StringBuilder.Append("FROM ").Append(VLatest.Resource).Append(" ").AppendLine(resourceTableAlias);
@@ -152,7 +157,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 }
                 else
                 {
-                    // TODO: should Sid1 be ordered by ASC/DESC if other sort param is requested?
                     StringBuilder
                     .Append($"{TableExpressionName(_tableExpressionCounter)}.SortValue ")
                     .Append(sortOrder == SortOrder.Ascending ? "ASC" : "DESC").Append(", ")
