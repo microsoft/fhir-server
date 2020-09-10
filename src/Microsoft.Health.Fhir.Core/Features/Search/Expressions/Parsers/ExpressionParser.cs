@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(originalType.ToString(), searchParam.ToString());
             }
 
-            return new IncludeExpression(resourceType, refSearchParameter, targetType, wildCard, isReversed);
+            return new IncludeExpression(resourceType, refSearchParameter, originalType.ToString(), targetType, wildCard, isReversed);
         }
 
         private Expression ParseImpl(string resourceType, ReadOnlySpan<char> key, string value)
