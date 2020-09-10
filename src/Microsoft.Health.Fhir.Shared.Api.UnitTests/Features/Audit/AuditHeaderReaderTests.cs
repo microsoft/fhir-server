@@ -11,11 +11,11 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Api.Features.Audit;
-using Microsoft.Health.Fhir.Api.Features.Audit;
-using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using NSubstitute;
 using Xunit;
+using AuditHeaderReader = Microsoft.Health.Api.Features.Audit.AuditHeaderReader;
 
 namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
 {
