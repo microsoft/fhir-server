@@ -23,6 +23,7 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.HardDelete;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Replace;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Upsert;
 using Microsoft.Health.Fhir.ValueSets;
 using Task = System.Threading.Tasks.Task;
@@ -39,6 +40,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         private static readonly UpsertWithHistory _upsertWithHistoryProc = new UpsertWithHistory();
         private static readonly HardDelete _hardDelete = new HardDelete();
+        private static readonly ReplaceSingleResource _replaceSingleResource = new ReplaceSingleResource();
         private readonly CoreFeatureConfiguration _coreFeatures;
 
         /// <summary>
@@ -224,41 +226,41 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
-        public async Task<ResourceWrapper> UpdateSearchIndexForResourceAsync(ResourceWrapper resourceWrapper, string eTag, CancellationToken cancellationToken)
+        public async Task<ResourceWrapper> UpdateSearchIndexForResourceAsync(ResourceWrapper resourceWrapper, WeakETag weakETag, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(resourceWrapper, nameof(resourceWrapper));
-            EnsureArg.IsNotNullOrWhiteSpace(eTag, nameof(eTag));
+            EnsureArg.IsNotNull(weakETag, nameof(weakETag));
 
             var cosmosWrapper = new FhirCosmosResourceWrapper(resourceWrapper);
-            ItemRequestOptions requestOptions = new ItemRequestOptions()
-            {
-                IfMatchEtag = eTag,
-            };
 
             try
             {
-                ItemResponse<FhirCosmosResourceWrapper> response = await _containerScope.Value.ReplaceItemAsync(
-                    cosmosWrapper,
-                    cosmosWrapper.ResourceId,
-                    new PartitionKey(cosmosWrapper.PartitionKey),
-                    requestOptions,
+                _logger.LogDebug($"Replacing {resourceWrapper.ResourceTypeName}/{resourceWrapper.ResourceId}, ETag: \"{weakETag.VersionId}\"");
+
+                FhirCosmosResourceWrapper response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
+                    async ct => await _replaceSingleResource.Execute(
+                        _containerScope.Value.Scripts,
+                        cosmosWrapper,
+                        weakETag.VersionId,
+                        ct),
                     cancellationToken);
 
-                return response.Resource;
+                return response;
             }
             catch (CosmosException exception)
             {
-                switch (exception.StatusCode)
+                // Check GetSubStatusCode documentation for why we need to get that instead of the status code.
+                switch (exception.GetSubStatusCode())
                 {
                     case HttpStatusCode.PreconditionFailed:
-                        throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, eTag));
+                        throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag));
 
                     case HttpStatusCode.NotFound:
                         throw new ResourceNotFoundException(string.Format(
                             Core.Resources.ResourceNotFoundByIdAndVersion,
                             resourceWrapper.ResourceTypeName,
                             resourceWrapper.ResourceId,
-                            eTag));
+                            weakETag));
 
                     case HttpStatusCode.ServiceUnavailable:
                         throw new ServiceUnavailableException();

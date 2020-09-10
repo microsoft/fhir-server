@@ -85,6 +85,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return result;
         }
 
+        [HttpPost]
         [HttpGet]
         [Route(KnownRoutes.ReindexSingleResource)]
         [AuditEventType(AuditEventSubType.Reindex)]
@@ -92,7 +93,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             CheckIfReindexIsEnabledAndRespond();
 
-            ReindexSingleResourceResponse response = await _mediator.SendReindexSingleResourceRequestAsync(typeParameter, idParameter, HttpContext.RequestAborted);
+            ReindexSingleResourceResponse response = await _mediator.SendReindexSingleResourceRequestAsync(Request.Method, typeParameter, idParameter, HttpContext.RequestAborted);
 
             var result = FhirResult.Create(response.ParameterResource, HttpStatusCode.OK);
 

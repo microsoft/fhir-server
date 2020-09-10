@@ -8,6 +8,7 @@
     <EmbeddedResource Include="Features\Storage\StoredProcedures\AcquireExportJobs\acquireExportJobs.js" />
     <EmbeddedResource Include="Features\Storage\StoredProcedures\AcquireReindexJobs\acquireReindexJobs.js" />
     <EmbeddedResource Include="Features\Storage\StoredProcedures\HardDelete\hardDelete.js" />
+    <EmbeddedResource Include="Features\Storage\StoredProcedures\Replace\replaceSingleResource.js" />
     <EmbeddedResource Include="Features\Storage\StoredProcedures\Upsert\upsertWithHistory.js" />
   </ItemGroup>
   
