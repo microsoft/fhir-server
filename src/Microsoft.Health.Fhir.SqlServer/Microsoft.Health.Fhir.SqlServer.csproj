@@ -31,10 +31,10 @@
   
   <ItemGroup>
     <PackageReference Include="Ensure.That" Version="9.2.0" />
-    <PackageReference Include="Microsoft.Health.Abstractions" Version="1.0.0-master-20200819-1" />
-    <PackageReference Include="Microsoft.Health.SqlServer" Version="1.0.0-master-20200819-1" />
-    <PackageReference Include="Microsoft.Health.SqlServer.Api" Version="1.0.0-master-20200819-1" />
-    <PackageReference Include="Microsoft.Health.Extensions.BuildTimeCodeGenerator" Version="1.0.0-master-20200819-1" />
+    <PackageReference Include="Microsoft.Health.Abstractions" Version="1.0.0-master-20200910-2" />
+    <PackageReference Include="Microsoft.Health.SqlServer" Version="1.0.0-master-20200910-2" />
+    <PackageReference Include="Microsoft.Health.SqlServer.Api" Version="1.0.0-master-20200910-2" />
+    <PackageReference Include="Microsoft.Health.Extensions.BuildTimeCodeGenerator" Version="1.0.0-master-20200910-2" />
     <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" Version="1.3.5" />
     <PackageReference Include="Microsoft.SqlServer.SqlManagementObjects" Version="150.18208.0" />
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions" Version="3.1.6" />
