@@ -48,7 +48,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly BitColumn _isMatch = new BitColumn("IsMatch");
         private readonly BitColumn _isPartial = new BitColumn("IsPartial");
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
-        private const int SortExprColumnNumber = 9;
+        private const string SortValueColumnName = "SortValue";
         private readonly SchemaInformation _schemaInformation;
 
         private bool _isResultPartial;
@@ -145,7 +145,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                 if (continuationToken != null)
                 {
                     // in case it's a _lastUpdated sort optimization
-                    if (string.IsNullOrEmpty(continuationToken.SortExpr))
+                    if (string.IsNullOrEmpty(continuationToken.SortValue))
                     {
                         (SearchParameterInfo searchParamInfo, SortOrder sortOrder) = searchOptions.GetFirstSupportedSortParam();
 
@@ -213,7 +213,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     long? newContinuationId = null;
                     bool moreResults = false;
                     int matchCount = 0;
-                    DateTime? sortExpr = null;
+
+                    // Currently we support only date time sort type.
+                    DateTime? sortValue = null;
 
                     while (await reader.ReadAsync(cancellationToken))
                     {
@@ -237,12 +239,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                             // At this point we are at the last row.
                             // if we have more columns, it means sort expressions were added.
-                            if (reader.FieldCount > 9)
+                            if (reader.FieldCount > 10)
                             {
-                                sortExpr = reader.GetValue(SortExprColumnNumber) as DateTime?;
+                                sortValue = reader.GetValue(SortValueColumnName) as DateTime?;
                             }
 
                             continue;
+                        }
+
+                        // See if this resource is a continuation token candidate and increase the count
+                        if (isMatch)
+                        {
+                            newContinuationId = resourceSurrogateId;
+                            matchCount++;
                         }
 
                         string rawResource;
@@ -252,13 +261,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         using (var streamReader = new StreamReader(gzipStream, SqlServerFhirDataStore.ResourceEncoding))
                         {
                             rawResource = await streamReader.ReadToEndAsync();
-                        }
-
-                        // See if this resource is a continuation token candidate and increase the count
-                        if (isMatch)
-                        {
-                            newContinuationId = resourceSurrogateId;
-                            matchCount++;
                         }
 
                         // as long as at least one entry was marked as partial, this resultset
@@ -298,17 +300,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     }
 
                     // Continuation token prep
-                    var continuationToken = new ContinuationToken(new object[]
+                    ContinuationToken continuationToken = null;
+                    if (moreResults)
                     {
-                        newContinuationId ?? 0,
-                    });
-
-                    if (sortExpr.HasValue)
-                    {
-                        continuationToken.SortExpr = string.Format("{0:o}", sortExpr);
+                        if (sortValue.HasValue)
+                        {
+                            continuationToken = new ContinuationToken(new object[]
+                            {
+                                newContinuationId ?? 0,
+                                string.Format("{0:o}", sortValue),
+                            });
+                        }
+                        else
+                        {
+                            continuationToken = new ContinuationToken(new object[]
+                            {
+                                newContinuationId ?? 0,
+                            });
+                        }
                     }
 
-                    return new SearchResult(resources, searchOptions.UnsupportedSearchParams, unsupportedSortingParameters, moreResults ? continuationToken.ToJson() : null, _isResultPartial);
+                    return new SearchResult(resources, searchOptions.UnsupportedSearchParams, unsupportedSortingParameters, continuationToken?.ToJson(), _isResultPartial);
                 }
             }
         }

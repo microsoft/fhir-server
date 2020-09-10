@@ -37,23 +37,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         }
 
         // Currently only a single sort is implemented
-        public string SortExpr
+        public string SortValue
         {
             get
             {
                 return _tokens.Length > 1 ? _tokens[0] as string : null;
-            }
-
-            set
-            {
-                if (_tokens.Length == 1)
-                {
-                    _tokens = new object[] { value, _tokens[0] };
-                }
-                else
-                {
-                    _tokens[0] = value;
-                }
             }
         }
 

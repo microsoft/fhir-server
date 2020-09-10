@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 }
 
                 StringBuilder.Append(VLatest.Resource.RawResource, resourceTableAlias);
-                StringBuilder.AppendLine((searchParamInfo == null || searchParamInfo.Name == KnownQueryParameterNames.LastUpdated) ? string.Empty : $", {TableExpressionName(_tableExpressionCounter)}.SortExpr");
+                StringBuilder.AppendLine((searchParamInfo == null || searchParamInfo.Name == KnownQueryParameterNames.LastUpdated) ? string.Empty : $", {TableExpressionName(_tableExpressionCounter)}.SortValue");
             }
 
             StringBuilder.Append("FROM ").Append(VLatest.Resource).Append(" ").AppendLine(resourceTableAlias);
@@ -154,7 +154,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 {
                     // TODO: should Sid1 be ordered by ASC/DESC if other sort param is requested?
                     StringBuilder
-                    .Append($"{TableExpressionName(_tableExpressionCounter)}.SortExpr ")
+                    .Append($"{TableExpressionName(_tableExpressionCounter)}.SortValue ")
                     .Append(sortOrder == SortOrder.Ascending ? "ASC" : "DESC").Append(", ")
                     .Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).AppendLine(" ASC ");
                 }
@@ -271,7 +271,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     var (paramInfo, sortOrder) = context.GetFirstSupportedSortParam();
                     FindRestrictingPredecessorTableExpressionIndex();
                     var tableExpressionName = TableExpressionName(_tableExpressionCounter - 1);
-                    var sortExpression = (paramInfo == null || paramInfo.Name == KnownQueryParameterNames.LastUpdated) ? null : $"{tableExpressionName}.SortExpr";
+                    var sortExpression = (paramInfo == null || paramInfo.Name == KnownQueryParameterNames.LastUpdated) ? null : $"{tableExpressionName}.SortValue";
 
                     // Everything in the top expression is considered a match
                     StringBuilder.Append("SELECT DISTINCT TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1)).Append(") Sid1, 1 AS IsMatch, 0 AS IsPartial ")
@@ -511,7 +511,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         if (continuationToken != null)
                         {
                             DateTime dateSortValue;
-                            if (DateTime.TryParseExact(continuationToken.SortExpr, "o", null, DateTimeStyles.None, out dateSortValue))
+                            if (DateTime.TryParseExact(continuationToken.SortValue, "o", null, DateTimeStyles.None, out dateSortValue))
                             {
                                 sortValue = dateSortValue;
                             }
@@ -521,7 +521,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     if (!string.IsNullOrEmpty(sortColumnName) && tableExpression.SearchParameterQueryGenerator != null)
                     {
                         StringBuilder.Append("SELECT ").Append(VLatest.Resource.ResourceSurrogateId, null).Append(" AS Sid1, ")
-                            .Append(sortColumnName, null).AppendLine(" as SortExpr")
+                            .Append(sortColumnName, null).AppendLine(" as SortValue")
                             .Append("FROM ").AppendLine(tableExpression.SearchParameterQueryGenerator.Table);
 
                         using (var delimited = StringBuilder.BeginDelimitedWhereClause())
