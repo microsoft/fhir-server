@@ -296,7 +296,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 }
 
                 // Search parameter statuses are only supported in version four and higher.
-                if (_schemaInformation.Current >= 4)
+                if (_schemaInformation.Current >= 5)
                 {
                     InitializeSearchParameterStatusInformation();
                 }

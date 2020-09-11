@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>netcoreapp3.1</TargetFramework>
@@ -28,4 +28,5 @@
   <Import Project="..\..\src\Microsoft.Health.Fhir.Shared.Tests\Microsoft.Health.Fhir.Shared.Tests.projitems" Label="Shared" />
 
   <Import Project="..\Microsoft.Health.Fhir.Shared.Tests.Integration\Microsoft.Health.Fhir.Shared.Tests.Integration.projitems" Label="Shared" />
+
 </Project>

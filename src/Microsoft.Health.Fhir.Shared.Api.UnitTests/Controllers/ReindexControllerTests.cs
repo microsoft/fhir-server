@@ -21,6 +21,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Messages.Reindex;
+using Microsoft.Health.Fhir.Core.Models;
 using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
@@ -85,7 +86,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             await _mediator.Received().Send(
                 Arg.Is<GetReindexRequest>(r => r.JobId == "id"), Arg.Any<CancellationToken>());
 
-            var parametersResource = ((FhirResult)result).Result.ResourceInstance as Parameters;
+            var parametersResource = (((FhirResult)result).Result as ResourceElement).ResourceInstance as Parameters;
             Assert.Equal("Queued", parametersResource.Parameter[3].Value.ToString());
         }
 
@@ -111,7 +112,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Arg.Any<CancellationToken>());
             _mediator.ClearReceivedCalls();
 
-            var parametersResource = ((FhirResult)result).Result.ResourceInstance as Parameters;
+            var parametersResource = (((FhirResult)result).Result as ResourceElement).ResourceInstance as Parameters;
             Assert.Equal("Queued", parametersResource.Parameter[3].Value.ToString());
         }
 

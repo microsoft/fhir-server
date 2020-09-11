@@ -8,15 +8,18 @@ using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Numerics;
 using System.Threading;
+using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Features.Transactions;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
@@ -69,7 +72,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var securityConfiguration = new SecurityConfiguration { PrincipalClaims = { "oid" } };
 
-            var sqlServerFhirModel = new SqlServerFhirModel(config, _schemaInitializer, schemaInformation, searchParameterDefinitionManager, () => _filebasedSearchParameterStatusDataStore, Options.Create(securityConfiguration), NullLogger<SqlServerFhirModel>.Instance);
+            var sqlServerFhirModel = new SqlServerFhirModel(
+                config,
+                _schemaInitializer,
+                schemaInformation,
+                searchParameterDefinitionManager,
+                () => _filebasedSearchParameterStatusDataStore,
+                Options.Create(securityConfiguration),
+                NullLogger<SqlServerFhirModel>.Instance);
 
             var serviceCollection = new ServiceCollection();
             serviceCollection.AddSqlServerTableRowParameterGenerators();
@@ -91,7 +101,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 () => _filebasedSearchParameterStatusDataStore,
                 schemaInformation);
 
-            _fhirDataStore = new SqlServerFhirDataStore(config, sqlServerFhirModel, searchParameterToSearchValueTypeMap, upsertResourceTvpGenerator, Options.Create(new CoreFeatureConfiguration()), SqlConnectionWrapperFactory, NullLogger<SqlServerFhirDataStore>.Instance);
+            _fhirDataStore = new SqlServerFhirDataStore(config, sqlServerFhirModel, searchParameterToSearchValueTypeMap, upsertResourceTvpGenerator, Options.Create(new CoreFeatureConfiguration()), SqlConnectionWrapperFactory, NullLogger<SqlServerFhirDataStore>.Instance, schemaInformation);
 
             _fhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, NullLogger<SqlServerFhirOperationDataStore>.Instance);
 
