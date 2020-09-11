@@ -434,4 +434,8 @@
   <data name="WeakETagFormatRequired" xml:space="preserve">
     <value>WeakETag must be in the weak ETag format.</value>
   </data>
+  <data name="ReindexJobInCompletedState" xml:space="preserve">
+    <value>Reindex job id {0} is in state {1} and cannot be cancelled.</value>
+    <comment>{0} is the id of the reindex which is a a GUID.  {1} is the state, an enumerated set of state values.</comment>
+  </data>
 </root>

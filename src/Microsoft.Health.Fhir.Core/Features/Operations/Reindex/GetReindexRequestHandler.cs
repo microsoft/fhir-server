@@ -63,6 +63,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 ReindexJobWrapper reindexJob = await _fhirOperationDataStore.GetReindexJobByIdAsync(jobId, cancellationToken);
                 return new GetReindexResponse(HttpStatusCode.OK, reindexJob);
             }
+            catch (JobNotFoundException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 throw new OperationFailedException($"Unable to read reindex job with id {jobId}, error: {ex.Message}", HttpStatusCode.BadRequest);
