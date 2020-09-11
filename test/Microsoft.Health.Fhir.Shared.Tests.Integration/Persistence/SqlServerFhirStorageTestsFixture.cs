@@ -8,18 +8,15 @@ using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Numerics;
 using System.Threading;
-using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Features.Transactions;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
@@ -74,7 +71,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var sqlServerFhirModel = new SqlServerFhirModel(
                 config,
-                _schemaInitializer,
                 schemaInformation,
                 searchParameterDefinitionManager,
                 () => _filebasedSearchParameterStatusDataStore,
