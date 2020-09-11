@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Transactions;
 using EnsureThat;
 using FluentValidation.Results;
 using Hl7.Fhir.Model;

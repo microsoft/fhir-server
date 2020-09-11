@@ -324,9 +324,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
+        public async Task GivenARevIncludeSearchExpression_WhenSearched_ThenCorrectBundleShouldBeReturnedAndNothingElse()
+        {
+            string query = $"_tag={Fixture.Tag}&_revinclude=Observation:patient&family=Truman";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
+
+            ValidateBundle(
+                bundle,
+                Fixture.TrumanPatient,
+                Fixture.TrumanSnomedObservation,
+                Fixture.TrumanLoincObservation);
+
+            ValidateSearchEntryMode(bundle, ResourceType.Patient);
+        }
+
+        [Fact]
         public async Task GivenARevIncludeSearchExpressionWithMultipleIncludes_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
-            string query = $"_tag={Fixture.Tag}&_revinclude=DiagnosticReport:result&_revinclude=Observation:patient&family=Truman";
+            string query = $"_tag={Fixture.Tag}&_revinclude=DiagnosticReport:patient&_revinclude=Observation:patient&family=Truman";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
 

@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
 
         protected IFhirAuthorizationService AuthorizationService { get; }
 
-        protected ResourceWrapper CreateResourceWrapper(Resource resource, bool deleted)
+        protected ResourceWrapper CreateResourceWrapper(Resource resource, bool deleted, bool keepMeta)
         {
             if (string.IsNullOrEmpty(resource.Id))
             {
@@ -61,9 +61,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
             // store with millisecond precision
             resource.Meta.LastUpdated = Clock.UtcNow.UtcDateTime.TruncateToMillisecond();
 
-            ResourceWrapper resourceWrapper = _resourceWrapperFactory.Create(resource.ToResourceElement(), deleted);
-
-            return resourceWrapper;
+            return _resourceWrapperFactory.Create(resource.ToResourceElement(), deleted, keepMeta);
         }
     }
 }
