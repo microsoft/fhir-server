@@ -142,6 +142,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return _quantityCodeToId.TryGetValue(code, out quantityCodeId);
         }
 
+        // TODO: Once this no longer implements IStartable, rename to "EnsureInitialized" (work item 75558).
         public void Start()
         {
             _schemaInitializer.Start();
@@ -149,6 +150,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             if (_searchParameterDefinitionManager is IStartable startable)
             {
                 startable.Start();
+            }
+
+            // As long as SqlServerFhirModel implements IStartable, avoid initialization if we are only running the base schema.
+            if (_schemaInformation.Current == null)
+            {
+                return;
             }
 
             var connectionStringBuilder = new SqlConnectionStringBuilder(_configuration.ConnectionString);

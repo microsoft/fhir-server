@@ -87,6 +87,10 @@ namespace Microsoft.Extensions.DependencyInjection
 
             services.AddFactory<IScoped<SqlConnectionWrapperFactory>>();
 
+            services.Add<SchemaUpgradedHandler>()
+                .Transient()
+                .AsImplementedInterfaces();
+
             return fhirServerBuilder;
         }
 

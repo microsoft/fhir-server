@@ -73,13 +73,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                             VLatest.SearchParam.LastUpdated,
                             VLatest.SearchParam.IsPartiallySupported);
 
-                        if (string.IsNullOrEmpty(stringStatus) || lastUpdated == null || isPartiallySupported == null)
-                        {
-                            // These columns are nullable because they are added to dbo.SearchParam in a later schema version.
-                            // They should be populated as soon as they are added to the table and should never be null.
-                            throw new NullReferenceException(Resources.SearchParameterStatusShouldNotBeNull);
-                        }
-
                         var status = Enum.Parse<SearchParameterStatus>(stringStatus, true);
 
                         var resourceSearchParameterStatus = new ResourceSearchParameterStatus()
