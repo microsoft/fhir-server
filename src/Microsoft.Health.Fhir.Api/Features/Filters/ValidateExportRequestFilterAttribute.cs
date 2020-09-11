@@ -44,10 +44,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 KnownQueryParameterNames.Since,
                 KnownQueryParameterNames.Type,
                 KnownQueryParameterNames.Container,
+                KnownQueryParameterNames.Elements,
+                KnownQueryParameterNames.TypeFilter,
 
-                // KnownQueryParameterNames.Elements,
                 // KnownQueryParameterNames.IncludeAssociatedData,
-                // KnownQueryParameterNames.TypeFilter,
             };
 
             _supportedQueryParamsForAnonymizedExport = new HashSet<string>(StringComparer.Ordinal)

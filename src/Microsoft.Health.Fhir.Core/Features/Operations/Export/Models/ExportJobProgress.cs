@@ -10,12 +10,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 {
     public class ExportJobProgress
     {
-        public ExportJobProgress(string continuationToken, uint page, string resourceId = null, ExportJobProgress subSearch = null)
+        public ExportJobProgress(string continuationToken, uint page, string resourceId = null, ExportJobProgress subSearch = null, ExportJobFilter filter = null)
         {
             ContinuationToken = continuationToken;
             Page = page;
             TriggeringResourceId = resourceId;
             SubSearch = subSearch;
+            Filter = filter;
+
+            FinishedFilters = false;
         }
 
         [JsonConstructor]
@@ -29,6 +32,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         [JsonProperty(JobRecordProperties.Page)]
         public uint Page { get; private set; }
 
+        [JsonProperty(JobRecordProperties.Filter)]
+        public ExportJobFilter Filter { get; private set; }
+
+        [JsonProperty(JobRecordProperties.FinishedFilters)]
+        public bool FinishedFilters { get; private set; }
+
         [JsonProperty(JobRecordProperties.TriggeringResourceId)]
         public string TriggeringResourceId { get; private set; }
 
@@ -41,6 +50,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
             ContinuationToken = continuationToken;
             Page++;
+        }
+
+        public void SetFilter(ExportJobFilter filter)
+        {
+            Filter = filter;
+            Page = 0;
+            ContinuationToken = null;
+        }
+
+        public void MarkFiltersFinished()
+        {
+            FinishedFilters = true;
+            Page = 0;
+            ContinuationToken = null;
         }
 
         public void NewSubSearch(string resourceId)

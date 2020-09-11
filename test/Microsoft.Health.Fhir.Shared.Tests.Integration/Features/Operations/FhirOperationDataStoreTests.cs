@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
         [Fact]
         public async Task GivenANewExportRequest_WhenCreatingExportJob_ThenGetsJobCreated()
         {
-            var jobRecord = new ExportJobRecord(_exportRequest.RequestUri, _exportRequest.RequestType, _exportRequest.ResourceType, null, "hash");
+            var jobRecord = new ExportJobRecord(_exportRequest.RequestUri, _exportRequest.RequestType, _exportRequest.ResourceType, null, null, "hash");
 
             ExportJobOutcome outcome = await _operationDataStore.CreateExportJobAsync(jobRecord, CancellationToken.None);
 
@@ -316,7 +316,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations
 
             string hash = JsonConvert.SerializeObject(hashObject).ComputeHash();
 
-            var jobRecord = new ExportJobRecord(_exportRequest.RequestUri, ExportJobType.Patient, null, null, hash);
+            var jobRecord = new ExportJobRecord(_exportRequest.RequestUri, ExportJobType.Patient, null, null, null, hash);
 
             jobRecordCustomizer?.Invoke(jobRecord);
 

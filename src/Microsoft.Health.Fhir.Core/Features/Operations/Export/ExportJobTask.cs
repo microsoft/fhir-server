@@ -219,8 +219,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             EnsureArg.IsNotNull(progress, nameof(progress));
             EnsureArg.IsNotNull(sharedQueryParametersList, nameof(sharedQueryParametersList));
 
-            // Current batch will be used to organize a set of search results into a group so that they can be committed together.
-            string currentBatchId = progress.Page.ToString("d6");
+            if (!string.IsNullOrWhiteSpace(_exportJobRecord.Elements))
+            {
+                sharedQueryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Elements, _exportJobRecord.Elements));
+            }
 
             List<Tuple<string, string>> queryParametersList = new List<Tuple<string, string>>(sharedQueryParametersList);
             if (progress.ContinuationToken != null)
@@ -237,12 +239,70 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type, _exportJobRecord.ResourceType));
             }
 
-            if (!string.IsNullOrWhiteSpace(_exportJobRecord.Elements))
+            var filteredResources = new HashSet<string>();
+            if (_exportJobRecord.Filters != null)
             {
-                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Elements, _exportJobRecord.Elements));
+                foreach (var filter in _exportJobRecord.Filters)
+                {
+                    filteredResources.Add(filter.Type);
+                }
             }
 
             IAnonymizer anonymizer = IsAnonymizedExportJob() ? await CreateAnonymizerAsync(cancellationToken) : null;
+
+            if (!progress.FinishedFilters)
+            {
+                var index = -1;
+                foreach (var filter in _exportJobRecord.Filters)
+                {
+                    index++;
+
+                    if (progress.Filter != null && filter != progress.Filter)
+                    {
+                        continue;
+                    }
+
+                    if (_exportJobRecord.ExportType == ExportJobType.All || filter.Type.Equals(KnownResourceTypes.Patient, StringComparison.Ordinal))
+                    {
+                        progress.SetFilter(filter);
+
+                        List<Tuple<string, string>> filterQueryParametersList = new List<Tuple<string, string>>(queryParametersList);
+                        foreach (var param in filter.Parameters)
+                        {
+                            filterQueryParametersList.Add(param);
+                        }
+
+                        await SearchWithFilter(exportJobConfiguration, progress, filter.Type, filterQueryParametersList, sharedQueryParametersList, anonymizer, "filter" + index + "-", cancellationToken);
+                    }
+                }
+
+                progress.MarkFiltersFinished();
+                await UpdateJobRecordAsync(cancellationToken);
+            }
+
+            if (_exportJobRecord.ExportType == ExportJobType.All || !filteredResources.Contains(KnownResourceTypes.Patient))
+            {
+                foreach (var resource in filteredResources)
+                {
+                    queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type + ":not", resource));
+                }
+
+                await SearchWithFilter(exportJobConfiguration, progress, null, queryParametersList, sharedQueryParametersList, anonymizer, string.Empty, cancellationToken);
+            }
+        }
+
+        private async Task SearchWithFilter(
+            ExportJobConfiguration exportJobConfiguration,
+            ExportJobProgress progress,
+            string resourceType,
+            List<Tuple<string, string>> queryParametersList,
+            List<Tuple<string, string>> sharedQueryParametersList,
+            IAnonymizer anonymizer,
+            string batchIdPrefix,
+            CancellationToken cancellationToken)
+        {
+            // Current batch will be used to organize a set of search results into a group so that they can be committed together.
+            string currentBatchId = batchIdPrefix + progress.Page.ToString("d6");
 
             // Process the export if:
             // 1. There is continuation token, which means there is more resource to be exported.
@@ -259,7 +319,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         using (IScoped<ISearchService> searchService = _searchServiceFactory())
                         {
                             searchResult = await searchService.Value.SearchAsync(
-                                resourceType: null,
+                                resourceType: resourceType,
                                 queryParametersList,
                                 cancellationToken);
                         }
@@ -320,7 +380,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     searchResult.ContinuationToken,
                     forceCommit: _exportJobRecord.ExportType == ExportJobType.Patient || _exportJobRecord.ExportType == ExportJobType.Group,
                     cancellationToken);
-                currentBatchId = progress.Page.ToString("d6");
+                currentBatchId = batchIdPrefix + progress.Page.ToString("d6");
             }
 
             // Commit one last time for any pending changes.
@@ -345,9 +405,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             EnsureArg.IsNotNull(progress, nameof(progress));
             EnsureArg.IsNotNull(sharedQueryParametersList, nameof(sharedQueryParametersList));
 
-            // Current batch will be used to organize a set of search results into a group so that they can be committed together.
-            string currentBatchId = batchIdPrefix + "-" + progress.Page.ToString("d6");
-
             List<Tuple<string, string>> queryParametersList = new List<Tuple<string, string>>(sharedQueryParametersList);
             if (progress.ContinuationToken != null)
             {
@@ -358,6 +415,66 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type, _exportJobRecord.ResourceType));
             }
+
+            var filteredResources = new HashSet<string>();
+            if (_exportJobRecord.Filters != null)
+            {
+                foreach (var filter in _exportJobRecord.Filters)
+                {
+                    filteredResources.Add(filter.Type);
+                }
+            }
+
+            if (!progress.FinishedFilters)
+            {
+                var index = -1;
+                foreach (var filter in _exportJobRecord.Filters)
+                {
+                    index++;
+                    if (progress.Filter != null && filter != progress.Filter)
+                    {
+                        continue;
+                    }
+
+                    if (_exportJobRecord.ExportType == ExportJobType.All || filter.Type.Equals(KnownResourceTypes.Patient, StringComparison.Ordinal))
+                    {
+                        progress.SetFilter(filter);
+
+                        List<Tuple<string, string>> filterQueryParametersList = new List<Tuple<string, string>>(queryParametersList);
+                        filterQueryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type, filter.Type));
+                        foreach (var param in filter.Parameters)
+                        {
+                            filterQueryParametersList.Add(param);
+                        }
+
+                        await SearchCompartmentWithFilter(exportJobConfiguration, progress, filterQueryParametersList, batchIdPrefix + "-filter" + index, cancellationToken);
+                    }
+                }
+
+                progress.MarkFiltersFinished();
+                await UpdateJobRecordAsync(cancellationToken);
+            }
+
+            if (_exportJobRecord.ExportType == ExportJobType.All || !filteredResources.Contains(KnownResourceTypes.Patient))
+            {
+                foreach (var resource in filteredResources)
+                {
+                    queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type + ":not", resource));
+                }
+
+                await SearchCompartmentWithFilter(exportJobConfiguration, progress, queryParametersList, batchIdPrefix, cancellationToken);
+            }
+        }
+
+        private async Task SearchCompartmentWithFilter(
+            ExportJobConfiguration exportJobConfiguration,
+            ExportJobProgress progress,
+            List<Tuple<string, string>> queryParametersList,
+            string batchIdPrefix,
+            CancellationToken cancellationToken)
+        {
+            // Current batch will be used to organize a set of search results into a group so that they can be committed together.
+            string currentBatchId = batchIdPrefix + "-" + progress.Page.ToString("d6");
 
             // Process the export if:
             // 1. There is continuation token, which means there is more resource to be exported.
@@ -508,7 +625,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             using (IScoped<ISearchService> searchService = _searchServiceFactory())
             {
                 return await searchService.Value.SearchAsync(
-                               resourceType: null,
+                               resourceType: KnownResourceTypes.Patient,
                                queryParametersList,
                                cancellationToken);
             }
