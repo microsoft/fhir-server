@@ -3,18 +3,20 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Microsoft.Health.Extensions.DependencyInjection;
-using NSubstitute;
+using EnsureThat;
+using Microsoft.Health.Fhir.Core.Models;
 
-namespace Microsoft.Health.Fhir.Tests.Common.Extensions
+namespace Microsoft.Health.Fhir.Core.Messages.Reindex
 {
-    public static class CreateMockedScopeExtensions
+    public class ReindexSingleResourceResponse
     {
-        public static IScoped<T> CreateMockScope<T>(this T obj)
+        public ReindexSingleResourceResponse(ResourceElement parameter)
         {
-            var scope = Substitute.For<IScoped<T>>();
-            scope.Value.Returns(obj);
-            return scope;
+            EnsureArg.IsNotNull(parameter, nameof(parameter));
+
+            ParameterResource = parameter;
         }
+
+        public ResourceElement ParameterResource { get; }
     }
 }

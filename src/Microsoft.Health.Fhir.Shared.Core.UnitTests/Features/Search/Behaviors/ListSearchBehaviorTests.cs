@@ -19,7 +19,6 @@ using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Messages.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
-using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
@@ -65,7 +64,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                     var rawResourceFactory = new RawResourceFactory(new FhirJsonSerializer());
                     return new ResourceWrapper(
                         longList,
-                        rawResourceFactory.Create(longList),
+                        rawResourceFactory.Create(longList, keepMeta: true),
                         new ResourceRequest(HttpMethod.Post, "http://fhir"),
                         false,
                         null,

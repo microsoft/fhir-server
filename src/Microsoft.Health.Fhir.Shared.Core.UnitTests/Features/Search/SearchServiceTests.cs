@@ -113,7 +113,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var observation = new Observation { Id = resourceId }.ToResourceElement();
 
             var resourceWrapper =
-                new ResourceWrapper(observation, _rawResourceFactory.Create(observation), _resourceRequest, false, null, null, null);
+                new ResourceWrapper(observation, _rawResourceFactory.Create(observation, keepMeta: true), _resourceRequest, false, null, null, null);
             _searchService.SearchImplementation = options => new SearchResult(new SearchResultEntry[0], _unsupportedQueryParameters, _unsupportedSortingParameters, null);
 
             _fhirDataStore.GetAsync(Arg.Any<ResourceKey>(), Arg.Any<CancellationToken>()).Returns(resourceWrapper);
@@ -137,7 +137,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             SearchOptions testOptions = new SearchOptions();
 
             var resourceWrapper =
-                new ResourceWrapper(observation, _rawResourceFactory.Create(observation), _resourceRequest, false, null, null, null);
+                new ResourceWrapper(observation, _rawResourceFactory.Create(observation, keepMeta: true), _resourceRequest, false, null, null, null);
             _searchService.SearchImplementation = options =>
             {
                 testOptions = options;
