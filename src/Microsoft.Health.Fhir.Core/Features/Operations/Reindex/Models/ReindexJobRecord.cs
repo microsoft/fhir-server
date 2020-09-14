@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Models;
@@ -46,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         public IList<OperationOutcomeIssue> Error { get; private set; } = new List<OperationOutcomeIssue>();
 
         [JsonProperty(JobRecordProperties.QueryList)]
-        public IList<ReindexJobQueryStatus> QueryList { get; private set; } = new List<ReindexJobQueryStatus>();
+        public ConcurrentBag<ReindexJobQueryStatus> QueryList { get; private set; } = new ConcurrentBag<ReindexJobQueryStatus>();
 
         [JsonProperty(JobRecordProperties.Count)]
         public int Count { get; set; }
