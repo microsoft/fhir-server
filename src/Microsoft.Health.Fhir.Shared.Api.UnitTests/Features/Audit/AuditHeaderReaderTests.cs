@@ -12,7 +12,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Core.Configs;
-using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Core.Exceptions;
 using NSubstitute;
 using Xunit;
 using AuditHeaderReader = Microsoft.Health.Api.Features.Audit.AuditHeaderReader;
@@ -105,7 +105,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
         }
 
         [Fact]
-        public void GivenTooManyCustomHeaders_WhenHeadersRead_ThenAuditHeaderExceptionIsThrown()
+        public void GivenTooManyCustomHeaders_WhenHeadersRead_ThenAuditHeaderCountExceededExceptionIsThrown()
         {
             var headerReader = new AuditHeaderReader(_optionsAuditConfiguration);
             _httpContext.Request.Headers.Clear();
@@ -115,11 +115,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
                 _httpContext.Request.Headers.Add(header.Key, new StringValues(header.Value));
             }
 
-            Assert.Throws<AuditHeaderException>(() => headerReader.Read(_httpContext));
+            Assert.Throws<AuditHeaderCountExceededException>(() => headerReader.Read(_httpContext));
         }
 
         [Fact]
-        public void GivenAHeaderWithTooLargeValue_WhenHeadersRead_ThenAuditHeaderExceptionIsThrown()
+        public void GivenAHeaderWithTooLargeValue_WhenHeadersRead_ThenAuditHeaderTooLargeExceptionIsThrown()
         {
             var d = new Dictionary<string, string>() { ["a"] = "b" };
             var headerReader = new AuditHeaderReader(_optionsAuditConfiguration);
@@ -132,7 +132,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Audit
 
             _httpContext.Request.Headers.Add(_optionsAuditConfiguration.Value.CustomAuditHeaderPrefix + "big", GenerateRandomString(2049));
 
-            Assert.Throws<AuditHeaderException>(() => headerReader.Read(_httpContext));
+            Assert.Throws<AuditHeaderTooLargeException>(() => headerReader.Read(_httpContext));
         }
 
         [Fact]
