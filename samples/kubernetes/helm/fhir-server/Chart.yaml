@@ -1,6 +1,6 @@
 apiVersion: v2
 name: fhir-server
-description: A Helm chart for deploying the Microsoft FHIR server for Azure
+description: A Helm chart for deploying the Microsoft FHIR Server for Azure
 
 # A chart can be either an 'application' or a 'library' chart.
 #
