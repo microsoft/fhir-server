@@ -5,11 +5,12 @@
 
 using System;
 using System.Collections.Generic;
+using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Exceptions
 {
-    public abstract class FhirException : Exception
+    public abstract class FhirException : MicrosoftHealthException
     {
         protected FhirException(params OperationOutcomeIssue[] issues)
             : this(null, issues)
