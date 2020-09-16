@@ -21,6 +21,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
         public const string NumberName = "n";
 
+        public const string LowNumberName = "ln";
+
+        public const string HighNumberName = "hn";
+
         public const string NormalizedPrefix = "n_";
 
         public const string NormalizedStringName = NormalizedPrefix + StringName;
@@ -28,6 +32,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         public const string NormalizedTextName = NormalizedPrefix + TextName;
 
         public const string QuantityName = "q";
+
+        public const string LowQuantityName = "lq";
+
+        public const string HighQuantityName = "hq";
 
         public const string SystemName = "s";
 
@@ -44,5 +52,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         public const string TextName = "t";
 
         public const string UriName = "u";
+
+        public const string LastModified = "lastModified";
+
+        public const string SelectedFields = "r.id,r.isSystem,r.partitionKey,r.lastModified,r.rawResource,r.request,r.isDeleted,r.resourceId,r.resourceTypeName,r.isHistory,r.version,r._self,r._etag";
     }
 }

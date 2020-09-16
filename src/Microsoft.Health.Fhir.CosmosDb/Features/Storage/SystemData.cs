@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
@@ -13,22 +12,22 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
     /// </summary>
     public abstract class SystemData
     {
-        [JsonProperty("id")]
+        [JsonProperty(KnownDocumentProperties.Id)]
         public string Id { get; set; }
 
-        [JsonProperty("_etag")]
+        [JsonProperty(KnownDocumentProperties.ETag)]
         public string ETag { get; set; }
 
-        [JsonProperty("_ts")]
+        [JsonProperty(KnownDocumentProperties.Timestamp)]
         public long DocumentTimestamp { get; set; }
 
         /// <summary>
         /// Gets a value indicating whether this object is system metadata and not user generated data
         /// </summary>
-        [JsonProperty(KnownResourceWrapperProperties.IsSystem)]
+        [JsonProperty(KnownDocumentProperties.IsSystem)]
         public bool IsSystem { get; } = true;
 
-        [JsonProperty("_selfLink")]
+        [JsonProperty(KnownDocumentProperties.SelfLink)]
         public string SelfLink { get; set; }
     }
 }

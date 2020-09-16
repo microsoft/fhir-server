@@ -8,48 +8,78 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     /// <summary>
     /// Represents a visitor for expression tree.
     /// </summary>
-    public interface IExpressionVisitor
+    /// <typeparam name="TContext">The type of the context parameter passed into each Visit method</typeparam>
+    /// <typeparam name="TOutput">The type returned by the Visit methods</typeparam>
+    public interface IExpressionVisitor<in TContext, out TOutput>
     {
         /// <summary>
         /// Visits the <see cref="SearchParameterExpression"/>.
         /// </summary>
         /// <param name="expression">The expression to visit.</param>
-        void Visit(SearchParameterExpression expression);
+        /// <param name="context">The input</param>
+        TOutput VisitSearchParameter(SearchParameterExpression expression, TContext context);
 
         /// <summary>
         /// Visits the <see cref="BinaryExpression"/>.
         /// </summary>
         /// <param name="expression">The expression to visit.</param>
-        void Visit(BinaryExpression expression);
+        /// <param name="context">The input</param>
+        TOutput VisitBinary(BinaryExpression expression, TContext context);
 
         /// <summary>
         /// Visits the <see cref="ChainedExpression"/>.
         /// </summary>
         /// <param name="expression">The expression to visit.</param>
-        void Visit(ChainedExpression expression);
+        /// <param name="context">The input</param>
+        TOutput VisitChained(ChainedExpression expression, TContext context);
 
         /// <summary>
         /// Visits the <see cref="MissingFieldExpression"/>.
         /// </summary>
         /// <param name="expression">The expression to visit.</param>
-        void Visit(MissingFieldExpression expression);
+        /// <param name="context">The input</param>
+        TOutput VisitMissingField(MissingFieldExpression expression, TContext context);
 
         /// <summary>
         /// Visits the <see cref="MissingSearchParameterExpression"/>.
         /// </summary>
         /// <param name="expression">The expression to visit.</param>
-        void Visit(MissingSearchParameterExpression expression);
+        /// <param name="context">The input</param>
+        TOutput VisitMissingSearchParameter(MissingSearchParameterExpression expression, TContext context);
 
         /// <summary>
         /// Visits the <see cref="MultiaryExpression"/>.
         /// </summary>
         /// <param name="expression">The expression to visit.</param>
-        void Visit(MultiaryExpression expression);
+        /// <param name="context">The input</param>
+        TOutput VisitMultiary(MultiaryExpression expression, TContext context);
 
         /// <summary>
         /// Visits the <see cref="StringExpression"/>.
         /// </summary>
         /// <param name="expression">The expression to visit.</param>
-        void Visit(StringExpression expression);
+        /// <param name="context">The input</param>
+        TOutput VisitString(StringExpression expression, TContext context);
+
+        /// <summary>
+        /// Visits the <see cref="CompartmentSearchExpression"/>.
+        /// </summary>
+        /// <param name="expression">The expression to visit.</param>
+        /// <param name="context">The input</param>
+        TOutput VisitCompartment(CompartmentSearchExpression expression, TContext context);
+
+        /// <summary>
+        /// Visits the <see cref="IncludeExpression"/>
+        /// </summary>
+        /// <param name="expression">The expression to visit.</param>
+        /// <param name="context">The input.</param>
+        TOutput VisitInclude(IncludeExpression expression, TContext context);
+
+        /// <summary>
+        /// Visits the <see cref="SortExpression"/>.
+        /// </summary>
+        /// <param name="expression">The expression to visit.</param>
+        /// <param name="context">The input</param>
+        TOutput VisitSortParameter(SortExpression expression, TContext context);
     }
 }

@@ -1,0 +1,37 @@
+{
+    "profiles": {
+        "Default": {
+            "commandName": "Project",
+            "launchBrowser": true,
+            "environmentVariables": {
+                "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
+                "DataStore": "CosmosDb",
+                "ASPNETCORE_ENVIRONMENT": "development"
+            },
+            "applicationUrl": "https://localhost:44348/"
+        },
+        "CosmosDb": {
+            "commandName": "Project",
+            "launchBrowser": true,
+            "environmentVariables": {
+                "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
+                "DataStore": "CosmosDb",
+                "ASPNETCORE_ENVIRONMENT": "development"
+            },
+            "applicationUrl": "https://localhost:44348/"
+        },
+        "SqlServer": {
+            "commandName": "Project",
+            "environmentVariables": {
+                "SqlServer:Initialize": "true",
+                "SqlServer:AllowDatabaseCreation": "true",
+                "SqlServer:SchemaOptions:AutomaticUpdatesEnabled": "true",
+                "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
+                "SqlServer:ConnectionString": "server=(local);Initial Catalog=FHIR_R5;Integrated Security=true",
+                "DataStore": "SqlServer",
+                "ASPNETCORE_ENVIRONMENT": "development"
+            },
+            "applicationUrl": "https://localhost:44348/"
+        }
+    }
+}

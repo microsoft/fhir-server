@@ -1,0 +1,84 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <MSBuildAllProjects>$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
+    <HasSharedItems>true</HasSharedItems>
+    <SharedGUID>295745e2-4dd3-4aab-908d-b3dee976bf0e</SharedGUID>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration">
+    <Import_RootNamespace>Microsoft.Health.Fhir.Shared.Core</Import_RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)Extensions\FhirMediatorExtensions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Extensions\ModelExtensions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Extensions\ReindexJobRecordExtensions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Extensions\ReindexMediatorExtensions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Extensions\ResourceTypeExtensions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\DefaultParserSettings.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Export\GroupMemberExtractor.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Export\ResourceToNdjsonBytesSerializer.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexSingleResourceRequestHandler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexUtilities.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\RawResourceFactory.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\BaseResourceHandler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Create\ConditionalCreateResourceHandler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Create\ConditionalCreateResourceValidator.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Create\CreateResourceHandler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Create\CreateResourceValidator.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Delete\DeleteResourceHandler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Delete\DeleteResourceValidator.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Get\GetResourceHandler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Get\GetResourceValidator.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\ResourceExtensions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\ResourceReferenceResolver.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Upsert\ConditionalUpsertResourceHandler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Upsert\UpsertResourceHandler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Upsert\ConditionalUpsertResourceValidator.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Upsert\UpsertResourceValidator.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\BundleFactory.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\AddressToStringSearchValueConverter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\CodeableConceptToTokenSearchValueTypeConverter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\CodeOfTToTokenSearchValueTypeConverter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\CodeToTokenSearchValueTypeConverter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\CodingExtensions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\CodingToTokenSearchValueTypeConverter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\ContactPointToTokenSearchValueTypeConverter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\DateToDateTimeSearchValueTypeConverter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\FhirBooleanToTokenSearchValueTypeConverter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\FhirDateTimeToDateTimeSearchValueTypeConverter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\FhirDecimalToNumberSearchValueTypeConverter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\FhirElementToSearchValueTypeConverter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\FhirElementToSearchValueTypeConverterManager.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\FhirStringToStringSearchValueTypeConverter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\FhirUriToUriSearchValueTypeConverter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\HumanNameToStringSearchValueTypeConverter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\IdentifierToTokenSearchValueTypeConverter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\IdToTokenSearchValueTypeConverter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\IFhirElementToSearchValueTypeConverter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\IFhirElementToSearchValueTypeConverterManager.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\InstantToDateTimeSearchValueTypeConverter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\IntegerToNumberSearchValueTypeConverter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\MarkdownToStringSearchValueTypeConverter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\OidToUriSearchValueTypeConverter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\PeriodToDateTimeSearchValueTypeConverter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\PositiveIntToNumberSearchValueTypeConverter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\QuantityToQuantitySearchValueTypeConverter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\RangeToNumberSearchValueTypeConverter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\RangeToQuantitySearchValueTypeConverter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\ResourceReferenceToReferenceSearchValueTypeConverter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\SimpleQuantityToQuantitySearchValueTypeConverter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\UnsignedIntToNumberSearchValueTypeConverter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Parameters\PropertyMappingExtensions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Parameters\SearchParameterSupportResolver.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Parameters\SearchParameterToTypeResolver.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Parameters\SearchParameterTypeResult.cs" />
+    <Compile Include="..\Microsoft.Health.Fhir.Shared.Core\Features\Search\RawBundleEntryComponent.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchIndexer.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchOptionsFactory.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchResourceHandler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchResourceHistoryHandler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Validation\ModelAttributeValidator.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)FhirExtensions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)VersionSpecificModelInfoProvider.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Behaviors\ListSearchPipeBehavior.cs" />
+  </ItemGroup>
+</Project>

@@ -10,8 +10,7 @@ using EnsureThat;
 using FluentValidation;
 using FluentValidation.Results;
 using FluentValidation.Validators;
-using Hl7.Fhir.Model;
-using Hl7.Fhir.Validation;
+using Microsoft.Health.Fhir.Core.Models;
 using Task = System.Threading.Tasks.Task;
 using ValidationResult = System.ComponentModel.DataAnnotations.ValidationResult;
 
@@ -19,21 +18,33 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 {
     public class AttributeValidator : IPropertyValidator
     {
-        public PropertyValidatorOptions Options { get; set; } = PropertyValidatorOptions.Empty;
+        private IModelAttributeValidator _modelAttributeValidator;
+
+        public AttributeValidator(IModelAttributeValidator modelAttributeValidator)
+        {
+            EnsureArg.IsNotNull(modelAttributeValidator, nameof(modelAttributeValidator));
+
+            _modelAttributeValidator = modelAttributeValidator;
+        }
+
+        public PropertyValidatorOptions Options { get; set; } = new PropertyValidatorOptions();
 
         public IEnumerable<ValidationFailure> Validate(PropertyValidatorContext context)
         {
             EnsureArg.IsNotNull(context, nameof(context));
 
-            if (context.PropertyValue is Resource resource)
+            if (context.PropertyValue is ResourceElement resourceElement)
             {
                 var results = new List<ValidationResult>();
 
-                if (!DotNetAttributeValidation.TryValidate(resource, results, recurse: false))
+                if (!_modelAttributeValidator.TryValidate(resourceElement, results, recurse: false))
                 {
                     foreach (var error in results)
                     {
-                        yield return new ValidationFailure(error.MemberNames?.FirstOrDefault(), error.ErrorMessage);
+                        var fullFhirPath = resourceElement.InstanceType;
+                        fullFhirPath += string.IsNullOrEmpty(error.MemberNames?.FirstOrDefault()) ? string.Empty : "." + error.MemberNames?.FirstOrDefault();
+
+                        yield return new ValidationFailure(fullFhirPath, error.ErrorMessage);
                     }
                 }
             }
@@ -48,7 +59,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         {
             EnsureArg.IsNotNull(context, nameof(context));
 
-            return context.InstanceToValidate is Resource;
+            return context.InstanceToValidate is ResourceElement;
         }
     }
 }

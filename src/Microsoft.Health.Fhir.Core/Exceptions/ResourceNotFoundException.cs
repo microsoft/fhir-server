@@ -4,7 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Diagnostics;
-using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Exceptions
 {
@@ -15,12 +15,10 @@ namespace Microsoft.Health.Fhir.Core.Exceptions
         {
             Debug.Assert(!string.IsNullOrEmpty(message), "Exception message should not be empty");
 
-            Issues.Add(new OperationOutcome.IssueComponent
-            {
-                Severity = OperationOutcome.IssueSeverity.Error,
-                Code = OperationOutcome.IssueType.NotFound,
-                Diagnostics = message,
-            });
+            Issues.Add(new OperationOutcomeIssue(
+                    OperationOutcomeConstants.IssueSeverity.Error,
+                    OperationOutcomeConstants.IssueType.NotFound,
+                    message));
         }
     }
 }

@@ -1,0 +1,60 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <MSBuildAllProjects>$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
+    <HasSharedItems>true</HasSharedItems>
+    <SharedGUID>fcbad356-8af3-41b0-b578-eaaef6a5d365</SharedGUID>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration">
+    <Import_RootNamespace>Microsoft.Health.Fhir.Shared.Api.UnitTests</Import_RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)AssemblyInfo.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Controllers\AadSmartOnFhirClaimsExtractorTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Controllers\AadSmartOnFhirProxyControllerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Controllers\ExportControllerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Controllers\ReindexControllerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Controllers\TestHttpMessageHandler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\ActionResults\FhirResultTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\ApiNotifications\ApiNotificationMiddlewareTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Audit\AuditHelperTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Audit\AuditLoggingFilterAttributeTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Bundle\FhirTransactionFailedExceptionTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Context\FhirRequestContextAfterAuthenticationMiddlewareTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Context\FhirRequestContextBeforeAuthenticationMiddlewareTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Context\FhirRequestContextMiddlewareTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Exceptions\BaseExceptionMiddlewareTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\FhirRequestContextRouteDataPopulatingFilterAttributeTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\FilterTestsHelper.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\OperationOutcomeExceptionFilterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidateContentTypeFilterAttributeTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidateExportRequestFilterAttributeTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidateResourceIdFilterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidateResourceTypeFilterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidationQueryFilterAndParameterParserAttributeTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\FhirJsonInputFormatterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\FhirJsonOutputFormatterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\FhirXmlInputFormatterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\FhirXmlOutputFormatterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\FormatterConfigurationTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\HttpContextExtensionsTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Headers\ExportResultExtensionsTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Headers\FhirResultExtensionsTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\HealthCheck\HealthCheckCachingTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\BundleSerializerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\TransactionExceptionHandlerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\TransactionBundleValidatorTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\BundleHandlerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Routing\CompartmentTypesRouteConstraintTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Routing\ResourceTypesRouteConstraintTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Routing\RouteTestBase.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Routing\UrlResolverTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Security\RequestHandlerCheckAccessTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Throttling\ThrottlingMiddlewareTests.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)Controllers\openid-configuration.json">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </EmbeddedResource>
+  </ItemGroup>
+</Project>

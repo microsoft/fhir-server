@@ -1,0 +1,94 @@
+steps:
+
+  # Package web
+  - template: package-web.yml
+    parameters:
+      csproj: '**/Microsoft.Health.Fhir.Stu3.Web.csproj'
+
+  - template: package-web.yml
+    parameters:
+      csproj: '**/Microsoft.Health.Fhir.R4.Web.csproj'
+
+  - template: package-web.yml
+    parameters:
+      csproj: '**/Microsoft.Health.Fhir.R5.Web.csproj'
+
+  - task: DotNetCoreCLI@2
+    displayName: 'dotnet publish Integration Tests'
+    inputs:
+      command: publish
+      projects: 'test/**/*.csproj'
+      arguments: '--version-suffix $(build.buildnumber) -o "$(build.binariesdirectory)/IntegrationTests" --configuration $(buildConfiguration) --no-build'
+      publishWebProjects: false
+      zipAfterPublish: false
+
+  # Package nugets
+  - task: DotNetCoreCLI@2
+    displayName: 'dotnet pack nugets'
+    inputs:
+      command: pack
+      configuration: '$(buildConfiguration)'
+      packDirectory: '$(build.artifactStagingDirectory)/nupkgs'
+      versioningScheme: 'byEnvVar'
+      versionEnvVar: 'nuget_version'
+      nobuild: true
+      zipAfterPublish: true
+    env:
+      nuget_version: 1.0.0-$(build.buildNumber)
+
+  # Publish artifacts
+  - task: PublishBuildArtifacts@1
+    displayName: 'publish web artifacts'
+    inputs:
+      pathToPublish: '$(build.artifactStagingDirectory)/web'
+      artifactName: 'deploy'
+      artifactType: 'container'
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'publish samples'
+    inputs:
+      pathToPublish: './samples/'
+      artifactName: 'deploy'
+      artifactType: 'container'
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'publish testauthenvironment.json'
+    inputs:
+      pathToPublish: './testauthenvironment.json'
+      artifactName: 'deploy'
+      artifactType: 'container'
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'publish global.json'
+    inputs:
+      pathToPublish: './global.json'
+      artifactName: 'deploy'
+      artifactType: 'container'
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'publish test configuration jsons'
+    inputs:
+      pathToPublish: './test/configuration/'
+      artifactName: 'deploy'
+      artifactType: 'container'
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'publish release directory'
+    inputs:
+      pathToPublish: './release/'
+      artifactName: 'deploy'
+      artifactType: 'container'
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'publish nuget artifacts'
+    inputs:
+      pathtoPublish: '$(build.artifactStagingDirectory)/nupkgs'
+      artifactName: 'nuget'
+      publishLocation: 'container'
+
+  - task: PublishBuildArtifacts@1
+    displayName: 'publish Integration Tests'
+    inputs:
+      pathToPublish: '$(build.binariesdirectory)/IntegrationTests'
+      artifactName: 'IntegrationTests'
+      artifactType: 'container'

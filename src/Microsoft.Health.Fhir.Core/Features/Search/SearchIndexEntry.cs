@@ -3,38 +3,105 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Diagnostics.CodeAnalysis;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
     /// <summary>
     /// Represents a search index entry.
     /// </summary>
-    public class SearchIndexEntry
+    public class SearchIndexEntry : IEquatable<SearchIndexEntry>
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="SearchIndexEntry"/> class.
         /// </summary>
-        /// <param name="paramName">The search parameter name.</param>
+        /// <param name="searchParameter">The search parameter</param>
         /// <param name="value">The searchable value.</param>
-        public SearchIndexEntry(string paramName, ISearchValue value)
+        public SearchIndexEntry(SearchParameterInfo searchParameter, ISearchValue value)
         {
-            EnsureArg.IsNotNullOrWhiteSpace(paramName, nameof(paramName));
+            EnsureArg.IsNotNull(searchParameter, nameof(searchParameter));
             EnsureArg.IsNotNull(value, nameof(value));
 
-            ParamName = paramName;
+            SearchParameter = searchParameter;
             Value = value;
         }
 
         /// <summary>
-        /// Gets the parameter name.
+        /// Gets the search parameter
         /// </summary>
-        public string ParamName { get; }
+        public SearchParameterInfo SearchParameter { get; }
 
         /// <summary>
         /// Gets the searchable value.
         /// </summary>
         public ISearchValue Value { get; }
+
+        public static bool operator ==(SearchIndexEntry left, SearchIndexEntry right)
+        {
+            if (((object)left) == null && ((object)right) == null)
+            {
+                return true;
+            }
+            else if (((object)left) == null)
+            {
+                return false;
+            }
+            else
+            {
+                return left.Equals(right);
+            }
+        }
+
+        public static bool operator !=(SearchIndexEntry left, SearchIndexEntry right)
+        {
+            return !(left == right);
+        }
+
+        public bool Equals(SearchIndexEntry other)
+        {
+            if (other == null)
+            {
+                return false;
+            }
+
+            if (other.SearchParameter.Url == SearchParameter.Url &&
+                other.SearchParameter.Name.Equals(SearchParameter.Name, StringComparison.OrdinalIgnoreCase) &&
+                other.Value == Value)
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (obj == null)
+            {
+                return false;
+            }
+
+            SearchIndexEntry other = obj as SearchIndexEntry;
+            if (other == null)
+            {
+                return false;
+            }
+            else
+            {
+                return Equals(other);
+            }
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(
+                SearchParameter.Name.GetHashCode(System.StringComparison.OrdinalIgnoreCase),
+                SearchParameter.Url?.GetHashCode(),
+                Value.GetHashCode());
+        }
     }
 }

@@ -4,42 +4,29 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using System.Linq;
-using EnsureThat;
 
 namespace Microsoft.Health.Fhir.Core.Extensions
 {
-    public static class EnumerableExtensions
+    internal static class EnumerableExtensions
     {
-        /// <summary>
-        /// Creates the cartesian product.
-        /// </summary>
-        /// <typeparam name="TSource">The type of the elements of the input sequences.</typeparam>
-        /// <param name="sequences">The input sequence.</param>
-        /// <returns>An <see cref="IEnumerable{T}"/> that contains the cartesian product of the input sequences.</returns>
-        public static IEnumerable<IEnumerable<TSource>> CartesianProduct<TSource>(this IEnumerable<IEnumerable<TSource>> sequences)
+        public static IEnumerable<IEnumerable<T>> TakeBatch<T>(this IEnumerable<T> collection, int batchSize)
         {
-            EnsureArg.IsNotNull(sequences, nameof(sequences));
+            var batch = new List<T>(batchSize);
 
-            IEnumerable<IEnumerable<TSource>> emptyProduct = new[] { Enumerable.Empty<TSource>() };
-
-            return sequences.Aggregate(
-                emptyProduct,
-                (accumulator, sequence) =>
+            foreach (T item in collection)
+            {
+                batch.Add(item);
+                if (batch.Count >= batchSize)
                 {
-                    return accumulator.SelectMany(a => sequence.Select(s => a.Concat(Enumerable.Repeat(s, 1))));
-                });
-        }
+                    yield return batch;
+                    batch = new List<T>(batchSize);
+                }
+            }
 
-        /// <summary>
-        /// Generates a sequence that contains one value.
-        /// </summary>
-        /// <typeparam name="TResult">The element type.</typeparam>
-        /// <param name="element">The element to return.</param>
-        /// <returns>An <see cref="IEnumerable{T}"/> that contains one value.</returns>
-        public static IEnumerable<TResult> AsEnumerable<TResult>(this TResult element)
-        {
-            yield return element;
+            if (batch.Count > 0)
+            {
+                yield return batch;
+            }
         }
     }
 }

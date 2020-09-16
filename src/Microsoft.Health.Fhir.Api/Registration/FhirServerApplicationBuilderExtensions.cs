@@ -4,6 +4,9 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Health.Api.Registration;
+using Microsoft.Health.Fhir.Api.Features.Routing;
 
 namespace Microsoft.AspNetCore.Builder
 {
@@ -17,6 +20,8 @@ namespace Microsoft.AspNetCore.Builder
         public static IApplicationBuilder UseFhirServer(this IApplicationBuilder app)
         {
             EnsureArg.IsNotNull(app, nameof(app));
+
+            app.UseHealthChecksExtension(new PathString(KnownRoutes.HealthCheck));
 
             app.UseStaticFiles();
             app.UseMvc();

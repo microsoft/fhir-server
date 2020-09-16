@@ -8,13 +8,13 @@ using System.Collections.Generic;
 using System.Linq;
 using AngleSharp;
 using AngleSharp.Dom;
-using AngleSharp.Dom.Events;
-using AngleSharp.Dom.Html;
-using AngleSharp.Extensions;
 using AngleSharp.Html;
-using AngleSharp.Parser.Html;
+using AngleSharp.Html.Dom;
+using AngleSharp.Html.Dom.Events;
+using AngleSharp.Html.Parser;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Core;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
 {
@@ -173,12 +173,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
             {
                 var errors = new List<HtmlErrorEvent>();
                 var options = new HtmlParserOptions { IsStrictMode = false };
-                var context = BrowsingContext.New(Configuration.Default);
-                context.ParseError += (sender, error) => errors.Add((HtmlErrorEvent)error);
+                var parser = new HtmlParser(options);
 
-                var parser = new HtmlParser(options, context);
+                parser.Error += (sender, error) => errors.Add((HtmlErrorEvent)error);
 
-                var dom = parser.ParseFragment(string.Format(HtmlTemplate, html), null);
+                var dom = parser.ParseDocument(string.Format(HtmlTemplate, html));
 
                 // Report parsing errors
                 if (errors.Any())
@@ -191,7 +190,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
                     yield break;
                 }
 
-                var htmlBodyElement = dom.OfType<IHtmlHtmlElement>().FirstOrDefault()
+                var htmlBodyElement = dom.Children.OfType<IHtmlHtmlElement>().FirstOrDefault()
                     ?.Children.OfType<IHtmlBodyElement>().FirstOrDefault();
 
                 // According to https://www.hl7.org/fhir/narrative.html
@@ -239,7 +238,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation.Narratives
             {
                 var parser = new HtmlParser();
 
-                using (var dom = parser.Parse(string.Format(HtmlTemplate, html)))
+                using (var dom = parser.ParseDocument(string.Format(HtmlTemplate, html)))
                 {
                     var containerDiv = dom.Body.Children.OfType<IHtmlDivElement>().FirstOrDefault();
                     if (containerDiv == null)

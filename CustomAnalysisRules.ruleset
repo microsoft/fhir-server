@@ -16,6 +16,7 @@
     <Rule Id="SA1309" Action="None" />
     <Rule Id="SA1512" Action="None" />
     <Rule Id="SA1600" Action="None" />
+    <Rule Id="SA1602" Action="None" />
     <Rule Id="SA1615" Action="None" />
     <Rule Id="SA1623" Action="None" />
     <Rule Id="SA1629" Action="None" />
@@ -24,6 +25,7 @@
   <Rules AnalyzerId="Microsoft.CodeQuality.Analyzers" RuleNamespace="Microsoft.CodeQuality.Analyzers">
     <Rule Id="CA2007" Action="Info" />
     <Rule Id="CA1716" Action="Info" />
+    <Rule Id="CA1054" Action="Info" />
   </Rules>
   <Rules AnalyzerId="Microsoft.CodeQuality.CSharp.Analyzers" RuleNamespace="Microsoft.CodeQuality.CSharp.Analyzers">
     <Rule Id="CA1032" Action="Info" />

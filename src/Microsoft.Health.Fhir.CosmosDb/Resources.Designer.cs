@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.CosmosDb {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "15.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     internal class Resources {
@@ -61,11 +61,128 @@ namespace Microsoft.Health.Fhir.CosmosDb {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Failed to get or access the Azure AD token to access the customer-managed key..
+        /// </summary>
+        internal static string AadClientCredentialsGrantFailure {
+            get {
+                return ResourceManager.GetString("AadClientCredentialsGrantFailure", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Azure AD service is unavailable to get access to the customer-managed key..
+        /// </summary>
+        internal static string AadServiceUnavailable {
+            get {
+                return ResourceManager.GetString("AadServiceUnavailable", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Chained expression is not supported..
+        /// </summary>
+        internal static string ChainedExpressionNotSupported {
+            get {
+                return ResourceManager.GetString("ChainedExpressionNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to There was an error using the customer-managed key..
+        /// </summary>
+        internal static string CmkDefaultError {
+            get {
+                return ResourceManager.GetString("CmkDefaultError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Include expression is not supported..
+        /// </summary>
+        internal static string IncludeExpressionNotSupported {
+            get {
+                return ResourceManager.GetString("IncludeExpressionNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Consistency level &apos;{0}&apos; specified in the request is invalid when service is configured with consistency level &apos;{1}&apos;. Ensure the request consistency level is not stronger than the service consistency level..
         /// </summary>
         internal static string InvalidConsistencyLevel {
             get {
                 return ResourceManager.GetString("InvalidConsistencyLevel", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Internal server error: the input bytes are not in base64 format..
+        /// </summary>
+        internal static string InvalidInputBytes {
+            get {
+                return ResourceManager.GetString("InvalidInputBytes", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The customer-managed key URI is invalid..
+        /// </summary>
+        internal static string InvalidKeyVaultKeyUri {
+            get {
+                return ResourceManager.GetString("InvalidKeyVaultKeyUri", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Key Vault does not grant permission to the Azure AD, or the customer-managed key is disabled..
+        /// </summary>
+        internal static string KeyVaultAuthenticationFailure {
+            get {
+                return ResourceManager.GetString("KeyVaultAuthenticationFailure", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Could not resolve the DNS name of the Key Vault of the customer-managed key..
+        /// </summary>
+        internal static string KeyVaultDnsNotResolved {
+            get {
+                return ResourceManager.GetString("KeyVaultDnsNotResolved", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Key Vault internal service errors accessing the customer-managed key..
+        /// </summary>
+        internal static string KeyVaultInternalServerError {
+            get {
+                return ResourceManager.GetString("KeyVaultInternalServerError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The customer-managed key is not found..
+        /// </summary>
+        internal static string KeyVaultKeyNotFound {
+            get {
+                return ResourceManager.GetString("KeyVaultKeyNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The Key Vault Service is unavailable to access the customer-managed key..
+        /// </summary>
+        internal static string KeyVaultServiceUnavailable {
+            get {
+                return ResourceManager.GetString("KeyVaultServiceUnavailable", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Failure to Wrap or Unwrap the customer-managed key..
+        /// </summary>
+        internal static string KeyVaultWrapUnwrapFailure {
+            get {
+                return ResourceManager.GetString("KeyVaultWrapUnwrapFailure", resourceCulture);
             }
         }
         

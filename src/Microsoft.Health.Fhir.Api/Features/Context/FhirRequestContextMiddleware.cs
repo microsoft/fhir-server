@@ -3,16 +3,18 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Api.Features.Context
 {
     public class FhirRequestContextMiddleware
     {
+        private const string RequestIdHeaderName = "X-Request-Id";
+
         private readonly RequestDelegate _next;
 
         public FhirRequestContextMiddleware(RequestDelegate next)
@@ -22,7 +24,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
             _next = next;
         }
 
-        public Task Invoke(HttpContext context, IFhirRequestContextAccessor fhirRequestContextAccessor, CorrelationIdProvider correlationIdProvider)
+        public async Task Invoke(HttpContext context, IFhirRequestContextAccessor fhirRequestContextAccessor, CorrelationIdProvider correlationIdProvider)
         {
             HttpRequest request = context.Request;
 
@@ -38,24 +40,22 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                 request.Path,
                 request.QueryString);
 
+            string correlationId = correlationIdProvider.Invoke();
+
             var fhirRequestContext = new FhirRequestContext(
                 method: request.Method,
                 uriString: uriInString,
                 baseUriString: baseUriInString,
-                requestType: ValueSets.AuditEventType.RestFulOperation,
-                correlationId: correlationIdProvider.Invoke(),
+                correlationId: correlationId,
                 requestHeaders: context.Request.Headers,
                 responseHeaders: context.Response.Headers);
 
-            if (context.User != null)
-            {
-                fhirRequestContext.Principal = context.User;
-            }
+            context.Response.Headers[RequestIdHeaderName] = correlationId;
 
             fhirRequestContextAccessor.FhirRequestContext = fhirRequestContext;
 
             // Call the next delegate/middleware in the pipeline
-            return _next(context);
+            await _next(context);
         }
     }
 }

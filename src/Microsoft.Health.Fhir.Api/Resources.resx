@@ -117,15 +117,22 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="AuditEventSubTypeNotSet" xml:space="preserve">
-    <value>Audit Event Sub Type is not set for method {0}.</value>
-    <comment>{0} is method name</comment>
-  </data>
   <data name="BackToTop" xml:space="preserve">
     <value>Back to top</value>
   </data>
+  <data name="BundleNotFound" xml:space="preserve">
+    <value>The route for "{0}" was not found.</value>
+    <comment>{0} is a relative URL.</comment>
+  </data>
   <data name="ContentTypeHeaderRequired" xml:space="preserve">
     <value>The "content-type" header is required.</value>
+  </data>
+  <data name="CustomAuditHeaderTooLarge" xml:space="preserve">
+    <value>The maximum length of a custom audit header value is {0}. The supplied custom audit header '{1}' has length of {2}.</value>
+    <comment>PH0 is a constant defining the max length of a header.  PH1 is the name  of the header sent in the request.  PH2 is the length of the incoming header value.  Example: The maximum length of a custom audit header value is 2048. The supplied custom audit header 'X-MS-AZUREFHIR-AUDIT-SITE' has length of 3072.</comment>
+  </data>
+  <data name="FailedHealthCheckMessage" xml:space="preserve">
+    <value>Failed while running health check.</value>
   </data>
   <data name="Forbidden" xml:space="preserve">
     <value>Authorization failed.</value>
@@ -133,18 +140,55 @@
   <data name="GeneralInternalError" xml:space="preserve">
     <value>There was an error processing your request.</value>
   </data>
+  <data name="GeneralTransactionFailedError" xml:space="preserve">
+    <value>Transaction was failed while processing the request.</value>
+  </data>
+  <data name="InvalidBundleType" xml:space="preserve">
+    <value>Bundles of type '{0}' are not supported for this operation.</value>
+    <comment>{0) is the given bundle type.</comment>
+  </data>
+  <data name="InvalidCompoundCode" xml:space="preserve">
+    <value>Invalid compound authorization code.</value>
+  </data>
+  <data name="InvalidLaunchContext" xml:space="preserve">
+    <value>Invalid launch context parameters.</value>
+  </data>
+  <data name="InvalidPrettyParameter" xml:space="preserve">
+    <value>The requested "_pretty" parameter is invalid.</value>
+    <comment>{NumberedPlaceHolder="_pretty"}</comment>
+  </data>
+  <data name="InvalidRedirectUri" xml:space="preserve">
+    <value>Provided value for redirect Uri: {0} is not a valid Uri.</value>
+    <comment>{0} is a parameter passed in for redirection.</comment>
+  </data>
   <data name="MenuAPI" xml:space="preserve">
     <value>API</value>
   </data>
   <data name="MenuCapabilityStatement" xml:space="preserve">
     <value>Capability Statement</value>
   </data>
+  <data name="MissingAuditInformation" xml:space="preserve">
+    <value>The audit information is missing for Controller: {0} and Action: {1}. This usually means the action is not marked with appropriate attribute.</value>
+    <comment>{0} is the controller name and {1} is the action name.</comment>
+  </data>
   <data name="NotFoundException" xml:space="preserve">
     <value>The requested route was not found.</value>
+  </data>
+  <data name="OperationFailed" xml:space="preserve">
+    <value>{0} operation failed for reason: {1}</value>
+    <comment>{0} is operation name, {1} is failure reason.</comment>
+  </data>
+  <data name="OperationNotImplemented" xml:space="preserve">
+    <value>The requested "{0}" operation is not supported.</value>
+    <comment>{0} is the operation name</comment>
   </data>
   <data name="PageTitle" xml:space="preserve">
     <value>FHIR Server</value>
     <comment>{NumberedPlaceHolder=”FHIR”}</comment>
+  </data>
+  <data name="PatchNotSupported" xml:space="preserve">
+    <value>PATCH is not currently supported.</value>
+    <comment>{NumberedPlaceHolder="PATCH"}</comment>
   </data>
   <data name="RequireHttpsMetadataError" xml:space="preserve">
     <value>The security configuration requires the authority to be set to an https address.</value>
@@ -155,11 +199,23 @@
   <data name="ResourceIdRequired" xml:space="preserve">
     <value>Id must be specified in the resource.</value>
   </data>
+  <data name="ResourcesMustBeUnique" xml:space="preserve">
+    <value>Bundle contains multiple entries that refers to the same resource '{0}'.</value>
+    <comment>{0} is the full url for POST and request url for PUT and DELETE.</comment>
+  </data>
   <data name="ResourceTypeMismatch" xml:space="preserve">
     <value>Resource type in the URL must match resourceType in the resource.</value>
   </data>
   <data name="ToggleNavigation" xml:space="preserve">
     <value>Toggle navigation</value>
+  </data>
+  <data name="TooManyCustomAuditHeaders" xml:space="preserve">
+    <value>The maximum number of custom audit headers allowed is {0}. The number of custom audit headers supplied is {1}.</value>
+    <comment>PH0 is a constant defining the max number of custom headers.  PH1 is the count of custom headers sent in the request.  Example: The maximum number of custom audit headers allowed is 10. The number of custom audit headers supplied is 12.</comment>
+  </data>
+  <data name="TransactionFailed" xml:space="preserve">
+    <value>Transaction failed on '{0}' for the requested url '{1}'.</value>
+    <comment>{0} is the http method , {1} is the requested url.</comment>
   </data>
   <data name="UnableToObtainOpenIdConfiguration" xml:space="preserve">
     <value>Unable to obtain OpenID configuration.</value>
@@ -167,17 +223,31 @@
   <data name="Unauthorized" xml:space="preserve">
     <value>Authentication failed.</value>
   </data>
-  <data name="UnsupportedAcceptHeader" xml:space="preserve">
-    <value>The requested "accept" header is not supported.</value>
-  </data>
-  <data name="UnsupportedContentTypeHeader" xml:space="preserve">
-    <value>The requested "content-type" header is not supported.</value>
-  </data>
   <data name="UnsupportedFormatParameter" xml:space="preserve">
     <value>The requested "_format" parameter is not supported.</value>
   </data>
+  <data name="UnsupportedHeaderValue" xml:space="preserve">
+    <value>Value supplied for the "{0}" header is not supported.</value>
+    <comment>{0} is the header name.</comment>
+  </data>
+  <data name="OperationNotEnabled" xml:space="preserve">
+    <value>The requested "{0}" operation is not enabled</value>
+    <comment>{0} is the operation name</comment>
+  </data>
+  <data name="UnsupportedParameter" xml:space="preserve">
+    <value>The "{0}" parameter is not supported.</value>
+    <comment>{0} is the parameter name.</comment>
+  </data>
+  <data name="UnsupportedResourceType" xml:space="preserve">
+    <value>Requested operation does not support resource type: {0}.</value>
+    <comment>{0} is the resource type.</comment>
+  </data>
   <data name="UrlResourceIdMismatch" xml:space="preserve">
     <value>Id in the URL must match id in the resource.</value>
+  </data>
+  <data name="ValueCannotBeNull" xml:space="preserve">
+    <value>Value cannot be null.  Parameter name: {0}.</value>
+    <comment>Error message for missing query parameter, {0} is the parameter name</comment>
   </data>
   <data name="ViewNotFound" xml:space="preserve">
     <value>View was not found.</value>
@@ -185,5 +255,72 @@
   <data name="WelcomeTitle" xml:space="preserve">
     <value>STU3 API &lt;small&gt;preview&lt;/small&gt;</value>
     <comment>{NumberedPlaceHolder=”STU3”}</comment>
+  </data>
+  <data name="InvalidBundleEntry" xml:space="preserve">
+    <value>Requested operation '{0}' is not supported using {1}.</value>
+    <comment>{0} is the operation and {1} is the http verb.</comment>
+  </data>
+  <data name="InvalidConditionalReference" xml:space="preserve">
+    <value>Given conditional reference '{0}' does not resolve to a resource.</value>
+    <comment>{0} is the conditional reference parameter.</comment>
+  </data>
+  <data name="InvalidConditionalReferenceParameters" xml:space="preserve">
+    <value>Resource type and query parameter must be present in a given request '{0}'.</value>
+    <comment>{0} is the request url.</comment>
+  </data>
+  <data name="ConditionalOperationInBundleNotSelectiveEnough" xml:space="preserve">
+    <value>Operation was not attempted because search criteria was not selective enough for query parameter '{0}'.</value>
+  </data>
+  <data name="ResourceNotSupported" xml:space="preserve">
+    <value>Resource type '{0}' in the reference '{1}' is not supported.</value>
+    <comment>{0} is the resource type. {1} is the reference.</comment>
+  </data>
+  <data name="ValidationNotSupported" xml:space="preserve">
+    <value>$validate is not a supported endpoint.</value>
+    <comment>{NumberedPlaceHolder="$validate"}</comment>
+  </data>
+  <data name="ValidateWithProfileNotSupported" xml:space="preserve">
+    <value>Validation against a profile is not supported.</value>
+  </data>
+  <data name="BundleEntryLimitExceeded" xml:space="preserve">
+    <value>The number of entries in the bundle exceeded the configured limit of {0}.</value>
+    <comment>{0} is the number of entries allowed.</comment>
+  </data>
+  <data name="ParsingError" xml:space="preserve">
+    <value>Error occurred when parsing model.</value>
+  </data>
+  <data name="ValidationForUpdateAndDeleteNotSupported" xml:space="preserve">
+    <value>Resources can not be validated for update or delete at the default endpoint. An id must be provided in the URL.</value>
+  </data>
+  <data name="MultipleModesProvided" xml:space="preserve">
+    <value>Only one mode can be provided between a Parameters resource and the URL</value>
+  </data>
+  <data name="MultipleProfilesProvided" xml:space="preserve">
+    <value>Only one profile can be provided between a Parameters resource and the URL</value>
+  </data>
+  <data name="ValidationModeNotRecognized" xml:space="preserve">
+    <value>{0} is not a valid validation mode.</value>
+    <comment>Error message for invalid parameter value, {0} is the value</comment>
+  </data>
+  <data name="ValidationModeNotSupported" xml:space="preserve">
+    <value>{0} is not a supported validation mode.</value>
+    <comment>{0} is the validation mode.</comment>
+  </data>
+  <data name="ReindexParameterNotValid" xml:space="preserve">
+    <value>Reindex job does not support the following parameter {0} for a {1} operation.</value>
+    <comment>{0} = the parameter name which was invalid, {1} is the operation type, POST or PATCH</comment>
+  </data>
+  <data name="ReindexParametersNotValid" xml:space="preserve">
+    <value>Reindex operation parameters must be specified as a FHIR Parameters resource.  Provided body in this request is not valid.</value>
+  </data>
+  <data name="TooManyConcurrentRequests" xml:space="preserve">
+    <value>The maximum number of concurrent API calls on this instance was reached.</value>
+  </data>
+  <data name="InvalidOutputFormat" xml:space="preserve">
+    <value>The output format '{0}' is not supported.</value>
+    <comment>Error message for an invalid output format for exported files. {0} is the output format parameter.</comment>
+  </data>
+  <data name="ContainerIsRequiredForAnonymizedExport" xml:space="preserve">
+    <value>Missing '_container' for anonymized export</value>
   </data>
 </root>

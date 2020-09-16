@@ -3,9 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using EnsureThat;
-using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 {
@@ -18,51 +17,64 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// Initializes a new instance of the <see cref="ChainedExpression"/> class.
         /// </summary>
         /// <param name="resourceType">The resource type that supports this search expression.</param>
-        /// /// <param name="paramName">The search parameter name.</param>
+        /// <param name="referenceSearchParameter">The search parameter that establishes the reference</param>
         /// <param name="targetResourceType">The target resource type.</param>
+        /// <param name="reversed">If this is a reversed chained expression.</param>
         /// <param name="expression">The search expression.</param>
         public ChainedExpression(
-            ResourceType resourceType,
-            string paramName,
-            ResourceType targetResourceType,
+            string resourceType,
+            SearchParameterInfo referenceSearchParameter,
+            string targetResourceType,
+            bool reversed,
             Expression expression)
         {
-            EnsureArg.IsTrue(Enum.IsDefined(typeof(ResourceType), resourceType), nameof(resourceType));
-            EnsureArg.IsNotNullOrWhiteSpace(paramName, nameof(paramName));
-            EnsureArg.IsTrue(Enum.IsDefined(typeof(ResourceType), targetResourceType), nameof(targetResourceType));
+            EnsureArg.IsTrue(ModelInfoProvider.IsKnownResource(resourceType), nameof(resourceType));
+            EnsureArg.IsNotNull(referenceSearchParameter, nameof(referenceSearchParameter));
+            EnsureArg.IsTrue(ModelInfoProvider.IsKnownResource(targetResourceType), nameof(targetResourceType));
             EnsureArg.IsNotNull(expression, nameof(expression));
 
             ResourceType = resourceType;
-            ParamName = paramName;
+            ReferenceSearchParameter = referenceSearchParameter;
             TargetResourceType = targetResourceType;
+            Reversed = reversed;
             Expression = expression;
         }
 
         /// <summary>
         /// Gets the resource type which is being searched.
         /// </summary>
-        public ResourceType ResourceType { get; }
+        public string ResourceType { get; }
 
         /// <summary>
         /// Gets the parameter name.
         /// </summary>
-        public string ParamName { get; }
+        public SearchParameterInfo ReferenceSearchParameter { get; }
 
         /// <summary>
         /// Gets the target resource type.
         /// </summary>
-        public ResourceType TargetResourceType { get; }
+        public string TargetResourceType { get; }
+
+        /// <summary>
+        /// Get if the expression is reversed.
+        /// </summary>
+        public bool Reversed { get; }
 
         /// <summary>
         /// Gets the search expression.
         /// </summary>
         public Expression Expression { get; }
 
-        protected internal override void AcceptVisitor(IExpressionVisitor visitor)
+        public override TOutput AcceptVisitor<TContext, TOutput>(IExpressionVisitor<TContext, TOutput> visitor, TContext context)
         {
             EnsureArg.IsNotNull(visitor, nameof(visitor));
 
-            visitor.Visit(this);
+            return visitor.VisitChained(this, context);
+        }
+
+        public override string ToString()
+        {
+            return $"({(Reversed ? "Reverse " : string.Empty)}Chain {ReferenceSearchParameter.Name}:{TargetResourceType} {Expression})";
         }
     }
 }

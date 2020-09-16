@@ -6,7 +6,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 using EnsureThat;
-using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
@@ -83,14 +83,27 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
 
         void ISearchValueVisitor.Visit(NumberSearchValue number)
         {
-            AddProperty(SearchValueConstants.NumberName, number.Number);
+            if (number.Low == number.High)
+            {
+                AddProperty(SearchValueConstants.NumberName, number.Low);
+            }
+
+            AddProperty(SearchValueConstants.LowNumberName, number.Low);
+            AddProperty(SearchValueConstants.HighNumberName, number.High);
         }
 
         void ISearchValueVisitor.Visit(QuantitySearchValue quantity)
         {
             AddPropertyIfNotNull(SearchValueConstants.SystemName, quantity.System);
             AddPropertyIfNotNull(SearchValueConstants.CodeName, quantity.Code);
-            AddProperty(SearchValueConstants.QuantityName, quantity.Quantity);
+
+            if (quantity.Low == quantity.High)
+            {
+                AddProperty(SearchValueConstants.QuantityName, quantity.Low);
+            }
+
+            AddProperty(SearchValueConstants.LowQuantityName, quantity.Low);
+            AddProperty(SearchValueConstants.HighQuantityName, quantity.High);
         }
 
         void ISearchValueVisitor.Visit(ReferenceSearchValue reference)
@@ -131,7 +144,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
         {
             CurrentEntry = new JObject
             {
-                new JProperty(SearchValueConstants.ParamName, Entry.ParamName),
+                new JProperty(SearchValueConstants.ParamName, Entry.SearchParameter.Name),
             };
 
             _generatedObjects.Add(CurrentEntry);

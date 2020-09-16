@@ -5,9 +5,10 @@
 
 using EnsureThat;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Api.Features.Filters;
-using Microsoft.Health.Fhir.Api.Features.Logging;
+using Microsoft.Health.Fhir.Api.Controllers;
+using Microsoft.Health.Fhir.Api.Features.Audit;
 
 namespace Microsoft.Health.Fhir.Api.Modules
 {
@@ -17,8 +18,30 @@ namespace Microsoft.Health.Fhir.Api.Modules
         {
             EnsureArg.IsNotNull(services, nameof(services));
 
-            services.AddSingleton<AuditLoggingFilterAttribute>();
+            services.Add<AuditLoggingFilterAttribute>()
+                .Singleton()
+                .AsSelf();
+
+            services.Add<AadSmartOnFhirClaimsExtractor>()
+                .Singleton()
+                .AsSelf();
+
+            services.Add<AadSmartOnFhirProxyAuditLoggingFilterAttribute>()
+                .Singleton()
+                .AsSelf();
+
             services.AddSingleton<IAuditLogger, AuditLogger>();
+
+            services.AddSingleton<IAuditHeaderReader, AuditHeaderReader>();
+
+            services.Add<AuditHelper>()
+                .Singleton()
+                .AsService<IAuditHelper>();
+
+            services.Add<AuditEventTypeMapping>()
+                .Singleton()
+                .AsService<IAuditEventTypeMapping>()
+                .AsService<IStartable>();
         }
     }
 }

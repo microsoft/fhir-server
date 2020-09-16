@@ -1,0 +1,8 @@
+version: "3"
+services:
+  fhir-server:
+    build: 
+      context: ./../../
+      dockerfile: ./build/docker/Dockerfile
+      args:
+        FHIR_VERSION: "${FHIR_VERSION}"

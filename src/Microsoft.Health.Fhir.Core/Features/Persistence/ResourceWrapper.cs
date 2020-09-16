@@ -6,8 +6,9 @@
 using System;
 using System.Collections.Generic;
 using EnsureThat;
-using Hl7.Fhir.Model;
+using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
@@ -15,24 +16,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
     public class ResourceWrapper
     {
         public ResourceWrapper(
-            Resource resource,
+            ResourceElement resource,
             RawResource rawResource,
             ResourceRequest request,
             bool deleted,
             IReadOnlyCollection<SearchIndexEntry> searchIndices,
             CompartmentIndices compartmentIndices,
-            IReadOnlyCollection<KeyValuePair<string, string>> lastModifiedClaims)
+            IReadOnlyCollection<KeyValuePair<string, string>> lastModifiedClaims,
+            string searchParameterHash = null)
            : this(
-                 IsNotNull(resource).Id,
+                 EnsureArg.IsNotNull(resource).Id,
                  resource.VersionId,
-                 resource.TypeName,
+                 resource.InstanceType,
                  rawResource,
                  request,
-                 resource.Meta?.LastUpdated ?? Clock.UtcNow,
+                 resource.LastUpdated ?? Clock.UtcNow,
                  deleted,
                  searchIndices,
                  compartmentIndices,
-                 lastModifiedClaims)
+                 lastModifiedClaims,
+                 searchParameterHash)
         {
         }
 
@@ -46,7 +49,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             bool deleted,
             IReadOnlyCollection<SearchIndexEntry> searchIndices,
             CompartmentIndices compartmentIndices,
-            IReadOnlyCollection<KeyValuePair<string, string>> lastModifiedClaims)
+            IReadOnlyCollection<KeyValuePair<string, string>> lastModifiedClaims,
+            string searchParameterHash = null)
         {
             EnsureArg.IsNotNullOrEmpty(resourceId, nameof(resourceId));
             EnsureArg.IsNotNullOrEmpty(resourceTypeName, nameof(resourceTypeName));
@@ -62,6 +66,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             SearchIndices = searchIndices;
             CompartmentIndices = compartmentIndices;
             LastModifiedClaims = lastModifiedClaims;
+            SearchParameterHash = searchParameterHash;
         }
 
         [JsonConstructor]
@@ -73,7 +78,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         public DateTimeOffset LastModified { get; protected set; }
 
         [JsonProperty(KnownResourceWrapperProperties.RawResource)]
-        public RawResource RawResource { get; protected set; }
+        public RawResource RawResource { get; set; }
 
         [JsonProperty(KnownResourceWrapperProperties.Request)]
         public ResourceRequest Request { get; protected set; }
@@ -88,13 +93,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         public string ResourceTypeName { get; protected set; }
 
         [JsonProperty(KnownResourceWrapperProperties.Version)]
-        public virtual string Version { get; protected set; }
+        public virtual string Version { get; set; }
 
         [JsonProperty(KnownResourceWrapperProperties.IsHistory)]
-        public virtual bool IsHistory { get; protected set; }
-
-        [JsonProperty(KnownResourceWrapperProperties.IsSystem)]
-        public bool IsSystem { get; } = false;
+        public virtual bool IsHistory { get; set; }
 
         [JsonProperty(KnownResourceWrapperProperties.SearchIndices)]
         public virtual IReadOnlyCollection<SearchIndexEntry> SearchIndices { get; protected set; }
@@ -105,16 +107,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         [JsonProperty(KnownResourceWrapperProperties.CompartmentIndices)]
         public CompartmentIndices CompartmentIndices { get; protected set; }
 
+        [JsonProperty(KnownResourceWrapperProperties.SearchParameterHash)]
+        public string SearchParameterHash { get; set; }
+
         public ResourceKey ToResourceKey()
         {
             return new ResourceKey(ResourceTypeName, ResourceId, Version);
         }
 
-        private static Resource IsNotNull(Resource resource)
+        public void UpdateSearchIndices(IReadOnlyCollection<SearchIndexEntry> searchIndices)
         {
-            EnsureArg.IsNotNull(resource, nameof(resource));
-
-            return resource;
+            SearchIndices = searchIndices;
         }
     }
 }

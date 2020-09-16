@@ -5,15 +5,16 @@
 
 using System;
 using System.IO;
-using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Microsoft.Azure.Documents;
-using Microsoft.Azure.Documents.Client;
+using Microsoft.Azure.Cosmos;
+using Microsoft.Azure.Cosmos.Scripts;
+using Microsoft.Health.Core.Extensions;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures
 {
-    internal abstract class StoredProcedureBase : IStoredProcedure
+    public abstract class StoredProcedureBase : IStoredProcedure
     {
         private readonly Lazy<string> _body;
         private readonly Lazy<string> _versionedName;
@@ -21,37 +22,32 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures
         protected StoredProcedureBase()
         {
             _body = new Lazy<string>(GetBody);
-            _versionedName = new Lazy<string>(() => $"{Name}_{Hasher.ComputeHash(_body.Value)}");
+            _versionedName = new Lazy<string>(() => $"{Name}_{_body.Value.ComputeHash()}");
         }
 
         protected virtual string Name => CamelCase(GetType().Name);
 
         public string FullName => _versionedName.Value;
 
-        public StoredProcedure AsStoredProcedure()
+        public StoredProcedureProperties ToStoredProcedureProperties()
         {
-            return new StoredProcedure
+            return new StoredProcedureProperties
             {
                 Id = FullName,
                 Body = _body.Value,
             };
         }
 
-        protected async Task<StoredProcedureResponse<T>> ExecuteStoredProc<T>(IDocumentClient client, Uri collection, string partitionId, params object[] parameters)
+        protected async Task<StoredProcedureExecuteResponse<T>> ExecuteStoredProc<T>(Scripts client, string partitionId, CancellationToken cancellationToken, params object[] parameters)
         {
             EnsureArg.IsNotNull(client, nameof(client));
-            EnsureArg.IsNotNull(collection, nameof(collection));
             EnsureArg.IsNotNull(partitionId, nameof(partitionId));
 
-            var partitionKey = new RequestOptions
-            {
-                PartitionKey = new PartitionKey(partitionId),
-            };
-
-            var results = await client.ExecuteStoredProcedureAsync<T>(
-                GetUri(collection),
-                partitionKey,
-                parameters);
+            StoredProcedureExecuteResponse<T> results = await client.ExecuteStoredProcedureAsync<T>(
+                    FullName,
+                    new PartitionKey(partitionId),
+                    parameters,
+                    cancellationToken: cancellationToken);
 
             return results;
         }
@@ -66,7 +62,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures
             // Assumed convention is the stored proc is in the same directory as the cs file
             var resourceName = $"{GetType().Namespace}.{Name}.js";
 
-            using (Stream resourceStream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName))
+            using (Stream resourceStream = GetType().Assembly.GetManifestResourceStream(resourceName))
             using (var reader = new StreamReader(resourceStream))
             {
                 return reader.ReadToEnd();

@@ -1,0 +1,76 @@
+# DESCRIPTION: 	
+# Tests deployment to Microsoft Azure Government
+
+name: $(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:-r)
+trigger: none
+
+variables:
+  ConnectedServiceName: 'mshapis-govtest-deploymentagent'
+  ResourceGroupRegion: 'usgovvirginia'
+  AppInsightsRegion: 'usgovvirginia'
+  SqlRegion: 'usgoviowa'
+  resourceGroupRoot: 'msh-fhir-ci'
+  appServicePlanResourceGroup: '$(resourceGroupRoot)'
+  appServicePlanName: '$(resourceGroupRoot)-asp'
+  DeploymentEnvironmentNameR4: '$(resourceGroupRoot)-r4'
+  DeploymentEnvironmentNameR4Sql: '$(resourceGroupRoot)-r4-sql'
+  TestEnvironmentUrl_R4: 'https://$(DeploymentEnvironmentNameR4).azurewebsites.us'
+  TestEnvironmentUrl_R4_Sql: 'https://$(DeploymentEnvironmentNameR4Sql).azurewebsites.us'
+
+stages:
+- stage: Deploy
+  dependsOn: []
+  jobs:
+  - job: ProvisionEnvironment
+    steps:
+    - task: AzurePowerShell@4
+      displayName: Provision Resource Group
+      inputs:
+        azureSubscription: $(ConnectedServiceName)
+        azurePowerShellVersion: latestVersion
+        ScriptType: inlineScript
+        Inline: |
+          New-AzResourceGroup -Name "$(resourceGroupRoot)" -Location "$(ResourceGroupRegion)" -Force
+    - task: AzurePowerShell@4
+      displayName: 'Deploy Default Site'
+      inputs:
+        azureSubscription: $(ConnectedServiceName)
+        azurePowerShellVersion: latestVersion
+        ScriptType: inlineScript
+        Inline: |
+          $cors = (ConvertFrom-Json (Get-Content -Raw "*/**/corstestconfiguration.json"))
+          $flattenedCors = $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/ConvertTo-FlattenedConfigurationHashtable.ps1 -InputObject $cors
+      
+          $additionalProperties = $flattenedCors
+      
+          $additionalProperties["SqlServer:DeleteAllDataOnStartup"] = "true"
+
+          $templateParameters = @{
+              fhirVersion = "R4"
+              appServicePlanName = "$(appServicePlanName)"
+              serviceName = "$(DeploymentEnvironmentNameR4)"
+              securityAuthenticationAudience = "$(TestEnvironmentUrl_R4)"
+              additionalFhirServerConfigProperties = $additionalProperties 
+              enableAadSmartOnFhirProxy = $false
+              enableExport = $false
+              applicationInsightsLocation = "$(AppInsightsRegion)"
+          }
+
+          New-AzResourceGroupDeployment -Name "$(DeploymentEnvironmentNameR4)" -ResourceGroupName "$(resourceGroupRoot)" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy.json -TemplateParameterObject $templateParameters -Verbose
+
+          $templateParameters["solutionType"] = "FhirServerSqlServer"
+          $templateParameters["serviceName"] = "$(DeploymentEnvironmentNameR4Sql)"
+          $templateParameters["sqlLocation"] = "$(SqlRegion)"
+          $templateParameters["securityAuthenticationAudience"] = "$(TestEnvironmentUrl_R4_SQL)"
+          $templateParameters["sqlAdminPassword"] = "$(-join(((65..90) + (97..122) | Get-Random -Count 10) + ((39..46) | Get-Random -Count 1) + ((65..90) + (97..122) | Get-Random -Count 10) | % {[char]$_}))"
+    
+          # Deploy SQL Environment
+          New-AzResourceGroupDeployment -Name "$(DeploymentEnvironmentNameR4Sql)" -ResourceGroupName "$(resourceGroupRoot)" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy-sql.json -TemplateParameterObject $templateParameters -Verbose
+    - task: AzurePowerShell@4
+      displayName: 'Delete resource group'
+      inputs:
+        azureSubscription: $(ConnectedServiceName)
+        azurePowerShellVersion: latestVersion
+        ScriptType: InlineScript
+        Inline: 'Get-AzResourceGroup -Name $(resourceGroupRoot) | Remove-AzResourceGroup -Verbose -Force'
+

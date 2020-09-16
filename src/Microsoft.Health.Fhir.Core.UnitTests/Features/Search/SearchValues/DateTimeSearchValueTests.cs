@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
         public void GivenAPartialStartDateTime_WhenInitialized_ThenCorrectStartDateTimeShouldBeAssigned(string input, string start)
         {
             PartialDateTime inputDateTime = PartialDateTime.Parse(input);
-            PartialDateTime endDateTime = new PartialDateTime(2018);
+            PartialDateTime endDateTime = PartialDateTime.Parse("2018");
 
             DateTimeOffset expectedStartDateTime = DateTimeOffset.Parse(start);
 
@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
         public void GivenAPartialEndDateTime_WhenInitialized_ThenCorrectEndDateTimeShouldBeAssigned(string input, string start)
         {
             PartialDateTime inputDateTime = PartialDateTime.Parse(input);
-            PartialDateTime startDateTime = new PartialDateTime(2000);
+            PartialDateTime startDateTime = PartialDateTime.Parse("2000");
 
             DateTimeOffset expectedEndDateTime = DateTimeOffset.Parse(start);
 
@@ -137,12 +137,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
         [InlineData("2017", "2016-05-03T12:34:20.594Z")]
         [InlineData("2017-12-31T23:58:23.493-01:00", "2017-12-31T23:58:23.493Z")]
         [InlineData("2017-12-31T23:58:23.493Z", "2017-12-31T23:58:23.493+01:00")]
-        public void GivenAStartDateTimeLaterThanEndDateTime_WhenInitializing_ThenExceptionShouldBeThrown(string start, string end)
+        public void GivenAStartDateTimeLaterThanEndDateTime_WhenInitializing_ThenNoExceptionShouldBeThrown(string start, string end)
         {
             PartialDateTime startDateTime = PartialDateTime.Parse(start);
             PartialDateTime endDateTime = PartialDateTime.Parse(end);
 
-            Assert.Throws<ArgumentOutOfRangeException>(ParamNameStartDateTime, () => new DateTimeSearchValue(startDateTime, endDateTime));
+            new DateTimeSearchValue(startDateTime, endDateTime);
         }
 
         [Fact]

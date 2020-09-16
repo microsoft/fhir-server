@@ -1,0 +1,40 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <MSBuildAllProjects>$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
+    <HasSharedItems>true</HasSharedItems>
+    <SharedGUID>934ca8bb-b0a7-4187-bf4d-c937fbba1777</SharedGUID>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration">
+    <Import_RootNamespace>Microsoft.Health.Fhir.Shared.Web</Import_RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)CloudRoleNameTelemetryInitializer.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)DevelopmentIdentityProviderApplicationConfiguration.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)DevelopmentIdentityProviderConfiguration.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)DevelopmentIdentityProviderRegistrationExtensions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)DevelopmentIdentityProviderUserConfiguration.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)KnownDataStores.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Program.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)PrometheusMetricsConfig.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)PrometheusMetricsApplicationBuilderExtensions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)PrometheusMetricsServicesCollectionExtensions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)PrometheusMetricsServer.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Startup.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="$(MSBuildThisFileDirectory)appsettings.Development.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="$(MSBuildThisFileDirectory)appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="$(MSBuildThisFileDirectory)roles.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+</Project>

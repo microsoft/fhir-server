@@ -4,7 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
-using Hl7.Fhir.Rest;
+using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 
@@ -12,12 +12,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
     public class RawResource
     {
-        public RawResource(string data, ResourceFormat format)
+        public RawResource(string data, FhirResourceFormat format, bool isMetaSet)
         {
             EnsureArg.IsNotNullOrEmpty(data, nameof(data));
 
             Data = data;
             Format = format;
+            IsMetaSet = isMetaSet;
         }
 
         [JsonConstructor]
@@ -30,6 +31,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         [JsonProperty("format")]
         [JsonConverter(typeof(StringEnumConverter))]
-        public ResourceFormat Format { get; protected set; }
+        public FhirResourceFormat Format { get; protected set; }
+
+        /// <summary>
+        /// Specifies whether the meta section in the serialized resource in Data is set correctly.
+        /// We expect that for a RawResource resulting from an update, the version needs to be updated, so isMetaSet would be false.
+        /// While on a RawResource resulting from a create, the version should be correct and isMetaSet would be true.
+        /// </summary>
+        [JsonProperty("isMetaSet")]
+        public bool IsMetaSet { get; protected set; }
     }
 }

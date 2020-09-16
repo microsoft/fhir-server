@@ -3,41 +3,39 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
-using Microsoft.Azure.Documents;
+using EnsureThat;
+using Microsoft.Azure.Cosmos;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures
 {
     public class StoredProcedureInstaller : ICollectionUpdater
     {
-        public async Task ExecuteAsync(IDocumentClient client, DocumentCollection collection, Uri relativeCollectionUri)
+        private readonly IEnumerable<IStoredProcedure> _storedProcedures;
+
+        public StoredProcedureInstaller(IEnumerable<IStoredProcedure> storedProcedures)
         {
-            foreach (IStoredProcedure storedProc in GetStoredProcedures())
+            EnsureArg.IsNotNull(storedProcedures, nameof(storedProcedures));
+
+            _storedProcedures = storedProcedures;
+        }
+
+        public async Task ExecuteAsync(Container client)
+        {
+            foreach (IStoredProcedure storedProc in _storedProcedures)
             {
                 try
                 {
-                    await client.ReadStoredProcedureAsync(storedProc.GetUri(relativeCollectionUri));
+                    await client.Scripts.ReadStoredProcedureAsync(storedProc.FullName);
                 }
-                catch (DocumentClientException e) when (e.StatusCode == HttpStatusCode.NotFound)
+                catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
                 {
-                    await client.CreateStoredProcedureAsync(relativeCollectionUri, storedProc.AsStoredProcedure());
+                    await client.Scripts.CreateStoredProcedureAsync(storedProc.ToStoredProcedureProperties());
                 }
             }
-        }
-
-        private static IEnumerable<IStoredProcedure> GetStoredProcedures()
-        {
-            var buildInProcs = typeof(IStoredProcedure).Assembly
-                .GetTypes()
-                .Where(x => !x.IsAbstract && typeof(IStoredProcedure).IsAssignableFrom(x))
-                .ToArray();
-
-            return buildInProcs.Select(type => (IStoredProcedure)Activator.CreateInstance(type));
         }
     }
 }

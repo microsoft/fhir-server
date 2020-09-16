@@ -5,25 +5,31 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using EnsureThat;
-using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Api.Features.Routing
 {
     /// <summary>
-    /// Provides functionalities to resolve URLs.
+    /// Provides functionality to resolve URLs.
     /// </summary>
     public class UrlResolver : IUrlResolver
     {
+        private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly IUrlHelperFactory _urlHelperFactory;
 
         // If we update the search implementation to not use these, we should remove
@@ -31,25 +37,48 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         // https://github.com/aspnet/Hosting/issues/793
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IActionContextAccessor _actionContextAccessor;
+        private readonly IBundleHttpContextAccessor _bundleHttpContextAccessor;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="UrlResolver"/> class.
         /// </summary>
+        /// <param name="fhirRequestContextAccessor">The FHIR request context accessor.</param>
         /// <param name="urlHelperFactory">The ASP.NET Core URL helper factory.</param>
         /// <param name="httpContextAccessor">The ASP.NET Core HTTP context accessor.</param>
         /// <param name="actionContextAccessor">The ASP.NET Core Action context accessor.</param>
-        public UrlResolver(IUrlHelperFactory urlHelperFactory, IHttpContextAccessor httpContextAccessor, IActionContextAccessor actionContextAccessor)
+        /// <param name="bundleHttpContextAccessor">The bundle aware http context accessor.</param>
+        public UrlResolver(
+            IFhirRequestContextAccessor fhirRequestContextAccessor,
+            IUrlHelperFactory urlHelperFactory,
+            IHttpContextAccessor httpContextAccessor,
+            IActionContextAccessor actionContextAccessor,
+            IBundleHttpContextAccessor bundleHttpContextAccessor)
         {
+            EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
             EnsureArg.IsNotNull(urlHelperFactory, nameof(urlHelperFactory));
             EnsureArg.IsNotNull(httpContextAccessor, nameof(httpContextAccessor));
             EnsureArg.IsNotNull(actionContextAccessor, nameof(actionContextAccessor));
+            EnsureArg.IsNotNull(bundleHttpContextAccessor, nameof(bundleHttpContextAccessor));
 
+            _fhirRequestContextAccessor = fhirRequestContextAccessor;
             _urlHelperFactory = urlHelperFactory;
             _httpContextAccessor = httpContextAccessor;
             _actionContextAccessor = actionContextAccessor;
+            _bundleHttpContextAccessor = bundleHttpContextAccessor;
         }
 
-        private HttpRequest Request => _httpContextAccessor.HttpContext.Request;
+        private HttpRequest Request
+        {
+            get
+            {
+                if (_bundleHttpContextAccessor.HttpContext != null)
+                {
+                    return _bundleHttpContextAccessor.HttpContext.Request;
+                }
+
+                return _httpContextAccessor.HttpContext.Request;
+            }
+        }
 
         private ActionContext ActionContext => _actionContextAccessor.ActionContext;
 
@@ -74,22 +103,33 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             return new Uri(uriString);
         }
 
-        public Uri ResolveResourceUrl(Resource resource, bool includeVersion = false)
+        public Uri ResolveResourceUrl(IResourceElement resource, bool includeVersion = false)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 
-            var routeName = RouteNames.ReadResource;
+            return ResolveResourceUrl(resource.Id, resource.InstanceType, resource.VersionId, includeVersion);
+        }
 
-            RouteValueDictionary routeValues = new RouteValueDictionary
+        public Uri ResolveResourceWrapperUrl(ResourceWrapper resource, bool includeVersion = false)
+        {
+            EnsureArg.IsNotNull(resource, nameof(resource));
+
+            return ResolveResourceUrl(resource.ResourceId, resource.ResourceTypeName, resource.Version, includeVersion);
+        }
+
+        private Uri ResolveResourceUrl(string resourceId, string resourceTypeName, string version, bool includeVersion)
+        {
+            var routeName = RouteNames.ReadResource;
+            var routeValues = new RouteValueDictionary
             {
-                { KnownActionParameterNames.ResourceType, resource.ResourceType.ToString() },
-                { KnownActionParameterNames.Id, resource.Id },
+                { KnownActionParameterNames.ResourceType, resourceTypeName },
+                { KnownActionParameterNames.Id, resourceId },
             };
 
             if (includeVersion)
             {
                 routeName = RouteNames.ReadResourceWithVersionRoute;
-                routeValues.Add(KnownActionParameterNames.Vid, resource.VersionId);
+                routeValues.Add(KnownActionParameterNames.Vid, version);
             }
 
             var uriString = UrlHelper.RouteUrl(
@@ -101,15 +141,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
             return new Uri(uriString);
         }
 
-        /// <inheritdoc />
-        public Uri ResolveSearchUrl(string resourceType, IEnumerable<Tuple<string, string>> unsupportedSearchParams = null, string continuationToken = null)
+        public Uri ResolveRouteUrl(IEnumerable<Tuple<string, string>> unsupportedSearchParams = null, IReadOnlyList<(string parameterName, string reason)> unsupportedSortingParameters = null, string continuationToken = null, bool removeTotalParameter = false)
         {
-            return ResolveRouteUrl(string.IsNullOrEmpty(resourceType) ? RouteNames.SearchAllResources : RouteNames.SearchResources, unsupportedSearchParams, continuationToken);
-        }
+            string routeName = _fhirRequestContextAccessor.FhirRequestContext.RouteName;
 
-        public Uri ResolveRouteUrl(string routeName, IEnumerable<Tuple<string, string>> unsupportedSearchParams = null, string continuationToken = null)
-        {
-            EnsureArg.IsNotNullOrEmpty(routeName, nameof(routeName));
+            Debug.Assert(!string.IsNullOrWhiteSpace(routeName), "The routeName should not be null or empty.");
 
             var routeValues = new RouteValueDictionary();
 
@@ -124,15 +160,57 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 foreach (KeyValuePair<string, StringValues> searchParam in Request.Query)
                 {
                     // Remove the parameter if:
-                    // 1. It is the continuation token (if there is a new continuation token, then it will be added again).
-                    // 2. The parameter is not supported.
-                    if (!string.Equals(searchParam.Key, KnownQueryParameterNames.ContinuationToken, StringComparison.OrdinalIgnoreCase))
+                    // 1. It is the _total parameter, since we only want to count for the first page of results.
+                    if (removeTotalParameter && string.Equals(searchParam.Key, KnownQueryParameterNames.Total, StringComparison.OrdinalIgnoreCase))
                     {
+                        // Don't add the _total parameter to the route values.
+                        continue;
+                    }
+
+                    // 2. It is the _sort parameter and the parameter is not supported for sorting.
+                    if (unsupportedSortingParameters?.Count > 0 && string.Equals(searchParam.Key, KnownQueryParameterNames.Sort, StringComparison.OrdinalIgnoreCase))
+                    {
+                        var filteredValues = new List<string>(searchParam.Value.Count);
+
+                        foreach (string stringValue in searchParam.Value)
+                        {
+                            // parameters are separated by a comma and can be prefixed with a dash to indicate descending order
+                            string[] tokens = stringValue.Split(',');
+
+                            List<string> values = tokens.Where(sortValue =>
+                                    !unsupportedSortingParameters.Any(p =>
+                                        sortValue.EndsWith(p.parameterName, StringComparison.Ordinal) &&
+                                        (sortValue.Length == p.parameterName.Length ||
+                                            (sortValue.Length > 0 && sortValue.Length == p.parameterName.Length + 1 && sortValue[0] == '-'))))
+                                .ToList();
+
+                            if (values.Count == tokens.Length)
+                            {
+                                filteredValues.Add(stringValue);
+                            }
+                            else if (values.Count == 1)
+                            {
+                                filteredValues.Add(values[0]);
+                            }
+                            else if (values.Count > 0)
+                            {
+                                filteredValues.Add(string.Join(',', values));
+                            }
+                        }
+
+                        if (filteredValues.Count > 0)
+                        {
+                            routeValues.Add(searchParam.Key, filteredValues.Count == 1 ? new StringValues(filteredValues[0]) : new StringValues(filteredValues.ToArray()));
+                        }
+                    }
+                    else
+                    {
+                        // 3. The parameter is not supported.
                         IEnumerable<string> removedValues = searchParamsToRemove[searchParam.Key];
 
-                        StringValues usedValues = removedValues.Any() ?
-                            new StringValues(searchParam.Value.Except(removedValues).ToArray()) :
-                            searchParam.Value;
+                        StringValues usedValues = removedValues.Any()
+                            ? new StringValues(searchParam.Value.Except(removedValues).ToArray())
+                            : searchParam.Value;
 
                         if (usedValues.Any())
                         {
@@ -142,10 +220,57 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 }
             }
 
+            // Update continuationToken if new value is provided.
             if (continuationToken != null)
             {
                 routeValues[KnownQueryParameterNames.ContinuationToken] = continuationToken;
             }
+
+            string uriString = UrlHelper.RouteUrl(
+                routeName,
+                routeValues,
+                Request.Scheme,
+                Request.Host.Value);
+
+            return new Uri(uriString);
+        }
+
+        public Uri ResolveRouteNameUrl(string routeName, IDictionary<string, object> routeValues)
+        {
+            var routeValueDictionary = new RouteValueDictionary(routeValues);
+
+            var uriString = UrlHelper.RouteUrl(
+                routeName,
+                routeValueDictionary,
+                Request.Scheme,
+                Request.Host.Value);
+
+            return new Uri(uriString);
+        }
+
+        public Uri ResolveOperationResultUrl(string operationName, string id)
+        {
+            EnsureArg.IsNotNullOrWhiteSpace(operationName, nameof(operationName));
+            EnsureArg.IsNotNullOrWhiteSpace(id, nameof(id));
+
+            string routeName = null;
+
+            switch (operationName)
+            {
+                case OperationsConstants.Export:
+                    routeName = RouteNames.GetExportStatusById;
+                    break;
+                case OperationsConstants.Reindex:
+                    routeName = RouteNames.GetReindexStatusById;
+                    break;
+                default:
+                    throw new OperationNotImplementedException(string.Format(Resources.OperationNotImplemented, operationName));
+            }
+
+            var routeValues = new RouteValueDictionary()
+            {
+                { KnownActionParameterNames.Id, id },
+            };
 
             string uriString = UrlHelper.RouteUrl(
                 routeName,

@@ -3,7 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Exceptions
 {
@@ -11,12 +11,10 @@ namespace Microsoft.Health.Fhir.Core.Exceptions
     {
         public OpenIdConfigurationException()
         {
-            Issues.Add(new OperationOutcome.IssueComponent
-            {
-                Severity = OperationOutcome.IssueSeverity.Error,
-                Code = OperationOutcome.IssueType.Security,
-                Diagnostics = Resources.OpenIdConfiguration,
-            });
+            Issues.Add(new OperationOutcomeIssue(
+                    OperationOutcomeConstants.IssueSeverity.Error,
+                    OperationOutcomeConstants.IssueType.Security,
+                    Resources.OpenIdConfiguration));
         }
     }
 }

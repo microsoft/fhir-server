@@ -4,7 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
-using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 {
@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// </summary>
         /// <param name="searchParameter">The search parameter this expression is bound to.</param>
         /// <param name="isMissing">A flag indicating whether the parameter should be missing or not.</param>
-        public MissingSearchParameterExpression(SearchParameter searchParameter, bool isMissing)
+        public MissingSearchParameterExpression(SearchParameterInfo searchParameter, bool isMissing)
             : base(searchParameter)
         {
             IsMissing = isMissing;
@@ -29,11 +29,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// </summary>
         public bool IsMissing { get; }
 
-        protected internal override void AcceptVisitor(IExpressionVisitor visitor)
+        public override TOutput AcceptVisitor<TContext, TOutput>(IExpressionVisitor<TContext, TOutput> visitor, TContext context)
         {
             EnsureArg.IsNotNull(visitor, nameof(visitor));
 
-            visitor.Visit(this);
+            return visitor.VisitMissingSearchParameter(this, context);
+        }
+
+        public override string ToString()
+        {
+            return $"({(!IsMissing ? "Not" : null)}MissingParam {Parameter.Name})";
         }
     }
 }

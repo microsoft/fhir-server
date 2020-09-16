@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         {
             if (request is IRequireCapability provider)
             {
-                if (!await _conformanceProvider.SatisfiesAsync(provider.RequiredCapabilities()))
+                if (!await _conformanceProvider.SatisfiesAsync(provider.RequiredCapabilities(), cancellationToken))
                 {
                     throw new MethodNotAllowedException(Core.Resources.RequestedActionNotAllowed);
                 }

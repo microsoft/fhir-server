@@ -117,20 +117,22 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="AtAndSinceCannotBeBothSpecified" xml:space="preserve">
+  <data name="AtCannotBeSpecifiedWithBeforeOrSince" xml:space="preserve">
     <value>{0} and {1} cannot both be specified.</value>
   </data>
-  <data name="AuthorizationPermissionDefinitionInvalid" xml:space="preserve">
-    <value>The authorization permission definition contains one or more invalid entries.</value>
-  </data>
-  <data name="CapabilityStatementSingleRestItem" xml:space="preserve">
-    <value>CapabilityStatement must have only a single item in the 'Rest' collection.</value>
+  <data name="BundleRequiredForBatchOrTransaction" xml:space="preserve">
+    <value>Only a bundle can be submitted for batch or transaction processing.</value>
+    <comment>Bundle is a FHIR resource type.</comment>
   </data>
   <data name="ChainedParameterMustBeReferenceSearchParamType" xml:space="preserve">
     <value>The chained parameter must be a reference search parameter type.</value>
   </data>
   <data name="ChainedParameterNotSupported" xml:space="preserve">
     <value>The chained parameter is not supported.</value>
+  </data>
+  <data name="ChainedParameterSpecifyType" xml:space="preserve">
+    <value>The reference search parameter '{0}' refers to multiple possible resource types. Please specify a type in the search expression: {1}</value>
+    <comment>{1}: space-delimited list of search examples.</comment>
   </data>
   <data name="ComparatorNotSupported" xml:space="preserve">
     <value>Comparator '{0}' is not supported for search parameter '{1}'.</value>
@@ -157,11 +159,48 @@
   <data name="CompartmentDefinitionIsDupe" xml:space="preserve">
     <value>bundle.entry[{0}].resource has duplicate compartment definitions.</value>
   </data>
+  <data name="CompartmentIdIsInvalid" xml:space="preserve">
+    <value>Compartment id is null or empty.</value>
+  </data>
+  <data name="CompartmentTypeIsInvalid" xml:space="preserve">
+    <value>Compartment type {0} is invalid.</value>
+  </data>
   <data name="CompositeSeparatorNotFound" xml:space="preserve">
     <value>The composite separator cannot be found.</value>
   </data>
+  <data name="ConditionalOperationNotSelectiveEnough" xml:space="preserve">
+    <value>Operation was not attempted because search criteria was not selective enough.</value>
+  </data>
+  <data name="ConditionalUpdateMismatchedIds" xml:space="preserve">
+    <value>Found result with Id '{0}', which did not match the provided Id '{1}'.</value>
+    <comment>{0} is an Id e.g. 123456</comment>
+  </data>
+  <data name="CustomHeaderPrefixCannotBeEmpty" xml:space="preserve">
+    <value>The prefix used to identify custom audit headers cannot be empty.</value>
+  </data>
+  <data name="DateTimeStringIsIncorrectlyFormatted" xml:space="preserve">
+    <value>The date time string '{0}' is not in a correct format.</value>
+    <comment>{0} is the incorrect date time string.</comment>
+  </data>
+  <data name="DateTimeStringIsOutOfRange" xml:space="preserve">
+    <value>At least one portion of the date time string '{0}' is out of range.</value>
+    <comment>{0} is the date time string that is out of range.</comment>
+  </data>
   <data name="DeleteVersionNotAllowed" xml:space="preserve">
     <value>Deleting a specific record version is not supported.</value>
+  </data>
+  <data name="DuplicateRoleNames" xml:space="preserve">
+    <value>There are {0} roles with the name '{1}'</value>
+  </data>
+  <data name="ErrorValidatingRoles" xml:space="preserve">
+    <value>Error validating roles:
+{0}</value>
+  </data>
+  <data name="Forbidden" xml:space="preserve">
+    <value>Authorization failed.</value>
+  </data>
+  <data name="HistoryParameterBeforeCannotBeFuture" xml:space="preserve">
+    <value>Parameter {0} cannot a be a value in the future.</value>
   </data>
   <data name="IdRequirements" xml:space="preserve">
     <value>Id must be any combination of upper or lower case ASCII letters ('A'..'Z', and 'a'..'z'), numerals ('0'..'9'), '-' and '.', with a length limit of 64 characters. (This might be an integer, an un-prefixed OID, UUID, or any other identifier pattern that meets these constraints.)</value>
@@ -184,26 +223,47 @@
   <data name="IllegalHtmlParsingError" xml:space="preserve">
     <value>Error while parsing XHTML: {0} Line: {1} Col: {2}.</value>
   </data>
+  <data name="IncludeCannotBeAgainstBase" xml:space="preserve">
+    <value>The _include search cannot be used against the base route.</value>
+    <comment>_include is a query parameter.</comment>
+  </data>
+  <data name="IncludeMissingType" xml:space="preserve">
+    <value>The _include search is missing the type to search.</value>
+    <comment>_include is a query parameter.</comment>
+  </data>
   <data name="InvalidBooleanConfigSetting" xml:space="preserve">
     <value>Field '{0}' with value '{1}' is not supported.</value>
+  </data>
+  <data name="InvalidConditionalReference" xml:space="preserve">
+    <value>Given conditional reference '{0}' does not resolve to a resource.</value>
+    <comment>{0} is the conditional reference parameter.</comment>
+  </data>
+  <data name="InvalidConditionalReferenceParameters" xml:space="preserve">
+    <value>Resource type and query parameter must be present in a given request '{0}'.</value>
+    <comment>{0} is the request url.</comment>
+  </data>
+  <data name="InvalidConfigSetting" xml:space="preserve">
+    <value>Value '{0}' is not supported. Please select from the following list of supported capabilities: [{1}].</value>
   </data>
   <data name="InvalidContinuationToken" xml:space="preserve">
     <value>The continuation token is invalid.</value>
   </data>
-  <data name="InvalidEnumConfigSetting" xml:space="preserve">
-    <value>Field '{0}' with value '{1}' is not supported. Please select from the following list of supported capabilities: [{2}].</value>
-  </data>
-  <data name="InvalidListConfigDuplicateItem" xml:space="preserve">
-    <value>A duplicate value was found for field '{0}'. Please check your configured options.</value>
-  </data>
-  <data name="InvalidListConfigSetting" xml:space="preserve">
-    <value>Unsupported values for field '{0}' were selected. Please check your configured options.</value>
-  </data>
   <data name="InvalidSearchCountSpecified" xml:space="preserve">
     <value>The count must be greater than zero.</value>
   </data>
+  <data name="InvalidTotalParameter" xml:space="preserve">
+    <value>The '_total' parameter value '{0}' is invalid. The supported values are: {1}.</value>
+    <comment>{0}: the invalid _total parameter value. {1}: the supported _total parameter values.</comment>
+  </data>
   <data name="InvalidValueTypeForMissingModifier" xml:space="preserve">
     <value>Invalid value for :missing modifier. Valid values are: true, false.</value>
+  </data>
+  <data name="JobNotFound" xml:space="preserve">
+    <value>The requested job "{0}" was not found.</value>
+    <comment>{0} is the job id</comment>
+  </data>
+  <data name="MalformedSearchValue" xml:space="preserve">
+    <value>Malformed search value '{0}'.</value>
   </data>
   <data name="ModifierNotSupported" xml:space="preserve">
     <value>Modifier '{0}' is not supported for search parameter '{1}'.</value>
@@ -217,6 +277,9 @@
   <data name="MultipleQueryParametersNotAllowed" xml:space="preserve">
     <value>Query parameter '{0}' cannot be specified more than once.</value>
   </data>
+  <data name="NoSearchParametersNeededToBeIndexed" xml:space="preserve">
+    <value>No search parameters found needing to be indexed.  Job cancelled.</value>
+  </data>
   <data name="NumberOfCompositeComponentsExceeded" xml:space="preserve">
     <value>The number of composite components specified for search parameter '{0}' exceeded the number of components defined.</value>
   </data>
@@ -226,17 +289,29 @@
   <data name="OnlyOneModifierSeparatorSupported" xml:space="preserve">
     <value>Only one modifier separator can be specified.</value>
   </data>
+  <data name="OnlyOneResourceJobAllowed" xml:space="preserve">
+    <value>Only one active or paused reindex job allowed.  Cancel any previous jobs before submitting a new job.</value>
+  </data>
   <data name="OpenIdConfiguration" xml:space="preserve">
     <value>Failed to retrieve the OpenId configuration from the authentication provider.</value>
+  </data>
+  <data name="OperationFailed" xml:space="preserve">
+    <value>{0} operation failed for reason: {1}</value>
+    <comment>{0} is operation name, {1} is failure reason.</comment>
+  </data>
+  <data name="OrDelimiter" xml:space="preserve">
+    <value> or </value>
+    <comment>Used as a list delimiter. Note the spaces.</comment>
   </data>
   <data name="ReadHistoryDisabled" xml:space="preserve">
     <value>ReadHistory is disabled for resources of type '{0}'.</value>
   </data>
+  <data name="ReferenceResourceTypeNotSupported" xml:space="preserve">
+    <value>Resource type '{0}' in the reference '{1}' is not supported.</value>
+    <comment>{0} is the resource type. {1} is the reference.</comment>
+  </data>
   <data name="RequestedActionNotAllowed" xml:space="preserve">
     <value>The requested action is not allowed.</value>
-  </data>
-  <data name="RequestRateExceeded" xml:space="preserve">
-    <value>The request rate has exceeded the maximum API request rate and is being throttled. Please try again later.</value>
   </data>
   <data name="ResourceCreationNotAllowed" xml:space="preserve">
     <value>Resource creation is not allowed.</value>
@@ -250,21 +325,24 @@
   <data name="ResourceNotSupported" xml:space="preserve">
     <value>Resource type '{0}' is not supported.</value>
   </data>
-  <data name="ResourcePermissionEmpty" xml:space="preserve">
-    <value>Role '{0}' must have one or more ResourcePermissions.</value>
+  <data name="ResourceTooLarge" xml:space="preserve">
+    <value>The requested resource exceeded the backing database's size limit.</value>
   </data>
   <data name="ResourceVersionConflict" xml:space="preserve">
     <value>The supplied version '{0}' did not match.</value>
     <comment>{0}: ETag</comment>
   </data>
-  <data name="RoleNameEmpty" xml:space="preserve">
-    <value>Role name cannot be null or empty.</value>
+  <data name="ReverseChainMissingReference" xml:space="preserve">
+    <value>The reverse chain search is missing the reference to search.</value>
   </data>
-  <data name="RoleResourcePermissionWithNoAction" xml:space="preserve">
-    <value>Role '{0}' contains a ResourcePermission with no Actions.</value>
+  <data name="ReverseChainMissingType" xml:space="preserve">
+    <value>The reverse chain search is missing the type to search.</value>
   </data>
   <data name="SearchComparatorNotSupported" xml:space="preserve">
     <value>Comparator is not supported when multiple values are specified using OR search parameter.</value>
+  </data>
+  <data name="SearchParamaterCountExceedLimit" xml:space="preserve">
+    <value>The '_count' parameter exceeds limit configured for server. Current limit is {0} while `_count` parameter set to {1}.</value>
   </data>
   <data name="SearchParameterByDefinitionUriNotSupported" xml:space="preserve">
     <value>The search parameter with definition URL '{0}' is not supported.</value>
@@ -302,17 +380,53 @@
   <data name="SearchParameterNotSupported" xml:space="preserve">
     <value>The search parameter '{0}' is not supported for resource type '{1}'.</value>
   </data>
+  <data name="MultiSortParameterNotSupported" xml:space="preserve">
+    <value>Multiple sort parameters are currently not supported. Only a single sort parameter is supported.</value>
+  </data>
+  <data name="SearchSortParameterNotSupported" xml:space="preserve">
+    <value>The search sort parameter '{0}' is not supported.</value>
+    <comment>{0}: the unsupported sort parameter</comment>
+  </data>
   <data name="ServerName" xml:space="preserve">
     <value>Microsoft FHIR Server</value>
   </data>
-  <data name="ServiceUnavailable" xml:space="preserve">
-    <value>The operation could not be completed, because the service was unable to accept new requests. It is safe to retry the operation. If the issue persists, please contact support.</value>
+  <data name="SortNotSupported" xml:space="preserve">
+    <value>The _sort parameter is not supported.</value>
+  </data>
+  <data name="TruncatedIncludeMessage" xml:space="preserve">
+    <value>Include result was truncated</value>
+  </data>
+  <data name="TypeNotPresent" xml:space="preserve">
+    <value>Bundle type is not present. Possible values are: transaction or batch</value>
+  </data>
+  <data name="UnableToDeleteSecret" xml:space="preserve">
+    <value>Unable to delete secret from SecretStore</value>
+  </data>
+  <data name="UnableToGetSecret" xml:space="preserve">
+    <value>Unable to get secret from SecretStore</value>
+  </data>
+  <data name="UnableToSetSecret" xml:space="preserve">
+    <value>Unable to set secret in SecretStore</value>
+  </data>
+  <data name="UnknownError" xml:space="preserve">
+    <value>Unknown Error.</value>
   </data>
   <data name="UnsupportedConfigurationMessage" xml:space="preserve">
     <value>Unsupported configuration found.</value>
   </data>
+  <data name="UnsupportedTotalParameter" xml:space="preserve">
+    <value>The '_total' parameter value '{0}' is not supported. The supported values are: {1}.</value>
+    <comment>{0}: the unsupported _total parameter value. {1}: the supported _total parameter values.</comment>
+  </data>
   <data name="UpdateRequestsRequireId" xml:space="preserve">
     <value>Resource id is required for updates.</value>
+  </data>
+  <data name="UserRequestedCancellation" xml:space="preserve">
+    <value>User requested cancellation of operation.</value>
+  </data>
+  <data name="ValidationPassed" xml:space="preserve">
+    <value>All OK</value>
+    <comment>{NumberedPlaceHolder="All OK"}</comment>
   </data>
   <data name="VersionIdFormatNotETag" xml:space="preserve">
     <value>VersionId should not be in the weak ETag format.</value>

@@ -1,0 +1,35 @@
+# DESCRIPTION: 
+# Builds and pushes a docker image for a given FHIR version
+
+parameters:
+- name: version
+  type: string
+- name: tag
+  type: string
+
+jobs:
+- job: '${{parameters.version}}_Docker'
+  pool:
+    vmImage: 'ubuntu-latest'
+  steps:
+  - task: DockerCompose@0
+    displayName: 'Build FHIR ${{parameters.version}} Server Image'
+    inputs:
+      action: Build services
+      azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
+      azureContainerRegistry: $(azureContainerRegistry)
+      dockerComposeFile: $(composeLocation)
+      dockerComposeFileArgs: FHIR_VERSION=${{parameters.version}}
+      projectName: ${{parameters.version}}
+      additionalImageTags: ${{parameters.tag}}
+
+  - task: DockerCompose@0
+    displayName: 'Push FHIR ${{parameters.version}} Server Image'
+    inputs:
+      action: Push services
+      azureSubscriptionEndpoint: $(azureSubscriptionEndpoint)
+      azureContainerRegistry: $(azureContainerRegistry)
+      dockerComposeFile: $(composeLocation)
+      dockerComposeFileArgs: FHIR_VERSION=${{parameters.version}}
+      projectName: ${{parameters.version}}
+      additionalImageTags: ${{parameters.tag}}

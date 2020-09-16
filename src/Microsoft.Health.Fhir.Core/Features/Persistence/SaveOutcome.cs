@@ -4,13 +4,13 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
-using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
     public class SaveOutcome
     {
-        public SaveOutcome(Resource resource, SaveOutcomeType outcome)
+        public SaveOutcome(ResourceElement resource, SaveOutcomeType outcome)
         {
             EnsureArg.IsNotNull(resource);
 
@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             Outcome = outcome;
         }
 
-        public Resource Resource { get; }
+        public ResourceElement Resource { get; }
 
         public SaveOutcomeType Outcome { get; }
     }

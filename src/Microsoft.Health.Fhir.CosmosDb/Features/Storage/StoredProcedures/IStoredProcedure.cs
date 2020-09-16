@@ -3,17 +3,14 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-using Microsoft.Azure.Documents;
+using Microsoft.Azure.Cosmos.Scripts;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures
 {
-    internal interface IStoredProcedure
+    public interface IStoredProcedure
     {
         string FullName { get; }
 
-        Uri GetUri(Uri collection);
-
-        StoredProcedure AsStoredProcedure();
+        StoredProcedureProperties ToStoredProcedureProperties();
     }
 }

@@ -21,13 +21,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
         public const string Request = "request";
 
-        public const string PartitionKey = "partitionKey";
-
         public const string Version = "version";
 
         public const string SearchIndices = "searchIndices";
-
-        public const string IsSystem = "isSystem";
 
         public const string LastModifiedClaims = "lastModifiedClaims";
 
@@ -42,5 +38,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         public const string Practitioner = "practitioner";
 
         public const string RelatedPerson = "relatedPerson";
+
+        public const string SearchParameterHash = "searchParameterHash";
+
+        public const string RawResourceContainsVersion = "rawResourceContainsVersion";
+
+        public const string RawResourceContainsLastUpdatedTime = "rawResourceContainsLastUpdatedTime";
     }
 }

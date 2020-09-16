@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
@@ -14,10 +15,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     /// </summary>
     public class SearchOptions
     {
-        private const int DefaultItemCountPerSearch = 10;
-        private const int MaxItemCountPerSearch = 100;
+        private int _maxItemCount;
+        private int _includeCount;
 
-        private int _maxItemCount = DefaultItemCountPerSearch;
+        /// <summary>
+        /// Initializes a new instance of the <see cref="SearchOptions"/> class.
+        /// It hides constructor and prevent object creation not through <see cref="ISearchOptionsFactory"/>
+        /// </summary>
+        internal SearchOptions()
+        {
+        }
 
         /// <summary>
         /// Gets the optional continuation token.
@@ -30,6 +37,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         public bool CountOnly { get; internal set; }
 
         /// <summary>
+        /// Indicates if the total number of resources that match the search parameters should be calculated.
+        /// </summary>
+        /// <remarks>The ability to retrieve an estimate of the total is yet to be implemented.</remarks>
+        public TotalType IncludeTotal { get; internal set; }
+
+        /// <summary>
         /// Gets the maximum number of items to find.
         /// </summary>
         public int MaxItemCount
@@ -40,12 +53,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             {
                 if (value <= 0)
                 {
-                    throw new InvalidOperationException(Core.Resources.InvalidSearchCountSpecified);
+                    throw new InvalidOperationException(Resources.InvalidSearchCountSpecified);
                 }
 
-                // The server is allowed to return less than what client has asked (http://hl7.org/fhir/STU3/search.html#count).
-                // Limit the maximum number of items if the client is asking too many.
-                _maxItemCount = Math.Min(value, MaxItemCountPerSearch);
+                _maxItemCount = value;
+            }
+        }
+
+        /// <summary>
+        /// Get the number of items to include in search results.
+        /// </summary>
+        public int IncludeCount
+        {
+            get => _includeCount;
+            internal set
+            {
+                if (value <= 0)
+                {
+                    throw new InvalidOperationException(Resources.InvalidSearchCountSpecified);
+                }
+
+                _includeCount = value;
             }
         }
 
@@ -58,5 +86,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// Gets the list of search parameters that were not used in the search.
         /// </summary>
         public IReadOnlyList<Tuple<string, string>> UnsupportedSearchParams { get; internal set; }
+
+        /// <summary>
+        /// Gets the list of unsupported sorting search parameters that were ignored in the search.
+        /// </summary>
+        public IReadOnlyList<(string parameterName, string reason)> UnsupportedSortingParams { get; internal set; }
+
+        /// <summary>
+        /// Gets the list of sorting parameters.
+        /// </summary>
+        public IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> Sort { get; internal set; }
     }
 }

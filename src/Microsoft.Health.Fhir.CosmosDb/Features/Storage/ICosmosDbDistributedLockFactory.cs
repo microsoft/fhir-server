@@ -3,15 +3,14 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-using Microsoft.Azure.Documents;
+using Microsoft.Azure.Cosmos;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
     public interface ICosmosDbDistributedLockFactory
     {
-        ICosmosDbDistributedLock Create(Uri collectionUri, string lockId);
+        ICosmosDbDistributedLock Create(string lockId);
 
-        ICosmosDbDistributedLock Create(IDocumentClient client, Uri collectionUri, string lockId);
+        ICosmosDbDistributedLock Create(Container container, string lockId);
     }
 }

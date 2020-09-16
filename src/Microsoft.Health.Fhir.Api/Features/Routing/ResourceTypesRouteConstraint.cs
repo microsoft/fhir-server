@@ -4,9 +4,9 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
-using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Api.Features.Routing
 {
@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
 
             if (values.TryGetValue(KnownActionParameterNames.ResourceType, out var resourceTypeObj) && resourceTypeObj is string resourceType && !string.IsNullOrEmpty(resourceType))
             {
-                return ModelInfo.IsKnownResource(resourceType);
+                return ModelInfoProvider.IsKnownResource(resourceType);
             }
 
             return false;

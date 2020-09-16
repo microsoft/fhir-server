@@ -5,16 +5,16 @@
 
 using System.Collections.Generic;
 using EnsureThat;
-using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Upsert
 {
     public class UpsertResourceRequest : IRequest<UpsertResourceResponse>, IRequest, IRequireCapability
     {
-        public UpsertResourceRequest(Resource resource, WeakETag weakETag = null)
+        public UpsertResourceRequest(ResourceElement resource, WeakETag weakETag = null)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 
@@ -22,13 +22,13 @@ namespace Microsoft.Health.Fhir.Core.Messages.Upsert
             WeakETag = weakETag;
         }
 
-        public Resource Resource { get; }
+        public ResourceElement Resource { get; }
 
         public WeakETag WeakETag { get; }
 
         public IEnumerable<CapabilityQuery> RequiredCapabilities()
         {
-            yield return new CapabilityQuery($"CapabilityStatement.rest.resource.where(type = '{Resource.TypeName}').interaction.where(code = 'update').exists()");
+            yield return new CapabilityQuery($"CapabilityStatement.rest.resource.where(type = '{Resource.InstanceType}').interaction.where(code = 'update').exists()");
         }
     }
 }

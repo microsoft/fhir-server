@@ -1,0 +1,9 @@
+﻿{
+    "resourceType": "Observation",
+    "id": "2c46f396-61d2-471f-ba07-15fcb6ae80de",
+    "meta": {
+        "versionId": "2c46f396-61d2-471f-ba07-15fcb6ae80de",
+        "lastUpdated": "2017-09-08T17:17:56.566+00:00"
+    },
+    "status": "this_is_invalid"
+}

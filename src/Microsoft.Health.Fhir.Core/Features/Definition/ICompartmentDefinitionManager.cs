@@ -4,12 +4,12 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Features.Definition
 {
     public interface ICompartmentDefinitionManager
     {
-        bool TryGetSearchParams(ResourceType resourceType, CompartmentType compartmentType, out HashSet<string> searchParams);
+        bool TryGetSearchParams(string resourceType, CompartmentType compartmentType, out HashSet<string> searchParams);
     }
 }

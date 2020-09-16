@@ -3,15 +3,15 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Hl7.Fhir.Model;
-using static Hl7.Fhir.Model.SearchParameter;
+using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 {
     public interface ISearchParameterExpressionParser
     {
         Expression Parse(
-            SearchParameter searchParameter,
+            SearchParameterInfo searchParameter,
             SearchModifierCode? modifier,
             string value);
     }

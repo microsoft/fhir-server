@@ -3,14 +3,13 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
 {
     public class CollectionVersion : SystemData
     {
-        internal const string CollectionVersionPartition = "_collectionVersions";
+        public const string CollectionVersionPartition = "_collectionVersions";
 
         public CollectionVersion()
         {
@@ -20,7 +19,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning
         [JsonProperty("version")]
         public int Version { get; set; }
 
-        [JsonProperty(KnownResourceWrapperProperties.PartitionKey)]
+        [JsonProperty(KnownDocumentProperties.PartitionKey)]
         public string PartitionKey { get; } = CollectionVersionPartition;
     }
 }

@@ -58,7 +58,7 @@ function Set-FhirServerApiUsers {
         $userUpn = Get-UserUpn -UserId $userId -TenantDomain $TenantDomain
 
         # See if the user exists
-        $aadUser = Get-AzureADUser -searchstring $userId
+        $aadUser = Get-AzureADUser -Filter "userPrincipalName eq '$userUpn'"
 
         Add-Type -AssemblyName System.Web
         $password = [System.Web.Security.Membership]::GeneratePassword(16, 5)
@@ -76,7 +76,9 @@ function Set-FhirServerApiUsers {
             $aadUser = New-AzureADUser -DisplayName $userId -PasswordProfile $PasswordProfile -UserPrincipalName $userUpn -AccountEnabled $true -MailNickName $userId
         }
 
-        Set-AzureKeyVaultSecret -VaultName $KeyVaultName -Name "$userId-password" -SecretValue $passwordSecureString | Out-Null
+        $upnSecureString = ConvertTo-SecureString -string $userUpn -AsPlainText -Force
+        Set-AzKeyVaultSecret -VaultName $KeyVaultName -Name "user--$($user.id)--id" -SecretValue $upnSecureString | Out-Null
+        Set-AzKeyVaultSecret -VaultName $KeyVaultName -Name "user--$($user.id)--secret" -SecretValue $passwordSecureString | Out-Null
 
         $environmentUsers += @{
             upn           = $userUpn

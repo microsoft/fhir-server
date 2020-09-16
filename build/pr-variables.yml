@@ -1,0 +1,8 @@
+variables:
+    ResourceGroupRegion: 'southcentralus'
+    resourceGroupRoot: 'msh-fhir-pr'
+    appServicePlanName: '$(resourceGroupRoot)-$(prNumber)-asp'
+    prNumber: $(system.pullRequest.pullRequestNumber)
+    DeploymentEnvironmentName: '$(resourceGroupRoot)-$(prNumber)'
+    TestEnvironmentName: 'OSS PR$(prNumber)'
+    ImageTag: '$(build.BuildNumber)'

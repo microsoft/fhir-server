@@ -4,8 +4,9 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Diagnostics.CodeAnalysis;
 using EnsureThat;
-using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
 {
@@ -21,14 +22,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         /// <param name="baseUri">The base URI of the resource.</param>
         /// <param name="resourceType">The resource type.</param>
         /// <param name="resourceId">The resource id.</param>
-        public ReferenceSearchValue(ReferenceKind referenceKind, Uri baseUri, ResourceType? resourceType, string resourceId)
+        public ReferenceSearchValue(ReferenceKind referenceKind, Uri baseUri, string resourceType, string resourceId)
         {
             if (baseUri != null)
             {
-                EnsureArg.IsNotNull(resourceType, nameof(resourceType));
+                EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
             }
 
             EnsureArg.IsNotNullOrWhiteSpace(resourceId, nameof(resourceId));
+            ModelInfoProvider.EnsureValidResourceType(resourceType, nameof(resourceType));
 
             Kind = referenceKind;
             BaseUri = baseUri;
@@ -49,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         /// <summary>
         /// Gets the resource type.
         /// </summary>
-        public ResourceType? ResourceType { get; }
+        public string ResourceType { get; }
 
         /// <summary>
         /// Gets the resource id.
@@ -67,6 +69,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
             visitor.Visit(this);
         }
 
+        public bool Equals([AllowNull] ISearchValue other)
+        {
+            if (other == null)
+            {
+                return false;
+            }
+
+            var referenceSearchValueOther = other as ReferenceSearchValue;
+
+            if (referenceSearchValueOther == null)
+            {
+                return false;
+            }
+
+            return Kind == referenceSearchValueOther.Kind &&
+                   BaseUri == referenceSearchValueOther.BaseUri &&
+                   ResourceType.Equals(referenceSearchValueOther.ResourceType, StringComparison.OrdinalIgnoreCase) &&
+                   ResourceId.Equals(referenceSearchValueOther.ResourceId, StringComparison.OrdinalIgnoreCase);
+        }
+
         /// <inheritdoc />
         public override string ToString()
         {
@@ -74,7 +96,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
             {
                 return $"{BaseUri}{ResourceType}/{ResourceId}";
             }
-            else if (ResourceType == null)
+            else if (string.IsNullOrWhiteSpace(ResourceType))
             {
                 return ResourceId;
             }

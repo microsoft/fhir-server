@@ -7,14 +7,18 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using Microsoft.Health.Fhir.Core;
+using Microsoft.Health.Core.Internal;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 
-namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
+namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
 {
     public class ResourceWrapperTests
     {
@@ -28,19 +32,19 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         [Fact]
         public void GivenAResourceWrapper_WhenGettingVersion_TheETagShouldBeUsedWhenVersionIsEmpty()
         {
-            var wrapper = Samples.GetJsonSample<CosmosResourceWrapper>("ResourceWrapperNoVersion");
+            var wrapper = Samples.GetJsonSample<FhirCosmosResourceWrapper>("ResourceWrapperNoVersion");
             Assert.Equal("00002804-0000-0000-0000-59f272c60000", wrapper.Version);
         }
 
         [Fact]
         public void GivenAResourceWrapper_WhenConvertingToAHistoryObject_ThenTheCorrectPropertiesAreUpdated()
         {
-            var wrapper = Samples.GetJsonSample<CosmosResourceWrapper>("ResourceWrapperNoVersion");
+            var wrapper = Samples.GetJsonSample<FhirCosmosResourceWrapper>("ResourceWrapperNoVersion");
 
             var id = wrapper.Id;
             var lastModified = new DateTimeOffset(2017, 1, 1, 1, 1, 1, TimeSpan.Zero);
 
-            var historyRecord = new CosmosResourceWrapper(
+            var historyRecord = new FhirCosmosResourceWrapper(
                 id,
                 "version1",
                 wrapper.ResourceTypeName,
@@ -62,20 +66,24 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         [Fact]
         public void GivenAResource_WhenCreatingAResourceWrapper_ThenMetaPropertiesAreCorrect()
         {
-            var observation = Samples.GetDefaultObservation();
+            var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
             observation.Id = "id1";
             observation.VersionId = "version1";
             observation.Meta.Profile = new List<string> { "test" };
 
             var lastModified = new DateTimeOffset(2017, 1, 1, 1, 1, 1, TimeSpan.Zero);
-            using (Mock.Property(() => Clock.UtcNowFunc, () => lastModified))
+            using (Mock.Property(() => ClockResolver.UtcNowFunc, () => lastModified))
             {
-                var wrapper = new ResourceWrapper(observation, _rawResourceFactory.Create(observation), new ResourceRequest("http://fhir", HttpMethod.Post), false, null, null, null);
-                var resource = ResourceDeserializer.Deserialize(wrapper);
+                ResourceElement typedElement = observation.ToResourceElement();
 
-                Assert.Equal(observation.VersionId, resource.Meta.VersionId);
-                Assert.Equal(lastModified, resource.Meta.LastUpdated);
-                Assert.Equal("test", resource.Meta.Profile.First());
+                var wrapper = new ResourceWrapper(typedElement, _rawResourceFactory.Create(typedElement, keepMeta: true), new ResourceRequest(HttpMethod.Post, "http://fhir"), false, null, null, null);
+                var resource = Deserializers.ResourceDeserializer.Deserialize(wrapper);
+
+                var poco = resource.ToPoco<Observation>();
+
+                Assert.Equal(observation.VersionId, poco.Meta.VersionId);
+                Assert.Equal(lastModified, poco.Meta.LastUpdated);
+                Assert.Equal("test", poco.Meta.Profile.First());
             }
         }
     }

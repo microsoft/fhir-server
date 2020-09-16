@@ -10,9 +10,8 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Hl7.Fhir.Model;
+using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -21,61 +20,109 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     /// <summary>
     /// Provides the base implementation of the <see cref="ISearchService"/>.
     /// </summary>
-    public abstract class SearchService : ISearchService, IProvideCapability
+    public abstract class SearchService : ISearchService
     {
         private readonly ISearchOptionsFactory _searchOptionsFactory;
-        private readonly IBundleFactory _bundleFactory;
-        private readonly IDataStore _dataStore;
+        private readonly IFhirDataStore _fhirDataStore;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SearchService"/> class.
         /// </summary>
         /// <param name="searchOptionsFactory">The search options factory.</param>
-        /// <param name="bundleFactory">The bundle factory</param>
-        /// <param name="dataStore">The data store</param>
-        protected SearchService(ISearchOptionsFactory searchOptionsFactory, IBundleFactory bundleFactory, IDataStore dataStore)
+        /// <param name="fhirDataStore">The data store</param>
+        /// <param name="modelInfoProvider">The model info provider</param>
+        protected SearchService(ISearchOptionsFactory searchOptionsFactory, IFhirDataStore fhirDataStore)
         {
             EnsureArg.IsNotNull(searchOptionsFactory, nameof(searchOptionsFactory));
+            EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
 
             _searchOptionsFactory = searchOptionsFactory;
-            _bundleFactory = bundleFactory;
-            _dataStore = dataStore;
+            _fhirDataStore = fhirDataStore;
         }
 
         /// <inheritdoc />
-        public async Task<Bundle> SearchAsync(
+        public async Task<SearchResult> SearchAsync(
             string resourceType,
             IReadOnlyList<Tuple<string, string>> queryParameters,
-            CancellationToken cancellationToken = default(CancellationToken))
+            CancellationToken cancellationToken)
         {
             SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters);
 
             // Execute the actual search.
-            SearchResult result = await SearchInternalAsync(searchOptions, cancellationToken);
-
-            return _bundleFactory.CreateSearchBundle(resourceType, searchOptions.UnsupportedSearchParams, result);
+            return await SearchInternalAsync(searchOptions, cancellationToken);
         }
 
-        public async Task<Bundle> SearchHistoryAsync(
+        /// <inheritdoc />
+        public async Task<SearchResult> SearchCompartmentAsync(
+            string compartmentType,
+            string compartmentId,
+            string resourceType,
+            IReadOnlyList<Tuple<string, string>> queryParameters,
+            CancellationToken cancellationToken)
+        {
+            SearchOptions searchOptions = _searchOptionsFactory.Create(compartmentType, compartmentId, resourceType, queryParameters);
+
+            // Execute the actual search.
+            return await SearchInternalAsync(searchOptions, cancellationToken);
+        }
+
+        public async Task<SearchResult> SearchHistoryAsync(
             string resourceType,
             string resourceId,
             PartialDateTime at,
             PartialDateTime since,
+            PartialDateTime before,
             int? count,
             string continuationToken,
             CancellationToken cancellationToken)
         {
             var queryParameters = new List<Tuple<string, string>>();
 
-            if (at != null && since != null)
+            if (at != null)
             {
-                // _at and _since cannot be both specified.
-                throw new InvalidSearchOperationException(
-                    string.Format(
-                        CultureInfo.InvariantCulture,
-                        Core.Resources.AtAndSinceCannotBeBothSpecified,
-                        KnownQueryParameterNames.At,
-                        KnownQueryParameterNames.Since));
+                if (since != null)
+                {
+                    // _at and _since cannot be both specified.
+                    throw new InvalidSearchOperationException(
+                        string.Format(
+                            CultureInfo.InvariantCulture,
+                            Core.Resources.AtCannotBeSpecifiedWithBeforeOrSince,
+                            KnownQueryParameterNames.At,
+                            KnownQueryParameterNames.Since));
+                }
+
+                if (before != null)
+                {
+                    // _at and _since cannot be both specified.
+                    throw new InvalidSearchOperationException(
+                        string.Format(
+                            CultureInfo.InvariantCulture,
+                            Core.Resources.AtCannotBeSpecifiedWithBeforeOrSince,
+                            KnownQueryParameterNames.At,
+                            KnownQueryParameterNames.Before));
+                }
+            }
+
+            if (before != null)
+            {
+                var beforeOffset = before.ToDateTimeOffset(
+                    defaultMonth: 1,
+                    defaultDaySelector: (year, month) => 1,
+                    defaultHour: 0,
+                    defaultMinute: 0,
+                    defaultSecond: 0,
+                    defaultFraction: 0.0000000m,
+                    defaultUtcOffset: TimeSpan.Zero).ToUniversalTime();
+
+                if (beforeOffset.CompareTo(Clock.UtcNow) > 0)
+                {
+                    // you cannot specify a value for _before in the future
+                    throw new InvalidSearchOperationException(
+                        string.Format(
+                            CultureInfo.InvariantCulture,
+                            Core.Resources.HistoryParameterBeforeCannotBeFuture,
+                            KnownQueryParameterNames.Before));
+                }
             }
 
             bool searchByResourceId = !string.IsNullOrEmpty(resourceId);
@@ -94,9 +141,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             {
                 queryParameters.Add(Tuple.Create(SearchParameterNames.LastUpdated, at.ToString()));
             }
-            else if (since != null)
+            else
             {
-                queryParameters.Add(Tuple.Create(SearchParameterNames.LastUpdated, $"ge{since}"));
+                if (since != null)
+                {
+                    queryParameters.Add(Tuple.Create(SearchParameterNames.LastUpdated, $"ge{since}"));
+                }
+
+                if (before != null)
+                {
+                    queryParameters.Add(Tuple.Create(SearchParameterNames.LastUpdated, $"lt{before}"));
+                }
             }
 
             if (count.HasValue && count > 0)
@@ -104,10 +159,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 queryParameters.Add(Tuple.Create(KnownQueryParameterNames.Count, count.ToString()));
             }
 
-            SearchOptions searchOptions =
-                !string.IsNullOrEmpty(resourceType)
-                    ? _searchOptionsFactory.Create(resourceType, queryParameters)
-                    : _searchOptionsFactory.Create(queryParameters);
+            SearchOptions searchOptions = _searchOptionsFactory.Create(resourceType, queryParameters);
 
             SearchResult searchResult = await SearchHistoryInternalAsync(searchOptions, cancellationToken);
 
@@ -116,7 +168,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             // The 'deleted' state has no effect because history will return deleted resources
             if (searchByResourceId && searchResult.Results.Any() == false)
             {
-                var resource = await _dataStore.GetAsync(new ResourceKey(resourceType, resourceId), cancellationToken);
+                var resource = await _fhirDataStore.GetAsync(new ResourceKey(resourceType, resourceId), cancellationToken);
 
                 if (resource == null)
                 {
@@ -124,9 +176,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 }
             }
 
-            return _bundleFactory.CreateHistoryBundle(
-                unsupportedSearchParams: null,
-                result: searchResult);
+            return searchResult;
+        }
+
+        public async Task<SearchResult> SearchForReindexAsync(
+            IReadOnlyList<Tuple<string, string>> queryParameters,
+            string searchParameterHash,
+            bool countOnly,
+            CancellationToken cancellationToken)
+        {
+            SearchOptions searchOptions = _searchOptionsFactory.Create(null, queryParameters);
+
+            if (countOnly)
+            {
+                searchOptions.CountOnly = true;
+            }
+
+            var results = await SearchForReindexInternalAsync(searchOptions, searchParameterHash, cancellationToken);
+
+            return results;
         }
 
         /// <summary>
@@ -143,29 +211,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             SearchOptions searchOptions,
             CancellationToken cancellationToken);
 
-        public void Build(ListedCapabilityStatement statement)
-        {
-            foreach (var resource in ModelInfo.SupportedResources)
-            {
-                var resourceType = ModelInfo.FhirTypeNameToResourceType(resource).GetValueOrDefault();
-
-                statement.TryAddRestInteraction(resourceType, CapabilityStatement.TypeRestfulInteraction.HistoryType);
-                statement.TryAddRestInteraction(resourceType, CapabilityStatement.TypeRestfulInteraction.HistoryInstance);
-            }
-
-            var restComponent = statement
-                .Rest
-                .Single();
-
-            if (restComponent.Interaction == null)
-            {
-                restComponent.Interaction = new List<CapabilityStatement.SystemInteractionComponent>();
-            }
-
-            restComponent.Interaction.Add(new CapabilityStatement.SystemInteractionComponent
-            {
-                Code = CapabilityStatement.SystemRestfulInteraction.HistorySystem,
-            });
-        }
+        protected abstract Task<SearchResult> SearchForReindexInternalAsync(
+            SearchOptions searchOptions,
+            string searchParameterHash,
+            CancellationToken cancellationToken);
     }
 }

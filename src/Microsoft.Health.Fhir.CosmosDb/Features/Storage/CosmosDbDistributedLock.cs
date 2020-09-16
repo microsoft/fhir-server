@@ -8,12 +8,10 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Microsoft.Azure.Documents;
-using Microsoft.Azure.Documents.Client;
+using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
@@ -32,26 +30,23 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         private static readonly TimeSpan DefaultLockDocumentTimeToLive = TimeSpan.FromSeconds(30);
 
-        private readonly Uri _collectionUri;
         private readonly string _lockId;
         private readonly ILogger<CosmosDbDistributedLock> _logger;
         private readonly TimeSpan _lockDocumentTimeToLive;
         private readonly LockDocument _lockDocument;
         private CancellationTokenSource _keepAliveCancellationSource;
         private Task _keepAliveTask;
-        private string _lockDocumentSelfLink;
-        private readonly Func<IScoped<IDocumentClient>> _documentClientFactory;
+        private readonly Func<IScoped<Container>> _containerFactory;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="CosmosDbDistributedLock"/> class.
         /// Note that the lock will not be acquired until <see cref="AcquireLock"/> is called.
         /// </summary>
-        /// <param name="documentClientFactory">The document client factory</param>
-        /// <param name="collectionUri">The URI of the collection to use</param>
+        /// <param name="containerFactory">The Cosmos Container factory</param>
         /// <param name="lockId">The id of the lock. The document created in the database will use this id and will be prefixed with <see cref="IdPrefix"/>.</param>
         /// <param name="logger">A logger instance</param>
-        public CosmosDbDistributedLock(Func<IScoped<IDocumentClient>> documentClientFactory, Uri collectionUri, string lockId, ILogger<CosmosDbDistributedLock> logger)
-            : this(documentClientFactory, collectionUri, lockId, logger, DefaultLockDocumentTimeToLive)
+        public CosmosDbDistributedLock(Func<IScoped<Container>> containerFactory, string lockId, ILogger<CosmosDbDistributedLock> logger)
+            : this(containerFactory, lockId, logger, DefaultLockDocumentTimeToLive)
         {
         }
 
@@ -59,24 +54,21 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// Initializes a new instance of the <see cref="CosmosDbDistributedLock"/> class.
         /// Note that the lock will not be acquired until <see cref="AcquireLock"/> is called.
         /// </summary>
-        /// <param name="documentClientFactory">The document client factory</param>
-        /// <param name="collectionUri">The URI of the collection to use</param>
+        /// <param name="containerFactory">The Cosmos Container factory</param>
         /// <param name="lockId">The id of the lock. The document created in the database will use this ID will be prefixed with <see cref="IdPrefix"/>.</param>
         /// <param name="logger">A logger instance</param>
         /// <param name="lockDocumentTimeToLive">The time to live for the lock document. If the process crashes, the lock will be released after this amount of time</param>
-        public CosmosDbDistributedLock(Func<IScoped<IDocumentClient>> documentClientFactory, Uri collectionUri, string lockId, ILogger<CosmosDbDistributedLock> logger, TimeSpan lockDocumentTimeToLive)
+        public CosmosDbDistributedLock(Func<IScoped<Container>> containerFactory, string lockId, ILogger<CosmosDbDistributedLock> logger, TimeSpan lockDocumentTimeToLive)
         {
-            EnsureArg.IsNotNull(collectionUri, nameof(collectionUri));
-            EnsureArg.IsNotNull(documentClientFactory, nameof(documentClientFactory));
+            EnsureArg.IsNotNull(containerFactory, nameof(containerFactory));
             EnsureArg.IsNotNullOrWhiteSpace(lockId, nameof(lockId));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _collectionUri = collectionUri;
             _lockId = lockId;
             _logger = logger;
             _lockDocumentTimeToLive = lockDocumentTimeToLive;
             _lockDocument = new LockDocument { Id = IdPrefix + lockId, TimeToLiveInSeconds = (int)lockDocumentTimeToLive.TotalSeconds };
-            _documentClientFactory = documentClientFactory;
+            _containerFactory = containerFactory;
         }
 
         private bool IsLockHeld => _keepAliveTask != null;
@@ -116,11 +108,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             try
             {
-                using (var scopedDocumentClient = _documentClientFactory.Invoke())
+                using (IScoped<Container> containerScope = _containerFactory.Invoke())
                 {
-                    var response = await scopedDocumentClient.Value.CreateDocumentAsync(_collectionUri, _lockDocument);
+                    await containerScope.Value.CreateItemAsync(
+                        _lockDocument,
+                        new PartitionKey(LockDocument.LockPartition));
 
-                    _lockDocumentSelfLink = response.Resource.SelfLink;
                     _keepAliveCancellationSource = new CancellationTokenSource();
                     _keepAliveTask = LockKeepAliveLoop(_keepAliveCancellationSource.Token);
 
@@ -128,7 +121,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     return true;
                 }
             }
-            catch (DocumentClientException e) when (e.StatusCode == HttpStatusCode.Conflict)
+            catch (CosmosException e) when (e.StatusCode == HttpStatusCode.Conflict)
             {
                 return false;
             }
@@ -154,19 +147,23 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 }
                 catch (OperationCanceledException)
                 {
+                    // Ignore because lock is being released
                 }
-                catch (DocumentClientException)
+                catch (CosmosException)
                 {
+                    // Ignore because lock is being released
                 }
 
                 try
                 {
-                    using (var scopedDocumentClient = _documentClientFactory.Invoke())
+                    using (IScoped<Container> containerScope = _containerFactory.Invoke())
                     {
-                        await scopedDocumentClient.Value.DeleteDocumentAsync(_lockDocumentSelfLink, new RequestOptions { PartitionKey = new PartitionKey(LockDocument.LockPartition) });
+                        await containerScope.Value.DeleteItemAsync<LockDocument>(
+                            _lockDocument.Id,
+                            new PartitionKey(LockDocument.LockPartition));
                     }
                 }
-                catch (DocumentClientException e) when (e.StatusCode == HttpStatusCode.NotFound)
+                catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
                 {
                     _logger.LogWarning(e, "Lock {LockId} was not held when released", _lockId);
                 }
@@ -188,14 +185,22 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         /// <summary>
+        /// Releases the lock if <see cref="ReleaseLock"/> has not already been called.
+        /// </summary>
+        public async ValueTask DisposeAsync()
+        {
+            if (IsLockHeld)
+            {
+                await ReleaseLock();
+            }
+        }
+
+        /// <summary>
         /// Synchronously releases the lock if <see cref="ReleaseLock"/> has not already been called.
         /// </summary>
         public void Dispose()
         {
-            if (IsLockHeld)
-            {
-                ReleaseLock().GetAwaiter().GetResult();
-            }
+            DisposeAsync().GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -207,27 +212,31 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-                try
-                {
-                    await Task.Delay(TimeSpan.FromSeconds(_lockDocumentTimeToLive.TotalSeconds / 3), cancellationToken);
-                }
-                catch (OperationCanceledException)
-                {
-                }
+                // Create a task that completes when the cancellationToken is canceled.
+                // We do this to avoid and exception that occurs on every startup
+                // and can cause the debugger to break.
+
+                var cancellationCompletionSource = new TaskCompletionSource<object>();
+                cancellationToken.Register(() => cancellationCompletionSource.SetResult(null));
+
+                await Task.WhenAny(
+                    Task.Delay(TimeSpan.FromSeconds(_lockDocumentTimeToLive.TotalSeconds / 3), CancellationToken.None),
+                    cancellationCompletionSource.Task);
 
                 while (!cancellationToken.IsCancellationRequested)
                 {
                     try
                     {
-                        using (var scopedDocumentClient = _documentClientFactory.Invoke())
+                        using (IScoped<Container> containerScope = _containerFactory.Invoke())
                         {
-                            await scopedDocumentClient.Value.UpsertDocumentAsync(_collectionUri, _lockDocument);
+                            await containerScope.Value.UpsertItemAsync(_lockDocument, new PartitionKey(_lockDocument.PartitionKey));
                         }
 
                         break;
                     }
                     catch (RequestRateExceededException)
                     {
+                        await Task.Delay(TimeSpan.FromSeconds(1));
                     }
                 }
             }
@@ -241,7 +250,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             [JsonProperty(PropertyName = "ttl")]
             public int TimeToLiveInSeconds { get; set; }
 
-            [JsonProperty(KnownResourceWrapperProperties.PartitionKey)]
+            [JsonProperty(KnownDocumentProperties.PartitionKey)]
             public string PartitionKey { get; } = LockPartition;
         }
     }

@@ -3,9 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using EnsureThat;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
@@ -18,28 +19,68 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// Initializes a new instance of the <see cref="SearchResult"/> class.
         /// </summary>
         /// <param name="results">The search results.</param>
+        /// <param name="unsupportedSearchParameters">The list of unsupported search parameters.</param>
+        /// <param name="unsupportedSortingParameters">The list of unsupported sorting search parameters.</param>
+        /// <param name="isPartial">Was results truncated.</param>>
         /// <param name="continuationToken">The continuation token.</param>
-        public SearchResult(IEnumerable<ResourceWrapper> results, string continuationToken)
+        public SearchResult(
+            IEnumerable<SearchResultEntry> results,
+            IReadOnlyList<Tuple<string, string>> unsupportedSearchParameters,
+            IReadOnlyList<(string parameterName, string reason)> unsupportedSortingParameters,
+            string continuationToken,
+            bool isPartial = false)
         {
             EnsureArg.IsNotNull(results, nameof(results));
+            EnsureArg.IsNotNull(unsupportedSearchParameters, nameof(unsupportedSearchParameters));
+            EnsureArg.IsNotNull(unsupportedSortingParameters, nameof(unsupportedSortingParameters));
 
             Results = results;
+            UnsupportedSearchParameters = unsupportedSearchParameters;
             ContinuationToken = continuationToken;
+            UnsupportedSortingParameters = unsupportedSortingParameters;
+            Partial = isPartial;
+        }
+
+        public SearchResult(int totalCount, IReadOnlyList<Tuple<string, string>> unsupportedSearchParameters, bool isPartial = false)
+        {
+            EnsureArg.IsNotNull(unsupportedSearchParameters, nameof(unsupportedSearchParameters));
+
+            Results = Enumerable.Empty<SearchResultEntry>();
+            UnsupportedSearchParameters = unsupportedSearchParameters;
+            TotalCount = totalCount;
+            UnsupportedSortingParameters = Array.Empty<(string parameterName, string reason)>();
+            Partial = isPartial;
         }
 
         /// <summary>
         /// Gets the search results.
         /// </summary>
-        public IEnumerable<ResourceWrapper> Results { get; }
+        public IEnumerable<SearchResultEntry> Results { get; }
+
+        /// <summary>
+        /// Gets the list of unsupported search parameters.
+        /// </summary>
+        public IReadOnlyList<Tuple<string, string>> UnsupportedSearchParameters { get; }
+
+        /// <summary>
+        /// Gets the list of unsupported sorting parameters.
+        /// </summary>
+        public IReadOnlyList<(string parameterName, string reason)> UnsupportedSortingParameters { get; }
 
         /// <summary>
         /// Gets total number of documents
         /// </summary>
-        public int? TotalCount { get; internal set; }
+        public int? TotalCount { get; set; }
 
         /// <summary>
         /// Gets the continuation token.
         /// </summary>
         public string ContinuationToken { get; }
+
+        /// <summary>
+        /// Gets if this result is partial (truncated) - number of included resources (other than matches)
+        /// exceeds the configured threshold.
+        /// </summary>
+        public bool Partial { get; }
     }
 }

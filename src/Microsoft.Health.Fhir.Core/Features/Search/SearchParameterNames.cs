@@ -3,12 +3,24 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
     public static class SearchParameterNames
     {
-        public static readonly string Id = "_id";
-        public static readonly string LastUpdated = "_lastUpdated";
-        public static readonly string ResourceType = "_type";
+        public const string Id = "_id";
+
+        public static readonly Uri IdUri = new Uri("http://hl7.org/fhir/SearchParameter/Resource-id");
+
+        public const string LastUpdated = "_lastUpdated";
+
+        public static readonly Uri LastUpdatedUri = new Uri("http://hl7.org/fhir/SearchParameter/Resource-lastUpdated");
+
+        public const string ResourceType = "_type";
+
+        public static readonly Uri ResourceTypeUri = new Uri("http://hl7.org/fhir/SearchParameter/Resource-type");
+
+        public static readonly Uri TypeUri = new Uri("http://hl7.org/fhir/SearchParameter/type");
     }
 }

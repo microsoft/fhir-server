@@ -4,44 +4,17 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using Hl7.Fhir.Model;
-using Microsoft.Health.Fhir.Core.Exceptions;
+using System.Collections.Immutable;
 using Microsoft.Health.Fhir.Core.Features.Security;
 
 namespace Microsoft.Health.Fhir.Core.Configs
 {
     public class AuthorizationConfiguration
     {
-        public const string RolesClaim = "roles";
+        public string RolesClaim { get; set; } = "roles";
 
         public bool Enabled { get; set; }
 
-        public IList<Role> Roles { get; set; } = new List<Role>();
-
-        public void ValidateRoles()
-        {
-            var issues = new List<OperationOutcome.IssueComponent>();
-
-            foreach (Role role in Roles)
-            {
-                foreach (var validationError in role.Validate(new ValidationContext(role)))
-                {
-                    issues.Add(new OperationOutcome.IssueComponent
-                    {
-                        Severity = OperationOutcome.IssueSeverity.Fatal,
-                        Code = OperationOutcome.IssueType.Invalid,
-                        Diagnostics = validationError.ErrorMessage,
-                    });
-                }
-            }
-
-            if (issues.Count > 0)
-            {
-                throw new InvalidDefinitionException(
-                    Resources.AuthorizationPermissionDefinitionInvalid,
-                    issues.ToArray());
-            }
-        }
+        public IReadOnlyList<Role> Roles { get; internal set; } = ImmutableList<Role>.Empty;
     }
 }

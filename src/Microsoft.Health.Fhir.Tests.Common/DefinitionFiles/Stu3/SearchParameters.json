@@ -1,0 +1,249 @@
+{
+  "resourceType": "Bundle",
+  "id": "searchParams",
+  "meta": {
+    "lastUpdated": "2017-04-19T07:44:43.294+10:00"
+  },
+  "type": "collection",
+    "entry": [
+        {
+            "fullUrl": "http://hl7.org/fhir/SearchParameter/DomainResource-text",
+            "resource": {
+                "resourceType": "SearchParameter",
+                "id": "DomainResource-text",
+                "url": "http://hl7.org/fhir/SearchParameter/DomainResource-text",
+                "name": "_text",
+                "status": "draft",
+                "experimental": false,
+                "date": "2017-04-19T07:44:43+10:00",
+                "publisher": "Health Level Seven International (FHIR Infrastructure)",
+                "contact": [
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://hl7.org/fhir"
+                            }
+                        ]
+                    },
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://www.hl7.org/Special/committees/fiwg/index.cfm"
+                            }
+                        ]
+                    }
+                ],
+                "code": "_text",
+                "base": [
+                    "DomainResource"
+                ],
+                "type": "string",
+                "description": "Search on the narrative of the resource",
+                "xpathUsage": "normal"
+            }
+        },
+        {
+            "fullUrl": "http://hl7.org/fhir/SearchParameter/Resource-content",
+            "resource": {
+                "resourceType": "SearchParameter",
+                "id": "Resource-content",
+                "url": "http://hl7.org/fhir/SearchParameter/Resource-content",
+                "name": "_content",
+                "status": "draft",
+                "experimental": false,
+                "date": "2017-04-19T07:44:43+10:00",
+                "publisher": "Health Level Seven International (FHIR Infrastructure)",
+                "contact": [
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://hl7.org/fhir"
+                            }
+                        ]
+                    },
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://www.hl7.org/Special/committees/fiwg/index.cfm"
+                            }
+                        ]
+                    }
+                ],
+                "code": "_content",
+                "base": [
+                    "Resource"
+                ],
+                "type": "string",
+                "description": "Search on the entire content of the resource",
+                "xpathUsage": "normal"
+            }
+        },
+        {
+            "fullUrl": "http://hl7.org/fhir/SearchParameter/Resource-id",
+            "resource": {
+                "resourceType": "SearchParameter",
+                "id": "Resource-id",
+                "url": "http://hl7.org/fhir/SearchParameter/Resource-id",
+                "name": "_id",
+                "status": "draft",
+                "experimental": false,
+                "date": "2017-04-19T07:44:43+10:00",
+                "publisher": "Health Level Seven International (FHIR Infrastructure)",
+                "contact": [
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://hl7.org/fhir"
+                            }
+                        ]
+                    },
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://www.hl7.org/Special/committees/fiwg/index.cfm"
+                            }
+                        ]
+                    }
+                ],
+                "code": "_id",
+                "base": [
+                    "Resource"
+                ],
+                "type": "token",
+                "description": "Logical id of this artifact",
+                "expression": "Resource.id",
+                "xpath": "f:Resource/f:id",
+                "xpathUsage": "normal"
+            }
+        },
+        {
+            "fullUrl": "http://hl7.org/fhir/SearchParameter/Account-balance",
+            "resource": {
+                "resourceType": "SearchParameter",
+                "id": "Account-balance",
+                "url": "http://hl7.org/fhir/SearchParameter/Account-balance",
+                "name": "balance",
+                "status": "draft",
+                "experimental": false,
+                "date": "2017-04-19T07:44:43+10:00",
+                "publisher": "Health Level Seven International (Patient Administration)",
+                "contact": [
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://hl7.org/fhir"
+                            }
+                        ]
+                    },
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://www.hl7.org/Special/committees/pafm/index.cfm"
+                            }
+                        ]
+                    }
+                ],
+                "code": "balance",
+                "base": [
+                    "Account"
+                ],
+                "type": "quantity",
+                "description": "How much is in account?",
+                "expression": "Account.balance",
+                "xpath": "f:Account/f:balance",
+                "xpathUsage": "normal"
+            }
+        },
+        {
+            "fullUrl": "http://hl7.org/fhir/SearchParameter/Account-identifier",
+            "resource": {
+                "resourceType": "SearchParameter",
+                "id": "Account-identifier",
+                "url": "http://hl7.org/fhir/SearchParameter/Account-identifier",
+                "name": "identifier",
+                "status": "draft",
+                "experimental": false,
+                "date": "2017-04-19T07:44:43+10:00",
+                "publisher": "Health Level Seven International (Patient Administration)",
+                "contact": [
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://hl7.org/fhir"
+                            }
+                        ]
+                    },
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://www.hl7.org/Special/committees/pafm/index.cfm"
+                            }
+                        ]
+                    }
+                ],
+                "code": "identifier",
+                "base": [
+                    "Account"
+                ],
+                "type": "token",
+                "description": "Account number",
+                "expression": "Account.identifier",
+                "xpath": "f:Account/f:identifier",
+                "xpathUsage": "normal"
+            }
+        },
+        {
+            "fullUrl": "http://hl7.org/fhir/SearchParameter/medications-identifier",
+            "resource": {
+                "resourceType": "SearchParameter",
+                "id": "medications-identifier",
+                "url": "http://hl7.org/fhir/SearchParameter/medications-identifier",
+                "name": "identifier",
+                "status": "draft",
+                "experimental": false,
+                "date": "2017-04-19T07:44:43+10:00",
+                "publisher": "Health Level Seven International (Pharmacy)",
+                "contact": [
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://hl7.org/fhir"
+                            }
+                        ]
+                    },
+                    {
+                        "telecom": [
+                            {
+                                "system": "url",
+                                "value": "http://www.hl7.org/Special/committees/medication/index.cfm"
+                            }
+                        ]
+                    }
+                ],
+                "code": "identifier",
+                "base": [
+                    "MedicationRequest",
+                    "MedicationAdministration",
+                    "Medication",
+                    "MedicationDispense"
+                ],
+                "type": "token",
+                "description": "Multiple Resources: \r\n\r\n* [MedicationRequest](medicationrequest.html): Return prescriptions with this external identifier\r\n* [MedicationAdministration](medicationadministration.html): Return administrations with this external identifier\r\n* [Medication](medication.html): Return medications with this external identifier\r\n* [MedicationDispense](medicationdispense.html): Return dispenses with this external identifier\r\n",
+                "expression": "MedicationRequest.identifier | MedicationAdministration.identifier | Medication.identifier | MedicationDispense.identifier",
+                "xpath": "f:MedicationRequest/f:identifier | f:MedicationAdministration/f:identifier | f:Medication/f:identifier | f:MedicationDispense/f:identifier",
+                "xpathUsage": "normal"
+            }
+        }
+    ]
+}

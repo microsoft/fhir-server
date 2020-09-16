@@ -1,9 +1,0 @@
-{
-  "profiles": {
-    "Microsoft.Health.Fhir.IntegrationTests": {
-        "commandName": "Project",
-        "environmentVariables": {
-        }
-    }
-  }
-}

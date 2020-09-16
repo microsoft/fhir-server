@@ -4,7 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 {
@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <param name="searchParameter">The search parameter this expression is bound to.</param>
         /// <param name="expression">The expression over the parameter's values.</param>
         /// <returns>A <see cref="SearchParameterExpression"/>.</returns>
-        public static SearchParameterExpression SearchParameter(SearchParameter searchParameter, Expression expression)
+        public static SearchParameterExpression SearchParameter(SearchParameterInfo searchParameter, Expression expression)
         {
             return new SearchParameterExpression(searchParameter, expression);
         }
@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <param name="searchParameter">The search parameter this expression is bound to.</param>
         /// <param name="isMissing">A flag indicating whether the parameter should be missing or not.</param>
         /// <returns>A <see cref="SearchParameterExpression"/>.</returns>
-        public static MissingSearchParameterExpression MissingSearchParameter(SearchParameter searchParameter, bool isMissing)
+        public static MissingSearchParameterExpression MissingSearchParameter(SearchParameterInfo searchParameter, bool isMissing)
         {
             return new MissingSearchParameterExpression(searchParameter, isMissing);
         }
@@ -59,13 +59,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// Creates a <see cref="ChainedExpression"/> that represents chained operation.
         /// </summary>
         /// <param name="resourceType">The resource type.</param>
-        /// <param name="paramName">The chained parameter name.</param>
+        /// <param name="referenceSearchParameter">The search parameter that establishes the reference between resources</param>
         /// <param name="targetResourceType">The target resource type.</param>
+        /// <param name="reversed">If this is a reversed chained expression.</param>
         /// <param name="expression">The expression.</param>
-        /// <returns>A <see cref="ChainedExpression"/> that represents chained operation on <paramref name="targetResourceType"/> through <paramref name="paramName"/>.</returns>
-        public static ChainedExpression Chained(ResourceType resourceType, string paramName, ResourceType targetResourceType, Expression expression)
+        /// <returns>A <see cref="ChainedExpression"/> that represents chained operation on <paramref name="targetResourceType"/> through <paramref name="referenceSearchParameter"/>.</returns>
+        public static ChainedExpression Chained(string resourceType, SearchParameterInfo referenceSearchParameter, string targetResourceType, bool reversed, Expression expression)
         {
-            return new ChainedExpression(resourceType, paramName, targetResourceType, expression);
+            return new ChainedExpression(resourceType, referenceSearchParameter, targetResourceType, reversed, expression);
+        }
+
+        /// <summary>
+        /// Creates a <see cref="IncludeExpression"/> that represents an include operation.
+        /// </summary>
+        /// <param name="resourceType">The resource that supports the reference.</param>
+        /// <param name="referenceSearchParameter">The search parameter that establishes the reference between resources</param>
+        /// <param name="sourceResourceType">The source resource type (used in revinclude).</param>
+        /// <param name="targetResourceType">The target resource type (used in include).</param>
+        /// <param name="wildCard">If this is a wildcard include.</param>
+        /// <param name="reversed">If this is a reversed include (revinclude) expression.</param>
+        /// <returns>A <see cref="IncludeExpression"/> that represents an include on <param name="targetResourceType"> through <paramref name="referenceSearchParameter"/>.</param></returns>
+        public static IncludeExpression Include(string resourceType, SearchParameterInfo referenceSearchParameter, string sourceResourceType, string targetResourceType, bool wildCard, bool reversed)
+        {
+            return new IncludeExpression(resourceType, referenceSearchParameter, sourceResourceType, targetResourceType, wildCard, reversed);
         }
 
         /// <summary>
@@ -222,6 +238,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return new StringExpression(StringOperator.Equals, fieldName, componentIndex, value, ignoreCase);
         }
 
-        protected internal abstract void AcceptVisitor(IExpressionVisitor visitor);
+        /// <summary>
+        /// Creates a <see cref="CompartmentSearchExpression"/> that represents a compartment search operation.
+        /// </summary>
+        /// <param name="compartmentType">The compartment type.</param>
+        /// <param name="compartmentId">The compartment id.</param>
+        /// <returns>A <see cref="CompartmentSearchExpression"/> that represents a compartment search operation.</returns>
+        public static CompartmentSearchExpression CompartmentSearch(string compartmentType, string compartmentId)
+        {
+            return new CompartmentSearchExpression(compartmentType, compartmentId);
+        }
+
+        public abstract TOutput AcceptVisitor<TContext, TOutput>(IExpressionVisitor<TContext, TOutput> visitor, TContext context);
+
+        /// <inheritdoc />
+        public abstract override string ToString();
     }
 }

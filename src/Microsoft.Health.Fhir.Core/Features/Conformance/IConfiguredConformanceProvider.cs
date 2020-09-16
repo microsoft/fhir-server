@@ -4,12 +4,12 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Conformance
 {
     public interface IConfiguredConformanceProvider : IConformanceProvider
     {
-        void ConfigureOptionalCapabilities(Action<CapabilityStatement> builder);
+        void ConfigureOptionalCapabilities(Action<ListedCapabilityStatement> builder);
     }
 }

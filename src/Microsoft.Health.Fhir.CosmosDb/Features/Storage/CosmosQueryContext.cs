@@ -3,10 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using EnsureThat;
-using Microsoft.Azure.Documents;
-using Microsoft.Azure.Documents.Client;
+using Microsoft.Azure.Cosmos;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
@@ -18,26 +16,25 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <summary>
         /// Initializes a new instance of the <see cref="CosmosQueryContext"/> class.
         /// </summary>
-        /// <param name="collectionUri">The collection URI.</param>
         /// <param name="sqlQuerySpec">The SQL query.</param>
         /// <param name="feedOptions">The options.</param>
-        public CosmosQueryContext(Uri collectionUri, SqlQuerySpec sqlQuerySpec, FeedOptions feedOptions = null)
+        /// <param name="continuationToken">Continuation token</param>
+        public CosmosQueryContext(QueryDefinition sqlQuerySpec, QueryRequestOptions feedOptions = null, string continuationToken = null)
         {
-            EnsureArg.IsNotNull(collectionUri, nameof(collectionUri));
             EnsureArg.IsNotNull(sqlQuerySpec, nameof(sqlQuerySpec));
 
-            CollectionUri = collectionUri;
             SqlQuerySpec = sqlQuerySpec;
             FeedOptions = feedOptions;
+            ContinuationToken = continuationToken;
         }
 
         /// <inheritdoc />
-        public Uri CollectionUri { get; }
+        public QueryDefinition SqlQuerySpec { get; }
 
         /// <inheritdoc />
-        public SqlQuerySpec SqlQuerySpec { get; }
+        public QueryRequestOptions FeedOptions { get; }
 
         /// <inheritdoc />
-        public FeedOptions FeedOptions { get; }
+        public string ContinuationToken { get; }
     }
 }

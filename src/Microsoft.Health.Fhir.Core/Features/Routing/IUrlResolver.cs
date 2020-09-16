@@ -5,12 +5,13 @@
 
 using System;
 using System.Collections.Generic;
-using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Routing
 {
     /// <summary>
-    /// Provides functionalities to resolve URLs.
+    /// Provides functionality to resolve URLs.
     /// </summary>
     public interface IUrlResolver
     {
@@ -27,24 +28,40 @@ namespace Microsoft.Health.Fhir.Core.Features.Routing
         /// <param name="resource">The resource whose URL should be resolved for.</param>
         /// <param name="includeVersion">Includes the version in the URL.</param>
         /// <returns>The URL for the given <paramref name="resource"/>.</returns>
-        Uri ResolveResourceUrl(Resource resource, bool includeVersion = false);
+        Uri ResolveResourceUrl(IResourceElement resource, bool includeVersion = false);
 
         /// <summary>
-        /// Resolves the search URL.
+        /// Resolves the URL for the given <paramref name="resource"/>.
         /// </summary>
-        /// <param name="resourceType">The resource type route segment, or null if the search is across all resource types.</param>
-        /// <param name="unsupportedSearchParams">A list of unsupported search parameters.</param>
-        /// <param name="continuationToken">The continuation token.</param>
-        /// <returns>The search URL.</returns>
-        Uri ResolveSearchUrl(string resourceType, IEnumerable<Tuple<string, string>> unsupportedSearchParams = null, string continuationToken = null);
+        /// <param name="resource">The resource whose URL should be resolved for.</param>
+        /// <param name="includeVersion">Includes the version in the URL.</param>
+        /// <returns>The URL for the given <paramref name="resource"/>.</returns>
+        Uri ResolveResourceWrapperUrl(ResourceWrapper resource, bool includeVersion = false);
 
         /// <summary>
         /// Resolves the URL for the specified route
         /// </summary>
-        /// <param name="routeName">Name of the route</param>
         /// <param name="unsupportedSearchParams">A list of unsupported search parameters.</param>
+        /// <param name="unsupportedSortingParameters">A list of unsupported sorting parameters</param>
         /// <param name="continuationToken">The continuation token.</param>
+        /// <param name="removeTotalParameter">True if the _total parameter should be removed from the url, false otherwise.</param>
         /// <returns>The URL.</returns>
-        Uri ResolveRouteUrl(string routeName, IEnumerable<Tuple<string, string>> unsupportedSearchParams = null, string continuationToken = null);
+        Uri ResolveRouteUrl(IEnumerable<Tuple<string, string>> unsupportedSearchParams = null, IReadOnlyList<(string parameterName, string reason)> unsupportedSortingParameters = null, string continuationToken = null, bool removeTotalParameter = false);
+
+        /// <summary>
+        /// Resolves the URL for the specified routeName.
+        /// </summary>
+        /// <param name="routeName">The route name to resolve.</param>
+        /// <param name="routeValues">Any route values to use in the route.</param>
+        /// <returns>The URL.</returns>
+        Uri ResolveRouteNameUrl(string routeName, IDictionary<string, object> routeValues);
+
+        /// <summary>
+        /// Resolves the URL for the specified operation.
+        /// </summary>
+        /// <param name="operationName">The name of the operation.</param>
+        /// <param name="id">The id that corresponds to the current operation.</param>
+        /// <returns>The final url.</returns>
+        Uri ResolveOperationResultUrl(string operationName, string id);
     }
 }

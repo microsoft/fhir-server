@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Diagnostics.CodeAnalysis;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -65,16 +66,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                 defaultSecond: 59,
                 defaultFraction: 0.9999999m,
                 defaultUtcOffset: TimeSpan.Zero).ToUniversalTime();
-
-            if (Start > End)
-            {
-                string message = $"The evaluated value of parameter '{nameof(startDateTime)}' cannot be greater than the evaluated value of parameter '{nameof(endDateTime)}'. " +
-                    $"The parameter '{nameof(startDateTime)}' evaluated to '{Start:o}' and the parameter '{nameof(endDateTime)}' evaluated to '{End:o}'.";
-
-                throw new ArgumentOutOfRangeException(
-                    nameof(startDateTime),
-                    message);
-            }
         }
 
         /// <summary>
@@ -127,6 +118,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
             EnsureArg.IsNotNull(visitor, nameof(visitor));
 
             visitor.Visit(this);
+        }
+
+        public bool Equals([AllowNull] ISearchValue other)
+        {
+            if (other == null)
+            {
+                return false;
+            }
+
+            var dateTimeSearchValueOther = other as DateTimeSearchValue;
+
+            if (dateTimeSearchValueOther == null)
+            {
+                return false;
+            }
+
+            return Start == dateTimeSearchValueOther.Start && End == dateTimeSearchValueOther.End;
         }
 
         /// <inheritdoc />

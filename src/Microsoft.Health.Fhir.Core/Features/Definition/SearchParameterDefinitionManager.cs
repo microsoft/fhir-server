@@ -7,68 +7,69 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
-using Hl7.Fhir.Model;
-using Hl7.Fhir.Serialization;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Definition
 {
     /// <summary>
     /// Provides mechanism to access search parameter definition.
     /// </summary>
-    public class SearchParameterDefinitionManager : ISearchParameterDefinitionManager, IStartable, IProvideCapability
+    public class SearchParameterDefinitionManager : ISearchParameterDefinitionManager, IStartable
     {
-        private readonly FhirJsonParser _fhirJsonParser;
+        private readonly IModelInfoProvider _modelInfoProvider;
 
-        private IDictionary<ResourceType, IDictionary<string, SearchParameter>> _typeLookup;
-        private IDictionary<Uri, SearchParameter> _urlLookup;
+        private IDictionary<string, IDictionary<string, SearchParameterInfo>> _typeLookup;
+        private bool _started;
 
-        public SearchParameterDefinitionManager(FhirJsonParser fhirJsonParser)
+        public SearchParameterDefinitionManager(IModelInfoProvider modelInfoProvider)
         {
-            EnsureArg.IsNotNull(fhirJsonParser, nameof(fhirJsonParser));
+            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
 
-            _fhirJsonParser = fhirJsonParser;
+            _modelInfoProvider = modelInfoProvider;
         }
+
+        internal IDictionary<Uri, SearchParameterInfo> UrlLookup { get; set; }
+
+        public IEnumerable<SearchParameterInfo> AllSearchParameters => UrlLookup.Values;
+
+        public string SearchParametersHash { get; set; }
 
         public void Start()
         {
-            Type type = GetType();
+            // This method is idempotent because dependent Start methods are not guaranteed to be executed in order.
+            if (!_started)
+            {
+                var builder = new SearchParameterDefinitionBuilder(
+                    _modelInfoProvider,
+                    "search-parameters.json");
 
-            var builder = new SearchParameterDefinitionBuilder(
-                _fhirJsonParser,
-                type.Assembly,
-                $"{type.Namespace}.search-parameters.json");
+                builder.Build();
 
-            builder.Build();
+                _typeLookup = builder.ResourceTypeDictionary;
+                UrlLookup = builder.UriDictionary;
 
-            _typeLookup = builder.ResourceTypeDictionary;
-            _urlLookup = builder.UriDictionary;
+                List<string> list = UrlLookup.Values.Where(p => p.Type == ValueSets.SearchParamType.Composite).Select(p => string.Join("|", p.Component.Select(c => UrlLookup[c.DefinitionUrl].Type))).Distinct().ToList();
+
+                _started = true;
+            }
         }
 
-        public IEnumerable<SearchParameter> GetSearchParameters(ResourceType resourceType)
+        public IEnumerable<SearchParameterInfo> GetSearchParameters(string resourceType)
         {
-            if (_typeLookup.TryGetValue(resourceType, out IDictionary<string, SearchParameter> value))
+            if (_typeLookup.TryGetValue(resourceType, out IDictionary<string, SearchParameterInfo> value))
             {
                 return value.Values;
             }
 
-            throw new ResourceNotSupportedException(resourceType.ToString());
+            throw new ResourceNotSupportedException(resourceType);
         }
 
-        public bool TryGetSearchParameter(ResourceType resourceType, string name, out SearchParameter searchParameter)
+        public SearchParameterInfo GetSearchParameter(string resourceType, string name)
         {
-            searchParameter = null;
-
-            return _typeLookup.TryGetValue(resourceType, out IDictionary<string, SearchParameter> searchParameters) &&
-                searchParameters.TryGetValue(name, out searchParameter);
-        }
-
-        public SearchParameter GetSearchParameter(ResourceType resourceType, string name)
-        {
-            if (_typeLookup.TryGetValue(resourceType, out IDictionary<string, SearchParameter> lookup) &&
-                lookup.TryGetValue(name, out SearchParameter searchParameter))
+            if (_typeLookup.TryGetValue(resourceType, out IDictionary<string, SearchParameterInfo> lookup) &&
+                lookup.TryGetValue(name, out SearchParameterInfo searchParameter))
             {
                 return searchParameter;
             }
@@ -76,9 +77,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             throw new SearchParameterNotSupportedException(resourceType, name);
         }
 
-        public SearchParameter GetSearchParameter(Uri definitionUri)
+        public bool TryGetSearchParameter(string resourceType, string name, out SearchParameterInfo searchParameter)
         {
-            if (_urlLookup.TryGetValue(definitionUri, out SearchParameter value))
+            searchParameter = null;
+
+            return _typeLookup.TryGetValue(resourceType, out IDictionary<string, SearchParameterInfo> searchParameters) &&
+                searchParameters.TryGetValue(name, out searchParameter);
+        }
+
+        public SearchParameterInfo GetSearchParameter(Uri definitionUri)
+        {
+            if (UrlLookup.TryGetValue(definitionUri, out SearchParameterInfo value))
             {
                 return value;
             }
@@ -86,22 +95,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             throw new SearchParameterNotSupportedException(definitionUri);
         }
 
-        void IProvideCapability.Build(ListedCapabilityStatement statement)
+        public ValueSets.SearchParamType GetSearchParameterType(SearchParameterInfo searchParameter, int? componentIndex)
         {
-            EnsureArg.IsNotNull(statement, nameof(statement));
-
-            foreach (KeyValuePair<ResourceType, IDictionary<string, SearchParameter>> entry in _typeLookup)
+            if (componentIndex == null)
             {
-                IEnumerable<CapabilityStatement.SearchParamComponent> searchParameters = entry.Value.Select(
-                        searchParameter => new CapabilityStatement.SearchParamComponent
-                        {
-                            Name = searchParameter.Key,
-                            Type = searchParameter.Value.Type,
-                        });
-
-                statement.TryAddSearchParams(entry.Key, searchParameters);
-                statement.TryAddRestInteraction(entry.Key, CapabilityStatement.TypeRestfulInteraction.SearchType);
+                return searchParameter.Type;
             }
+
+            SearchParameterComponentInfo component = searchParameter.Component[componentIndex.Value];
+            SearchParameterInfo componentSearchParameter = GetSearchParameter(component.DefinitionUrl);
+
+            return componentSearchParameter.Type;
         }
     }
 }

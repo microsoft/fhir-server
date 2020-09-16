@@ -11,41 +11,59 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using EnsureThat;
-using Hl7.Fhir.Model;
+using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Serialization;
+using Hl7.Fhir.Utility;
+using Hl7.FhirPath;
+using Microsoft.Health.Fhir.Core.Data;
 using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.ValueSets;
 using Newtonsoft.Json;
-using static Hl7.Fhir.Model.Bundle;
-using static Hl7.Fhir.Model.OperationOutcome;
-using static Hl7.Fhir.Model.SearchParameter;
 
 namespace Microsoft.Health.Fhir.Core.Features.Definition
 {
     internal class SearchParameterDefinitionBuilder
     {
-        private readonly FhirJsonParser _fhirJsonParser;
+        private readonly IModelInfoProvider _modelInfoProvider;
         private readonly Assembly _assembly;
         private readonly string _embeddedResourceName;
+        private readonly string _embeddedResourceNamespace;
 
-        private Dictionary<Uri, SearchParameter> _uriDictionary = new Dictionary<Uri, SearchParameter>();
-        private Dictionary<ResourceType, IDictionary<string, SearchParameter>> _resourceTypeDictionary = new Dictionary<ResourceType, IDictionary<string, SearchParameter>>();
+        private readonly Dictionary<Uri, SearchParameterInfo> _uriDictionary = new Dictionary<Uri, SearchParameterInfo>();
+        private readonly Dictionary<string, IDictionary<string, SearchParameterInfo>> _resourceTypeDictionary = new Dictionary<string, IDictionary<string, SearchParameterInfo>>();
 
         private bool _initialized;
 
-        internal SearchParameterDefinitionBuilder(FhirJsonParser fhirJsonParser, Assembly assembly, string embeddedResourceName)
+        private readonly ISet<Uri> _knownBrokenR5 = new HashSet<Uri>
         {
-            EnsureArg.IsNotNull(fhirJsonParser, nameof(fhirJsonParser));
-            EnsureArg.IsNotNull(assembly, nameof(assembly));
+            new Uri("http://hl7.org/fhir/SearchParameter/Subscription-url"),
+            new Uri("http://hl7.org/fhir/SearchParameter/ImagingStudy-reason"),
+            new Uri("http://hl7.org/fhir/SearchParameter/Medication-form"),
+            new Uri("http://hl7.org/fhir/SearchParameter/PackagedProductDefinition-device"),
+            new Uri("http://hl7.org/fhir/SearchParameter/PackagedProductDefinition-manufactured-item"),
+            new Uri("http://hl7.org/fhir/SearchParameter/Subscription-payload"),
+            new Uri("http://hl7.org/fhir/SearchParameter/Subscription-type"),
+        };
+
+        internal SearchParameterDefinitionBuilder(
+            IModelInfoProvider modelInfoProvider,
+            string embeddedResourceName,
+            string embeddedResourceNamespace = null,
+            Assembly assembly = null)
+        {
+            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNullOrWhiteSpace(embeddedResourceName, nameof(embeddedResourceName));
 
-            _fhirJsonParser = fhirJsonParser;
+            _modelInfoProvider = modelInfoProvider;
             _assembly = assembly;
+            _embeddedResourceNamespace = embeddedResourceNamespace;
             _embeddedResourceName = embeddedResourceName;
         }
 
-        internal IDictionary<Uri, SearchParameter> UriDictionary
+        internal IDictionary<Uri, SearchParameterInfo> UriDictionary
         {
             get
             {
@@ -58,7 +76,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             }
         }
 
-        internal IDictionary<ResourceType, IDictionary<string, SearchParameter>> ResourceTypeDictionary
+        internal IDictionary<string, IDictionary<string, SearchParameterInfo>> ResourceTypeDictionary
         {
             get
             {
@@ -73,16 +91,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         internal void Build()
         {
-            ILookup<ResourceType, SearchParameter> searchParametersLookup = ValidateAndGetFlattendList()
+            ILookup<string, SearchParameterInfo> searchParametersLookup = ValidateAndGetFlattenedList()
                 .ToLookup(
                     entry => entry.ResourceType,
                     entry => entry.SearchParameter);
 
             // Build the inheritance. For example, the _id search parameter is on Resource
             // and should be available to all resources that inherit Resource.
-            foreach (IGrouping<ResourceType, SearchParameter> entry in searchParametersLookup)
+            foreach (string resourceType in _modelInfoProvider.GetResourceTypeNames())
             {
-                if (_resourceTypeDictionary.TryGetValue(entry.Key, out IDictionary<string, SearchParameter> _))
+                if (_resourceTypeDictionary.TryGetValue(resourceType, out IDictionary<string, SearchParameterInfo> _))
                 {
                     // The list has already been built, move on.
                     continue;
@@ -91,34 +109,39 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 // Recursively build the search parameter definitions. For example,
                 // Appointment inherits from DomainResource, which inherits from Resource
                 // and therefore Appointment should include all search parameters DomainResource and Resource supports.
-                BuildSearchParameterDefinition(searchParametersLookup, entry.Key);
+                BuildSearchParameterDefinition(searchParametersLookup, resourceType);
             }
 
             _initialized = true;
         }
 
-        private static bool ShouldExcludeEntry(ResourceType resourceType, string searchParameterName)
+        private bool ShouldExcludeEntry(string resourceType, string searchParameterName)
         {
-            return (resourceType == ResourceType.DomainResource && searchParameterName == "_text") ||
-                (resourceType == ResourceType.Resource && searchParameterName == "_content") ||
-                (resourceType == ResourceType.Resource && searchParameterName == "_query") ||
-                (resourceType == ResourceType.DataElement && (searchParameterName == "objectClass" || searchParameterName == "objectClassProperty"));
+            return (resourceType == KnownResourceTypes.DomainResource && searchParameterName == "_text") ||
+                   (resourceType == KnownResourceTypes.Resource && searchParameterName == "_content") ||
+                   (resourceType == KnownResourceTypes.Resource && searchParameterName == "_query") ||
+                   ShouldExcludeEntryStu3(resourceType, searchParameterName);
         }
 
-        private List<(ResourceType ResourceType, SearchParameter SearchParameter)> ValidateAndGetFlattendList()
+        private bool ShouldExcludeEntryStu3(string resourceType, string searchParameterName)
         {
-            var issues = new List<IssueComponent>();
+            return _modelInfoProvider.Version == FhirSpecification.Stu3 &&
+                   resourceType == "DataElement" && (searchParameterName == "objectClass" || searchParameterName == "objectClassProperty");
+        }
 
-            Bundle bundle = null;
+        private List<(string ResourceType, SearchParameterInfo SearchParameter)> ValidateAndGetFlattenedList()
+        {
+            var issues = new List<OperationOutcomeIssue>();
 
-            using (Stream stream = _assembly.GetManifestResourceStream(_embeddedResourceName))
-            using (TextReader reader = new StreamReader(stream))
-            using (JsonReader jsonReader = new JsonTextReader(reader))
+            BundleWrapper bundle = null;
+
+            using (Stream stream = _modelInfoProvider.OpenVersionedFileStream(_embeddedResourceName, _embeddedResourceNamespace, _assembly))
             {
+                using TextReader reader = new StreamReader(stream);
+                using JsonReader jsonReader = new JsonTextReader(reader);
                 try
                 {
-                    // The parser does some basic validation such as making sure entry is not null, enum has the right value, and etc.
-                    bundle = _fhirJsonParser.Parse<Bundle>(jsonReader);
+                    bundle = new BundleWrapper(FhirJsonNode.Read(jsonReader).ToTypedElement(_modelInfoProvider.StructureDefinitionSummaryProvider));
                 }
                 catch (FormatException ex)
                 {
@@ -128,23 +151,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             EnsureNoIssues();
 
+            IReadOnlyList<BundleEntryWrapper> entries = bundle.Entries;
+
             // Do the first pass to make sure all resources are SearchParameter.
-            for (int entryIndex = 0; entryIndex < bundle.Entry.Count; entryIndex++)
+            for (int entryIndex = 0; entryIndex < entries.Count; entryIndex++)
             {
                 // Make sure resources are not null and they are SearchParameter.
-                EntryComponent entry = bundle.Entry[entryIndex];
+                BundleEntryWrapper entry = entries[entryIndex];
 
-                var searchParameter = entry.Resource as SearchParameter;
+                ITypedElement searchParameterElement = entry.Resource;
 
-                if (searchParameter == null)
+                if (searchParameterElement == null || !string.Equals(searchParameterElement.InstanceType, KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase))
                 {
                     AddIssue(Core.Resources.SearchParameterDefinitionInvalidResource, entryIndex);
                     continue;
                 }
 
+                var searchParameter = new SearchParameterWrapper(searchParameterElement);
+
                 try
                 {
-                    _uriDictionary.Add(new Uri(searchParameter.Url), searchParameter);
+                    SearchParameterInfo searchParameterInfo = CreateSearchParameterInfo(searchParameter);
+                    _uriDictionary.Add(new Uri(searchParameter.Url), searchParameterInfo);
                 }
                 catch (FormatException)
                 {
@@ -160,32 +188,37 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             EnsureNoIssues();
 
-            var validatedSearchParameters = new List<(ResourceType ResourceType, SearchParameter SearchParameter)>
+            var validatedSearchParameters = new List<(string ResourceType, SearchParameterInfo SearchParameter)>
             {
                 // _type is currently missing from the search params definition bundle, so we inject it in here.
-                (ResourceType.Resource, new SearchParameter { Name = SearchParameterNames.ResourceType, Expression = "Resource.type().name", Type = SearchParamType.Token }),
+                (KnownResourceTypes.Resource, new SearchParameterInfo(SearchParameterNames.ResourceType, SearchParamType.Token, SearchParameterNames.ResourceTypeUri, null, "Resource.type().name", null)),
             };
 
             // Do the second pass to make sure the definition is valid.
-            for (int entryIndex = 0; entryIndex < bundle.Entry.Count; entryIndex++)
+            for (int entryIndex = 0; entryIndex < entries.Count; entryIndex++)
             {
-                var searchParameter = (SearchParameter)bundle.Entry[entryIndex].Resource;
+                BundleEntryWrapper entry = entries[entryIndex];
+
+                ITypedElement searchParameterElement = entry.Resource;
+                var searchParameter = new SearchParameterWrapper(searchParameterElement);
 
                 // If this is a composite search parameter, then make sure components are defined.
-                if (searchParameter.Type == SearchParamType.Composite)
+                if (string.Equals(searchParameter.Type, SearchParamType.Composite.GetLiteral(), StringComparison.OrdinalIgnoreCase))
                 {
-                    if (searchParameter.Component?.Count == 0)
+                    var composites = searchParameter.Component;
+                    if (composites.Count == 0)
                     {
                         AddIssue(Core.Resources.SearchParameterDefinitionInvalidComponent, searchParameter.Url);
                         continue;
                     }
 
-                    for (int componentIndex = 0; componentIndex < searchParameter.Component.Count; componentIndex++)
+                    for (int componentIndex = 0; componentIndex < composites.Count; componentIndex++)
                     {
-                        ComponentComponent component = searchParameter.Component[componentIndex];
+                        ITypedElement component = composites[componentIndex];
+                        var definitionUrl = GetComponentDefinition(component);
 
-                        if (component.Definition.Url == null ||
-                            !_uriDictionary.TryGetValue(component.Definition.Url, out SearchParameter componentSearchParameter))
+                        if (definitionUrl == null ||
+                            !_uriDictionary.TryGetValue(new Uri(definitionUrl), out SearchParameterInfo componentSearchParameter))
                         {
                             AddIssue(
                                 Core.Resources.SearchParameterDefinitionInvalidComponentReference,
@@ -203,7 +236,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                             continue;
                         }
 
-                        if (string.IsNullOrWhiteSpace(component.Expression))
+                        if (string.IsNullOrWhiteSpace(component.Scalar("expression")?.ToString()))
                         {
                             AddIssue(
                                 Core.Resources.SearchParameterDefinitionInvalidComponentExpression,
@@ -215,21 +248,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 }
 
                 // Make sure the base is defined.
-                if (searchParameter.BaseElement?.Count == 0)
+                var bases = searchParameter.Base;
+                if (bases.Count == 0)
                 {
                     AddIssue(Core.Resources.SearchParameterDefinitionBaseNotDefined, searchParameter.Url);
                     continue;
                 }
 
-                for (int baseElementIndex = 0; baseElementIndex < searchParameter.BaseElement.Count; baseElementIndex++)
+                for (int baseElementIndex = 0; baseElementIndex < bases.Count; baseElementIndex++)
                 {
-                    Code<ResourceType> code = searchParameter.BaseElement[baseElementIndex];
+                    var code = bases[baseElementIndex];
 
-                    ResourceType baseResourceType = code.Value.Value;
+                    string baseResourceType = code;
 
                     // Make sure the expression is not empty unless they are known to have empty expression.
                     // These are special search parameters that searches across all properties and needs to be handled specially.
-                    if (ShouldExcludeEntry(baseResourceType, searchParameter.Name))
+                    if (ShouldExcludeEntry(baseResourceType, searchParameter.Name)
+                    || (_modelInfoProvider.Version == FhirSpecification.R5 && _knownBrokenR5.Contains(new Uri(searchParameter.Url))))
                     {
                         continue;
                     }
@@ -242,7 +277,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                         }
                     }
 
-                    validatedSearchParameters.Add((baseResourceType, searchParameter));
+                    validatedSearchParameters.Add((baseResourceType, CreateSearchParameterInfo(searchParameter)));
                 }
             }
 
@@ -252,12 +287,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             void AddIssue(string format, params object[] args)
             {
-                issues.Add(new IssueComponent()
-                {
-                    Severity = IssueSeverity.Fatal,
-                    Code = IssueType.Invalid,
-                    Diagnostics = string.Format(CultureInfo.InvariantCulture, format, args),
-                });
+                issues.Add(new OperationOutcomeIssue(
+                    OperationOutcomeConstants.IssueSeverity.Fatal,
+                    OperationOutcomeConstants.IssueType.Invalid,
+                    string.Format(CultureInfo.InvariantCulture, format, args)));
             }
 
             void EnsureNoIssues()
@@ -271,33 +304,63 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             }
         }
 
-        private IEnumerable<SearchParameter> BuildSearchParameterDefinition(
-            ILookup<ResourceType, SearchParameter> searchParametersLookup,
-            ResourceType resourceType)
+        private SearchParameterInfo CreateSearchParameterInfo(SearchParameterWrapper searchParameter)
         {
-            if (_resourceTypeDictionary.TryGetValue(resourceType, out IDictionary<string, SearchParameter> cachedSearchParameters))
+            // Return SearchParameterInfo that has already been created for this Uri
+            if (_uriDictionary.TryGetValue(new Uri(searchParameter.Url), out var spi))
+            {
+                return spi;
+            }
+
+            var components = searchParameter.Component
+                .Select(x => new SearchParameterComponentInfo(
+                    new Uri(GetComponentDefinition(x)),
+                    x.Scalar("expression")?.ToString()))
+                .ToArray();
+
+            SearchParamType searchParamType = EnumUtility.ParseLiteral<SearchParamType>(searchParameter.Type)
+                .GetValueOrDefault();
+
+            var sp = new SearchParameterInfo(
+                searchParameter.Name,
+                searchParamType,
+                new Uri(searchParameter.Url),
+                expression: searchParameter.Expression,
+                description: searchParameter.Description,
+                components: components,
+                targetResourceTypes: searchParameter.Target,
+                baseResourceTypes: searchParameter.Base);
+
+            return sp;
+        }
+
+        private IEnumerable<SearchParameterInfo> BuildSearchParameterDefinition(
+            ILookup<string, SearchParameterInfo> searchParametersLookup,
+            string resourceType)
+        {
+            if (_resourceTypeDictionary.TryGetValue(resourceType, out IDictionary<string, SearchParameterInfo> cachedSearchParameters))
             {
                 return cachedSearchParameters.Values;
             }
 
-            IEnumerable<SearchParameter> results = Enumerable.Empty<SearchParameter>();
+            IEnumerable<SearchParameterInfo> results = Enumerable.Empty<SearchParameterInfo>();
 
-            Type type = resourceType.ToResourceModelType();
+            Type type = _modelInfoProvider.GetTypeForFhirType(resourceType);
 
-            Debug.Assert(type != null, "The type should not be null.");
+            Debug.Assert(type != null, $"The type for {resourceType} should not be null.");
 
-            string baseType = ModelInfo.GetFhirTypeNameForType(type.BaseType);
+            string baseType = _modelInfoProvider.GetFhirTypeNameForType(type.BaseType);
 
-            if (baseType != null && Enum.TryParse(baseType, out ResourceType baseResourceType))
+            if (baseType != null)
             {
-                results = BuildSearchParameterDefinition(searchParametersLookup, baseResourceType);
+                results = BuildSearchParameterDefinition(searchParametersLookup, baseType);
             }
 
             Debug.Assert(results != null, "The results should not be null.");
 
             results = results.Concat(searchParametersLookup[resourceType]);
 
-            Dictionary<string, SearchParameter> searchParameterDictionary = results.ToDictionary(
+            Dictionary<string, SearchParameterInfo> searchParameterDictionary = results.ToDictionary(
                 r => r.Name,
                 r => r,
                 StringComparer.Ordinal);
@@ -305,6 +368,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             _resourceTypeDictionary.Add(resourceType, searchParameterDictionary);
 
             return searchParameterDictionary.Values;
+        }
+
+        private static string GetComponentDefinition(ITypedElement component)
+        {
+            // In Stu3 the Url is under 'definition.reference'
+            return component.Scalar("definition.reference")?.ToString() ??
+                   component.Scalar("definition")?.ToString();
         }
     }
 }

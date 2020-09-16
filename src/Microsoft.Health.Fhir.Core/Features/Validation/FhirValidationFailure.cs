@@ -3,29 +3,24 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using EnsureThat;
 using FluentValidation.Results;
-using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation
 {
     public class FhirValidationFailure : ValidationFailure
     {
-        public FhirValidationFailure(string propertyName, string errorMessage, OperationOutcome.IssueComponent issueComponent)
+        public FhirValidationFailure(string propertyName, string errorMessage, OperationOutcomeIssue issueComponent)
             : base(propertyName, errorMessage)
         {
+            EnsureArg.IsNotNullOrEmpty(propertyName, nameof(propertyName));
+            EnsureArg.IsNotNullOrEmpty(errorMessage, nameof(errorMessage));
+            EnsureArg.IsNotNull(issueComponent, nameof(issueComponent));
+
             IssueComponent = issueComponent;
         }
 
-        public FhirValidationFailure(string propertyName, string errorMessage)
-            : base(propertyName, errorMessage)
-        {
-        }
-
-        public FhirValidationFailure(string propertyName, string errorMessage, object attemptedValue)
-            : base(propertyName, errorMessage, attemptedValue)
-        {
-        }
-
-        public OperationOutcome.IssueComponent IssueComponent { get; }
+        public OperationOutcomeIssue IssueComponent { get; }
     }
 }

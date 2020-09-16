@@ -4,49 +4,71 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using EnsureThat;
-using Hl7.Fhir.Model;
-using Hl7.Fhir.Rest;
-using Hl7.Fhir.Serialization;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
-    public static class ResourceDeserializer
+    public class ResourceDeserializer : IResourceDeserializer
     {
-        private static readonly FhirXmlParser FhirXmlParser = new FhirXmlParser();
-        private static readonly FhirJsonParser FhirJsonParser = new FhirJsonParser();
+        private readonly IReadOnlyDictionary<FhirResourceFormat, Func<string, string, DateTimeOffset, ResourceElement>> _deserializers;
 
-        public static Resource Deserialize(ResourceWrapper resourceWrapper)
+        public ResourceDeserializer(IReadOnlyDictionary<FhirResourceFormat, Func<string, string, DateTimeOffset, ResourceElement>> deserializers)
+        {
+            EnsureArg.IsNotNull(deserializers, nameof(deserializers));
+
+            _deserializers = deserializers;
+        }
+
+        public ResourceDeserializer(params (FhirResourceFormat Format, Func<string, string, DateTimeOffset, ResourceElement> Func)[] deserializers)
+        {
+            EnsureArg.IsNotNull(deserializers, nameof(deserializers));
+
+            _deserializers = deserializers.ToDictionary(x => x.Format, x => x.Func);
+        }
+
+        public ResourceElement Deserialize(ResourceWrapper resourceWrapper)
         {
             EnsureArg.IsNotNull(resourceWrapper, nameof(resourceWrapper));
 
-            Resource resource = DeserializeRaw(resourceWrapper.RawResource);
-
-            resource.VersionId = resourceWrapper.Version;
-            resource.Meta.LastUpdated = resourceWrapper.LastModified;
+            ResourceElement resource = DeserializeRaw(resourceWrapper.RawResource, resourceWrapper.Version, resourceWrapper.LastModified);
 
             return resource;
         }
 
-        internal static Resource DeserializeRaw(RawResource rawResource)
+        public ResourceElement Deserialize(RawResourceElement rawResourceElement)
+        {
+            EnsureArg.IsNotNull(rawResourceElement, nameof(rawResourceElement));
+
+            ResourceElement resource = DeserializeRawResourceElement(rawResourceElement);
+
+            return resource;
+        }
+
+        internal ResourceElement DeserializeRaw(RawResource rawResource, string version, DateTimeOffset lastModified)
         {
             EnsureArg.IsNotNull(rawResource, nameof(rawResource));
 
-            Resource resource;
-
-            switch (rawResource.Format)
+            if (!_deserializers.TryGetValue(rawResource.Format, out var deserializer))
             {
-                case ResourceFormat.Xml:
-                    resource = FhirXmlParser.Parse<Resource>(rawResource.Data);
-                    break;
-                case ResourceFormat.Json:
-                    resource = FhirJsonParser.Parse<Resource>(rawResource.Data);
-                    break;
-                default:
-                    throw new NotSupportedException();
+                throw new NotSupportedException();
             }
 
-            return resource;
+            return deserializer(rawResource.Data, version, lastModified);
+        }
+
+        internal ResourceElement DeserializeRawResourceElement(RawResourceElement rawResourceElement)
+        {
+            EnsureArg.IsNotNull(rawResourceElement, nameof(rawResourceElement));
+
+            if (!_deserializers.TryGetValue(rawResourceElement.Format, out var deserializer))
+            {
+                throw new NotSupportedException();
+            }
+
+            return deserializer(rawResourceElement.RawResource.Data, rawResourceElement.VersionId, rawResourceElement.LastUpdated.HasValue ? rawResourceElement.LastUpdated.Value : DateTimeOffset.MinValue);
         }
     }
 }

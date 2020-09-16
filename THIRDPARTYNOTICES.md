@@ -1,15 +1,15 @@
-# Third party notices
+﻿# Third party notices
 
 Do Not Translate or Localize
 
 This file is based on or incorporates material from the projects listed below (Third Party IP). The original copyright notice and the license under which Microsoft received such Third Party IP, are set forth below. Such licenses and notices are provided for informational purposes only. Microsoft licenses the Third Party IP to you under the licensing terms for the Microsoft product. Microsoft reserves all other rights not expressly granted under this agreement, whether by implication, estoppel or otherwise.
 
-## AngleSharp 0.9.10
+## AngleSharp 0.14.0
 * Component Source:   https://github.com/AngleSharp/AngleSharp/
 * Component Copyright and License:
   > The MIT License (MIT)
   > 
-  > Copyright (c) 2013 - 2018 AngleSharp
+  > Copyright (c) 2013 - 2019 AngleSharp
   > 
   > Permission is hereby granted, free of charge, to any person obtaining a copy
   > of this software and associated documentation files (the "Software"), to deal
@@ -29,7 +29,7 @@ This file is based on or incorporates material from the projects listed below (T
   > OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
   > SOFTWARE.
 
-## Ensure.That 8.0.0
+## Ensure.That 9.2.0
 * Component Source:   https://github.com/danielwertheim/Ensure.That/
 * Component Copyright and License:
   > The MIT License (MIT)
@@ -54,32 +54,7 @@ This file is based on or incorporates material from the projects listed below (T
   > OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
   > SOFTWARE.
 
-## EnterpriseLibrary.TransientFaultHandling.Core 1.2.0
-* Component Source:   https://github.com/Dixin/EnterpriseLibrary.TransientFaultHandling.Core/
-* Component Copyright and License:
-  > MIT License
-  > 
-  > Copyright (c) 2016 Dixin Yan
-  > 
-  > Permission is hereby granted, free of charge, to any person obtaining a copy
-  > of this software and associated documentation files (the "Software"), to deal
-  > in the Software without restriction, including without limitation the rights
-  > to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-  > copies of the Software, and to permit persons to whom the Software is
-  > furnished to do so, subject to the following conditions:
-  > 
-  > The above copyright notice and this permission notice shall be included in all
-  > copies or substantial portions of the Software.
-  > 
-  > THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-  > IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-  > FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-  > AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-  > LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-  > OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-  > SOFTWARE.
-
-## FluentValidation 8.0.100
+## FluentValidation 8.6.1
 * Component Source:   https://github.com/JeremySkinner/fluentvalidation/
 * Component Copyright and License:
   >                                  Apache License
@@ -259,10 +234,10 @@ This file is based on or incorporates material from the projects listed below (T
   > 
   >    END OF TERMS AND CONDITIONS
 
-## Hl7.Fhir.STU3 0.96.0
-* Component Source:   https://github.com/ewoutkramer/fhir-net-api/
+## Hl7.Fhir.STU3 1.9.0
+* Component Source:   https://github.com/FirelyTeam/fhir-net-api
 * Component Copyright and License:  
-  > Copyright (c) 2018, HL7, Firely (info@fire.ly), Microsoft Open Technologies
+  > Copyright (c) 2013-2019, HL7, Firely (info@fire.ly), Microsoft Open Technologies
   > and contributors. See the file CONTRIBUTORS for details
   > 
   > All rights reserved.
@@ -292,7 +267,73 @@ This file is based on or incorporates material from the projects listed below (T
   > (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
   > SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-## IdentityServer4 2.2.0
+## Hl7.Fhir.R4 1.9.0
+* Component Source:   https://github.com/FirelyTeam/fhir-net-api
+* Component Copyright and License:  
+  > Copyright (c) 2013-2019, HL7, Firely (info@fire.ly), Microsoft Open Technologies
+  > and contributors. See the file CONTRIBUTORS for details
+  > 
+  > All rights reserved.
+  > 
+  > Redistribution and use in source and binary forms, with or without modification,
+  > are permitted provided that the following conditions are met:
+  > 
+  > * Redistributions of source code must retain the above copyright notice, this
+  >   list of conditions and the following disclaimer.
+  > 
+  > * Redistributions in binary form must reproduce the above copyright notice, this
+  >   list of conditions and the following disclaimer in the documentation and/or
+  >   other materials provided with the distribution.
+  > 
+  > * Neither the name of Furore nor the names of its
+  >   contributors may be used to endorse or promote products derived from
+  >   this software without specific prior written permission.
+  > 
+  > THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+  > ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+  > WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+  > DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+  > ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+  > (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+  > LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+  > ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+  > (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+  > SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+## Hl7.Fhir.R5 1.7.0-alpha
+* Component Source:   https://github.com/FirelyTeam/fhir-net-api
+* Component Copyright and License:  
+  > Copyright (c) 2013-2020, HL7, Firely (info@fire.ly), Microsoft Open Technologies 
+  > and contributors. See the file CONTRIBUTORS for details
+  > 
+  > All rights reserved.
+  > 
+  > Redistribution and use in source and binary forms, with or without modification,
+  > are permitted provided that the following conditions are met:
+  > 
+  > * Redistributions of source code must retain the above copyright notice, this
+  >   list of conditions and the following disclaimer.
+  > 
+  > * Redistributions in binary form must reproduce the above copyright notice, this
+  >   list of conditions and the following disclaimer in the documentation and/or
+  >   other materials provided with the distribution.
+  > 
+  > * Neither the name of Firely nor the names of its
+  >   contributors may be used to endorse or promote products derived from
+  >   this software without specific prior written permission.
+  > 
+  > THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+  > ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+  > WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+  > DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+  > ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+  > (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+  > LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+  > ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+  > (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+  > SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+## IdentityServer4 2.5.3
 * Component Source:   https://github.com/IdentityServer/IdentityServer4
 * Component Copyright and License:
   >                                  Apache License
@@ -498,7 +539,7 @@ This file is based on or incorporates material from the projects listed below (T
   >    limitations under the License.
   > 
 
-## MediatR 5.1.0
+## MediatR 8.0.0
 * Component Source:   https://github.com/jbogard/MediatR
 * Component Copyright and License:
   > Apache License
@@ -703,7 +744,7 @@ This file is based on or incorporates material from the projects listed below (T
   >    See the License for the specific language governing permissions and
   >    limitations under the License.
   
-## NSubstitute 3.1.0
+## NSubstitute 4.2.2
 * Component Source:   https://github.com/nsubstitute/
 * Component Copyright and License:  
   > Copyright (c) 2009 Anthony Egerton (nsubstitute@delfish.com) and David Tchepak (dave@davesquared.net)
@@ -734,7 +775,111 @@ This file is based on or incorporates material from the projects listed below (T
   > 
   > [ http://www.opensource.org/licenses/bsd-license.php ]> 
 
-## StyleCop.Analyzers 1.1.0-beta008
+## Polly 7.2.1
+* Component Source:   https://github.com/App-vNext/Polly
+* Component Copyright and License:
+  > New BSD License
+  > =
+  > Copyright (c) 2015-2018, App vNext
+  > All rights reserved.
+  > 
+  > Redistribution and use in source and binary forms, with or without
+  > modification, are permitted provided that the following conditions are met:
+  >     * Redistributions of source code must retain the above copyright
+  >       notice, this list of conditions and the following disclaimer.
+  >     * Redistributions in binary form must reproduce the above copyright
+  >       notice, this list of conditions and the following disclaimer in the
+  >       documentation and/or other materials provided with the distribution.
+  >     * Neither the name of App vNext nor the
+  >       names of its contributors may be used to endorse or promote products
+  >       derived from this software without specific prior written permission.
+  > 
+  > THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+  > ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+  > WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+  > DISCLAIMED. IN NO EVENT SHALL <COPYRIGHT HOLDER> BE LIABLE FOR ANY
+  > DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+  > (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+  > LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+  > ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+  > (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+  > SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+## prometheus-net.AspNetCore 3.6.0
+* Component Source:   https://github.com/prometheus-net/prometheus-net
+* Component Copyright and License:
+  > The MIT License (MIT)
+  > 
+  > Copyright (c) 2015 andrasm
+  > 
+  > Permission is hereby granted, free of charge, to any person obtaining a copy
+  > of this software and associated documentation files (the "Software"), to deal
+  > in the Software without restriction, including without limitation the rights
+  > to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  > copies of the Software, and to permit persons to whom the Software is
+  > furnished to do so, subject to the following conditions:
+  > 
+  > The above copyright notice and this permission notice shall be included in all
+  > copies or substantial portions of the Software.
+  > 
+  > THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  > IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  > FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  > AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  > LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  > OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  > SOFTWARE.
+
+  
+## prometheus-net.DotnetRuntime 3.3.1
+* Component Source:   https://github.com/djluck/prometheus-net.DotNetRuntime
+* Component Copyright and License:
+  > The MIT License (MIT)
+  > 
+  > Copyright (c) [year] [fullname]
+  > 
+  > Permission is hereby granted, free of charge, to any person obtaining a copy
+  > of this software and associated documentation files (the "Software"), to deal
+  > in the Software without restriction, including without limitation the rights
+  > to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  > copies of the Software, and to permit persons to whom the Software is
+  > furnished to do so, subject to the following conditions:
+  > 
+  > The above copyright notice and this permission notice shall be included in all
+  > copies or substantial portions of the Software.
+  > 
+  > THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  > IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  > FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  > AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  > LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  > OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  > SOFTWARE.
+
+## prometheus-net.SystemMetrics 1.0.1
+* Component Source:   https://github.com/Daniel15/prometheus-net.SystemMetrics
+* Component Copyright and License:
+  > Copyright (C) 2020 Daniel Lo Nigro (Daniel15)
+  > 
+  > Permission is hereby granted, free of charge, to any person obtaining a copy
+  > of this software and associated documentation files (the "Software"), to deal
+  > in the Software without restriction, including without limitation the rights
+  > to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  > copies of the Software, and to permit persons to whom the Software is
+  > furnished to do so, subject to the following conditions:
+  > 
+  > The above copyright notice and this permission notice shall be included in all
+  > copies or substantial portions of the Software.
+  > 
+  > THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  > IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  > FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  > AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  > LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  > OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  > SOFTWARE.
+
+## StyleCop.Analyzers 1.1.118
 * Component Source:   https://github.com/DotNetAnalyzers/StyleCopAnalyzers/
 * Component Copyright and License:  
   >Copyright (c) Tunnel Vision Laboratories, LLC. All rights reserved.

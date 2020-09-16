@@ -7,15 +7,16 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using EnsureThat;
-using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Core;
+using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
-using static Hl7.Fhir.Model.SearchParameter;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 {
     internal class SearchValueExpressionBuilderHelper : ISearchValueVisitor
     {
-        private const double ApproximateDateTimeRangeMultiplier = .1;
+        private const decimal ApproximateMultiplier = .1M;
 
         private string _searchParameterName;
         private SearchModifierCode? _modifier;
@@ -66,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 ThrowModifierNotSupported();
             }
 
-            // Based on spec here: http://hl7.org/fhir/STU3/search.html#prefix
+            // Based on spec here: http://hl7.org/fhir/search.html#prefix
             switch (_comparator)
             {
                 case SearchComparator.Eq:
@@ -101,7 +102,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                     var startTicks = dateTime.Start.UtcTicks;
                     var endTicks = dateTime.End.UtcTicks;
 
-                    var differenceTicks = (long)((Clock.UtcNow.Ticks - Math.Max(startTicks, endTicks)) * ApproximateDateTimeRangeMultiplier);
+                    var differenceTicks = (long)((Clock.UtcNow.Ticks - Math.Max(startTicks, endTicks)) * ApproximateMultiplier);
 
                     var approximateStart = dateTime.Start.AddTicks(-differenceTicks);
                     var approximateEnd = dateTime.End.AddTicks(differenceTicks);
@@ -125,7 +126,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 ThrowModifierNotSupported();
             }
 
-            _outputExpression = GenerateNumberExpression(FieldName.Number, number.Number);
+            Debug.Assert(number.Low.HasValue && number.Low == number.High, "number low and high should be the same and not null");
+            _outputExpression = GenerateNumberExpression(FieldName.Number, number.Low.Value);
         }
 
         void ISearchValueVisitor.Visit(QuantitySearchValue quantity)
@@ -153,7 +155,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                     Expression.StringEquals(FieldName.QuantityCode, _componentIndex, quantity.Code, false));
             }
 
-            expressions.Add(GenerateNumberExpression(FieldName.Quantity, quantity.Quantity));
+            Debug.Assert(quantity.Low.HasValue && quantity.Low == quantity.High, "quantity low and high should be the same and not null");
+            expressions.Add(GenerateNumberExpression(FieldName.Quantity, quantity.Low.Value));
 
             if (expressions.Count == 1)
             {
@@ -181,7 +184,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 // The reference is external.
                 _outputExpression = Expression.And(
                     Expression.StringEquals(FieldName.ReferenceBaseUri, _componentIndex, reference.BaseUri.ToString(), false),
-                    Expression.StringEquals(FieldName.ReferenceResourceType, _componentIndex, reference.ResourceType.Value.ToString(), false),
+                    Expression.StringEquals(FieldName.ReferenceResourceType, _componentIndex, reference.ResourceType, false),
                     Expression.StringEquals(FieldName.ReferenceResourceId, _componentIndex, reference.ResourceId, false));
             }
             else if (reference.ResourceType == null)
@@ -194,14 +197,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 // The reference must be internal.
                 _outputExpression = Expression.And(
                     Expression.Missing(FieldName.ReferenceBaseUri, _componentIndex),
-                    Expression.StringEquals(FieldName.ReferenceResourceType, _componentIndex, reference.ResourceType.Value.ToString(), false),
+                    Expression.StringEquals(FieldName.ReferenceResourceType, _componentIndex, reference.ResourceType, false),
                     Expression.StringEquals(FieldName.ReferenceResourceId, _componentIndex, reference.ResourceId, false));
             }
             else
             {
                 // The reference can be internal or external.
                 _outputExpression = Expression.And(
-                    Expression.StringEquals(FieldName.ReferenceResourceType, _componentIndex, reference.ResourceType.Value.ToString(), false),
+                    Expression.StringEquals(FieldName.ReferenceResourceType, _componentIndex, reference.ResourceType, false),
                     Expression.StringEquals(FieldName.ReferenceResourceId, _componentIndex, reference.ResourceId, false));
             }
         }
@@ -253,8 +256,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 {
                     // If the system is empty, then the token is matched if there is no system property.
                     _outputExpression = Expression.And(
-                       Expression.Missing(FieldName.TokenSystem, _componentIndex),
-                       Expression.StringEquals(FieldName.TokenCode, _componentIndex, token.Code, false));
+                        Expression.Missing(FieldName.TokenSystem, _componentIndex),
+                        Expression.StringEquals(FieldName.TokenCode, _componentIndex, token.Code, false));
                 }
                 else if (string.IsNullOrWhiteSpace(token.Code))
                 {
@@ -269,9 +272,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 }
             }
             else if (_modifier == SearchModifierCode.Above ||
-                _modifier == SearchModifierCode.Below ||
-                _modifier == SearchModifierCode.In ||
-                _modifier == SearchModifierCode.NotIn)
+                     _modifier == SearchModifierCode.Below ||
+                     _modifier == SearchModifierCode.In ||
+                     _modifier == SearchModifierCode.NotIn)
             {
                 // These modifiers are not supported yet but will be supported eventually.
                 ThrowModifierNotSupported();
@@ -289,7 +292,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             switch (_modifier)
             {
                 case null:
-                    _outputExpression = Expression.Equals(FieldName.Uri, _componentIndex, uri.Uri);
+                    _outputExpression = Expression.StringEquals(FieldName.Uri, _componentIndex, uri.Uri, false);
                     break;
                 case SearchModifierCode.Above:
                     _outputExpression = Expression.And(
@@ -336,8 +339,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
             switch (_comparator)
             {
-                case SearchComparator.Eq:
                 case SearchComparator.Ap:
+                    var approximateModifier = Math.Abs(number * ApproximateMultiplier);
+                    lowerBound -= approximateModifier;
+                    upperBound += approximateModifier;
+                    goto case SearchComparator.Eq;
+                case SearchComparator.Eq:
                     return Expression.And(
                         Expression.GreaterThanOrEqual(fieldName, _componentIndex, lowerBound),
                         Expression.LessThanOrEqual(fieldName, _componentIndex, upperBound));
