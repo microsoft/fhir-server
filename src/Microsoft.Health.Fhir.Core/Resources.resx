@@ -380,6 +380,9 @@
   <data name="SearchParameterNotSupported" xml:space="preserve">
     <value>The search parameter '{0}' is not supported for resource type '{1}'.</value>
   </data>
+  <data name="MultiSortParameterNotSupported" xml:space="preserve">
+    <value>Multiple sort parameters are currently not supported. Only a single sort parameter is supported.</value>
+  </data>
   <data name="SearchSortParameterNotSupported" xml:space="preserve">
     <value>The search sort parameter '{0}' is not supported.</value>
     <comment>{0}: the unsupported sort parameter</comment>

@@ -72,6 +72,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return expression;
         }
 
+        public virtual Expression VisitSortParameter(SortExpression expression, TContext context)
+        {
+            return expression;
+        }
+
         protected IReadOnlyList<TExpression> VisitArray<TExpression>(IReadOnlyList<TExpression> inputArray, TContext context)
             where TExpression : Expression
         {
