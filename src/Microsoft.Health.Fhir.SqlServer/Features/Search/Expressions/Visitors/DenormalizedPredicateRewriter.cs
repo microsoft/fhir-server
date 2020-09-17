@@ -57,6 +57,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             if (containsDenormalizedExpressionNotOnSearchParameterTables)
             {
+                // There is a predicate over _id, which is on the Resource table but not on the search parameter tables.
+                // So the first table expression should be an "All" expression, where we restrict the resultset to resources with that ID.
                 newTableExpressions.Add(new TableExpression(null, null, TableExpression.And(expression.DenormalizedExpressions), TableExpressionKind.All));
             }
 
