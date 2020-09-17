@@ -24,7 +24,7 @@ using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
-namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reindex
+namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 {
     public class ReindexSingleResourceRequestHandlerTests
     {

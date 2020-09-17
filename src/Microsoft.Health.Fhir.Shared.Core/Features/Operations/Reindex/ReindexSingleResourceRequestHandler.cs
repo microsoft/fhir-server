@@ -82,8 +82,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 VersionId = "1",
                 Parameter = new List<Parameters.ParameterComponent>(),
             };
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = "originalResourceId", Value = new FhirString(request.ResourceId) });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = "originalResourceType", Value = new FhirString(request.ResourceType) });
 
             foreach (SearchIndexEntry searchIndex in newIndices)
             {
