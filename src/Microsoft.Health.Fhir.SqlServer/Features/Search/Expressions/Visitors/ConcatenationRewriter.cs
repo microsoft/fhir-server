@@ -43,23 +43,32 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 TableExpression tableExpression = expression.TableExpressions[i];
                 bool found = false;
 
-                // The expressions contained within a ChainExpression, IncludeExpression, SortExpression
-                // have been promoted to TableExpressions in this list and are not considered.
-                if (tableExpression.Kind != TableExpressionKind.Chain && tableExpression.Kind != TableExpressionKind.Include && tableExpression.Kind != TableExpressionKind.Sort)
+                switch (tableExpression.Kind)
                 {
-                    if (_rewritingScout != null)
-                    {
-                        var newNormalizedPredicate = tableExpression.NormalizedPredicate.AcceptVisitor(_rewritingScout, null);
-                        if (!ReferenceEquals(newNormalizedPredicate, tableExpression.NormalizedPredicate))
+                    case TableExpressionKind.Chain:
+                    case TableExpressionKind.Include:
+                    case TableExpressionKind.Sort:
+                    case TableExpressionKind.All:
+                        // The expressions contained within a ChainExpression, IncludeExpression, SortExpression, AllExpression
+                        // have been promoted to TableExpressions in this list and are not considered.
+                        break;
+
+                    default:
+                        if (_rewritingScout != null)
                         {
-                            found = true;
-                            tableExpression = new TableExpression(tableExpression.SearchParameterQueryGenerator, newNormalizedPredicate, tableExpression.DenormalizedPredicate, tableExpression.Kind, tableExpression.ChainLevel);
+                            var newNormalizedPredicate = tableExpression.NormalizedPredicate.AcceptVisitor(_rewritingScout, null);
+                            if (!ReferenceEquals(newNormalizedPredicate, tableExpression.NormalizedPredicate))
+                            {
+                                found = true;
+                                tableExpression = new TableExpression(tableExpression.SearchParameterQueryGenerator, newNormalizedPredicate, tableExpression.DenormalizedPredicate, tableExpression.Kind, tableExpression.ChainLevel);
+                            }
                         }
-                    }
-                    else
-                    {
-                        found = tableExpression.NormalizedPredicate.AcceptVisitor(_booleanScout, null);
-                    }
+                        else
+                        {
+                            found = tableExpression.NormalizedPredicate.AcceptVisitor(_booleanScout, null);
+                        }
+
+                        break;
                 }
 
                 if (found)
