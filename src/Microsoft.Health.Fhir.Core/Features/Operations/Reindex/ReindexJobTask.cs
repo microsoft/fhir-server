@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -41,7 +42,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             IOptions<ReindexJobConfiguration> reindexJobConfiguration,
             Func<IScoped<ISearchService>> searchServiceFactory,
             ISupportedSearchParameterDefinitionManager supportedSearchParameterDefinitionManager,
-            Func<IScoped<IFhirDataStore>> fhirDataStoreFactory,
             IReindexUtilities reindexUtilities,
             ILogger<ReindexJobTask> logger)
         {
@@ -49,7 +49,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             EnsureArg.IsNotNull(reindexJobConfiguration?.Value, nameof(reindexJobConfiguration));
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(supportedSearchParameterDefinitionManager, nameof(supportedSearchParameterDefinitionManager));
-            EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));
             EnsureArg.IsNotNull(reindexUtilities, nameof(reindexUtilities));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
@@ -129,6 +128,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     await ProcessQueryAsync(queryStatus, jobLock, cancellationToken);
                 }
 
+                var queryTasks = new ConcurrentBag<Task>();
+
                 // while not all queries are finished
                 while (_reindexJobRecord.QueryList.Where(q =>
                     q.Status == OperationStatus.Queued ||
@@ -140,7 +141,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         var query = _reindexJobRecord.QueryList.Where(q => q.Status == OperationStatus.Queued).OrderBy(q => q.LastModified).FirstOrDefault();
 
 #pragma warning disable CS4014 // Suppressed as we want to continue execution and begin processing the next query while this continues to run
-                        ProcessQueryAsync(query, jobLock, cancellationToken);
+                        queryTasks.Add(ProcessQueryAsync(query, jobLock, cancellationToken));
+                        _logger.LogInformation($"Reindex job task using {queryTasks.Count} threads");
 #pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
                     }
 
@@ -155,14 +157,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                             UpdateJobAsync(cancellationToken).Wait();
                         }
                     }
+
+                    await Task.Delay(_reindexJobConfiguration.QueryDelayIntervalInMilliseconds);
+
+                    if (queryTasks.Count >= reindexJobRecord.MaximumConcurrency)
+                    {
+                        var taskArray = queryTasks.ToArray();
+                        int taskIndex = Task.WaitAny(taskArray);
+                        queryTasks.TryTake(out taskArray[taskIndex]);
+                    }
                 }
 
-                await CheckJobCompletionStatus(cancellationToken);
+                Task.WaitAll(queryTasks.ToArray());
+
+                lock (jobLock)
+                {
+                    CheckJobCompletionStatus(cancellationToken).Wait();
+                }
             }
             catch (JobConflictException)
             {
                 // The reindex job was updated externally.
-                _logger.LogTrace("The job was updated by another process.");
+                _logger.LogInformation("The job was updated by another process.");
             }
             catch (Exception ex)
             {
@@ -191,13 +207,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             try
             {
+                SearchResult results;
+
                 lock (jobLock)
                 {
                     query.Status = OperationStatus.Running;
                     query.LastModified = DateTimeOffset.UtcNow;
 
                     // Query first batch of resources
-                    var results = ExecuteReindexQueryAsync(query, false, cancellationToken).Result;
+                    results = ExecuteReindexQueryAsync(query, false, cancellationToken).Result;
 
                     // if continuation token then update next query
                     if (!string.IsNullOrEmpty(results.ContinuationToken))
@@ -211,6 +229,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     UpdateJobAsync(cancellationToken).Wait();
                 }
 
+                _logger.LogInformation($"Reindex job current thread: {Thread.CurrentThread.ManagedThreadId}");
                 await _reindexUtilities.ProcessSearchResultsAsync(results, _reindexJobRecord.Hash, cancellationToken);
 
                 lock (jobLock)
@@ -224,9 +243,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 lock (jobLock)
                 {
                     query.Error = ex.Message;
-
                     query.FailureCount++;
-
                     _logger.LogError(ex, $"Encountered an unhandled exception. The query failure count increased to {_reindexJobRecord.FailureCount}.");
 
                     if (query.FailureCount >= _reindexJobConfiguration.ConsecutiveFailuresThreshold)
@@ -258,12 +275,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 if (_reindexJobRecord.QueryList.All(q => q.Status == OperationStatus.Completed))
                 {
                     await CompleteJobAsync(OperationStatus.Completed, cancellationToken);
-                    _logger.LogTrace("Successfully completed the job.");
+                    _logger.LogInformation($"Reindex job successfully completed, id {_reindexJobRecord.Id}.");
+
+                    // TODO: Send mediatr message to notify search parameter definition
+                    // manager that the search params have been successfully indexed
                 }
                 else
                 {
                     await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
-                    _logger.LogTrace("Reindex job did not complete successfully.");
+                    _logger.LogInformation($"Reindex job did not complete successfully, id: {_reindexJobRecord.Id}.");
                 }
             }
         }

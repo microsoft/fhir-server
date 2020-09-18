@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using EnsureThat;
 using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json;
@@ -17,8 +18,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
     /// </summary>
     public class ReindexJobRecord : JobRecord
     {
-        public ReindexJobRecord(string searchParametersHash, ushort maxiumumConcurrency, string scope)
+        public ReindexJobRecord(
+            string searchParametersHash,
+            ushort maxiumumConcurrency = 1,
+            string scope = null,
+            uint maxResourcesPerQuery = 100)
         {
+            EnsureArg.IsNotNull(searchParametersHash, nameof(searchParametersHash));
+
             // Default values
             SchemaVersion = 1;
             Id = Guid.NewGuid().ToString();
@@ -30,6 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
             Hash = searchParametersHash;
             MaximumConcurrency = maxiumumConcurrency;
             Scope = scope;
+            MaximumNumberOfResourcesPerQuery = maxResourcesPerQuery;
         }
 
         [JsonConstructor]
@@ -69,6 +77,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
 
         [JsonProperty(JobRecordProperties.SearchParams)]
         public List<string> SearchParams { get; private set; } = new List<string>();
+
+        [JsonProperty(JobRecordProperties.MaximumNumberOfResourcesPerQuery)]
+        public uint MaximumNumberOfResourcesPerQuery { get; private set; }
 
         [JsonIgnore]
         public int PercentComplete
