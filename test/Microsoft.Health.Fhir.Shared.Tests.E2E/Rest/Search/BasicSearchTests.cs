@@ -59,6 +59,40 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenResourceWithVariousValues_WhenSearchedWithCityParam_ThenOnlyResourcesMatchingAllSearchParamsShouldBeReturned()
+        {
+            var tag = Guid.NewGuid().ToString();
+
+            // Create various resources.
+            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
+                p => SetPatientInfo(p, "seattle", "Robinson"), // match
+                p => SetPatientInfo(p, "Portland", "Williamas"),
+                p => SetPatientInfo(p, "SEATTLE", "Skouras"), // match
+                p => SetPatientInfo(p, "Sea", "Luecke"),
+                p => SetPatientInfo(p, "Seattle", "Jones"), // match
+                p => SetPatientInfo(p, "New York", "Cook"),
+                p => SetPatientInfo(p, "Amsterdam", "Hill"));
+
+            await ExecuteAndValidateBundle("Patient?address-city=Seattle", patients[0], patients[2], patients[4]);
+
+            void SetPatientInfo(Patient patient, string city, string family)
+            {
+                patient.Meta = new Meta();
+                patient.Meta.Tag.Add(new Coding(null, tag));
+                patient.Address = new List<Address>()
+                {
+                    new Address() { City = city },
+                };
+
+                patient.Name = new List<HumanName>()
+                {
+                    new HumanName() { Family = family },
+                };
+            }
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
         public async Task GivenVariousTypesOfResources_WhenSearchedByResourceType_ThenOnlyResourcesMatchingTheResourceTypeShouldBeReturned()
         {
             // Create various resources.
