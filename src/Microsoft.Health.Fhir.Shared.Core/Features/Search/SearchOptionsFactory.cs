@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Text.RegularExpressions;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
@@ -25,7 +24,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 {
     public class SearchOptionsFactory : ISearchOptionsFactory
     {
-        private static readonly Regex Base64FormatRegex = new Regex("^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$", RegexOptions.Compiled | RegexOptions.Singleline);
         private static readonly string SupportedTotalTypes = $"'{TotalType.Accurate}', '{TotalType.None}'".ToLower(CultureInfo.CurrentCulture);
 
         private readonly IExpressionParser _expressionParser;
@@ -80,16 +78,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                             string.Format(Core.Resources.MultipleQueryParametersNotAllowed, KnownQueryParameterNames.ContinuationToken));
                     }
 
-                    // Checks if the continuation token is base 64 bit encoded. Needed for systems that have cached continuation tokens from before they were encoded.
-                    if (Base64FormatRegex.IsMatch(query.Item2))
-                    {
-                        continuationToken = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(query.Item2));
-                    }
-                    else
-                    {
-                        continuationToken = query.Item2;
-                    }
-
+                    continuationToken = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(query.Item2));
                     setDefaultBundleTotal = false;
                 }
                 else if (query.Item1 == KnownQueryParameterNames.Format)
