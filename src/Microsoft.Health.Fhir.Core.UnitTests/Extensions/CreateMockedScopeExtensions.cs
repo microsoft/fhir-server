@@ -3,15 +3,18 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Extensions.DependencyInjection;
+using NSubstitute;
 
-namespace Microsoft.Health.Fhir.Api.Features.Audit
+namespace Microsoft.Health.Fhir.Core.UnitTests.Extensions
 {
-    public class AuditException : FhirException
+    public static class CreateMockedScopeExtensions
     {
-        public AuditException(string controllerName, string actionName)
-            : base(string.Format(Resources.MissingAuditInformation, controllerName, actionName))
+        public static IScoped<T> CreateMockScope<T>(this T obj)
         {
+            var scope = Substitute.For<IScoped<T>>();
+            scope.Value.Returns(obj);
+            return scope;
         }
     }
 }

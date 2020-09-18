@@ -13,8 +13,8 @@ using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Health.Abstractions.Exceptions;
+using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
-using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -117,11 +117,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         operationOutcomeResult.StatusCode = HttpStatusCode.Forbidden;
                         break;
                     case UnsupportedConfigurationException _:
-                    case AuditException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.InternalServerError;
-                        break;
-                    case AuditHeaderException _:
-                        operationOutcomeResult.StatusCode = HttpStatusCode.RequestHeaderFieldsTooLarge;
                         break;
                     case OperationFailedException ofe:
                         operationOutcomeResult.StatusCode = ofe.ResponseStatusCode;
@@ -168,6 +164,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         break;
                     case TransactionFailedException transactionFailedException:
                         healthExceptionResult = CreateOperationOutcomeResult(transactionFailedException.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Processing, HttpStatusCode.InternalServerError);
+                        break;
+                    case AuditException _:
+                        healthExceptionResult = CreateOperationOutcomeResult(microsoftHealthException.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Invalid, HttpStatusCode.BadRequest);
+                        break;
+                    case AuditHeaderCountExceededException _:
+                    case AuditHeaderTooLargeException _:
+                        healthExceptionResult = CreateOperationOutcomeResult(microsoftHealthException.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Invalid, HttpStatusCode.RequestHeaderFieldsTooLarge);
                         break;
                     default:
                         healthExceptionResult = new OperationOutcomeResult(

@@ -3,15 +3,18 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Collections.Generic;
-using System.Threading.Tasks;
+using System;
 
-namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
+namespace Microsoft.Health.Fhir.Core.Models
 {
-    public interface ISearchParameterStatusDataStore
+    public interface IResourceElement
     {
-        Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses();
+        string Id { get; }
 
-        Task UpsertStatuses(IEnumerable<ResourceSearchParameterStatus> statuses);
+        string VersionId { get; }
+
+        string InstanceType { get; }
+
+        DateTimeOffset? LastUpdated { get; }
     }
 }
