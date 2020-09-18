@@ -63,6 +63,8 @@ database:
     # More at https://godoc.org/github.com/Azure/azure-sdk-for-go/services/preview/sql/mgmt/2015-05-01-preview/sql#DatabaseEdition
     edition: 5
     maxPoolSize: 100
+    schema:
+      automaticUpdatesEnabled: false
   cosmosDb:
     initialCollectionThroughput: "400"
     # databaseId: health

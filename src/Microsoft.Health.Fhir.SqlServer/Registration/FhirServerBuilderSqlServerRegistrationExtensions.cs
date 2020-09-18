@@ -7,16 +7,13 @@ using System;
 using System.Linq;
 using EnsureThat;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
-using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
 using Microsoft.Health.SqlServer.Api.Registration;
 using Microsoft.Health.SqlServer.Configs;
-using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Registration;
@@ -37,11 +34,6 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();
-
-            services.Add<SqlServerSearchParameterStatusDataStore>()
-                .Singleton()
-                .AsSelf()
-                .ReplaceService<ISearchParameterStatusDataStore>();
 
             services.Add<SqlServerFhirModel>()
                 .Singleton()
@@ -85,16 +77,21 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf();
 
-            services.AddFactory<IScoped<SqlConnectionWrapperFactory>>();
+            services.Add<SortRewriter>()
+                .Singleton()
+                .AsSelf();
 
             return fhirServerBuilder;
         }
 
         internal static void AddSqlServerTableRowParameterGenerators(this IServiceCollection serviceCollection)
         {
-            foreach (var type in typeof(SqlServerFhirDataStore).Assembly.GetTypes().Where(t => t.IsClass && !t.IsAbstract))
+            var types = typeof(SqlServerFhirDataStore).Assembly.GetTypes().Where(t => t.IsClass && !t.IsAbstract).ToArray();
+            foreach (var type in types)
             {
-                foreach (var interfaceType in type.GetInterfaces())
+                var interfaces = type.GetInterfaces().ToArray();
+
+                foreach (var interfaceType in interfaces)
                 {
                     if (interfaceType.IsGenericType && interfaceType.GetGenericTypeDefinition() == typeof(IStoredProcedureTableValuedParametersGenerator<,>))
                     {

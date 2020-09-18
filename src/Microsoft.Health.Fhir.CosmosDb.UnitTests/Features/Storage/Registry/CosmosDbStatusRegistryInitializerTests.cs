@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Health.Core;
@@ -17,23 +18,23 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Registry
 {
-    public class CosmosDbSearchParameterStatusInitializerTests
+    public class CosmosDbStatusRegistryInitializerTests
     {
-        private readonly CosmosDbSearchParameterStatusInitializer _initializer;
+        private readonly CosmosDbStatusRegistryInitializer _initializer;
         private readonly ICosmosQueryFactory _cosmosDocumentQueryFactory;
         private readonly Uri _testParameterUri;
 
-        public CosmosDbSearchParameterStatusInitializerTests()
+        public CosmosDbStatusRegistryInitializerTests()
         {
-            ISearchParameterStatusDataStore searchParameterStatusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
+            ISearchParameterRegistry searchParameterRegistry = Substitute.For<ISearchParameterRegistry>();
             _cosmosDocumentQueryFactory = Substitute.For<ICosmosQueryFactory>();
 
-            _initializer = new CosmosDbSearchParameterStatusInitializer(
-                () => searchParameterStatusDataStore,
+            _initializer = new CosmosDbStatusRegistryInitializer(
+                () => searchParameterRegistry,
                 _cosmosDocumentQueryFactory);
 
             _testParameterUri = new Uri("/test", UriKind.Relative);
-            searchParameterStatusDataStore
+            searchParameterRegistry
                 .GetSearchParameterStatuses()
                 .Returns(new[]
                 {

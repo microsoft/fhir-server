@@ -16,13 +16,13 @@ using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 {
-    public class FilebasedSearchParameterStatusDataStore : ISearchParameterStatusDataStore
+    public class FilebasedSearchParameterRegistry : ISearchParameterRegistry
     {
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly IModelInfoProvider _modelInfoProvider;
         private ResourceSearchParameterStatus[] _statusResults;
 
-        public FilebasedSearchParameterStatusDataStore(
+        public FilebasedSearchParameterRegistry(
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
             IModelInfoProvider modelInfoProvider)
         {
@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             _modelInfoProvider = modelInfoProvider;
         }
 
-        public delegate ISearchParameterStatusDataStore Resolver();
+        public delegate ISearchParameterRegistry Resolver();
 
         public Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses()
         {
@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             return Task.FromResult<IReadOnlyCollection<ResourceSearchParameterStatus>>(_statusResults);
         }
 
-        public Task UpsertStatuses(IEnumerable<ResourceSearchParameterStatus> statuses)
+        public Task UpdateStatuses(IEnumerable<ResourceSearchParameterStatus> statuses)
         {
             // File based registry does not persist runtime updates
             return Task.CompletedTask;
