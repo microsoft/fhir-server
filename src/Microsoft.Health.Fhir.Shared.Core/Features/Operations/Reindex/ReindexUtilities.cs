@@ -69,6 +69,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     entry.Resource.UpdateSearchIndices(newIndices);
                     updateSearchIndices.Add(entry.Resource);
                 }
+
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    return;
+                }
             }
 
             using (IScoped<IFhirDataStore> store = _fhirDataStoreFactory())

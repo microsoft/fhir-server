@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -128,7 +127,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     await ProcessQueryAsync(queryStatus, jobLock, cancellationToken);
                 }
 
-                var queryTasks = new ConcurrentBag<Task>();
+                var queryTasks = new List<Task<ReindexJobQueryStatus>>();
+                var queryCancellationTokens = new Dictionary<ReindexJobQueryStatus, CancellationTokenSource>();
 
                 // while not all queries are finished
                 while (_reindexJobRecord.QueryList.Where(q =>
@@ -139,9 +139,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     {
                         // grab the next query from the list which is labeled as queued and run it
                         var query = _reindexJobRecord.QueryList.Where(q => q.Status == OperationStatus.Queued).OrderBy(q => q.LastModified).FirstOrDefault();
+                        CancellationTokenSource queryTokensSource = new CancellationTokenSource();
+                        queryCancellationTokens.Add(query, queryTokensSource);
 
 #pragma warning disable CS4014 // Suppressed as we want to continue execution and begin processing the next query while this continues to run
-                        queryTasks.Add(ProcessQueryAsync(query, jobLock, cancellationToken));
+                        queryTasks.Add(ProcessQueryAsync(query, jobLock, queryTokensSource.Token));
                         _logger.LogInformation($"Reindex job task using {queryTasks.Count} threads");
 #pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
                     }
@@ -153,6 +155,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     {
                         lock (jobLock)
                         {
+                            var tokenSource = queryCancellationTokens[staleQuery];
+                            tokenSource.Cancel(false);
                             staleQuery.Status = OperationStatus.Queued;
                             UpdateJobAsync(cancellationToken).Wait();
                         }
@@ -160,11 +164,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                     await Task.Delay(_reindexJobConfiguration.QueryDelayIntervalInMilliseconds);
 
+                    // Remove all finished tasks from the collections of tasks
+                    // and cancellationTokens
                     if (queryTasks.Count >= reindexJobRecord.MaximumConcurrency)
                     {
                         var taskArray = queryTasks.ToArray();
-                        int taskIndex = Task.WaitAny(taskArray);
-                        queryTasks.TryTake(out taskArray[taskIndex]);
+                        Task.WaitAny(taskArray);
+                        var finishedTasks = queryTasks.Where(t => t.IsCompleted);
+                        foreach (var finishedTask in finishedTasks)
+                        {
+                            queryTasks.Remove(finishedTask);
+                            queryCancellationTokens.Remove(finishedTask.Result);
+                        }
+                    }
+
+                    // if our received CancellationToken is cancelled we should
+                    // pass that cancellation request onto all the cancellationTokens
+                    // for the currently executing threads
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        foreach (var tokenSource in queryCancellationTokens.Values)
+                        {
+                            tokenSource.Cancel(false);
+                        }
                     }
                 }
 
@@ -203,7 +225,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
         }
 
-        private async Task ProcessQueryAsync(ReindexJobQueryStatus query, object jobLock, CancellationToken cancellationToken)
+        private async Task<ReindexJobQueryStatus> ProcessQueryAsync(ReindexJobQueryStatus query, object jobLock, CancellationToken cancellationToken)
         {
             try
             {
@@ -232,11 +254,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 _logger.LogInformation($"Reindex job current thread: {Thread.CurrentThread.ManagedThreadId}");
                 await _reindexUtilities.ProcessSearchResultsAsync(results, _reindexJobRecord.Hash, cancellationToken);
 
-                lock (jobLock)
+                if (!cancellationToken.IsCancellationRequested)
                 {
-                    query.Status = OperationStatus.Completed;
-                    UpdateJobAsync(cancellationToken).Wait();
+                    lock (jobLock)
+                    {
+                        query.Status = OperationStatus.Completed;
+                        UpdateJobAsync(cancellationToken).Wait();
+                    }
                 }
+
+                return query;
             }
             catch (Exception ex)
             {
@@ -257,6 +284,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                     UpdateJobAsync(cancellationToken).Wait();
                 }
+
+                return query;
             }
         }
 
