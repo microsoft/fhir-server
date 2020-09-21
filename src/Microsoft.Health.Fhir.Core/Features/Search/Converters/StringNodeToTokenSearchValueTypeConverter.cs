@@ -24,15 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
         {
             if (value.Value is string stringValue)
             {
-                // TODO: Correct way to convert?
-                yield return new TokenSearchValue(null, null, stringValue);
-
-                // var searchValue = TokenSearchValue.Parse(stringValue);
-                //
-                // if (searchValue != null)
-                // {
-                //     yield return searchValue;
-                // }
+                yield return new TokenSearchValue(null, stringValue, null);
             }
         }
     }

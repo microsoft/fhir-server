@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
             Test(
                 s => s.Value = value,
                 ValidateToken,
-                new Token(text: value));
+                new Token(code: value));
         }
     }
 }
