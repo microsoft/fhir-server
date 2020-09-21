@@ -4,7 +4,7 @@ The SQL Server schema migration tool is the command line utility to perform SQL 
 Note - The tool can't downgrade a schema version.
 
 - #### Prerequisites
-    The tool would only run when the current schema is in conformance to the [BaseSchema](BaseSchema.md). So either the BaseSchema should already be present or if not, then Schema admin would need to run BaseSchema script manually.
+    The FHIR Server for Azure has the minimum supported schema version greater than or equals to 4.
 
 - #### How to install the tool
 
