@@ -43,6 +43,10 @@ AS
     END
 GO
 
+/*************************************************************
+    Stored procedures for creating and deleting
+**************************************************************/
+
 --
 -- STORED PROCEDURE
 --     UpsertResource
