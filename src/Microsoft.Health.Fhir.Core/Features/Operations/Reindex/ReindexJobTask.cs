@@ -155,8 +155,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     {
                         lock (jobLock)
                         {
-                            var tokenSource = queryCancellationTokens[staleQuery];
-                            tokenSource.Cancel(false);
+                            // if this query has a created task, cancel it
+                            if (queryCancellationTokens.TryGetValue(staleQuery, out var tokenSource))
+                            {
+                                tokenSource.Cancel(false);
+                            }
+
                             staleQuery.Status = OperationStatus.Queued;
                             UpdateJobAsync(cancellationToken).Wait();
                         }
@@ -170,7 +174,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     {
                         var taskArray = queryTasks.ToArray();
                         Task.WaitAny(taskArray);
-                        var finishedTasks = queryTasks.Where(t => t.IsCompleted);
+                        var finishedTasks = queryTasks.Where(t => t.IsCompleted).ToArray();
                         foreach (var finishedTask in finishedTasks)
                         {
                             queryTasks.Remove(finishedTask);
