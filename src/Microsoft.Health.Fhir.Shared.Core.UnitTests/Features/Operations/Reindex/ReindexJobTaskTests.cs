@@ -19,7 +19,6 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Search;
-using Microsoft.Health.Fhir.Tests.Common;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Xunit;
@@ -41,8 +40,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
         private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
         private readonly CancellationToken _cancellationToken;
-
-        private InMemoryLogger<ReindexJobTask> _inMemoryLogger = new InMemoryLogger<ReindexJobTask>();
 
         public ReindexJobTaskTests()
         {
@@ -229,14 +226,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             job.QueryList.Add(new ReindexJobQueryStatus("token") { Status = OperationStatus.Running });
 
-            _reindexJobTask = new ReindexJobTask(
-                () => _fhirOperationDataStore.CreateMockScope(),
-                Options.Create(_reindexJobConfiguration),
-                () => _searchService.CreateMockScope(),
-                SearchParameterFixtureData.SupportedSearchDefinitionManager,
-                _reindexUtilities,
-                _inMemoryLogger);
-
             // setup search results
             _searchService.SearchForReindexAsync(
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
@@ -268,14 +257,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var job = new ReindexJobRecord("hash", maxiumumConcurrency: 1, scope: null, 3);
 
             job.QueryList.Add(new ReindexJobQueryStatus("token") { Status = OperationStatus.Running });
-
-            _reindexJobTask = new ReindexJobTask(
-                () => _fhirOperationDataStore.CreateMockScope(),
-                Options.Create(_reindexJobConfiguration),
-                () => _searchService.CreateMockScope(),
-                SearchParameterFixtureData.SupportedSearchDefinitionManager,
-                _reindexUtilities,
-                _inMemoryLogger);
 
             // setup search results
             _searchService.SearchForReindexAsync(
