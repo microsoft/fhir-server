@@ -19,7 +19,6 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Search;
-using Microsoft.Health.Fhir.Tests.Common;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Xunit;
@@ -41,8 +40,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
         private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
         private readonly CancellationToken _cancellationToken;
-
-        private InMemoryLogger<ReindexJobTask> _inMemoryLogger = new InMemoryLogger<ReindexJobTask>();
 
         public ReindexJobTaskTests()
         {
