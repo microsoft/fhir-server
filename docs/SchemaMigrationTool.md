@@ -4,7 +4,20 @@ The SQL Server schema migration tool is the command line utility to perform SQL 
 Note - The tool can't downgrade a schema version.
 
 - #### Prerequisites
-    The FHIR Server for Azure has the minimum supported schema version greater than or equals to 4.
+    The FHIR Server for Azure has the 
+    - minimum supported schema version >= 4 and 
+    - the current schema version is null or >= 3.
+
+    Note: If the FHIR Server for Azure is running on current schema version < 3(i.e. 1 or 2), manual intervention is required to upgrade the current schema version to 3.
+
+    #### Manual steps to upgrade current schema version(1 or 2) to 3 using any SQL Editor
+    - If current schema version is 1, then
+        1. Execute the content of 2.diff.sql.
+        2. After step 1 is success, execute the query 'INSERT INTO dbo.SchemaVersion VALUES (2, 'completed')'
+        3. Execute the content of 3.diff.sql.
+        4. After step 3 is success, execute the query 'INSERT INTO dbo.SchemaVersion VALUES (3, 'completed')'
+
+    - If current schema version is 2, then run the above mentioned steps 3 and 4.
 
 - #### How to install the tool
 
