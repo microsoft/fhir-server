@@ -16,7 +16,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="3.1.6" />
-    <PackageReference Include="Microsoft.Health.Test.Utilities" Version="1.0.0-master-20200909-1" />
+    <PackageReference Include="Microsoft.Health.Test.Utilities" Version="1.0.0-master-20200922-1" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.7.0" />
     <PackageReference Include="selenium.chrome.webdriver" Version="83.0.0" />
     <PackageReference Include="selenium.webdriver" Version="3.141.0" />
