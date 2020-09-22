@@ -38,7 +38,7 @@ https://test-fhir-server/$export
 
 ## What is supported
 
-System-wide, Patient compartment, and Group exports are supported. Checking the export status through the URL returned by the location header during the queuing is also supported. Cancelling the actual export job is supported.
+System-wide, Patient compartment, and Group exports are supported. Checking the export status through the URL returned by the location header during the queuing is also supported. Cancelling the actual export job is supported. Note that you will get duplicate resources exported if the resource is in a compartment of more than one resource, or is in multiple groups.
 
 In addition to the features mentioned in the FHIR export specification the query parameter ```_container``` can be used to specify a specific container in the blob storage to export to.
 If a container is specified, the data will be exported to that container in a new folder with the name <timestamp>-<id>
