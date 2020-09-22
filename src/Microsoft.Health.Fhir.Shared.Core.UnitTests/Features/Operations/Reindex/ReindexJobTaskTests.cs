@@ -19,6 +19,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Search;
+using Microsoft.Health.Fhir.Tests.Common;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Xunit;
@@ -40,6 +41,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
         private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
         private readonly CancellationToken _cancellationToken;
+
+        private InMemoryLogger<ReindexJobTask> _inMemoryLogger = new InMemoryLogger<ReindexJobTask>();
 
         public ReindexJobTaskTests()
         {
@@ -196,35 +199,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             Assert.Equal("appointment", job.SearchParamList);
             Assert.Collection<ReindexJobQueryStatus>(
                 job.QueryList,
-                item => Assert.True(item.ContinuationToken == "token" && item.Status == OperationStatus.Completed),
-                item2 => Assert.True(item2.ContinuationToken == null && item2.Status == OperationStatus.Completed));
-
-            param.IsSearchable = true;
-        }
-
-        [Fact]
-        public async Task GivenNoSupportedParams_WhenExecuted_ThenJobCanceled()
-        {
-            var job = new ReindexJobRecord("hash", 1, null);
-
-            await _reindexJobTask.ExecuteAsync(job, _weakETag, _cancellationToken);
-
-            Assert.Equal(OperationStatus.Canceled, job.Status);
-            await _searchService.DidNotReceiveWithAnyArgs().SearchForReindexAsync(default, default, default, default);
-        }
-
-        [Fact]
-        public async Task GivenQueryInRunningState_WhenExecuted_ThenQueryResetToQueuedOnceStale()
-        {
-            // Add one parameter that needs to be indexed
-            var param = SearchParameterFixtureData.SearchDefinitionManager.AllSearchParameters.Where(p => p.Name == "appointment").FirstOrDefault();
-            param.IsSearchable = false;
-
-            _reindexJobConfiguration.JobHeartbeatTimeoutThreshold = new TimeSpan(0, 0, 0, 1, 0);
-
-            var job = new ReindexJobRecord("hash", maxiumumConcurrency: 1, scope: null, 3);
-
-            job.QueryList.Add(new ReindexJobQueryStatus("token") { Status = OperationStatus.Running });
+                item => Assert.True(item.ContinuationToken == null && item.Status == OperationStatus.Completed),
+                item2 => Assert.True(item2.ContinuationToken == "token" && item2.Status == OperationStatus.Queued));
 
             // setup search results
             _searchService.SearchForReindexAsync(
