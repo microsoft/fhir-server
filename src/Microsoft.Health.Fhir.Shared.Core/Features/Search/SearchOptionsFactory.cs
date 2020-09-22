@@ -78,7 +78,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                             string.Format(Core.Resources.MultipleQueryParametersNotAllowed, KnownQueryParameterNames.ContinuationToken));
                     }
 
-                    continuationToken = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(query.Item2));
+                    try
+                    {
+                        continuationToken = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(query.Item2));
+                    }
+                    catch (FormatException)
+                    {
+                        throw new BadRequestException(Core.Resources.InvalidContinuationToken);
+                    }
+
                     setDefaultBundleTotal = false;
                 }
                 else if (query.Item1 == KnownQueryParameterNames.Format)
