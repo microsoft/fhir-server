@@ -13,13 +13,13 @@ Note - The tool can't downgrade a schema version.
     #### Manual steps to upgrade current schema version(1 or 2) to 3 using any SQL Editor
     1. If the current schema version is 1, then
         1. Execute the content of 2.diff.sql.
-        2. After the previous step is success, execute the query 'INSERT INTO dbo.SchemaVersion VALUES (2, 'completed')'
+        2. After the previous step has run successfully, execute the query 'INSERT INTO dbo.SchemaVersion VALUES (2, 'completed')'
         3. Execute the content of 3.diff.sql.
-        4. After the previous step is success, execute the query 'INSERT INTO dbo.SchemaVersion VALUES (3, 'completed')'
+        4. After the previous step has run successfully, execute the query 'INSERT INTO dbo.SchemaVersion VALUES (3, 'completed')'
 
     2. If the current schema version is 2, then
         1. Execute the content of 3.diff.sql.
-        2. After the previous step is success, execute the query 'INSERT INTO dbo.SchemaVersion VALUES (3, 'completed')'
+        2. After the previous step has run successfully, execute the query 'INSERT INTO dbo.SchemaVersion VALUES (3, 'completed')'
 
 - #### How to install the tool
 
