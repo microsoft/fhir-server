@@ -460,7 +460,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         {
             // Update the continuation token in local cache and queryParams.
             // We will add or udpate the continuation token in the query parameters list.
-            progress.UpdateContinuationToken(continuationToken);
+            progress.UpdateContinuationToken(Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(continuationToken)));
 
             bool replacedContinuationToken = false;
             for (int index = 0; index < queryParametersList.Count; index++)
