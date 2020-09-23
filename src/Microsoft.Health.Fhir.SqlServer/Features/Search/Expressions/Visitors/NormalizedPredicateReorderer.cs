@@ -26,6 +26,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             List<TableExpression> reorderedExpressions = expression.TableExpressions.OrderByDescending(t =>
             {
+                if (t.NormalizedPredicate is MissingSearchParameterExpression)
+                {
+                    return -10;
+                }
+
                 switch (t.SearchParameterQueryGenerator)
                 {
                     case ReferenceSearchParameterQueryGenerator _:
