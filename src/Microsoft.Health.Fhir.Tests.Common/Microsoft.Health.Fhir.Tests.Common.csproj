@@ -1,5 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-  
+﻿<Project Sdk="Microsoft.NET.Sdk">  
   <PropertyGroup>
     <TargetFramework>netcoreapp3.1</TargetFramework>
     <IsPackable>true</IsPackable>
@@ -7,8 +6,7 @@
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb</AllowedOutputExtensionsInPackageBuildOutputFolder>
-  </PropertyGroup>
-  
+  </PropertyGroup>  
   <ItemGroup>
     <None Remove="DefinitionFiles\R5\SearchParameters.json" />
     <None Remove="DefinitionFiles\R5\SearchParametersWithInvalidBase.json" />
@@ -322,17 +320,14 @@
     <EmbeddedResource Include="TestFiles\Stu3\Weight.json" />
     <EmbeddedResource Include="TestFiles\Stu3\WeightInGrams.json" />
     <EmbeddedResource Include="TestFiles\Stu3\WeightInPounds.json" />
-  </ItemGroup>
-  
+  </ItemGroup>  
   <ItemGroup>
     <PackageReference Include="Microsoft.Health.Abstractions" Version="1.0.0-master-20200910-2" />
     <PackageReference Include="NSubstitute" Version="4.2.2" />
     <PackageReference Include="xunit" Version="2.4.1" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.4.2" />
-  </ItemGroup>
-  
+  </ItemGroup>  
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
-  </ItemGroup>
-  
+  </ItemGroup>  
 </Project>

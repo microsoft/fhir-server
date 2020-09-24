@@ -9,7 +9,6 @@ using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Controllers;
 using Microsoft.Health.Fhir.Api.Features.Audit;
-using AuditHeaderReader = Microsoft.Health.Api.Features.Audit.AuditHeaderReader;
 
 namespace Microsoft.Health.Fhir.Api.Modules
 {

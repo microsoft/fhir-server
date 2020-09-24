@@ -1,13 +1,11 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-  
+﻿<Project Sdk="Microsoft.NET.Sdk">  
   <PropertyGroup>
     <TargetFramework>netcoreapp3.1</TargetFramework>
     <IsPackable>true</IsPackable>
     <RootNamespace>Microsoft.Health.Fhir.Tests.E2E</RootNamespace>
     <IncludeContentInPack>false</IncludeContentInPack>
     <DefineConstants>R4</DefineConstants>
-  </PropertyGroup>
-  
+  </PropertyGroup>  
   <ItemGroup>
     <None Include="..\..\testauthenvironment.json" Link="testauthenvironment.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -15,12 +13,10 @@
     <None Include="..\configuration\*.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-  </ItemGroup>
-  
+  </ItemGroup> 
   <ItemGroup>
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Tests.E2E\Rest\AnonymizedExportTests.cs" Link="Rest\AnonymizedExportTests.cs" />
   </ItemGroup>
-
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="3.1.8" />
     <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection" Version="1.0.0-master-20200910-2" />
@@ -32,8 +28,7 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="2.4.2" />
     <PackageReference Include="System.IO.FileSystem.AccessControl" Version="4.7.0" />
     <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="4.7.0" />
-  </ItemGroup>
-  
+  </ItemGroup> 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Microsoft.Health.Extensions.Xunit\Microsoft.Health.Extensions.Xunit.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
@@ -45,19 +40,16 @@
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Tests.Common\Microsoft.Health.Fhir.Tests.Common.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.R4.Web\Microsoft.Health.Fhir.R4.Web.csproj" />
     <ProjectReference Include="..\..\samples\apps\SmartLauncher\SmartLauncher.csproj" />
-  </ItemGroup>
-  
+  </ItemGroup>  
   <ItemGroup>
     <None Update="xunit.runner.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-  </ItemGroup>
-  
+  </ItemGroup>  
   <Import Project="..\Microsoft.Health.Fhir.Shared.Tests.E2E\Microsoft.Health.Fhir.Shared.Tests.E2E.projitems" Label="Shared" />
   <Import Project="..\..\src\Microsoft.Health.Fhir.Shared.Tests\Microsoft.Health.Fhir.Shared.Tests.projitems" Label="Shared" />
   <Import Project="..\Microsoft.Health.Fhir.Shared.Tests.E2E.Common\Microsoft.Health.Fhir.Shared.Tests.E2E.Common.projitems" Label="Shared" />
-  <Import Project="..\Microsoft.Health.Fhir.Shared.Tests.Crucible\Microsoft.Health.Fhir.Shared.Tests.Crucible.projitems" Label="Shared" />
-  
+  <Import Project="..\Microsoft.Health.Fhir.Shared.Tests.Crucible\Microsoft.Health.Fhir.Shared.Tests.Crucible.projitems" Label="Shared" />  
   <Target Name="VerifyExactSdkVersion" BeforeTargets="Build">
     
     <!--
@@ -66,17 +58,14 @@
       We want to avoid that behavior because new SDK versions by default target the runtime version it is released with,
       so the runtime behavior could be different depending on what SDK versions were installed on the machine that compiled
       the code.
-    -->
-    
+    -->    
     <PropertyGroup>
       <GlobalJsonPath>$([MSBuild]::GetPathOfFileAbove(global.json))</GlobalJsonPath>
       <GlobalJsonContent>$([System.IO.File]::ReadAllText($(GlobalJsonPath)))</GlobalJsonContent>
       <ParsedSdkVersion><![CDATA[$([System.Text.RegularExpressions.Regex]::Match($(GlobalJsonContent), '"version"\s*:\s*"(\d+.\d+.\d+)"').Groups[1].Value)]]></ParsedSdkVersion>
-    </PropertyGroup>
-    
+    </PropertyGroup>    
     <Error Condition="$(NETCoreSdkVersion) != $(ParsedSdkVersion)" Text="The .NET SDK version required by $(GlobalJsonPath) is $(ParsedSdkVersion) but that version does not seem to be installed. In order to ensure consistent behavior, please install version $(ParsedSdkVersion) of the .NET SDK from https://dotnet.microsoft.com/download." />
-  </Target>
-  
+  </Target>  
   <Target Name="AddRuntimeConfigFileToBuiltProjectOutputGroupOutput" Condition=" '$(GenerateRuntimeConfigurationFiles)' == 'true'" BeforeTargets="BuiltProjectOutputGroup">
     <ItemGroup>
       <BuiltProjectOutputGroupOutput Include="$(ProjectRuntimeConfigFilePath)" FinalOutputPath="$(ProjectRuntimeConfigFilePath)" />

@@ -1,13 +1,10 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-  
+﻿<Project Sdk="Microsoft.NET.Sdk">  
   <PropertyGroup>
     <TargetFramework>netcoreapp3.1</TargetFramework>
-  </PropertyGroup>
-  
+  </PropertyGroup> 
   <ItemGroup>
     <None Remove="Features\Security\roles.schema.json" />
-  </ItemGroup>
-  
+  </ItemGroup>  
   <ItemGroup>
     <EmbeddedResource Include="Data\R4\BaseCapabilities.json" />
     <EmbeddedResource Include="Data\R4\compartment.json" />
@@ -25,8 +22,7 @@
     <EmbeddedResource Include="Data\Stu3\unsupported-search-parameters.json" />
     <EmbeddedResource Include="Data\Stu3\resourcepath-codesystem-mappings.json" />
     <EmbeddedResource Include="Features\Security\roles.schema.json" />
-  </ItemGroup>
-  
+  </ItemGroup>  
   <ItemGroup>
     <PackageReference Include="AngleSharp" Version="0.14.0" />
     <PackageReference Include="Ensure.That" Version="9.2.0" />
@@ -46,25 +42,21 @@
     <PackageReference Include="Polly" Version="7.2.1" />
     <PackageReference Include="System.Collections.Immutable" Version="1.7.1" />
     <PackageReference Include="System.Net.Http" Version="4.3.4" />
-  </ItemGroup>
-  
+  </ItemGroup>  
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.ValueSets\Microsoft.Health.Fhir.ValueSets.csproj" />
-  </ItemGroup>
-  
+  </ItemGroup>  
   <ItemGroup>
     <Compile Update="Resources.Designer.cs">
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
-  </ItemGroup>
-  
+  </ItemGroup>  
   <ItemGroup>
     <EmbeddedResource Update="Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
-  </ItemGroup>
-  
+  </ItemGroup>  
 </Project>
