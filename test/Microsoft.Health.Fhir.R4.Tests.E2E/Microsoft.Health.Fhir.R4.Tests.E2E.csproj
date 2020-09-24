@@ -3,6 +3,7 @@
     <TargetFramework>netcoreapp3.1</TargetFramework>
     <IsPackable>true</IsPackable>
     <RootNamespace>Microsoft.Health.Fhir.Tests.E2E</RootNamespace>
+    <IncludeContentInPack>false</IncludeContentInPack>
     <DefineConstants>R4</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
@@ -19,9 +20,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="3.1.6" />
-    <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection" Version="1.0.0-master-20200909-1" />
-    <PackageReference Include="Microsoft.Health.Test.Utilities" Version="1.0.0-master-20200909-1" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="3.1.7" />
+    <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection" Version="1.0.0-master-20200910-2" />
+    <PackageReference Include="Microsoft.Health.Test.Utilities" Version="1.0.0-master-20200910-2" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.7.0" />
     <PackageReference Include="selenium.chrome.webdriver" Version="83.0.0" />
     <PackageReference Include="selenium.webdriver" Version="3.141.0" />

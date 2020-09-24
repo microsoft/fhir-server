@@ -30,7 +30,7 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddSqlServerBase<SchemaVersion>(configureAction);
             services.AddSqlServerApi();
 
-            services.Add(provider => new SchemaInformation((int)SchemaVersion.V1, (int)SchemaVersion.V4))
+            services.Add(provider => new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max))
                 .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();
