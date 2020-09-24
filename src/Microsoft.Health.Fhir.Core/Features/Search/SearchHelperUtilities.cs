@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -16,22 +17,34 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     {
         /// <summary>
         /// Given a list of <see cref="ResourceSearchParameterStatus"/> calculates a hash using the
-        /// <see cref="ResourceSearchParameterStatus.Uri"/> and <see cref="ResourceSearchParameterStatus.LastUpdated"/>
-        /// values of each component. The same collection of search parameter status (irrespective of their order in the input)
-        /// will return the same hash.
+        /// <see cref="ResourceSearchParameterStatus.Uri"/> values of each component. The same collection
+        /// of search parameter status (irrespective of their order in the input) will return the same hash.
         /// </summary>
         /// <param name="resourceSearchParameterStatus">A list of <see cref="ResourceSearchParameterStatus" /></param>
-        /// <returns>A hash based on the search parameter uri and last updated value.</returns>
+        /// <returns>A hash based on the search parameter uri.</returns>
         public static string CalculateSearchParameterHash(IEnumerable<ResourceSearchParameterStatus> resourceSearchParameterStatus)
         {
             EnsureArg.IsNotNull(resourceSearchParameterStatus, nameof(resourceSearchParameterStatus));
             EnsureArg.IsGt(resourceSearchParameterStatus.Count(), 0, nameof(resourceSearchParameterStatus));
 
+            return CalculateSearchParameterHash(resourceSearchParameterStatus.Select(x => x.Uri));
+        }
+
+        /// <summary>
+        /// Calculates a hash given a list of <see cref="Uri" /> representing search parameters.
+        /// The same collection of uris (irrespective of their order in the input) will return the same hash.
+        /// </summary>
+        /// <param name="searchParameterUris">A list of <see cref="Uri" /></param>
+        /// <returns>A hash based on the search parameter uri.</returns>
+        public static string CalculateSearchParameterHash(IEnumerable<Uri> searchParameterUris)
+        {
+            EnsureArg.IsNotNull(searchParameterUris, nameof(searchParameterUris));
+            EnsureArg.IsGt(searchParameterUris.Count(), 0, nameof(searchParameterUris));
+
             StringBuilder sb = new StringBuilder();
-            foreach (ResourceSearchParameterStatus searchParameterStatus in resourceSearchParameterStatus.OrderBy(x => x.Uri.ToString()))
+            foreach (Uri uri in searchParameterUris.OrderBy(x => x.ToString()))
             {
-                sb.Append(searchParameterStatus.Uri.ToString());
-                sb.Append(searchParameterStatus.LastUpdated.ToString());
+                sb.Append(uri.ToString());
             }
 
             string hash = sb.ToString().ComputeHash();

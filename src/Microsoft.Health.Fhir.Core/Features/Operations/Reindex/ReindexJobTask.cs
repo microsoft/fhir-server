@@ -190,7 +190,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 // TODO: Release lock on job document so another thread may pick up the next query.
 
-                await _reindexUtilities.ProcessSearchResultsAsync(results, _reindexJobRecord.Hash, cancellationToken);
+                await _reindexUtilities.ProcessSearchResultsAsync(results, _reindexJobRecord.ResourceTypeSearchParameterHashMap, cancellationToken);
 
                 // TODO: reaquire document lock and update _etag
                 query.Status = OperationStatus.Completed;
@@ -261,7 +261,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 try
                 {
-                    return await searchService.Value.SearchForReindexAsync(queryParametersList, _reindexJobRecord.Hash, countOnly, cancellationToken);
+                    // TODO: Update SearchForReindexAsync to use the new search parameter hash correctly.
+                    return await searchService.Value.SearchForReindexAsync(queryParametersList, _reindexJobRecord.ResourceTypeSearchParameterHashMap, countOnly, cancellationToken);
                 }
                 catch (Exception ex)
                 {

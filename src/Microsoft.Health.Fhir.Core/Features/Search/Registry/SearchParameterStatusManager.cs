@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -43,12 +44,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         public async Task EnsureInitialized()
         {
             var updated = new List<SearchParameterInfo>();
+            var resourceParameterUriMap = new Dictionary<string, List<Uri>>();
 
             var parameters = (await _searchParameterRegistry.GetSearchParameterStatuses())
                 .ToDictionary(x => x.Uri);
 
             // Set states of known parameters
-            foreach (var p in _searchParameterDefinitionManager.AllSearchParameters)
+            foreach (SearchParameterInfo p in _searchParameterDefinitionManager.AllSearchParameters)
             {
                 if (parameters.TryGetValue(p.Url, out ResourceSearchParameterStatus result))
                 {
@@ -86,10 +88,45 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
                     updated.Add(p);
                 }
+
+                // We need to keep track of supported or partially supported parameters.
+                // These parameters will be used to calculate the search parameter hash below.
+                if (p.IsPartiallySupported || p.IsSupported)
+                {
+                    foreach (string resourceType in p.TargetResourceTypes)
+                    {
+                        if (resourceParameterUriMap.ContainsKey(resourceType))
+                        {
+                            resourceParameterUriMap[resourceType].Add(p.Url);
+                        }
+                        else
+                        {
+                            resourceParameterUriMap.Add(resourceType, new List<Uri>() { p.Url });
+                        }
+                    }
+
+                    foreach (string resourceType in p.BaseResourceTypes)
+                    {
+                        if (resourceParameterUriMap.ContainsKey(resourceType))
+                        {
+                            resourceParameterUriMap[resourceType].Add(p.Url);
+                        }
+                        else
+                        {
+                            resourceParameterUriMap.Add(resourceType, new List<Uri>() { p.Url });
+                        }
+                    }
+                }
             }
 
-            var searchParameterHashValue = SearchHelperUtilities.CalculateSearchParameterHash(parameters.Values);
-            await _mediator.Publish(new SearchParametersHashUpdated(searchParameterHashValue));
+            var resourceHashMap = new Dictionary<string, string>();
+            foreach (KeyValuePair<string, List<Uri>> kvp in resourceParameterUriMap)
+            {
+                string searchParamHash = SearchHelperUtilities.CalculateSearchParameterHash(kvp.Value);
+                resourceHashMap.Add(kvp.Key, searchParamHash);
+            }
+
+            await _mediator.Publish(new SearchParametersHashUpdated(resourceHashMap));
 
             await _mediator.Publish(new SearchParametersUpdated(updated));
         }

@@ -63,6 +63,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         {
             RawResource rawResource = _rawResourceFactory.Create(resource, keepMeta);
             IReadOnlyCollection<SearchIndexEntry> searchIndices = _searchIndexer.Extract(resource);
+            string searchParamHash = _searchParameterDefinitionManager.GetSearchParameterHashForResourceType(resource.InstanceType);
 
             IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
 
@@ -74,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 searchIndices,
                 _compartmentIndexer.Extract(resource.InstanceType, searchIndices),
                 _claimsExtractor.Extract(),
-                _searchParameterDefinitionManager.SearchParametersHash);
+                searchParamHash);
         }
     }
 }
