@@ -243,6 +243,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     jobSemaphore.Release();
                 }
             }
+            finally
+            {
+                jobSemaphore.Dispose();
+            }
         }
 
         private async Task<ReindexJobQueryStatus> ProcessQueryAsync(ReindexJobQueryStatus query, SemaphoreSlim jobSemaphore, CancellationToken cancellationToken)
