@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             _reindexJobRecord = reindexJobRecord;
             _weakETag = weakETag;
-            object jobLock = new object();
+            var jobSemaphore = new SemaphoreSlim(1, 1);
 
             try
             {
@@ -124,7 +124,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     _reindexJobRecord.Count = countOnlyResults.TotalCount.Value;
 
                     // Query first batch of resources
-                    await ProcessQueryAsync(queryStatus, jobLock, cancellationToken);
+                    await ProcessQueryAsync(queryStatus, jobSemaphore, cancellationToken);
                 }
 
                 var queryTasks = new List<Task<ReindexJobQueryStatus>>();
@@ -143,9 +143,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         queryCancellationTokens.Add(query, queryTokensSource);
 
 #pragma warning disable CS4014 // Suppressed as we want to continue execution and begin processing the next query while this continues to run
-                        queryTasks.Add(ProcessQueryAsync(query, jobLock, queryTokensSource.Token));
-                        _logger.LogInformation($"Reindex job task using {queryTasks.Count} threads");
+                        queryTasks.Add(ProcessQueryAsync(query, jobSemaphore, queryTokensSource.Token));
 #pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+
+                        _logger.LogInformation($"Reindex job task using {queryTasks.Count} threads");
                     }
 
                     // reset stale queries to pending
@@ -153,7 +154,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         q => q.Status == OperationStatus.Running && q.LastModified < DateTimeOffset.UtcNow - _reindexJobConfiguration.JobHeartbeatTimeoutThreshold);
                     foreach (var staleQuery in staleQueries)
                     {
-                        lock (jobLock)
+                        await jobSemaphore.WaitAsync();
+                        try
                         {
                             // if this query has a created task, cancel it
                             if (queryCancellationTokens.TryGetValue(staleQuery, out var tokenSource))
@@ -162,7 +164,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                             }
 
                             staleQuery.Status = OperationStatus.Queued;
-                            UpdateJobAsync(cancellationToken).Wait();
+                            await UpdateJobAsync(cancellationToken);
+                        }
+                        finally
+                        {
+                            jobSemaphore.Release();
                         }
                     }
 
@@ -196,9 +202,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 Task.WaitAll(queryTasks.ToArray());
 
-                lock (jobLock)
+                await jobSemaphore.WaitAsync();
+                try
                 {
-                    CheckJobCompletionStatus(cancellationToken).Wait();
+                    await CheckJobCompletionStatus(cancellationToken);
+                }
+                finally
+                {
+                    jobSemaphore.Release();
                 }
             }
             catch (JobConflictException)
@@ -208,7 +219,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
             catch (Exception ex)
             {
-                lock (jobLock)
+                await jobSemaphore.WaitAsync();
+                try
                 {
                     _reindexJobRecord.Error.Add(new OperationOutcomeIssue(
                         OperationOutcomeConstants.IssueSeverity.Error,
@@ -219,29 +231,34 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                     _logger.LogError(ex, $"Encountered an unhandled exception. The job failure count increased to {_reindexJobRecord.FailureCount}.");
 
-                    UpdateJobAsync(cancellationToken).Wait();
+                    await UpdateJobAsync(cancellationToken);
 
                     if (_reindexJobRecord.FailureCount >= _reindexJobConfiguration.ConsecutiveFailuresThreshold)
                     {
-                        CompleteJobAsync(OperationStatus.Failed, cancellationToken).Wait();
+                        await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
                     }
+                }
+                finally
+                {
+                    jobSemaphore.Release();
                 }
             }
         }
 
-        private async Task<ReindexJobQueryStatus> ProcessQueryAsync(ReindexJobQueryStatus query, object jobLock, CancellationToken cancellationToken)
+        private async Task<ReindexJobQueryStatus> ProcessQueryAsync(ReindexJobQueryStatus query, SemaphoreSlim jobSemaphore, CancellationToken cancellationToken)
         {
             try
             {
                 SearchResult results;
 
-                lock (jobLock)
+                await jobSemaphore.WaitAsync();
+                try
                 {
                     query.Status = OperationStatus.Running;
                     query.LastModified = DateTimeOffset.UtcNow;
 
                     // Query first batch of resources
-                    results = ExecuteReindexQueryAsync(query, false, cancellationToken).Result;
+                    results = await ExecuteReindexQueryAsync(query, false, cancellationToken);
 
                     // if continuation token then update next query
                     if (!string.IsNullOrEmpty(results.ContinuationToken))
@@ -252,7 +269,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         _reindexJobRecord.QueryList.Add(nextQuery);
                     }
 
-                    UpdateJobAsync(cancellationToken).Wait();
+                    await UpdateJobAsync(cancellationToken);
+                }
+                finally
+                {
+                    jobSemaphore.Release();
                 }
 
                 _logger.LogInformation($"Reindex job current thread: {Thread.CurrentThread.ManagedThreadId}");
@@ -260,10 +281,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 if (!cancellationToken.IsCancellationRequested)
                 {
-                    lock (jobLock)
+                    await jobSemaphore.WaitAsync();
+                    try
                     {
                         query.Status = OperationStatus.Completed;
-                        UpdateJobAsync(cancellationToken).Wait();
+                        await UpdateJobAsync(cancellationToken);
+                    }
+                    finally
+                    {
+                        jobSemaphore.Release();
                     }
                 }
 
@@ -271,7 +297,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
             catch (Exception ex)
             {
-                lock (jobLock)
+                await jobSemaphore.WaitAsync();
+                try
                 {
                     query.Error = ex.Message;
                     query.FailureCount++;
@@ -286,7 +313,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         query.Status = OperationStatus.Queued;
                     }
 
-                    UpdateJobAsync(cancellationToken).Wait();
+                    await UpdateJobAsync(cancellationToken);
+                }
+                finally
+                {
+                    jobSemaphore.Release();
                 }
 
                 return query;
@@ -343,7 +374,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error running reindex query.");
-                    queryStatus.FailureCount++;
                     queryStatus.Error = ex.Message;
 
                     throw;
