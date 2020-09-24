@@ -85,6 +85,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenResourcesWithMissingReference_WhenSearchedWithTheMissingModiferAndOtherParameter_ThenOnlyMatchingResourcesWithMissingOrPresentReferenceAreReturned()
+        {
+            Patient patientWithReference = (await Client.CreateResourcesAsync<Patient>(p =>
+            {
+                p.Gender = AdministrativeGender.Female;
+                p.ManagingOrganization = new ResourceReference("Organization/123");
+            })).Single();
+            Patient femalePatient = (await Client.CreateResourcesAsync<Patient>(p => p.Gender = AdministrativeGender.Female)).Single();
+            Patient unspecifiedPatient = (await Client.CreateResourcesAsync<Patient>(p => { })).Single();
+
+            await ExecuteAndValidateBundle("Patient?gender=female&organization:missing=true", femalePatient);
+            await ExecuteAndValidateBundle("Patient?gender=female&organization:missing=false", patientWithReference);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
         public async Task GivenVariousTypesOfResources_WhenSearchingAcrossAllResourceTypes_ThenOnlyResourcesMatchingTypeParameterShouldBeReturned()
         {
             // Create various resources.
