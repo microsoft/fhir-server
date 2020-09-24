@@ -56,11 +56,25 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         }
 
         [Fact]
-        public void GivenExpressionWithMulthMultipleTableExpressions_WhenReordered_MissingParameterExpressionReturnedLast()
+        public void GivenExpressionWithMulthMultipleTableExpressions_WhenReordered_MissingParameterExpressionReturnedBeforeInclude()
         {
             var tableExpressions = new List<TableExpression>
             {
+                new TableExpression(new IncludeQueryGenerator(), null, null, TableExpressionKind.Include),
                 new TableExpression(null, new MissingSearchParameterExpression(new SearchParameterInfo("TestParam"), true), null, TableExpressionKind.Normal),
+            };
+
+            var inputExpression = SqlRootExpression.WithTableExpressions(tableExpressions);
+            var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(NormalizedPredicateReorderer.Instance);
+            Assert.Collection(visitedExpression.TableExpressions, new[] { 1, 0 }.Select<int, Action<TableExpression>>(x => e => Assert.Equal(tableExpressions[x], e)).ToArray());
+        }
+
+        [Fact]
+        public void GivenExpressionWithMulthMultipleTableExpressions_WhenReordered_IncludeExpressionReturnedLast()
+        {
+            var tableExpressions = new List<TableExpression>
+            {
+                new TableExpression(new IncludeQueryGenerator(), null, null, TableExpressionKind.Include),
                 new TableExpression(null, null, null, TableExpressionKind.Normal),
             };
 

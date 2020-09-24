@@ -37,6 +37,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                         return 10;
                     case CompartmentSearchParameterQueryGenerator _:
                         return 10;
+                    case IncludeQueryGenerator _:
+                        return -20;
                     default:
                         return 0;
                 }
