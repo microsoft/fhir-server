@@ -28,6 +28,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly ISearchIndexer _searchIndexer;
         private readonly IResourceDeserializer _resourceDeserializer;
 
+        private const string HttpPostName = "POST";
+
         public ReindexSingleResourceRequestHandler(
             IFhirAuthorizationService authorizationService,
             IFhirDataStore fhirDataStore,
@@ -67,6 +69,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             ResourceElement resourceElement = _resourceDeserializer.Deserialize(storedResource);
             IReadOnlyCollection<SearchIndexEntry> newIndices = _searchIndexer.Extract(resourceElement);
 
+            // If it's a post request we need to go update the resource in the database.
+            if (request.HttpMethod == HttpPostName)
+            {
+                await ProcessPostReindexSingleResourceRequest(storedResource, newIndices);
+            }
+
             // Create a new parameter resource and include the new search indices and the corresponding values.
             var parametersResource = new Parameters
             {
@@ -74,8 +82,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 VersionId = "1",
                 Parameter = new List<Parameters.ParameterComponent>(),
             };
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = "originalResourceId", Value = new FhirString(request.ResourceId) });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = "originalResourceType", Value = new FhirString(request.ResourceType) });
 
             foreach (SearchIndexEntry searchIndex in newIndices)
             {
@@ -83,6 +89,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
 
             return new ReindexSingleResourceResponse(parametersResource.ToResourceElement());
+        }
+
+        private async System.Threading.Tasks.Task ProcessPostReindexSingleResourceRequest(ResourceWrapper originalResource, IReadOnlyCollection<SearchIndexEntry> searchIndices)
+        {
+            ResourceWrapper updatedResource = new ResourceWrapper(
+                originalResource.ResourceId,
+                originalResource.Version,
+                originalResource.ResourceTypeName,
+                originalResource.RawResource,
+                originalResource.Request,
+                originalResource.LastModified,
+                deleted: false,
+                searchIndices,
+                originalResource.CompartmentIndices,
+                originalResource.LastModifiedClaims);
+
+            await _fhirDataStore.UpdateSearchIndexForResourceAsync(updatedResource, WeakETag.FromVersionId(originalResource.Version), CancellationToken.None);
         }
     }
 }

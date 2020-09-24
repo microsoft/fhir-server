@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Threading;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
@@ -23,7 +24,7 @@ using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
-namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reindex
+namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 {
     public class ReindexSingleResourceRequestHandlerTests
     {
@@ -32,8 +33,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
         private readonly ISearchIndexer _searchIndexer;
         private readonly IResourceDeserializer _resourceDeserializer;
         private readonly ReindexSingleResourceRequestHandler _reindexHandler;
-
         private readonly CancellationToken _cancellationToken;
+
+        private const string HttpGetName = "GET";
+        private const string HttpPostName = "POST";
 
         public ReindexSingleResourceRequestHandlerTests()
         {
@@ -56,7 +59,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
         public async Task GivenUserDoesNotHavePermissionForReindex_WhenHandle_ThenUnauthorizedExceptionIsThrown()
         {
             _authorizationService.CheckAccess(Arg.Is(DataActions.Reindex)).Returns(DataActions.None);
-            var request = GetReindexRequest();
+            var request = GetReindexRequest(HttpGetName);
 
             await Assert.ThrowsAsync<UnauthorizedFhirActionException>(() => _reindexHandler.Handle(request, _cancellationToken));
         }
@@ -66,12 +69,14 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
         {
             _fhirDataStore.GetAsync(Arg.Any<ResourceKey>(), _cancellationToken).Returns(Task.FromResult<ResourceWrapper>(null));
 
-            var request = GetReindexRequest();
+            var request = GetReindexRequest(HttpGetName);
             await Assert.ThrowsAsync<ResourceNotFoundException>(() => _reindexHandler.Handle(request, _cancellationToken));
         }
 
-        [Fact]
-        public async Task GivenNewSearchIndices_WhenHandle_ThenTheirValuesArePresentInResponse()
+        [Theory]
+        [InlineData(HttpGetName)]
+        [InlineData(HttpPostName)]
+        public async Task GivenNewSearchIndicesGetRequest_WhenHandle_ThenTheirValuesArePresentInResponse(string httpMethodName)
         {
             SetupDataStoreToReturnDummyResourceWrapper();
 
@@ -82,7 +87,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
 
             _searchIndexer.Extract(Arg.Any<ResourceElement>()).Returns(searchIndices);
 
-            var request = GetReindexRequest();
+            var request = GetReindexRequest(httpMethodName);
 
             ReindexSingleResourceResponse response = await _reindexHandler.Handle(request, _cancellationToken);
             Assert.NotNull(response.ParameterResource);
@@ -107,10 +112,14 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
 
             Assert.True(newSearchParamPresent);
             Assert.True(newSearchParam2Present);
+
+            await ValidateUpdateCallBasedOnHttpMethodType(httpMethodName);
         }
 
-        [Fact]
-        public async Task GivenDuplicateNewSearchIndices_WhenHandle_ThenBothValuesArePresentInResponse()
+        [Theory]
+        [InlineData(HttpGetName)]
+        [InlineData(HttpPostName)]
+        public async Task GivenDuplicateNewSearchIndices_WhenHandle_ThenBothValuesArePresentInResponse(string httpMethodName)
         {
             SetupDataStoreToReturnDummyResourceWrapper();
 
@@ -121,7 +130,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
 
             _searchIndexer.Extract(Arg.Any<ResourceElement>()).Returns(searchIndices);
 
-            var request = GetReindexRequest();
+            var request = GetReindexRequest(httpMethodName);
 
             ReindexSingleResourceResponse response = await _reindexHandler.Handle(request, _cancellationToken);
             Assert.NotNull(response.ParameterResource);
@@ -151,6 +160,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             Assert.True(newSearchParamPresent);
             Assert.True(name1Present);
             Assert.True(name2Present);
+
+            await ValidateUpdateCallBasedOnHttpMethodType(httpMethodName);
         }
 
         private void SetupDataStoreToReturnDummyResourceWrapper()
@@ -160,9 +171,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             RawResource rawResource = new RawResource(new FhirJsonSerializer().SerializeToString(patientResource), FhirResourceFormat.Json, isMetaSet: false);
 
             ResourceWrapper dummyResourceWrapper = new ResourceWrapper(
-                patientResourceElement,
+                patientResourceElement.Id,
+                versionId: "1",
+                patientResourceElement.InstanceType,
                 rawResource,
                 request: null,
+                patientResourceElement.LastUpdated ?? Clock.UtcNow,
                 deleted: false,
                 searchIndices: null,
                 compartmentIndices: null,
@@ -171,12 +185,24 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Reinde
             _fhirDataStore.GetAsync(Arg.Any<ResourceKey>(), _cancellationToken).Returns(Task.FromResult(dummyResourceWrapper));
         }
 
-        private ReindexSingleResourceRequest GetReindexRequest(string resourceId = null, string resourceType = null)
+        private ReindexSingleResourceRequest GetReindexRequest(string httpMethod, string resourceId = null, string resourceType = null)
         {
             resourceId = resourceId ?? Guid.NewGuid().ToString();
             resourceType = resourceType ?? "Patient";
 
-            return new ReindexSingleResourceRequest(resourceType, resourceId);
+            return new ReindexSingleResourceRequest(httpMethod, resourceType, resourceId);
+        }
+
+        private async Task ValidateUpdateCallBasedOnHttpMethodType(string httpMethodName)
+        {
+            if (httpMethodName == HttpPostName)
+            {
+                await _fhirDataStore.Received().UpdateSearchIndexForResourceAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), _cancellationToken);
+            }
+            else if (httpMethodName == HttpGetName)
+            {
+                await _fhirDataStore.DidNotReceive().UpdateSearchIndexForResourceAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), _cancellationToken);
+            }
         }
     }
 }

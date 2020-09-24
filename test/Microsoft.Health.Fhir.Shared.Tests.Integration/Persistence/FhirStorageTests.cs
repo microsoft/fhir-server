@@ -645,25 +645,26 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             ResourceElement patientResource = Samples.GetJsonSample("Patient");
             SaveOutcome upsertResult = await Mediator.UpsertResourceAsync(patientResource);
 
-            (FhirCosmosResourceWrapper original, ResourceWrapper updated) = await CreateUpdatedWrapperFromExistingResource(upsertResult);
+            (ResourceWrapper original, ResourceWrapper updated) = await CreateUpdatedWrapperFromExistingResource(upsertResult);
 
-            ResourceWrapper replaceResult = await _dataStore.UpdateSearchIndexForResourceAsync(updated, original.ETag, CancellationToken.None);
+            ResourceWrapper replaceResult = await _dataStore.UpdateSearchIndexForResourceAsync(updated, WeakETag.FromVersionId(original.Version), CancellationToken.None);
 
             Assert.Equal(original.ResourceId, replaceResult.ResourceId);
             Assert.Equal(original.Version, replaceResult.Version);
             Assert.Equal(original.ResourceTypeName, replaceResult.ResourceTypeName);
             Assert.Equal(original.LastModified, replaceResult.LastModified);
+            Assert.NotEqual((original as FhirCosmosResourceWrapper).ETag, (replaceResult as FhirCosmosResourceWrapper).ETag);
         }
 
         [Fact]
         [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
-        public async Task GivenAnUpdatedResourceWithWrongETag_WhenUpdateSearchIndexForResourceAsync_ThenExceptionIsThrown()
+        public async Task GivenAnUpdatedResourceWithWrongWeakETag_WhenUpdateSearchIndexForResourceAsync_ThenExceptionIsThrown()
         {
             ResourceElement patientResource = Samples.GetJsonSample("Patient");
             SaveOutcome upsertResult = await Mediator.UpsertResourceAsync(patientResource);
 
-            (FhirCosmosResourceWrapper originalWrapper, ResourceWrapper updatedWrapper) = await CreateUpdatedWrapperFromExistingResource(upsertResult);
-            ResourceWrapper replaceResult = await _dataStore.UpdateSearchIndexForResourceAsync(updatedWrapper, originalWrapper.ETag, CancellationToken.None);
+            (ResourceWrapper originalWrapper, ResourceWrapper updatedWrapper) = await CreateUpdatedWrapperFromExistingResource(upsertResult);
+            UpsertOutcome upsertOutcome = await _dataStore.UpsertAsync(updatedWrapper, WeakETag.FromVersionId(originalWrapper.Version), allowCreate: false, keepHistory: false, CancellationToken.None);
 
             // Let's update the resource again with new information.
             var searchParamInfo = new SearchParameterInfo("newSearchParam2");
@@ -671,7 +672,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var searchIndices = new List<SearchIndexEntry>() { searchIndex };
 
             updatedWrapper = new ResourceWrapper(
-                originalWrapper.Id,
+                originalWrapper.ResourceId,
                 originalWrapper.Version,
                 originalWrapper.ResourceTypeName,
                 originalWrapper.RawResource,
@@ -683,7 +684,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 originalWrapper.LastModifiedClaims);
 
             // Attempt to replace resource with the old weaketag
-            await Assert.ThrowsAsync<PreconditionFailedException>(() => _dataStore.UpdateSearchIndexForResourceAsync(updatedWrapper, originalWrapper.ETag, CancellationToken.None));
+            await Assert.ThrowsAsync<PreconditionFailedException>(() => _dataStore.UpdateSearchIndexForResourceAsync(updatedWrapper, WeakETag.FromVersionId(originalWrapper.Version), CancellationToken.None));
         }
 
         [Fact]
@@ -693,11 +694,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             ResourceElement patientResource = Samples.GetJsonSample("Patient");
             SaveOutcome upsertResult = await Mediator.UpsertResourceAsync(patientResource);
 
-            (FhirCosmosResourceWrapper original, ResourceWrapper updated) = await CreateUpdatedWrapperFromExistingResource(upsertResult, Guid.NewGuid().ToString());
-            await Assert.ThrowsAsync<ResourceNotFoundException>(() => _dataStore.UpdateSearchIndexForResourceAsync(updated, original.ETag, CancellationToken.None));
+            (ResourceWrapper original, ResourceWrapper updated) = await CreateUpdatedWrapperFromExistingResource(upsertResult, Guid.NewGuid().ToString());
+            await Assert.ThrowsAsync<ResourceNotFoundException>(() => _dataStore.UpdateSearchIndexForResourceAsync(updated, WeakETag.FromVersionId(original.Version), CancellationToken.None));
         }
 
-        private async Task<(FhirCosmosResourceWrapper original, ResourceWrapper updated)> CreateUpdatedWrapperFromExistingResource(
+        private async Task<(ResourceWrapper original, ResourceWrapper updated)> CreateUpdatedWrapperFromExistingResource(
             SaveOutcome upsertResult,
             string updatedId = null)
         {
