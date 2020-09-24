@@ -10,6 +10,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core;
@@ -19,6 +20,7 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Messages.Reindex;
 using Microsoft.Health.Fhir.Core.Models;
 using Task = System.Threading.Tasks.Task;
 
@@ -31,6 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly ISupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager;
         private readonly IReindexUtilities _reindexUtilities;
+        private readonly IMediator _mediator;
         private readonly ILogger _logger;
 
         private ReindexJobRecord _reindexJobRecord;
@@ -42,6 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             Func<IScoped<ISearchService>> searchServiceFactory,
             ISupportedSearchParameterDefinitionManager supportedSearchParameterDefinitionManager,
             IReindexUtilities reindexUtilities,
+            IMediator mediator,
             ILogger<ReindexJobTask> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
@@ -49,6 +53,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(supportedSearchParameterDefinitionManager, nameof(supportedSearchParameterDefinitionManager));
             EnsureArg.IsNotNull(reindexUtilities, nameof(reindexUtilities));
+            EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
@@ -56,6 +61,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             _searchServiceFactory = searchServiceFactory;
             _supportedSearchParameterDefinitionManager = supportedSearchParameterDefinitionManager;
             _reindexUtilities = reindexUtilities;
+            _mediator = mediator;
             _logger = logger;
         }
 
@@ -110,7 +116,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
 
                     _reindexJobRecord.Resources.AddRange(resourceList);
-                    _reindexJobRecord.SearchParams.AddRange(notYetIndexedParams.Select(p => p.Name));
+                    _reindexJobRecord.SearchParams.AddRange(notYetIndexedParams.Select(p => p.Url.ToString()));
 
                     // generate and run first query
                     var queryStatus = new ReindexJobQueryStatus(null);
@@ -342,11 +348,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 // all queries marked as complete, reindex job is done, check success or failure
                 if (_reindexJobRecord.QueryList.All(q => q.Status == OperationStatus.Completed))
                 {
+                    var notification = new ReindexJobCompleted(_reindexJobRecord.SearchParams);
+                    await _mediator.Publish(notification, cancellationToken);
+
                     await CompleteJobAsync(OperationStatus.Completed, cancellationToken);
                     _logger.LogInformation($"Reindex job successfully completed, id {_reindexJobRecord.Id}.");
-
-                    // TODO: Send mediatr message to notify search parameter definition
-                    // manager that the search params have been successfully indexed
                 }
                 else
                 {

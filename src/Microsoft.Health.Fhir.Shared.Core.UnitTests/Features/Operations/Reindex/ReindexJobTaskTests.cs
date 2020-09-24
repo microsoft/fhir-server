@@ -7,7 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
-using System.Threading.Tasks;
+using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -17,11 +17,13 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Messages.Reindex;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Search;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Xunit;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 {
@@ -35,6 +37,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         private readonly ReindexJobConfiguration _reindexJobConfiguration = new ReindexJobConfiguration();
         private readonly ISearchService _searchService = Substitute.For<ISearchService>();
         private readonly IReindexUtilities _reindexUtilities = Substitute.For<IReindexUtilities>();
+        private readonly IMediator _mediator = Substitute.For<IMediator>();
 
         private ReindexJobTask _reindexJobTask;
 
@@ -62,6 +65,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 () => _searchService.CreateMockScope(),
                 SearchParameterFixtureData.SupportedSearchDefinitionManager,
                 _reindexUtilities,
+                _mediator,
                 NullLogger<ReindexJobTask>.Instance);
         }
 
@@ -97,7 +101,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             Assert.Equal(OperationStatus.Completed, job.Status);
             Assert.Equal(5, job.Count);
             Assert.Equal("Account", job.ResourceList);
-            Assert.Equal("status", job.SearchParamList);
+            Assert.Equal("http://hl7.org/fhir/SearchParameter/Account-status", job.SearchParamList);
             Assert.Collection<ReindexJobQueryStatus>(
                 job.QueryList,
                 item => Assert.True(item.ContinuationToken == null && item.Status == OperationStatus.Completed));
@@ -139,7 +143,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             Assert.Equal(OperationStatus.Completed, job.Status);
             Assert.Equal(5, job.Count);
             Assert.Equal("Account", job.ResourceList);
-            Assert.Equal("identifier", job.SearchParamList);
+            Assert.Equal("http://hl7.org/fhir/SearchParameter/Account-identifier", job.SearchParamList);
             Assert.Collection<ReindexJobQueryStatus>(
                 job.QueryList,
                 item => Assert.True(item.ContinuationToken == "token" && item.Status == OperationStatus.Completed),
@@ -193,7 +197,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             Assert.Equal(OperationStatus.Completed, job.Status);
             Assert.Equal(5, job.Count);
             Assert.Equal("Appointment,AppointmentResponse", job.ResourceList);
-            Assert.Equal("appointment", job.SearchParamList);
+            Assert.Equal("http://hl7.org/fhir/SearchParameter/AppointmentResponse-appointment", job.SearchParamList);
             Assert.Collection<ReindexJobQueryStatus>(
                 job.QueryList,
                 item => Assert.True(item.ContinuationToken == null && item.Status == OperationStatus.Completed),
