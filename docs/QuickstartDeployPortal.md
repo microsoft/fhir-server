@@ -20,7 +20,7 @@ Choose to create a new resource group and give it a name or select an existing r
 
 Below is a table that describes all of the parameters in the custom deployment template.
 
-|Field Name|Required?|Description|Default Value|
+|Field Name|Required?|Description|
 |-|-|-|
 |Subscription|**Yes**|Select the subscription where you want to deploy|
 |Resource Group|**Yes**|You can create a new resource group or select an existing resource group from the selected subscription|
