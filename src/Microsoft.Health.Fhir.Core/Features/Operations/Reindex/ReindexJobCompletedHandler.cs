@@ -9,9 +9,12 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Reindex;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
@@ -20,20 +23,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
     {
         private readonly ISupportedSearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ISearchParameterRegistry _searchParameterRegistry;
+        private readonly IFhirAuthorizationService _authorizationService;
 
         public ReindexJobCompletedHandler(
             ISupportedSearchParameterDefinitionManager searchParameterDefinitionManager,
-            ISearchParameterRegistry searchParameterRegistry)
+            ISearchParameterRegistry searchParameterRegistry,
+            IFhirAuthorizationService fhirAuthorizationService)
         {
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(searchParameterRegistry, nameof(searchParameterRegistry));
+            EnsureArg.IsNotNull(fhirAuthorizationService, nameof(fhirAuthorizationService));
 
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _searchParameterRegistry = searchParameterRegistry;
+            _authorizationService = fhirAuthorizationService;
         }
 
         public async Task<ReindexJobCompletedResponse> Handle(ReindexJobCompletedRequest message, CancellationToken cancellationToken)
         {
+            if (await _authorizationService.CheckAccess(DataActions.Reindex) != DataActions.Reindex)
+            {
+                throw new UnauthorizedFhirActionException();
+            }
+
             var searchParameterStatusList = new List<ResourceSearchParameterStatus>();
 
             foreach (string uri in message.SearchParameterUris)
