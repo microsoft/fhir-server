@@ -348,11 +348,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 // all queries marked as complete, reindex job is done, check success or failure
                 if (_reindexJobRecord.QueryList.All(q => q.Status == OperationStatus.Completed))
                 {
-                    var notification = new ReindexJobCompleted(_reindexJobRecord.SearchParams);
-                    await _mediator.Publish(notification, cancellationToken);
+                    var notification = new ReindexJobCompletedRequest(_reindexJobRecord.SearchParams);
+                    var reindexJobCompletedResonse = await _mediator.Send(notification, cancellationToken);
 
-                    await CompleteJobAsync(OperationStatus.Completed, cancellationToken);
-                    _logger.LogInformation($"Reindex job successfully completed, id {_reindexJobRecord.Id}.");
+                    if (reindexJobCompletedResonse.Success)
+                    {
+                        await CompleteJobAsync(OperationStatus.Completed, cancellationToken);
+                        _logger.LogInformation($"Reindex job successfully completed, id {_reindexJobRecord.Id}.");
+                    }
+                    else
+                    {
+                        var issue = new OperationOutcomeIssue(
+                            OperationOutcomeConstants.IssueSeverity.Error,
+                            OperationOutcomeConstants.IssueType.Exception,
+                            reindexJobCompletedResonse.ErrorMessage);
+                        _reindexJobRecord.Error.Add(issue);
+                        _logger.LogError(reindexJobCompletedResonse.ErrorMessage);
+
+                        await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
+                    }
                 }
                 else
                 {

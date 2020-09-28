@@ -602,6 +602,9 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The requested action is not allowed..
+        /// </summary>
+        /// <summary>
         ///   Looks up a localized string similar to Reindex job id {0} is in state {1} and cannot be cancelled..
         /// </summary>
         internal static string ReindexJobInCompletedState {
@@ -809,6 +812,19 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Search parameter {0} is no longer supported and cannot be marked enabled..
+        /// </summary>
+        internal static string SearchParameterNoLongerSupported {
+        /// <summary>
+        ///   Looks up a localized string similar to The search parameter &apos;{0}&apos; is not supported for resource type &apos;{1}&apos;..
+        /// </summary>
+        internal static string SearchParameterNotSupported {
+            get {
+                return ResourceManager.GetString("SearchParameterNoLongerSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The search parameter &apos;{0}&apos; is not supported for resource type &apos;{1}&apos;..
         /// </summary>
         internal static string SearchParameterNotSupported {
@@ -817,6 +833,9 @@ namespace Microsoft.Health.Fhir.Core {
             }
         }
         
+        /// <summary>
+        ///   Looks up a localized string similar to The search sort parameter &apos;{0}&apos; is not supported..
+        /// </summary>
         /// <summary>
         ///   Looks up a localized string similar to The search sort parameter &apos;{0}&apos; is not supported..
         /// </summary>

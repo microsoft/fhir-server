@@ -3,21 +3,18 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Collections.Generic;
-using EnsureThat;
-using MediatR;
-
 namespace Microsoft.Health.Fhir.Core.Messages.Reindex
 {
-    public class ReindexJobCompleted : INotification
+    public class ReindexJobCompletedResponse
     {
-        public ReindexJobCompleted(IReadOnlyCollection<string> searchParameterUrls)
+        public ReindexJobCompletedResponse(bool success, string errorMessage)
         {
-            EnsureArg.IsNotNull(searchParameterUrls, nameof(searchParameterUrls));
-
-            SearchParameterUrls = searchParameterUrls;
+            Success = success;
+            ErrorMessage = errorMessage;
         }
 
-        public IReadOnlyCollection<string> SearchParameterUrls { get; }
+        public bool Success { get; }
+
+        public string ErrorMessage { get; }
     }
 }

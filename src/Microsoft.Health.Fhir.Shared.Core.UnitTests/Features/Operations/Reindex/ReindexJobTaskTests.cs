@@ -67,6 +67,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 _reindexUtilities,
                 _mediator,
                 NullLogger<ReindexJobTask>.Instance);
+
+            _mediator.Send(Arg.Any<ReindexJobCompletedRequest>(), Arg.Any<CancellationToken>())
+                .Returns(new ReindexJobCompletedResponse(true, null));
         }
 
         [Fact]
@@ -200,6 +203,40 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             Assert.Equal("http://hl7.org/fhir/SearchParameter/AppointmentResponse-appointment", job.SearchParamList);
             Assert.Collection<ReindexJobQueryStatus>(
                 job.QueryList,
+                item => Assert.True(item.ContinuationToken == "token" && item.Status == OperationStatus.Completed),
+                item2 => Assert.True(item2.ContinuationToken == null && item2.Status == OperationStatus.Completed));
+
+            await _mediator.Received().Send(
+                Arg.Is<ReindexJobCompletedRequest>(r => r.SearchParameterUris.Where(s => s.Contains("Appointment")).Any() &&
+                                            r.SearchParameterUris.Where(s => s.Contains("AppointmentResponse")).Any()),
+                Arg.Any<CancellationToken>());
+
+            param.IsSearchable = true;
+        }
+
+        [Fact]
+        public async Task GivenNoSupportedParams_WhenExecuted_ThenJobCanceled()
+        {
+            var job = new ReindexJobRecord("hash", 1, null);
+
+            await _reindexJobTask.ExecuteAsync(job, _weakETag, _cancellationToken);
+
+            Assert.Equal(OperationStatus.Canceled, job.Status);
+            await _searchService.DidNotReceiveWithAnyArgs().SearchForReindexAsync(default, default, default, default);
+        }
+
+        [Fact]
+        public async Task GivenQueryInRunningState_WhenExecuted_ThenQueryResetToQueuedOnceStale()
+        {
+            // Add one parameter that needs to be indexed
+            var param = SearchParameterFixtureData.SearchDefinitionManager.AllSearchParameters.Where(p => p.Name == "appointment").FirstOrDefault();
+            param.IsSearchable = false;
+
+            _reindexJobConfiguration.JobHeartbeatTimeoutThreshold = new TimeSpan(0, 0, 0, 1, 0);
+
+            var job = new ReindexJobRecord("hash", maxiumumConcurrency: 1, scope: null, 3);
+
+            job.QueryList.Add(new ReindexJobQueryStatus("token") { Status = OperationStatus.Running });
                 item => Assert.True(item.ContinuationToken == null && item.Status == OperationStatus.Completed),
                 item2 => Assert.True(item2.ContinuationToken == "token" && item2.Status == OperationStatus.Queued));
 
