@@ -14,6 +14,7 @@ using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Reindex;
 using NSubstitute;
 using Xunit;
@@ -29,7 +30,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         public ReindexJobCompletedHandlerTests()
         {
             var collection = new ServiceCollection();
-            collection.Add(x => new ReindexJobCompletedHandler(_searchParameterDefinitionManager, _searchParameterRegistry)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(x => new ReindexJobCompletedHandler(
+                _searchParameterDefinitionManager,
+                _searchParameterRegistry,
+                DisabledFhirAuthorizationService.Instance)).Singleton().AsSelf().AsImplementedInterfaces();
 
             ServiceProvider provider = collection.BuildServiceProvider();
             _mediator = new Mediator(type => provider.GetService(type));
