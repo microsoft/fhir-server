@@ -11,6 +11,7 @@ using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
+using static Hl7.Fhir.Model.OperationOutcome;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
@@ -113,6 +114,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Collection(
                 bundle.Entry.Select(e => e.Resource),
                 expectedResources.Select(er => new Action<Resource>(r => Assert.True(er.IsExactly(r)))).ToArray());
+        }
+
+        protected void ValidateOperationOutcome(string[] expectedDiagnostics, IssueType[] expectedCodeType, OperationOutcome operationOutcome)
+        {
+            Assert.NotNull(operationOutcome?.Id);
+            Assert.NotEmpty(operationOutcome?.Issue);
+
+            Assert.Equal(expectedCodeType.Length, operationOutcome.Issue.Count);
+            Assert.Equal(expectedDiagnostics.Length, operationOutcome.Issue.Count);
+
+            for (int iter = 0; iter < operationOutcome.Issue.Count; iter++)
+            {
+                Assert.Equal(expectedCodeType[iter], operationOutcome.Issue[iter].Code);
+                Assert.Equal(OperationOutcome.IssueSeverity.Error, operationOutcome.Issue[iter].Severity);
+                Assert.Equal(expectedDiagnostics[iter], operationOutcome.Issue[iter].Diagnostics);
+            }
         }
     }
 }
