@@ -59,6 +59,40 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenResourceWithVariousValues_WhenSearchedWithCityParam_ThenOnlyResourcesMatchingAllSearchParamsShouldBeReturned()
+        {
+            var tag = Guid.NewGuid().ToString();
+
+            // Create various resources.
+            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
+                p => SetPatientInfo(p, "seattle", "Robinson"), // match
+                p => SetPatientInfo(p, "Portland", "Williamas"),
+                p => SetPatientInfo(p, "SEATTLE", "Skouras"), // match
+                p => SetPatientInfo(p, "Sea", "Luecke"),
+                p => SetPatientInfo(p, "Seattle", "Jones"), // match
+                p => SetPatientInfo(p, "New York", "Cook"),
+                p => SetPatientInfo(p, "Amsterdam", "Hill"));
+
+            await ExecuteAndValidateBundle("Patient?address-city=Seattle", patients[0], patients[2], patients[4]);
+
+            void SetPatientInfo(Patient patient, string city, string family)
+            {
+                patient.Meta = new Meta();
+                patient.Meta.Tag.Add(new Coding(null, tag));
+                patient.Address = new List<Address>()
+                {
+                    new Address() { City = city },
+                };
+
+                patient.Name = new List<HumanName>()
+                {
+                    new HumanName() { Family = family },
+                };
+            }
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
         public async Task GivenVariousTypesOfResources_WhenSearchedByResourceType_ThenOnlyResourcesMatchingTheResourceTypeShouldBeReturned()
         {
             // Create various resources.
@@ -81,6 +115,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             await ExecuteAndValidateBundle("Patient?_type:missing=true");
             await ExecuteAndValidateBundle("Patient?_type:missing=false", femalePatient, unspecifiedPatient);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenResourcesWithMissingReference_WhenSearchedWithTheMissingModiferAndOtherParameter_ThenOnlyMatchingResourcesWithMissingOrPresentReferenceAreReturned()
+        {
+            Patient patientWithReference = (await Client.CreateResourcesAsync<Patient>(p =>
+            {
+                p.Gender = AdministrativeGender.Female;
+                p.ManagingOrganization = new ResourceReference("Organization/123");
+            })).Single();
+            Patient femalePatient = (await Client.CreateResourcesAsync<Patient>(p => p.Gender = AdministrativeGender.Female)).Single();
+            Patient unspecifiedPatient = (await Client.CreateResourcesAsync<Patient>(p => { })).Single();
+
+            await ExecuteAndValidateBundle("Patient?gender=female&organization:missing=true", femalePatient);
+            await ExecuteAndValidateBundle("Patient?gender=female&organization:missing=false", patientWithReference);
         }
 
         [Fact]
