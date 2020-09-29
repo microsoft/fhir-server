@@ -29,11 +29,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 TableExpression tableExpression = expression.TableExpressions[i];
 
                 // process only normalized predicates. Ignore Sort as it has its own visitor.
-                if (tableExpression.Kind != TableExpressionKind.Sort && tableExpression.NormalizedPredicate.AcceptVisitor(Scout.Instance, null))
+                if (tableExpression.Kind != TableExpressionKind.Sort && tableExpression.NormalizedPredicate?.AcceptVisitor(Scout.Instance, null) == true)
                 {
                     EnsureAllocatedAndPopulated(ref newTableExpressions, expression.TableExpressions, i);
 
-                    if (expression.TableExpressions.Count == 1)
+                    // If this is the first expression, we need to add another expression before it
+                    if (i == 0)
                     {
                         // seed with all resources so that we have something to restrict
                         newTableExpressions.Add(

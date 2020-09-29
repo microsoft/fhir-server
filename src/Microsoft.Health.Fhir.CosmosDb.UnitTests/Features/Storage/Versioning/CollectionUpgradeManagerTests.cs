@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Versioning
 
             var collectionVersionWrappers = Substitute.ForPartsOf<FeedIterator<CollectionVersion>>();
 
-            _client.GetItemQueryIterator<CollectionVersion>(Arg.Any<QueryDefinition>())
+            _client.GetItemQueryIterator<CollectionVersion>(Arg.Any<QueryDefinition>(), Arg.Any<string>(), Arg.Any<QueryRequestOptions>())
                 .Returns(collectionVersionWrappers);
 
             collectionVersionWrappers.ReadNextAsync()

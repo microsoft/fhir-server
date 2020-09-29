@@ -35,22 +35,6 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(inputExpression, visitedExpression);
         }
 
-        [Fact]
-        public void GivenExpressionExtractableDenormalizedExpression_WhenRewritten_ReturnsOriginalExpression()
-        {
-            var inputExpression = new SqlRootExpression(
-                new List<TableExpression>
-                {
-                    new TableExpression(null, null, null, TableExpressionKind.Normal),
-                },
-                new List<Expression>
-                {
-                    new SearchParameterExpression(new SearchParameterInfo("TestParamName"), Expression.Equals(FieldName.String, null, "TestParamValue")),
-                });
-            var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(DenormalizedPredicateRewriter.Instance);
-            Assert.Equal(inputExpression, visitedExpression);
-        }
-
         [Theory]
         [InlineData(SearchParameterNames.ResourceType)]
         [InlineData(SqlSearchParameters.ResourceSurrogateIdParameterName)]
@@ -89,7 +73,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         [Theory]
         [InlineData(SearchParameterNames.ResourceType)]
         [InlineData(SqlSearchParameters.ResourceSurrogateIdParameterName)]
-        public void GivenExpressionWithMultipleDenormalizedExpressions_WhenRewritten_DenormalisedPredicatesSetToNonExtractableDenormalizedPredicates(string paramName)
+        public void GivenExpressionWithMultipleDenormalizedExpressions_WhenRewritten_DenormalisedPredicatesClearedAndReplacedWithAllExpression(string paramName)
         {
             var inputExpression = new SqlRootExpression(
                 new List<TableExpression>
@@ -102,7 +86,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     new SearchParameterExpression(new SearchParameterInfo("TestParamName"), Expression.Equals(FieldName.String, null, "NonExtractableTestParamValue")),
                 });
             var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(DenormalizedPredicateRewriter.Instance);
-            Assert.Equal(inputExpression.DenormalizedExpressions[1], visitedExpression.DenormalizedExpressions[0]);
+            Assert.Empty(visitedExpression.DenormalizedExpressions);
+            Assert.Equal(new TableExpression(null, null, Expression.And(inputExpression.DenormalizedExpressions), TableExpressionKind.All).ToString(), visitedExpression.TableExpressions[0].ToString());
         }
 
         [Theory]

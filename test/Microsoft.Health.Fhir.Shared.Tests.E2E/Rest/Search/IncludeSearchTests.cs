@@ -46,6 +46,32 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Equal(1, bundle.Total);
         }
 
+        /// <summary>
+        /// Ensures that the _id predicate is not applied to the included resources.
+        /// </summary>
+        [Fact]
+        public async Task GivenAnIncludeSearchExpressionWithAPredicateOnId_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        {
+            string query = $"_include=Location:organization:Organization&_tag={Fixture.Tag}&_id={Fixture.Location.Id}";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.Location, query);
+
+            ValidateBundle(
+                bundle,
+                Fixture.Organization,
+                Fixture.Location);
+
+            ValidateSearchEntryMode(bundle, ResourceType.Location);
+
+            // ensure that the included resources are not counted
+            bundle = await Client.SearchAsync(ResourceType.Location, $"{query}&_summary=count");
+            Assert.Equal(1, bundle.Total);
+
+            // ensure that the included resources are not counted when _total is specified and the results fit in a single bundle.
+            bundle = await Client.SearchAsync(ResourceType.Location, $"{query}&_total=accurate");
+            Assert.Equal(1, bundle.Total);
+        }
+
         [Fact]
         public async Task GivenAnIncludeSearchExpression_WhenSearchedWithPost_ThenCorrectBundleShouldBeReturned()
         {
@@ -98,6 +124,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public async Task GivenAnIncludeSearchExpressionWithSimpleSearch_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"_tag={Fixture.Tag}&_include=DiagnosticReport:patient:Patient&code=429858000";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
+
+            ValidateBundle(
+                bundle,
+                Fixture.SmithSnomedDiagnosticReport,
+                Fixture.SmithPatient,
+                Fixture.TrumanSnomedDiagnosticReport,
+                Fixture.TrumanPatient);
+
+            ValidateSearchEntryMode(bundle, ResourceType.DiagnosticReport);
+        }
+
+        [Fact]
+        public async Task GivenAnIncludeSearchExpressionWithMissingModifier_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        {
+            string query = $"_tag={Fixture.Tag}&_include=DiagnosticReport:patient:Patient&code=429858000&organization:missing=true";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
 
