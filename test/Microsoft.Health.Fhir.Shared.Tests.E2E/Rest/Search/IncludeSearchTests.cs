@@ -296,11 +296,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             // ensure that the included resources are not counted
             bundle = await Client.SearchAsync(ResourceType.Organization, $"{query}&_summary=count");
-            Assert.Equal(1, bundle.Total);
+            Assert.Equal(7, bundle.Total);
 
             // ensure that the included resources are not counted when _total is specified and the results fit in a single bundle.
             bundle = await Client.SearchAsync(ResourceType.Organization, $"{query}&_total=accurate");
-            Assert.Equal(1, bundle.Total);
+            Assert.Equal(7, bundle.Total);
         }
 
         [Fact]
@@ -487,6 +487,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.SmithPatient);
 
             ValidateSearchEntryMode(bundle, ResourceType.MedicationDispense);
+
+            // ensure that the included resources are not counted
+            bundle = await Client.SearchAsync(ResourceType.MedicationDispense, $"{query}&_summary=count");
+            Assert.Equal(3, bundle.Total);
+
+            // ensure that the included resources are not counted when _total is specified and the results fit in a single bundle.
+            bundle = await Client.SearchAsync(ResourceType.MedicationDispense, $"{query}&_total=accurate");
+            Assert.Equal(3, bundle.Total);
         }
 
         [Fact]
@@ -684,7 +692,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateSearchEntryMode(bundle, ResourceType.MedicationDispense);
         }
 
-        [Fact] // TODO - Fix Test
+        [Fact]
         public async Task GivenAnIncludeIterateSearchExpressionWithMultipleResultsSets_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
             // Non-recursive iteration - Multiple result sets: MedicationDispense:patient and MedicationRequest:patient
@@ -815,6 +823,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.SmithMedicationDispense);
 
             ValidateSearchEntryMode(bundle, ResourceType.Patient);
+
+            // ensure that the included resources are not counted
+            bundle = await Client.SearchAsync(ResourceType.Patient, $"{query}&_summary=count");
+            Assert.Equal(4, bundle.Total);
+
+            // ensure that the included resources are not counted when _total is specified and the results fit in a single bundle.
+            bundle = await Client.SearchAsync(ResourceType.Patient, $"{query}&_total=accurate");
+            Assert.Equal(4, bundle.Total);
         }
 
         [Fact]
@@ -875,6 +891,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateSearchEntryMode(bundle, ResourceType.MedicationDispense);
         }*/
 
+#if Stu3
+        // The following tests are enabled only on Stu3 version due to this issue: https://github.com/microsoft/fhir-server/issues/1308
         [Fact]
         public async Task GivenARevIncludeIterateSearchExpressionWithMultipleIterations_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
@@ -932,6 +950,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             ValidateSearchEntryMode(bundle, ResourceType.Organization);
         }
+#endif
 
         [Fact]
         public async Task GivenARevIncludeIterateSearchExpressionWithMultiTypeReferenceSpecifiedTarget_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
@@ -1042,6 +1061,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateSearchEntryMode(bundle, ResourceType.Medication);
         }
 
+#if Stu3
+        // This test is enabled only on Stu3 version due to this issue: https://github.com/microsoft/fhir-server/issues/1308
         [Fact]
         public async Task GivenARevIncludeIterateSearchExpressionWithRevIncludeWildCard_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
@@ -1064,6 +1085,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             ValidateSearchEntryMode(bundle, ResourceType.Practitioner);
         }
+#endif
 
         [Fact]
         public async Task GivenARevIncludeIterateSearchExpressionWithRevIncludeIterateWildCard_WhenSearched_TheIterateWildcardShouldBeIgnored()
