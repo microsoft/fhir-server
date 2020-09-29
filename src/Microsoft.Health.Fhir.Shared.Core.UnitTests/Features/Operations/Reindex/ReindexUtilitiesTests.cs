@@ -26,10 +26,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         private readonly ISearchIndexer _searchIndexer = Substitute.For<ISearchIndexer>();
         private readonly ResourceDeserializer _resourceDeserializer = Deserializers.ResourceDeserializer;
         private readonly ITestOutputHelper _output;
+        private IReadOnlyDictionary<string, string> _searchParameterHashMap;
 
         public ReindexUtilitiesTests(ITestOutputHelper output)
         {
             _output = output;
+            _searchParameterHashMap = new Dictionary<string, string>() { { "Patient", "hash1" } };
         }
 
         [Fact]
@@ -52,7 +54,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             resultList.Add(entry2);
             var result = new SearchResult(resultList, new List<Tuple<string, string>>(), new List<(string, string)>(), "token");
 
-            await utilities.ProcessSearchResultsAsync(result, "hash", CancellationToken.None);
+            await utilities.ProcessSearchResultsAsync(result, _searchParameterHashMap, CancellationToken.None);
 
             await _fhirDataStore.Received().UpdateSearchParameterHashBatchAsync(
                 Arg.Is<IReadOnlyCollection<ResourceWrapper>>(
