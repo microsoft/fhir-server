@@ -49,9 +49,6 @@ COPY ./src/Microsoft.Health.Fhir.Shared.Web/Microsoft.Health.Fhir.Shared.Web.pro
 COPY ./src/Microsoft.Health.Fhir.Shared.Core/Microsoft.Health.Fhir.Shared.Core.projitems \
      ./src/Microsoft.Health.Fhir.Shared.Core/Microsoft.Health.Fhir.Shared.Core.projitems
 
-COPY ./src/Microsoft.Health.Fhir.Shared.Core.UnitTests/Microsoft.Health.Fhir.Shared.Core.UnitTests.projitems \
-     ./src/Microsoft.Health.Fhir.Shared.Core.UnitTests/Microsoft.Health.Fhir.Shared.Core.UnitTests.projitems
-
 COPY ./src/Microsoft.Health.Fhir.Shared.Client/Microsoft.Health.Fhir.Shared.Client.projitems \
      ./src/Microsoft.Health.Fhir.Shared.Client/Microsoft.Health.Fhir.Shared.Client.projitems
 
