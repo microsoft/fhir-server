@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
-using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -17,7 +16,6 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
-using Microsoft.Health.Fhir.Core.Messages.Reindex;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Search;
 using NSubstitute;
@@ -37,7 +35,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         private readonly ReindexJobConfiguration _reindexJobConfiguration = new ReindexJobConfiguration();
         private readonly ISearchService _searchService = Substitute.For<ISearchService>();
         private readonly IReindexUtilities _reindexUtilities = Substitute.For<IReindexUtilities>();
-        private readonly IMediator _mediator = Substitute.For<IMediator>();
 
         private ReindexJobTask _reindexJobTask;
 
@@ -65,11 +62,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 () => _searchService.CreateMockScope(),
                 SearchParameterFixtureData.SupportedSearchDefinitionManager,
                 _reindexUtilities,
-                _mediator,
                 NullLogger<ReindexJobTask>.Instance);
 
-            _mediator.Send(Arg.Any<ReindexJobCompletedRequest>(), Arg.Any<CancellationToken>())
-                .Returns(new ReindexJobCompletedResponse(true, null));
+            _reindexUtilities.UpdateSearchParameters(Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<CancellationToken>()).Returns(x => (true, null));
         }
 
         [Fact]
@@ -206,9 +201,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 item => Assert.True(item.ContinuationToken == "token" && item.Status == OperationStatus.Completed),
                 item2 => Assert.True(item2.ContinuationToken == null && item2.Status == OperationStatus.Completed));
 
-            await _mediator.Received().Send(
-                Arg.Is<ReindexJobCompletedRequest>(r => r.SearchParameterUris.Where(s => s.Contains("Appointment")).Any() &&
-                                            r.SearchParameterUris.Where(s => s.Contains("AppointmentResponse")).Any()),
+            await _reindexUtilities.Received().UpdateSearchParameters(
+                Arg.Is<IReadOnlyCollection<string>>(r => r.Where(s => s.Contains("Appointment")).Any() &&
+                                            r.Where(s => s.Contains("AppointmentResponse")).Any()),
                 Arg.Any<CancellationToken>());
 
             param.IsSearchable = true;
