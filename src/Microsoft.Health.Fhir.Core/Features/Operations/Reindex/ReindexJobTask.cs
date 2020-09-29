@@ -35,6 +35,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
         private ReindexJobRecord _reindexJobRecord;
         private WeakETag _weakETag;
+        private IReadOnlyList<string> _searchParameterHashes;
 
         public ReindexJobTask(
             Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory,
@@ -113,6 +114,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                     _reindexJobRecord.Resources.AddRange(resourceList);
                     _reindexJobRecord.SearchParams.AddRange(notYetIndexedParams.Select(p => p.Name));
+                    _searchParameterHashes = GetSearchParamHashesForResources(_reindexJobRecord.Resources);
 
                     // generate and run first query
                     var queryStatus = new ReindexJobQueryStatus(null);
@@ -261,8 +263,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 try
                 {
-                    // TODO: Update SearchForReindexAsync to use the new search parameter hash correctly.
-                    return await searchService.Value.SearchForReindexAsync(queryParametersList, _reindexJobRecord.ResourceTypeSearchParameterHashMap, countOnly, cancellationToken);
+                    return await searchService.Value.SearchForReindexAsync(queryParametersList, _searchParameterHashes, countOnly, cancellationToken);
                 }
                 catch (Exception ex)
                 {
@@ -291,6 +292,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 var wrapper = await store.Value.UpdateReindexJobAsync(_reindexJobRecord, _weakETag, cancellationToken);
                 _weakETag = wrapper.ETag;
             }
+        }
+
+        private List<string> GetSearchParamHashesForResources(List<string> resourceList)
+        {
+            List<string> searchParamHashes = new List<string>();
+            foreach (string resource in resourceList)
+            {
+                if (!_reindexJobRecord.ResourceTypeSearchParameterHashMap.ContainsKey(resource))
+                {
+                    _logger.LogError($"Unable to find search parameter hash for resource type {resource}");
+                    throw new Exception();
+                }
+
+                searchParamHashes.Add(_reindexJobRecord.ResourceTypeSearchParameterHashMap[resource]);
+            }
+
+            return searchParamHashes;
         }
     }
 }

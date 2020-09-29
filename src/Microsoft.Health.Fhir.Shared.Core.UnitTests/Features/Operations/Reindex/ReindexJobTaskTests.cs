@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             _searchService.SearchForReindexAsync(
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<string>>(),
                 true,
                 Arg.Any<CancellationToken>()).
                 Returns(new SearchResult(5, new List<Tuple<string, string>>()));
@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             // setup search result
             _searchService.SearchForReindexAsync(
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<string>>(),
                 false,
                 Arg.Any<CancellationToken>()).
                 Returns(CreateSearchResult());
@@ -85,12 +85,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             await _reindexJobTask.ExecuteAsync(job, _weakETag, _cancellationToken);
 
             // verify search for count
-            await _searchService.Received().SearchForReindexAsync(Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<string>(), true, Arg.Any<CancellationToken>());
+            await _searchService.Received().SearchForReindexAsync(Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<IReadOnlyList<string>>(), true, Arg.Any<CancellationToken>());
 
             // verify search for results
             await _searchService.Received().SearchForReindexAsync(
                 Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Where(t => t.Item1 == "_type" && t.Item2 == "Account").Any()),
-                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<string>>(),
                 false,
                 Arg.Any<CancellationToken>());
 
@@ -117,7 +117,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             // setup search result
             _searchService.SearchForReindexAsync(
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<string>>(),
                 false,
                 Arg.Any<CancellationToken>()).
                 Returns(CreateSearchResult("token"));
@@ -125,12 +125,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             await _reindexJobTask.ExecuteAsync(job, _weakETag, _cancellationToken);
 
             // verify search for count
-            await _searchService.Received().SearchForReindexAsync(Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<string>(), true, Arg.Any<CancellationToken>());
+            await _searchService.Received().SearchForReindexAsync(Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<IReadOnlyList<string>>(), true, Arg.Any<CancellationToken>());
 
             // verify search for results
             await _searchService.Received().SearchForReindexAsync(
                 Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Where(t => t.Item1 == "_type" && t.Item2 == "Account").Any()),
-                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<string>>(),
                 false,
                 Arg.Any<CancellationToken>());
 
@@ -158,7 +158,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             // setup search result
             _searchService.SearchForReindexAsync(
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<string>>(),
                 false,
                 Arg.Any<CancellationToken>()).
                 Returns(CreateSearchResult("token"));
@@ -166,12 +166,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             await _reindexJobTask.ExecuteAsync(job, _weakETag, _cancellationToken);
 
             // verify search for count
-            await _searchService.Received().SearchForReindexAsync(Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<string>(), true, Arg.Any<CancellationToken>());
+            await _searchService.Received().SearchForReindexAsync(Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<IReadOnlyList<string>>(), true, Arg.Any<CancellationToken>());
 
             // verify search for results
             await _searchService.Received().SearchForReindexAsync(
                 Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Where(t => t.Item1 == "_type" && t.Item2 == "Appointment,AppointmentResponse").Any()),
-                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<string>>(),
                 false,
                 Arg.Any<CancellationToken>());
 
@@ -187,7 +187,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             // setup search result
             _searchService.SearchForReindexAsync(
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
-                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<string>>(),
                 false,
                 Arg.Any<CancellationToken>()).
                 Returns(CreateSearchResult(null));

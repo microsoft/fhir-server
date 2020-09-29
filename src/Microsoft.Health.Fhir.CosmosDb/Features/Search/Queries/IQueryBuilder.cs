@@ -3,6 +3,8 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Collections.Generic;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Health.Fhir.Core.Features.Search;
 
@@ -14,6 +16,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
         QueryDefinition GenerateHistorySql(SearchOptions searchOptions);
 
-        QueryDefinition GenerateReindexSql(SearchOptions searchOptions, string searchParameterHash);
+        QueryDefinition GenerateReindexSql(SearchOptions searchOptions, IReadOnlyList<string> searchParameterHash);
     }
 }

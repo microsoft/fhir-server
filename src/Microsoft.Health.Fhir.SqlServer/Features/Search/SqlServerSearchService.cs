@@ -360,7 +360,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _logger.LogInformation(sb.ToString());
         }
 
-        protected override Task<SearchResult> SearchForReindexInternalAsync(SearchOptions searchOptions, string searchParameterHash, CancellationToken cancellationToken)
+        protected override Task<SearchResult> SearchForReindexInternalAsync(SearchOptions searchOptions, IReadOnlyList<string> searchParameterHash, CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
         }

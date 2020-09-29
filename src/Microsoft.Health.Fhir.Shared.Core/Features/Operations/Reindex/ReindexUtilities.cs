@@ -40,16 +40,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// Needed updates will be committed in a batch
         /// </summary>
         /// <param name="results">The resource batch to process</param>
-        /// <param name="searchParamHash">the current hash value of the search parameters</param>
+        /// <param name="resourceTypeSearchParameterHashMap">Map of resource type to current hash value of the search parameters</param>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>A Task</returns>
-        public async Task ProcessSearchResultsAsync(SearchResult results, string searchParamHash, CancellationToken cancellationToken)
+        public async Task ProcessSearchResultsAsync(SearchResult results, IReadOnlyDictionary<string, string> resourceTypeSearchParameterHashMap, CancellationToken cancellationToken)
         {
             var updateHashValueOnly = new List<ResourceWrapper>();
             var updateSearchIndices = new List<ResourceWrapper>();
 
             foreach (var entry in results.Results)
             {
+                string searchParamHash = string.Empty;
+                if (resourceTypeSearchParameterHashMap.ContainsKey(entry.Resource.ResourceTypeName))
+                {
+                    searchParamHash = resourceTypeSearchParameterHashMap[entry.Resource.ResourceTypeName];
+                }
+
                 entry.Resource.SearchParameterHash = searchParamHash;
                 var resourceElement = _deserializer.Deserialize(entry.Resource);
                 var newIndices = _searchIndexer.Extract(resourceElement);
