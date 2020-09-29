@@ -129,6 +129,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             try
             {
                 await _mediator.Publish(cosmosMetrics, CancellationToken.None);
+                _logger.LogInformation($"Cosmos request metrics: FhirOperation: {cosmosMetrics.FhirOperation}. ResourceType: {cosmosMetrics.ResourceType}. IsThrottled: {cosmosMetrics.IsThrottled}.");
             }
             catch (Exception ex)
             {
