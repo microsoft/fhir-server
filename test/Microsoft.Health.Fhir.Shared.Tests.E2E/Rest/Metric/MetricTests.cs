@@ -19,7 +19,6 @@ using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Fhir.Tests.E2E.Rest.Audit;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
-using Xunit.Abstractions;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
@@ -31,14 +30,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
         private readonly TestFhirClient _client;
 
         private readonly MetricHandler _metricHandler;
-        private readonly ITestOutputHelper _output;
 
-        public MetricTests(MetricTestFixture fixture, ITestOutputHelper output)
+        public MetricTests(MetricTestFixture fixture)
         {
             _fixture = fixture;
             _client = fixture.TestFhirClient;
             _metricHandler = _fixture?.MetricHandler;
-            _output = output;
         }
 
         public async Task InitializeAsync()
@@ -144,12 +141,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
                     result.Headers.TryGetValues(CosmosDbHeaders.RequestCharge, out IEnumerable<string> values);
 
                     Assert.NotNull(values);
-
-                    _output.WriteLine("Notifications");
-                    foreach (var notif in values)
-                    {
-                        _output.WriteLine(notif);
-                    }
 
                     Assert.Equal(expectedNotification.count, values.Count());
 
