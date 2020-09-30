@@ -132,9 +132,6 @@ namespace Microsoft.Health.Fhir.Core {
             }
         }
         
-        /// <summary>
-        ///   Looks up a localized string similar to bundle.entry[{0}] is null..
-        /// </summary>
         internal static string CompartmentDefinitionInvalidBundle {
             get {
                 return ResourceManager.GetString("CompartmentDefinitionInvalidBundle", resourceCulture);
@@ -376,6 +373,15 @@ namespace Microsoft.Health.Fhir.Core {
             }
         }
         
+        /// <summary>
+        ///   Looks up a localized string similar to reversed include iterate target type not specified is not supported..
+        /// </summary>
+		internal static string RevIncludeIterateTargetTypeNotSpecified {
+            get {
+                return ResourceManager.GetString("RevIncludeIterateTargetTypeNotSpecified", resourceCulture);
+            }
+        }
+		
         /// <summary>
         ///   Looks up a localized string similar to Field &apos;{0}&apos; with value &apos;{1}&apos; is not supported..
         /// </summary>
