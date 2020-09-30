@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// <summary>
         /// Gets or sets a value indicating whether to use the ITypedElement based search indexer.
         /// </summary>
-        public bool UseTypedElementIndexer { get; set; }
+        public bool UseTypedElementIndexer { get; set; } = true;
 
         /// <summary>
         /// Gets or sets the default value for IncludeTotal in search bundles.
