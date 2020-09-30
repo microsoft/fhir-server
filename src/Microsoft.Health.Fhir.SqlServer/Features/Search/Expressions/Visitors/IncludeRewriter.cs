@@ -34,18 +34,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             if (containsInclude)
             {
-                // We are adding an extra CTE after each include cte (except recursive :iterate), so we traverse the ordered
+                // We are adding an extra CTE after each include cte, so we traverse the ordered
                 // list from the end and add a limit expression after each include expression
                 for (var i = reorderedExpressions.Count - 1; i >= 0; i--)
                 {
                     switch (reorderedExpressions[i].SearchParameterQueryGenerator)
                     {
                         case IncludeQueryGenerator _:
-                            var includeExpression = (IncludeExpression)reorderedExpressions[i].NormalizedPredicate;
-                            if (!includeExpression.Recursive)
-                            {
-                                reorderedExpressions.Insert(i + 1, IncludeLimitExpression);
-                            }
+                            reorderedExpressions.Insert(i + 1, IncludeLimitExpression);
 
                             break;
                         default:

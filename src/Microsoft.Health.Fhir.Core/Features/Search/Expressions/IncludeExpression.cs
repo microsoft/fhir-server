@@ -48,7 +48,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             WildCard = wildCard;
             Reversed = reversed;
             Iterate = iterate;
-            SetRecursive();
         }
 
         /// <summary>
@@ -91,11 +90,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// </summary>
         public bool Iterate { get; }
 
-        /// <summary>
-        /// Gets if the include is recursive (i.e., circular reference: target reference is of the same resource type, e.g., Organization:partof)
-        /// </summary>
-        public bool Recursive { get; private set; }
-
         public override TOutput AcceptVisitor<TContext, TOutput>(IExpressionVisitor<TContext, TOutput> visitor, TContext context)
         {
             EnsureArg.IsNotNull(visitor, nameof(visitor));
@@ -111,29 +105,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             var wildcard = WildCard ? "Wildcard" : string.Empty;
             var paramName = ReferenceSearchParameter != null ? ReferenceSearchParameter.Name : string.Empty;
             return $"({reversed} Include {iterate} {wildcard} {paramName}{targetType})";
-        }
-
-        /// <summary>
-        /// Returns if the include expression is Recursive (target reference is of the same as base resource type, e.g., Organization:partof)
-        private void SetRecursive()
-        {
-            Recursive = false;
-
-            if (Iterate)
-            {
-                if (TargetResourceType != null)
-                {
-                    Recursive = ResourceType == TargetResourceType;
-                }
-                else if (ReferenceSearchParameter?.TargetResourceTypes != null)
-                {
-                    if (new List<string>(ReferenceSearchParameter.TargetResourceTypes).Contains(ResourceType))
-                    {
-                        Recursive = true;
-                        return;
-                    }
-                }
-            }
         }
     }
 }

@@ -28,10 +28,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         // Include:iterate may be applied on results from multiple ctes
         private List<string> _includeFromCtes;
 
-        private const int MaxRecursionDepth = 5;
-
-        private int _curRecursionDepth = 0;
-
         private int _curFromCteIndex = -1;
         private readonly bool _isHistorySearch;
         private int _tableExpressionCounter = -1;
@@ -469,25 +465,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                                 // On that case, the fromCte is _cteMainSelect
                                 if (TryGetIncludeCtes(includeExpression.SourceResourceType, out _includeFromCtes))
                                 {
-                                    fromCte = includeExpression.Recursive ? _includeFromCtes[_includeFromCtes.Count - 1] : _includeFromCtes[++_curFromCteIndex];
+                                    fromCte = _includeFromCtes[++_curFromCteIndex];
                                 }
                             }
-
-                            /* else if (includeExpression.WildCard)
-                            {
-                                // multiple potential target types of search parameter
-                                var partialFromCtes = new List<string>();
-                                foreach (var type in includeExpression.ReferencedTypes)
-                                {
-                                    if (TryGetIncludeCtes(type, out partialFromCtes))
-                                    {
-                                        _includeFromCtes.AddRange(partialFromCtes);
-                                    }
-                                }
-
-                                _includeFromCtes = _includeFromCtes.Distinct().ToList();
-                                fromCte = includeExpression.Recursive ? _includeFromCtes[_includeFromCtes.Count - 1] : _includeFromCtes[++_curFromCteIndex];
-                            }*/
 
                             // RevInclude Iterate
                             else
@@ -496,29 +476,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                                 {
                                     if (TryGetIncludeCtes(includeExpression.TargetResourceType, out _includeFromCtes))
                                     {
-                                        fromCte = includeExpression.Recursive ? _includeFromCtes[_includeFromCtes.Count - 1] : _includeFromCtes[++_curFromCteIndex];
+                                        fromCte = _includeFromCtes[++_curFromCteIndex];
                                     }
                                 }
                                 else if (includeExpression.ReferenceSearchParameter?.TargetResourceTypes != null)
                                 {
-                                    // if (ncludeExpression.ReferenceSearchParameter.TargetResourceTypes.Count > 1)
-                                    // {
-                                    //      Should return error
-                                    // }
+                                    // Assumes TargetResourceTypes is of length 1. Otherwise, a BadRequest would have been thrown earlier for _revinclude:iterate
+                                    var fromCtes = new List<string>();
+                                    var targetType = includeExpression.ReferenceSearchParameter.TargetResourceTypes.First();
 
-                                    // TODO limorl : change to assume only one target type
-                                    // multiple potential target types of search parameter
-                                    var partialFromCtes = new List<string>();
-                                    foreach (var targetType in includeExpression.ReferenceSearchParameter.TargetResourceTypes)
+                                    if (TryGetIncludeCtes(targetType, out fromCtes))
                                     {
-                                        if (TryGetIncludeCtes(targetType, out partialFromCtes))
-                                        {
-                                            _includeFromCtes.AddRange(partialFromCtes);
-                                        }
+                                            _includeFromCtes.AddRange(fromCtes);
                                     }
 
                                     _includeFromCtes = _includeFromCtes.Distinct().ToList();
-                                    fromCte = includeExpression.Recursive ? _includeFromCtes[_includeFromCtes.Count - 1] : _includeFromCtes[++_curFromCteIndex];
+                                    fromCte = _includeFromCtes.Count > 0 ? _includeFromCtes[++_curFromCteIndex] : fromCte;
                                 }
                             }
                         }
@@ -548,12 +521,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     // var curCte = TableExpressionName(_tableExpressionCounter);
                     var curLimitCte = TableExpressionName(_tableExpressionCounter + 1);
 
-                    // TODO: Add limits to each recursive include
-                    // if (includeExpression.Iterate && includeExpression.Recursive)
-                    // {
-                    //     _includeCtes.Add(curLimitCte);
-                    // }
-
                     // Add current cte limit to the dictionary
                     if (includeExpression.Reversed)
                     {
@@ -570,28 +537,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         {
                             includeExpression.ReferenceSearchParameter.TargetResourceTypes?.ToList().ForEach(t => AddIncludeLimitCte(t, curLimitCte));
                         }
-
-                        // TOSO (limorl) Add Include Wildcard support (add ctes) --> Or is it handeled by recursive calls
-                    }
-
-                    // Handle recursive / iterative (circular) _include:iterate (cte for first level has already been created)
-                    if (includeExpression.Recursive /* && and exists in dictionary and equalt to main resource type*/)
-                    {
-                        if (++_curRecursionDepth < MaxRecursionDepth)
-                        {
-                            StringBuilder.Append($"),{Environment.NewLine}");
-                            StringBuilder.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
-                            tableExpression.AcceptVisitor(this, context);
-                        }
-                        else
-                        {
-                            // Reset circular depth for following recursions
-                            _curRecursionDepth = 0;
-                        }
                     }
 
                     // Handle Multiple Results sets to include from
-                    else if (_includeFromCtes?.Count > 1 && _curFromCteIndex >= 0 && _curFromCteIndex < _includeFromCtes.Count - 1)
+                    if (_includeFromCtes?.Count > 1 && _curFromCteIndex >= 0 && _curFromCteIndex < _includeFromCtes.Count - 1)
                     {
                         StringBuilder.Append($"),{Environment.NewLine}");
 

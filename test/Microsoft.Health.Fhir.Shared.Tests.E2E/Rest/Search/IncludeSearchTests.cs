@@ -536,24 +536,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateSearchEntryMode(bundle, ResourceType.MedicationDispense);
         }
 
-        /*[Fact]
-        public async Task GivenAnIncludeIterateSearchExpressionWithOrphanIncludeeIterate_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
-        {
-            string query = $"_include=MedicationDispense:prescription&_include:iterate=Patient:general-practitioner&_tag={Fixture.Tag}";
-
-            Bundle bundle = await Client.SearchAsync(ResourceType.MedicationDispense, query);
-
-            ValidateBundle(
-                bundle,
-                Fixture.AdamsMedicationDispense,
-                Fixture.SmithMedicationDispense,
-                Fixture.TrumanMedicationDispense,
-                Fixture.AdamsMedicationRequest,
-                Fixture.SmithMedicationRequest);
-
-            ValidateSearchEntryMode(bundle, ResourceType.MedicationDispense);
-        }*/
-
         [Fact]
         public async Task GivenAnIncludeIterateSearchExpressionWithMultipleIterations_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
@@ -873,24 +855,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateSearchEntryMode(bundle, ResourceType.Patient);
         }
 
-        /*[Fact]
-        public async Task GivenAnIncludeIterateSearchExpressionWithOrphanIncludeeIterate_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
-        {
-            string query = $"_include=MedicationDispense:prescription&_include:iterate=Patient:general-practitioner&_tag={Fixture.Tag}";
-
-            Bundle bundle = await Client.SearchAsync(ResourceType.MedicationDispense, query);
-
-            ValidateBundle(
-                bundle,
-                Fixture.AdamsMedicationDispense,
-                Fixture.SmithMedicationDispense,
-                Fixture.TrumanMedicationDispense,
-                Fixture.AdamsMedicationRequest,
-                Fixture.SmithMedicationRequest);
-
-            ValidateSearchEntryMode(bundle, ResourceType.MedicationDispense);
-        }*/
-
 #if Stu3
         // The following tests are enabled only on Stu3 version due to this issue: https://github.com/microsoft/fhir-server/issues/1308
         [Fact]
@@ -1127,121 +1091,64 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateSearchEntryMode(bundle, ResourceType.Patient);
         }
 
-        /*[Fact]
-        public async Task GivenARecursiveIncludeIterateSearchExpressionWithRecursionLevelEqualToMaxRecursionDepth_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
+        [Fact]
+        public async Task GivenAnIncludeIterateSearchExpressionWithCircularReference_WhenSearched_IncludedOneIterationResults()
         {
-            // Recursive iteration - Circular reference Organization:partof
-            // TODO: Test fails when  &_tag={Fixture.Tag} is used
-            // string query = $"_include:iterate=Organization:partof&_id={Fixture.LabAOrganization.Id}&_tag={Fixture.Tag}";
-            string query = $"_include:iterate=Organization:partof&_id={Fixture.LabAOrganization.Id}";
+            // Recursive queries (circular references) are not supported (see https://github.com/microsoft/fhir-server/issues/1310)
+            // Here we expect one iteration of included results
+            string query = $"_include:iterate=Organization:partof&_id={Fixture.LabAOrganization.Id}&_tag={Fixture.Tag}";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.Organization, query);
 
             ValidateBundle(
                 bundle,
                 Fixture.LabAOrganization,
-                Fixture.LabBOrganization,
-                Fixture.LabCOrganization,
-                Fixture.LabDOrganization,
-                Fixture.LabEOrganization,
-                Fixture.LabFOrganization);
+                Fixture.LabBOrganization);
 
             var expectedSearchEntryModes = new Dictionary<string, Bundle.SearchEntryMode>
             {
                 { Fixture.LabAOrganization.Id, Bundle.SearchEntryMode.Match },
                 { Fixture.LabBOrganization.Id, Bundle.SearchEntryMode.Include },
-                { Fixture.LabCOrganization.Id, Bundle.SearchEntryMode.Include },
-                { Fixture.LabDOrganization.Id, Bundle.SearchEntryMode.Include },
-                { Fixture.LabEOrganization.Id, Bundle.SearchEntryMode.Include },
-                { Fixture.LabFOrganization.Id, Bundle.SearchEntryMode.Include },
             };
-
-            ValidateSearchEntryMode(bundle, expectedSearchEntryModes);
         }
 
         [Fact]
-        public async Task GivenARecursiveIncludeIterateSearchExpressionWithRecursionLevelSmallerThanMaxRecursionDepth_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
+        public async Task GivenARevIncludeIterateSearchExpressionWithCircularReference_WhenSearched_IncludedOneIterationResults()
         {
-            // Recursive iteration - Circular reference Organization:partof
-            // TODO: Test fails when  &_tag={Fixture.Tag} is used
-            // string query = $"_include:iterate=Organization:partof&_id={Fixture.LabBOrganization.Id}&_tag={Fixture.Tag}";
-            string query = $"_include:iterate=Organization:partof&_id={Fixture.LabBOrganization.Id}";
+            // Recursive queries (circular references) are not supported (see https://github.com/microsoft/fhir-server/issues/1310)
+            // Here we expect one iteration of included results
+            string query = $"_revinclude:iterate=Organization:partof&_id={Fixture.LabBOrganization.Id}&_tag={Fixture.Tag}";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.Organization, query);
 
             ValidateBundle(
                 bundle,
-                Fixture.LabBOrganization,
-                Fixture.LabCOrganization,
-                Fixture.LabDOrganization,
-                Fixture.LabEOrganization,
-                Fixture.LabFOrganization);
+                Fixture.LabAOrganization,
+                Fixture.LabBOrganization);
 
             var expectedSearchEntryModes = new Dictionary<string, Bundle.SearchEntryMode>
             {
                 { Fixture.LabBOrganization.Id, Bundle.SearchEntryMode.Match },
-                { Fixture.LabCOrganization.Id, Bundle.SearchEntryMode.Include },
-                { Fixture.LabDOrganization.Id, Bundle.SearchEntryMode.Include },
-                { Fixture.LabEOrganization.Id, Bundle.SearchEntryMode.Include },
-                { Fixture.LabFOrganization.Id, Bundle.SearchEntryMode.Include },
+                { Fixture.LabAOrganization.Id, Bundle.SearchEntryMode.Include },
             };
-
-            ValidateSearchEntryMode(bundle, expectedSearchEntryModes);
         }
 
-        [Fact]
-        public async Task GivenARecursiveIncludeIterateSearchExpressionWithMultitypeArrayReference_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
-        {
-            // Non-recursive iteration - Reference array of multiple target types: CareTeam:participant of type Patient, CareTeam, Practitioner, Organization, etc.
-            string query = $"_include=CareTeam:participant&_include:iterate=Patient:general-practitioner&_tag={Fixture.Tag}";
-
-            Bundle bundle = await Client.SearchAsync(ResourceType.CareTeam, query);
-
-            ValidateBundle(
-                bundle,
-                Fixture.CareTeam,
-                Fixture.AdamsPatient,
-                Fixture.SmithPatient,
-                Fixture.TrumanPatient,
-                Fixture.Organization,
-                Fixture.Practitioner,
-                Fixture.AndersonPractitioner,
-                Fixture.SanchezPractitioner,
-                Fixture.TaylorPractitioner);
-
-            ValidateSearchEntryMode(bundle, ResourceType.CareTeam);
-       }
-
-       Use case: Organization?_include:iterate=Organization:*
-        */
-
-        /*[Fact]
-        public async Task GivenAnIncludeIterateSearchExpressionWithOrphanRecursiveIncludeIterate_WhenSearched_TheIterativeExpressionIsIgnored()
-        {
-            // Include Iterate without relevant result set
-            string query = $"_include=MedicationDispense:patient&_include:iterate=Organization:partof&_tag={Fixture.Tag}";
-
-            Bundle bundle = await Client.SearchAsync(ResourceType.MedicationDispense, query);
-
-            ValidateBundle(
-                bundle,
-                Fixture.AdamsMedicationDispense,
-                Fixture.SmithMedicationDispense,
-                Fixture.TrumanMedicationDispense,
-                Fixture.AdamsPatient,
-                Fixture.SmithPatient,
-                Fixture.TrumanPatient);
-
-            ValidateSearchEntryMode(bundle, ResourceType.MedicationDispense);
-        }*/
-
-        // This will not work for recursive queries (circular reference)
+        // This will not work for circular reference
         private static void ValidateSearchEntryMode(Bundle bundle, ResourceType matchResourceType)
         {
             foreach (Bundle.EntryComponent entry in bundle.Entry)
             {
                 var searchEntryMode = entry.Resource.ResourceType == matchResourceType ? Bundle.SearchEntryMode.Match : Bundle.SearchEntryMode.Include;
                 Assert.Equal(searchEntryMode, entry.Search.Mode);
+            }
+        }
+
+        // This should be used with circular references
+        private static void ValidateSearchEntryMode(Bundle bundle, IDictionary<string, Bundle.SearchEntryMode> expectedSearchEntryModes)
+        {
+            foreach (Bundle.EntryComponent entry in bundle.Entry)
+            {
+                Assert.Equal(expectedSearchEntryModes[entry.Resource.Id], entry.Search.Mode);
             }
         }
     }
