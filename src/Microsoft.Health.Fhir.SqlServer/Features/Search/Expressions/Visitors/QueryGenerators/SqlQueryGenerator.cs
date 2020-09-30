@@ -22,11 +22,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
     internal class SqlQueryGenerator : DefaultExpressionVisitor<SearchOptions, object>, ISqlExpressionVisitor<SearchOptions, object>
     {
         private string _cteMainSelect; // This is represents the CTE that is the main selector for use with includes
-        private List<string> _includeCtes;
+        private List<string> _includeCteIds;
         private Dictionary<string, List<string>> _includeLimitCtesByResourceType; // ctes of each include value, by their resource type
 
         // Include:iterate may be applied on results from multiple ctes
-        private List<string> _includeFromCtes;
+        private List<string> _includeFromCteIds;
 
         private int _curFromCteIndex = -1;
         private readonly bool _isHistorySearch;
@@ -389,9 +389,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 case TableExpressionKind.Include:
                     var includeExpression = (IncludeExpression)tableExpression.NormalizedPredicate;
 
-                    _includeCtes = _includeCtes ?? new List<string>();
+                    _includeCteIds = _includeCteIds ?? new List<string>();
                     _includeLimitCtesByResourceType = _includeLimitCtesByResourceType ?? new Dictionary<string, List<string>>();
-                    _includeFromCtes = _includeFromCtes ?? new List<string>();
+                    _includeFromCteIds = _includeFromCteIds ?? new List<string>();
 
                     StringBuilder.Append("SELECT DISTINCT ");
 
@@ -438,21 +438,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         table = !includeExpression.Reversed ? referenceSourceTableAlias : referenceTargetResourceTableAlias;
 
                         // For RevIncludeIterate we expect to have a TargetType specified if the target reference can be of multiple types
-                        var reourceId = Model.GetResourceTypeId(includeExpression.ResourceType);
+                        var resourceId = Model.GetResourceTypeId(includeExpression.ResourceType);
                         if (includeExpression.Reversed && includeExpression.Iterate)
                         {
                             if (includeExpression.TargetResourceType != null)
                             {
-                                reourceId = Model.GetResourceTypeId(includeExpression.TargetResourceType);
+                                resourceId = Model.GetResourceTypeId(includeExpression.TargetResourceType);
                             }
                             else if (includeExpression.ReferenceSearchParameter?.TargetResourceTypes?.Count > 0)
                             {
-                                reourceId = Model.GetResourceTypeId(includeExpression.ReferenceSearchParameter.TargetResourceTypes.ToList().First());
+                                resourceId = Model.GetResourceTypeId(includeExpression.ReferenceSearchParameter.TargetResourceTypes.ToList().First());
                             }
                         }
 
                         delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ResourceTypeId, table)
-                        .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.ResourceTypeId, reourceId));
+                        .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.ResourceTypeId, resourceId));
 
                         // Get FROM ctes
                         string fromCte = _cteMainSelect;
@@ -463,9 +463,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                             {
                                 // _include:iterate may appear without a preceding _include, in case of circular reference
                                 // On that case, the fromCte is _cteMainSelect
-                                if (TryGetIncludeCtes(includeExpression.SourceResourceType, out _includeFromCtes))
+                                if (TryGetIncludeCtes(includeExpression.SourceResourceType, out _includeFromCteIds))
                                 {
-                                    fromCte = _includeFromCtes[++_curFromCteIndex];
+                                    fromCte = _includeFromCteIds[++_curFromCteIndex];
                                 }
                             }
 
@@ -474,9 +474,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                             {
                                 if (includeExpression.TargetResourceType != null)
                                 {
-                                    if (TryGetIncludeCtes(includeExpression.TargetResourceType, out _includeFromCtes))
+                                    if (TryGetIncludeCtes(includeExpression.TargetResourceType, out _includeFromCteIds))
                                     {
-                                        fromCte = _includeFromCtes[++_curFromCteIndex];
+                                        fromCte = _includeFromCteIds[++_curFromCteIndex];
                                     }
                                 }
                                 else if (includeExpression.ReferenceSearchParameter?.TargetResourceTypes != null)
@@ -487,11 +487,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                                     if (TryGetIncludeCtes(targetType, out fromCtes))
                                     {
-                                            _includeFromCtes.AddRange(fromCtes);
+                                        _includeFromCteIds.AddRange(fromCtes);
                                     }
 
-                                    _includeFromCtes = _includeFromCtes.Distinct().ToList();
-                                    fromCte = _includeFromCtes.Count > 0 ? _includeFromCtes[++_curFromCteIndex] : fromCte;
+                                    _includeFromCteIds = _includeFromCteIds.Distinct().ToList();
+                                    fromCte = _includeFromCteIds.Count > 0 ? _includeFromCteIds[++_curFromCteIndex] : fromCte;
                                 }
                             }
                         }
@@ -518,7 +518,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     }
 
                     // Update target reference cte dictionary
-                    // var curCte = TableExpressionName(_tableExpressionCounter);
                     var curLimitCte = TableExpressionName(_tableExpressionCounter + 1);
 
                     // Add current cte limit to the dictionary
@@ -540,15 +539,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     }
 
                     // Handle Multiple Results sets to include from
-                    if (_includeFromCtes?.Count > 1 && _curFromCteIndex >= 0 && _curFromCteIndex < _includeFromCtes.Count - 1)
+                    if (_includeFromCteIds?.Count > 1 && _curFromCteIndex >= 0 && _curFromCteIndex < _includeFromCteIds.Count - 1)
                     {
                         StringBuilder.Append($"),{Environment.NewLine}");
 
                         // If it's not the last result set, append a new IncludeLimit cte, since IncludeLimitCte was not created for the current cte
-                        if (_curFromCteIndex < _includeFromCtes?.Count - 1)
+                        if (_curFromCteIndex < _includeFromCteIds?.Count - 1)
                         {
                             var cteToLimit = TableExpressionName(_tableExpressionCounter);
-                            AppendIncludeLimitCte(cteToLimit, context);
+                            WriteIncludeLimitCte(cteToLimit, context);
                         }
 
                         // Generate CTE to include from the additional result sets
@@ -569,7 +568,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 case TableExpressionKind.IncludeLimit:
                     StringBuilder.Append("SELECT DISTINCT ");
 
-                    // TODO - Limiting the results of both _include and _revinclude parameters even though _revinclude is more risky
+                    // TODO - https://github.com/microsoft/fhir-server/issues/1309 (limit for _include also)
                     var isRev = _cteToLimit.Contains(_tableExpressionCounter - 1);
                     if (isRev)
                     {
@@ -595,13 +594,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     StringBuilder.Append("FROM ").AppendLine(TableExpressionName(_tableExpressionCounter - 1));
 
                     // the 'original' include cte is not in the union, but this new layer is instead
-                    _includeCtes.Add(TableExpressionName(_tableExpressionCounter));
+                    _includeCteIds.Add(TableExpressionName(_tableExpressionCounter));
                     break;
                 case TableExpressionKind.IncludeUnionAll:
                     StringBuilder.AppendLine("SELECT Sid1, IsMatch, IsPartial ");
                     StringBuilder.Append("FROM ").AppendLine(_cteMainSelect);
 
-                    foreach (var includeCte in _includeCtes)
+                    foreach (var includeCte in _includeCteIds)
                     {
                         StringBuilder.AppendLine("UNION ALL");
                         StringBuilder.AppendLine("SELECT Sid1, IsMatch, IsPartial ");
@@ -679,7 +678,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             return null;
         }
 
-        private void AppendIncludeLimitCte(string cteToLimit, SearchOptions context)
+        private void WriteIncludeLimitCte(string cteToLimit, SearchOptions context)
         {
             StringBuilder.Append(TableExpressionName(++_tableExpressionCounter)).AppendLine(" AS").AppendLine("(");
 
@@ -697,7 +696,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             StringBuilder.Append($"),{Environment.NewLine}");
 
             // the 'original' include cte is not in the union, but this new layer is instead
-            _includeCtes.Add(TableExpressionName(_tableExpressionCounter));
+            _includeCteIds.Add(TableExpressionName(_tableExpressionCounter));
          }
 
         private SearchParameterQueryGeneratorContext GetContext(string tableAlias = null)

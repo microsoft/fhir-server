@@ -28,30 +28,33 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return expression;
             }
 
-            List<TableExpression> reorderedExpressions = expression.TableExpressions.OrderByDescending(t => t, new TableExpressionComparer()).ToList();
-
             bool containsInclude = expression.TableExpressions.AsEnumerable().Where(e => e.SearchParameterQueryGenerator is IncludeQueryGenerator).Any();
 
-            if (containsInclude)
+            if (!containsInclude)
             {
-                // We are adding an extra CTE after each include cte, so we traverse the ordered
-                // list from the end and add a limit expression after each include expression
-                for (var i = reorderedExpressions.Count - 1; i >= 0; i--)
-                {
-                    switch (reorderedExpressions[i].SearchParameterQueryGenerator)
-                    {
-                        case IncludeQueryGenerator _:
-                            reorderedExpressions.Insert(i + 1, IncludeLimitExpression);
-
-                            break;
-                        default:
-                            break;
-                    }
-                }
-
-                reorderedExpressions.Add(IncludeUnionAllExpression);
+                return new SqlRootExpression(expression.TableExpressions, expression.DenormalizedExpressions);
             }
 
+            // Order expressions so that simple search parameters appear first and include parameters appear after
+            // In addition, sort that _include:iterate and _revinclude:iterate parameters are ordered so that the
+            // included results they reference appears before
+            List<TableExpression> reorderedExpressions = expression.TableExpressions.OrderByDescending(t => t, new TableExpressionComparer()).ToList();
+
+            // We are adding an extra CTE after each include cte, so we traverse the ordered
+            // list from the end and add a limit expression after each include expression
+            for (var i = reorderedExpressions.Count - 1; i >= 0; i--)
+            {
+                switch (reorderedExpressions[i].SearchParameterQueryGenerator)
+                {
+                    case IncludeQueryGenerator _:
+                        reorderedExpressions.Insert(i + 1, IncludeLimitExpression);
+                        break;
+                    default:
+                        break;
+                }
+            }
+
+            reorderedExpressions.Add(IncludeUnionAllExpression);
             return new SqlRootExpression(reorderedExpressions, expression.DenormalizedExpressions);
         }
 
