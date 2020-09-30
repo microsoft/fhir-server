@@ -93,27 +93,33 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 // These parameters will be used to calculate the search parameter hash below.
                 if (p.IsPartiallySupported || p.IsSupported)
                 {
-                    foreach (string resourceType in p.TargetResourceTypes)
+                    if (p.TargetResourceTypes != null)
                     {
-                        if (resourceParameterUriMap.ContainsKey(resourceType))
+                        foreach (string resourceType in p.TargetResourceTypes)
                         {
-                            resourceParameterUriMap[resourceType].Add(p.Url);
-                        }
-                        else
-                        {
-                            resourceParameterUriMap.Add(resourceType, new List<Uri>() { p.Url });
+                            if (resourceParameterUriMap.ContainsKey(resourceType))
+                            {
+                                resourceParameterUriMap[resourceType].Add(p.Url);
+                            }
+                            else
+                            {
+                                resourceParameterUriMap.Add(resourceType, new List<Uri>() { p.Url });
+                            }
                         }
                     }
 
-                    foreach (string resourceType in p.BaseResourceTypes)
+                    if (p.BaseResourceTypes != null)
                     {
-                        if (resourceParameterUriMap.ContainsKey(resourceType))
+                        foreach (string resourceType in p.BaseResourceTypes)
                         {
-                            resourceParameterUriMap[resourceType].Add(p.Url);
-                        }
-                        else
-                        {
-                            resourceParameterUriMap.Add(resourceType, new List<Uri>() { p.Url });
+                            if (resourceParameterUriMap.ContainsKey(resourceType))
+                            {
+                                resourceParameterUriMap[resourceType].Add(p.Url);
+                            }
+                            else
+                            {
+                                resourceParameterUriMap.Add(resourceType, new List<Uri>() { p.Url });
+                            }
                         }
                     }
                 }

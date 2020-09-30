@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var param = SearchParameterFixtureData.SearchDefinitionManager.AllSearchParameters.Where(p => p.Name == "status").FirstOrDefault();
             param.IsSearchable = false;
 
-            var job = new ReindexJobRecord(null, 1, null);
+            ReindexJobRecord job = CreateReindexJobRecord();
 
             // setup search result
             _searchService.SearchForReindexAsync(
@@ -112,7 +112,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var param = SearchParameterFixtureData.SearchDefinitionManager.AllSearchParameters.Where(p => p.Name == "identifier").FirstOrDefault();
             param.IsSearchable = false;
 
-            var job = new ReindexJobRecord(null, 1, null);
+            ReindexJobRecord job = CreateReindexJobRecord();
 
             // setup search result
             _searchService.SearchForReindexAsync(
@@ -153,7 +153,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var param = SearchParameterFixtureData.SearchDefinitionManager.AllSearchParameters.Where(p => p.Name == "appointment").FirstOrDefault();
             param.IsSearchable = false;
 
-            var job = new ReindexJobRecord(null, 1, null);
+            ReindexJobRecord job = CreateReindexJobRecord();
 
             // setup search result
             _searchService.SearchForReindexAsync(
@@ -209,7 +209,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         [Fact]
         public async Task GivenNoSupportedParams_WhenExecuted_ThenJobCanceled()
         {
-            var job = new ReindexJobRecord(null, 1, null);
+            ReindexJobRecord job = CreateReindexJobRecord();
 
             await _reindexJobTask.ExecuteAsync(job, _weakETag, _cancellationToken);
 
@@ -226,6 +226,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var result = new SearchResult(resultList, new List<Tuple<string, string>>(), new List<(string, string)>(), continuationToken);
 
             return result;
+        }
+
+        private ReindexJobRecord CreateReindexJobRecord()
+        {
+            IReadOnlyDictionary<string, string> paramHashMap = new Dictionary<string, string>() { { "Patient", "paramHash" } };
+            return new ReindexJobRecord(paramHashMap, maxiumumConcurrency: 1, scope: null);
         }
     }
 }
