@@ -181,7 +181,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
         public async Task<SearchResult> SearchForReindexAsync(
             IReadOnlyList<Tuple<string, string>> queryParameters,
-            IReadOnlyList<string> searchParameterHash,
+            string searchParameterHash,
             bool countOnly,
             CancellationToken cancellationToken)
         {
@@ -213,7 +213,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
         protected abstract Task<SearchResult> SearchForReindexInternalAsync(
             SearchOptions searchOptions,
-            IReadOnlyList<string> searchParameterHash,
+            string searchParameterHash,
             CancellationToken cancellationToken);
     }
 }

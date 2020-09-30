@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <returns>A collection of resources matching the query parameters</returns>
         Task<SearchResult> SearchForReindexAsync(
             IReadOnlyList<Tuple<string, string>> queryParameters,
-            IReadOnlyList<string> searchParameterHash,
+            string searchParameterHash,
             bool countOnly,
             CancellationToken cancellationToken);
     }

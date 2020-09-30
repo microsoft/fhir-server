@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using System.Text;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
@@ -28,7 +27,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
             return new QueryBuilderHelper().GenerateHistorySql(searchOptions);
         }
 
-        public QueryDefinition GenerateReindexSql(SearchOptions searchOptions, IReadOnlyList<string> searchParameterHash)
+        public QueryDefinition GenerateReindexSql(SearchOptions searchOptions, string searchParameterHash)
         {
             return new QueryBuilderHelper().GenerateReindexSql(searchOptions, searchParameterHash);
         }
@@ -136,7 +135,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                 return query;
             }
 
-            public QueryDefinition GenerateReindexSql(SearchOptions searchOptions, IReadOnlyList<string> searchParameterHash)
+            public QueryDefinition GenerateReindexSql(SearchOptions searchOptions, string searchParameterHash)
             {
                 EnsureArg.IsNotNull(searchOptions, nameof(searchOptions));
                 EnsureArg.IsNotNull(searchParameterHash, nameof(searchParameterHash));
@@ -167,16 +166,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                    true,
                    (KnownResourceWrapperProperties.IsDeleted, false));
 
-                (string, object)[] conditions = new (string, object)[searchParameterHash.Count];
-                for (int i = 0; i < searchParameterHash.Count; i++)
-                {
-                    conditions[i] = (KnownResourceWrapperProperties.SearchParameterHash, searchParameterHash[i]);
-                }
-
                 AppendFilterCondition(
                    "AND",
                    false,
-                   conditions);
+                   (KnownResourceWrapperProperties.SearchParameterHash, searchParameterHash));
 
                 var query = new QueryDefinition(_queryBuilder.ToString());
                 _queryParameterManager.AddToQuery(query);

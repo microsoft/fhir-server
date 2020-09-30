@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
         protected override async Task<SearchResult> SearchForReindexInternalAsync(
             SearchOptions searchOptions,
-            IReadOnlyList<string> searchParameterHash,
+            string searchParameterHash,
             CancellationToken cancellationToken)
         {
             return await ExecuteSearchAsync(

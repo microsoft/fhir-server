@@ -3,12 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
+using Microsoft.Health.Core;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         public async Task EnsureInitialized()
         {
             var updated = new List<SearchParameterInfo>();
-            var resourceParameterUriMap = new Dictionary<string, List<Uri>>();
+            var resourceParameterUriMap = new Dictionary<string, List<ResourceSearchParameterStatus>>();
 
             var parameters = (await _searchParameterRegistry.GetSearchParameterStatuses())
                 .ToDictionary(x => x.Uri);
@@ -93,17 +93,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 // These parameters will be used to calculate the search parameter hash below.
                 if (p.IsPartiallySupported || p.IsSupported)
                 {
+                    if (result == null)
+                    {
+                        result = new ResourceSearchParameterStatus()
+                        {
+                            Uri = p.Url,
+                            Status = SearchParameterStatus.Supported,
+                            LastUpdated = Clock.UtcNow,
+                        };
+                    }
+
                     if (p.TargetResourceTypes != null)
                     {
                         foreach (string resourceType in p.TargetResourceTypes)
                         {
                             if (resourceParameterUriMap.ContainsKey(resourceType))
                             {
-                                resourceParameterUriMap[resourceType].Add(p.Url);
+                                resourceParameterUriMap[resourceType].Add(result);
                             }
                             else
                             {
-                                resourceParameterUriMap.Add(resourceType, new List<Uri>() { p.Url });
+                                resourceParameterUriMap.Add(resourceType, new List<ResourceSearchParameterStatus>() { result });
                             }
                         }
                     }
@@ -114,11 +124,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                         {
                             if (resourceParameterUriMap.ContainsKey(resourceType))
                             {
-                                resourceParameterUriMap[resourceType].Add(p.Url);
+                                resourceParameterUriMap[resourceType].Add(result);
                             }
                             else
                             {
-                                resourceParameterUriMap.Add(resourceType, new List<Uri>() { p.Url });
+                                resourceParameterUriMap.Add(resourceType, new List<ResourceSearchParameterStatus>() { result });
                             }
                         }
                     }
@@ -126,7 +136,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             }
 
             var resourceHashMap = new Dictionary<string, string>();
-            foreach (KeyValuePair<string, List<Uri>> kvp in resourceParameterUriMap)
+            foreach (KeyValuePair<string, List<ResourceSearchParameterStatus>> kvp in resourceParameterUriMap)
             {
                 string searchParamHash = SearchHelperUtilities.CalculateSearchParameterHash(kvp.Value);
                 resourceHashMap.Add(kvp.Key, searchParamHash);

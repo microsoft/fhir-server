@@ -263,7 +263,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 try
                 {
-                    return await searchService.Value.SearchForReindexAsync(queryParametersList, _searchParameterHashes, countOnly, cancellationToken);
+                    return await searchService.Value.SearchForReindexAsync(queryParametersList, _searchParameterHashes[0], countOnly, cancellationToken);
                 }
                 catch (Exception ex)
                 {

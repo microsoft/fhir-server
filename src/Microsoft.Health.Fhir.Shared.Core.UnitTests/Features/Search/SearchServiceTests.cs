@@ -144,7 +144,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 return new SearchResult(new SearchResultEntry[0], _unsupportedQueryParameters, _unsupportedSortingParameters, null);
             };
 
-            SearchResult searchResult = await _searchService.SearchForReindexAsync(new List<Tuple<string, string>>() { new Tuple<string, string>("_type", resourceType) }, new List<string>() { hashValue }, countOnly, CancellationToken.None);
+            SearchResult searchResult = await _searchService.SearchForReindexAsync(new List<Tuple<string, string>>() { new Tuple<string, string>("_type", resourceType) }, hashValue, countOnly, CancellationToken.None);
 
             Assert.Equal(countOnly, testOptions.CountOnly);
         }
@@ -173,7 +173,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 return Task.FromResult(SearchImplementation(searchOptions));
             }
 
-            protected override Task<SearchResult> SearchForReindexInternalAsync(SearchOptions searchOptions, IReadOnlyList<string> searchParameterHash, CancellationToken cancellationToken)
+            protected override Task<SearchResult> SearchForReindexInternalAsync(SearchOptions searchOptions, string searchParameterHash, CancellationToken cancellationToken)
             {
                 return Task.FromResult(SearchImplementation(searchOptions));
             }
