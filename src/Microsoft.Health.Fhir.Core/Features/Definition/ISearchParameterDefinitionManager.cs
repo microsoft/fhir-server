@@ -25,7 +25,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         IEnumerable<SearchParameterInfo> AllSearchParameters { get; }
 
         /// <summary>
-        /// Gets a hash value calculated from the current set of search parameters
+        /// Represents a mapping of resource type to a hash of the search parameters
+        /// currently supported for that resource type.
         /// </summary>
         IReadOnlyDictionary<string, string> SearchParameterHashMap { get; }
 

@@ -112,7 +112,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     _reindexJobRecord.Resources.AddRange(resourceList);
                     _reindexJobRecord.SearchParams.AddRange(notYetIndexedParams.Select(p => p.Name));
 
-                    // TODO: Run queries to calculate count.
+                    await CalculateTotalCount(cancellationToken);
 
                     // Generate separate queries for each resource type and add them to query list.
                     foreach (string resourceType in _reindexJobRecord.Resources)
@@ -410,6 +410,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 var wrapper = await store.Value.UpdateReindexJobAsync(_reindexJobRecord, _weakETag, cancellationToken);
                 _weakETag = wrapper.ETag;
             }
+        }
+
+        private async Task CalculateTotalCount(CancellationToken cancellationToken)
+        {
+            int totalCount = 0;
+            foreach (string resourceType in _reindexJobRecord.Resources)
+            {
+                var queryForCount = new ReindexJobQueryStatus(resourceType, continuationToken: null)
+                {
+                    LastModified = Clock.UtcNow,
+                    Status = OperationStatus.Queued,
+                };
+
+                // update the complete total
+                SearchResult countOnlyResults = await ExecuteReindexQueryAsync(queryForCount, countOnly: true, cancellationToken);
+                totalCount += countOnlyResults.TotalCount.Value;
+            }
+
+            _reindexJobRecord.Count = totalCount;
         }
     }
 }

@@ -43,6 +43,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         public ushort FailureCount { get; set; }
 
         [JsonProperty(JobRecordProperties.ResourceType)]
-        public string ResourceType { get; set; }
+        public string ResourceType { get; private set; }
     }
 }
