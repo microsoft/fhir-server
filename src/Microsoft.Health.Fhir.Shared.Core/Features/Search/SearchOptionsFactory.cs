@@ -291,7 +291,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 .Where(p => p != null && allIterateModifiers.Where(m => string.Equals(p.Item1, m, StringComparison.OrdinalIgnoreCase)).Any())
                 .Select(p =>
                 {
-                    ResourceType parsedIncludeResourceType = ResourceType.DomainResource;
+                    ResourceType parsedIncludeResourceType;
                     var includeResourceType = p.Item2?.Split(':')[0];
                     if (string.IsNullOrWhiteSpace(includeResourceType) ||
                         !Enum.TryParse(includeResourceType, out parsedIncludeResourceType))

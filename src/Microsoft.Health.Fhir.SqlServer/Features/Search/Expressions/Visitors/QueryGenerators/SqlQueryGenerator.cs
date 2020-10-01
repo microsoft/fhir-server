@@ -482,7 +482,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                                 else if (includeExpression.ReferenceSearchParameter?.TargetResourceTypes != null)
                                 {
                                     // Assumes TargetResourceTypes is of length 1. Otherwise, a BadRequest would have been thrown earlier for _revinclude:iterate
-                                    var fromCtes = new List<string>();
+                                    List<string> fromCtes;
                                     var targetType = includeExpression.ReferenceSearchParameter.TargetResourceTypes.First();
 
                                     if (TryGetIncludeCtes(targetType, out fromCtes))
