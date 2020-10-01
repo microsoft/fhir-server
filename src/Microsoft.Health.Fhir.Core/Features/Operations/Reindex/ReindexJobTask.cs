@@ -146,7 +146,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         queryTasks.Add(ProcessQueryAsync(query, jobSemaphore, queryTokensSource.Token));
 #pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
 
-                        _logger.LogInformation($"Reindex job task using {queryTasks.Count} threads");
+                        _logger.LogInformation($"Reindex job task created {queryTasks.Count} Tasks");
                     }
 
                     // reset stale queries to pending

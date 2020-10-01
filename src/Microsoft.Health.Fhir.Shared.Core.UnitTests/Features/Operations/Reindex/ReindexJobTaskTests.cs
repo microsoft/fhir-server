@@ -232,8 +232,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var job = new ReindexJobRecord("hash", maxiumumConcurrency: 1, scope: null, 3);
 
             job.QueryList.Add(new ReindexJobQueryStatus("token") { Status = OperationStatus.Running });
-                item => Assert.True(item.ContinuationToken == null && item.Status == OperationStatus.Completed),
-                item2 => Assert.True(item2.ContinuationToken == "token" && item2.Status == OperationStatus.Queued));
 
             // setup search results
             _searchService.SearchForReindexAsync(
