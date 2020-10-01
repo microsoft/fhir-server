@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 {
     public class SearchParametersHashUpdatedHandler : INotificationHandler<SearchParametersHashUpdated>
     {
-        private SearchParameterDefinitionManager _searchParameterDefinitionManager;
+        private readonly SearchParameterDefinitionManager _searchParameterDefinitionManager;
 
         public SearchParametersHashUpdatedHandler(SearchParameterDefinitionManager searchParameterDefinitionManager)
         {

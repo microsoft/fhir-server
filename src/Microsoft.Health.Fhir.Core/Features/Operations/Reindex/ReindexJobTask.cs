@@ -110,7 +110,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     }
 
                     _reindexJobRecord.Resources.AddRange(resourceList);
-                    _reindexJobRecord.SearchParams.AddRange(notYetIndexedParams.Select(p => p.Name));
+                    _reindexJobRecord.SearchParams.AddRange(notYetIndexedParams.Select(p => p.Url.ToString()));
 
                     await CalculateTotalCount(cancellationToken);
 
@@ -148,7 +148,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         queryTasks.Add(ProcessQueryAsync(query, jobSemaphore, queryTokensSource.Token));
 #pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
 
-                        _logger.LogInformation($"Reindex job task using {queryTasks.Count} threads");
+                        _logger.LogInformation($"Reindex job task created {queryTasks.Count} Tasks");
                     }
 
                     // reset stale queries to pending
@@ -346,11 +346,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 // all queries marked as complete, reindex job is done, check success or failure
                 if (_reindexJobRecord.QueryList.All(q => q.Status == OperationStatus.Completed))
                 {
-                    await CompleteJobAsync(OperationStatus.Completed, cancellationToken);
-                    _logger.LogInformation($"Reindex job successfully completed, id {_reindexJobRecord.Id}.");
+                    (bool success, string error) = await _reindexUtilities.UpdateSearchParameters(_reindexJobRecord.SearchParams, cancellationToken);
 
-                    // TODO: Send mediatr message to notify search parameter definition
-                    // manager that the search params have been successfully indexed
+                    if (success)
+                    {
+                        await CompleteJobAsync(OperationStatus.Completed, cancellationToken);
+                        _logger.LogInformation($"Reindex job successfully completed, id {_reindexJobRecord.Id}.");
+                    }
+                    else
+                    {
+                        var issue = new OperationOutcomeIssue(
+                            OperationOutcomeConstants.IssueSeverity.Error,
+                            OperationOutcomeConstants.IssueType.Exception,
+                            error);
+                        _reindexJobRecord.Error.Add(issue);
+                        _logger.LogError(error);
+
+                        await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
+                    }
                 }
                 else
                 {
