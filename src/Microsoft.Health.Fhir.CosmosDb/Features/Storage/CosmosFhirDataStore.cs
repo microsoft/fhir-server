@@ -207,22 +207,21 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         public async Task UpdateSearchParameterHashBatchAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken)
         {
-            // TODO: use bach command to update only hash values for list updateHashValueOnly
+            // TODO: use batch command to update both hash values and search index values for list updateSearchIndices
             // this is a place holder update until we batch update resources
             foreach (var resource in resources)
             {
-                await UpsertAsync(resource, WeakETag.FromVersionId(resource.Version), false, true, cancellationToken);
+                await UpdateSearchIndexForResourceAsync(resource, WeakETag.FromVersionId(resource.Version), cancellationToken);
             }
         }
 
         public async Task UpdateSearchParameterIndicesBatchAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken)
         {
             // TODO: use batch command to update both hash values and search index values for list updateSearchIndices
-
             // this is a place holder update until we batch update resources
             foreach (var resource in resources)
             {
-                await UpsertAsync(resource, WeakETag.FromVersionId(resource.Version), false, true, cancellationToken);
+                await UpdateSearchIndexForResourceAsync(resource, WeakETag.FromVersionId(resource.Version), cancellationToken);
             }
         }
 
