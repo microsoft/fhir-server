@@ -45,6 +45,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// <returns>A Task</returns>
         public async Task ProcessSearchResultsAsync(SearchResult results, IReadOnlyDictionary<string, string> resourceTypeSearchParameterHashMap, CancellationToken cancellationToken)
         {
+            EnsureArg.IsNotNull(results, nameof(results));
+            EnsureArg.IsNotNull(searchParamHash, nameof(searchParamHash));
+
             var updateHashValueOnly = new List<ResourceWrapper>();
             var updateSearchIndices = new List<ResourceWrapper>();
 
@@ -60,7 +63,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 var resourceElement = _deserializer.Deserialize(entry.Resource);
                 var newIndices = _searchIndexer.Extract(resourceElement);
                 var newIndicesHash = new HashSet<SearchIndexEntry>(newIndices);
-                var prevIndicesHash = new HashSet<SearchIndexEntry>(entry.Resource.SearchIndices);
+                var prevIndicesHash = entry.Resource.SearchIndices != null ?
+                    new HashSet<SearchIndexEntry>(entry.Resource.SearchIndices) : new HashSet<SearchIndexEntry>();
 
                 if (newIndicesHash.SetEquals(prevIndicesHash))
                 {
@@ -70,6 +74,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 {
                     entry.Resource.UpdateSearchIndices(newIndices);
                     updateSearchIndices.Add(entry.Resource);
+                }
+
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    return;
                 }
             }
 

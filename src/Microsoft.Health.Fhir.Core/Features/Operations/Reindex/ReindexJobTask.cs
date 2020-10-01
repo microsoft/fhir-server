@@ -42,7 +42,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             IOptions<ReindexJobConfiguration> reindexJobConfiguration,
             Func<IScoped<ISearchService>> searchServiceFactory,
             ISupportedSearchParameterDefinitionManager supportedSearchParameterDefinitionManager,
-            Func<IScoped<IFhirDataStore>> fhirDataStoreFactory,
             IReindexUtilities reindexUtilities,
             ILogger<ReindexJobTask> logger)
         {
@@ -50,7 +49,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             EnsureArg.IsNotNull(reindexJobConfiguration?.Value, nameof(reindexJobConfiguration));
             EnsureArg.IsNotNull(searchServiceFactory, nameof(searchServiceFactory));
             EnsureArg.IsNotNull(supportedSearchParameterDefinitionManager, nameof(supportedSearchParameterDefinitionManager));
-            EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));
             EnsureArg.IsNotNull(reindexUtilities, nameof(reindexUtilities));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
@@ -70,6 +68,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             _reindexJobRecord = reindexJobRecord;
             _weakETag = weakETag;
+            var jobSemaphore = new SemaphoreSlim(1, 1);
 
             try
             {
@@ -108,7 +107,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     {
                         resourceList.UnionWith(param.TargetResourceTypes);
 
-                        // TODO: Expand the BaseResourceTypes to all child resources
                         resourceList.UnionWith(param.BaseResourceTypes);
                     }
 
@@ -128,96 +126,207 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     _reindexJobRecord.Count = countOnlyResults.TotalCount.Value;
 
                     // Query first batch of resources
-                    await ProcessQueryAsync(queryStatus, cancellationToken);
+                    await ProcessQueryAsync(queryStatus, jobSemaphore, cancellationToken);
                 }
-                else
+
+                var queryTasks = new List<Task<ReindexJobQueryStatus>>();
+                var queryCancellationTokens = new Dictionary<ReindexJobQueryStatus, CancellationTokenSource>();
+
+                // while not all queries are finished
+                while (_reindexJobRecord.QueryList.Where(q =>
+                    q.Status == OperationStatus.Queued ||
+                    q.Status == OperationStatus.Running).Any())
                 {
-                    // check to see if queries are queued
-                    // TODO: this while loop is temporary until we multithread this task so multiple threads can
-                    // processes queries
-                    while (_reindexJobRecord.QueryList.Where(q => q.Status == OperationStatus.Queued).Any())
+                    if (_reindexJobRecord.QueryList.Where(q => q.Status == OperationStatus.Queued).Any())
                     {
                         // grab the next query from the list which is labeled as queued and run it
                         var query = _reindexJobRecord.QueryList.Where(q => q.Status == OperationStatus.Queued).OrderBy(q => q.LastModified).FirstOrDefault();
+                        CancellationTokenSource queryTokensSource = new CancellationTokenSource();
+                        queryCancellationTokens.Add(query, queryTokensSource);
 
-                        await ProcessQueryAsync(query, cancellationToken);
+#pragma warning disable CS4014 // Suppressed as we want to continue execution and begin processing the next query while this continues to run
+                        queryTasks.Add(ProcessQueryAsync(query, jobSemaphore, queryTokensSource.Token));
+#pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+
+                        _logger.LogInformation($"Reindex job task using {queryTasks.Count} threads");
                     }
+
+                    // reset stale queries to pending
+                    var staleQueries = _reindexJobRecord.QueryList.Where(
+                        q => q.Status == OperationStatus.Running && q.LastModified < DateTimeOffset.UtcNow - _reindexJobConfiguration.JobHeartbeatTimeoutThreshold);
+                    foreach (var staleQuery in staleQueries)
+                    {
+                        await jobSemaphore.WaitAsync();
+                        try
+                        {
+                            // if this query has a created task, cancel it
+                            if (queryCancellationTokens.TryGetValue(staleQuery, out var tokenSource))
+                            {
+                                tokenSource.Cancel(false);
+                            }
+
+                            staleQuery.Status = OperationStatus.Queued;
+                            await UpdateJobAsync(cancellationToken);
+                        }
+                        finally
+                        {
+                            jobSemaphore.Release();
+                        }
+                    }
+
+                    await Task.Delay(_reindexJobConfiguration.QueryDelayIntervalInMilliseconds);
+
+                    // Remove all finished tasks from the collections of tasks
+                    // and cancellationTokens
+                    if (queryTasks.Count >= reindexJobRecord.MaximumConcurrency)
+                    {
+                        var taskArray = queryTasks.ToArray();
+                        Task.WaitAny(taskArray);
+                        var finishedTasks = queryTasks.Where(t => t.IsCompleted).ToArray();
+                        foreach (var finishedTask in finishedTasks)
+                        {
+                            queryTasks.Remove(finishedTask);
+                            queryCancellationTokens.Remove(finishedTask.Result);
+                        }
+                    }
+
+                    // if our received CancellationToken is cancelled we should
+                    // pass that cancellation request onto all the cancellationTokens
+                    // for the currently executing threads
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        foreach (var tokenSource in queryCancellationTokens.Values)
+                        {
+                            tokenSource.Cancel(false);
+                        }
+                    }
+                }
+
+                Task.WaitAll(queryTasks.ToArray());
+
+                await jobSemaphore.WaitAsync();
+                try
+                {
+                    await CheckJobCompletionStatus(cancellationToken);
+                }
+                finally
+                {
+                    jobSemaphore.Release();
                 }
             }
             catch (JobConflictException)
             {
                 // The reindex job was updated externally.
-                _logger.LogTrace("The job was updated by another process.");
+                _logger.LogInformation("The job was updated by another process.");
             }
             catch (Exception ex)
             {
-                _reindexJobRecord.Error.Add(new OperationOutcomeIssue(
-                    OperationOutcomeConstants.IssueSeverity.Error,
-                    OperationOutcomeConstants.IssueType.Exception,
-                    ex.Message));
-
-                _reindexJobRecord.FailureCount++;
-
-                _logger.LogError(ex, $"Encountered an unhandled exception. The job failure count increased to {_reindexJobRecord.FailureCount}.");
-
-                await UpdateJobAsync(cancellationToken);
-
-                if (_reindexJobRecord.FailureCount >= _reindexJobConfiguration.ConsecutiveFailuresThreshold)
+                await jobSemaphore.WaitAsync();
+                try
                 {
-                    await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
+                    _reindexJobRecord.Error.Add(new OperationOutcomeIssue(
+                        OperationOutcomeConstants.IssueSeverity.Error,
+                        OperationOutcomeConstants.IssueType.Exception,
+                        ex.Message));
+
+                    _reindexJobRecord.FailureCount++;
+
+                    _logger.LogError(ex, $"Encountered an unhandled exception. The job failure count increased to {_reindexJobRecord.FailureCount}.");
+
+                    await UpdateJobAsync(cancellationToken);
+
+                    if (_reindexJobRecord.FailureCount >= _reindexJobConfiguration.ConsecutiveFailuresThreshold)
+                    {
+                        await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
+                    }
                 }
+                finally
+                {
+                    jobSemaphore.Release();
+                }
+            }
+            finally
+            {
+                jobSemaphore.Dispose();
             }
         }
 
-        private async Task ProcessQueryAsync(ReindexJobQueryStatus query, CancellationToken cancellationToken)
+        private async Task<ReindexJobQueryStatus> ProcessQueryAsync(ReindexJobQueryStatus query, SemaphoreSlim jobSemaphore, CancellationToken cancellationToken)
         {
             try
             {
-                query.Status = OperationStatus.Running;
-                query.LastModified = DateTimeOffset.UtcNow;
+                SearchResult results;
 
-                // Query first batch of resources
-                var results = await ExecuteReindexQueryAsync(query, false, cancellationToken);
-
-                // if continuation token then update next query
-                if (!string.IsNullOrEmpty(results.ContinuationToken))
+                await jobSemaphore.WaitAsync();
+                try
                 {
-                    var nextQuery = new ReindexJobQueryStatus(results.ContinuationToken);
-                    nextQuery.LastModified = DateTimeOffset.UtcNow;
-                    nextQuery.Status = OperationStatus.Queued;
-                    _reindexJobRecord.QueryList.Add(nextQuery);
+                    query.Status = OperationStatus.Running;
+                    query.LastModified = DateTimeOffset.UtcNow;
+
+                    // Query first batch of resources
+                    results = await ExecuteReindexQueryAsync(query, false, cancellationToken);
+
+                    // if continuation token then update next query
+                    if (!string.IsNullOrEmpty(results.ContinuationToken))
+                    {
+                        var nextQuery = new ReindexJobQueryStatus(results.ContinuationToken);
+                        nextQuery.LastModified = DateTimeOffset.UtcNow;
+                        nextQuery.Status = OperationStatus.Queued;
+                        _reindexJobRecord.QueryList.Add(nextQuery);
+                    }
+
+                    await UpdateJobAsync(cancellationToken);
+                }
+                finally
+                {
+                    jobSemaphore.Release();
                 }
 
-                await UpdateJobAsync(cancellationToken);
-
-                // TODO: Release lock on job document so another thread may pick up the next query.
-
+                _logger.LogInformation($"Reindex job current thread: {Thread.CurrentThread.ManagedThreadId}");
                 await _reindexUtilities.ProcessSearchResultsAsync(results, _reindexJobRecord.ResourceTypeSearchParameterHashMap, cancellationToken);
 
-                // TODO: reaquire document lock and update _etag
-                query.Status = OperationStatus.Completed;
-                await UpdateJobAsync(cancellationToken);
+                if (!cancellationToken.IsCancellationRequested)
+                {
+                    await jobSemaphore.WaitAsync();
+                    try
+                    {
+                        query.Status = OperationStatus.Completed;
+                        await UpdateJobAsync(cancellationToken);
+                    }
+                    finally
+                    {
+                        jobSemaphore.Release();
+                    }
+                }
 
-                await CheckJobCompletionStatus(cancellationToken);
+                return query;
             }
             catch (Exception ex)
             {
-                query.Error = ex.Message;
-
-                query.FailureCount++;
-
-                _logger.LogError(ex, $"Encountered an unhandled exception. The query failure count increased to {_reindexJobRecord.FailureCount}.");
-
-                if (query.FailureCount >= _reindexJobConfiguration.ConsecutiveFailuresThreshold)
+                await jobSemaphore.WaitAsync();
+                try
                 {
-                    query.Status = OperationStatus.Failed;
+                    query.Error = ex.Message;
+                    query.FailureCount++;
+                    _logger.LogError(ex, $"Encountered an unhandled exception. The query failure count increased to {_reindexJobRecord.FailureCount}.");
+
+                    if (query.FailureCount >= _reindexJobConfiguration.ConsecutiveFailuresThreshold)
+                    {
+                        query.Status = OperationStatus.Failed;
+                    }
+                    else
+                    {
+                        query.Status = OperationStatus.Queued;
+                    }
+
+                    await UpdateJobAsync(cancellationToken);
                 }
-                else
+                finally
                 {
-                    query.Status = OperationStatus.Queued;
+                    jobSemaphore.Release();
                 }
 
-                await UpdateJobAsync(cancellationToken);
+                return query;
             }
         }
 
@@ -236,12 +345,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 if (_reindexJobRecord.QueryList.All(q => q.Status == OperationStatus.Completed))
                 {
                     await CompleteJobAsync(OperationStatus.Completed, cancellationToken);
-                    _logger.LogTrace("Successfully completed the job.");
+                    _logger.LogInformation($"Reindex job successfully completed, id {_reindexJobRecord.Id}.");
+
+                    // TODO: Send mediatr message to notify search parameter definition
+                    // manager that the search params have been successfully indexed
                 }
                 else
                 {
                     await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
-                    _logger.LogTrace("Reindex job did not complete successfully.");
+                    _logger.LogInformation($"Reindex job did not complete successfully, id: {_reindexJobRecord.Id}.");
                 }
             }
         }
@@ -268,7 +380,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error running reindex query.");
-                    queryStatus.FailureCount++;
                     queryStatus.Error = ex.Message;
 
                     throw;
