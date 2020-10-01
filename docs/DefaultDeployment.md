@@ -64,13 +64,13 @@ To deploy the backend SQL Server, Azure Web App, and FHIR server code, use the b
     <img src="https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/1-CONTRIBUTION-GUIDE/images/deploytoazuregov.png">
 </a>
 
-The template can also be deployed using PowerShell. Here is an example of how the authorization details from above can be provided:
+You can also deploy using PowerShell. The example below leverages the CosmosDB template. Here is an example of how the authorization details from above can be provided:
 
 ```PowerShell
 $rg = New-AzResourceGroup -Name "RG-NAME" -Location westus2
 
 New-AzResourceGroupDeployment `
--TemplateUri "https://raw.githubusercontent.com/Microsoft/fhir-server/master/samples/templates/default-azuredeploy-sql.json" `
+-TemplateUri "https://raw.githubusercontent.com/Microsoft/fhir-server/master/samples/templates/default-azuredeploy.json" `
 -ResourceGroupName $rg.ResourceGroupName ` 
 -serviceName $fhirServiceName ` 
 -securityAuthenticationAuthority $apiAppReg.Authority ` 
@@ -83,7 +83,7 @@ To deploy without Authentication/Authorization:
 $rg = New-AzResourceGroup -Name "RG-NAME" -Location westus2
 
 New-AzResourceGroupDeployment `
--TemplateUri "https://raw.githubusercontent.com/Microsoft/fhir-server/master/samples/templates/default-azuredeploy-sql.json" `
+-TemplateUri "https://raw.githubusercontent.com/Microsoft/fhir-server/master/samples/templates/default-azuredeploy.json" `
 -ResourceGroupName $rg.ResourceGroupName -serviceName $fhirServiceName
 ```
 
