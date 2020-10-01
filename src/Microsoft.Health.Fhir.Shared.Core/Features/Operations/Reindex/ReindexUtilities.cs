@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         public async Task ProcessSearchResultsAsync(SearchResult results, IReadOnlyDictionary<string, string> resourceTypeSearchParameterHashMap, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(results, nameof(results));
-            EnsureArg.IsNotNull(searchParamHash, nameof(searchParamHash));
+            EnsureArg.IsNotNull(resourceTypeSearchParameterHashMap, nameof(resourceTypeSearchParameterHashMap));
 
             var updateHashValueOnly = new List<ResourceWrapper>();
             var updateSearchIndices = new List<ResourceWrapper>();
