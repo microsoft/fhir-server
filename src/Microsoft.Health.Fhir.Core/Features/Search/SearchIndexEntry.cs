@@ -4,10 +4,10 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Diagnostics.CodeAnalysis;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
+using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
@@ -30,10 +30,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             Value = value;
         }
 
+        [JsonConstructor]
+        public SearchIndexEntry()
+        {
+        }
+
         /// <summary>
         /// Gets the search parameter
         /// </summary>
         public SearchParameterInfo SearchParameter { get; }
+
+        /// <summary>
+        /// Used to capture the Json representation of the search index
+        /// usually when returned from Cosmos DB
+        /// </summary>
+        public string JsonString { get; set; }
 
         /// <summary>
         /// Gets the searchable value.
