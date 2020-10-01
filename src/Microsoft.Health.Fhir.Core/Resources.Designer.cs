@@ -809,6 +809,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Search parameter {0} is no longer supported and cannot be marked enabled..
+        /// </summary>
+        internal static string SearchParameterNoLongerSupported {
+            get {
+                return ResourceManager.GetString("SearchParameterNoLongerSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The search parameter &apos;{0}&apos; is not supported for resource type &apos;{1}&apos;..
         /// </summary>
         internal static string SearchParameterNotSupported {

@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -21,5 +22,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>A Task</returns>
         Task ProcessSearchResultsAsync(SearchResult results, string searchParamHash, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Sets the search parameters to enabled when a reindex job successfully completes
+        /// </summary>
+        /// <param name="searchParameterUris">The list of search parameter Uris</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>true if successfull, or false with error message is unsuccessfull</returns>
+        Task<(bool, string)> UpdateSearchParameters(IReadOnlyCollection<string> searchParameterUris, CancellationToken cancellationToken);
     }
 }

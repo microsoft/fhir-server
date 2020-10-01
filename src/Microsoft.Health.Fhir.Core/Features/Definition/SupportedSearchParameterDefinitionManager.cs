@@ -81,5 +81,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         {
             return _inner.AllSearchParameters.Where(p => p.IsSearchable == false && p.IsSupported == true);
         }
+
+        public void SetSearchParameterEnabled(Uri searchParameterUri)
+        {
+            var supportedParameter = GetSearchParameter(searchParameterUri);
+            supportedParameter.IsSearchable = true;
+        }
     }
 }

@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -22,6 +21,7 @@ using Microsoft.Health.Fhir.Core.UnitTests.Features.Search;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Xunit;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 {
@@ -63,6 +63,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 SearchParameterFixtureData.SupportedSearchDefinitionManager,
                 _reindexUtilities,
                 NullLogger<ReindexJobTask>.Instance);
+
+            _reindexUtilities.UpdateSearchParameters(Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<CancellationToken>()).Returns(x => (true, null));
         }
 
         [Fact]
@@ -97,7 +99,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             Assert.Equal(OperationStatus.Completed, job.Status);
             Assert.Equal(5, job.Count);
             Assert.Equal("Account", job.ResourceList);
-            Assert.Equal("status", job.SearchParamList);
+            Assert.Equal("http://hl7.org/fhir/SearchParameter/Account-status", job.SearchParamList);
             Assert.Collection<ReindexJobQueryStatus>(
                 job.QueryList,
                 item => Assert.True(item.ContinuationToken == null && item.Status == OperationStatus.Completed));
@@ -139,7 +141,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             Assert.Equal(OperationStatus.Completed, job.Status);
             Assert.Equal(5, job.Count);
             Assert.Equal("Account", job.ResourceList);
-            Assert.Equal("identifier", job.SearchParamList);
+            Assert.Equal("http://hl7.org/fhir/SearchParameter/Account-identifier", job.SearchParamList);
             Assert.Collection<ReindexJobQueryStatus>(
                 job.QueryList,
                 item => Assert.True(item.ContinuationToken == "token" && item.Status == OperationStatus.Completed),
@@ -193,11 +195,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             Assert.Equal(OperationStatus.Completed, job.Status);
             Assert.Equal(5, job.Count);
             Assert.Equal("Appointment,AppointmentResponse", job.ResourceList);
-            Assert.Equal("appointment", job.SearchParamList);
+            Assert.Equal("http://hl7.org/fhir/SearchParameter/AppointmentResponse-appointment", job.SearchParamList);
             Assert.Collection<ReindexJobQueryStatus>(
                 job.QueryList,
                 item => Assert.True(item.ContinuationToken == "token" && item.Status == OperationStatus.Completed),
                 item2 => Assert.True(item2.ContinuationToken == null && item2.Status == OperationStatus.Completed));
+
+            await _reindexUtilities.Received().UpdateSearchParameters(
+                Arg.Is<IReadOnlyCollection<string>>(r => r.Where(s => s.Contains("Appointment")).Any() &&
+                                            r.Where(s => s.Contains("AppointmentResponse")).Any()),
+                Arg.Any<CancellationToken>());
 
             param.IsSearchable = true;
         }
