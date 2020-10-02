@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         public async Task EnsureInitialized()
         {
             var updated = new List<SearchParameterInfo>();
-            var resourceParameterUriMap = new Dictionary<string, List<ResourceSearchParameterStatus>>();
+            var resourceTypeSearchParamStatusMap = new Dictionary<string, List<ResourceSearchParameterStatus>>();
 
             var parameters = (await _searchParameterRegistry.GetSearchParameterStatuses())
                 .ToDictionary(x => x.Uri);
@@ -107,13 +107,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                     {
                         foreach (string resourceType in p.TargetResourceTypes)
                         {
-                            if (resourceParameterUriMap.ContainsKey(resourceType))
+                            if (resourceTypeSearchParamStatusMap.ContainsKey(resourceType))
                             {
-                                resourceParameterUriMap[resourceType].Add(result);
+                                resourceTypeSearchParamStatusMap[resourceType].Add(result);
                             }
                             else
                             {
-                                resourceParameterUriMap.Add(resourceType, new List<ResourceSearchParameterStatus>() { result });
+                                resourceTypeSearchParamStatusMap.Add(resourceType, new List<ResourceSearchParameterStatus>() { result });
                             }
                         }
                     }
@@ -122,13 +122,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                     {
                         foreach (string resourceType in p.BaseResourceTypes)
                         {
-                            if (resourceParameterUriMap.ContainsKey(resourceType))
+                            if (resourceTypeSearchParamStatusMap.ContainsKey(resourceType))
                             {
-                                resourceParameterUriMap[resourceType].Add(result);
+                                resourceTypeSearchParamStatusMap[resourceType].Add(result);
                             }
                             else
                             {
-                                resourceParameterUriMap.Add(resourceType, new List<ResourceSearchParameterStatus>() { result });
+                                resourceTypeSearchParamStatusMap.Add(resourceType, new List<ResourceSearchParameterStatus>() { result });
                             }
                         }
                     }
@@ -136,7 +136,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             }
 
             var resourceHashMap = new Dictionary<string, string>();
-            foreach (KeyValuePair<string, List<ResourceSearchParameterStatus>> kvp in resourceParameterUriMap)
+            foreach (KeyValuePair<string, List<ResourceSearchParameterStatus>> kvp in resourceTypeSearchParamStatusMap)
             {
                 string searchParamHash = SearchHelperUtilities.CalculateSearchParameterHash(kvp.Value);
                 resourceHashMap.Add(kvp.Key, searchParamHash);
