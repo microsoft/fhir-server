@@ -71,11 +71,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 entry.Resource.SearchParameterHash = searchParamHash;
                 var resourceElement = _deserializer.Deserialize(entry.Resource);
                 var newIndices = _searchIndexer.Extract(resourceElement);
-                var newIndicesHash = new HashSet<SearchIndexEntry>(newIndices);
-                var prevIndicesHash = entry.Resource.SearchIndices != null ?
-                    new HashSet<SearchIndexEntry>(entry.Resource.SearchIndices) : new HashSet<SearchIndexEntry>();
 
-                if (newIndicesHash.SetEquals(prevIndicesHash))
+                if (entry.Resource.SearchIndicesEqual(newIndices))
                 {
                     updateHashValueOnly.Add(entry.Resource);
                 }
