@@ -48,6 +48,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         internal readonly static UpsertResource2Procedure UpsertResource2 = new UpsertResource2Procedure();
         internal readonly static UpsertResource3Procedure UpsertResource3 = new UpsertResource3Procedure();
         internal readonly static UpsertResource4Procedure UpsertResource4 = new UpsertResource4Procedure();
+        internal readonly static UpsertResource5Procedure UpsertResource5 = new UpsertResource5Procedure();
         internal class ClaimTypeTable : Table
         {
             internal ClaimTypeTable(): base("dbo.ClaimType")
@@ -902,6 +903,221 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         internal struct UpsertResource4TableValuedParameters
         {
             internal UpsertResource4TableValuedParameters(global::System.Collections.Generic.IEnumerable<ResourceWriteClaimTableTypeRow> ResourceWriteClaims, global::System.Collections.Generic.IEnumerable<CompartmentAssignmentTableTypeRow> CompartmentAssignments, global::System.Collections.Generic.IEnumerable<ReferenceSearchParamTableTypeRow> ReferenceSearchParams, global::System.Collections.Generic.IEnumerable<TokenSearchParamTableTypeRow> TokenSearchParams, global::System.Collections.Generic.IEnumerable<TokenTextTableTypeRow> TokenTextSearchParams, global::System.Collections.Generic.IEnumerable<StringSearchParamTableTypeRow> StringSearchParams, global::System.Collections.Generic.IEnumerable<NumberSearchParamTableTypeRow> NumberSearchParams, global::System.Collections.Generic.IEnumerable<QuantitySearchParamTableTypeRow> QuantitySearchParams, global::System.Collections.Generic.IEnumerable<UriSearchParamTableTypeRow> UriSearchParams, global::System.Collections.Generic.IEnumerable<DateTimeSearchParamTableTypeRow> DateTimeSearchParms, global::System.Collections.Generic.IEnumerable<ReferenceTokenCompositeSearchParamTableTypeRow> ReferenceTokenCompositeSearchParams, global::System.Collections.Generic.IEnumerable<TokenTokenCompositeSearchParamTableTypeRow> TokenTokenCompositeSearchParams, global::System.Collections.Generic.IEnumerable<TokenDateTimeCompositeSearchParamTableTypeRow> TokenDateTimeCompositeSearchParams, global::System.Collections.Generic.IEnumerable<TokenQuantityCompositeSearchParamTableTypeRow> TokenQuantityCompositeSearchParams, global::System.Collections.Generic.IEnumerable<TokenStringCompositeSearchParamTableTypeRow> TokenStringCompositeSearchParams, global::System.Collections.Generic.IEnumerable<TokenNumberNumberCompositeSearchParamTableTypeRow> TokenNumberNumberCompositeSearchParams)
+            {
+                this.ResourceWriteClaims = ResourceWriteClaims;
+                this.CompartmentAssignments = CompartmentAssignments;
+                this.ReferenceSearchParams = ReferenceSearchParams;
+                this.TokenSearchParams = TokenSearchParams;
+                this.TokenTextSearchParams = TokenTextSearchParams;
+                this.StringSearchParams = StringSearchParams;
+                this.NumberSearchParams = NumberSearchParams;
+                this.QuantitySearchParams = QuantitySearchParams;
+                this.UriSearchParams = UriSearchParams;
+                this.DateTimeSearchParms = DateTimeSearchParms;
+                this.ReferenceTokenCompositeSearchParams = ReferenceTokenCompositeSearchParams;
+                this.TokenTokenCompositeSearchParams = TokenTokenCompositeSearchParams;
+                this.TokenDateTimeCompositeSearchParams = TokenDateTimeCompositeSearchParams;
+                this.TokenQuantityCompositeSearchParams = TokenQuantityCompositeSearchParams;
+                this.TokenStringCompositeSearchParams = TokenStringCompositeSearchParams;
+                this.TokenNumberNumberCompositeSearchParams = TokenNumberNumberCompositeSearchParams;
+            }
+
+            internal global::System.Collections.Generic.IEnumerable<ResourceWriteClaimTableTypeRow> ResourceWriteClaims
+            {
+                get;
+            }
+
+            internal global::System.Collections.Generic.IEnumerable<CompartmentAssignmentTableTypeRow> CompartmentAssignments
+            {
+                get;
+            }
+
+            internal global::System.Collections.Generic.IEnumerable<ReferenceSearchParamTableTypeRow> ReferenceSearchParams
+            {
+                get;
+            }
+
+            internal global::System.Collections.Generic.IEnumerable<TokenSearchParamTableTypeRow> TokenSearchParams
+            {
+                get;
+            }
+
+            internal global::System.Collections.Generic.IEnumerable<TokenTextTableTypeRow> TokenTextSearchParams
+            {
+                get;
+            }
+
+            internal global::System.Collections.Generic.IEnumerable<StringSearchParamTableTypeRow> StringSearchParams
+            {
+                get;
+            }
+
+            internal global::System.Collections.Generic.IEnumerable<NumberSearchParamTableTypeRow> NumberSearchParams
+            {
+                get;
+            }
+
+            internal global::System.Collections.Generic.IEnumerable<QuantitySearchParamTableTypeRow> QuantitySearchParams
+            {
+                get;
+            }
+
+            internal global::System.Collections.Generic.IEnumerable<UriSearchParamTableTypeRow> UriSearchParams
+            {
+                get;
+            }
+
+            internal global::System.Collections.Generic.IEnumerable<DateTimeSearchParamTableTypeRow> DateTimeSearchParms
+            {
+                get;
+            }
+
+            internal global::System.Collections.Generic.IEnumerable<ReferenceTokenCompositeSearchParamTableTypeRow> ReferenceTokenCompositeSearchParams
+            {
+                get;
+            }
+
+            internal global::System.Collections.Generic.IEnumerable<TokenTokenCompositeSearchParamTableTypeRow> TokenTokenCompositeSearchParams
+            {
+                get;
+            }
+
+            internal global::System.Collections.Generic.IEnumerable<TokenDateTimeCompositeSearchParamTableTypeRow> TokenDateTimeCompositeSearchParams
+            {
+                get;
+            }
+
+            internal global::System.Collections.Generic.IEnumerable<TokenQuantityCompositeSearchParamTableTypeRow> TokenQuantityCompositeSearchParams
+            {
+                get;
+            }
+
+            internal global::System.Collections.Generic.IEnumerable<TokenStringCompositeSearchParamTableTypeRow> TokenStringCompositeSearchParams
+            {
+                get;
+            }
+
+            internal global::System.Collections.Generic.IEnumerable<TokenNumberNumberCompositeSearchParamTableTypeRow> TokenNumberNumberCompositeSearchParams
+            {
+                get;
+            }
+        }
+
+        internal class UpsertResource5Procedure : StoredProcedure
+        {
+            internal UpsertResource5Procedure(): base("dbo.UpsertResource5")
+            {
+            }
+
+            private readonly ParameterDefinition<System.Int64> _baseResourceSurrogateId = new ParameterDefinition<System.Int64>("@baseResourceSurrogateId", global::System.Data.SqlDbType.BigInt, false);
+            private readonly ParameterDefinition<System.Int16> _resourceTypeId = new ParameterDefinition<System.Int16>("@resourceTypeId", global::System.Data.SqlDbType.SmallInt, false);
+            private readonly ParameterDefinition<System.String> _resourceId = new ParameterDefinition<System.String>("@resourceId", global::System.Data.SqlDbType.VarChar, false, 64);
+            private readonly ParameterDefinition<System.Nullable<System.Int32>> _eTag = new ParameterDefinition<System.Nullable<System.Int32>>("@eTag", global::System.Data.SqlDbType.Int, true);
+            private readonly ParameterDefinition<System.Boolean> _allowCreate = new ParameterDefinition<System.Boolean>("@allowCreate", global::System.Data.SqlDbType.Bit, false);
+            private readonly ParameterDefinition<System.Boolean> _isDeleted = new ParameterDefinition<System.Boolean>("@isDeleted", global::System.Data.SqlDbType.Bit, false);
+            private readonly ParameterDefinition<System.Boolean> _keepHistory = new ParameterDefinition<System.Boolean>("@keepHistory", global::System.Data.SqlDbType.Bit, false);
+            private readonly ParameterDefinition<System.String> _requestMethod = new ParameterDefinition<System.String>("@requestMethod", global::System.Data.SqlDbType.VarChar, false, 10);
+            private readonly ParameterDefinition<global::System.IO.Stream> _rawResource = new ParameterDefinition<global::System.IO.Stream>("@rawResource", global::System.Data.SqlDbType.VarBinary, false, -1);
+            private readonly ResourceWriteClaimTableTypeTableValuedParameterDefinition _resourceWriteClaims = new ResourceWriteClaimTableTypeTableValuedParameterDefinition("@resourceWriteClaims");
+            private readonly CompartmentAssignmentTableTypeTableValuedParameterDefinition _compartmentAssignments = new CompartmentAssignmentTableTypeTableValuedParameterDefinition("@compartmentAssignments");
+            private readonly ReferenceSearchParamTableTypeTableValuedParameterDefinition _referenceSearchParams = new ReferenceSearchParamTableTypeTableValuedParameterDefinition("@referenceSearchParams");
+            private readonly TokenSearchParamTableTypeTableValuedParameterDefinition _tokenSearchParams = new TokenSearchParamTableTypeTableValuedParameterDefinition("@tokenSearchParams");
+            private readonly TokenTextTableTypeTableValuedParameterDefinition _tokenTextSearchParams = new TokenTextTableTypeTableValuedParameterDefinition("@tokenTextSearchParams");
+            private readonly StringSearchParamTableTypeTableValuedParameterDefinition _stringSearchParams = new StringSearchParamTableTypeTableValuedParameterDefinition("@stringSearchParams");
+            private readonly NumberSearchParamTableTypeTableValuedParameterDefinition _numberSearchParams = new NumberSearchParamTableTypeTableValuedParameterDefinition("@numberSearchParams");
+            private readonly QuantitySearchParamTableTypeTableValuedParameterDefinition _quantitySearchParams = new QuantitySearchParamTableTypeTableValuedParameterDefinition("@quantitySearchParams");
+            private readonly UriSearchParamTableTypeTableValuedParameterDefinition _uriSearchParams = new UriSearchParamTableTypeTableValuedParameterDefinition("@uriSearchParams");
+            private readonly DateTimeSearchParamTableTypeTableValuedParameterDefinition _dateTimeSearchParms = new DateTimeSearchParamTableTypeTableValuedParameterDefinition("@dateTimeSearchParms");
+            private readonly ReferenceTokenCompositeSearchParamTableTypeTableValuedParameterDefinition _referenceTokenCompositeSearchParams = new ReferenceTokenCompositeSearchParamTableTypeTableValuedParameterDefinition("@referenceTokenCompositeSearchParams");
+            private readonly TokenTokenCompositeSearchParamTableTypeTableValuedParameterDefinition _tokenTokenCompositeSearchParams = new TokenTokenCompositeSearchParamTableTypeTableValuedParameterDefinition("@tokenTokenCompositeSearchParams");
+            private readonly TokenDateTimeCompositeSearchParamTableTypeTableValuedParameterDefinition _tokenDateTimeCompositeSearchParams = new TokenDateTimeCompositeSearchParamTableTypeTableValuedParameterDefinition("@tokenDateTimeCompositeSearchParams");
+            private readonly TokenQuantityCompositeSearchParamTableTypeTableValuedParameterDefinition _tokenQuantityCompositeSearchParams = new TokenQuantityCompositeSearchParamTableTypeTableValuedParameterDefinition("@tokenQuantityCompositeSearchParams");
+            private readonly TokenStringCompositeSearchParamTableTypeTableValuedParameterDefinition _tokenStringCompositeSearchParams = new TokenStringCompositeSearchParamTableTypeTableValuedParameterDefinition("@tokenStringCompositeSearchParams");
+            private readonly TokenNumberNumberCompositeSearchParamTableTypeTableValuedParameterDefinition _tokenNumberNumberCompositeSearchParams = new TokenNumberNumberCompositeSearchParamTableTypeTableValuedParameterDefinition("@tokenNumberNumberCompositeSearchParams");
+            public void PopulateCommand(SqlCommandWrapper command, System.Int64 baseResourceSurrogateId, System.Int16 resourceTypeId, System.String resourceId, System.Nullable<System.Int32> eTag, System.Boolean allowCreate, System.Boolean isDeleted, System.Boolean keepHistory, System.String requestMethod, global::System.IO.Stream rawResource, global::System.Collections.Generic.IEnumerable<ResourceWriteClaimTableTypeRow> resourceWriteClaims, global::System.Collections.Generic.IEnumerable<CompartmentAssignmentTableTypeRow> compartmentAssignments, global::System.Collections.Generic.IEnumerable<ReferenceSearchParamTableTypeRow> referenceSearchParams, global::System.Collections.Generic.IEnumerable<TokenSearchParamTableTypeRow> tokenSearchParams, global::System.Collections.Generic.IEnumerable<TokenTextTableTypeRow> tokenTextSearchParams, global::System.Collections.Generic.IEnumerable<StringSearchParamTableTypeRow> stringSearchParams, global::System.Collections.Generic.IEnumerable<NumberSearchParamTableTypeRow> numberSearchParams, global::System.Collections.Generic.IEnumerable<QuantitySearchParamTableTypeRow> quantitySearchParams, global::System.Collections.Generic.IEnumerable<UriSearchParamTableTypeRow> uriSearchParams, global::System.Collections.Generic.IEnumerable<DateTimeSearchParamTableTypeRow> dateTimeSearchParms, global::System.Collections.Generic.IEnumerable<ReferenceTokenCompositeSearchParamTableTypeRow> referenceTokenCompositeSearchParams, global::System.Collections.Generic.IEnumerable<TokenTokenCompositeSearchParamTableTypeRow> tokenTokenCompositeSearchParams, global::System.Collections.Generic.IEnumerable<TokenDateTimeCompositeSearchParamTableTypeRow> tokenDateTimeCompositeSearchParams, global::System.Collections.Generic.IEnumerable<TokenQuantityCompositeSearchParamTableTypeRow> tokenQuantityCompositeSearchParams, global::System.Collections.Generic.IEnumerable<TokenStringCompositeSearchParamTableTypeRow> tokenStringCompositeSearchParams, global::System.Collections.Generic.IEnumerable<TokenNumberNumberCompositeSearchParamTableTypeRow> tokenNumberNumberCompositeSearchParams)
+            {
+                command.CommandType = global::System.Data.CommandType.StoredProcedure;
+                command.CommandText = "dbo.UpsertResource5";
+                _baseResourceSurrogateId.AddParameter(command.Parameters, baseResourceSurrogateId);
+                _resourceTypeId.AddParameter(command.Parameters, resourceTypeId);
+                _resourceId.AddParameter(command.Parameters, resourceId);
+                _eTag.AddParameter(command.Parameters, eTag);
+                _allowCreate.AddParameter(command.Parameters, allowCreate);
+                _isDeleted.AddParameter(command.Parameters, isDeleted);
+                _keepHistory.AddParameter(command.Parameters, keepHistory);
+                _requestMethod.AddParameter(command.Parameters, requestMethod);
+                _rawResource.AddParameter(command.Parameters, rawResource);
+                _resourceWriteClaims.AddParameter(command.Parameters, resourceWriteClaims);
+                _compartmentAssignments.AddParameter(command.Parameters, compartmentAssignments);
+                _referenceSearchParams.AddParameter(command.Parameters, referenceSearchParams);
+                _tokenSearchParams.AddParameter(command.Parameters, tokenSearchParams);
+                _tokenTextSearchParams.AddParameter(command.Parameters, tokenTextSearchParams);
+                _stringSearchParams.AddParameter(command.Parameters, stringSearchParams);
+                _numberSearchParams.AddParameter(command.Parameters, numberSearchParams);
+                _quantitySearchParams.AddParameter(command.Parameters, quantitySearchParams);
+                _uriSearchParams.AddParameter(command.Parameters, uriSearchParams);
+                _dateTimeSearchParms.AddParameter(command.Parameters, dateTimeSearchParms);
+                _referenceTokenCompositeSearchParams.AddParameter(command.Parameters, referenceTokenCompositeSearchParams);
+                _tokenTokenCompositeSearchParams.AddParameter(command.Parameters, tokenTokenCompositeSearchParams);
+                _tokenDateTimeCompositeSearchParams.AddParameter(command.Parameters, tokenDateTimeCompositeSearchParams);
+                _tokenQuantityCompositeSearchParams.AddParameter(command.Parameters, tokenQuantityCompositeSearchParams);
+                _tokenStringCompositeSearchParams.AddParameter(command.Parameters, tokenStringCompositeSearchParams);
+                _tokenNumberNumberCompositeSearchParams.AddParameter(command.Parameters, tokenNumberNumberCompositeSearchParams);
+            }
+
+            public void PopulateCommand(SqlCommandWrapper command, System.Int64 baseResourceSurrogateId, System.Int16 resourceTypeId, System.String resourceId, System.Nullable<System.Int32> eTag, System.Boolean allowCreate, System.Boolean isDeleted, System.Boolean keepHistory, System.String requestMethod, global::System.IO.Stream rawResource, UpsertResource5TableValuedParameters tableValuedParameters)
+            {
+                PopulateCommand(command, baseResourceSurrogateId: baseResourceSurrogateId, resourceTypeId: resourceTypeId, resourceId: resourceId, eTag: eTag, allowCreate: allowCreate, isDeleted: isDeleted, keepHistory: keepHistory, requestMethod: requestMethod, rawResource: rawResource, resourceWriteClaims: tableValuedParameters.ResourceWriteClaims, compartmentAssignments: tableValuedParameters.CompartmentAssignments, referenceSearchParams: tableValuedParameters.ReferenceSearchParams, tokenSearchParams: tableValuedParameters.TokenSearchParams, tokenTextSearchParams: tableValuedParameters.TokenTextSearchParams, stringSearchParams: tableValuedParameters.StringSearchParams, numberSearchParams: tableValuedParameters.NumberSearchParams, quantitySearchParams: tableValuedParameters.QuantitySearchParams, uriSearchParams: tableValuedParameters.UriSearchParams, dateTimeSearchParms: tableValuedParameters.DateTimeSearchParms, referenceTokenCompositeSearchParams: tableValuedParameters.ReferenceTokenCompositeSearchParams, tokenTokenCompositeSearchParams: tableValuedParameters.TokenTokenCompositeSearchParams, tokenDateTimeCompositeSearchParams: tableValuedParameters.TokenDateTimeCompositeSearchParams, tokenQuantityCompositeSearchParams: tableValuedParameters.TokenQuantityCompositeSearchParams, tokenStringCompositeSearchParams: tableValuedParameters.TokenStringCompositeSearchParams, tokenNumberNumberCompositeSearchParams: tableValuedParameters.TokenNumberNumberCompositeSearchParams);
+            }
+        }
+
+        internal class UpsertResource5TvpGenerator<TInput> : IStoredProcedureTableValuedParametersGenerator<TInput, UpsertResource5TableValuedParameters>
+        {
+            public UpsertResource5TvpGenerator(ITableValuedParameterRowGenerator<TInput, ResourceWriteClaimTableTypeRow> ResourceWriteClaimTableTypeRowGenerator, ITableValuedParameterRowGenerator<TInput, CompartmentAssignmentTableTypeRow> CompartmentAssignmentTableTypeRowGenerator, ITableValuedParameterRowGenerator<TInput, ReferenceSearchParamTableTypeRow> ReferenceSearchParamTableTypeRowGenerator, ITableValuedParameterRowGenerator<TInput, TokenSearchParamTableTypeRow> TokenSearchParamTableTypeRowGenerator, ITableValuedParameterRowGenerator<TInput, TokenTextTableTypeRow> TokenTextTableTypeRowGenerator, ITableValuedParameterRowGenerator<TInput, StringSearchParamTableTypeRow> StringSearchParamTableTypeRowGenerator, ITableValuedParameterRowGenerator<TInput, NumberSearchParamTableTypeRow> NumberSearchParamTableTypeRowGenerator, ITableValuedParameterRowGenerator<TInput, QuantitySearchParamTableTypeRow> QuantitySearchParamTableTypeRowGenerator, ITableValuedParameterRowGenerator<TInput, UriSearchParamTableTypeRow> UriSearchParamTableTypeRowGenerator, ITableValuedParameterRowGenerator<TInput, DateTimeSearchParamTableTypeRow> DateTimeSearchParamTableTypeRowGenerator, ITableValuedParameterRowGenerator<TInput, ReferenceTokenCompositeSearchParamTableTypeRow> ReferenceTokenCompositeSearchParamTableTypeRowGenerator, ITableValuedParameterRowGenerator<TInput, TokenTokenCompositeSearchParamTableTypeRow> TokenTokenCompositeSearchParamTableTypeRowGenerator, ITableValuedParameterRowGenerator<TInput, TokenDateTimeCompositeSearchParamTableTypeRow> TokenDateTimeCompositeSearchParamTableTypeRowGenerator, ITableValuedParameterRowGenerator<TInput, TokenQuantityCompositeSearchParamTableTypeRow> TokenQuantityCompositeSearchParamTableTypeRowGenerator, ITableValuedParameterRowGenerator<TInput, TokenStringCompositeSearchParamTableTypeRow> TokenStringCompositeSearchParamTableTypeRowGenerator, ITableValuedParameterRowGenerator<TInput, TokenNumberNumberCompositeSearchParamTableTypeRow> TokenNumberNumberCompositeSearchParamTableTypeRowGenerator)
+            {
+                this.ResourceWriteClaimTableTypeRowGenerator = ResourceWriteClaimTableTypeRowGenerator;
+                this.CompartmentAssignmentTableTypeRowGenerator = CompartmentAssignmentTableTypeRowGenerator;
+                this.ReferenceSearchParamTableTypeRowGenerator = ReferenceSearchParamTableTypeRowGenerator;
+                this.TokenSearchParamTableTypeRowGenerator = TokenSearchParamTableTypeRowGenerator;
+                this.TokenTextTableTypeRowGenerator = TokenTextTableTypeRowGenerator;
+                this.StringSearchParamTableTypeRowGenerator = StringSearchParamTableTypeRowGenerator;
+                this.NumberSearchParamTableTypeRowGenerator = NumberSearchParamTableTypeRowGenerator;
+                this.QuantitySearchParamTableTypeRowGenerator = QuantitySearchParamTableTypeRowGenerator;
+                this.UriSearchParamTableTypeRowGenerator = UriSearchParamTableTypeRowGenerator;
+                this.DateTimeSearchParamTableTypeRowGenerator = DateTimeSearchParamTableTypeRowGenerator;
+                this.ReferenceTokenCompositeSearchParamTableTypeRowGenerator = ReferenceTokenCompositeSearchParamTableTypeRowGenerator;
+                this.TokenTokenCompositeSearchParamTableTypeRowGenerator = TokenTokenCompositeSearchParamTableTypeRowGenerator;
+                this.TokenDateTimeCompositeSearchParamTableTypeRowGenerator = TokenDateTimeCompositeSearchParamTableTypeRowGenerator;
+                this.TokenQuantityCompositeSearchParamTableTypeRowGenerator = TokenQuantityCompositeSearchParamTableTypeRowGenerator;
+                this.TokenStringCompositeSearchParamTableTypeRowGenerator = TokenStringCompositeSearchParamTableTypeRowGenerator;
+                this.TokenNumberNumberCompositeSearchParamTableTypeRowGenerator = TokenNumberNumberCompositeSearchParamTableTypeRowGenerator;
+            }
+
+            private readonly ITableValuedParameterRowGenerator<TInput, ResourceWriteClaimTableTypeRow> ResourceWriteClaimTableTypeRowGenerator;
+            private readonly ITableValuedParameterRowGenerator<TInput, CompartmentAssignmentTableTypeRow> CompartmentAssignmentTableTypeRowGenerator;
+            private readonly ITableValuedParameterRowGenerator<TInput, ReferenceSearchParamTableTypeRow> ReferenceSearchParamTableTypeRowGenerator;
+            private readonly ITableValuedParameterRowGenerator<TInput, TokenSearchParamTableTypeRow> TokenSearchParamTableTypeRowGenerator;
+            private readonly ITableValuedParameterRowGenerator<TInput, TokenTextTableTypeRow> TokenTextTableTypeRowGenerator;
+            private readonly ITableValuedParameterRowGenerator<TInput, StringSearchParamTableTypeRow> StringSearchParamTableTypeRowGenerator;
+            private readonly ITableValuedParameterRowGenerator<TInput, NumberSearchParamTableTypeRow> NumberSearchParamTableTypeRowGenerator;
+            private readonly ITableValuedParameterRowGenerator<TInput, QuantitySearchParamTableTypeRow> QuantitySearchParamTableTypeRowGenerator;
+            private readonly ITableValuedParameterRowGenerator<TInput, UriSearchParamTableTypeRow> UriSearchParamTableTypeRowGenerator;
+            private readonly ITableValuedParameterRowGenerator<TInput, DateTimeSearchParamTableTypeRow> DateTimeSearchParamTableTypeRowGenerator;
+            private readonly ITableValuedParameterRowGenerator<TInput, ReferenceTokenCompositeSearchParamTableTypeRow> ReferenceTokenCompositeSearchParamTableTypeRowGenerator;
+            private readonly ITableValuedParameterRowGenerator<TInput, TokenTokenCompositeSearchParamTableTypeRow> TokenTokenCompositeSearchParamTableTypeRowGenerator;
+            private readonly ITableValuedParameterRowGenerator<TInput, TokenDateTimeCompositeSearchParamTableTypeRow> TokenDateTimeCompositeSearchParamTableTypeRowGenerator;
+            private readonly ITableValuedParameterRowGenerator<TInput, TokenQuantityCompositeSearchParamTableTypeRow> TokenQuantityCompositeSearchParamTableTypeRowGenerator;
+            private readonly ITableValuedParameterRowGenerator<TInput, TokenStringCompositeSearchParamTableTypeRow> TokenStringCompositeSearchParamTableTypeRowGenerator;
+            private readonly ITableValuedParameterRowGenerator<TInput, TokenNumberNumberCompositeSearchParamTableTypeRow> TokenNumberNumberCompositeSearchParamTableTypeRowGenerator;
+            public UpsertResource5TableValuedParameters Generate(TInput input)
+            {
+                return new UpsertResource5TableValuedParameters(ResourceWriteClaimTableTypeRowGenerator.GenerateRows(input), CompartmentAssignmentTableTypeRowGenerator.GenerateRows(input), ReferenceSearchParamTableTypeRowGenerator.GenerateRows(input), TokenSearchParamTableTypeRowGenerator.GenerateRows(input), TokenTextTableTypeRowGenerator.GenerateRows(input), StringSearchParamTableTypeRowGenerator.GenerateRows(input), NumberSearchParamTableTypeRowGenerator.GenerateRows(input), QuantitySearchParamTableTypeRowGenerator.GenerateRows(input), UriSearchParamTableTypeRowGenerator.GenerateRows(input), DateTimeSearchParamTableTypeRowGenerator.GenerateRows(input), ReferenceTokenCompositeSearchParamTableTypeRowGenerator.GenerateRows(input), TokenTokenCompositeSearchParamTableTypeRowGenerator.GenerateRows(input), TokenDateTimeCompositeSearchParamTableTypeRowGenerator.GenerateRows(input), TokenQuantityCompositeSearchParamTableTypeRowGenerator.GenerateRows(input), TokenStringCompositeSearchParamTableTypeRowGenerator.GenerateRows(input), TokenNumberNumberCompositeSearchParamTableTypeRowGenerator.GenerateRows(input));
+            }
+        }
+
+        internal struct UpsertResource5TableValuedParameters
+        {
+            internal UpsertResource5TableValuedParameters(global::System.Collections.Generic.IEnumerable<ResourceWriteClaimTableTypeRow> ResourceWriteClaims, global::System.Collections.Generic.IEnumerable<CompartmentAssignmentTableTypeRow> CompartmentAssignments, global::System.Collections.Generic.IEnumerable<ReferenceSearchParamTableTypeRow> ReferenceSearchParams, global::System.Collections.Generic.IEnumerable<TokenSearchParamTableTypeRow> TokenSearchParams, global::System.Collections.Generic.IEnumerable<TokenTextTableTypeRow> TokenTextSearchParams, global::System.Collections.Generic.IEnumerable<StringSearchParamTableTypeRow> StringSearchParams, global::System.Collections.Generic.IEnumerable<NumberSearchParamTableTypeRow> NumberSearchParams, global::System.Collections.Generic.IEnumerable<QuantitySearchParamTableTypeRow> QuantitySearchParams, global::System.Collections.Generic.IEnumerable<UriSearchParamTableTypeRow> UriSearchParams, global::System.Collections.Generic.IEnumerable<DateTimeSearchParamTableTypeRow> DateTimeSearchParms, global::System.Collections.Generic.IEnumerable<ReferenceTokenCompositeSearchParamTableTypeRow> ReferenceTokenCompositeSearchParams, global::System.Collections.Generic.IEnumerable<TokenTokenCompositeSearchParamTableTypeRow> TokenTokenCompositeSearchParams, global::System.Collections.Generic.IEnumerable<TokenDateTimeCompositeSearchParamTableTypeRow> TokenDateTimeCompositeSearchParams, global::System.Collections.Generic.IEnumerable<TokenQuantityCompositeSearchParamTableTypeRow> TokenQuantityCompositeSearchParams, global::System.Collections.Generic.IEnumerable<TokenStringCompositeSearchParamTableTypeRow> TokenStringCompositeSearchParams, global::System.Collections.Generic.IEnumerable<TokenNumberNumberCompositeSearchParamTableTypeRow> TokenNumberNumberCompositeSearchParams)
             {
                 this.ResourceWriteClaims = ResourceWriteClaims;
                 this.CompartmentAssignments = CompartmentAssignments;
