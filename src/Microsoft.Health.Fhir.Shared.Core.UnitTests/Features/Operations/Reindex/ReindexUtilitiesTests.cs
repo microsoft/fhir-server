@@ -31,11 +31,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         private readonly ISupportedSearchParameterDefinitionManager _searchParameterDefinitionManager = Substitute.For<ISupportedSearchParameterDefinitionManager>();
         private readonly ISearchParameterRegistry _searchParameterRegistry = Substitute.For<ISearchParameterRegistry>();
         private readonly ITestOutputHelper _output;
+        private IReadOnlyDictionary<string, string> _searchParameterHashMap;
         private readonly ReindexUtilities _reindexUtilities;
 
         public ReindexUtilitiesTests(ITestOutputHelper output)
         {
             _output = output;
+            _searchParameterHashMap = new Dictionary<string, string>() { { "Patient", "hash1" } };
             Func<Health.Extensions.DependencyInjection.IScoped<IFhirDataStore>> fhirDataStoreScope = () => _fhirDataStore.CreateMockScope();
             _reindexUtilities = new ReindexUtilities(fhirDataStoreScope, _searchIndexer, _resourceDeserializer, _searchParameterDefinitionManager, _searchParameterRegistry);
         }
@@ -57,7 +59,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             resultList.Add(entry2);
             var result = new SearchResult(resultList, new List<Tuple<string, string>>(), new List<(string, string)>(), "token");
 
-            await _reindexUtilities.ProcessSearchResultsAsync(result, "hash", CancellationToken.None);
+            await _reindexUtilities.ProcessSearchResultsAsync(result, _searchParameterHashMap, CancellationToken.None);
 
             await _fhirDataStore.Received().UpdateSearchParameterHashBatchAsync(
                 Arg.Is<IReadOnlyCollection<ResourceWrapper>>(

@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using EnsureThat;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
@@ -13,8 +14,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
     /// </summary>
     public class ReindexJobQueryStatus
     {
-        public ReindexJobQueryStatus(string continuationToken)
+        public ReindexJobQueryStatus(string resourceType, string continuationToken)
         {
+            EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
+
+            ResourceType = resourceType;
             ContinuationToken = continuationToken;
         }
 
@@ -37,5 +41,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
 
         [JsonProperty(JobRecordProperties.FailureCount)]
         public ushort FailureCount { get; set; }
+
+        [JsonProperty(JobRecordProperties.ResourceType)]
+        public string ResourceType { get; private set; }
     }
 }
