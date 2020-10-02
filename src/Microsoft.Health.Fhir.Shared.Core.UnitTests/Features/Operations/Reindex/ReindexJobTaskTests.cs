@@ -157,7 +157,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var param = SearchParameterFixtureData.SearchDefinitionManager.AllSearchParameters.Where(p => p.Name == "appointment").FirstOrDefault();
             param.IsSearchable = false;
 
-            ReindexJobRecord job = CreateReindexJobRecord();
+            var resourceTypeSearchParamHashMap = new Dictionary<string, string>();
+            resourceTypeSearchParamHashMap.Add("Appointment", "appointmentHash");
+            resourceTypeSearchParamHashMap.Add("AppointmentResponse", "appointmentResponseHash");
+
+            ReindexJobRecord job = CreateReindexJobRecord(paramHashMap: resourceTypeSearchParamHashMap);
 
             // setup search result
             _searchService.SearchForReindexAsync(
@@ -167,39 +171,57 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 Arg.Any<CancellationToken>()).
                 Returns(
                     x => CreateSearchResult("token"),
+                    x => CreateSearchResult("token"),
+                    x => CreateSearchResult(),
                     x => CreateSearchResult());
 
             await _reindexJobTask.ExecuteAsync(job, _weakETag, _cancellationToken);
 
             // verify search for count
-            await _searchService.Received().SearchForReindexAsync(Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<string>(), true, Arg.Any<CancellationToken>());
+            await _searchService.Received(2).SearchForReindexAsync(Arg.Any<IReadOnlyList<Tuple<string, string>>>(), Arg.Any<string>(), true, Arg.Any<CancellationToken>());
 
             // verify search for results
             await _searchService.Received().SearchForReindexAsync(
-                Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Where(t => t.Item1 == "_type" && t.Item2 == "Appointment,AppointmentResponse").Any()),
-                Arg.Is<string>("hash"),
+                Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Where(t => t.Item1 == "_type" && t.Item2 == "Appointment").Any()),
+                Arg.Is<string>("appointmentHash"),
+                false,
+                Arg.Any<CancellationToken>());
+
+            await _searchService.Received().SearchForReindexAsync(
+                Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Where(t => t.Item1 == "_type" && t.Item2 == "AppointmentResponse").Any()),
+                Arg.Is<string>("appointmentResponseHash"),
                 false,
                 Arg.Any<CancellationToken>());
 
             // verify search for results with token
             await _searchService.Received().SearchForReindexAsync(
                 Arg.Is<IReadOnlyList<Tuple<string, string>>>(
-                    l => l.Where(t => t.Item1 == "_type" && t.Item2 == "Appointment,AppointmentResponse").Any() &&
+                    l => l.Where(t => t.Item1 == "_type" && t.Item2 == "Appointment").Any() &&
                     l.Where(t => t.Item1 == KnownQueryParameterNames.ContinuationToken && t.Item2 == "token").Any()),
-                Arg.Is<string>("hash"),
+                Arg.Is<string>("appointmentHash"),
+                false,
+                Arg.Any<CancellationToken>());
+
+            await _searchService.Received().SearchForReindexAsync(
+                Arg.Is<IReadOnlyList<Tuple<string, string>>>(
+                    l => l.Where(t => t.Item1 == "_type" && t.Item2 == "AppointmentResponse").Any() &&
+                    l.Where(t => t.Item1 == KnownQueryParameterNames.ContinuationToken && t.Item2 == "token").Any()),
+                Arg.Is<string>("appointmentResponseHash"),
                 false,
                 Arg.Any<CancellationToken>());
 
             await _reindexJobTask.ExecuteAsync(job, _weakETag, _cancellationToken);
 
             Assert.Equal(OperationStatus.Completed, job.Status);
-            Assert.Equal(5, job.Count);
+            Assert.Equal(10, job.Count);
             Assert.Equal("Appointment,AppointmentResponse", job.ResourceList);
             Assert.Equal("http://hl7.org/fhir/SearchParameter/AppointmentResponse-appointment", job.SearchParamList);
             Assert.Collection<ReindexJobQueryStatus>(
                 job.QueryList,
-                item => Assert.True(item.ContinuationToken == "token" && item.Status == OperationStatus.Completed),
-                item2 => Assert.True(item2.ContinuationToken == null && item2.Status == OperationStatus.Completed));
+                item => Assert.True(item.ContinuationToken == "token" && item.Status == OperationStatus.Completed && item.ResourceType == "AppointmentResponse"),
+                item2 => Assert.True(item2.ContinuationToken == "token" && item2.Status == OperationStatus.Completed && item2.ResourceType == "Appointment"),
+                item3 => Assert.True(item3.ContinuationToken == null && item3.Status == OperationStatus.Completed && item3.ResourceType == "AppointmentResponse"),
+                item4 => Assert.True(item4.ContinuationToken == null && item4.Status == OperationStatus.Completed && item4.ResourceType == "Appointment"));
 
             await _reindexUtilities.Received().UpdateSearchParameters(
                 Arg.Is<IReadOnlyCollection<string>>(r => r.Where(s => s.Contains("Appointment")).Any() &&
@@ -298,9 +320,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             return new SearchResult(resultList, new List<Tuple<string, string>>(), new List<(string, string)>(), continuationToken);
         }
 
-        private ReindexJobRecord CreateReindexJobRecord(uint maxResourcePerQuery = 100)
+        private ReindexJobRecord CreateReindexJobRecord(uint maxResourcePerQuery = 100, IReadOnlyDictionary<string, string> paramHashMap = null)
         {
-            IReadOnlyDictionary<string, string> paramHashMap = new Dictionary<string, string>() { { "Patient", "paramHash" } };
+            if (paramHashMap == null)
+            {
+                paramHashMap = new Dictionary<string, string>() { { "Patient", "patientHash" } };
+            }
+
             return new ReindexJobRecord(paramHashMap, maxiumumConcurrency: 1, scope: null, maxResourcePerQuery);
         }
     }
