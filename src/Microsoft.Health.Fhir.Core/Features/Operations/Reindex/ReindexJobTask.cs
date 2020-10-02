@@ -112,19 +112,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     _reindexJobRecord.Resources.AddRange(resourceList);
                     _reindexJobRecord.SearchParams.AddRange(notYetIndexedParams.Select(p => p.Url.ToString()));
 
-                    // generate and run first query
-                    var queryStatus = new ReindexJobQueryStatus(null);
-                    queryStatus.LastModified = DateTimeOffset.UtcNow;
-                    queryStatus.Status = OperationStatus.Queued;
+                    await CalculateTotalCount(cancellationToken);
 
-                    _reindexJobRecord.QueryList.Add(queryStatus);
+                    // Generate separate queries for each resource type and add them to query list.
+                    foreach (string resourceType in _reindexJobRecord.Resources)
+                    {
+                        var query = new ReindexJobQueryStatus(resourceType, continuationToken: null)
+                        {
+                            LastModified = Clock.UtcNow,
+                            Status = OperationStatus.Queued,
+                        };
 
-                    // update the complete total
-                    var countOnlyResults = await ExecuteReindexQueryAsync(queryStatus, countOnly: true, cancellationToken);
-                    _reindexJobRecord.Count = countOnlyResults.TotalCount.Value;
+                        _reindexJobRecord.QueryList.Add(query);
+                    }
 
-                    // Query first batch of resources
-                    await ProcessQueryAsync(queryStatus, jobSemaphore, cancellationToken);
+                    await UpdateJobAsync(cancellationToken);
                 }
 
                 var queryTasks = new List<Task<ReindexJobQueryStatus>>();
@@ -262,14 +264,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     query.LastModified = DateTimeOffset.UtcNow;
 
                     // Query first batch of resources
-                    results = await ExecuteReindexQueryAsync(query, false, cancellationToken);
+                    results = await ExecuteReindexQueryAsync(query, countOnly: false, cancellationToken);
 
                     // if continuation token then update next query
                     if (!string.IsNullOrEmpty(results.ContinuationToken))
                     {
-                        var nextQuery = new ReindexJobQueryStatus(results.ContinuationToken);
-                        nextQuery.LastModified = DateTimeOffset.UtcNow;
-                        nextQuery.Status = OperationStatus.Queued;
+                        var nextQuery = new ReindexJobQueryStatus(query.ResourceType, results.ContinuationToken)
+                        {
+                            LastModified = Clock.UtcNow,
+                            Status = OperationStatus.Queued,
+                        };
                         _reindexJobRecord.QueryList.Add(nextQuery);
                     }
 
@@ -281,7 +285,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 }
 
                 _logger.LogInformation($"Reindex job current thread: {Thread.CurrentThread.ManagedThreadId}");
-                await _reindexUtilities.ProcessSearchResultsAsync(results, _reindexJobRecord.Hash, cancellationToken);
+                await _reindexUtilities.ProcessSearchResultsAsync(results, _reindexJobRecord.ResourceTypeSearchParameterHashMap, cancellationToken);
 
                 if (!cancellationToken.IsCancellationRequested)
                 {
@@ -374,7 +378,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             var queryParametersList = new List<Tuple<string, string>>()
             {
                 Tuple.Create(KnownQueryParameterNames.Count, _reindexJobConfiguration.MaximumNumberOfResourcesPerQuery.ToString(CultureInfo.InvariantCulture)),
-                Tuple.Create(KnownQueryParameterNames.Type, _reindexJobRecord.ResourceList),
+                Tuple.Create(KnownQueryParameterNames.Type, queryStatus.ResourceType),
             };
 
             if (queryStatus.ContinuationToken != null)
@@ -382,11 +386,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, queryStatus.ContinuationToken));
             }
 
+            if (!_reindexJobRecord.ResourceTypeSearchParameterHashMap.TryGetValue(queryStatus.ResourceType, out string searchParameterHash))
+            {
+                searchParameterHash = string.Empty;
+            }
+
             using (IScoped<ISearchService> searchService = _searchServiceFactory())
             {
                 try
                 {
-                    return await searchService.Value.SearchForReindexAsync(queryParametersList, _reindexJobRecord.Hash, countOnly, cancellationToken);
+                    return await searchService.Value.SearchForReindexAsync(queryParametersList, searchParameterHash, countOnly, cancellationToken);
                 }
                 catch (Exception ex)
                 {
@@ -414,6 +423,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 var wrapper = await store.Value.UpdateReindexJobAsync(_reindexJobRecord, _weakETag, cancellationToken);
                 _weakETag = wrapper.ETag;
             }
+        }
+
+        private async Task CalculateTotalCount(CancellationToken cancellationToken)
+        {
+            int totalCount = 0;
+            foreach (string resourceType in _reindexJobRecord.Resources)
+            {
+                var queryForCount = new ReindexJobQueryStatus(resourceType, continuationToken: null)
+                {
+                    LastModified = Clock.UtcNow,
+                    Status = OperationStatus.Queued,
+                };
+
+                // update the complete total
+                SearchResult countOnlyResults = await ExecuteReindexQueryAsync(queryForCount, countOnly: true, cancellationToken);
+                totalCount += countOnlyResults.TotalCount.Value;
+            }
+
+            _reindexJobRecord.Count = totalCount;
         }
     }
 }

@@ -56,10 +56,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 throw new JobConflictException(Resources.OnlyOneResourceJobAllowed);
             }
 
-            var hash = _searchParameterDefinitionManager.SearchParametersHash;
-
             var jobRecord = new ReindexJobRecord(
-                hash,
+                _searchParameterDefinitionManager.SearchParameterHashMap,
                 request.MaximumConcurrency ?? _reindexJobConfiguration.DefaultMaximumThreadsPerReindexJob,
                 request.Scope,
                 _reindexJobConfiguration.MaximumNumberOfResourcesPerQuery);

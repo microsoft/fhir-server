@@ -36,6 +36,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         private HttpContext _httpContext = new DefaultHttpContext();
         private static ReindexJobConfiguration _reindexJobConfig = new ReindexJobConfiguration() { Enabled = true };
         private IUrlResolver _urlResolver = Substitute.For<IUrlResolver>();
+        private static IReadOnlyDictionary<string, string> _searchParameterHashMap = new Dictionary<string, string>() { { "Patient", "hash1" } };
 
         public ReindexControllerTests()
         {
@@ -136,7 +137,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
         private static CreateReindexResponse GetCreateReindexResponse()
         {
-            var jobRecord = new ReindexJobRecord("hash", 5, "patient");
+            var jobRecord = new ReindexJobRecord(_searchParameterHashMap, 5, "patient");
             var jobWrapper = new ReindexJobWrapper(
                 jobRecord,
                 WeakETag.FromVersionId("33a64df551425fcc55e4d42a148795d9f25f89d4"));
@@ -145,7 +146,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
         private static GetReindexResponse GetReindexJobResponse()
         {
-            var jobRecord = new ReindexJobRecord("hash", 5, "patient");
+            var jobRecord = new ReindexJobRecord(_searchParameterHashMap, 5, "patient");
             var jobWrapper = new ReindexJobWrapper(
                 jobRecord,
                 WeakETag.FromVersionId("33a64df551425fcc55e4d42a148795d9f25f89d4"));

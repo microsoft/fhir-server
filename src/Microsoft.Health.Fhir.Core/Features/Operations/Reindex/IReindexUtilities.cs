@@ -18,10 +18,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// Needed updates will be committed in a batch
         /// </summary>
         /// <param name="results">The resource batch to process</param>
-        /// <param name="searchParamHash">the current hash value of the search parameters</param>
+        /// <param name="resourceTypeSearchParameterHashMap">Map of resource type to current hash value of the search parameters for that resource type</param>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>A Task</returns>
-        Task ProcessSearchResultsAsync(SearchResult results, string searchParamHash, CancellationToken cancellationToken);
+        Task ProcessSearchResultsAsync(SearchResult results, IReadOnlyDictionary<string, string> resourceTypeSearchParameterHashMap, CancellationToken cancellationToken);
 
         /// <summary>
         /// Sets the search parameters to enabled when a reindex job successfully completes

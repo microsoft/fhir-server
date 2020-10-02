@@ -23,7 +23,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public Task Handle(SearchParametersHashUpdated notification, CancellationToken cancellationToken)
         {
-            _searchParameterDefinitionManager.SearchParametersHash = notification.HashValue;
+            _searchParameterDefinitionManager.UpdateSearchParameterHashMap(notification.UpdatedHashMap);
+
             return Task.CompletedTask;
         }
     }

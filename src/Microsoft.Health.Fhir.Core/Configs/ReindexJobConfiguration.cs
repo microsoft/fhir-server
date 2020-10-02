@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// <summary>
         /// Controls the time between queries of resources to be reindexed
         /// </summary>
-        public TimeSpan QueryDelayIntervalInMilliseconds { get; set; } = TimeSpan.FromMilliseconds(500);
+        public int QueryDelayIntervalInMilliseconds { get; set; } = 500;
 
         /// <summary>
         /// Controls how many resources will be returned in a batch for reindexing

@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
     public class ReindexJobRecord : JobRecord
     {
         public ReindexJobRecord(
-            string searchParametersHash,
+            IReadOnlyDictionary<string, string> searchParametersHash,
             ushort maxiumumConcurrency = 1,
             string scope = null,
             uint maxResourcesPerQuery = 100)
@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
             QueuedTime = Clock.UtcNow;
             LastModified = Clock.UtcNow;
 
-            Hash = searchParametersHash;
+            ResourceTypeSearchParameterHashMap = searchParametersHash;
             MaximumConcurrency = maxiumumConcurrency;
             Scope = scope;
             MaximumNumberOfResourcesPerQuery = maxResourcesPerQuery;
@@ -63,8 +63,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         [JsonProperty(JobRecordProperties.Progress)]
         public int Progress { get; set; }
 
-        [JsonProperty(JobRecordProperties.Hash)]
-        public string Hash { get; private set; }
+        [JsonProperty(JobRecordProperties.ResourceTypeSearchParameterHashMap)]
+        public IReadOnlyDictionary<string, string> ResourceTypeSearchParameterHashMap { get; private set; }
 
         [JsonProperty(JobRecordProperties.LastModified)]
         public DateTimeOffset LastModified { get; set; }
