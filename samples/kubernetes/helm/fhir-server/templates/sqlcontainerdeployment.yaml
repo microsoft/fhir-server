@@ -23,11 +23,11 @@ spec:
     {{- end }}
       automountServiceAccountToken: false
       securityContext:
-        {{- toYaml .Values.database.sqlContainer.securityContext | nindent 8 }}
+        {{- toYaml .Values.database.sqlContainer.podSecurityContext | nindent 8 }}
       containers:
         - name: mssql
           securityContext:
-            {{- toYaml .Values.securityContext | nindent 12 }}
+            {{- toYaml .Values.database.sqlContainer.securityContext | nindent 12 }}
           image: "{{ .Values.database.sqlContainer.image.registry }}/{{ .Values.database.sqlContainer.image.repository }}:{{ .Values.database.sqlContainer.image.tag }}"
           imagePullPolicy: {{ .Values.database.sqlContainer.image.pullPolicy }}
           env:

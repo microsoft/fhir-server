@@ -80,7 +80,8 @@ database:
       size: 8Gi
       annotations: {}
         # "helm.sh/resource-policy": keep
-    securityContext:
+    securityContext: {}
+    podSecurityContext:
       # mssql container has user mssql defined with id 10001
       runAsUser: 10001
       runAsGroup: 10001
@@ -113,7 +114,7 @@ ingress:
     # kubernetes.io/tls-acme: "true"
   hosts:
     - host: chart-example.local
-      paths: []
+      paths: ["/"]
   tls: []
   #  - secretName: chart-example-tls
   #    hosts:
