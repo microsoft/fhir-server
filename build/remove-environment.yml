@@ -2,6 +2,7 @@
 # Cleans up a PR environment if it has gotten into a bad state.
 
 trigger: none
+pr: none
 
 variables:
 - name: DeploymentEnvironmentName
