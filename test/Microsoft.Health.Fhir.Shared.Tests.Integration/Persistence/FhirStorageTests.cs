@@ -122,7 +122,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
                 Assert.NotNull(saveResult);
                 Assert.Equal(SaveOutcomeType.Created, saveResult.Outcome);
-                var deserializedResource = saveResult.RawResource.ToResourceElement(Deserializers.ResourceDeserializer);
+                var deserializedResource = saveResult.RawResourceElement.ToResourceElement(Deserializers.ResourceDeserializer);
                 Assert.NotNull(deserializedResource);
 
                 Assert.NotNull(deserializedResource);
@@ -155,10 +155,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
 
             var newResourceValues = Samples.GetJsonSample("WeightInGrams").ToPoco();
-            newResourceValues.Id = saveResult.RawResource.Id;
+            newResourceValues.Id = saveResult.RawResourceElement.Id;
 
-            var updateResult = await Mediator.UpsertResourceAsync(newResourceValues.ToResourceElement(), WeakETag.FromVersionId(saveResult.RawResource.VersionId));
-            var deserializedResource = updateResult.RawResource.ToResourceElement(Deserializers.ResourceDeserializer);
+            var updateResult = await Mediator.UpsertResourceAsync(newResourceValues.ToResourceElement(), WeakETag.FromVersionId(saveResult.RawResourceElement.VersionId));
+            var deserializedResource = updateResult.RawResourceElement.ToResourceElement(Deserializers.ResourceDeserializer);
 
             Assert.NotNull(deserializedResource);
             Assert.Equal(SaveOutcomeType.Updated, updateResult.Outcome);
@@ -182,7 +182,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 Assert.NotNull(saveResult);
                 Assert.Equal(SaveOutcomeType.Created, saveResult.Outcome);
 
-                var deserializedResource = saveResult.RawResource.ToResourceElement(Deserializers.ResourceDeserializer);
+                var deserializedResource = saveResult.RawResourceElement.ToResourceElement(Deserializers.ResourceDeserializer);
 
                 Assert.NotNull(deserializedResource);
 
@@ -204,16 +204,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var saveResult = await Mediator.UpsertResourceAsync(resource);
 
             var newResourceValues = Samples.GetJsonSample("WeightInGrams").ToPoco();
-            newResourceValues.Id = saveResult.RawResource.Id;
+            newResourceValues.Id = saveResult.RawResourceElement.Id;
 
-            var updateResult = await Mediator.UpsertResourceAsync(newResourceValues.ToResourceElement(), WeakETag.FromVersionId(saveResult.RawResource.VersionId));
+            var updateResult = await Mediator.UpsertResourceAsync(newResourceValues.ToResourceElement(), WeakETag.FromVersionId(saveResult.RawResourceElement.VersionId));
 
             Assert.NotNull(updateResult);
             Assert.Equal(SaveOutcomeType.Updated, updateResult.Outcome);
-            var deserializedResource = updateResult.RawResource.ToResourceElement(Deserializers.ResourceDeserializer);
+            var deserializedResource = updateResult.RawResourceElement.ToResourceElement(Deserializers.ResourceDeserializer);
 
             Assert.NotNull(deserializedResource);
-            Assert.Equal(saveResult.RawResource.Id, updateResult.RawResource.Id);
+            Assert.Equal(saveResult.RawResourceElement.Id, updateResult.RawResourceElement.Id);
 
             var wrapper = await _fixture.DataStore.GetAsync(new ResourceKey("Observation", deserializedResource.Id), CancellationToken.None);
 
@@ -308,16 +308,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
 
             var newResourceValues = Samples.GetJsonSample("WeightInGrams").ToPoco();
-            newResourceValues.Id = saveResult.RawResource.Id;
+            newResourceValues.Id = saveResult.RawResourceElement.Id;
 
             var updateResult = await Mediator.UpsertResourceAsync(newResourceValues.ToResourceElement());
 
             Assert.NotNull(updateResult);
             Assert.Equal(SaveOutcomeType.Updated, updateResult.Outcome);
-            var deserializedResource = updateResult.RawResource.ToResourceElement(Deserializers.ResourceDeserializer);
+            var deserializedResource = updateResult.RawResourceElement.ToResourceElement(Deserializers.ResourceDeserializer);
 
             Assert.NotNull(deserializedResource);
-            Assert.Equal(saveResult.RawResource.Id, updateResult.RawResource.Id);
+            Assert.Equal(saveResult.RawResourceElement.Id, updateResult.RawResourceElement.Id);
         }
 
         [Fact]
@@ -326,7 +326,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
 
             var newResourceValues = Samples.GetJsonSample("WeightInGrams").ToPoco<Resource>();
-            newResourceValues.Id = saveResult.RawResource.Id;
+            newResourceValues.Id = saveResult.RawResourceElement.Id;
 
             var list = new List<Task<SaveOutcome>>();
 
@@ -351,7 +351,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             {
                 Assert.Equal(SaveOutcomeType.Updated, item.Result.Outcome);
 
-                deserializedList.Add(item.Result.RawResource.ToPoco<Observation>(Deserializers.ResourceDeserializer));
+                deserializedList.Add(item.Result.RawResourceElement.ToPoco<Observation>(Deserializers.ResourceDeserializer));
             }
 
             var allObservations = deserializedList.Select(x => ((Quantity)x.Value).Value.GetValueOrDefault()).Distinct();
@@ -362,7 +362,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public async Task GivenAResourceWithNoHistory_WhenFetchingByVersionId_ThenReadWorksCorrectly()
         {
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
-            var deserialized = saveResult.RawResource.ToResourceElement(Deserializers.ResourceDeserializer);
+            var deserialized = saveResult.RawResourceElement.ToResourceElement(Deserializers.ResourceDeserializer);
             var result = (await Mediator.GetResourceAsync(new ResourceKey(deserialized.InstanceType, deserialized.Id, deserialized.VersionId))).ToResourceElement(_deserializer);
 
             Assert.NotNull(result);
@@ -375,15 +375,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
 
             var newResourceValues = Samples.GetJsonSample("WeightInGrams")
-                .UpdateId(saveResult.RawResource.Id);
+                .UpdateId(saveResult.RawResourceElement.Id);
 
-            var updateResult = await Mediator.UpsertResourceAsync(newResourceValues, WeakETag.FromVersionId(saveResult.RawResource.VersionId));
+            var updateResult = await Mediator.UpsertResourceAsync(newResourceValues, WeakETag.FromVersionId(saveResult.RawResourceElement.VersionId));
 
-            var getV1Result = (await Mediator.GetResourceAsync(new ResourceKey<Observation>(saveResult.RawResource.Id, saveResult.RawResource.VersionId))).ToResourceElement(_deserializer);
+            var getV1Result = (await Mediator.GetResourceAsync(new ResourceKey<Observation>(saveResult.RawResourceElement.Id, saveResult.RawResourceElement.VersionId))).ToResourceElement(_deserializer);
 
             Assert.NotNull(getV1Result);
-            Assert.Equal(saveResult.RawResource.Id, getV1Result.Id);
-            Assert.Equal(updateResult.RawResource.Id, getV1Result.Id);
+            Assert.Equal(saveResult.RawResourceElement.Id, getV1Result.Id);
+            Assert.Equal(updateResult.RawResourceElement.Id, getV1Result.Id);
 
             var oldObservation = getV1Result.ToPoco<Observation>();
             Assert.NotNull(oldObservation);
@@ -400,12 +400,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetDefaultOrganization());
 
             var newResourceValues = Samples.GetDefaultOrganization()
-                .UpdateId(saveResult.RawResource.Id);
+                .UpdateId(saveResult.RawResourceElement.Id);
 
-            var updateResult = await Mediator.UpsertResourceAsync(newResourceValues, WeakETag.FromVersionId(saveResult.RawResource.VersionId));
+            var updateResult = await Mediator.UpsertResourceAsync(newResourceValues, WeakETag.FromVersionId(saveResult.RawResourceElement.VersionId));
 
             await Assert.ThrowsAsync<ResourceNotFoundException>(
-                () => Mediator.GetResourceAsync(new ResourceKey<Organization>(saveResult.RawResource.Id, saveResult.RawResource.VersionId)));
+                () => Mediator.GetResourceAsync(new ResourceKey<Organization>(saveResult.RawResourceElement.Id, saveResult.RawResourceElement.VersionId)));
         }
 
         [Fact]
@@ -413,12 +413,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
 
-            var deletedResourceKey = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", saveResult.RawResource.Id), false);
+            var deletedResourceKey = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", saveResult.RawResourceElement.Id), false);
 
-            Assert.NotEqual(saveResult.RawResource.VersionId, deletedResourceKey.ResourceKey.VersionId);
+            Assert.NotEqual(saveResult.RawResourceElement.VersionId, deletedResourceKey.ResourceKey.VersionId);
 
             await Assert.ThrowsAsync<ResourceGoneException>(
-                () => Mediator.GetResourceAsync(new ResourceKey<Observation>(saveResult.RawResource.Id)));
+                () => Mediator.GetResourceAsync(new ResourceKey<Observation>(saveResult.RawResourceElement.Id)));
         }
 
         [Fact]
@@ -439,7 +439,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
 
-            var resourceKey = new ResourceKey("Observation", saveResult.RawResource.Id);
+            var resourceKey = new ResourceKey("Observation", saveResult.RawResourceElement.Id);
 
             await Mediator.DeleteResourceAsync(resourceKey, false);
 
@@ -448,7 +448,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             Assert.Null(deletedResourceKey2.ResourceKey.VersionId);
 
             await Assert.ThrowsAsync<ResourceGoneException>(
-                () => Mediator.GetResourceAsync(new ResourceKey<Observation>(saveResult.RawResource.Id)));
+                () => Mediator.GetResourceAsync(new ResourceKey<Observation>(saveResult.RawResourceElement.Id)));
         }
 
         [Fact]
@@ -458,17 +458,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
 
-            var deletedResourceKey = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", saveResult.RawResource.Id), true);
+            var deletedResourceKey = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", saveResult.RawResourceElement.Id), true);
 
             Assert.Null(deletedResourceKey.ResourceKey.VersionId);
 
             // Subsequent get should result in NotFound.
             await Assert.ThrowsAsync<ResourceNotFoundException>(
-                () => Mediator.GetResourceAsync(new ResourceKey<Observation>(saveResult.RawResource.Id)));
+                () => Mediator.GetResourceAsync(new ResourceKey<Observation>(saveResult.RawResourceElement.Id)));
 
             // Subsequent version get should result in NotFound.
             await Assert.ThrowsAsync<ResourceNotFoundException>(
-                () => Mediator.GetResourceAsync(new ResourceKey<Observation>(saveResult.RawResource.Id, saveResult.RawResource.VersionId)));
+                () => Mediator.GetResourceAsync(new ResourceKey<Observation>(saveResult.RawResourceElement.Id, saveResult.RawResourceElement.VersionId)));
 
             await _fixture.TestHelper.ValidateSnapshotTokenIsCurrent(snapshotToken);
         }
@@ -479,8 +479,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             object snapshotToken = await _fixture.TestHelper.GetSnapshotToken();
 
             var createResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
-            var deserializedResult = createResult.RawResource.ToResourceElement(Deserializers.ResourceDeserializer);
-            string resourceId = createResult.RawResource.Id;
+            var deserializedResult = createResult.RawResourceElement.ToResourceElement(Deserializers.ResourceDeserializer);
+            string resourceId = createResult.RawResourceElement.Id;
 
             var deleteResult = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", resourceId), false);
             var updateResult = await Mediator.UpsertResourceAsync(deserializedResult);
@@ -495,7 +495,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 () => Mediator.GetResourceAsync(new ResourceKey<Observation>(resourceId)));
 
             // Subsequent version get should result in NotFound.
-            foreach (string versionId in new[] { createResult.RawResource.VersionId, deleteResult.ResourceKey.VersionId, updateResult.RawResource.VersionId })
+            foreach (string versionId in new[] { createResult.RawResourceElement.VersionId, deleteResult.ResourceKey.VersionId, updateResult.RawResourceElement.VersionId })
             {
                 await Assert.ThrowsAsync<ResourceNotFoundException>(
                     () => Mediator.GetResourceAsync(new ResourceKey<Observation>(resourceId, versionId)));
@@ -510,7 +510,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
 
             await Assert.ThrowsAsync<ResourceNotFoundException>(
-                async () => { await Mediator.GetResourceAsync(new ResourceKey<Observation>(saveResult.RawResource.Id, Guid.NewGuid().ToString())); });
+                async () => { await Mediator.GetResourceAsync(new ResourceKey<Observation>(saveResult.RawResourceElement.Id, Guid.NewGuid().ToString())); });
         }
 
         [Fact]
@@ -531,22 +531,22 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public async Task GivenADeletedResource_WhenUpsertingWithValidETagHeader_ThenTheDeletedResourceIsRevived()
         {
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
-            var deletedResourceKey = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", saveResult.RawResource.Id), false);
+            var deletedResourceKey = await Mediator.DeleteResourceAsync(new ResourceKey("Observation", saveResult.RawResourceElement.Id), false);
 
-            Assert.NotEqual(saveResult.RawResource.VersionId, deletedResourceKey.ResourceKey.VersionId);
+            Assert.NotEqual(saveResult.RawResourceElement.VersionId, deletedResourceKey.ResourceKey.VersionId);
             await Assert.ThrowsAsync<ResourceGoneException>(
-                () => Mediator.GetResourceAsync(new ResourceKey<Observation>(saveResult.RawResource.Id)));
+                () => Mediator.GetResourceAsync(new ResourceKey<Observation>(saveResult.RawResourceElement.Id)));
 
             var newResourceValues = Samples.GetJsonSample("WeightInGrams").ToPoco();
-            newResourceValues.Id = saveResult.RawResource.Id;
+            newResourceValues.Id = saveResult.RawResourceElement.Id;
 
             var updateResult = await Mediator.UpsertResourceAsync(newResourceValues.ToResourceElement(), deletedResourceKey.WeakETag);
 
             Assert.NotNull(updateResult);
             Assert.Equal(SaveOutcomeType.Updated, updateResult.Outcome);
 
-            Assert.NotNull(updateResult.RawResource);
-            Assert.Equal(saveResult.RawResource.Id, updateResult.RawResource.Id);
+            Assert.NotNull(updateResult.RawResourceElement);
+            Assert.Equal(saveResult.RawResourceElement.Id, updateResult.RawResourceElement.Id);
         }
 
         [Fact]
@@ -558,7 +558,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             using (ITransactionScope transactionScope = _fixture.TransactionHandler.BeginTransaction())
             {
                 SaveOutcome saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
-                createdId = saveResult.RawResource.Id;
+                createdId = saveResult.RawResourceElement.Id;
 
                 Assert.NotEqual(string.Empty, createdId);
 
@@ -580,7 +580,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             using (ITransactionScope transactionScope = _fixture.TransactionHandler.BeginTransaction())
             {
                 SaveOutcome saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
-                createdId1 = saveResult.RawResource.Id;
+                createdId1 = saveResult.RawResourceElement.Id;
 
                 Assert.NotEqual(string.Empty, createdId1);
 
@@ -590,7 +590,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             using (ITransactionScope transactionScope = _fixture.TransactionHandler.BeginTransaction())
             {
                 SaveOutcome saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
-                createdId2 = saveResult.RawResource.Id;
+                createdId2 = saveResult.RawResourceElement.Id;
 
                 Assert.NotEqual(string.Empty, createdId2);
 
@@ -613,7 +613,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             using (_ = _fixture.TransactionHandler.BeginTransaction())
             {
                 SaveOutcome saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
-                createdId = saveResult.RawResource.Id;
+                createdId = saveResult.RawResourceElement.Id;
 
                 Assert.NotEqual(string.Empty, createdId);
             }
@@ -635,7 +635,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     using (ITransactionScope transactionScope = _fixture.TransactionHandler.BeginTransaction())
                     {
                         SaveOutcome saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
-                        createdId = saveResult.RawResource.Id;
+                        createdId = saveResult.RawResourceElement.Id;
 
                         Assert.NotEqual(string.Empty, createdId);
 
@@ -714,7 +714,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             string updatedId = null)
         {
             // Get wrapper from data store directly
-            ResourceKey resourceKey = new ResourceKey(upsertResult.RawResource.InstanceType, upsertResult.RawResource.Id, upsertResult.RawResource.VersionId);
+            ResourceKey resourceKey = new ResourceKey(upsertResult.RawResourceElement.InstanceType, upsertResult.RawResourceElement.Id, upsertResult.RawResourceElement.VersionId);
             FhirCosmosResourceWrapper originalWrapper = (FhirCosmosResourceWrapper)await _dataStore.GetAsync(resourceKey, CancellationToken.None);
 
             // Add new search index entry to existing wrapper.

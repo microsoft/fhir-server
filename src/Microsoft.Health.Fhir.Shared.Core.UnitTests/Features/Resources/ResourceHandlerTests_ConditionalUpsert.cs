@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             UpsertResourceResponse result = await _mediator.Send<UpsertResourceResponse>(message);
 
             Assert.Equal(SaveOutcomeType.Created, result.Outcome.Outcome);
-            var deserialized = result.Outcome.RawResource.ToPoco<Observation>(Deserializers.ResourceDeserializer).ToResourceElement();
+            var deserialized = result.Outcome.RawResourceElement.ToPoco<Observation>(Deserializers.ResourceDeserializer).ToResourceElement();
             await _fhirDataStore.Received().UpsertAsync(Arg.Is<ResourceWrapper>(x => x.ResourceId == deserialized.Id), null, true, true, Arg.Any<CancellationToken>());
         }
 

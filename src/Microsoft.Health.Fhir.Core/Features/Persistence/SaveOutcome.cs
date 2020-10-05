@@ -10,15 +10,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
     public class SaveOutcome
     {
-        public SaveOutcome(RawResourceElement rawResource, SaveOutcomeType outcome)
+        public SaveOutcome(RawResourceElement rawResourceElement, SaveOutcomeType outcome)
         {
-            EnsureArg.IsNotNull(rawResource, nameof(rawResource));
+            EnsureArg.IsNotNull(rawResourceElement, nameof(rawResourceElement));
 
-            RawResource = rawResource;
+            RawResourceElement = rawResourceElement;
             Outcome = outcome;
         }
 
-        public RawResourceElement RawResource { get; }
+        public RawResourceElement RawResourceElement { get; }
 
         public SaveOutcomeType Outcome { get; }
     }

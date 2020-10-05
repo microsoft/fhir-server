@@ -177,7 +177,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 return Ok();
             }
 
-            RawResourceElement response = createResponse.Outcome.RawResource;
+            RawResourceElement response = createResponse.Outcome.RawResourceElement;
 
             return FhirResult.Create(response, HttpStatusCode.Created)
                 .SetETagHeader()
@@ -226,17 +226,17 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             switch (saveOutcome.Outcome)
             {
                 case SaveOutcomeType.Created:
-                    return FhirResult.Create(saveOutcome.RawResource, HttpStatusCode.Created)
+                    return FhirResult.Create(saveOutcome.RawResourceElement, HttpStatusCode.Created)
                         .SetETagHeader()
                         .SetLastModifiedHeader()
                         .SetLocationHeader(_urlResolver);
                 case SaveOutcomeType.Updated:
-                    return FhirResult.Create(saveOutcome.RawResource, HttpStatusCode.OK)
+                    return FhirResult.Create(saveOutcome.RawResourceElement, HttpStatusCode.OK)
                         .SetETagHeader()
                         .SetLastModifiedHeader();
             }
 
-            return FhirResult.Create(saveOutcome.RawResource, HttpStatusCode.BadRequest);
+            return FhirResult.Create(saveOutcome.RawResourceElement, HttpStatusCode.BadRequest);
         }
 
         /// <summary>

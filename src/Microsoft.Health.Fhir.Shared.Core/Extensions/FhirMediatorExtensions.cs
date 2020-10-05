@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             UpsertResourceResponse result = await mediator.Send<UpsertResourceResponse>(new CreateResourceRequest(resource), cancellationToken);
 
-            return result.Outcome.RawResource;
+            return result.Outcome.RawResourceElement;
         }
 
         public static async Task<SaveOutcome> UpsertResourceAsync(this IMediator mediator, ResourceElement resource, WeakETag weakETag = null, CancellationToken cancellationToken = default)

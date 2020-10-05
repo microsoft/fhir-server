@@ -136,7 +136,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true, Arg.Any<CancellationToken>())
                 .Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapper>(0), SaveOutcomeType.Created));
 
-            var rawResource = (await _mediator.UpsertResourceAsync(resource)).RawResource;
+            var rawResource = (await _mediator.UpsertResourceAsync(resource)).RawResourceElement;
             var deserializedResource = rawResource.ToResourceElement(_deserializer);
             Assert.NotNull(deserializedResource.Id);
         }
@@ -172,7 +172,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true, Arg.Any<CancellationToken>())
                     .Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapper>(0), SaveOutcomeType.Created));
 
-                var rawResource = (await _mediator.UpsertResourceAsync(resource)).RawResource;
+                var rawResource = (await _mediator.UpsertResourceAsync(resource)).RawResourceElement;
                 var deserializedResource = rawResource.ToResourceElement(_deserializer);
 
                 Assert.Equal(new DateTimeOffset(baseDate.AddMilliseconds(6), TimeSpan.Zero), deserializedResource.LastUpdated);
@@ -196,10 +196,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 .Returns(x => new UpsertOutcome(CreateWrapper(x.ArgAt<ResourceWrapper>(0)), SaveOutcomeType.Created));
 
             var outcome = await _mediator.UpsertResourceAsync(resource);
-            var deserialized = outcome.RawResource.ToResourceElement(_deserializer);
+            var deserialized = outcome.RawResourceElement.ToResourceElement(_deserializer);
 
             // Version gets overriden during RawResource creation to 1
-            Assert.Equal("1", outcome.RawResource.VersionId);
+            Assert.Equal("1", outcome.RawResourceElement.VersionId);
             Assert.Equal("1", deserialized.VersionId);
         }
 
@@ -240,11 +240,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 .Returns(x => new UpsertOutcome(CreateWrapper(x.ArgAt<ResourceWrapper>(0)), SaveOutcomeType.Updated));
 
             var outcome = await _mediator.UpsertResourceAsync(resource, null);
-            var deserialized = outcome.RawResource.ToResourceElement(_deserializer);
+            var deserialized = outcome.RawResourceElement.ToResourceElement(_deserializer);
 
             // Version gets overriden during RawResource creation to 1
             Assert.NotNull(outcome);
-            Assert.Equal("1", outcome.RawResource.VersionId);
+            Assert.Equal("1", outcome.RawResourceElement.VersionId);
             Assert.Equal("1", deserialized.VersionId);
         }
 
