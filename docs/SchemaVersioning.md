@@ -23,34 +23,6 @@ Example of the collection version document. There is only one collection version
 }
 ```
 
-### Data Migration
-
-The concept of data migration is important to maintain the health and accuracy of the data in the system. Data Migration actions will run in the background as an async update operation built on the CosmosDB Bulk Execution API.
-
-Examples that may require Data Migrations:
-
-- Changes to semantic behavior within schema (i.e. introducing "system" documents with the `.isSystem` property. Changes to document versioning (from etag to numeric))
-- Changes to data structures
-- Changes that require re-indexing
-
-Data Migration steps are programmatic and contained within the CosmosDb data provider library. The application will resolve Migration steps and determine which steps need to be run by querying for the status of these migrations persisted in the Db. The steps are designed to be idempotent such that the query for data to be migrated that is provided by the step will return only items that need action. This ensures that is a background process is terminated or other factors occur the steps can easily be resumed.
-
-Steps are ordered, such that once step "A" is completed step "B" will be executed in order, until all migrations are completed. At this point the background task will exit.
-
-Each step will persist its own status document "MigrationStep" which contains basic meta and execution status.
-
-```
-{
-    "id": "datamigration_V001UpdateVersionProperty",
-    "name": "V001UpdateVersionProperty"
-    "started": "2018-07-09T00:00.00",
-    "completed": "2018-07-09T00:00.00",
-    "status": "pending",
-    "isSystem": true,
-    "partitionKey": "_dataMigrations"
-}
-```
-
 ## Handling multi-node concurrency
 
 Given that the FHIR server may be running in a cluster or multi-node environment, each instance of the application should attempt to gain a lease (a CosmosDb Document with a TTL) to be able to make updates if required. The lease should be per-collection-version for collection upgrades and singleton for data migrations.
