@@ -4,12 +4,12 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using System.Net;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -177,6 +177,19 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             CancelExportResponse response = await _mediator.CancelExportAsync(idParameter, HttpContext.RequestAborted);
 
             return new ExportResult(response.StatusCode);
+        }
+
+        [HttpGet]
+        [Route(KnownRoutes.ExportOperationDefinition, Name = RouteNames.ExportOperationDefinition)]
+        [AllowAnonymous]
+        public IActionResult ExportOperationDefinition()
+        {
+            var definition = new OperationDefinition()
+            {
+                Name = "export",
+            };
+
+            return FhirResult.Create(definition.ToResourceElement());
         }
 
         private async Task<IActionResult> SendExportRequest(ExportJobType exportType, PartialDateTime since, string resourceType = null, string groupId = null, string containerName = null, string anonymizationConfigLocation = null, string anonymizationConfigFileETag = null)

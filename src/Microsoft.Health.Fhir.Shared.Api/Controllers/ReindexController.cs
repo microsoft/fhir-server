@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -140,6 +141,21 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return FhirResult.Create(response, HttpStatusCode.Accepted)
                 .SetETagHeader()
                 .SetLastModifiedHeader();
+        }
+
+        [HttpGet]
+        [Route(KnownRoutes.ReindexOperationDefinition, Name = RouteNames.ReindexOperationDefintion)]
+        [AllowAnonymous]
+        public IActionResult ReindexOperationDefintion()
+        {
+            CheckIfReindexIsEnabledAndRespond();
+
+            OperationDefinition operationDefinition = new OperationDefinition()
+            {
+                Name = "Reindex",
+            };
+
+            return FhirResult.Create(operationDefinition.ToResourceElement());
         }
 
         /// <summary>

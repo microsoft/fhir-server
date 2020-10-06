@@ -32,6 +32,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         public const string ExportResourceType = ResourceType + "/" + Export;
         public const string ExportResourceTypeById = ResourceTypeById + "/" + Export;
         public const string ExportJobLocation = OperationsConstants.Operations + "/" + OperationsConstants.Export + "/" + IdRouteSegment;
+        public const string ExportOperationDefinition = OperationDefinition + "/" + Export;
 
         public const string Validate = "$validate";
         public const string ValidateResourceType = ResourceType + "/" + Validate;
@@ -40,11 +41,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         public const string Reindex = "$reindex";
         public const string ReindexSingleResource = ResourceTypeById + "/" + Reindex;
         public const string ReindexJobLocation = OperationsConstants.Operations + "/" + OperationsConstants.Reindex + "/" + IdRouteSegment;
+        public const string ReindexOperationDefinition = OperationDefinition + "/" + Reindex;
 
         public const string CompartmentTypeByResourceType = CompartmentTypeRouteSegment + "/" + IdRouteSegment + "/" + CompartmentResourceTypeRouteSegment;
 
         public const string Metadata = "metadata";
-
+        public const string OperationDefinition = "OperationDefinition";
         public const string Versions = "$versions";
 
         public const string HealthCheck = "/health/check";
