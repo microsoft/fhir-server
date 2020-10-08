@@ -119,7 +119,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 otherHashSet.Add(sb.ToString());
             }
 
-            var searchIndexHashSet = new HashSet<string>(SearchIndices.Select(s => s.JsonString));
+            HashSet<string> searchIndexHashSet;
+            if (SearchIndices != null)
+            {
+                searchIndexHashSet = new HashSet<string>(SearchIndices.Select(s => s.JsonString));
+            }
+            else
+            {
+                searchIndexHashSet = new HashSet<string>();
+            }
 
             return searchIndexHashSet.SetEquals(otherHashSet);
         }

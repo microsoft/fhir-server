@@ -35,6 +35,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         internal IDictionary<Uri, SearchParameterInfo> UrlLookup { get; set; }
 
+        internal IDictionary<string, IDictionary<string, SearchParameterInfo>> TypeLookup { get => _typeLookup; }
+
         public IEnumerable<SearchParameterInfo> AllSearchParameters => UrlLookup.Values;
 
         public IReadOnlyDictionary<string, string> SearchParameterHashMap

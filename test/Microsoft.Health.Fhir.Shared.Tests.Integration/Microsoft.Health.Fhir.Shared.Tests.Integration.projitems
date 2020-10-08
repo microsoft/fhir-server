@@ -13,6 +13,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\FhirOperationDataStoreTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Export\CreateExportRequestHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\FhirOperationTestConstants.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexJobTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerSchemaUpgradeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\CosmosDbFhirStorageTestHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\CosmosDbFhirStorageTestsFixture.cs" />
@@ -26,5 +27,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerFhirStorageTestHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerFhirStorageTestsFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Persistence\SqlServerTransactionScopeTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)TestScoped.cs" />
   </ItemGroup>
 </Project>
