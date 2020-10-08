@@ -239,11 +239,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     continue;
                 }
 
-                _logger.LogDebug(
-                    "The FHIR element '{ElementType}' will be converted using '{ElementTypeConverter}'.",
-                    extractedValue.InstanceType,
-                    converter.GetType().FullName);
-
                 results.AddRange(converter.ConvertTo(extractedValue) ?? Enumerable.Empty<ISearchValue>());
             }
 

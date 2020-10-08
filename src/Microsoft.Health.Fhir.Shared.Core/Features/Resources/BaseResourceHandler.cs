@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
 
         protected IFhirAuthorizationService AuthorizationService { get; }
 
-        protected ResourceWrapper CreateResourceWrapper(Resource resource, bool deleted, bool keepMeta)
+        protected ResourceWrapper CreateResourceWrapper(Resource resource, bool deleted, bool keepMeta, DateTimeOffset? lastUpdatedTime = null)
         {
             if (string.IsNullOrEmpty(resource.Id))
             {
@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources
             }
 
             // store with millisecond precision
-            resource.Meta.LastUpdated = Clock.UtcNow.UtcDateTime.TruncateToMillisecond();
+            resource.Meta.LastUpdated = (lastUpdatedTime?.UtcDateTime ?? Clock.UtcNow.UtcDateTime).TruncateToMillisecond();
 
             return _resourceWrapperFactory.Create(resource.ToResourceElement(), deleted, keepMeta);
         }

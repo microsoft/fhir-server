@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.IO.Compression;
@@ -36,7 +37,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     /// <summary>
     /// A SQL Server-backed <see cref="IFhirDataStore"/>.
     /// </summary>
-    internal class SqlServerFhirDataStore : IFhirDataStore, IProvideCapability
+    internal class SqlServerFhirDataStore : IBatchedUpsertFhirDataStore, IProvideCapability
     {
         internal static readonly Encoding ResourceEncoding = new UnicodeEncoding(bigEndian: false, byteOrderMark: false);
 
@@ -44,6 +45,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly SqlServerFhirModel _model;
         private readonly SearchParameterToSearchValueTypeMap _searchParameterTypeMap;
         private readonly VLatest.UpsertResourceTvpGenerator<ResourceMetadata> _upsertResourceTvpGeneratorVLatest;
+        private readonly VLatest.BulkUpsertResourcesTvpGenerator<IReadOnlyList<ResourceMetadata>> _bulkUpsertResourcesTvpGeneratorVLatest;
         private readonly RecyclableMemoryStreamManager _memoryStreamManager;
         private readonly CoreFeatureConfiguration _coreFeatures;
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
@@ -55,6 +57,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             SqlServerFhirModel model,
             SearchParameterToSearchValueTypeMap searchParameterTypeMap,
             VLatest.UpsertResourceTvpGenerator<ResourceMetadata> upsertResourceTvpGeneratorVLatest,
+            VLatest.BulkUpsertResourcesTvpGenerator<IReadOnlyList<ResourceMetadata>> bulkUpsertResourcesTvpGeneratorVLatest,
             IOptions<CoreFeatureConfiguration> coreFeatures,
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             ILogger<SqlServerFhirDataStore> logger,
@@ -64,6 +67,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             EnsureArg.IsNotNull(model, nameof(model));
             EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));
             EnsureArg.IsNotNull(upsertResourceTvpGeneratorVLatest, nameof(upsertResourceTvpGeneratorVLatest));
+            EnsureArg.IsNotNull(bulkUpsertResourcesTvpGeneratorVLatest, nameof(bulkUpsertResourcesTvpGeneratorVLatest));
             EnsureArg.IsNotNull(coreFeatures, nameof(coreFeatures));
             EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
@@ -73,6 +77,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _model = model;
             _searchParameterTypeMap = searchParameterTypeMap;
             _upsertResourceTvpGeneratorVLatest = upsertResourceTvpGeneratorVLatest;
+            _bulkUpsertResourcesTvpGeneratorVLatest = bulkUpsertResourcesTvpGeneratorVLatest;
             _coreFeatures = coreFeatures.Value;
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _logger = logger;
@@ -91,6 +96,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
 
             var resourceMetadata = new ResourceMetadata(
+                resource,
+                weakETag,
+                allowCreate,
+                keepHistory,
                 resource.CompartmentIndices,
                 resource.SearchIndices?.ToLookup(e => _searchParameterTypeMap.GetSearchValueType(e)),
                 resource.LastModifiedClaims);
@@ -107,17 +116,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 stream.Seek(0, 0);
 
                 VLatest.UpsertResource.PopulateCommand(
-                sqlCommandWrapper,
-                baseResourceSurrogateId: ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.UtcDateTime),
-                resourceTypeId: _model.GetResourceTypeId(resource.ResourceTypeName),
-                resourceId: resource.ResourceId,
-                eTag: weakETag == null ? null : (int?)etag,
-                allowCreate: allowCreate,
-                isDeleted: resource.IsDeleted,
-                keepHistory: keepHistory,
-                requestMethod: resource.Request.Method,
-                rawResource: stream,
-                tableValuedParameters: _upsertResourceTvpGeneratorVLatest.Generate(resourceMetadata));
+                    sqlCommandWrapper,
+                    baseResourceSurrogateId: ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.UtcDateTime),
+                    resourceTypeId: _model.GetResourceTypeId(resource.ResourceTypeName),
+                    resourceId: resource.ResourceId,
+                    eTag: weakETag == null ? null : (int?)etag,
+                    allowCreate: allowCreate,
+                    isDeleted: resource.IsDeleted,
+                    keepHistory: keepHistory,
+                    requestMethod: resource.Request.Method,
+                    rawResource: stream,
+                    tableValuedParameters: _upsertResourceTvpGeneratorVLatest.Generate(resourceMetadata));
 
                 try
                 {
@@ -221,9 +230,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             searchIndices: null,
                             compartmentIndices: null,
                             lastModifiedClaims: null)
-                            {
-                                IsHistory = isHistory,
-                            };
+                        {
+                            IsHistory = isHistory,
+                        };
                     }
                 }
             }
@@ -266,8 +275,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             EnsureArg.IsNotNull(builder, nameof(builder));
 
             builder.AddDefaultResourceInteractions()
-                   .AddDefaultSearchParameters()
-                   .AddDefaultRestSearchParams();
+                .AddDefaultSearchParameters()
+                .AddDefaultRestSearchParams();
 
             if (_coreFeatures.SupportsBatch)
             {
@@ -285,6 +294,65 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public Task<ResourceWrapper> UpdateSearchIndexForResourceAsync(ResourceWrapper resourceWrapper, WeakETag weakETag, CancellationToken cancellationToken)
         {
             throw new NotImplementedException();
+        }
+
+        public async Task<IReadOnlyCollection<UpsertOutcome>> UpsertBatchAsync(IReadOnlyList<(ResourceWrapper resourceWrapper, WeakETag weakEtag, bool allowCreate, bool keepHistory)> resources, DateTime commonLastUpdateDateTime, CancellationToken cancellationToken)
+        {
+            using SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true);
+
+            using var sqlCommandWrapper = new SqlCommandWrapper(sqlConnectionWrapper.SqlConnection.CreateCommand()); // disabling polly retry
+
+            var resourceMetadatas = resources.Select(r =>
+                new ResourceMetadata(
+                    r.resourceWrapper,
+                    r.weakEtag,
+                    r.allowCreate,
+                    r.keepHistory,
+                    r.resourceWrapper.CompartmentIndices,
+                    r.resourceWrapper.SearchIndices?.ToLookup(e => _searchParameterTypeMap.GetSearchValueType(e)),
+                    r.resourceWrapper.LastModifiedClaims)).ToList();
+
+            VLatest.BulkUpsertResources.PopulateCommand(
+                sqlCommandWrapper,
+                baseResourceSurrogateId: ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(commonLastUpdateDateTime),
+                _bulkUpsertResourcesTvpGeneratorVLatest.Generate(resourceMetadatas));
+
+            try
+            {
+                var sw = Stopwatch.StartNew();
+                await using SqlDataReader reader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
+
+                var upsertOutcomes = new List<UpsertOutcome>(resources.Count);
+                int index = 0;
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    if (reader.IsDBNull(0))
+                    {
+                        upsertOutcomes.Add(null);
+                    }
+                    else
+                    {
+                        int version = reader.Read(VLatest.Resource.Version, 0);
+                        ResourceWrapper resourceWrapper = resources[index].resourceWrapper;
+                        resourceWrapper.Version = version.ToString(CultureInfo.InvariantCulture);
+                        upsertOutcomes.Add(new UpsertOutcome(resourceWrapper, version == 1 ? SaveOutcomeType.Created : SaveOutcomeType.Updated));
+                    }
+                }
+
+                Console.WriteLine($"stored proc: {sw.Elapsed} ({resourceMetadatas.Count / sw.Elapsed.TotalSeconds} RPS");
+
+                return upsertOutcomes;
+            }
+            catch (SqlException e)
+            {
+                switch (e.Number)
+                {
+                    // todo: error handling
+                    default:
+                        _logger.LogError(e, "Error from SQL database on upsert");
+                        throw;
+                }
+            }
         }
     }
 }

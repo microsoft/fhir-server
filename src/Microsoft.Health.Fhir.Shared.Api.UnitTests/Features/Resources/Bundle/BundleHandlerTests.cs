@@ -23,6 +23,7 @@ using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources;
@@ -104,6 +105,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                 auditEventTypeMapping,
                 bundleOptions,
                 DisabledFhirAuthorizationService.Instance,
+                Substitute.For<IFhirDataStore>(),
+                new Lazy<IConformanceProvider>(() => Substitute.For<ConformanceProviderBase>()),
+                Substitute.For<IResourceWrapperFactory>(),
                 NullLogger<BundleHandler>.Instance);
         }
 

@@ -132,6 +132,13 @@ CREATE TYPE dbo.ResourceWriteClaimTableType_1 AS TABLE
     ClaimValue nvarchar(128) NOT NULL
 )
 
+CREATE TYPE dbo.BulkResourceWriteClaimTableType_1 AS TABLE
+(
+    Id int NOT NULL,
+    ClaimTypeId tinyint NOT NULL,
+    ClaimValue nvarchar(128) NOT NULL
+)
+
 CREATE TABLE dbo.ResourceWriteClaim
 (
     ResourceSurrogateId bigint NOT NULL,
@@ -162,6 +169,13 @@ CREATE UNIQUE CLUSTERED INDEX IXC_CompartmentType on dbo.CompartmentType
 
 CREATE TYPE dbo.CompartmentAssignmentTableType_1 AS TABLE
 (
+    CompartmentTypeId tinyint NOT NULL,
+    ReferenceResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL
+)
+
+CREATE TYPE dbo.BulkCompartmentAssignmentTableType_1 AS TABLE
+(
+    Id int NOT NULL,
     CompartmentTypeId tinyint NOT NULL,
     ReferenceResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
@@ -204,6 +218,16 @@ GO
 
 CREATE TYPE dbo.ReferenceSearchParamTableType_1 AS TABLE
 (
+    SearchParamId smallint NOT NULL,
+    BaseUri varchar(128) COLLATE Latin1_General_100_CS_AS NULL,
+    ReferenceResourceTypeId smallint NOT NULL,
+    ReferenceResourceId varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    ReferenceResourceVersion int NULL
+)
+
+CREATE TYPE dbo.BulkReferenceSearchParamTableType_1 AS TABLE
+(
+    Id int NOT NULL,
     SearchParamId smallint NOT NULL,
     BaseUri varchar(128) COLLATE Latin1_General_100_CS_AS NULL,
     ReferenceResourceTypeId smallint NOT NULL,
@@ -259,6 +283,14 @@ CREATE TYPE dbo.TokenSearchParamTableType_1 AS TABLE
     Code varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
 
+CREATE TYPE dbo.BulkTokenSearchParamTableType_1 AS TABLE
+(
+    Id int NOT NULL,
+    SearchParamId smallint NOT NULL,
+    SystemId int NULL,
+    Code varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
+)
+
 CREATE TABLE dbo.TokenSearchParam
 (
     ResourceTypeId smallint NOT NULL,
@@ -302,6 +334,13 @@ CREATE TYPE dbo.TokenTextTableType_1 AS TABLE
     Text nvarchar(400) COLLATE Latin1_General_CI_AI NOT NULL
 )
 
+CREATE TYPE dbo.BulkTokenTextTableType_1 AS TABLE
+(
+    Id int NOT NULL,
+    SearchParamId smallint NOT NULL,
+    Text nvarchar(400) COLLATE Latin1_General_CI_AI NOT NULL
+)
+
 CREATE TABLE dbo.TokenText
 (
     ResourceTypeId smallint NOT NULL,
@@ -339,6 +378,14 @@ GO
 
 CREATE TYPE dbo.StringSearchParamTableType_1 AS TABLE
 (
+    SearchParamId smallint NOT NULL,
+    Text nvarchar(256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
+    TextOverflow nvarchar(max) COLLATE Latin1_General_100_CI_AI_SC NULL
+)
+
+CREATE TYPE dbo.BulkStringSearchParamTableType_1 AS TABLE
+(
+    Id int NOT NULL,
     SearchParamId smallint NOT NULL,
     Text nvarchar(256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
     TextOverflow nvarchar(max) COLLATE Latin1_General_100_CI_AI_SC NULL
@@ -400,6 +447,13 @@ CREATE TYPE dbo.UriSearchParamTableType_1 AS TABLE
     Uri varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
 
+CREATE TYPE dbo.BulkUriSearchParamTableType_1 AS TABLE
+(
+    Id int NOT NULL,
+    SearchParamId smallint NOT NULL,
+    Uri varchar(256) COLLATE Latin1_General_100_CS_AS NOT NULL
+)
+
 CREATE TABLE dbo.UriSearchParam
 (
     ResourceTypeId smallint NOT NULL,
@@ -444,6 +498,15 @@ GO
 
 CREATE TYPE dbo.NumberSearchParamTableType_1 AS TABLE
 (
+    SearchParamId smallint NOT NULL,
+    SingleValue decimal(18,6) NULL,
+    LowValue decimal(18,6) NULL,
+    HighValue decimal(18,6) NULL
+)
+
+CREATE TYPE dbo.BulkNumberSearchParamTableType_1 AS TABLE
+(
+    Id int NOT NULL,
     SearchParamId smallint NOT NULL,
     SingleValue decimal(18,6) NULL,
     LowValue decimal(18,6) NULL,
@@ -524,6 +587,17 @@ CREATE TYPE dbo.QuantitySearchParamTableType_1 AS TABLE
     HighValue decimal(18,6) NULL
 )
 
+CREATE TYPE dbo.BulkQuantitySearchParamTableType_1 AS TABLE
+(
+    Id int NOT NULL,
+    SearchParamId smallint NOT NULL,
+    SystemId int NULL,
+    QuantityCodeId int NULL,
+    SingleValue decimal(18,6) NULL,
+    LowValue decimal(18,6) NULL,
+    HighValue decimal(18,6) NULL
+)
+
 CREATE TABLE dbo.QuantitySearchParam
 (
     ResourceTypeId smallint NOT NULL,
@@ -596,6 +670,15 @@ GO
 
 CREATE TYPE dbo.DateTimeSearchParamTableType_1 AS TABLE
 (
+    SearchParamId smallint NOT NULL,
+    StartDateTime datetimeoffset(7) NOT NULL,
+    EndDateTime datetimeoffset(7) NOT NULL,
+    IsLongerThanADay bit NOT NULL
+)
+
+CREATE TYPE dbo.BulkDateTimeSearchParamTableType_1 AS TABLE
+(
+    Id int NOT NULL,
     SearchParamId smallint NOT NULL,
     StartDateTime datetimeoffset(7) NOT NULL,
     EndDateTime datetimeoffset(7) NOT NULL,
@@ -692,6 +775,18 @@ CREATE TYPE dbo.ReferenceTokenCompositeSearchParamTableType_1 AS TABLE
     Code2 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
 
+CREATE TYPE dbo.BulkReferenceTokenCompositeSearchParamTableType_1 AS TABLE
+(
+    Id int NOT NULL,
+    SearchParamId smallint NOT NULL,
+    BaseUri1 varchar(128) COLLATE Latin1_General_100_CS_AS NULL,
+    ReferenceResourceTypeId1 smallint NOT NULL,
+    ReferenceResourceId1 varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    ReferenceResourceVersion1 int NULL,
+    SystemId2 int NULL,
+    Code2 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
+)
+
 CREATE TABLE dbo.ReferenceTokenCompositeSearchParam
 (
     ResourceTypeId smallint NOT NULL,
@@ -761,6 +856,16 @@ CREATE TYPE dbo.TokenTokenCompositeSearchParamTableType_1 AS TABLE
     Code2 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
 
+CREATE TYPE dbo.BulkTokenTokenCompositeSearchParamTableType_1 AS TABLE
+(
+    Id int NOT NULL,
+    SearchParamId smallint NOT NULL,
+    SystemId1 int NULL,
+    Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    SystemId2 int NULL,
+    Code2 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL
+)
+
 CREATE TABLE dbo.TokenTokenCompositeSearchParam
 (
     ResourceTypeId smallint NOT NULL,
@@ -804,6 +909,17 @@ GO
 
 CREATE TYPE dbo.TokenDateTimeCompositeSearchParamTableType_1 AS TABLE
 (
+    SearchParamId smallint NOT NULL,
+    SystemId1 int NULL,
+    Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    StartDateTime2 datetimeoffset(7) NOT NULL,
+    EndDateTime2 datetimeoffset(7) NOT NULL,
+    IsLongerThanADay2 bit NOT NULL
+)
+
+CREATE TYPE dbo.BulkTokenDateTimeCompositeSearchParamTableType_1 AS TABLE
+(
+    Id int NOT NULL,
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
     Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
@@ -918,6 +1034,19 @@ CREATE TYPE dbo.TokenQuantityCompositeSearchParamTableType_1 AS TABLE
     HighValue2 decimal(18,6) NULL
 )
 
+CREATE TYPE dbo.BulkTokenQuantityCompositeSearchParamTableType_1 AS TABLE
+(
+    Id int NOT NULL,
+    SearchParamId smallint NOT NULL,
+    SystemId1 int NULL,
+    Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    SystemId2 int NULL,
+    QuantityCodeId2 int NULL,
+    SingleValue2 decimal(18,6) NULL,
+    LowValue2 decimal(18,6) NULL,
+    HighValue2 decimal(18,6) NULL
+)
+
 CREATE TABLE dbo.TokenQuantityCompositeSearchParam
 (
     ResourceTypeId smallint NOT NULL,
@@ -1008,6 +1137,16 @@ CREATE TYPE dbo.TokenStringCompositeSearchParamTableType_1 AS TABLE
     TextOverflow2 nvarchar(max) COLLATE Latin1_General_100_CI_AI_SC NULL
 )
 
+CREATE TYPE dbo.BulkTokenStringCompositeSearchParamTableType_1 AS TABLE
+(
+    Id int NOT NULL,
+    SearchParamId smallint NOT NULL,
+    SystemId1 int NULL,
+    Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    Text2 nvarchar(256) COLLATE Latin1_General_100_CI_AI_SC NOT NULL,
+    TextOverflow2 nvarchar(max) COLLATE Latin1_General_100_CI_AI_SC NULL
+)
+
 CREATE TABLE dbo.TokenStringCompositeSearchParam
 (
     ResourceTypeId smallint NOT NULL,
@@ -1073,6 +1212,21 @@ GO
 
 CREATE TYPE dbo.TokenNumberNumberCompositeSearchParamTableType_1 AS TABLE
 (
+    SearchParamId smallint NOT NULL,
+    SystemId1 int NULL,
+    Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
+    SingleValue2 decimal(18,6) NULL,
+    LowValue2 decimal(18,6) NULL,
+    HighValue2 decimal(18,6) NULL,
+    SingleValue3 decimal(18,6) NULL,
+    LowValue3 decimal(18,6) NULL,
+    HighValue3 decimal(18,6) NULL,
+    HasRange bit NOT NULL
+)
+
+CREATE TYPE dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1 AS TABLE
+(
+    Id int NOT NULL,
     SearchParamId smallint NOT NULL,
     SystemId1 int NULL,
     Code1 varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
@@ -1437,7 +1591,7 @@ AS
 
     DECLARE @resourceSurrogateId bigint = @baseResourceSurrogateId + (NEXT VALUE FOR ResourceSurrogateIdUniquifierSequence)
     DECLARE @isRawResourceMetaSet bit
-    
+
     IF (@version = 1) BEGIN SET @isRawResourceMetaSet = 1 END ELSE BEGIN SET @isRawResourceMetaSet = 0 END
 
     INSERT INTO dbo.Resource
@@ -1526,6 +1680,239 @@ AS
     FROM @tokenNumberNumberCompositeSearchParams
 
     SELECT @version
+
+    COMMIT TRANSACTION
+GO
+
+
+CREATE TYPE dbo.BulkUpsertResourceTableType_1 AS TABLE
+(
+    Id int NOT NULL,
+    ResourceTypeId smallint,
+    ResourceId varchar(64) COLLATE Latin1_General_100_CS_AS,
+    ETag int NULL,
+    AllowCreate bit,
+    IsDeleted bit,
+    KeepHistory bit,
+    RequestMethod varchar(10),
+    RawResource varbinary(max)
+)
+
+GO
+
+CREATE PROCEDURE dbo.BulkUpsertResources
+    @baseResourceSurrogateId bigint,
+    @resources dbo.BulkUpsertResourceTableType_1 READONLY,
+    @resourceWriteClaims dbo.BulkResourceWriteClaimTableType_1 READONLY,
+    @compartmentAssignments dbo.BulkCompartmentAssignmentTableType_1 READONLY,
+    @referenceSearchParams dbo.BulkReferenceSearchParamTableType_1 READONLY,
+    @tokenSearchParams dbo.BulkTokenSearchParamTableType_1 READONLY,
+    @tokenTextSearchParams dbo.BulkTokenTextTableType_1 READONLY,
+    @stringSearchParams dbo.BulkStringSearchParamTableType_1 READONLY,
+    @numberSearchParams dbo.BulkNumberSearchParamTableType_1 READONLY,
+    @quantitySearchParams dbo.BulkQuantitySearchParamTableType_1 READONLY,
+    @uriSearchParams dbo.BulkUriSearchParamTableType_1 READONLY,
+    @dateTimeSearchParms dbo.BulkDateTimeSearchParamTableType_1 READONLY,
+    @referenceTokenCompositeSearchParams dbo.BulkReferenceTokenCompositeSearchParamTableType_1 READONLY,
+    @tokenTokenCompositeSearchParams dbo.BulkTokenTokenCompositeSearchParamTableType_1 READONLY,
+    @tokenDateTimeCompositeSearchParams dbo.BulkTokenDateTimeCompositeSearchParamTableType_1 READONLY,
+    @tokenQuantityCompositeSearchParams dbo.BulkTokenQuantityCompositeSearchParamTableType_1 READONLY,
+    @tokenStringCompositeSearchParams dbo.BulkTokenStringCompositeSearchParamTableType_1 READONLY,
+    @tokenNumberNumberCompositeSearchParams dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1 READONLY
+AS
+    SET NOCOUNT ON
+
+    SET XACT_ABORT ON
+    BEGIN TRANSACTION
+
+    DECLARE @computedValues TABLE
+    (
+        Id int NOT NULL,
+        ResourceTypeId smallint NOT NULL,
+        ETag bigint NULL,
+        AllowCreate bit NOT NULL,
+        NewVersion int NULL,
+        PreviousResourceSurrogateId bigint NULL,
+        PreviousVersion int NULL,
+        PreviousIsDeleted bit NULL
+    );
+
+    INSERT INTO @computedValues
+    SELECT
+        new.Id,
+        new.ResourceTypeId,
+        new.ETag,
+        new.AllowCreate,
+        NewVersion = CASE WHEN previous.Version IS NULL THEN 1 ELSE previous.Version + 1 END,
+        previous.ResourceSurrogateId,
+        previous.Version,
+        previous.IsDeleted
+    FROM @resources new
+    LEFT OUTER JOIN dbo.Resource previous WITH (UPDLOCK, INDEX(IX_Resource_ResourceTypeId_ResourceId))
+        ON previous.ResourceTypeId = new.ResourceTypeId
+            AND previous.ResourceId = new.ResourceId
+            AND previous.IsHistory = 0
+
+    IF EXISTS (SELECT TOP 1 NULL FROM @computedValues WHERE ETag IS NOT NULL AND ETag <> PreviousResourceSurrogateId)
+    BEGIN
+        THROW 50412, 'Precondition failed', 1;
+    END
+
+    IF EXISTS (SELECT TOP 1 NULL FROM @computedValues WHERE PreviousResourceSurrogateId IS NULL AND ETag IS NOT NULL)
+    BEGIN
+        THROW 50404, 'Resource with specified version not found', 1;
+    END
+
+    IF EXISTS (SELECT TOP 1 NULL FROM @computedValues WHERE PreviousResourceSurrogateId IS NULL AND AllowCreate = 0)
+    BEGIN
+        THROW 50405, 'Resource does not exist and create is not allowed', 1;
+    END
+
+    DECLARE @incomingResourceCount int = (SELECT COUNT(*) FROM @computedValues)
+
+    DECLARE @baseSequenceValueVariant sql_variant;
+
+    EXEC sys.sp_sequence_get_range
+        @sequence_name = N'dbo.ResourceSurrogateIdUniquifierSequence'
+        , @range_size = @incomingResourceCount
+        , @range_first_value = @baseSequenceValueVariant OUTPUT;
+
+    DECLARE @baseSequenceValue int = CONVERT(int, @baseSequenceValueVariant)
+
+    IF EXISTS (SELECT TOP 1 NULL FROM @computedValues WHERE PreviousResourceSurrogateId IS NOT NULL)
+    BEGIN
+
+        UPDATE Resource
+        SET IsHistory = 1
+        FROM Resource r
+        INNER JOIN @computedValues c ON r.ResourceSurrogateId = c.PreviousResourceSurrogateId
+
+    END
+
+    INSERT INTO dbo.Resource
+    (
+        ResourceTypeId,
+        ResourceId,
+        Version,
+        IsHistory,
+        ResourceSurrogateId,
+        IsDeleted,
+        RequestMethod,
+        RawResource,
+        IsRawResourceMetaSet
+    )
+    SELECT
+        r.ResourceTypeId,
+        r.ResourceId,
+        c.NewVersion,
+        0,
+        @baseResourceSurrogateId + @baseSequenceValue + r.Id,
+        r.IsDeleted,
+        r.RequestMethod,
+        r.RawResource,
+        CASE c.NewVErsion WHEN 1 THEN 1 ELSE 0 END
+    FROM @computedValues c
+    INNER JOIN @resources r ON c.Id = r.Id
+    WHERE NOT (c.PreviousIsDeleted = 1 and r.IsDeleted = 1)
+
+    INSERT INTO dbo.ResourceWriteClaim
+        (ResourceSurrogateId, ClaimTypeId, ClaimValue)
+    SELECT @baseResourceSurrogateId + @baseSequenceValue + Id, ClaimTypeId, ClaimValue
+    FROM @resourceWriteClaims
+
+    INSERT INTO dbo.CompartmentAssignment
+        (ResourceTypeId, ResourceSurrogateId, CompartmentTypeId, ReferenceResourceId, IsHistory)
+    SELECT DISTINCT c.ResourceTypeId, @baseResourceSurrogateId + @baseSequenceValue + c.Id, CompartmentTypeId, ReferenceResourceId, 0
+    FROM @compartmentAssignments p
+    INNER JOIN @computedValues c ON p.Id = c.Id
+
+    INSERT INTO dbo.ReferenceSearchParam
+        (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId, ReferenceResourceVersion, IsHistory)
+    SELECT DISTINCT c.ResourceTypeId, @baseResourceSurrogateId + @baseSequenceValue + c.Id, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId, ReferenceResourceVersion, 0
+    FROM @referenceSearchParams p
+    INNER JOIN @computedValues c ON p.Id = c.Id
+
+    INSERT INTO dbo.TokenSearchParam
+        (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, IsHistory)
+    SELECT DISTINCT c.ResourceTypeId, @baseResourceSurrogateId + @baseSequenceValue + c.Id, SearchParamId, SystemId, Code, 0
+    FROM @tokenSearchParams p
+    INNER JOIN @computedValues c ON p.Id = c.Id
+
+    INSERT INTO dbo.TokenText
+        (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, IsHistory)
+    SELECT DISTINCT c.ResourceTypeId, @baseResourceSurrogateId + @baseSequenceValue + c.Id, SearchParamId, Text, 0
+    FROM @tokenTextSearchParams p
+    INNER JOIN @computedValues c ON p.Id = c.Id
+
+    INSERT INTO dbo.StringSearchParam
+        (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, TextOverflow, IsHistory)
+    SELECT DISTINCT c.ResourceTypeId, @baseResourceSurrogateId + @baseSequenceValue + c.Id, SearchParamId, Text, TextOverflow, 0
+    FROM @stringSearchParams p
+    INNER JOIN @computedValues c ON p.Id = c.Id
+
+    INSERT INTO dbo.UriSearchParam
+        (ResourceTypeId, ResourceSurrogateId, SearchParamId, Uri, IsHistory)
+    SELECT DISTINCT c.ResourceTypeId, @baseResourceSurrogateId + @baseSequenceValue + c.Id, SearchParamId, Uri, 0
+    FROM @uriSearchParams p
+    INNER JOIN @computedValues c ON p.Id = c.Id
+
+    INSERT INTO dbo.NumberSearchParam
+        (ResourceTypeId, ResourceSurrogateId, SearchParamId, SingleValue, LowValue, HighValue, IsHistory)
+    SELECT DISTINCT c.ResourceTypeId, @baseResourceSurrogateId + @baseSequenceValue + c.Id, SearchParamId, SingleValue, LowValue, HighValue, 0
+    FROM @numberSearchParams p
+    INNER JOIN @computedValues c ON p.Id = c.Id
+
+    INSERT INTO dbo.QuantitySearchParam
+        (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, QuantityCodeId, SingleValue, LowValue, HighValue, IsHistory)
+    SELECT DISTINCT c.ResourceTypeId, @baseResourceSurrogateId + @baseSequenceValue + c.Id, SearchParamId, SystemId, QuantityCodeId, SingleValue, LowValue, HighValue, 0
+    FROM @quantitySearchParams p
+    INNER JOIN @computedValues c ON p.Id = c.Id
+
+    INSERT INTO dbo.DateTimeSearchParam
+        (ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, IsHistory)
+    SELECT DISTINCT c.ResourceTypeId, @baseResourceSurrogateId + @baseSequenceValue + c.Id, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, 0
+    FROM @dateTimeSearchParms p
+    INNER JOIN @computedValues c ON p.Id = c.Id
+
+    INSERT INTO dbo.ReferenceTokenCompositeSearchParam
+        (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri1, ReferenceResourceTypeId1, ReferenceResourceId1, ReferenceResourceVersion1, SystemId2, Code2, IsHistory)
+    SELECT DISTINCT c.ResourceTypeId, @baseResourceSurrogateId + @baseSequenceValue + c.Id, SearchParamId, BaseUri1, ReferenceResourceTypeId1, ReferenceResourceId1, ReferenceResourceVersion1, SystemId2, Code2, 0
+    FROM @referenceTokenCompositeSearchParams p
+    INNER JOIN @computedValues c ON p.Id = c.Id
+
+    INSERT INTO dbo.TokenTokenCompositeSearchParam
+        (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, SystemId2, Code2, IsHistory)
+    SELECT DISTINCT c.ResourceTypeId, @baseResourceSurrogateId + @baseSequenceValue + c.Id, SearchParamId, SystemId1, Code1, SystemId2, Code2, 0
+    FROM @tokenTokenCompositeSearchParams p
+    INNER JOIN @computedValues c ON p.Id = c.Id
+
+    INSERT INTO dbo.TokenDateTimeCompositeSearchParam
+        (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, StartDateTime2, EndDateTime2, IsLongerThanADay2, IsHistory)
+    SELECT DISTINCT c.ResourceTypeId, @baseResourceSurrogateId + @baseSequenceValue + c.Id, SearchParamId, SystemId1, Code1, StartDateTime2, EndDateTime2, IsLongerThanADay2, 0
+    FROM @tokenDateTimeCompositeSearchParams p
+    INNER JOIN @computedValues c ON p.Id = c.Id
+
+    INSERT INTO dbo.TokenQuantityCompositeSearchParam
+        (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, SingleValue2, SystemId2, QuantityCodeId2, LowValue2, HighValue2, IsHistory)
+    SELECT DISTINCT c.ResourceTypeId, @baseResourceSurrogateId + @baseSequenceValue + c.Id, SearchParamId, SystemId1, Code1, SingleValue2, SystemId2, QuantityCodeId2, LowValue2, HighValue2, 0
+    FROM @tokenQuantityCompositeSearchParams p
+    INNER JOIN @computedValues c ON p.Id = c.Id
+
+    INSERT INTO dbo.TokenStringCompositeSearchParam
+        (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, Text2, TextOverflow2, IsHistory)
+    SELECT DISTINCT c.ResourceTypeId, @baseResourceSurrogateId + @baseSequenceValue + c.Id, SearchParamId, SystemId1, Code1, Text2, TextOverflow2, 0
+    FROM @tokenStringCompositeSearchParams p
+    INNER JOIN @computedValues c ON p.Id = c.Id
+
+    INSERT INTO dbo.TokenNumberNumberCompositeSearchParam
+        (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, SingleValue2, LowValue2, HighValue2, SingleValue3, LowValue3, HighValue3, HasRange, IsHistory)
+    SELECT DISTINCT c.ResourceTypeId, @baseResourceSurrogateId + @baseSequenceValue + c.Id, SearchParamId, SystemId1, Code1, SingleValue2, LowValue2, HighValue2, SingleValue3, LowValue3, HighValue3, HasRange, 0
+    FROM @tokenNumberNumberCompositeSearchParams p
+    INNER JOIN @computedValues c ON p.Id = c.Id
+
+    SELECT NewVersion
+    FROM @computedValues
+    ORDER BY Id ASC
 
     COMMIT TRANSACTION
 GO
@@ -1714,7 +2101,7 @@ AS
         (Id, Hash, Status, HeartbeatDateTime, RawJobRecord)
     VALUES
         (@id, @hash, @status, @heartbeatDateTime, @rawJobRecord)
-  
+
     SELECT CAST(MIN_ACTIVE_ROWVERSION() AS INT)
 
     COMMIT TRANSACTION
@@ -1822,7 +2209,7 @@ AS
     UPDATE dbo.ExportJob
     SET Status = @status, HeartbeatDateTime = @heartbeatDateTime, RawJobRecord = @rawJobRecord
     WHERE Id = @id
-  
+
     SELECT MIN_ACTIVE_ROWVERSION()
 
     COMMIT TRANSACTION
@@ -1883,6 +2270,6 @@ AS
     SET Status = 'Running', HeartbeatDateTime = @heartbeatDateTime, RawJobRecord = JSON_MODIFY(RawJobRecord,'$.status', 'Running')
     OUTPUT inserted.RawJobRecord, inserted.JobVersion
     FROM dbo.ExportJob job INNER JOIN @availableJobs availableJob ON job.Id = availableJob.Id AND job.JobVersion = availableJob.JobVersion
-   
+
     COMMIT TRANSACTION
 GO

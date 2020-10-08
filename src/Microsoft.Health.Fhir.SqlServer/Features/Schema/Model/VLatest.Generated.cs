@@ -38,6 +38,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         internal readonly static TokenTokenCompositeSearchParamTable TokenTokenCompositeSearchParam = new TokenTokenCompositeSearchParamTable();
         internal readonly static UriSearchParamTable UriSearchParam = new UriSearchParamTable();
         internal readonly static AcquireExportJobsProcedure AcquireExportJobs = new AcquireExportJobsProcedure();
+        internal readonly static BulkUpsertResourcesProcedure BulkUpsertResources = new BulkUpsertResourcesProcedure();
         internal readonly static CreateExportJobProcedure CreateExportJob = new CreateExportJobProcedure();
         internal readonly static GetExportJobByHashProcedure GetExportJobByHash = new GetExportJobByHashProcedure();
         internal readonly static GetExportJobByIdProcedure GetExportJobById = new GetExportJobByIdProcedure();
@@ -401,6 +402,215 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
         }
 
+        internal class BulkUpsertResourcesProcedure : StoredProcedure
+        {
+            internal BulkUpsertResourcesProcedure(): base("dbo.BulkUpsertResources")
+            {
+            }
+
+            private readonly ParameterDefinition<System.Int64> _baseResourceSurrogateId = new ParameterDefinition<System.Int64>("@baseResourceSurrogateId", global::System.Data.SqlDbType.BigInt, false);
+            private readonly BulkUpsertResourceTableTypeTableValuedParameterDefinition _resources = new BulkUpsertResourceTableTypeTableValuedParameterDefinition("@resources");
+            private readonly BulkResourceWriteClaimTableTypeTableValuedParameterDefinition _resourceWriteClaims = new BulkResourceWriteClaimTableTypeTableValuedParameterDefinition("@resourceWriteClaims");
+            private readonly BulkCompartmentAssignmentTableTypeTableValuedParameterDefinition _compartmentAssignments = new BulkCompartmentAssignmentTableTypeTableValuedParameterDefinition("@compartmentAssignments");
+            private readonly BulkReferenceSearchParamTableTypeTableValuedParameterDefinition _referenceSearchParams = new BulkReferenceSearchParamTableTypeTableValuedParameterDefinition("@referenceSearchParams");
+            private readonly BulkTokenSearchParamTableTypeTableValuedParameterDefinition _tokenSearchParams = new BulkTokenSearchParamTableTypeTableValuedParameterDefinition("@tokenSearchParams");
+            private readonly BulkTokenTextTableTypeTableValuedParameterDefinition _tokenTextSearchParams = new BulkTokenTextTableTypeTableValuedParameterDefinition("@tokenTextSearchParams");
+            private readonly BulkStringSearchParamTableTypeTableValuedParameterDefinition _stringSearchParams = new BulkStringSearchParamTableTypeTableValuedParameterDefinition("@stringSearchParams");
+            private readonly BulkNumberSearchParamTableTypeTableValuedParameterDefinition _numberSearchParams = new BulkNumberSearchParamTableTypeTableValuedParameterDefinition("@numberSearchParams");
+            private readonly BulkQuantitySearchParamTableTypeTableValuedParameterDefinition _quantitySearchParams = new BulkQuantitySearchParamTableTypeTableValuedParameterDefinition("@quantitySearchParams");
+            private readonly BulkUriSearchParamTableTypeTableValuedParameterDefinition _uriSearchParams = new BulkUriSearchParamTableTypeTableValuedParameterDefinition("@uriSearchParams");
+            private readonly BulkDateTimeSearchParamTableTypeTableValuedParameterDefinition _dateTimeSearchParms = new BulkDateTimeSearchParamTableTypeTableValuedParameterDefinition("@dateTimeSearchParms");
+            private readonly BulkReferenceTokenCompositeSearchParamTableTypeTableValuedParameterDefinition _referenceTokenCompositeSearchParams = new BulkReferenceTokenCompositeSearchParamTableTypeTableValuedParameterDefinition("@referenceTokenCompositeSearchParams");
+            private readonly BulkTokenTokenCompositeSearchParamTableTypeTableValuedParameterDefinition _tokenTokenCompositeSearchParams = new BulkTokenTokenCompositeSearchParamTableTypeTableValuedParameterDefinition("@tokenTokenCompositeSearchParams");
+            private readonly BulkTokenDateTimeCompositeSearchParamTableTypeTableValuedParameterDefinition _tokenDateTimeCompositeSearchParams = new BulkTokenDateTimeCompositeSearchParamTableTypeTableValuedParameterDefinition("@tokenDateTimeCompositeSearchParams");
+            private readonly BulkTokenQuantityCompositeSearchParamTableTypeTableValuedParameterDefinition _tokenQuantityCompositeSearchParams = new BulkTokenQuantityCompositeSearchParamTableTypeTableValuedParameterDefinition("@tokenQuantityCompositeSearchParams");
+            private readonly BulkTokenStringCompositeSearchParamTableTypeTableValuedParameterDefinition _tokenStringCompositeSearchParams = new BulkTokenStringCompositeSearchParamTableTypeTableValuedParameterDefinition("@tokenStringCompositeSearchParams");
+            private readonly BulkTokenNumberNumberCompositeSearchParamTableTypeTableValuedParameterDefinition _tokenNumberNumberCompositeSearchParams = new BulkTokenNumberNumberCompositeSearchParamTableTypeTableValuedParameterDefinition("@tokenNumberNumberCompositeSearchParams");
+            public void PopulateCommand(SqlCommandWrapper command, System.Int64 baseResourceSurrogateId, global::System.Collections.Generic.IEnumerable<BulkUpsertResourceTableTypeRow> resources, global::System.Collections.Generic.IEnumerable<BulkResourceWriteClaimTableTypeRow> resourceWriteClaims, global::System.Collections.Generic.IEnumerable<BulkCompartmentAssignmentTableTypeRow> compartmentAssignments, global::System.Collections.Generic.IEnumerable<BulkReferenceSearchParamTableTypeRow> referenceSearchParams, global::System.Collections.Generic.IEnumerable<BulkTokenSearchParamTableTypeRow> tokenSearchParams, global::System.Collections.Generic.IEnumerable<BulkTokenTextTableTypeRow> tokenTextSearchParams, global::System.Collections.Generic.IEnumerable<BulkStringSearchParamTableTypeRow> stringSearchParams, global::System.Collections.Generic.IEnumerable<BulkNumberSearchParamTableTypeRow> numberSearchParams, global::System.Collections.Generic.IEnumerable<BulkQuantitySearchParamTableTypeRow> quantitySearchParams, global::System.Collections.Generic.IEnumerable<BulkUriSearchParamTableTypeRow> uriSearchParams, global::System.Collections.Generic.IEnumerable<BulkDateTimeSearchParamTableTypeRow> dateTimeSearchParms, global::System.Collections.Generic.IEnumerable<BulkReferenceTokenCompositeSearchParamTableTypeRow> referenceTokenCompositeSearchParams, global::System.Collections.Generic.IEnumerable<BulkTokenTokenCompositeSearchParamTableTypeRow> tokenTokenCompositeSearchParams, global::System.Collections.Generic.IEnumerable<BulkTokenDateTimeCompositeSearchParamTableTypeRow> tokenDateTimeCompositeSearchParams, global::System.Collections.Generic.IEnumerable<BulkTokenQuantityCompositeSearchParamTableTypeRow> tokenQuantityCompositeSearchParams, global::System.Collections.Generic.IEnumerable<BulkTokenStringCompositeSearchParamTableTypeRow> tokenStringCompositeSearchParams, global::System.Collections.Generic.IEnumerable<BulkTokenNumberNumberCompositeSearchParamTableTypeRow> tokenNumberNumberCompositeSearchParams)
+            {
+                command.CommandType = global::System.Data.CommandType.StoredProcedure;
+                command.CommandText = "dbo.BulkUpsertResources";
+                _baseResourceSurrogateId.AddParameter(command.Parameters, baseResourceSurrogateId);
+                _resources.AddParameter(command.Parameters, resources);
+                _resourceWriteClaims.AddParameter(command.Parameters, resourceWriteClaims);
+                _compartmentAssignments.AddParameter(command.Parameters, compartmentAssignments);
+                _referenceSearchParams.AddParameter(command.Parameters, referenceSearchParams);
+                _tokenSearchParams.AddParameter(command.Parameters, tokenSearchParams);
+                _tokenTextSearchParams.AddParameter(command.Parameters, tokenTextSearchParams);
+                _stringSearchParams.AddParameter(command.Parameters, stringSearchParams);
+                _numberSearchParams.AddParameter(command.Parameters, numberSearchParams);
+                _quantitySearchParams.AddParameter(command.Parameters, quantitySearchParams);
+                _uriSearchParams.AddParameter(command.Parameters, uriSearchParams);
+                _dateTimeSearchParms.AddParameter(command.Parameters, dateTimeSearchParms);
+                _referenceTokenCompositeSearchParams.AddParameter(command.Parameters, referenceTokenCompositeSearchParams);
+                _tokenTokenCompositeSearchParams.AddParameter(command.Parameters, tokenTokenCompositeSearchParams);
+                _tokenDateTimeCompositeSearchParams.AddParameter(command.Parameters, tokenDateTimeCompositeSearchParams);
+                _tokenQuantityCompositeSearchParams.AddParameter(command.Parameters, tokenQuantityCompositeSearchParams);
+                _tokenStringCompositeSearchParams.AddParameter(command.Parameters, tokenStringCompositeSearchParams);
+                _tokenNumberNumberCompositeSearchParams.AddParameter(command.Parameters, tokenNumberNumberCompositeSearchParams);
+            }
+
+            public void PopulateCommand(SqlCommandWrapper command, System.Int64 baseResourceSurrogateId, BulkUpsertResourcesTableValuedParameters tableValuedParameters)
+            {
+                PopulateCommand(command, baseResourceSurrogateId: baseResourceSurrogateId, resources: tableValuedParameters.Resources, resourceWriteClaims: tableValuedParameters.ResourceWriteClaims, compartmentAssignments: tableValuedParameters.CompartmentAssignments, referenceSearchParams: tableValuedParameters.ReferenceSearchParams, tokenSearchParams: tableValuedParameters.TokenSearchParams, tokenTextSearchParams: tableValuedParameters.TokenTextSearchParams, stringSearchParams: tableValuedParameters.StringSearchParams, numberSearchParams: tableValuedParameters.NumberSearchParams, quantitySearchParams: tableValuedParameters.QuantitySearchParams, uriSearchParams: tableValuedParameters.UriSearchParams, dateTimeSearchParms: tableValuedParameters.DateTimeSearchParms, referenceTokenCompositeSearchParams: tableValuedParameters.ReferenceTokenCompositeSearchParams, tokenTokenCompositeSearchParams: tableValuedParameters.TokenTokenCompositeSearchParams, tokenDateTimeCompositeSearchParams: tableValuedParameters.TokenDateTimeCompositeSearchParams, tokenQuantityCompositeSearchParams: tableValuedParameters.TokenQuantityCompositeSearchParams, tokenStringCompositeSearchParams: tableValuedParameters.TokenStringCompositeSearchParams, tokenNumberNumberCompositeSearchParams: tableValuedParameters.TokenNumberNumberCompositeSearchParams);
+            }
+        }
+
+        internal class BulkUpsertResourcesTvpGenerator<TInput> : IStoredProcedureTableValuedParametersGenerator<TInput, BulkUpsertResourcesTableValuedParameters>
+        {
+            public BulkUpsertResourcesTvpGenerator(ITableValuedParameterRowGenerator<TInput, BulkUpsertResourceTableTypeRow> BulkUpsertResourceTableTypeRowGenerator, ITableValuedParameterRowGenerator<TInput, BulkResourceWriteClaimTableTypeRow> BulkResourceWriteClaimTableTypeRowGenerator, ITableValuedParameterRowGenerator<TInput, BulkCompartmentAssignmentTableTypeRow> BulkCompartmentAssignmentTableTypeRowGenerator, ITableValuedParameterRowGenerator<TInput, BulkReferenceSearchParamTableTypeRow> BulkReferenceSearchParamTableTypeRowGenerator, ITableValuedParameterRowGenerator<TInput, BulkTokenSearchParamTableTypeRow> BulkTokenSearchParamTableTypeRowGenerator, ITableValuedParameterRowGenerator<TInput, BulkTokenTextTableTypeRow> BulkTokenTextTableTypeRowGenerator, ITableValuedParameterRowGenerator<TInput, BulkStringSearchParamTableTypeRow> BulkStringSearchParamTableTypeRowGenerator, ITableValuedParameterRowGenerator<TInput, BulkNumberSearchParamTableTypeRow> BulkNumberSearchParamTableTypeRowGenerator, ITableValuedParameterRowGenerator<TInput, BulkQuantitySearchParamTableTypeRow> BulkQuantitySearchParamTableTypeRowGenerator, ITableValuedParameterRowGenerator<TInput, BulkUriSearchParamTableTypeRow> BulkUriSearchParamTableTypeRowGenerator, ITableValuedParameterRowGenerator<TInput, BulkDateTimeSearchParamTableTypeRow> BulkDateTimeSearchParamTableTypeRowGenerator, ITableValuedParameterRowGenerator<TInput, BulkReferenceTokenCompositeSearchParamTableTypeRow> BulkReferenceTokenCompositeSearchParamTableTypeRowGenerator, ITableValuedParameterRowGenerator<TInput, BulkTokenTokenCompositeSearchParamTableTypeRow> BulkTokenTokenCompositeSearchParamTableTypeRowGenerator, ITableValuedParameterRowGenerator<TInput, BulkTokenDateTimeCompositeSearchParamTableTypeRow> BulkTokenDateTimeCompositeSearchParamTableTypeRowGenerator, ITableValuedParameterRowGenerator<TInput, BulkTokenQuantityCompositeSearchParamTableTypeRow> BulkTokenQuantityCompositeSearchParamTableTypeRowGenerator, ITableValuedParameterRowGenerator<TInput, BulkTokenStringCompositeSearchParamTableTypeRow> BulkTokenStringCompositeSearchParamTableTypeRowGenerator, ITableValuedParameterRowGenerator<TInput, BulkTokenNumberNumberCompositeSearchParamTableTypeRow> BulkTokenNumberNumberCompositeSearchParamTableTypeRowGenerator)
+            {
+                this.BulkUpsertResourceTableTypeRowGenerator = BulkUpsertResourceTableTypeRowGenerator;
+                this.BulkResourceWriteClaimTableTypeRowGenerator = BulkResourceWriteClaimTableTypeRowGenerator;
+                this.BulkCompartmentAssignmentTableTypeRowGenerator = BulkCompartmentAssignmentTableTypeRowGenerator;
+                this.BulkReferenceSearchParamTableTypeRowGenerator = BulkReferenceSearchParamTableTypeRowGenerator;
+                this.BulkTokenSearchParamTableTypeRowGenerator = BulkTokenSearchParamTableTypeRowGenerator;
+                this.BulkTokenTextTableTypeRowGenerator = BulkTokenTextTableTypeRowGenerator;
+                this.BulkStringSearchParamTableTypeRowGenerator = BulkStringSearchParamTableTypeRowGenerator;
+                this.BulkNumberSearchParamTableTypeRowGenerator = BulkNumberSearchParamTableTypeRowGenerator;
+                this.BulkQuantitySearchParamTableTypeRowGenerator = BulkQuantitySearchParamTableTypeRowGenerator;
+                this.BulkUriSearchParamTableTypeRowGenerator = BulkUriSearchParamTableTypeRowGenerator;
+                this.BulkDateTimeSearchParamTableTypeRowGenerator = BulkDateTimeSearchParamTableTypeRowGenerator;
+                this.BulkReferenceTokenCompositeSearchParamTableTypeRowGenerator = BulkReferenceTokenCompositeSearchParamTableTypeRowGenerator;
+                this.BulkTokenTokenCompositeSearchParamTableTypeRowGenerator = BulkTokenTokenCompositeSearchParamTableTypeRowGenerator;
+                this.BulkTokenDateTimeCompositeSearchParamTableTypeRowGenerator = BulkTokenDateTimeCompositeSearchParamTableTypeRowGenerator;
+                this.BulkTokenQuantityCompositeSearchParamTableTypeRowGenerator = BulkTokenQuantityCompositeSearchParamTableTypeRowGenerator;
+                this.BulkTokenStringCompositeSearchParamTableTypeRowGenerator = BulkTokenStringCompositeSearchParamTableTypeRowGenerator;
+                this.BulkTokenNumberNumberCompositeSearchParamTableTypeRowGenerator = BulkTokenNumberNumberCompositeSearchParamTableTypeRowGenerator;
+            }
+
+            private readonly ITableValuedParameterRowGenerator<TInput, BulkUpsertResourceTableTypeRow> BulkUpsertResourceTableTypeRowGenerator;
+            private readonly ITableValuedParameterRowGenerator<TInput, BulkResourceWriteClaimTableTypeRow> BulkResourceWriteClaimTableTypeRowGenerator;
+            private readonly ITableValuedParameterRowGenerator<TInput, BulkCompartmentAssignmentTableTypeRow> BulkCompartmentAssignmentTableTypeRowGenerator;
+            private readonly ITableValuedParameterRowGenerator<TInput, BulkReferenceSearchParamTableTypeRow> BulkReferenceSearchParamTableTypeRowGenerator;
+            private readonly ITableValuedParameterRowGenerator<TInput, BulkTokenSearchParamTableTypeRow> BulkTokenSearchParamTableTypeRowGenerator;
+            private readonly ITableValuedParameterRowGenerator<TInput, BulkTokenTextTableTypeRow> BulkTokenTextTableTypeRowGenerator;
+            private readonly ITableValuedParameterRowGenerator<TInput, BulkStringSearchParamTableTypeRow> BulkStringSearchParamTableTypeRowGenerator;
+            private readonly ITableValuedParameterRowGenerator<TInput, BulkNumberSearchParamTableTypeRow> BulkNumberSearchParamTableTypeRowGenerator;
+            private readonly ITableValuedParameterRowGenerator<TInput, BulkQuantitySearchParamTableTypeRow> BulkQuantitySearchParamTableTypeRowGenerator;
+            private readonly ITableValuedParameterRowGenerator<TInput, BulkUriSearchParamTableTypeRow> BulkUriSearchParamTableTypeRowGenerator;
+            private readonly ITableValuedParameterRowGenerator<TInput, BulkDateTimeSearchParamTableTypeRow> BulkDateTimeSearchParamTableTypeRowGenerator;
+            private readonly ITableValuedParameterRowGenerator<TInput, BulkReferenceTokenCompositeSearchParamTableTypeRow> BulkReferenceTokenCompositeSearchParamTableTypeRowGenerator;
+            private readonly ITableValuedParameterRowGenerator<TInput, BulkTokenTokenCompositeSearchParamTableTypeRow> BulkTokenTokenCompositeSearchParamTableTypeRowGenerator;
+            private readonly ITableValuedParameterRowGenerator<TInput, BulkTokenDateTimeCompositeSearchParamTableTypeRow> BulkTokenDateTimeCompositeSearchParamTableTypeRowGenerator;
+            private readonly ITableValuedParameterRowGenerator<TInput, BulkTokenQuantityCompositeSearchParamTableTypeRow> BulkTokenQuantityCompositeSearchParamTableTypeRowGenerator;
+            private readonly ITableValuedParameterRowGenerator<TInput, BulkTokenStringCompositeSearchParamTableTypeRow> BulkTokenStringCompositeSearchParamTableTypeRowGenerator;
+            private readonly ITableValuedParameterRowGenerator<TInput, BulkTokenNumberNumberCompositeSearchParamTableTypeRow> BulkTokenNumberNumberCompositeSearchParamTableTypeRowGenerator;
+            public BulkUpsertResourcesTableValuedParameters Generate(TInput input)
+            {
+                return new BulkUpsertResourcesTableValuedParameters(BulkUpsertResourceTableTypeRowGenerator.GenerateRows(input), BulkResourceWriteClaimTableTypeRowGenerator.GenerateRows(input), BulkCompartmentAssignmentTableTypeRowGenerator.GenerateRows(input), BulkReferenceSearchParamTableTypeRowGenerator.GenerateRows(input), BulkTokenSearchParamTableTypeRowGenerator.GenerateRows(input), BulkTokenTextTableTypeRowGenerator.GenerateRows(input), BulkStringSearchParamTableTypeRowGenerator.GenerateRows(input), BulkNumberSearchParamTableTypeRowGenerator.GenerateRows(input), BulkQuantitySearchParamTableTypeRowGenerator.GenerateRows(input), BulkUriSearchParamTableTypeRowGenerator.GenerateRows(input), BulkDateTimeSearchParamTableTypeRowGenerator.GenerateRows(input), BulkReferenceTokenCompositeSearchParamTableTypeRowGenerator.GenerateRows(input), BulkTokenTokenCompositeSearchParamTableTypeRowGenerator.GenerateRows(input), BulkTokenDateTimeCompositeSearchParamTableTypeRowGenerator.GenerateRows(input), BulkTokenQuantityCompositeSearchParamTableTypeRowGenerator.GenerateRows(input), BulkTokenStringCompositeSearchParamTableTypeRowGenerator.GenerateRows(input), BulkTokenNumberNumberCompositeSearchParamTableTypeRowGenerator.GenerateRows(input));
+            }
+        }
+
+        internal struct BulkUpsertResourcesTableValuedParameters
+        {
+            internal BulkUpsertResourcesTableValuedParameters(global::System.Collections.Generic.IEnumerable<BulkUpsertResourceTableTypeRow> Resources, global::System.Collections.Generic.IEnumerable<BulkResourceWriteClaimTableTypeRow> ResourceWriteClaims, global::System.Collections.Generic.IEnumerable<BulkCompartmentAssignmentTableTypeRow> CompartmentAssignments, global::System.Collections.Generic.IEnumerable<BulkReferenceSearchParamTableTypeRow> ReferenceSearchParams, global::System.Collections.Generic.IEnumerable<BulkTokenSearchParamTableTypeRow> TokenSearchParams, global::System.Collections.Generic.IEnumerable<BulkTokenTextTableTypeRow> TokenTextSearchParams, global::System.Collections.Generic.IEnumerable<BulkStringSearchParamTableTypeRow> StringSearchParams, global::System.Collections.Generic.IEnumerable<BulkNumberSearchParamTableTypeRow> NumberSearchParams, global::System.Collections.Generic.IEnumerable<BulkQuantitySearchParamTableTypeRow> QuantitySearchParams, global::System.Collections.Generic.IEnumerable<BulkUriSearchParamTableTypeRow> UriSearchParams, global::System.Collections.Generic.IEnumerable<BulkDateTimeSearchParamTableTypeRow> DateTimeSearchParms, global::System.Collections.Generic.IEnumerable<BulkReferenceTokenCompositeSearchParamTableTypeRow> ReferenceTokenCompositeSearchParams, global::System.Collections.Generic.IEnumerable<BulkTokenTokenCompositeSearchParamTableTypeRow> TokenTokenCompositeSearchParams, global::System.Collections.Generic.IEnumerable<BulkTokenDateTimeCompositeSearchParamTableTypeRow> TokenDateTimeCompositeSearchParams, global::System.Collections.Generic.IEnumerable<BulkTokenQuantityCompositeSearchParamTableTypeRow> TokenQuantityCompositeSearchParams, global::System.Collections.Generic.IEnumerable<BulkTokenStringCompositeSearchParamTableTypeRow> TokenStringCompositeSearchParams, global::System.Collections.Generic.IEnumerable<BulkTokenNumberNumberCompositeSearchParamTableTypeRow> TokenNumberNumberCompositeSearchParams)
+            {
+                this.Resources = Resources;
+                this.ResourceWriteClaims = ResourceWriteClaims;
+                this.CompartmentAssignments = CompartmentAssignments;
+                this.ReferenceSearchParams = ReferenceSearchParams;
+                this.TokenSearchParams = TokenSearchParams;
+                this.TokenTextSearchParams = TokenTextSearchParams;
+                this.StringSearchParams = StringSearchParams;
+                this.NumberSearchParams = NumberSearchParams;
+                this.QuantitySearchParams = QuantitySearchParams;
+                this.UriSearchParams = UriSearchParams;
+                this.DateTimeSearchParms = DateTimeSearchParms;
+                this.ReferenceTokenCompositeSearchParams = ReferenceTokenCompositeSearchParams;
+                this.TokenTokenCompositeSearchParams = TokenTokenCompositeSearchParams;
+                this.TokenDateTimeCompositeSearchParams = TokenDateTimeCompositeSearchParams;
+                this.TokenQuantityCompositeSearchParams = TokenQuantityCompositeSearchParams;
+                this.TokenStringCompositeSearchParams = TokenStringCompositeSearchParams;
+                this.TokenNumberNumberCompositeSearchParams = TokenNumberNumberCompositeSearchParams;
+            }
+
+            internal global::System.Collections.Generic.IEnumerable<BulkUpsertResourceTableTypeRow> Resources
+            {
+                get;
+            }
+
+            internal global::System.Collections.Generic.IEnumerable<BulkResourceWriteClaimTableTypeRow> ResourceWriteClaims
+            {
+                get;
+            }
+
+            internal global::System.Collections.Generic.IEnumerable<BulkCompartmentAssignmentTableTypeRow> CompartmentAssignments
+            {
+                get;
+            }
+
+            internal global::System.Collections.Generic.IEnumerable<BulkReferenceSearchParamTableTypeRow> ReferenceSearchParams
+            {
+                get;
+            }
+
+            internal global::System.Collections.Generic.IEnumerable<BulkTokenSearchParamTableTypeRow> TokenSearchParams
+            {
+                get;
+            }
+
+            internal global::System.Collections.Generic.IEnumerable<BulkTokenTextTableTypeRow> TokenTextSearchParams
+            {
+                get;
+            }
+
+            internal global::System.Collections.Generic.IEnumerable<BulkStringSearchParamTableTypeRow> StringSearchParams
+            {
+                get;
+            }
+
+            internal global::System.Collections.Generic.IEnumerable<BulkNumberSearchParamTableTypeRow> NumberSearchParams
+            {
+                get;
+            }
+
+            internal global::System.Collections.Generic.IEnumerable<BulkQuantitySearchParamTableTypeRow> QuantitySearchParams
+            {
+                get;
+            }
+
+            internal global::System.Collections.Generic.IEnumerable<BulkUriSearchParamTableTypeRow> UriSearchParams
+            {
+                get;
+            }
+
+            internal global::System.Collections.Generic.IEnumerable<BulkDateTimeSearchParamTableTypeRow> DateTimeSearchParms
+            {
+                get;
+            }
+
+            internal global::System.Collections.Generic.IEnumerable<BulkReferenceTokenCompositeSearchParamTableTypeRow> ReferenceTokenCompositeSearchParams
+            {
+                get;
+            }
+
+            internal global::System.Collections.Generic.IEnumerable<BulkTokenTokenCompositeSearchParamTableTypeRow> TokenTokenCompositeSearchParams
+            {
+                get;
+            }
+
+            internal global::System.Collections.Generic.IEnumerable<BulkTokenDateTimeCompositeSearchParamTableTypeRow> TokenDateTimeCompositeSearchParams
+            {
+                get;
+            }
+
+            internal global::System.Collections.Generic.IEnumerable<BulkTokenQuantityCompositeSearchParamTableTypeRow> TokenQuantityCompositeSearchParams
+            {
+                get;
+            }
+
+            internal global::System.Collections.Generic.IEnumerable<BulkTokenStringCompositeSearchParamTableTypeRow> TokenStringCompositeSearchParams
+            {
+                get;
+            }
+
+            internal global::System.Collections.Generic.IEnumerable<BulkTokenNumberNumberCompositeSearchParamTableTypeRow> TokenNumberNumberCompositeSearchParams
+            {
+                get;
+            }
+        }
+
         internal class CreateExportJobProcedure : StoredProcedure
         {
             internal CreateExportJobProcedure(): base("dbo.CreateExportJob")
@@ -719,6 +929,1121 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
 
             internal global::System.Collections.Generic.IEnumerable<TokenNumberNumberCompositeSearchParamTableTypeRow> TokenNumberNumberCompositeSearchParams
+            {
+                get;
+            }
+        }
+
+        private class BulkCompartmentAssignmentTableTypeTableValuedParameterDefinition : TableValuedParameterDefinition<BulkCompartmentAssignmentTableTypeRow>
+        {
+            internal BulkCompartmentAssignmentTableTypeTableValuedParameterDefinition(System.String parameterName): base(parameterName, "dbo.BulkCompartmentAssignmentTableType_1")
+            {
+            }
+
+            internal readonly IntColumn Id = new IntColumn("Id");
+            internal readonly TinyIntColumn CompartmentTypeId = new TinyIntColumn("CompartmentTypeId");
+            internal readonly VarCharColumn ReferenceResourceId = new VarCharColumn("ReferenceResourceId", 64, "Latin1_General_100_CS_AS");
+            protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{Id, CompartmentTypeId, ReferenceResourceId};
+            protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, BulkCompartmentAssignmentTableTypeRow rowData)
+            {
+                Id.Set(record, 0, rowData.Id);
+                CompartmentTypeId.Set(record, 1, rowData.CompartmentTypeId);
+                ReferenceResourceId.Set(record, 2, rowData.ReferenceResourceId);
+            }
+        }
+
+        internal struct BulkCompartmentAssignmentTableTypeRow
+        {
+            internal BulkCompartmentAssignmentTableTypeRow(System.Int32 Id, System.Byte CompartmentTypeId, System.String ReferenceResourceId)
+            {
+                this.Id = Id;
+                this.CompartmentTypeId = CompartmentTypeId;
+                this.ReferenceResourceId = ReferenceResourceId;
+            }
+
+            internal System.Int32 Id
+            {
+                get;
+            }
+
+            internal System.Byte CompartmentTypeId
+            {
+                get;
+            }
+
+            internal System.String ReferenceResourceId
+            {
+                get;
+            }
+        }
+
+        private class BulkDateTimeSearchParamTableTypeTableValuedParameterDefinition : TableValuedParameterDefinition<BulkDateTimeSearchParamTableTypeRow>
+        {
+            internal BulkDateTimeSearchParamTableTypeTableValuedParameterDefinition(System.String parameterName): base(parameterName, "dbo.BulkDateTimeSearchParamTableType_1")
+            {
+            }
+
+            internal readonly IntColumn Id = new IntColumn("Id");
+            internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
+            internal readonly DateTimeOffsetColumn StartDateTime = new DateTimeOffsetColumn("StartDateTime", 7);
+            internal readonly DateTimeOffsetColumn EndDateTime = new DateTimeOffsetColumn("EndDateTime", 7);
+            internal readonly BitColumn IsLongerThanADay = new BitColumn("IsLongerThanADay");
+            protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{Id, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay};
+            protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, BulkDateTimeSearchParamTableTypeRow rowData)
+            {
+                Id.Set(record, 0, rowData.Id);
+                SearchParamId.Set(record, 1, rowData.SearchParamId);
+                StartDateTime.Set(record, 2, rowData.StartDateTime);
+                EndDateTime.Set(record, 3, rowData.EndDateTime);
+                IsLongerThanADay.Set(record, 4, rowData.IsLongerThanADay);
+            }
+        }
+
+        internal struct BulkDateTimeSearchParamTableTypeRow
+        {
+            internal BulkDateTimeSearchParamTableTypeRow(System.Int32 Id, System.Int16 SearchParamId, System.DateTimeOffset StartDateTime, System.DateTimeOffset EndDateTime, System.Boolean IsLongerThanADay)
+            {
+                this.Id = Id;
+                this.SearchParamId = SearchParamId;
+                this.StartDateTime = StartDateTime;
+                this.EndDateTime = EndDateTime;
+                this.IsLongerThanADay = IsLongerThanADay;
+            }
+
+            internal System.Int32 Id
+            {
+                get;
+            }
+
+            internal System.Int16 SearchParamId
+            {
+                get;
+            }
+
+            internal System.DateTimeOffset StartDateTime
+            {
+                get;
+            }
+
+            internal System.DateTimeOffset EndDateTime
+            {
+                get;
+            }
+
+            internal System.Boolean IsLongerThanADay
+            {
+                get;
+            }
+        }
+
+        private class BulkNumberSearchParamTableTypeTableValuedParameterDefinition : TableValuedParameterDefinition<BulkNumberSearchParamTableTypeRow>
+        {
+            internal BulkNumberSearchParamTableTypeTableValuedParameterDefinition(System.String parameterName): base(parameterName, "dbo.BulkNumberSearchParamTableType_1")
+            {
+            }
+
+            internal readonly IntColumn Id = new IntColumn("Id");
+            internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
+            internal readonly NullableDecimalColumn SingleValue = new NullableDecimalColumn("SingleValue", 18, 6);
+            internal readonly NullableDecimalColumn LowValue = new NullableDecimalColumn("LowValue", 18, 6);
+            internal readonly NullableDecimalColumn HighValue = new NullableDecimalColumn("HighValue", 18, 6);
+            protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{Id, SearchParamId, SingleValue, LowValue, HighValue};
+            protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, BulkNumberSearchParamTableTypeRow rowData)
+            {
+                Id.Set(record, 0, rowData.Id);
+                SearchParamId.Set(record, 1, rowData.SearchParamId);
+                SingleValue.Set(record, 2, rowData.SingleValue);
+                LowValue.Set(record, 3, rowData.LowValue);
+                HighValue.Set(record, 4, rowData.HighValue);
+            }
+        }
+
+        internal struct BulkNumberSearchParamTableTypeRow
+        {
+            internal BulkNumberSearchParamTableTypeRow(System.Int32 Id, System.Int16 SearchParamId, System.Nullable<System.Decimal> SingleValue, System.Nullable<System.Decimal> LowValue, System.Nullable<System.Decimal> HighValue)
+            {
+                this.Id = Id;
+                this.SearchParamId = SearchParamId;
+                this.SingleValue = SingleValue;
+                this.LowValue = LowValue;
+                this.HighValue = HighValue;
+            }
+
+            internal System.Int32 Id
+            {
+                get;
+            }
+
+            internal System.Int16 SearchParamId
+            {
+                get;
+            }
+
+            internal System.Nullable<System.Decimal> SingleValue
+            {
+                get;
+            }
+
+            internal System.Nullable<System.Decimal> LowValue
+            {
+                get;
+            }
+
+            internal System.Nullable<System.Decimal> HighValue
+            {
+                get;
+            }
+        }
+
+        private class BulkQuantitySearchParamTableTypeTableValuedParameterDefinition : TableValuedParameterDefinition<BulkQuantitySearchParamTableTypeRow>
+        {
+            internal BulkQuantitySearchParamTableTypeTableValuedParameterDefinition(System.String parameterName): base(parameterName, "dbo.BulkQuantitySearchParamTableType_1")
+            {
+            }
+
+            internal readonly IntColumn Id = new IntColumn("Id");
+            internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
+            internal readonly NullableIntColumn SystemId = new NullableIntColumn("SystemId");
+            internal readonly NullableIntColumn QuantityCodeId = new NullableIntColumn("QuantityCodeId");
+            internal readonly NullableDecimalColumn SingleValue = new NullableDecimalColumn("SingleValue", 18, 6);
+            internal readonly NullableDecimalColumn LowValue = new NullableDecimalColumn("LowValue", 18, 6);
+            internal readonly NullableDecimalColumn HighValue = new NullableDecimalColumn("HighValue", 18, 6);
+            protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{Id, SearchParamId, SystemId, QuantityCodeId, SingleValue, LowValue, HighValue};
+            protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, BulkQuantitySearchParamTableTypeRow rowData)
+            {
+                Id.Set(record, 0, rowData.Id);
+                SearchParamId.Set(record, 1, rowData.SearchParamId);
+                SystemId.Set(record, 2, rowData.SystemId);
+                QuantityCodeId.Set(record, 3, rowData.QuantityCodeId);
+                SingleValue.Set(record, 4, rowData.SingleValue);
+                LowValue.Set(record, 5, rowData.LowValue);
+                HighValue.Set(record, 6, rowData.HighValue);
+            }
+        }
+
+        internal struct BulkQuantitySearchParamTableTypeRow
+        {
+            internal BulkQuantitySearchParamTableTypeRow(System.Int32 Id, System.Int16 SearchParamId, System.Nullable<System.Int32> SystemId, System.Nullable<System.Int32> QuantityCodeId, System.Nullable<System.Decimal> SingleValue, System.Nullable<System.Decimal> LowValue, System.Nullable<System.Decimal> HighValue)
+            {
+                this.Id = Id;
+                this.SearchParamId = SearchParamId;
+                this.SystemId = SystemId;
+                this.QuantityCodeId = QuantityCodeId;
+                this.SingleValue = SingleValue;
+                this.LowValue = LowValue;
+                this.HighValue = HighValue;
+            }
+
+            internal System.Int32 Id
+            {
+                get;
+            }
+
+            internal System.Int16 SearchParamId
+            {
+                get;
+            }
+
+            internal System.Nullable<System.Int32> SystemId
+            {
+                get;
+            }
+
+            internal System.Nullable<System.Int32> QuantityCodeId
+            {
+                get;
+            }
+
+            internal System.Nullable<System.Decimal> SingleValue
+            {
+                get;
+            }
+
+            internal System.Nullable<System.Decimal> LowValue
+            {
+                get;
+            }
+
+            internal System.Nullable<System.Decimal> HighValue
+            {
+                get;
+            }
+        }
+
+        private class BulkReferenceSearchParamTableTypeTableValuedParameterDefinition : TableValuedParameterDefinition<BulkReferenceSearchParamTableTypeRow>
+        {
+            internal BulkReferenceSearchParamTableTypeTableValuedParameterDefinition(System.String parameterName): base(parameterName, "dbo.BulkReferenceSearchParamTableType_1")
+            {
+            }
+
+            internal readonly IntColumn Id = new IntColumn("Id");
+            internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
+            internal readonly NullableVarCharColumn BaseUri = new NullableVarCharColumn("BaseUri", 128, "Latin1_General_100_CS_AS");
+            internal readonly SmallIntColumn ReferenceResourceTypeId = new SmallIntColumn("ReferenceResourceTypeId");
+            internal readonly VarCharColumn ReferenceResourceId = new VarCharColumn("ReferenceResourceId", 64, "Latin1_General_100_CS_AS");
+            internal readonly NullableIntColumn ReferenceResourceVersion = new NullableIntColumn("ReferenceResourceVersion");
+            protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{Id, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId, ReferenceResourceVersion};
+            protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, BulkReferenceSearchParamTableTypeRow rowData)
+            {
+                Id.Set(record, 0, rowData.Id);
+                SearchParamId.Set(record, 1, rowData.SearchParamId);
+                BaseUri.Set(record, 2, rowData.BaseUri);
+                ReferenceResourceTypeId.Set(record, 3, rowData.ReferenceResourceTypeId);
+                ReferenceResourceId.Set(record, 4, rowData.ReferenceResourceId);
+                ReferenceResourceVersion.Set(record, 5, rowData.ReferenceResourceVersion);
+            }
+        }
+
+        internal struct BulkReferenceSearchParamTableTypeRow
+        {
+            internal BulkReferenceSearchParamTableTypeRow(System.Int32 Id, System.Int16 SearchParamId, System.String BaseUri, System.Int16 ReferenceResourceTypeId, System.String ReferenceResourceId, System.Nullable<System.Int32> ReferenceResourceVersion)
+            {
+                this.Id = Id;
+                this.SearchParamId = SearchParamId;
+                this.BaseUri = BaseUri;
+                this.ReferenceResourceTypeId = ReferenceResourceTypeId;
+                this.ReferenceResourceId = ReferenceResourceId;
+                this.ReferenceResourceVersion = ReferenceResourceVersion;
+            }
+
+            internal System.Int32 Id
+            {
+                get;
+            }
+
+            internal System.Int16 SearchParamId
+            {
+                get;
+            }
+
+            internal System.String BaseUri
+            {
+                get;
+            }
+
+            internal System.Int16 ReferenceResourceTypeId
+            {
+                get;
+            }
+
+            internal System.String ReferenceResourceId
+            {
+                get;
+            }
+
+            internal System.Nullable<System.Int32> ReferenceResourceVersion
+            {
+                get;
+            }
+        }
+
+        private class BulkReferenceTokenCompositeSearchParamTableTypeTableValuedParameterDefinition : TableValuedParameterDefinition<BulkReferenceTokenCompositeSearchParamTableTypeRow>
+        {
+            internal BulkReferenceTokenCompositeSearchParamTableTypeTableValuedParameterDefinition(System.String parameterName): base(parameterName, "dbo.BulkReferenceTokenCompositeSearchParamTableType_1")
+            {
+            }
+
+            internal readonly IntColumn Id = new IntColumn("Id");
+            internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
+            internal readonly NullableVarCharColumn BaseUri1 = new NullableVarCharColumn("BaseUri1", 128, "Latin1_General_100_CS_AS");
+            internal readonly SmallIntColumn ReferenceResourceTypeId1 = new SmallIntColumn("ReferenceResourceTypeId1");
+            internal readonly VarCharColumn ReferenceResourceId1 = new VarCharColumn("ReferenceResourceId1", 64, "Latin1_General_100_CS_AS");
+            internal readonly NullableIntColumn ReferenceResourceVersion1 = new NullableIntColumn("ReferenceResourceVersion1");
+            internal readonly NullableIntColumn SystemId2 = new NullableIntColumn("SystemId2");
+            internal readonly VarCharColumn Code2 = new VarCharColumn("Code2", 128, "Latin1_General_100_CS_AS");
+            protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{Id, SearchParamId, BaseUri1, ReferenceResourceTypeId1, ReferenceResourceId1, ReferenceResourceVersion1, SystemId2, Code2};
+            protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, BulkReferenceTokenCompositeSearchParamTableTypeRow rowData)
+            {
+                Id.Set(record, 0, rowData.Id);
+                SearchParamId.Set(record, 1, rowData.SearchParamId);
+                BaseUri1.Set(record, 2, rowData.BaseUri1);
+                ReferenceResourceTypeId1.Set(record, 3, rowData.ReferenceResourceTypeId1);
+                ReferenceResourceId1.Set(record, 4, rowData.ReferenceResourceId1);
+                ReferenceResourceVersion1.Set(record, 5, rowData.ReferenceResourceVersion1);
+                SystemId2.Set(record, 6, rowData.SystemId2);
+                Code2.Set(record, 7, rowData.Code2);
+            }
+        }
+
+        internal struct BulkReferenceTokenCompositeSearchParamTableTypeRow
+        {
+            internal BulkReferenceTokenCompositeSearchParamTableTypeRow(System.Int32 Id, System.Int16 SearchParamId, System.String BaseUri1, System.Int16 ReferenceResourceTypeId1, System.String ReferenceResourceId1, System.Nullable<System.Int32> ReferenceResourceVersion1, System.Nullable<System.Int32> SystemId2, System.String Code2)
+            {
+                this.Id = Id;
+                this.SearchParamId = SearchParamId;
+                this.BaseUri1 = BaseUri1;
+                this.ReferenceResourceTypeId1 = ReferenceResourceTypeId1;
+                this.ReferenceResourceId1 = ReferenceResourceId1;
+                this.ReferenceResourceVersion1 = ReferenceResourceVersion1;
+                this.SystemId2 = SystemId2;
+                this.Code2 = Code2;
+            }
+
+            internal System.Int32 Id
+            {
+                get;
+            }
+
+            internal System.Int16 SearchParamId
+            {
+                get;
+            }
+
+            internal System.String BaseUri1
+            {
+                get;
+            }
+
+            internal System.Int16 ReferenceResourceTypeId1
+            {
+                get;
+            }
+
+            internal System.String ReferenceResourceId1
+            {
+                get;
+            }
+
+            internal System.Nullable<System.Int32> ReferenceResourceVersion1
+            {
+                get;
+            }
+
+            internal System.Nullable<System.Int32> SystemId2
+            {
+                get;
+            }
+
+            internal System.String Code2
+            {
+                get;
+            }
+        }
+
+        private class BulkResourceWriteClaimTableTypeTableValuedParameterDefinition : TableValuedParameterDefinition<BulkResourceWriteClaimTableTypeRow>
+        {
+            internal BulkResourceWriteClaimTableTypeTableValuedParameterDefinition(System.String parameterName): base(parameterName, "dbo.BulkResourceWriteClaimTableType_1")
+            {
+            }
+
+            internal readonly IntColumn Id = new IntColumn("Id");
+            internal readonly TinyIntColumn ClaimTypeId = new TinyIntColumn("ClaimTypeId");
+            internal readonly NVarCharColumn ClaimValue = new NVarCharColumn("ClaimValue", 128);
+            protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{Id, ClaimTypeId, ClaimValue};
+            protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, BulkResourceWriteClaimTableTypeRow rowData)
+            {
+                Id.Set(record, 0, rowData.Id);
+                ClaimTypeId.Set(record, 1, rowData.ClaimTypeId);
+                ClaimValue.Set(record, 2, rowData.ClaimValue);
+            }
+        }
+
+        internal struct BulkResourceWriteClaimTableTypeRow
+        {
+            internal BulkResourceWriteClaimTableTypeRow(System.Int32 Id, System.Byte ClaimTypeId, System.String ClaimValue)
+            {
+                this.Id = Id;
+                this.ClaimTypeId = ClaimTypeId;
+                this.ClaimValue = ClaimValue;
+            }
+
+            internal System.Int32 Id
+            {
+                get;
+            }
+
+            internal System.Byte ClaimTypeId
+            {
+                get;
+            }
+
+            internal System.String ClaimValue
+            {
+                get;
+            }
+        }
+
+        private class BulkStringSearchParamTableTypeTableValuedParameterDefinition : TableValuedParameterDefinition<BulkStringSearchParamTableTypeRow>
+        {
+            internal BulkStringSearchParamTableTypeTableValuedParameterDefinition(System.String parameterName): base(parameterName, "dbo.BulkStringSearchParamTableType_1")
+            {
+            }
+
+            internal readonly IntColumn Id = new IntColumn("Id");
+            internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
+            internal readonly NVarCharColumn Text = new NVarCharColumn("Text", 256, "Latin1_General_100_CI_AI_SC");
+            internal readonly NullableNVarCharColumn TextOverflow = new NullableNVarCharColumn("TextOverflow", -1, "Latin1_General_100_CI_AI_SC");
+            protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{Id, SearchParamId, Text, TextOverflow};
+            protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, BulkStringSearchParamTableTypeRow rowData)
+            {
+                Id.Set(record, 0, rowData.Id);
+                SearchParamId.Set(record, 1, rowData.SearchParamId);
+                Text.Set(record, 2, rowData.Text);
+                TextOverflow.Set(record, 3, rowData.TextOverflow);
+            }
+        }
+
+        internal struct BulkStringSearchParamTableTypeRow
+        {
+            internal BulkStringSearchParamTableTypeRow(System.Int32 Id, System.Int16 SearchParamId, System.String Text, System.String TextOverflow)
+            {
+                this.Id = Id;
+                this.SearchParamId = SearchParamId;
+                this.Text = Text;
+                this.TextOverflow = TextOverflow;
+            }
+
+            internal System.Int32 Id
+            {
+                get;
+            }
+
+            internal System.Int16 SearchParamId
+            {
+                get;
+            }
+
+            internal System.String Text
+            {
+                get;
+            }
+
+            internal System.String TextOverflow
+            {
+                get;
+            }
+        }
+
+        private class BulkTokenDateTimeCompositeSearchParamTableTypeTableValuedParameterDefinition : TableValuedParameterDefinition<BulkTokenDateTimeCompositeSearchParamTableTypeRow>
+        {
+            internal BulkTokenDateTimeCompositeSearchParamTableTypeTableValuedParameterDefinition(System.String parameterName): base(parameterName, "dbo.BulkTokenDateTimeCompositeSearchParamTableType_1")
+            {
+            }
+
+            internal readonly IntColumn Id = new IntColumn("Id");
+            internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
+            internal readonly NullableIntColumn SystemId1 = new NullableIntColumn("SystemId1");
+            internal readonly VarCharColumn Code1 = new VarCharColumn("Code1", 128, "Latin1_General_100_CS_AS");
+            internal readonly DateTimeOffsetColumn StartDateTime2 = new DateTimeOffsetColumn("StartDateTime2", 7);
+            internal readonly DateTimeOffsetColumn EndDateTime2 = new DateTimeOffsetColumn("EndDateTime2", 7);
+            internal readonly BitColumn IsLongerThanADay2 = new BitColumn("IsLongerThanADay2");
+            protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{Id, SearchParamId, SystemId1, Code1, StartDateTime2, EndDateTime2, IsLongerThanADay2};
+            protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, BulkTokenDateTimeCompositeSearchParamTableTypeRow rowData)
+            {
+                Id.Set(record, 0, rowData.Id);
+                SearchParamId.Set(record, 1, rowData.SearchParamId);
+                SystemId1.Set(record, 2, rowData.SystemId1);
+                Code1.Set(record, 3, rowData.Code1);
+                StartDateTime2.Set(record, 4, rowData.StartDateTime2);
+                EndDateTime2.Set(record, 5, rowData.EndDateTime2);
+                IsLongerThanADay2.Set(record, 6, rowData.IsLongerThanADay2);
+            }
+        }
+
+        internal struct BulkTokenDateTimeCompositeSearchParamTableTypeRow
+        {
+            internal BulkTokenDateTimeCompositeSearchParamTableTypeRow(System.Int32 Id, System.Int16 SearchParamId, System.Nullable<System.Int32> SystemId1, System.String Code1, System.DateTimeOffset StartDateTime2, System.DateTimeOffset EndDateTime2, System.Boolean IsLongerThanADay2)
+            {
+                this.Id = Id;
+                this.SearchParamId = SearchParamId;
+                this.SystemId1 = SystemId1;
+                this.Code1 = Code1;
+                this.StartDateTime2 = StartDateTime2;
+                this.EndDateTime2 = EndDateTime2;
+                this.IsLongerThanADay2 = IsLongerThanADay2;
+            }
+
+            internal System.Int32 Id
+            {
+                get;
+            }
+
+            internal System.Int16 SearchParamId
+            {
+                get;
+            }
+
+            internal System.Nullable<System.Int32> SystemId1
+            {
+                get;
+            }
+
+            internal System.String Code1
+            {
+                get;
+            }
+
+            internal System.DateTimeOffset StartDateTime2
+            {
+                get;
+            }
+
+            internal System.DateTimeOffset EndDateTime2
+            {
+                get;
+            }
+
+            internal System.Boolean IsLongerThanADay2
+            {
+                get;
+            }
+        }
+
+        private class BulkTokenNumberNumberCompositeSearchParamTableTypeTableValuedParameterDefinition : TableValuedParameterDefinition<BulkTokenNumberNumberCompositeSearchParamTableTypeRow>
+        {
+            internal BulkTokenNumberNumberCompositeSearchParamTableTypeTableValuedParameterDefinition(System.String parameterName): base(parameterName, "dbo.BulkTokenNumberNumberCompositeSearchParamTableType_1")
+            {
+            }
+
+            internal readonly IntColumn Id = new IntColumn("Id");
+            internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
+            internal readonly NullableIntColumn SystemId1 = new NullableIntColumn("SystemId1");
+            internal readonly VarCharColumn Code1 = new VarCharColumn("Code1", 128, "Latin1_General_100_CS_AS");
+            internal readonly NullableDecimalColumn SingleValue2 = new NullableDecimalColumn("SingleValue2", 18, 6);
+            internal readonly NullableDecimalColumn LowValue2 = new NullableDecimalColumn("LowValue2", 18, 6);
+            internal readonly NullableDecimalColumn HighValue2 = new NullableDecimalColumn("HighValue2", 18, 6);
+            internal readonly NullableDecimalColumn SingleValue3 = new NullableDecimalColumn("SingleValue3", 18, 6);
+            internal readonly NullableDecimalColumn LowValue3 = new NullableDecimalColumn("LowValue3", 18, 6);
+            internal readonly NullableDecimalColumn HighValue3 = new NullableDecimalColumn("HighValue3", 18, 6);
+            internal readonly BitColumn HasRange = new BitColumn("HasRange");
+            protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{Id, SearchParamId, SystemId1, Code1, SingleValue2, LowValue2, HighValue2, SingleValue3, LowValue3, HighValue3, HasRange};
+            protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, BulkTokenNumberNumberCompositeSearchParamTableTypeRow rowData)
+            {
+                Id.Set(record, 0, rowData.Id);
+                SearchParamId.Set(record, 1, rowData.SearchParamId);
+                SystemId1.Set(record, 2, rowData.SystemId1);
+                Code1.Set(record, 3, rowData.Code1);
+                SingleValue2.Set(record, 4, rowData.SingleValue2);
+                LowValue2.Set(record, 5, rowData.LowValue2);
+                HighValue2.Set(record, 6, rowData.HighValue2);
+                SingleValue3.Set(record, 7, rowData.SingleValue3);
+                LowValue3.Set(record, 8, rowData.LowValue3);
+                HighValue3.Set(record, 9, rowData.HighValue3);
+                HasRange.Set(record, 10, rowData.HasRange);
+            }
+        }
+
+        internal struct BulkTokenNumberNumberCompositeSearchParamTableTypeRow
+        {
+            internal BulkTokenNumberNumberCompositeSearchParamTableTypeRow(System.Int32 Id, System.Int16 SearchParamId, System.Nullable<System.Int32> SystemId1, System.String Code1, System.Nullable<System.Decimal> SingleValue2, System.Nullable<System.Decimal> LowValue2, System.Nullable<System.Decimal> HighValue2, System.Nullable<System.Decimal> SingleValue3, System.Nullable<System.Decimal> LowValue3, System.Nullable<System.Decimal> HighValue3, System.Boolean HasRange)
+            {
+                this.Id = Id;
+                this.SearchParamId = SearchParamId;
+                this.SystemId1 = SystemId1;
+                this.Code1 = Code1;
+                this.SingleValue2 = SingleValue2;
+                this.LowValue2 = LowValue2;
+                this.HighValue2 = HighValue2;
+                this.SingleValue3 = SingleValue3;
+                this.LowValue3 = LowValue3;
+                this.HighValue3 = HighValue3;
+                this.HasRange = HasRange;
+            }
+
+            internal System.Int32 Id
+            {
+                get;
+            }
+
+            internal System.Int16 SearchParamId
+            {
+                get;
+            }
+
+            internal System.Nullable<System.Int32> SystemId1
+            {
+                get;
+            }
+
+            internal System.String Code1
+            {
+                get;
+            }
+
+            internal System.Nullable<System.Decimal> SingleValue2
+            {
+                get;
+            }
+
+            internal System.Nullable<System.Decimal> LowValue2
+            {
+                get;
+            }
+
+            internal System.Nullable<System.Decimal> HighValue2
+            {
+                get;
+            }
+
+            internal System.Nullable<System.Decimal> SingleValue3
+            {
+                get;
+            }
+
+            internal System.Nullable<System.Decimal> LowValue3
+            {
+                get;
+            }
+
+            internal System.Nullable<System.Decimal> HighValue3
+            {
+                get;
+            }
+
+            internal System.Boolean HasRange
+            {
+                get;
+            }
+        }
+
+        private class BulkTokenQuantityCompositeSearchParamTableTypeTableValuedParameterDefinition : TableValuedParameterDefinition<BulkTokenQuantityCompositeSearchParamTableTypeRow>
+        {
+            internal BulkTokenQuantityCompositeSearchParamTableTypeTableValuedParameterDefinition(System.String parameterName): base(parameterName, "dbo.BulkTokenQuantityCompositeSearchParamTableType_1")
+            {
+            }
+
+            internal readonly IntColumn Id = new IntColumn("Id");
+            internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
+            internal readonly NullableIntColumn SystemId1 = new NullableIntColumn("SystemId1");
+            internal readonly VarCharColumn Code1 = new VarCharColumn("Code1", 128, "Latin1_General_100_CS_AS");
+            internal readonly NullableIntColumn SystemId2 = new NullableIntColumn("SystemId2");
+            internal readonly NullableIntColumn QuantityCodeId2 = new NullableIntColumn("QuantityCodeId2");
+            internal readonly NullableDecimalColumn SingleValue2 = new NullableDecimalColumn("SingleValue2", 18, 6);
+            internal readonly NullableDecimalColumn LowValue2 = new NullableDecimalColumn("LowValue2", 18, 6);
+            internal readonly NullableDecimalColumn HighValue2 = new NullableDecimalColumn("HighValue2", 18, 6);
+            protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{Id, SearchParamId, SystemId1, Code1, SystemId2, QuantityCodeId2, SingleValue2, LowValue2, HighValue2};
+            protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, BulkTokenQuantityCompositeSearchParamTableTypeRow rowData)
+            {
+                Id.Set(record, 0, rowData.Id);
+                SearchParamId.Set(record, 1, rowData.SearchParamId);
+                SystemId1.Set(record, 2, rowData.SystemId1);
+                Code1.Set(record, 3, rowData.Code1);
+                SystemId2.Set(record, 4, rowData.SystemId2);
+                QuantityCodeId2.Set(record, 5, rowData.QuantityCodeId2);
+                SingleValue2.Set(record, 6, rowData.SingleValue2);
+                LowValue2.Set(record, 7, rowData.LowValue2);
+                HighValue2.Set(record, 8, rowData.HighValue2);
+            }
+        }
+
+        internal struct BulkTokenQuantityCompositeSearchParamTableTypeRow
+        {
+            internal BulkTokenQuantityCompositeSearchParamTableTypeRow(System.Int32 Id, System.Int16 SearchParamId, System.Nullable<System.Int32> SystemId1, System.String Code1, System.Nullable<System.Int32> SystemId2, System.Nullable<System.Int32> QuantityCodeId2, System.Nullable<System.Decimal> SingleValue2, System.Nullable<System.Decimal> LowValue2, System.Nullable<System.Decimal> HighValue2)
+            {
+                this.Id = Id;
+                this.SearchParamId = SearchParamId;
+                this.SystemId1 = SystemId1;
+                this.Code1 = Code1;
+                this.SystemId2 = SystemId2;
+                this.QuantityCodeId2 = QuantityCodeId2;
+                this.SingleValue2 = SingleValue2;
+                this.LowValue2 = LowValue2;
+                this.HighValue2 = HighValue2;
+            }
+
+            internal System.Int32 Id
+            {
+                get;
+            }
+
+            internal System.Int16 SearchParamId
+            {
+                get;
+            }
+
+            internal System.Nullable<System.Int32> SystemId1
+            {
+                get;
+            }
+
+            internal System.String Code1
+            {
+                get;
+            }
+
+            internal System.Nullable<System.Int32> SystemId2
+            {
+                get;
+            }
+
+            internal System.Nullable<System.Int32> QuantityCodeId2
+            {
+                get;
+            }
+
+            internal System.Nullable<System.Decimal> SingleValue2
+            {
+                get;
+            }
+
+            internal System.Nullable<System.Decimal> LowValue2
+            {
+                get;
+            }
+
+            internal System.Nullable<System.Decimal> HighValue2
+            {
+                get;
+            }
+        }
+
+        private class BulkTokenSearchParamTableTypeTableValuedParameterDefinition : TableValuedParameterDefinition<BulkTokenSearchParamTableTypeRow>
+        {
+            internal BulkTokenSearchParamTableTypeTableValuedParameterDefinition(System.String parameterName): base(parameterName, "dbo.BulkTokenSearchParamTableType_1")
+            {
+            }
+
+            internal readonly IntColumn Id = new IntColumn("Id");
+            internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
+            internal readonly NullableIntColumn SystemId = new NullableIntColumn("SystemId");
+            internal readonly VarCharColumn Code = new VarCharColumn("Code", 128, "Latin1_General_100_CS_AS");
+            protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{Id, SearchParamId, SystemId, Code};
+            protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, BulkTokenSearchParamTableTypeRow rowData)
+            {
+                Id.Set(record, 0, rowData.Id);
+                SearchParamId.Set(record, 1, rowData.SearchParamId);
+                SystemId.Set(record, 2, rowData.SystemId);
+                Code.Set(record, 3, rowData.Code);
+            }
+        }
+
+        internal struct BulkTokenSearchParamTableTypeRow
+        {
+            internal BulkTokenSearchParamTableTypeRow(System.Int32 Id, System.Int16 SearchParamId, System.Nullable<System.Int32> SystemId, System.String Code)
+            {
+                this.Id = Id;
+                this.SearchParamId = SearchParamId;
+                this.SystemId = SystemId;
+                this.Code = Code;
+            }
+
+            internal System.Int32 Id
+            {
+                get;
+            }
+
+            internal System.Int16 SearchParamId
+            {
+                get;
+            }
+
+            internal System.Nullable<System.Int32> SystemId
+            {
+                get;
+            }
+
+            internal System.String Code
+            {
+                get;
+            }
+        }
+
+        private class BulkTokenStringCompositeSearchParamTableTypeTableValuedParameterDefinition : TableValuedParameterDefinition<BulkTokenStringCompositeSearchParamTableTypeRow>
+        {
+            internal BulkTokenStringCompositeSearchParamTableTypeTableValuedParameterDefinition(System.String parameterName): base(parameterName, "dbo.BulkTokenStringCompositeSearchParamTableType_1")
+            {
+            }
+
+            internal readonly IntColumn Id = new IntColumn("Id");
+            internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
+            internal readonly NullableIntColumn SystemId1 = new NullableIntColumn("SystemId1");
+            internal readonly VarCharColumn Code1 = new VarCharColumn("Code1", 128, "Latin1_General_100_CS_AS");
+            internal readonly NVarCharColumn Text2 = new NVarCharColumn("Text2", 256, "Latin1_General_100_CI_AI_SC");
+            internal readonly NullableNVarCharColumn TextOverflow2 = new NullableNVarCharColumn("TextOverflow2", -1, "Latin1_General_100_CI_AI_SC");
+            protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{Id, SearchParamId, SystemId1, Code1, Text2, TextOverflow2};
+            protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, BulkTokenStringCompositeSearchParamTableTypeRow rowData)
+            {
+                Id.Set(record, 0, rowData.Id);
+                SearchParamId.Set(record, 1, rowData.SearchParamId);
+                SystemId1.Set(record, 2, rowData.SystemId1);
+                Code1.Set(record, 3, rowData.Code1);
+                Text2.Set(record, 4, rowData.Text2);
+                TextOverflow2.Set(record, 5, rowData.TextOverflow2);
+            }
+        }
+
+        internal struct BulkTokenStringCompositeSearchParamTableTypeRow
+        {
+            internal BulkTokenStringCompositeSearchParamTableTypeRow(System.Int32 Id, System.Int16 SearchParamId, System.Nullable<System.Int32> SystemId1, System.String Code1, System.String Text2, System.String TextOverflow2)
+            {
+                this.Id = Id;
+                this.SearchParamId = SearchParamId;
+                this.SystemId1 = SystemId1;
+                this.Code1 = Code1;
+                this.Text2 = Text2;
+                this.TextOverflow2 = TextOverflow2;
+            }
+
+            internal System.Int32 Id
+            {
+                get;
+            }
+
+            internal System.Int16 SearchParamId
+            {
+                get;
+            }
+
+            internal System.Nullable<System.Int32> SystemId1
+            {
+                get;
+            }
+
+            internal System.String Code1
+            {
+                get;
+            }
+
+            internal System.String Text2
+            {
+                get;
+            }
+
+            internal System.String TextOverflow2
+            {
+                get;
+            }
+        }
+
+        private class BulkTokenTextTableTypeTableValuedParameterDefinition : TableValuedParameterDefinition<BulkTokenTextTableTypeRow>
+        {
+            internal BulkTokenTextTableTypeTableValuedParameterDefinition(System.String parameterName): base(parameterName, "dbo.BulkTokenTextTableType_1")
+            {
+            }
+
+            internal readonly IntColumn Id = new IntColumn("Id");
+            internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
+            internal readonly NVarCharColumn Text = new NVarCharColumn("Text", 400, "Latin1_General_CI_AI");
+            protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{Id, SearchParamId, Text};
+            protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, BulkTokenTextTableTypeRow rowData)
+            {
+                Id.Set(record, 0, rowData.Id);
+                SearchParamId.Set(record, 1, rowData.SearchParamId);
+                Text.Set(record, 2, rowData.Text);
+            }
+        }
+
+        internal struct BulkTokenTextTableTypeRow
+        {
+            internal BulkTokenTextTableTypeRow(System.Int32 Id, System.Int16 SearchParamId, System.String Text)
+            {
+                this.Id = Id;
+                this.SearchParamId = SearchParamId;
+                this.Text = Text;
+            }
+
+            internal System.Int32 Id
+            {
+                get;
+            }
+
+            internal System.Int16 SearchParamId
+            {
+                get;
+            }
+
+            internal System.String Text
+            {
+                get;
+            }
+        }
+
+        private class BulkTokenTokenCompositeSearchParamTableTypeTableValuedParameterDefinition : TableValuedParameterDefinition<BulkTokenTokenCompositeSearchParamTableTypeRow>
+        {
+            internal BulkTokenTokenCompositeSearchParamTableTypeTableValuedParameterDefinition(System.String parameterName): base(parameterName, "dbo.BulkTokenTokenCompositeSearchParamTableType_1")
+            {
+            }
+
+            internal readonly IntColumn Id = new IntColumn("Id");
+            internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
+            internal readonly NullableIntColumn SystemId1 = new NullableIntColumn("SystemId1");
+            internal readonly VarCharColumn Code1 = new VarCharColumn("Code1", 128, "Latin1_General_100_CS_AS");
+            internal readonly NullableIntColumn SystemId2 = new NullableIntColumn("SystemId2");
+            internal readonly VarCharColumn Code2 = new VarCharColumn("Code2", 128, "Latin1_General_100_CS_AS");
+            protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{Id, SearchParamId, SystemId1, Code1, SystemId2, Code2};
+            protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, BulkTokenTokenCompositeSearchParamTableTypeRow rowData)
+            {
+                Id.Set(record, 0, rowData.Id);
+                SearchParamId.Set(record, 1, rowData.SearchParamId);
+                SystemId1.Set(record, 2, rowData.SystemId1);
+                Code1.Set(record, 3, rowData.Code1);
+                SystemId2.Set(record, 4, rowData.SystemId2);
+                Code2.Set(record, 5, rowData.Code2);
+            }
+        }
+
+        internal struct BulkTokenTokenCompositeSearchParamTableTypeRow
+        {
+            internal BulkTokenTokenCompositeSearchParamTableTypeRow(System.Int32 Id, System.Int16 SearchParamId, System.Nullable<System.Int32> SystemId1, System.String Code1, System.Nullable<System.Int32> SystemId2, System.String Code2)
+            {
+                this.Id = Id;
+                this.SearchParamId = SearchParamId;
+                this.SystemId1 = SystemId1;
+                this.Code1 = Code1;
+                this.SystemId2 = SystemId2;
+                this.Code2 = Code2;
+            }
+
+            internal System.Int32 Id
+            {
+                get;
+            }
+
+            internal System.Int16 SearchParamId
+            {
+                get;
+            }
+
+            internal System.Nullable<System.Int32> SystemId1
+            {
+                get;
+            }
+
+            internal System.String Code1
+            {
+                get;
+            }
+
+            internal System.Nullable<System.Int32> SystemId2
+            {
+                get;
+            }
+
+            internal System.String Code2
+            {
+                get;
+            }
+        }
+
+        private class BulkUpsertResourceTableTypeTableValuedParameterDefinition : TableValuedParameterDefinition<BulkUpsertResourceTableTypeRow>
+        {
+            internal BulkUpsertResourceTableTypeTableValuedParameterDefinition(System.String parameterName): base(parameterName, "dbo.BulkUpsertResourceTableType_1")
+            {
+            }
+
+            internal readonly IntColumn Id = new IntColumn("Id");
+            internal readonly SmallIntColumn ResourceTypeId = new SmallIntColumn("ResourceTypeId");
+            internal readonly VarCharColumn ResourceId = new VarCharColumn("ResourceId", 64, "Latin1_General_100_CS_AS");
+            internal readonly NullableIntColumn ETag = new NullableIntColumn("ETag");
+            internal readonly BitColumn AllowCreate = new BitColumn("AllowCreate");
+            internal readonly BitColumn IsDeleted = new BitColumn("IsDeleted");
+            internal readonly BitColumn KeepHistory = new BitColumn("KeepHistory");
+            internal readonly VarCharColumn RequestMethod = new VarCharColumn("RequestMethod", 10);
+            internal readonly VarBinaryColumn RawResource = new VarBinaryColumn("RawResource", -1);
+            protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{Id, ResourceTypeId, ResourceId, ETag, AllowCreate, IsDeleted, KeepHistory, RequestMethod, RawResource};
+            protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, BulkUpsertResourceTableTypeRow rowData)
+            {
+                Id.Set(record, 0, rowData.Id);
+                ResourceTypeId.Set(record, 1, rowData.ResourceTypeId);
+                ResourceId.Set(record, 2, rowData.ResourceId);
+                ETag.Set(record, 3, rowData.ETag);
+                AllowCreate.Set(record, 4, rowData.AllowCreate);
+                IsDeleted.Set(record, 5, rowData.IsDeleted);
+                KeepHistory.Set(record, 6, rowData.KeepHistory);
+                RequestMethod.Set(record, 7, rowData.RequestMethod);
+                RawResource.Set(record, 8, rowData.RawResource);
+            }
+        }
+
+        internal struct BulkUpsertResourceTableTypeRow
+        {
+            internal BulkUpsertResourceTableTypeRow(System.Int32 Id, System.Int16 ResourceTypeId, System.String ResourceId, System.Nullable<System.Int32> ETag, System.Boolean AllowCreate, System.Boolean IsDeleted, System.Boolean KeepHistory, System.String RequestMethod, global::System.IO.Stream RawResource)
+            {
+                this.Id = Id;
+                this.ResourceTypeId = ResourceTypeId;
+                this.ResourceId = ResourceId;
+                this.ETag = ETag;
+                this.AllowCreate = AllowCreate;
+                this.IsDeleted = IsDeleted;
+                this.KeepHistory = KeepHistory;
+                this.RequestMethod = RequestMethod;
+                this.RawResource = RawResource;
+            }
+
+            internal System.Int32 Id
+            {
+                get;
+            }
+
+            internal System.Int16 ResourceTypeId
+            {
+                get;
+            }
+
+            internal System.String ResourceId
+            {
+                get;
+            }
+
+            internal System.Nullable<System.Int32> ETag
+            {
+                get;
+            }
+
+            internal System.Boolean AllowCreate
+            {
+                get;
+            }
+
+            internal System.Boolean IsDeleted
+            {
+                get;
+            }
+
+            internal System.Boolean KeepHistory
+            {
+                get;
+            }
+
+            internal System.String RequestMethod
+            {
+                get;
+            }
+
+            internal global::System.IO.Stream RawResource
+            {
+                get;
+            }
+        }
+
+        private class BulkUriSearchParamTableTypeTableValuedParameterDefinition : TableValuedParameterDefinition<BulkUriSearchParamTableTypeRow>
+        {
+            internal BulkUriSearchParamTableTypeTableValuedParameterDefinition(System.String parameterName): base(parameterName, "dbo.BulkUriSearchParamTableType_1")
+            {
+            }
+
+            internal readonly IntColumn Id = new IntColumn("Id");
+            internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
+            internal readonly VarCharColumn Uri = new VarCharColumn("Uri", 256, "Latin1_General_100_CS_AS");
+            protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{Id, SearchParamId, Uri};
+            protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, BulkUriSearchParamTableTypeRow rowData)
+            {
+                Id.Set(record, 0, rowData.Id);
+                SearchParamId.Set(record, 1, rowData.SearchParamId);
+                Uri.Set(record, 2, rowData.Uri);
+            }
+        }
+
+        internal struct BulkUriSearchParamTableTypeRow
+        {
+            internal BulkUriSearchParamTableTypeRow(System.Int32 Id, System.Int16 SearchParamId, System.String Uri)
+            {
+                this.Id = Id;
+                this.SearchParamId = SearchParamId;
+                this.Uri = Uri;
+            }
+
+            internal System.Int32 Id
+            {
+                get;
+            }
+
+            internal System.Int16 SearchParamId
+            {
+                get;
+            }
+
+            internal System.String Uri
             {
                 get;
             }

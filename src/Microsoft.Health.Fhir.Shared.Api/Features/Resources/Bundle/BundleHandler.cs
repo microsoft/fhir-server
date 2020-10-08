@@ -26,6 +26,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Abstractions.Features.Transactions;
 using Microsoft.Health.Api.Features.Audit;
+using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
@@ -34,6 +35,7 @@ using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources;
@@ -48,7 +50,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
     /// <summary>
     /// Handler for bundles of type transaction and batch.
     /// </summary>
-    public partial class BundleHandler : IRequestHandler<BundleRequest, BundleResponse>
+    public partial class BundleHandler : BaseResourceHandler, IRequestHandler<BundleRequest, BundleResponse>
     {
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly FhirJsonSerializer _fhirJsonSerializer;
@@ -70,6 +72,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly ResourceReferenceResolver _referenceResolver;
         private readonly IAuditEventTypeMapping _auditEventTypeMapping;
         private readonly IFhirAuthorizationService _authorizationService;
+        private readonly IFhirDataStore _dataStore;
         private readonly BundleConfiguration _bundleConfiguration;
         private readonly string _originalRequestBase;
 
@@ -86,8 +89,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             IAuditEventTypeMapping auditEventTypeMapping,
             IOptions<BundleConfiguration> bundleConfiguration,
             IFhirAuthorizationService authorizationService,
+            IFhirDataStore dataStore,
+            Lazy<IConformanceProvider> conformanceProvider,
+            IResourceWrapperFactory resourceWrapperFactory,
             ILogger<BundleHandler> logger)
-            : this()
+            : this(dataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
             EnsureArg.IsNotNull(httpContextAccessor, nameof(httpContextAccessor));
             EnsureArg.IsNotNull(fhirRequestContextAccessor, nameof(fhirRequestContextAccessor));
@@ -101,6 +107,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             EnsureArg.IsNotNull(auditEventTypeMapping, nameof(auditEventTypeMapping));
             EnsureArg.IsNotNull(bundleConfiguration?.Value, nameof(bundleConfiguration));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
+            EnsureArg.IsNotNull(dataStore, nameof(dataStore));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirRequestContextAccessor = fhirRequestContextAccessor;
@@ -113,6 +120,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _referenceResolver = referenceResolver;
             _auditEventTypeMapping = auditEventTypeMapping;
             _authorizationService = authorizationService;
+            _dataStore = dataStore;
             _bundleConfiguration = bundleConfiguration.Value;
             _logger = logger;
 
@@ -193,17 +201,52 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 // For resources within a transaction, we need to validate if they are referring to each other and throw an exception in such case.
                 await _transactionBundleValidator.ValidateBundle(bundleResource, _referenceIdDictionary, cancellationToken);
 
-                await FillRequestLists(bundleResource.Entry, cancellationToken);
+                var canOptimize = await FillRequestLists(bundleResource.Entry, cancellationToken);
 
                 var responseBundle = new Hl7.Fhir.Model.Bundle
                 {
                     Type = BundleType.TransactionResponse,
                 };
 
+                if (canOptimize)
+                {
+                    return await ExecuteOptimizedBatchedUpserts(bundleResource, cancellationToken);
+                }
+
                 return await ExecuteTransactionForAllRequests(responseBundle);
             }
 
             throw new MethodNotAllowedException(string.Format(Api.Resources.InvalidBundleType, _bundleType));
+        }
+
+        private async Task<BundleResponse> ExecuteOptimizedBatchedUpserts(Hl7.Fhir.Model.Bundle bundleResource, CancellationToken cancellationToken)
+        {
+            var requests = new List<(ResourceWrapper, WeakETag, bool allowCreate, bool keepHistory)>(bundleResource.Entry.Count);
+
+            DateTime lastUpdatedDateTime = Clock.UtcNow.UtcDateTime;
+
+            foreach (EntryComponent entry in bundleResource.Entry)
+            {
+                await _referenceResolver.ResolveReferencesAsync(entry.Resource, _referenceIdDictionary, entry.Request.Url, cancellationToken);
+
+                if (entry.Request.Method == HTTPVerb.POST && !string.IsNullOrWhiteSpace(entry.FullUrl))
+                {
+                    entry.Resource.Id = _referenceIdDictionary.TryGetValue(entry.FullUrl, out (string resourceId, string resourceType) value) ? value.resourceId : Guid.NewGuid().ToString();
+                }
+
+                ResourceWrapper resourceWrapper = CreateResourceWrapper(entry.Resource, deleted: false, keepMeta: true, lastUpdatedDateTime);
+
+                bool allowCreate = entry.Request.Method == HTTPVerb.POST || await ConformanceProvider.Value.CanUpdateCreate(entry.Resource.TypeName, cancellationToken);
+                bool keepHistory = await ConformanceProvider.Value.CanKeepHistory(entry.Resource.TypeName, cancellationToken);
+
+                requests.Add((resourceWrapper, null, allowCreate, keepHistory));
+            }
+
+            IReadOnlyCollection<UpsertOutcome> outcomes = await ((IBatchedUpsertFhirDataStore)_dataStore).UpsertBatchAsync(requests, lastUpdatedDateTime, cancellationToken);
+
+            var response = new Hl7.Fhir.Model.Bundle();
+
+            return new BundleResponse(response.ToResourceElement());
         }
 
         private async Task<BundleResponse> ExecuteTransactionForAllRequests(Hl7.Fhir.Model.Bundle responseBundle)
@@ -226,7 +269,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             return new BundleResponse(responseBundle.ToResourceElement());
         }
 
-        private async Task FillRequestLists(List<EntryComponent> bundleEntries, CancellationToken cancellationToken)
+        private async Task<bool> FillRequestLists(List<EntryComponent> bundleEntries, CancellationToken cancellationToken)
         {
             if (_bundleConfiguration.EntryLimit != default && bundleEntries.Count > _bundleConfiguration.EntryLimit)
             {
@@ -243,6 +286,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 PopulateReferenceIdDictionary(bundleEntries, _referenceIdDictionary);
             }
 
+            bool canOptimize = _dataStore is IBatchedUpsertFhirDataStore &&
+                               bundleEntries.TrueForAll(e => (e.Request.Method == HTTPVerb.PUT || e.Request.Method == HTTPVerb.POST) &&
+                                                             e.Resource != null &&
+                                                             string.IsNullOrEmpty(e.Request.IfMatch) && string.IsNullOrEmpty(e.Request.IfNoneExist) && string.IsNullOrEmpty(e.Request.IfNoneMatch) && !e.Request.Url.Contains('?', StringComparison.Ordinal));
+
+            if (canOptimize)
+            {
+                return true;
+            }
+
             foreach (EntryComponent entry in bundleEntries)
             {
                 if (entry.Request?.Method == null)
@@ -253,6 +306,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                 await GenerateRequest(entry, order++, cancellationToken);
             }
+
+            return false;
         }
 
         private async Task GenerateRequest(EntryComponent entry, int order, CancellationToken cancellationToken)

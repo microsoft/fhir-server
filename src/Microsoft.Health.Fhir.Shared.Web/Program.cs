@@ -18,6 +18,7 @@ namespace Microsoft.Health.Fhir.Web
         public static void Main(string[] args)
         {
             var host = WebHost.CreateDefaultBuilder(args)
+                .ConfigureKestrel(o => o.Limits.MaxRequestBodySize = null)
                 .UseContentRoot(Path.GetDirectoryName(typeof(Program).Assembly.Location))
                 .ConfigureAppConfiguration((hostContext, builder) =>
                 {

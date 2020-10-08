@@ -18,12 +18,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     {
         private readonly ILookup<Type, SearchIndexEntry> _groupedSearchIndices;
 
-        public ResourceMetadata(CompartmentIndices compartmentIndices = null, ILookup<Type, SearchIndexEntry> groupedSearchIndices = null, IReadOnlyCollection<KeyValuePair<string, string>> resourceWriteClaims = null)
+        public ResourceMetadata(ResourceWrapper resourceWrapper, WeakETag weakETag, bool allowCreate, bool keepHistory, CompartmentIndices compartmentIndices = null, ILookup<Type, SearchIndexEntry> groupedSearchIndices = null, IReadOnlyCollection<KeyValuePair<string, string>> resourceWriteClaims = null)
         {
+            ResourceWrapper = resourceWrapper;
+            WeakETag = weakETag;
+            AllowCreate = allowCreate;
+            KeepHistory = keepHistory;
             Compartments = compartmentIndices;
             _groupedSearchIndices = groupedSearchIndices;
             WriteClaims = resourceWriteClaims;
         }
+
+        public ResourceWrapper ResourceWrapper { get; }
+
+        public WeakETag WeakETag { get; }
+
+        public bool AllowCreate { get; }
+
+        public bool KeepHistory { get; }
 
         public CompartmentIndices Compartments { get; }
 
