@@ -1,0 +1,26 @@
+on:
+  pull_request:
+    branches:
+      - master
+  check_run:
+    types: [rerequested]
+jobs:
+  pr:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: Azure/pipelines@v1
+      with:
+        azure-devops-project-url: 'https://dev.azure.com/microsofthealthoss/FhirServer'
+        azure-pipeline-name: 'PR Build & Deploy'
+        azure-devops-token: '${{ secrets.OSS_AZURE_DEVOPS_TOKEN }}'
+  internal-checks:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: Azure/pipelines@v1
+      with:
+        azure-devops-project-url: 'https://dev.azure.com/microsofthealth/Health'
+        azure-pipeline-name: 'PR Internal Checks'
+        azure-devops-token: '${{ secrets.AZURE_DEVOPS_TOKEN }}'
+
+
+    
