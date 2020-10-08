@@ -13,7 +13,6 @@ using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -157,20 +156,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         InitializeV1();
                         _highestInitializedVersion = 1;
                         break;
-                    case 2:
-                        _highestInitializedVersion = 2;
-                        break;
-                    case 3:
-                        _highestInitializedVersion = 3;
-                        break;
-                    case 4:
-                        _highestInitializedVersion = 4;
-                        break;
                     case 5:
                         InitializeV5();
                         _highestInitializedVersion = 5;
                         break;
                 }
+
+                _highestInitializedVersion = version;
             }
         }
 
