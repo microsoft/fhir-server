@@ -110,9 +110,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         [JsonProperty(KnownResourceWrapperProperties.SearchParameterHash)]
         public string SearchParameterHash { get; set; }
 
-        [JsonProperty(KnownResourceWrapperProperties.ActivePeriodEndDateTime)]
-        public DateTimeOffset? ActivePeriodEndDateTime { get; }
-
         public ResourceKey ToResourceKey()
         {
             return new ResourceKey(ResourceTypeName, ResourceId, Version);

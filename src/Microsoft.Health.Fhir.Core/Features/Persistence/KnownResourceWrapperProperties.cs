@@ -44,7 +44,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         public const string RawResourceContainsVersion = "rawResourceContainsVersion";
 
         public const string RawResourceContainsLastUpdatedTime = "rawResourceContainsLastUpdatedTime";
-
-        public const string ActivePeriodEndDateTime = "activePeriodEndDateTime";
     }
 }
