@@ -1,0 +1,18 @@
+  
+name: .NET Core Build
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Setup .NET Core
+      uses: actions/setup-dotnet@v1
+    - name: Build
+      run: dotnet build --configuration Release
+    - name: Run UnitTests
+      run: dotnet test --filter FullyQualifiedName~UnitTests --configuration Release
