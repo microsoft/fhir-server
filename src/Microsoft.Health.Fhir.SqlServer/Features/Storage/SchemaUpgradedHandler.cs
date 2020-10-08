@@ -27,10 +27,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             EnsureArg.IsNotNull(notification, nameof(notification));
 
             int version = notification.Version;
-            bool isFullSchemaSnapshotUpgrade = notification.IsFullSchemaSnapshotUpgrade;
+            bool isFullSchemaSnapshot = notification.IsFullSchemaSnapshot;
 
             // If it is a snapshot upgrade, then we need to run initialization for all schema versions up to the current version.
-            _sqlServerFhirModel.Initialize(version, isFullSchemaSnapshotUpgrade);
+            _sqlServerFhirModel.Initialize(version, isFullSchemaSnapshot);
 
             return Task.CompletedTask;
         }
