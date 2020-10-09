@@ -163,7 +163,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(bundle, "_search");
         }
 
-        [Fact(Skip = "Failing CI build")]
+        [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenResources_WhenSearchedWithCount_ThenNumberOfResourcesReturnedShouldNotExceedCount()
         {
@@ -171,12 +171,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             const int count = 2;
 
             // Create the resources
-            Patient[] patients = await Client.CreateResourcesAsync<Patient>(numberOfResources);
+            var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
+
+            Patient patient = Samples.GetDefaultPatient().ToPoco<Patient>();
+            var patients = new Patient[numberOfResources];
+
+            for (int i = 0; i < numberOfResources; i++)
+            {
+                patient.Meta = new Meta();
+                patient.Meta.Tag.Add(tag);
+
+                FhirResponse<Patient> createdPatient = await Client.CreateAsync(patient);
+                patients[i] = createdPatient.Resource;
+            }
 
             Bundle results = new Bundle();
 
             // Search with count = 2, which should results in 5 pages.
-            string url = $"Patient?_count={count}";
+            string url = $"Patient?_count={count}&_tag={tag.Code}";
             string baseUrl = Fixture.GenerateFullUrl(url);
 
             int loop = 1;
