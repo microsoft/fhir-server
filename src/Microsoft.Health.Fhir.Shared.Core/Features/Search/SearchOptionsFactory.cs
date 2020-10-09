@@ -13,6 +13,7 @@ using Hl7.Fhir.Rest;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -27,6 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private static readonly string SupportedTotalTypes = $"'{TotalType.Accurate}', '{TotalType.None}'".ToLower(CultureInfo.CurrentCulture);
 
         private readonly IExpressionParser _expressionParser;
+        private readonly IFhirRequestContextAccessor _contextAccessor;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ILogger _logger;
         private readonly SearchParameterInfo _resourceTypeSearchParameter;
@@ -36,14 +38,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             IExpressionParser expressionParser,
             ISearchParameterDefinitionManager.SearchableSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
             IOptions<CoreFeatureConfiguration> featureConfiguration,
+            IFhirRequestContextAccessor contextAccessor,
             ILogger<SearchOptionsFactory> logger)
         {
             EnsureArg.IsNotNull(expressionParser, nameof(expressionParser));
             EnsureArg.IsNotNull(searchParameterDefinitionManagerResolver, nameof(searchParameterDefinitionManagerResolver));
             EnsureArg.IsNotNull(featureConfiguration?.Value, nameof(featureConfiguration));
+            EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _expressionParser = expressionParser;
+            _contextAccessor = contextAccessor;
             _searchParameterDefinitionManager = searchParameterDefinitionManagerResolver();
             _logger = logger;
             _featureConfiguration = featureConfiguration.Value;
@@ -140,10 +145,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             {
                 if (searchParams.Count > _featureConfiguration.MaxItemCountPerSearch)
                 {
-                    throw new BadRequestException(string.Format(Core.Resources.SearchParamaterCountExceedLimit, _featureConfiguration.MaxItemCountPerSearch, searchParams.Count));
-                }
+                    searchOptions.MaxItemCount = _featureConfiguration.MaxItemCountPerSearch;
 
-                searchOptions.MaxItemCount = searchParams.Count.Value;
+                    _contextAccessor.FhirRequestContext.BundleIssues.Add(
+                        new OperationOutcomeIssue(
+                            OperationOutcomeConstants.IssueSeverity.Information,
+                            OperationOutcomeConstants.IssueType.Informational,
+                            string.Format(Core.Resources.SearchParamaterCountExceedLimit, _featureConfiguration.MaxItemCountPerSearch, searchParams.Count)));
+                }
+                else
+                {
+                    searchOptions.MaxItemCount = searchParams.Count.Value;
+                }
             }
             else
             {

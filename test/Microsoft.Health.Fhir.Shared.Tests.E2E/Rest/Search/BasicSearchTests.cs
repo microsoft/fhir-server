@@ -9,10 +9,12 @@ using System.Globalization;
 using System.Linq;
 using System.Net;
 using Hl7.Fhir.ElementModel;
+using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
@@ -531,6 +533,33 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 });
 
             await ExecuteAndValidateBundle($"NamingSystem?type={code}", library);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenASearchRequest_WhenExceedingMaxCount_ThenAnOperationOutcomeWarningIsReturnedInTheBundle()
+        {
+            Bundle bundle = await Client.SearchAsync("?_count=" + int.MaxValue);
+
+            Assert.Equal(KnownResourceTypes.OperationOutcome, bundle.Entry.First().Resource.TypeName);
+            Assert.Contains("exceeds limit", (string)bundle.Scalar("entry.resource.issue.diagnostics"));
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenASearchRequest_WhenExceedingMaxCount_ThenResourcesAreSerializedInBundle()
+        {
+            var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
+
+            Patient patient = Samples.GetDefaultPatient().ToPoco<Patient>();
+            patient.Meta = new Meta();
+            patient.Meta.Tag.Add(tag);
+            await Client.CreateAsync(patient);
+
+            Bundle bundle = await Client.SearchAsync($"Patient?_tag={tag.Code}&_count=" + int.MaxValue);
+
+            Assert.Equal(KnownResourceTypes.OperationOutcome, bundle.Entry.First().Resource.TypeName);
+            Assert.NotNull(bundle.Entry.Skip(1).First().Resource);
         }
     }
 }

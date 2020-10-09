@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -25,9 +26,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
     public class ReindexHandlerTests
     {
         private readonly IFhirOperationDataStore _fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
+        private IReadOnlyDictionary<string, string> _resourceTypeSearchParameterHashMap;
 
         public ReindexHandlerTests()
         {
+            _resourceTypeSearchParameterHashMap = new Dictionary<string, string>() { { "resourceType", "paramHash" } };
         }
 
         [Fact]
@@ -35,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         {
             var request = new GetReindexRequest("id");
 
-            var jobRecord = new ReindexJobRecord("hash", 1, null);
+            var jobRecord = new ReindexJobRecord(_resourceTypeSearchParameterHashMap, 1, null);
             var jobWrapper = new ReindexJobWrapper(jobRecord, WeakETag.FromVersionId("id"));
             _fhirOperationDataStore.GetReindexJobByIdAsync("id", Arg.Any<CancellationToken>()).Returns(jobWrapper);
 
@@ -51,7 +54,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         {
             var request = new GetReindexRequest("id");
 
-            var jobRecord = new ReindexJobRecord("hash", 1, null);
+            var jobRecord = new ReindexJobRecord(_resourceTypeSearchParameterHashMap, 1, null);
             var jobWrapper = new ReindexJobWrapper(jobRecord, WeakETag.FromVersionId("id"));
             _fhirOperationDataStore.GetReindexJobByIdAsync("id", Arg.Any<CancellationToken>()).Returns(jobWrapper);
 
@@ -68,7 +71,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         {
             var request = new GetReindexRequest("id");
 
-            var jobRecord = new ReindexJobRecord("hash", 1, null);
+            var jobRecord = new ReindexJobRecord(_resourceTypeSearchParameterHashMap, 1, null);
             var jobWrapper = new ReindexJobWrapper(jobRecord, WeakETag.FromVersionId("id"));
             _fhirOperationDataStore.GetReindexJobByIdAsync("id", Arg.Any<CancellationToken>()).Throws(new JobNotFoundException("not found"));
 
@@ -82,7 +85,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         {
             var request = new GetReindexRequest("id");
 
-            var jobRecord = new ReindexJobRecord("hash", 1, null);
+            var jobRecord = new ReindexJobRecord(_resourceTypeSearchParameterHashMap, 1, null);
             var jobWrapper = new ReindexJobWrapper(jobRecord, WeakETag.FromVersionId("id"));
             _fhirOperationDataStore.GetReindexJobByIdAsync("id", CancellationToken.None).Throws(new RequestRateExceededException(TimeSpan.FromMilliseconds(100)));
 
@@ -96,7 +99,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         {
             var request = new CancelReindexRequest("id");
 
-            var jobRecord = new ReindexJobRecord("hash", 1, null);
+            var jobRecord = new ReindexJobRecord(_resourceTypeSearchParameterHashMap, 1, null);
             var jobWrapper = new ReindexJobWrapper(jobRecord, WeakETag.FromVersionId("id"));
             _fhirOperationDataStore.GetReindexJobByIdAsync("id", Arg.Any<CancellationToken>()).Returns(jobWrapper);
 
@@ -113,7 +116,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         {
             var request = new CancelReindexRequest("id");
 
-            var jobRecord = new ReindexJobRecord("hash", 1, null)
+            var jobRecord = new ReindexJobRecord(_resourceTypeSearchParameterHashMap, 1, null)
             {
                 Status = OperationStatus.Completed,
             };
@@ -131,7 +134,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         {
             var request = new CancelReindexRequest("id");
 
-            var jobRecord = new ReindexJobRecord("hash", 1, null)
+            var jobRecord = new ReindexJobRecord(_resourceTypeSearchParameterHashMap, 1, null)
             {
                 Status = OperationStatus.Running,
             };

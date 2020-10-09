@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
@@ -31,10 +32,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         public HistoryTests(HttpIntegrationTestFixture fixture)
         {
+            Fixture = fixture;
             _client = fixture.TestFhirClient;
 
             _createdResource = _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>()).GetAwaiter().GetResult();
         }
+
+        protected HttpIntegrationTestFixture Fixture { get; }
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
@@ -291,6 +295,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var ex = await Assert.ThrowsAsync<FhirException>(() => _client.SearchAsync("_history?_before=" + beforeUriString));
 
             Assert.Contains("Parameter _before cannot a be a value in the future", ex.Message);
+        }
+
+        [Fact]
+        public async Task GivenAValueForUnSupportedAt_WhenGettingSystemHistory_TheAtIsDroppedFromUrl()
+        {
+            var at = await GetStartTimeForHistoryTest();
+            var atUriString = HttpUtility.UrlEncode(at.ToString("o"));
+
+            using FhirResponse<Bundle> readResponse = await _client.SearchAsync("_history?_at=" + atUriString);
+
+            Assert.NotNull(readResponse.Resource.Entry);
+
+            var actualSelfLink = WebUtility.UrlDecode("_history");
+            Assert.Equal(readResponse.Resource.SelfLink.AbsoluteUri, Fixture.GenerateFullUrl(actualSelfLink));
         }
 
         /// <summary>
