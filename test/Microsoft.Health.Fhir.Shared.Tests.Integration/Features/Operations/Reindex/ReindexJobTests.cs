@@ -91,7 +91,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             var searchParameterExpressionParser = new SearchParameterExpressionParser(() => _searchParameterDefinitionManager, new ReferenceSearchValueParser(fhirRequestContextAccessor));
             var expressionParser = new ExpressionParser(() => _searchableSearchParameterDefinitionManager, searchParameterExpressionParser);
-            var searchOptionsFactory = new SearchOptionsFactory(expressionParser, () => _searchParameterDefinitionManager, coreOptions, NullLogger<SearchOptionsFactory>.Instance);
+            var searchOptionsFactory = new SearchOptionsFactory(expressionParser, () => _searchableSearchParameterDefinitionManager, coreOptions, fhirRequestContextAccessor, NullLogger<SearchOptionsFactory>.Instance);
 
             _searchService = new TestScoped<ISearchService>()
             {
