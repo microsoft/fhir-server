@@ -21,6 +21,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
         private static readonly TableExpression IncludeUnionAllExpression = new TableExpression(null, null, null, TableExpressionKind.IncludeUnionAll);
         private static readonly TableExpression IncludeLimitExpression = new TableExpression(null, null, null, TableExpressionKind.IncludeLimit);
 
+        private static readonly TableExpressionComparer Comparer = new TableExpressionComparer();
+
         public override Expression VisitSqlRoot(SqlRootExpression expression, object context)
         {
             if (expression.TableExpressions.Count == 1 || expression.TableExpressions.All(e => e.Kind != TableExpressionKind.Include))
@@ -28,7 +30,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return expression;
             }
 
-            bool containsInclude = expression.TableExpressions.AsEnumerable().Where(e => e.SearchParameterQueryGenerator is IncludeQueryGenerator).Any();
+            bool containsInclude = expression.TableExpressions.Any(e => e.SearchParameterQueryGenerator is IncludeQueryGenerator);
 
             if (!containsInclude)
             {
@@ -38,7 +40,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             // Order expressions so that simple search parameters appear first and include parameters appear after
             // In addition, sort that _include:iterate and _revinclude:iterate parameters are ordered so that the
             // included results they reference appears before
-            List<TableExpression> reorderedExpressions = expression.TableExpressions.OrderByDescending(t => t, new TableExpressionComparer()).ToList();
+            List<TableExpression> reorderedExpressions = expression.TableExpressions.OrderBy(t => t, Comparer).ToList();
 
             // We are adding an extra CTE after each include cte, so we traverse the ordered
             // list from the end and add a limit expression after each include expression
@@ -66,7 +68,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 {
                     if (!(y.SearchParameterQueryGenerator is IncludeQueryGenerator))
                     {
-                        return -1;
+                        return 1;
                     }
 
                     // Both expressions are Include expressions
@@ -75,12 +77,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
                     if (!xInclude.Iterate && yInclude.Iterate)
                     {
-                        return 1;
+                        return -1;
                     }
 
                     if (xInclude.Iterate && !yInclude.Iterate)
                     {
-                        return -1;
+                        return 1;
                     }
 
                     // Both expressions are Include:iterate expressions, order so that _include:iterate source type will appear after relevant include target
@@ -90,19 +92,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                     // Both are RevInclude Iterate expressions
                     if (xInclude.Reversed && yInclude.Reversed && yTargetTypes.Contains(xInclude.ResourceType))
                     {
-                        return 1;
+                        return -1;
                     }
 
                     // Both are Include Iterate expressions
                     if (!xInclude.Reversed && !yInclude.Reversed && xTargetTypes.Contains(yInclude.ResourceType))
                     {
-                        return 1;
+                        return -1;
                     }
 
                     // One expression is reveresed and the other one isn't, their resource type should match
                     if (xInclude.ResourceType == yInclude.ResourceType)
                     {
-                        return xInclude.Reversed ? 1 : -1;
+                        return xInclude.Reversed ? -1 : 1;
                     }
 
                     return 0;
@@ -112,7 +114,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                     return 0;
                 }
 
-                return 1;
+                return -1;
             }
         }
     }
