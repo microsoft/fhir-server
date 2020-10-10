@@ -100,11 +100,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         public override string ToString()
         {
             var targetType = TargetResourceType != null ? $":{TargetResourceType}" : string.Empty;
-            var iterate = Iterate ? "Iterate" : string.Empty;
-            var reversed = Reversed ? "Reversed" : string.Empty;
-            var wildcard = WildCard ? "Wildcard" : string.Empty;
-            var paramName = ReferenceSearchParameter != null ? ReferenceSearchParameter.Name : string.Empty;
-            return $"({reversed} Include {iterate} {wildcard} {paramName}{targetType})";
+            var iterate = Iterate ? " Iterate" : string.Empty;
+            var reversed = Reversed ? "Reversed " : string.Empty;
+            var wildcard = WildCard ? " Wildcard" : string.Empty;
+            var paramName = ReferenceSearchParameter != null ? $" {ReferenceSearchParameter.Name}" : string.Empty;
+            return $"({reversed}Include{iterate}{wildcard}{paramName}{targetType})";
         }
     }
 }
