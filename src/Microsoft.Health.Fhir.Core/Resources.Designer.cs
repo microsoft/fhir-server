@@ -131,7 +131,10 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("CompartmentDefinitionDupeResource", resourceCulture);
             }
         }
-        
+
+        /// <summary>
+        ///   Looks up a localized string similar to bundle.entry[{0}] is null..
+        /// </summary>
         internal static string CompartmentDefinitionInvalidBundle {
             get {
                 return ResourceManager.GetString("CompartmentDefinitionInvalidBundle", resourceCulture);
