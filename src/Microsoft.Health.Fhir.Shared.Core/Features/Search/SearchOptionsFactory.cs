@@ -213,6 +213,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             // when applied on a circular reference
             searchExpressions.AddRange(ParseIncludeIterateExpressions(searchParams));
 
+            // remove _include:iterate and _revinclude:iterate parameters from unsupportedSearchParameters
+            unsupportedSearchParameters.RemoveAll(p => AllIterateModifiers.Contains(p.Item1));
+
             if (!string.IsNullOrWhiteSpace(compartmentType))
             {
                 if (Enum.TryParse(compartmentType, out CompartmentType parsedCompartmentType))
@@ -290,16 +293,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 .Where(p => p != null && AllIterateModifiers.Where(m => string.Equals(p.Item1, m, StringComparison.OrdinalIgnoreCase)).Any())
                 .Select(p =>
                 {
-                    ResourceType parsedIncludeResourceType;
                     var includeResourceType = p.Item2?.Split(':')[0];
-                    if (string.IsNullOrWhiteSpace(includeResourceType) ||
-                        !Enum.TryParse(includeResourceType, out parsedIncludeResourceType))
+                    if (!ModelInfoProvider.IsKnownResource(includeResourceType))
                     {
                         throw new ResourceNotSupportedException(includeResourceType);
                     }
 
                     var reversed = RevIncludeIterateModifiers.Contains(p.Item1);
-                    var expression = _expressionParser.ParseInclude(parsedIncludeResourceType.ToString(), p.Item2, reversed, true);
+                    var expression = _expressionParser.ParseInclude(includeResourceType, p.Item2, reversed, true);
 
                     // Reversed Iterate expressions (not wildcard) must specify target type if there is more than one possible target type
                     if (expression.Reversed && expression.Iterate && expression.TargetResourceType == null && expression.ReferenceSearchParameter?.TargetResourceTypes?.Count > 1)

@@ -39,6 +39,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             ValidateSearchEntryMode(bundle, ResourceType.Location);
 
+            ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.Location, query, bundle.Link[0].Url);
+
             // ensure that the included resources are not counted
             bundle = await Client.SearchAsync(ResourceType.Location, $"{query}&_summary=count");
             Assert.Equal(1, bundle.Total);
@@ -64,6 +66,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.Location);
 
             ValidateSearchEntryMode(bundle, ResourceType.Location);
+
+            ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.Location, query, bundle.Link[0].Url);
 
             // ensure that the included resources are not counted
             bundle = await Client.SearchAsync(ResourceType.Location, $"{query}&_summary=count");
@@ -120,6 +124,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 locationResponse.Resource);
 
             ValidateSearchEntryMode(bundle, ResourceType.Location);
+
+            ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.Location, query, bundle.Link[0].Url);
         }
 
         [Fact]
@@ -137,6 +143,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.TrumanPatient);
 
             ValidateSearchEntryMode(bundle, ResourceType.DiagnosticReport);
+
+            ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.DiagnosticReport, query, bundle.Link[0].Url);
         }
 
         [Fact]
@@ -216,6 +224,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.TrumanSnomedObservation);
 
             ValidateSearchEntryMode(bundle, ResourceType.DiagnosticReport);
+
+            ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.DiagnosticReport, query, bundle.Link[0].Url);
         }
 
         [Fact]
@@ -247,6 +257,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.TrumanSnomedObservation);
 
             ValidateSearchEntryMode(bundle, ResourceType.DiagnosticReport);
+
+            ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.DiagnosticReport, query, bundle.Link[0].Url);
 
             // delete the extra entry added
             await Fixture.TestFhirClient.DeleteAsync(newDiagnosticReportResponse.Resource);
@@ -294,6 +306,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             ValidateSearchEntryMode(bundle, ResourceType.Organization);
 
+            ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.Organization, query, bundle.Link[0].Url);
+
             // ensure that the included resources are not counted
             bundle = await Client.SearchAsync(ResourceType.Organization, $"{query}&_summary=count");
             Assert.Equal(7, bundle.Total);
@@ -337,6 +351,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.TrumanSnomedObservation);
 
             ValidateSearchEntryMode(bundle, ResourceType.Observation);
+
+            ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.Observation, query, bundle.Link[0].Url);
         }
 
         [Fact]
@@ -394,6 +410,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.TrumanLoincObservation);
 
             ValidateSearchEntryMode(bundle, ResourceType.Patient);
+
+            ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.Patient, query, bundle.Link[0].Url);
         }
 
         [Fact]
@@ -412,6 +430,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.TrumanLoincObservation);
 
             ValidateSearchEntryMode(bundle, ResourceType.Patient);
+
+            ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.Patient, query, bundle.Link[0].Url);
         }
 
         [Fact]
@@ -488,6 +508,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             ValidateSearchEntryMode(bundle, ResourceType.MedicationDispense);
 
+            ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.MedicationDispense, query, bundle.Link[0].Url);
+
             // ensure that the included resources are not counted
             bundle = await Client.SearchAsync(ResourceType.MedicationDispense, $"{query}&_summary=count");
             Assert.Equal(3, bundle.Total);
@@ -516,6 +538,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.SmithPatient);
 
             ValidateSearchEntryMode(bundle, ResourceType.MedicationDispense);
+
+            ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.MedicationDispense, query, bundle.Link[0].Url);
         }
 
         [Fact]
@@ -534,6 +558,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.AdamsPatient);
 
             ValidateSearchEntryMode(bundle, ResourceType.MedicationDispense);
+
+            ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.MedicationDispense, query, bundle.Link[0].Url);
         }
 
         [Fact]
@@ -558,6 +584,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.Organization);
 
             ValidateSearchEntryMode(bundle, ResourceType.MedicationDispense);
+
+            ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.MedicationDispense, query, bundle.Link[0].Url);
         }
 
         [Fact]
@@ -582,6 +610,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.Organization);
 
             ValidateSearchEntryMode(bundle, ResourceType.MedicationDispense);
+
+            ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.MedicationDispense, query, bundle.Link[0].Url);
         }
 
         [Fact]
@@ -806,6 +836,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             ValidateSearchEntryMode(bundle, ResourceType.Patient);
 
+            ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.Patient, query, bundle.Link[0].Url);
+
             // ensure that the included resources are not counted
             bundle = await Client.SearchAsync(ResourceType.Patient, $"{query}&_summary=count");
             Assert.Equal(4, bundle.Total);
@@ -835,6 +867,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.SmithMedicationDispense);
 
             ValidateSearchEntryMode(bundle, ResourceType.Patient);
+
+            ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.Patient, query, bundle.Link[0].Url);
         }
 
         [Fact]
@@ -853,6 +887,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.AdamsPatient);
 
             ValidateSearchEntryMode(bundle, ResourceType.Patient);
+
+            ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.Patient, query, bundle.Link[0].Url);
         }
 
 #if Stu3
@@ -884,13 +920,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.SmithMedicationDispense);
 
             ValidateSearchEntryMode(bundle, ResourceType.Organization);
+
+            ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.Organization, query, bundle.Link[0].Url);
         }
 
         [Fact]
         public async Task GivenARevIncludeIterateSearchExpressionWithRevIncludeIterateParametersBeforeRevIncludeParameters_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
             // Non-recursive iteration - Iteration order doesn't matter
-            string query = $"&_revinclude:iterate=MedicationDispense:prescription&_revinclude:iterate=MedicationRequest:patient&_revinclude=Patient:organization&_tag={Fixture.Tag}";
+            string query = $"_revinclude:iterate=MedicationDispense:prescription&_revinclude:iterate=MedicationRequest:patient&_revinclude=Patient:organization&_tag={Fixture.Tag}";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.Organization, query);
 
@@ -913,6 +951,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.LabFOrganization);
 
             ValidateSearchEntryMode(bundle, ResourceType.Organization);
+
+            ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.Organization, query, bundle.Link[0].Url);
         }
 #endif
 
@@ -1000,8 +1040,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
 
             string[] expectedDiagnostics = { string.Format(Core.Resources.RevIncludeIterateTargetTypeNotSpecified, "Patient:general-practitioner") };
-            IssueType[] expectedCodeType = { IssueType.Invalid };
-            ValidateOperationOutcome(expectedDiagnostics, expectedCodeType, fhirException.OperationOutcome);
+            IssueType[] expectedCodeTypes = { IssueType.Invalid };
+            ValidateOperationOutcome(expectedDiagnostics, expectedCodeTypes, fhirException.OperationOutcome);
         }
 
         [Fact]
