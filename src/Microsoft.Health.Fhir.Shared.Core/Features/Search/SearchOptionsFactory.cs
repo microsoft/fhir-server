@@ -28,6 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
         private static readonly List<string> IncludeIterateModifiers = new List<string> { "_include:iterate", "_include:recurse" };
         private static readonly List<string> RevIncludeIterateModifiers = new List<string> { "_revinclude:iterate", "_revinclude:recurse" };
+        private static readonly List<string> AllIterateModifiers = IncludeIterateModifiers.Concat(RevIncludeIterateModifiers).ToList();
 
         private readonly IExpressionParser _expressionParser;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
@@ -285,10 +286,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             IEnumerable<IncludeExpression> ParseIncludeIterateExpressions(SearchParams searchParams)
             {
-                var allIterateModifiers = IncludeIterateModifiers.Concat(RevIncludeIterateModifiers).ToList();
-
                 return searchParams.Parameters
-                .Where(p => p != null && allIterateModifiers.Where(m => string.Equals(p.Item1, m, StringComparison.OrdinalIgnoreCase)).Any())
+                .Where(p => p != null && AllIterateModifiers.Where(m => string.Equals(p.Item1, m, StringComparison.OrdinalIgnoreCase)).Any())
                 .Select(p =>
                 {
                     ResourceType parsedIncludeResourceType;
