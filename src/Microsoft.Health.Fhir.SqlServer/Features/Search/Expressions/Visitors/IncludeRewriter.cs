@@ -30,13 +30,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return expression;
             }
 
-            bool containsInclude = expression.TableExpressions.Any(e => e.SearchParameterQueryGenerator is IncludeQueryGenerator);
-
-            if (!containsInclude)
-            {
-                return new SqlRootExpression(expression.TableExpressions, expression.DenormalizedExpressions);
-            }
-
+            // TableExpressions contains at least one Include expression
             // Order expressions so that simple search parameters appear first and include parameters appear after
             // In addition, sort that _include:iterate and _revinclude:iterate parameters are ordered so that the
             // included results they reference appears before
@@ -64,9 +58,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
         {
             public int Compare(TableExpression x, TableExpression y)
             {
-                if (x.SearchParameterQueryGenerator is IncludeQueryGenerator)
+                if (x.Kind == TableExpressionKind.Include)
                 {
-                    if (!(y.SearchParameterQueryGenerator is IncludeQueryGenerator))
+                    // x is an include expression and y isn't => x < y
+                    if (y.Kind != TableExpressionKind.Include)
                     {
                         return 1;
                     }
