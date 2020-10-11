@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             {
                 if (x.Kind == TableExpressionKind.Include)
                 {
-                    // x is an include expression and y isn't => x < y
+                    // x is an include expression and y isn't => x > y
                     if (y.Kind != TableExpressionKind.Include)
                     {
                         return 1;
@@ -70,6 +70,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                     var xInclude = (IncludeExpression)x.NormalizedPredicate;
                     var yInclude = (IncludeExpression)y.NormalizedPredicate;
 
+                    // If both are not iterate expressions then the order doesn't matter
+                    if (!xInclude.Iterate && !yInclude.Iterate)
+                    {
+                        return 0;
+                    }
+
+                    // At least one expression is iterative
+                    // Iterative include expressions should come after the non iterative ones
                     if (!xInclude.Iterate && yInclude.Iterate)
                     {
                         return -1;
@@ -80,36 +88,77 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                         return 1;
                     }
 
-                    // Both expressions are Include:iterate expressions, order so that _include:iterate source type will appear after relevant include target
-                    var xTargetTypes = !string.IsNullOrEmpty(xInclude.TargetResourceType) ? new List<string>() { xInclude.TargetResourceType } : xInclude.ReferenceSearchParameter.TargetResourceTypes;
-                    var yTargetTypes = !string.IsNullOrEmpty(yInclude.TargetResourceType) ? new List<string>() { yInclude.TargetResourceType } : yInclude.ReferenceSearchParameter.TargetResourceTypes;
+                    // Both expressions are :iterate expressions => Order so that _include:iterate source type will appear after relevant include target
+                    // and _revinclude:iterate target type appears after it's already been included
 
-                    // Both are RevInclude Iterate expressions
-                    if (xInclude.Reversed && yInclude.Reversed && yTargetTypes.Contains(xInclude.ResourceType))
+                    var xTargetTypes = xInclude.ReferenceSearchParameter?.TargetResourceTypes;
+                    var yTargetTypes = yInclude.ReferenceSearchParameter?.TargetResourceTypes;
+
+                    // Both are _revinclude:iterate or both are _include:iterate, order so that one's target resource type should appear after the other's source resource types if types are equal
+                    if (xInclude.Reversed == yInclude.Reversed)
                     {
+                        // x's target type matches y's source type => x > y
+                        if ((xInclude.TargetResourceType != null && xInclude.TargetResourceType == yInclude.SourceResourceType)
+                            || (xInclude.TargetResourceType == null && xTargetTypes != null && xTargetTypes.Contains(yInclude.SourceResourceType)))
+                        {
+                            return xInclude.Reversed ? 1 : -1;
+                        }
+
+                        // y's target type matches x's source type => x < y
+                        if ((yInclude.TargetResourceType != null && yInclude.TargetResourceType == xInclude.SourceResourceType)
+                            || (yInclude.TargetResourceType == null && yTargetTypes != null && yTargetTypes.Contains(xInclude.SourceResourceType)))
+                        {
+                            return xInclude.Reversed ? -1 : 1;
+                        }
+
+                        return 0; // Keep the same order
+                    }
+
+                    // x is _include:iterate and y is _revinclude:iterate
+                    else if (!xInclude.Reversed && yInclude.Reversed)
+                    {
+                        // x's specified target type matches y's target type => x < y
+                        if ((xInclude.TargetResourceType != null && yInclude.TargetResourceType != null && xInclude.TargetResourceType == yInclude.TargetResourceType)
+                            || (xInclude.TargetResourceType != null && yTargetTypes != null && yTargetTypes.Contains(xInclude.TargetResourceType)))
+                        {
+                            return -1;
+                        }
+
+                        // one of x's target types matches y's source type => x < y
+                        if (xInclude.TargetResourceType == null && xTargetTypes != null && xTargetTypes.Contains(yInclude.SourceResourceType))
+                        {
+                            return -1;
+                        }
+
+                        return 1;
+                    }
+
+                    // x is _revinclude:iterate and y is _include:iterate
+                    else if (xInclude.Reversed && !yInclude.Reversed)
+                    {
+                        // y's specified target type matches x's target type => x > y
+                        if ((yInclude.TargetResourceType != null && xInclude.TargetResourceType != null && yInclude.TargetResourceType == xInclude.TargetResourceType)
+                            || (yInclude.TargetResourceType != null && xTargetTypes != null && xTargetTypes.Contains(yInclude.TargetResourceType)))
+                        {
+                            return 1;
+                        }
+
+                        // one of y's target types matches x's source type => x > y
+                        if (yInclude.TargetResourceType == null && xTargetTypes != null && yTargetTypes.Contains(xInclude.SourceResourceType))
+                        {
+                            return 1;
+                        }
+
                         return -1;
                     }
-
-                    // Both are Include Iterate expressions
-                    if (!xInclude.Reversed && !yInclude.Reversed && xTargetTypes.Contains(yInclude.ResourceType))
-                    {
-                        return -1;
-                    }
-
-                    // One expression is reveresed and the other one isn't, their resource type should match
-                    if (xInclude.ResourceType == yInclude.ResourceType)
-                    {
-                        return xInclude.Reversed ? -1 : 1;
-                    }
-
-                    return 0;
                 }
-                else if (!(y.SearchParameterQueryGenerator is IncludeQueryGenerator))
+                else if (y.Kind == TableExpressionKind.Include)
                 {
-                    return 0;
+                    // Non-include should come before includes
+                    return -1;
                 }
 
-                return -1;
+                return 0; // Keep the same order
             }
         }
     }
