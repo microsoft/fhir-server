@@ -28,6 +28,37 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         }
 
         [Fact]
+        public void GivenASqlRootExpressionWithoutIncludes_WhenVisitedByIncludeRewriter_TheSameExpressionShouldBeRturneed()
+        {
+            // Leave the query as is if there's no Include expression. For example:
+            // [base]/Patient?gender=female&family=Ellison
+
+            Expression denormalizedExpression = Expression.And(new List<Expression>
+                {
+                    new SearchParameterExpression(new SearchParameterInfo("_type"), new StringExpression(StringOperator.Equals, FieldName.String, null, "Patient", false)),
+                    new SearchParameterExpression(new SearchParameterInfo("gender"), new StringExpression(StringOperator.Equals, FieldName.String, null, "female", false)),
+                    new SearchParameterExpression(new SearchParameterInfo("family"), new StringExpression(StringOperator.Equals, FieldName.String, null, "Ellison", false)),
+                });
+
+            var sqlExpression = new SqlRootExpression(
+                new List<TableExpression>
+                {
+                    new TableExpression(null, null, denormalizedExpression, TableExpressionKind.All),
+                    new TableExpression(null, null, null, TableExpressionKind.Top),
+                },
+                new List<Expression>());
+
+            var rewrittenExpressions = ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).TableExpressions;
+
+            // Assert the number of expressions and their order is correct, including IncludeUnionAll expression, which was added in the IncludeRewriter visit.
+            Assert.NotNull(rewrittenExpressions);
+            Assert.Equal(2, rewrittenExpressions.Count);
+
+            Assert.Equal(TableExpressionKind.All, rewrittenExpressions[0].Kind);
+            Assert.Equal(TableExpressionKind.Top, rewrittenExpressions[1].Kind);
+        }
+
+        [Fact]
         public void GivenASqlRootExpressionWithIncludes_WhenVisitedByIncludeRewriter_OrderIterateExpressionsAfterOtherSearchParametersAndAfterIncludeExpressionsTheyAreIteratingOver()
         {
             // Order the following query:
