@@ -23,10 +23,8 @@ namespace Microsoft.Health.Fhir.Core.Data
             return (assembly ?? _thisAssembly).GetManifestResourceStream(manifestName);
         }
 
-        public static Stream OpenOperationDefinitionFileStream(this IModelInfoProvider modelInfoProvider, string filename, string @namespace = null, Assembly assembly = null)
+        public static Stream OpenOperationDefinitionFileStream(string filename, string @namespace = null, Assembly assembly = null)
         {
-            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
-
             string manifestName = $"{@namespace ?? _thisNamespace}.OperationDefinition.{filename}";
             return (assembly ?? _thisAssembly).GetManifestResourceStream(manifestName);
         }

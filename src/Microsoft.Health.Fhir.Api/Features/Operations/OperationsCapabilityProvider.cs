@@ -9,10 +9,15 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 
 namespace Microsoft.Health.Fhir.Api.Features.Operations
 {
+    /// <summary>
+    /// Class that handles adding details of the supported operations
+    /// to the capability statement of the fhir-server.
+    /// </summary>
     public class OperationsCapabilityProvider : IProvideCapability
     {
         private readonly OperationsConfiguration _operationConfiguration;
@@ -42,21 +47,24 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
 
         public void AddExportDetails(ListedCapabilityStatement capabilityStatement)
         {
-            Uri exportDefinitionUri = _urlResolver.ResolveOperationDefinitionUrl("export");
-            capabilityStatement.Rest.Server().Operation.Add(new OperationComponent()
-            {
-                Name = "export",
-                Definition = exportDefinitionUri.ToString(),
-            });
+            GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.Export);
+            GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.PatientExport);
+            GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.GroupExport);
         }
 
         public void AddReindexDetails(ListedCapabilityStatement capabilityStatement)
         {
-            Uri reindexDefinitionUri = _urlResolver.ResolveOperationDefinitionUrl("reindex");
+            GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.Reindex);
+            GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.ResourceReindex);
+        }
+
+        private void GetAndAddOperationDefinitionUriToCapabilityStatement(ListedCapabilityStatement capabilityStatement, string operationType)
+        {
+            Uri operationDefinitionUri = _urlResolver.ResolveOperationDefinitionUrl(operationType);
             capabilityStatement.Rest.Server().Operation.Add(new OperationComponent()
             {
-                Name = "reindex",
-                Definition = reindexDefinitionUri.ToString(),
+                Name = operationType,
+                Definition = operationDefinitionUri.ToString(),
             });
         }
     }

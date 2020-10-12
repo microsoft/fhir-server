@@ -146,16 +146,25 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpGet]
         [Route(KnownRoutes.ReindexOperationDefinition, Name = RouteNames.ReindexOperationDefintion)]
         [AllowAnonymous]
-        public IActionResult ReindexOperationDefintion()
+        public async Task<IActionResult> ReindexOperationDefintion()
         {
             CheckIfReindexIsEnabledAndRespond();
 
-            OperationDefinition operationDefinition = new OperationDefinition()
-            {
-                Name = "Reindex",
-            };
+            ReindexOperationDefinitionResponse response = await _mediator.GetReindexOperationDefinitionAsync(OperationsConstants.Reindex, HttpContext.RequestAborted);
 
-            return FhirResult.Create(operationDefinition.ToResourceElement());
+            return FhirResult.Create(response.OperationDefinition, HttpStatusCode.OK);
+        }
+
+        [HttpGet]
+        [Route(KnownRoutes.ResourceReindexOperationDefinition, Name = RouteNames.ResourceReindexOperationDefinition)]
+        [AllowAnonymous]
+        public async Task<IActionResult> ResourceReindexOperationDefinition()
+        {
+            CheckIfReindexIsEnabledAndRespond();
+
+            ReindexOperationDefinitionResponse response = await _mediator.GetReindexOperationDefinitionAsync(OperationsConstants.ResourceReindex, HttpContext.RequestAborted);
+
+            return FhirResult.Create(response.OperationDefinition, HttpStatusCode.OK);
         }
 
         /// <summary>

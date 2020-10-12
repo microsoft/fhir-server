@@ -3,11 +3,20 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using EnsureThat;
 using MediatR;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Export
 {
     public class ExportOperationDefinitionRequest : IRequest<ExportOperationDefinitionResponse>
     {
+        public ExportOperationDefinitionRequest(string route)
+        {
+            EnsureArg.IsNotNullOrWhiteSpace(route, nameof(route));
+
+            Route = route;
+        }
+
+        public string Route { get; }
     }
 }

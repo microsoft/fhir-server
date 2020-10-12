@@ -1,0 +1,17 @@
+{
+    "resourceType": "OperationDefinition",
+    "id": "reindex",
+    "url": "[base]/OperationDefinition/reindex",
+    "version": "1.0.0",
+    "name": "Reindex",
+    "title": "Reindex all resources",
+    "status": "active",
+    "kind": "operation",
+    "description": "Reindex all affected resources on the FHIR server with newly added search parameters. This operation is asynchronous as defined in the [FHIR Asynchronous Request Pattern](http://hl7.org/fhir/async.html)",
+    "code": "reindex",
+    "base": "/",
+    "system": true,
+    "type": false,
+    "instance": false,
+    "parameter": []
+}

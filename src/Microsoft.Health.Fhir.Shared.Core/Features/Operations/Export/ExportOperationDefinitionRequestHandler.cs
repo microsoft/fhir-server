@@ -31,14 +31,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         public Task<ExportOperationDefinitionResponse> Handle(ExportOperationDefinitionRequest request, CancellationToken cancellationToken)
         {
-            using Stream stream = _modelInfoProvider.OpenOperationDefinitionFileStream("export.json");
+            using Stream stream = DataLoader.OpenOperationDefinitionFileStream($"{request.Route}.json");
             using TextReader reader = new StreamReader(stream);
             using JsonReader jsonReader = new JsonTextReader(reader);
 
             ISourceNode result = FhirJsonNode.Read(jsonReader);
-            ITypedElement r2 = result.ToTypedElement(_modelInfoProvider.StructureDefinitionSummaryProvider);
+            ITypedElement operationDefinition = result.ToTypedElement(_modelInfoProvider.StructureDefinitionSummaryProvider);
 
-            return Task.FromResult(new ExportOperationDefinitionResponse(r2.ToResourceElement()));
+            return Task.FromResult(new ExportOperationDefinitionResponse(operationDefinition.ToResourceElement()));
         }
     }
 }

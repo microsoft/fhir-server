@@ -70,5 +70,13 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         {
             throw new NotImplementedException();
         }
+
+        public static async Task<ReindexOperationDefinitionResponse> GetReindexOperationDefinitionAsync(this IMediator mediator, string route, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(mediator, nameof(mediator));
+            EnsureArg.IsNotNullOrWhiteSpace(route, nameof(route));
+
+            return await mediator.Send(new ReindexOperationDefinitionRequest(route), cancellationToken);
+        }
     }
 }

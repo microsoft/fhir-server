@@ -184,13 +184,35 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> ExportOperationDefinition()
         {
-            var definition = new OperationDefinition()
-            {
-                Name = "export",
-            };
-            var response = await _mediator.GetExportOperationDefinitionAsync(HttpContext.RequestAborted);
+            CheckIfExportIsEnabled();
 
-            return FhirResult.Create(response.OperationDefinition);
+            var response = await _mediator.GetExportOperationDefinitionAsync(OperationsConstants.Export, HttpContext.RequestAborted);
+
+            return FhirResult.Create(response.OperationDefinition, HttpStatusCode.OK);
+        }
+
+        [HttpGet]
+        [Route(KnownRoutes.PatientExportOperationDefinition, Name = RouteNames.PatientExportOperationDefinition)]
+        [AllowAnonymous]
+        public async Task<IActionResult> PatientExportOperationGetDefinition()
+        {
+            CheckIfExportIsEnabled();
+
+            var response = await _mediator.GetExportOperationDefinitionAsync(OperationsConstants.PatientExport, HttpContext.RequestAborted);
+
+            return FhirResult.Create(response.OperationDefinition, HttpStatusCode.OK);
+        }
+
+        [HttpGet]
+        [Route(KnownRoutes.GroupExportOperationDefinition, Name = RouteNames.GroupExportOperationDefinition)]
+        [AllowAnonymous]
+        public async Task<IActionResult> GroupExportOperationDefinition()
+        {
+            CheckIfExportIsEnabled();
+
+            var response = await _mediator.GetExportOperationDefinitionAsync(OperationsConstants.GroupExport, HttpContext.RequestAborted);
+
+            return FhirResult.Create(response.OperationDefinition, HttpStatusCode.OK);
         }
 
         private async Task<IActionResult> SendExportRequest(ExportJobType exportType, PartialDateTime since, string resourceType = null, string groupId = null, string containerName = null, string anonymizationConfigLocation = null, string anonymizationConfigFileETag = null)

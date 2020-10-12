@@ -29,21 +29,22 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         public const string ResourceTypeByIdAndVid = ResourceTypeByIdHistory + "/" + VidRouteSegment;
 
         public const string Export = "$export";
-        public const string ExportWithoutDollar = "export";
         public const string ExportResourceType = ResourceType + "/" + Export;
         public const string ExportResourceTypeById = ResourceTypeById + "/" + Export;
         public const string ExportJobLocation = OperationsConstants.Operations + "/" + OperationsConstants.Export + "/" + IdRouteSegment;
-        public const string ExportOperationDefinition = OperationDefinition + "/" + ExportWithoutDollar;
+        public const string ExportOperationDefinition = OperationDefinition + "/" + OperationsConstants.Export;
+        public const string PatientExportOperationDefinition = OperationDefinition + "/" + OperationsConstants.PatientExport;
+        public const string GroupExportOperationDefinition = OperationDefinition + "/" + OperationsConstants.GroupExport;
 
         public const string Validate = "$validate";
         public const string ValidateResourceType = ResourceType + "/" + Validate;
         public const string ValidateResourceTypeById = ResourceTypeById + "/" + Validate;
 
         public const string Reindex = "$reindex";
-        public const string ReindexWithoutDollar = "reindex";
         public const string ReindexSingleResource = ResourceTypeById + "/" + Reindex;
         public const string ReindexJobLocation = OperationsConstants.Operations + "/" + OperationsConstants.Reindex + "/" + IdRouteSegment;
-        public const string ReindexOperationDefinition = OperationDefinition + "/" + ReindexWithoutDollar;
+        public const string ReindexOperationDefinition = OperationDefinition + "/" + OperationsConstants.Reindex;
+        public const string ResourceReindexOperationDefinition = OperationDefinition + "/" + OperationsConstants.ResourceReindex;
 
         public const string CompartmentTypeByResourceType = CompartmentTypeRouteSegment + "/" + IdRouteSegment + "/" + CompartmentResourceTypeRouteSegment;
 
