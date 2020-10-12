@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     await sqlCommandWrapper.ExecuteNonQueryAsync(CancellationToken.None);
                 }
 
-                // Within the same transaction, the resource sshould be found
+                // Within the same transaction, the resource should be found
                 using (SqlConnectionWrapper connectionWrapperWithTransaction = await _fixture.SqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, true))
                 {
                     await VerifyCommandResults(connectionWrapperWithTransaction, newId, true);
