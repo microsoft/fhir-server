@@ -12,6 +12,7 @@ using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.SqlServer.Dac.Compare;
@@ -75,7 +76,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     }
                 });
 
-            schemaInitializer.Initialize(forceIncrementalSchemaUpgrade);
+            await schemaInitializer.InitializeAsync(forceIncrementalSchemaUpgrade, cancellationToken);
             _sqlServerFhirModel.Start();
         }
 
@@ -202,9 +203,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var scriptProvider = new ScriptProvider<SchemaVersion>();
             var baseScriptProvider = new BaseScriptProvider();
             var mediator = Substitute.For<IMediator>();
-            var schemaUpgradeRunner = new SchemaUpgradeRunner(scriptProvider, baseScriptProvider, config, mediator, NullLogger<SchemaUpgradeRunner>.Instance);
+            var sqlConnectionFactory = new DefaultSqlConnectionFactory(config);
+            var schemaUpgradeRunner = new SchemaUpgradeRunner(scriptProvider, baseScriptProvider, mediator, NullLogger<SchemaUpgradeRunner>.Instance, sqlConnectionFactory);
 
-            return new SchemaInitializer(config, schemaUpgradeRunner, schemaInformation, NullLogger<SchemaInitializer>.Instance);
+            return new SchemaInitializer(config, schemaUpgradeRunner, schemaInformation, sqlConnectionFactory, NullLogger<SchemaInitializer>.Instance);
         }
     }
 }

@@ -6,11 +6,11 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Data.SqlClient;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Serialization;
 using Microsoft.Health.Fhir.Core.Features.Operations;
@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<ExportJobOutcome> CreateExportJobAsync(ExportJobRecord jobRecord, CancellationToken cancellationToken)
         {
-            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
+            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
                 VLatest.CreateExportJob.PopulateCommand(
@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             EnsureArg.IsNotNullOrWhiteSpace(id, nameof(id));
 
-            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
+            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
                 VLatest.GetExportJobById.PopulateCommand(sqlCommandWrapper, id);
@@ -102,7 +102,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             EnsureArg.IsNotNullOrWhiteSpace(hash, nameof(hash));
 
-            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
+            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
                 VLatest.GetExportJobByHash.PopulateCommand(sqlCommandWrapper, hash);
@@ -127,7 +127,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             byte[] rowVersionAsBytes = GetRowVersionAsBytes(eTag);
 
-            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
+            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
                 VLatest.UpdateExportJob.PopulateCommand(
@@ -169,7 +169,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<IReadOnlyCollection<ExportJobOutcome>> AcquireExportJobsAsync(ushort maximumNumberOfConcurrentJobsAllowed, TimeSpan jobHeartbeatTimeoutThreshold, CancellationToken cancellationToken)
         {
-            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
+            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
                 var jobHeartbeatTimeoutThresholdInSeconds = Convert.ToInt64(jobHeartbeatTimeoutThreshold.TotalSeconds);

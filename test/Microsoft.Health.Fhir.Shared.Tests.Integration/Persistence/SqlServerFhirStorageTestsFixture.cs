@@ -4,11 +4,11 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Data.SqlClient;
 using System.Numerics;
 using System.Threading;
 using Hl7.Fhir.Model;
 using MediatR;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -22,6 +22,7 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
@@ -57,9 +58,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var scriptProvider = new ScriptProvider<SchemaVersion>();
             var baseScriptProvider = new BaseScriptProvider();
             var mediator = Substitute.For<IMediator>();
-            var schemaUpgradeRunner = new SchemaUpgradeRunner(scriptProvider, baseScriptProvider, config, mediator, NullLogger<SchemaUpgradeRunner>.Instance);
 
-            _schemaInitializer = new SchemaInitializer(config, schemaUpgradeRunner, schemaInformation, NullLogger<SchemaInitializer>.Instance);
+            var sqlConnectionFactory = new DefaultSqlConnectionFactory(config);
+            var schemaUpgradeRunner = new SchemaUpgradeRunner(scriptProvider, baseScriptProvider, mediator, NullLogger<SchemaUpgradeRunner>.Instance, sqlConnectionFactory);
+            _schemaInitializer = new SchemaInitializer(config, schemaUpgradeRunner, schemaInformation, sqlConnectionFactory, NullLogger<SchemaInitializer>.Instance);
 
             var searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
             searchParameterDefinitionManager.AllSearchParameters.Returns(new[]
@@ -83,7 +85,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var searchParameterToSearchValueTypeMap = new SearchParameterToSearchValueTypeMap(new SupportedSearchParameterDefinitionManager(searchParameterDefinitionManager));
 
             SqlTransactionHandler = new SqlTransactionHandler();
-            SqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(config, SqlTransactionHandler, new SqlCommandWrapperFactory());
+            SqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(SqlTransactionHandler, new SqlCommandWrapperFactory(), sqlConnectionFactory);
 
             _fhirDataStore = new SqlServerFhirDataStore(config, sqlServerFhirModel, searchParameterToSearchValueTypeMap, upsertResourceTvpGenerator, Options.Create(new CoreFeatureConfiguration()), SqlConnectionWrapperFactory, NullLogger<SqlServerFhirDataStore>.Instance, schemaInformation);
 

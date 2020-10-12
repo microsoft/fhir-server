@@ -6,6 +6,7 @@
 using System;
 using System.Linq;
 using EnsureThat;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Registration;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
@@ -22,12 +23,12 @@ namespace Microsoft.Extensions.DependencyInjection
 {
     public static class FhirServerBuilderSqlServerRegistrationExtensions
     {
-        public static IFhirServerBuilder AddSqlServer(this IFhirServerBuilder fhirServerBuilder, Action<SqlServerDataStoreConfiguration> configureAction = null)
+        public static IFhirServerBuilder AddSqlServer(this IFhirServerBuilder fhirServerBuilder, IConfiguration configuration, Action<SqlServerDataStoreConfiguration> configureAction = null)
         {
             EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
             IServiceCollection services = fhirServerBuilder.Services;
 
-            services.AddSqlServerBase<SchemaVersion>(configureAction);
+            services.AddSqlServerBase<SchemaVersion>(configuration, configureAction);
             services.AddSqlServerApi();
 
             services.Add(provider => new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max))
