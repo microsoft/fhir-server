@@ -95,7 +95,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 resource.SearchIndices?.ToLookup(e => _searchParameterTypeMap.GetSearchValueType(e)),
                 resource.LastModifiedClaims);
 
-            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken))
+            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             using (var stream = new RecyclableMemoryStream(_memoryStreamManager))
             using (var gzipStream = new GZipStream(stream, CompressionMode.Compress))
@@ -157,7 +157,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken)
         {
-            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken))
+            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             {
                 int? requestedVersion = null;
                 if (!string.IsNullOrEmpty(key.VersionId))
@@ -231,7 +231,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task HardDeleteAsync(ResourceKey key, CancellationToken cancellationToken)
         {
-            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken))
+            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
                 VLatest.HardDeleteResource.PopulateCommand(sqlCommandWrapper, resourceTypeId: _model.GetResourceTypeId(key.ResourceType), resourceId: key.Id);

@@ -186,7 +186,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                                .AcceptVisitor(IncludeRewriter.Instance)
                                            ?? SqlRootExpression.WithDenormalizedExpressions();
 
-            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken))
+            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
                 var stringBuilder = new IndentedStringBuilder(new StringBuilder());
