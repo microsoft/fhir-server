@@ -36,6 +36,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     public class SqlServerFhirStorageTestsFixture : IServiceProvider, IAsyncLifetime
     {
         private const string LocalConnectionString = "server=(local);Integrated Security=true";
+        private const string MasterDatabaseName = "master";
 
         private readonly string _databaseName;
         private readonly IFhirDataStore _fhirDataStore;
@@ -48,7 +49,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var initialConnectionString = Environment.GetEnvironmentVariable("SqlServer:ConnectionString") ?? LocalConnectionString;
 
             _databaseName = $"FHIRINTEGRATIONTEST_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
-            string masterConnectionString = new SqlConnectionStringBuilder(initialConnectionString) { InitialCatalog = "master" }.ToString();
+            string masterConnectionString = new SqlConnectionStringBuilder(initialConnectionString) { InitialCatalog = MasterDatabaseName }.ToString();
             TestConnectionString = new SqlConnectionStringBuilder(initialConnectionString) { InitialCatalog = _databaseName }.ToString();
 
             var schemaOptions = new SqlServerSchemaOptions { AutomaticUpdatesEnabled = true };
@@ -91,7 +92,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             _fhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, NullLogger<SqlServerFhirOperationDataStore>.Instance);
 
-            _testHelper = new SqlServerFhirStorageTestHelper(TestConnectionString, initialConnectionString, masterConnectionString, sqlServerFhirModel);
+            _testHelper = new SqlServerFhirStorageTestHelper(initialConnectionString, MasterDatabaseName, sqlServerFhirModel, sqlConnectionFactory);
         }
 
         public string TestConnectionString { get; }
