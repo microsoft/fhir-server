@@ -182,14 +182,15 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpGet]
         [Route(KnownRoutes.ExportOperationDefinition, Name = RouteNames.ExportOperationDefinition)]
         [AllowAnonymous]
-        public IActionResult ExportOperationDefinition()
+        public async Task<IActionResult> ExportOperationDefinition()
         {
             var definition = new OperationDefinition()
             {
                 Name = "export",
             };
+            var response = await _mediator.GetExportOperationDefinitionAsync(HttpContext.RequestAborted);
 
-            return FhirResult.Create(definition.ToResourceElement());
+            return FhirResult.Create(response.OperationDefinition);
         }
 
         private async Task<IActionResult> SendExportRequest(ExportJobType exportType, PartialDateTime since, string resourceType = null, string groupId = null, string containerName = null, string anonymizationConfigLocation = null, string anonymizationConfigFileETag = null)

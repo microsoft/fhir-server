@@ -1,0 +1,86 @@
+﻿{
+    "resourceType": "OperationDefinition",
+    "id": "export",
+    "text": {
+        "status": "generated",
+        "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><h2>BulkDataExport</h2><p>OPERATION: BulkDataExport</p><p>The official URL for this operation definition is: </p><pre>http://hl7.org/fhir/uv/bulkdata/OperationDefinition/export</pre><div><p>Export data from a FHIR server whether or not it is associated with a patient. This supports use cases like backing up a server or exporting terminology data by restricting the resources returned using the _type parameter. The FHIR server SHALL support invocation of this operation using the <a href=\"http://hl7.org/fhir/async.html\">FHIR Asynchronous Request Pattern</a></p>\n</div><p>URL: [base]/$export</p><p>Parameters</p><table class=\"grid\"><tr><td><b>Use</b></td><td><b>Name</b></td><td><b>Cardinality</b></td><td><b>Type</b></td><td><b>Binding</b></td><td><b>Documentation</b></td></tr><tr><td>IN</td><td>_outputFormat</td><td>0..1</td><td><a href=\"http://hl7.org/fhir/datatypes.html#string\">string</a></td><td/><td><div><p>The format for the requested bulk data files to be generated as per <a href=\"http://hl7.org/fhir/async.html\">FHIR Asynchronous Request Pattern</a>. Defaults to <code>application/fhir+ndjson</code>.</p>\n</div></td></tr><tr><td>IN</td><td>_since</td><td>0..1</td><td><a href=\"http://hl7.org/fhir/datatypes.html#instant\">instant</a></td><td/><td><div><p>Resources updated after this period will be included in the response.</p>\n</div></td></tr><tr><td>IN</td><td>_type</td><td>0..1</td><td><a href=\"http://hl7.org/fhir/datatypes.html#string\">string</a></td><td/><td><div><p>A string of comma-delimited FHIR resource types. Only resources of the specified resource types(s) SHOULD be included in the response. If this parameter is omitted, the server SHOULD return all supported resources within the scope of the client authorization. Resource references MAY be relative URIs with the format &lt;resource type&gt;/&lt;id&gt;, or absolute URIs with the same structure rooted in the base URI for the server from which the export was performed. References will be resolved looking for a resource with the specified type and id within the file set. Note: Implementations MAY limit the resources returned to specific subsets of FHIR, such as those defined in the Argonaut Implementation Guide.</p>\n</div></td></tr></table></div>"
+    },
+    "url": "http://hl7.org/fhir/uv/bulkdata/OperationDefinition/export",
+    "version": "1.0.0",
+    "name": "BulkDataExport",
+    "title": "FHIR Bulk Data Export (Flat FHIR) - System Level Export",
+    "status": "active",
+    "kind": "operation",
+    "date": "2019-02-15T00:00:00+11:00",
+    "publisher": "SMART Health IT",
+    "contact": [
+        {
+            "name": "Ricky Sahu",
+            "telecom": [
+                {
+                    "system": "email",
+                    "value": "ricky@1up.health"
+                }
+            ]
+        },
+        {
+            "name": "Dan Gottlieb",
+            "telecom": [
+                {
+                    "system": "email",
+                    "value": "daniel.gottlieb@childrens.harvard.edu"
+                }
+            ]
+        },
+        {
+            "name": "Josh Mandel",
+            "telecom": [
+                {
+                    "system": "email",
+                    "value": "joshua.mandel@childrens.harvard.edu"
+                }
+            ]
+        },
+        {
+            "name": "Vlad Ignatov",
+            "telecom": [
+                {
+                    "system": "email",
+                    "value": "Vladimir.Ignatov@childrens.harvard.edu"
+                }
+            ]
+        }
+    ],
+    "description": "Export data from a FHIR server whether or not it is associated with a patient. This supports use cases like backing up a server or exporting terminology data by restricting the resources returned using the _type parameter. The FHIR server SHALL support invocation of this operation using the [FHIR Asynchronous Request Pattern](http://hl7.org/fhir/async.html)",
+    "code": "export",
+    "base": "/",
+    "system": true,
+    "type": false,
+    "instance": false,
+    "parameter": [
+        {
+            "name": "_outputFormat",
+            "use": "in",
+            "min": 0,
+            "max": "1",
+            "documentation": "The format for the requested bulk data files to be generated as per [FHIR Asynchronous Request Pattern](http://hl7.org/fhir/async.html). Defaults to `application/fhir+ndjson`.",
+            "type": "string"
+        },
+        {
+            "name": "_since",
+            "use": "in",
+            "min": 0,
+            "max": "1",
+            "documentation": "Resources updated after this period will be included in the response.",
+            "type": "instant"
+        },
+        {
+            "name": "_type",
+            "use": "in",
+            "min": 0,
+            "max": "1",
+            "documentation": "A string of comma-delimited FHIR resource types. Only resources of the specified resource types(s) SHOULD be included in the response. If this parameter is omitted, the server SHOULD return all supported resources within the scope of the client authorization. Resource references MAY be relative URIs with the format <resource type>/<id>, or absolute URIs with the same structure rooted in the base URI for the server from which the export was performed. References will be resolved looking for a resource with the specified type and id within the file set. Note: Implementations MAY limit the resources returned to specific subsets of FHIR, such as those defined in the Argonaut Implementation Guide.",
+            "type": "string"
+        }
+    ]
+}

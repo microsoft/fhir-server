@@ -14,8 +14,10 @@
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\ReindexMediatorExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Extensions\ResourceTypeExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\DefaultParserSettings.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Export\ExportOperationDefinitionRequestHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Export\GroupMemberExtractor.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Export\ResourceToNdjsonBytesSerializer.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexOperationDefinitionRequestHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexSingleResourceRequestHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexUtilities.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\RawResourceFactory.cs" />

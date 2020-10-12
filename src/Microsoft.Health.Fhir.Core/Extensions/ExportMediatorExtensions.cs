@@ -58,5 +58,12 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             return await mediator.Send(request, cancellationToken);
         }
+
+        public static async Task<ExportOperationDefinitionResponse> GetExportOperationDefinitionAsync(this IMediator mediator, CancellationToken cancellationToken)
+        {
+            EnsureArg.IsNotNull(mediator, nameof(mediator));
+
+            return await mediator.Send(new ExportOperationDefinitionRequest(), cancellationToken);
+        }
     }
 }
