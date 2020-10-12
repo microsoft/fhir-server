@@ -2,28 +2,30 @@
 
 ## Description
 
-This guide provides information to walk through setting up a docker container with the latest release of FHIR Server for Azure such that you can run your own integration tests against the API.
+This guide provides information to set up a docker container with the latest release of FHIR Server for Azure so that you can run your own integration tests against the API.
 
 ## Why
 
-FHIR Server for Azure works on a release cadence of ~two weeks, information detailing the technical content of the release can be found under the [releases](https://github.com/microsoft/fhir-server/releases) section in Github.
+FHIR Server for Azure works on a release cadence of around every two weeks. You can find information detailing the technical content of the releases under the [releases](https://github.com/microsoft/fhir-server/releases) section in Github.
 
-After a release has been created these assets will be staged in the next deployment of [Azure API for FHIR](https://azure.microsoft.com/en-us/services/azure-api-for-fhir/). The deployments for Azure API for FHIR will usually roll out the following week after the OSS release, this gives your team ~1 week to test with these incremental releases.
+After a release has been created, these assets will be staged in the next deployment of [Azure API for FHIR](https://azure.microsoft.com/en-us/services/azure-api-for-fhir/). The deployments for Azure API for FHIR will usually roll out the following week after the OSS release, giving your team about a week to test with these incremental releases.
 
 ## What to focus on
 
-While the team remain diligent in keeping API compatibility within FHIR versions, as we introduce new features there may be times were changes that impact the API are unintended or unavoidable. To address this, the following labels have been introduced to flag any PRs that have been identified as possibly breaking or changing to API behavior in any way. Use the results of these queries to help determine where to focus testing and analyze the impact to your system.
+While the team remains diligent in keeping API compatibility within FHIR versions, as we introduce new features there may be times where changes that impact the API are unintended or unavoidable. To address this, the following labels have been introduced to flag any PRs that have been identified as possibly breaking or changing to API behavior in any way. Use the results of these queries to help determine where to focus testing and analyze the impact to your system.
 
 - [KI-Warning](https://github.com/microsoft/fhir-server/issues?q=label%3AKI-Warning+) (Known issue: Warning)
 - [KI-Breaking](https://github.com/microsoft/fhir-server/issues?q=label%3AKI-Breaking+) (Known issue: Breaking)
 
 ## What if I find an issue?
 
-You have two options depending on the severity of the issue, you may open an [issue](https://github.com/microsoft/fhir-server/issues/new/choose) against the Github repository, we actively triage these and will work on this as best effort. If you have an Azure API for FHIR account, you would also be able to take the route of raising a support ticket with concern on the next release.
+You have two options depending on the severity of the issue: 
+1. You may open an [issue](https://github.com/microsoft/fhir-server/issues/new/choose) against the Github repository. We actively triage these and will work on this as best effort. 
+1. If you have an Azure API for FHIR account, you can also raise a support ticket with concern on the next release.
 
 ## How
 
-There are a few different kinds of release assets, both Webdeploy zip files and Docker images, this guide will focus on using the docker images. 
+There are a few different kinds of release assets, both Webdeploy zip files and Docker image. This guide will focus on using the docker images. 
 
 Here are the tags for Docker images that should be noted:
 
@@ -35,7 +37,7 @@ The current data store used by Azure API for FHIR is Cosmos DB, the following st
 
 ### Steps
 
-1. To create a test environment for the we can leverage the [default-azuredeploy-docker.json](https://github.com/microsoft/fhir-server/blob/master/samples/templates/default-azuredeploy-docker.json) template. 
+1. To create a test environment for the release, we can leverage the [default-azuredeploy-docker.json](https://github.com/microsoft/fhir-server/blob/master/samples/templates/default-azuredeploy-docker.json) template. 
 
 1. Use the [Quickstart guide](https://github.com/microsoft/fhir-server/blob/master/docs/QuickstartDeployCLI.md) if you are unfamiliar with CloudShell and starting with Azure CLI.
 
