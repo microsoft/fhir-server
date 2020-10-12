@@ -31,7 +31,9 @@ az group create --name $servicename --location westus2
 
 ## Deploy template
 
-The Microsoft FHIR Server for Azure [GitHub Repository](https://github.com/Microsoft/fhir-server) contains a template that will deploy all necessary resources. Deploy it with:
+The Microsoft FHIR Server for Azure [GitHub Repository](https://github.com/Microsoft/fhir-server) contains a template that will deploy all necessary resources.<br />
+
+Deploy using CosmosDB as the data store with the following command:
 
 ```azurecli-interactive
 az group deployment create -g $servicename --template-uri https://raw.githubusercontent.com/Microsoft/fhir-server/master/samples/templates/default-azuredeploy.json --parameters serviceName=$servicename
