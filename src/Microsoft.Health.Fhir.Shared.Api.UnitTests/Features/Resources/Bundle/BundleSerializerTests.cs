@@ -17,6 +17,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Compartment;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
@@ -44,7 +45,8 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Resources.Bundle
                                      requestContextAccessor,
                                      Substitute.For<ISearchIndexer>(),
                                      Substitute.For<IClaimsExtractor>(),
-                                     Substitute.For<ICompartmentIndexer>());
+                                     Substitute.For<ICompartmentIndexer>(),
+                                     Substitute.For<ISearchParameterDefinitionManager>());
         }
 
         [Fact]
