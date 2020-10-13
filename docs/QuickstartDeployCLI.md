@@ -11,7 +11,7 @@ Azure hosts Azure Cloud Shell, an interactive shell environment that you can use
 To start Azure Cloud Shell:
 1. Select **Try It** in the upper-right corner of a code block. Selecting **Try It** doesn't automatically copy the code to Cloud Shell. 
 1. Go to [https://shell.azure.com](https://shell.azure.com), or select the **Launch Cloud Shell** button to open Cloud Shell in your browser. 
-1. Select the **Cloud Shell** button on the menu bar at the upper right in the [Azure portal](https://portal.azure.com).
+1. Select the **Cloud Shell** button on the menu bar at the upper right in the [Azure portal](https://portal.azure.com). Choose to run in Bash mode.
 
 To run the code in this article in Azure Cloud Shell:
 
