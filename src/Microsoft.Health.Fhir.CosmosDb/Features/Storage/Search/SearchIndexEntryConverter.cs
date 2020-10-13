@@ -23,11 +23,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
 
         public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
         {
-            var jObject = JObject.Load(reader);
-            var searchIndexEntry = new SearchIndexEntry();
-            searchIndexEntry.JsonString = jObject.ToString();
-
-            return searchIndexEntry;
+            // We don't currently support reading the search index from the Cosmos DB.
+            return null;
         }
 
         public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)

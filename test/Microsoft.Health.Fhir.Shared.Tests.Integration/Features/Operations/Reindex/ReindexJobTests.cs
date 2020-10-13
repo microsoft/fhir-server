@@ -231,22 +231,22 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             _searchParameterDefinitionManager.UrlLookup.Add(searchParam.Url, searchParam);
             _searchParameterDefinitionManager.TypeLookup["Patient"].Add(searchParamName, searchParam);
 
-            await UpsertPatientData("Patient");
-            await UpsertPatientData("Patient-f001");
+            await UpsertPatientData("searchIndicesPatient1");
+            await UpsertPatientData("searchIndicesPatient2");
 
-            var queryParams = new List<Tuple<string, string>>() { new Tuple<string, string>("foo", "Chalmers") };
+            var queryParams = new List<Tuple<string, string>>() { new Tuple<string, string>("foo", "searchIndicesPatient1") };
             var searchResults = await _searchService.Value.SearchAsync("Patient", queryParams, CancellationToken.None);
 
             Assert.Equal(searchParamName, searchResults.UnsupportedSearchParameters.FirstOrDefault().Item1);
             Assert.Equal(2, searchResults.Results.Count());
 
             var searchIndexValues1 = new List<SearchIndexEntry>();
-            searchIndexValues1.Add(new SearchIndexEntry(searchParam, new StringSearchValue("Chalmers")));
-            _searchIndexer.Extract(Arg.Is<ResourceElement>(r => r.Id.Equals("example"))).Returns(searchIndexValues1);
+            searchIndexValues1.Add(new SearchIndexEntry(searchParam, new StringSearchValue("searchIndicesPatient1")));
+            _searchIndexer.Extract(Arg.Is<ResourceElement>(r => r.Id.Equals("searchIndicesPatient1"))).Returns(searchIndexValues1);
 
             var searchIndexValues2 = new List<SearchIndexEntry>();
-            searchIndexValues2.Add(new SearchIndexEntry(searchParam, new StringSearchValue("van de Heuvel")));
-            _searchIndexer.Extract(Arg.Is<ResourceElement>(r => r.Id.Equals("f001"))).Returns(searchIndexValues2);
+            searchIndexValues2.Add(new SearchIndexEntry(searchParam, new StringSearchValue("searchIndicesPatient2")));
+            _searchIndexer.Extract(Arg.Is<ResourceElement>(r => r.Id.Equals("searchIndicesPatient2"))).Returns(searchIndexValues2);
 
             var request = new CreateReindexRequest();
 
@@ -284,8 +284,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 Assert.Single(searchResults.Results);
 
                 var patient = searchResults.Results.FirstOrDefault().Resource;
-                Assert.True(patient.SearchIndices.Where(s => s.JsonString.Contains("foo")).Any());
-                Assert.Contains("Chalmers", patient.RawResource.Data);
+                Assert.Contains("searchIndicesPatient1", patient.RawResource.Data);
             }
             finally
             {
@@ -309,9 +308,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 NullLogger<ReindexJobTask>.Instance);
         }
 
-        private ResourceWrapper CreateResourceWrapper(string jsonName)
+        private ResourceWrapper CreateResourceWrapper(string patientName)
         {
-            var json = Samples.GetJson(jsonName);
+            var json = Samples.GetJson("Patient");
+            json = json.Replace("Chalmers", patientName);
+            json = json.Replace("\"id\": \"example\"", "\"id\": \"" + patientName + "\"");
             var rawResource = new RawResource(json, FhirResourceFormat.Json, isMetaSet: false);
             var resourceRequest = Substitute.For<ResourceRequest>();
             var compartmentIndices = Substitute.For<CompartmentIndices>();

@@ -72,15 +72,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 var resourceElement = _deserializer.Deserialize(entry.Resource);
                 var newIndices = _searchIndexer.Extract(resourceElement);
 
-                if (entry.Resource.SearchIndicesEqual(newIndices))
-                {
-                    updateHashValueOnly.Add(entry.Resource);
-                }
-                else
-                {
-                    entry.Resource.UpdateSearchIndices(newIndices);
-                    updateSearchIndices.Add(entry.Resource);
-                }
+                // TODO: If it reasonable to do so, we can compare
+                // old and new search indices to avoid unnecessarily updating search indices
+                // when not changes have been made.
+                entry.Resource.UpdateSearchIndices(newIndices);
+                updateSearchIndices.Add(entry.Resource);
 
                 if (cancellationToken.IsCancellationRequested)
                 {

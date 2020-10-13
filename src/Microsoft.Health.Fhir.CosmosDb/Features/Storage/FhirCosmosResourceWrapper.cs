@@ -5,9 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -101,35 +98,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
 
             return base.Version;
-        }
-
-        public override bool SearchIndicesEqual(IReadOnlyCollection<SearchIndexEntry> otherIndices)
-        {
-            var otherHashSet = new HashSet<string>();
-
-            // convert search param indices to JSON text
-            SearchIndexEntryConverter converter = new SearchIndexEntryConverter();
-
-            foreach (var index in otherIndices)
-            {
-                var sb = new StringBuilder();
-                var stringWriter = new StringWriter(sb);
-                var jsonWriter = new JsonTextWriter(stringWriter);
-                converter.WriteJson(jsonWriter, index, null);
-                otherHashSet.Add(sb.ToString());
-            }
-
-            HashSet<string> searchIndexHashSet;
-            if (SearchIndices != null)
-            {
-                searchIndexHashSet = new HashSet<string>(SearchIndices.Select(s => s.JsonString));
-            }
-            else
-            {
-                searchIndexHashSet = new HashSet<string>();
-            }
-
-            return searchIndexHashSet.SetEquals(otherHashSet);
         }
     }
 }

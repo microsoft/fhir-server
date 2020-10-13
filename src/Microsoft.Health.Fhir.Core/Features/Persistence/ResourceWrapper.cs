@@ -119,16 +119,5 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         {
             SearchIndices = searchIndices;
         }
-
-        public virtual bool SearchIndicesEqual(IReadOnlyCollection<SearchIndexEntry> otherIndices)
-        {
-            var otherHashSet = otherIndices != null ?
-                    new HashSet<SearchIndexEntry>(otherIndices) : new HashSet<SearchIndexEntry>();
-
-            var thisHashSet = SearchIndices != null ?
-                    new HashSet<SearchIndexEntry>(SearchIndices) : new HashSet<SearchIndexEntry>();
-
-            return thisHashSet.SetEquals(otherHashSet);
-        }
     }
 }
