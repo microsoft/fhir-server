@@ -102,12 +102,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(originalType.ToString(), searchParam.ToString());
             }
 
-            referencedTypes = new List<string>();
-            _searchParameterDefinitionManager.GetSearchParameters(resourceType)
-            .Where(p => p.Type == ValueSets.SearchParamType.Reference).ToList()
-            .ForEach(p => referencedTypes.AddRange(p.TargetResourceTypes?.ToList()));
+            if (wildCard)
+            {
+                referencedTypes = new List<string>();
+                var searchParameters = _searchParameterDefinitionManager.GetSearchParameters(resourceType)
+                    .Where(p => p.Type == ValueSets.SearchParamType.Reference);
 
-            referencedTypes = referencedTypes.Distinct().ToList();
+                foreach (var p in searchParameters)
+                {
+                    foreach (var t in p.TargetResourceTypes)
+                    {
+                        if (!referencedTypes.Contains(t))
+                        {
+                            referencedTypes.Add(t);
+                        }
+                    }
+                }
+            }
 
             return new IncludeExpression(resourceType, refSearchParameter, originalType.ToString(), targetType, referencedTypes, wildCard, isReversed, iterate);
         }
