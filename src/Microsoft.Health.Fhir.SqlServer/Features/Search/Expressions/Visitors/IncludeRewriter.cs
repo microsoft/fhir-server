@@ -144,7 +144,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                         }
 
                         // one of y's target types matches x's source type => x > y
-                        if (yInclude.TargetResourceType == null && xTargetTypes != null && yTargetTypes.Contains(xInclude.SourceResourceType))
+                        if (yInclude.TargetResourceType == null && yTargetTypes != null && yTargetTypes.Contains(xInclude.SourceResourceType))
                         {
                             return 1;
                         }
