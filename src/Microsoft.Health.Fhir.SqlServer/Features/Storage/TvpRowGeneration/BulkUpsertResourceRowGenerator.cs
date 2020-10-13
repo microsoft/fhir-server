@@ -62,11 +62,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
             {
                 _stream = new RecyclableMemoryStream(memoryStreamManager);
 
-                using var gzipStream = new GZipStream(_stream, CompressionMode.Compress, true);
-                using var writer = new StreamWriter(gzipStream, SqlServerFhirDataStore.ResourceEncoding);
-
-                writer.Write(rawResource.Data);
-                writer.Flush();
+                using (var gzipStream = new GZipStream(_stream, CompressionMode.Compress, true))
+                using (var writer = new StreamWriter(gzipStream, SqlServerFhirDataStore.ResourceEncoding))
+                {
+                    writer.Write(rawResource.Data);
+                    writer.Flush();
+                }
 
                 _stream.Seek(0, 0);
             }
