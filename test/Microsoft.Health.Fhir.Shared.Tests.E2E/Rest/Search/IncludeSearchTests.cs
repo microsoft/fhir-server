@@ -546,8 +546,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public async Task GivenAnIncludeIterateSearchExpressionWithAdditionalParameters_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
             // Non-recursive iteration - Single iteration (_include:iterate)
-            // _tag parameter is not used due to issue https://github.com/microsoft/fhir-server/issues/1235
-            string query = $"_include=MedicationDispense:prescription&_include:iterate=MedicationRequest:patient&_id={Fixture.AdamsMedicationDispense.Id}";
+            string query = $"_include=MedicationDispense:prescription&_include:iterate=MedicationRequest:patient&_id={Fixture.AdamsMedicationDispense.Id}&_tag={Fixture.Tag}";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.MedicationDispense, query);
 
@@ -875,8 +874,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public async Task GivenARevIncludeIterateSearchExpressionWithAdditionalParameters_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
             // Non-recursive iteration - Single iteration (_revinclude:iterate)
-            // _tag parameter is not used due to issue https://github.com/microsoft/fhir-server/issues/1235
-            string query = $"_revinclude=MedicationRequest:patient&_revinclude:iterate=MedicationDispense:prescription&_id={Fixture.AdamsPatient.Id}";
+            string query = $"_revinclude=MedicationRequest:patient&_revinclude:iterate=MedicationDispense:prescription&_id={Fixture.AdamsPatient.Id}&_tag={Fixture.Tag}";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
 

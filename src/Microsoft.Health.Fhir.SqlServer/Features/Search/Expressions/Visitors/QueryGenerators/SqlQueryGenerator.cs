@@ -504,10 +504,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                         // Limit the join to the main select CTE.
                         // The main select will have max+1 items in the result set to account for paging, so we only want to join using the max amount.
-                        delimited.BeginDelimitedElement().Append(VLatest.Resource.ResourceSurrogateId, table)
-                            .Append(" IN (SELECT TOP(")
-                            .Append(Parameters.AddParameter(context.MaxItemCount))
-                            .Append(") Sid1 FROM ").Append(fromCte).Append(")");
+                        if (!includeExpression.Iterate)
+                        {
+                            delimited.BeginDelimitedElement().Append(VLatest.Resource.ResourceSurrogateId, table)
+                                .Append(" IN (SELECT TOP(")
+                                .Append(Parameters.AddParameter(context.MaxItemCount))
+                                .Append(") Sid1 FROM ").Append(fromCte).Append(")");
+                        }
+                        else
+                        {
+                            delimited.BeginDelimitedElement().Append(VLatest.Resource.ResourceSurrogateId, table)
+                                .Append(" IN (SELECT Sid1 FROM ").Append(fromCte).Append(")");
+                        }
                     }
 
                     if (includeExpression.Reversed)
