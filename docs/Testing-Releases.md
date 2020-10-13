@@ -51,7 +51,7 @@ The current data store used by Azure API for FHIR is Cosmos DB, the following st
 1. Deploy the latest release (the default image) of the FHIR Server:
 
     ```azurecli-interactive
-    az group deployment create -g $servicename --template-uri https://raw.githubusercontent.com/Microsoft/fhir-server/master/samples/templates/default-azuredeploy-docker.json --parameters serviceName=$servicename
+    az deployment group create -g $servicename --template-uri https://raw.githubusercontent.com/Microsoft/fhir-server/master/samples/templates/default-azuredeploy-docker.json --parameters serviceName=$servicename
     ```
 
     Note: We have the ability to pass in the `-imageTag` parameter in the format shown above if we wanted to target a specific release, refer the the [releases page](https://github.com/microsoft/fhir-server/releases). For example `-imageTag build-20200101-1`
