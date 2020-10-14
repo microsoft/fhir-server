@@ -58,7 +58,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             EnsureArg.IsNotNull(results, nameof(results));
             EnsureArg.IsNotNull(resourceTypeSearchParameterHashMap, nameof(resourceTypeSearchParameterHashMap));
 
-            var updateHashValueOnly = new List<ResourceWrapper>();
             var updateSearchIndices = new List<ResourceWrapper>();
 
             foreach (var entry in results.Results)
@@ -71,19 +70,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 entry.Resource.SearchParameterHash = searchParamHash;
                 var resourceElement = _deserializer.Deserialize(entry.Resource);
                 var newIndices = _searchIndexer.Extract(resourceElement);
-                var newIndicesHash = new HashSet<SearchIndexEntry>(newIndices);
-                var prevIndicesHash = entry.Resource.SearchIndices != null ?
-                    new HashSet<SearchIndexEntry>(entry.Resource.SearchIndices) : new HashSet<SearchIndexEntry>();
 
-                if (newIndicesHash.SetEquals(prevIndicesHash))
-                {
-                    updateHashValueOnly.Add(entry.Resource);
-                }
-                else
-                {
-                    entry.Resource.UpdateSearchIndices(newIndices);
-                    updateSearchIndices.Add(entry.Resource);
-                }
+                // TODO: If it reasonable to do so, we can compare
+                // old and new search indices to avoid unnecessarily updating search indices
+                // when not changes have been made.
+                entry.Resource.UpdateSearchIndices(newIndices);
+                updateSearchIndices.Add(entry.Resource);
 
                 if (cancellationToken.IsCancellationRequested)
                 {
@@ -93,7 +85,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             using (IScoped<IFhirDataStore> store = _fhirDataStoreFactory())
             {
-                await store.Value.UpdateSearchParameterHashBatchAsync(updateHashValueOnly, cancellationToken);
                 await store.Value.UpdateSearchParameterIndicesBatchAsync(updateSearchIndices, cancellationToken);
             }
         }

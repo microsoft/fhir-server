@@ -45,8 +45,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         [Fact]
         public async Task GivenResourcesWithUnchangedOrChangedIndices_WhenResultsProcessed_ThenCorrectResourcesHaveIndicesUpdated()
         {
-            var searchIndices1 = new List<SearchIndexEntry>() { new SearchIndexEntry(new Core.Models.SearchParameterInfo("param1"), new StringSearchValue("value1")) };
-            var searchIndices2 = new List<SearchIndexEntry>() { new SearchIndexEntry(new Core.Models.SearchParameterInfo("param2"), new StringSearchValue("value2")) };
+            var searchIndexEntry1 = new SearchIndexEntry(new Core.Models.SearchParameterInfo("param1"), new StringSearchValue("value1"));
+            var searchIndexEntry2 = new SearchIndexEntry(new Core.Models.SearchParameterInfo("param2"), new StringSearchValue("value2"));
+
+            var searchIndices1 = new List<SearchIndexEntry>() { searchIndexEntry1 };
+            var searchIndices2 = new List<SearchIndexEntry>() { searchIndexEntry2 };
 
             _searchIndexer.Extract(Arg.Any<Core.Models.ResourceElement>()).Returns(searchIndices1);
 
@@ -61,15 +64,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             await _reindexUtilities.ProcessSearchResultsAsync(result, _searchParameterHashMap, CancellationToken.None);
 
-            await _fhirDataStore.Received().UpdateSearchParameterHashBatchAsync(
-                Arg.Is<IReadOnlyCollection<ResourceWrapper>>(
-                    c => c.Where(r => r.SearchIndices == searchIndices1 && r.ResourceTypeName.Equals("Patient")).Count() == 1),
-                Arg.Any<CancellationToken>());
-
             await _fhirDataStore.Received().UpdateSearchParameterIndicesBatchAsync(
-                Arg.Is<IReadOnlyCollection<ResourceWrapper>>(
-                    c => c.Where(r => r.SearchIndices == searchIndices1 && r.ResourceTypeName.Equals("Observation")).Count() == 1),
-                Arg.Any<CancellationToken>());
+                Arg.Is<IReadOnlyCollection<ResourceWrapper>>(c => c.Count() == 2), Arg.Any<CancellationToken>());
         }
 
         [Fact]
