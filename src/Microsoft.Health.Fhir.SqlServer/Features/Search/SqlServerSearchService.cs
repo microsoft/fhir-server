@@ -255,12 +255,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         }
 
                         string rawResource;
-
                         using (rawResourceStream)
-                        using (var gzipStream = new GZipStream(rawResourceStream, CompressionMode.Decompress))
-                        using (var streamReader = new StreamReader(gzipStream, SqlServerFhirDataStore.ResourceEncoding))
                         {
-                            rawResource = await streamReader.ReadToEndAsync();
+                            rawResource = await CompressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
                         }
 
                         // as long as at least one entry was marked as partial, this resultset
