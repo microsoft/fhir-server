@@ -58,7 +58,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             EnsureArg.IsNotNull(results, nameof(results));
             EnsureArg.IsNotNull(resourceTypeSearchParameterHashMap, nameof(resourceTypeSearchParameterHashMap));
 
-            var updateHashValueOnly = new List<ResourceWrapper>();
             var updateSearchIndices = new List<ResourceWrapper>();
 
             foreach (var entry in results.Results)
@@ -86,7 +85,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             using (IScoped<IFhirDataStore> store = _fhirDataStoreFactory())
             {
-                await store.Value.UpdateSearchParameterHashBatchAsync(updateHashValueOnly, cancellationToken);
                 await store.Value.UpdateSearchParameterIndicesBatchAsync(updateSearchIndices, cancellationToken);
             }
         }

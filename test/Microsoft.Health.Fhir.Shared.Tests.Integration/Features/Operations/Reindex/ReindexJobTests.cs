@@ -23,10 +23,10 @@ using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Reindex;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
-using Microsoft.Health.Fhir.Shared.Tests.Integration;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
@@ -61,8 +61,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         {
             _fhirOperationDataStore = fixture.OperationDataStore;
             _fhirStorageTestHelper = fixture.TestHelper;
-            _scopedOperationDataStore = new TestScoped<IFhirOperationDataStore>() { Value = fixture.OperationDataStore };
-            _scopedDataStore = new TestScoped<IFhirDataStore>() { Value = fixture.DataStore };
+            _scopedOperationDataStore = fixture.OperationDataStore.CreateMockScope();
+            _scopedOperationDataStore = fixture.OperationDataStore.CreateMockScope();
+            _scopedDataStore = fixture.DataStore.CreateMockScope();
 
             _jobConfiguration = new ReindexJobConfiguration();
             IOptions<ReindexJobConfiguration> optionsReindexConfig = Substitute.For<IOptions<ReindexJobConfiguration>>();
@@ -92,11 +93,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             var searchParameterExpressionParser = new SearchParameterExpressionParser(() => _searchParameterDefinitionManager, new ReferenceSearchValueParser(fhirRequestContextAccessor));
             var expressionParser = new ExpressionParser(() => _searchableSearchParameterDefinitionManager, searchParameterExpressionParser);
             var searchOptionsFactory = new SearchOptionsFactory(expressionParser, () => _searchableSearchParameterDefinitionManager, coreOptions, fhirRequestContextAccessor, NullLogger<SearchOptionsFactory>.Instance);
+            var cosmosSearchService = new FhirCosmosSearchService(searchOptionsFactory, fixture.DataStore as CosmosFhirDataStore, new QueryBuilder()) as ISearchService;
 
-            _searchService = new TestScoped<ISearchService>()
-            {
-                Value = new FhirCosmosSearchService(searchOptionsFactory, fixture.DataStore as CosmosFhirDataStore, new QueryBuilder()),
-            };
+            _searchService = cosmosSearchService.CreateMockScope();
         }
 
         public Task DisposeAsync()
