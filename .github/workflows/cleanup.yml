@@ -1,6 +1,8 @@
 name: Clean up PR environment on close
 
-on: pull_request
+on: 
+  pull_request:
+    types: [closed]
 
 jobs:
   clean-up-environment:
