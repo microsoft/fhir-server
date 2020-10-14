@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using EnsureThat;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
@@ -90,6 +91,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
             EnsureArg.IsNotNull(visitor, nameof(visitor));
 
             visitor.Visit(this);
+        }
+
+        public bool Equals([AllowNull] ISearchValue other)
+        {
+            if (other == null)
+            {
+                return false;
+            }
+
+            var tokenSearchValueOther = other as TokenSearchValue;
+
+            if (tokenSearchValueOther == null)
+            {
+                return false;
+            }
+
+            return System.Equals(tokenSearchValueOther.System, StringComparison.OrdinalIgnoreCase) &&
+                   Code.Equals(tokenSearchValueOther.Code, StringComparison.OrdinalIgnoreCase) &&
+                   Text.Equals(tokenSearchValueOther.Text, StringComparison.OrdinalIgnoreCase);
         }
 
         /// <inheritdoc />

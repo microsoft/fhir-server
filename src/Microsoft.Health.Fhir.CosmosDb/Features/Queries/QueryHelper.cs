@@ -5,6 +5,7 @@
 
 using System.Text;
 using EnsureThat;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
 {
@@ -34,7 +35,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
                 .AppendLine(_rootAliasName);
         }
 
-        public void AppendFilterCondition(string logicalOperator, params (string, object)[] conditions)
+        public void AppendFilterCondition(string logicalOperator, bool equal, params (string, object)[] conditions)
         {
             for (int i = 0; i < conditions.Length; i++)
             {
@@ -44,15 +45,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
 
                 (string name, object value) = conditions[i];
 
-                AppendFilterCondition(name, value);
+                AppendFilterCondition(name, value, equal);
             }
         }
 
-        public void AppendFilterCondition(string name, object value)
+        public void AppendFilterCondition(string name, object value, bool equal)
         {
+            string comparison = equal ? " = " : " != ";
             _queryBuilder
                     .Append(_rootAliasName).Append(".").Append(name)
-                    .Append(" = ")
+                    .Append(comparison)
                     .AppendLine(_queryParameterManager.AddOrGetParameterMapping(value));
         }
 
@@ -63,6 +65,23 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
                 .Append(_rootAliasName).Append(".isSystem")
                 .Append(" = ")
                 .AppendLine(_queryParameterManager.AddOrGetParameterMapping(systemDataValue));
+        }
+
+        public void AppendSearchParameterHashFliter(string hashValue)
+        {
+            _queryBuilder
+                .Append("AND")
+                .Append(" (")
+                .Append(_rootAliasName).Append(".")
+                .Append(KnownResourceWrapperProperties.SearchParameterHash)
+                .Append(" != ")
+                .Append(_queryParameterManager.AddOrGetParameterMapping(hashValue))
+                .Append(" OR IS_DEFINED(")
+                .Append(_rootAliasName).Append(".")
+                .Append(KnownResourceWrapperProperties.SearchParameterHash)
+                .Append(") = ")
+                .Append(_queryParameterManager.AddOrGetParameterMapping(false))
+                .Append(")");
         }
     }
 }

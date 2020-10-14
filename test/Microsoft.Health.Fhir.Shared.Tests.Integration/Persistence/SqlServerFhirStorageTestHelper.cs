@@ -8,12 +8,14 @@ using System.Data.SqlClient;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.SqlServer.Dac.Compare;
+using NSubstitute;
 using Polly;
 using Xunit;
 
@@ -131,6 +133,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
+        public Task DeleteAllReindexJobRecordsAsync(CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
         async Task<object> IFhirStorageTestHelper.GetSnapshotToken()
         {
             using (var connection = new SqlConnection(_connectionString))
@@ -191,9 +198,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             var schemaOptions = new SqlServerSchemaOptions { AutomaticUpdatesEnabled = true };
             var config = new SqlServerDataStoreConfiguration { ConnectionString = testConnectionString, Initialize = true, SchemaOptions = schemaOptions };
-            var schemaInformation = new SchemaInformation((int)SchemaVersion.V1, (int)SchemaVersion.V3);
+            var schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
             var scriptProvider = new ScriptProvider<SchemaVersion>();
-            var schemaUpgradeRunner = new SchemaUpgradeRunner(scriptProvider, config, NullLogger<SchemaUpgradeRunner>.Instance);
+            var baseScriptProvider = new BaseScriptProvider();
+            var mediator = Substitute.For<IMediator>();
+            var schemaUpgradeRunner = new SchemaUpgradeRunner(scriptProvider, baseScriptProvider, config, mediator, NullLogger<SchemaUpgradeRunner>.Instance);
 
             return new SchemaInitializer(config, schemaUpgradeRunner, schemaInformation, NullLogger<SchemaInitializer>.Instance);
         }

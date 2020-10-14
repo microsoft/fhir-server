@@ -137,6 +137,12 @@
             "metadata": {
                 "description": "Determines whether export will be enabled for this fhir instance. If true, a storage account will be created as part of the deployment. You will need owner or user-administrator permissions for this."
             }
+        },
+        "sqlSchemaAutomaticUpdatesEnabled": {
+            "type": "bool",
+            "metadata": {
+                "description": "Determine whether the sql schema should be automatically upgraded on server startup. If false, sql schema will not be initialized or upgraded on the server startup. The schema migration tool will be required to perform initialize or upgrade. If true, sql schema will be upgraded to the maximum supported version."
+            }
         }
     },
     "variables": {
@@ -165,6 +171,7 @@
             "FhirServer:Security:Authentication:Audience": "[parameters('securityAuthenticationAudience')]",
             "CosmosDb:ContinuationTokenSizeLimitInKb": "1",
             "SqlServer:Initialize": "true",
+            "SqlServer:SchemaOptions:AutomaticUpdatesEnabled": "[parameters('sqlSchemaAutomaticUpdatesEnabled')]",
             "DataStore": "SqlServer",
             "FhirServer:Operations:Export:Enabled": "[parameters('enableExport')]",
             "FhirServer:Operations:Export:StorageAccountUri": "[if(parameters('enableExport'), concat('https://', variables('storageAccountName'), variables('blobStorageUri')), 'null')]"
@@ -238,11 +245,12 @@
                     "apiVersion": "2015-04-01",
                     "location": "[resourceGroup().location]",
                     "properties": {
-                        "version": "3.1.3"
+                        "version": "3.1.7"
                     },
                     "dependsOn": [
                         "[variables('appServiceResourceId')]",
-                        "[if(variables('deployAppInsights'),concat('Microsoft.Insights/components/', variables('appInsightsName')),resourceId('Microsoft.KeyVault/vaults', variables('serviceName')))]"
+                        "[if(variables('deployAppInsights'),concat('Microsoft.Insights/components/', variables('appInsightsName')),resourceId('Microsoft.KeyVault/vaults', variables('serviceName')))]",
+                        "[resourceId('Microsoft.KeyVault/vaults/secrets', variables('serviceName'), 'SqlServer--ConnectionString')]"
                     ]
                 }
             ]

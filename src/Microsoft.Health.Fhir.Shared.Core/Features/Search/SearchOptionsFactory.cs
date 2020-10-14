@@ -7,13 +7,13 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Text.RegularExpressions;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -25,10 +25,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 {
     public class SearchOptionsFactory : ISearchOptionsFactory
     {
-        private static readonly Regex Base64FormatRegex = new Regex("^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$", RegexOptions.Compiled | RegexOptions.Singleline);
         private static readonly string SupportedTotalTypes = $"'{TotalType.Accurate}', '{TotalType.None}'".ToLower(CultureInfo.CurrentCulture);
 
         private readonly IExpressionParser _expressionParser;
+        private readonly IFhirRequestContextAccessor _contextAccessor;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ILogger _logger;
         private readonly SearchParameterInfo _resourceTypeSearchParameter;
@@ -38,14 +38,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             IExpressionParser expressionParser,
             ISearchParameterDefinitionManager.SearchableSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
             IOptions<CoreFeatureConfiguration> featureConfiguration,
+            IFhirRequestContextAccessor contextAccessor,
             ILogger<SearchOptionsFactory> logger)
         {
             EnsureArg.IsNotNull(expressionParser, nameof(expressionParser));
             EnsureArg.IsNotNull(searchParameterDefinitionManagerResolver, nameof(searchParameterDefinitionManagerResolver));
             EnsureArg.IsNotNull(featureConfiguration?.Value, nameof(featureConfiguration));
+            EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _expressionParser = expressionParser;
+            _contextAccessor = contextAccessor;
             _searchParameterDefinitionManager = searchParameterDefinitionManagerResolver();
             _logger = logger;
             _featureConfiguration = featureConfiguration.Value;
@@ -80,14 +83,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                             string.Format(Core.Resources.MultipleQueryParametersNotAllowed, KnownQueryParameterNames.ContinuationToken));
                     }
 
-                    // Checks if the continuation token is base 64 bit encoded. Needed for systems that have cached continuation tokens from before they were encoded.
-                    if (Base64FormatRegex.IsMatch(query.Item2))
+                    try
                     {
                         continuationToken = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(query.Item2));
                     }
-                    else
+                    catch (FormatException)
                     {
-                        continuationToken = query.Item2;
+                        throw new BadRequestException(Core.Resources.InvalidContinuationToken);
                     }
 
                     setDefaultBundleTotal = false;
@@ -141,8 +143,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             // Check the item count.
             if (searchParams.Count != null)
             {
-                searchOptions.MaxItemCount = searchParams.Count.Value;
+                if (searchParams.Count > _featureConfiguration.MaxItemCountPerSearch)
+                {
+                    searchOptions.MaxItemCount = _featureConfiguration.MaxItemCountPerSearch;
+
+                    _contextAccessor.FhirRequestContext.BundleIssues.Add(
+                        new OperationOutcomeIssue(
+                            OperationOutcomeConstants.IssueSeverity.Information,
+                            OperationOutcomeConstants.IssueType.Informational,
+                            string.Format(Core.Resources.SearchParamaterCountExceedLimit, _featureConfiguration.MaxItemCountPerSearch, searchParams.Count)));
+                }
+                else
+                {
+                    searchOptions.MaxItemCount = searchParams.Count.Value;
+                }
             }
+            else
+            {
+                searchOptions.MaxItemCount = _featureConfiguration.DefaultItemCountPerSearch;
+            }
+
+            searchOptions.IncludeCount = _featureConfiguration.DefaultIncludeCountPerSearch;
 
             // Check to see if only the count should be returned
             searchOptions.CountOnly = searchParams.Summary == SummaryType.Count;
@@ -183,7 +204,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             if (searchParams.Include?.Count > 0)
             {
                 searchExpressions.AddRange(searchParams.Include.Select(
-                    q => _expressionParser.ParseInclude(parsedResourceType.ToString(), q))
+                    q => _expressionParser.ParseInclude(parsedResourceType.ToString(), q, false /* not reversed */))
+                    .Where(item => item != null));
+            }
+
+            if (searchParams.RevInclude?.Count > 0)
+            {
+                searchExpressions.AddRange(searchParams.RevInclude.Select(
+                    q => _expressionParser.ParseInclude(parsedResourceType.ToString(), q, true /* reversed */))
                     .Where(item => item != null));
             }
 

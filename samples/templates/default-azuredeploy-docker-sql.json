@@ -144,6 +144,12 @@
             "metadata": {
                 "description": "Determines whether export will be enabled for this fhir instance. If true, a storage account will be created as part of the deployment. You will need owner or user-administrator permissions for this."
             }
+        },
+        "sqlSchemaAutomaticUpdatesEnabled": {
+            "type": "bool",
+            "metadata": {
+                "description": "Determine whether the sql schema should be automatically upgraded on server startup. If false, sql schema will not be initialized or upgraded on the server startup. The schema migration tool will be required to perform initialize or upgrade. If true, sql schema will be upgraded to the maximum supported version."
+            }
         }
     },
     "variables": {
@@ -170,6 +176,7 @@
             "FhirServer__Security__Authentication__Audience": "[parameters('securityAuthenticationAudience')]",
             "CosmosDb__ContinuationTokenSizeLimitInKb": "1",
             "SqlServer__Initialize": "true",
+            "SqlServer__SchemaOptions__AutomaticUpdatesEnabled": "[parameters('sqlSchemaAutomaticUpdatesEnabled')]",
             "DataStore": "SqlServer",
             "FhirServer__Operations__Export__Enabled": "[parameters('enableExport')]",
             "FhirServer__Operations__Export__StorageAccountUri": "[if(parameters('enableExport'), concat('https://', variables('storageAccountName'), variables('blobStorageUri')), 'null')]"
@@ -229,10 +236,7 @@
                             "name": "WEBSITES_ENABLE_APP_SERVICE_STORAGE",
                             "value": "true"
                         }
-                    ],
-                    "linuxFxVersion": "[concat('DOCKER|', variables('registryName'), '/', toLower(parameters('fhirVersion')), '_fhir-server',':', parameters('imageTag'))]",
-                    "appCommandLine": "azure-fhir-api",
-                    "alwaysOn": true
+                    ]
                 },
                 "serverFarmId": "[resourceId(variables('appServicePlanResourceGroup'), 'Microsoft.Web/serverfarms/', variables('appServicePlanName'))]",
                 "clientAffinityEnabled": false
@@ -247,9 +251,25 @@
                     "type": "config",
                     "dependsOn": [
                         "[variables('appServiceResourceId')]",
-                        "[if(variables('deployAppInsights'),concat('Microsoft.Insights/components/', variables('appInsightsName')),resourceId('Microsoft.KeyVault/vaults', variables('serviceName')))]"
+                        "[if(variables('deployAppInsights'),concat('Microsoft.Insights/components/', variables('appInsightsName')),resourceId('Microsoft.KeyVault/vaults', variables('serviceName')))]",
+                        "[resourceId('Microsoft.KeyVault/vaults/secrets', variables('serviceName'), 'SqlServer--ConnectionString')]"
                     ],
                     "properties": "[if(variables('deployAppInsights'), union(variables('combinedFhirServerConfigProperties'), json(concat('{\"ApplicationInsights__InstrumentationKey\": \"', reference(concat('Microsoft.Insights/components/', variables('appInsightsName'))).InstrumentationKey, '\"}'))), variables('combinedFhirServerConfigProperties'))]"
+                },
+                {
+                    "apiVersion": "2019-08-01",
+                    "name": "web",
+                    "type": "config",
+                    "dependsOn": [
+                        "appsettings",
+                        "[variables('appServiceResourceId')]",
+                        "[if(variables('deployAppInsights'),concat('Microsoft.Insights/components/', variables('appInsightsName')),resourceId('Microsoft.KeyVault/vaults', variables('serviceName')))]"
+                    ],
+                    "properties": {
+                        "linuxFxVersion": "[concat('DOCKER|', variables('registryName'), '/', toLower(parameters('fhirVersion')), '_fhir-server',':', parameters('imageTag'))]",
+                        "appCommandLine": "azure-fhir-api",
+                        "alwaysOn": true
+                    }
                 }
             ]
         },

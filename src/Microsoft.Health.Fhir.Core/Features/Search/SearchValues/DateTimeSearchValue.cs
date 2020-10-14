@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Diagnostics.CodeAnalysis;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -117,6 +118,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
             EnsureArg.IsNotNull(visitor, nameof(visitor));
 
             visitor.Visit(this);
+        }
+
+        public bool Equals([AllowNull] ISearchValue other)
+        {
+            if (other == null)
+            {
+                return false;
+            }
+
+            var dateTimeSearchValueOther = other as DateTimeSearchValue;
+
+            if (dateTimeSearchValueOther == null)
+            {
+                return false;
+            }
+
+            return Start == dateTimeSearchValueOther.Start && End == dateTimeSearchValueOther.End;
         }
 
         /// <inheritdoc />

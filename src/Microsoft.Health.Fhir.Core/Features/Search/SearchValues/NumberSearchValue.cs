@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using EnsureThat;
 
@@ -72,6 +73,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
             EnsureArg.IsNotNull(visitor, nameof(visitor));
 
             visitor.Visit(this);
+        }
+
+        public bool Equals([AllowNull] ISearchValue other)
+        {
+            if (other == null)
+            {
+                return false;
+            }
+
+            var numberSearchValueOther = other as NumberSearchValue;
+
+            if (numberSearchValueOther == null)
+            {
+                return false;
+            }
+
+            return Low == numberSearchValueOther.Low && High == numberSearchValueOther.High;
         }
 
         /// <inheritdoc />

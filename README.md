@@ -27,17 +27,18 @@ This open source project is fully backed by the Microsoft Healthcare team, but w
 
 There is also a managed offering in Azure called the [Azure API for FHIR](https://azure.microsoft.com/services/azure-api-for-fhir/). This Platform as a Service (PaaS) FHIR server is backed by the open source project in this repository and it offers a turn key solution to provisioning a compliant, secure FHIR service.
 
+# Release Notes
+To see what is releasing in the FHIR Server, please refer to the [releases](https://github.com/microsoft/fhir-server/releases) section on GitHub. Starting in November 2020, we have tags on the PRs to better describe what is releasing. We have also released documentation on how to test the most recently build [here](docs/Testing-Releases.md). 
+
 # Documentation
 
-- [Open Source Deployment](https://docs.microsoft.com/en-us/azure/healthcare-apis/fhir-oss-portal-quickstart): Describes how to deploy FHIR Server for Azure.
-- [PaaS Service Deployment](https://docs.microsoft.com/en-us/azure/healthcare-apis/fhir-paas-portal-quickstart): Describes how to deploy Azure API for FHIR.
+- [Open Source Deployment](docs/QuickstartDeployPortal.md): Describes how to deploy FHIR Server for Azure.
 - [FHIR Postman tutorial](https://docs.microsoft.com/en-us/azure/healthcare-apis/access-fhir-postman-tutorial): Describes how to access a FHIR API using Postman.
 - [Azure Active Directory Application Registrations](docs/PortalAppRegistration.md): Describes how to configure Azure Active Directory (AAD) for use with FHIR Server for Azure.
 - [Authentication](docs/Authentication.md): Describes the authentication settings for the FHIR server and how to make use of it in development and test scenarios.
 - [Roles](docs/Roles.md): Describes how the FHIR Server for Azure role-based access control (RBAC) system works.
 - [Search](docs/Search.md): Describes how search is implemented for the FHIR Server for Azure.
 - [Debugging](docs/HowToDebug.md): Describes how to debug FHIR Server for Azure using Visual Studio.
-- [Testing with Postman](docs/PostmanTesting.md): Describes how to use Postman for testing FHIR Server for Azure.
 - [Sql Schema Migration Guide](docs/SchemaMigrationGuide.md): Describes how to upgrade Schema for Sql Server.
 
 ## More Information

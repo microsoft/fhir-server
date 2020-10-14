@@ -277,6 +277,9 @@
   <data name="MultipleQueryParametersNotAllowed" xml:space="preserve">
     <value>Query parameter '{0}' cannot be specified more than once.</value>
   </data>
+  <data name="NoSearchParametersNeededToBeIndexed" xml:space="preserve">
+    <value>No search parameters found needing to be indexed.  Job cancelled.</value>
+  </data>
   <data name="NumberOfCompositeComponentsExceeded" xml:space="preserve">
     <value>The number of composite components specified for search parameter '{0}' exceeded the number of components defined.</value>
   </data>
@@ -338,6 +341,9 @@
   <data name="SearchComparatorNotSupported" xml:space="preserve">
     <value>Comparator is not supported when multiple values are specified using OR search parameter.</value>
   </data>
+  <data name="SearchParamaterCountExceedLimit" xml:space="preserve">
+    <value>The '_count' parameter exceeds limit configured for server. Current limit is {0} while `_count` parameter set to {1}.</value>
+  </data>
   <data name="SearchParameterByDefinitionUriNotSupported" xml:space="preserve">
     <value>The search parameter with definition URL '{0}' is not supported.</value>
   </data>
@@ -374,6 +380,9 @@
   <data name="SearchParameterNotSupported" xml:space="preserve">
     <value>The search parameter '{0}' is not supported for resource type '{1}'.</value>
   </data>
+  <data name="MultiSortParameterNotSupported" xml:space="preserve">
+    <value>Multiple sort parameters are currently not supported. Only a single sort parameter is supported.</value>
+  </data>
   <data name="SearchSortParameterNotSupported" xml:space="preserve">
     <value>The search sort parameter '{0}' is not supported.</value>
     <comment>{0}: the unsupported sort parameter</comment>
@@ -383,6 +392,9 @@
   </data>
   <data name="SortNotSupported" xml:space="preserve">
     <value>The _sort parameter is not supported.</value>
+  </data>
+  <data name="TruncatedIncludeMessage" xml:space="preserve">
+    <value>Include result was truncated</value>
   </data>
   <data name="TypeNotPresent" xml:space="preserve">
     <value>Bundle type is not present. Possible values are: transaction or batch</value>
@@ -421,5 +433,13 @@
   </data>
   <data name="WeakETagFormatRequired" xml:space="preserve">
     <value>WeakETag must be in the weak ETag format.</value>
+  </data>
+  <data name="SearchParameterNoLongerSupported" xml:space="preserve">
+    <value>Search parameter {0} is no longer supported and cannot be marked enabled.</value>
+    <comment>{0}; the name of the search parameter which is no longer supported</comment>
+  </data>
+  <data name="ReindexJobInCompletedState" xml:space="preserve">
+    <value>Reindex job id {0} is in state {1} and cannot be cancelled.</value>
+    <comment>{0} is the id of the reindex which is a a GUID.  {1} is the state, an enumerated set of state values.</comment>
   </data>
 </root>

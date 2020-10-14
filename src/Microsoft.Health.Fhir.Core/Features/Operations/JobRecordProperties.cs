@@ -90,5 +90,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public const string Resources = "resources";
 
         public const string SearchParams = "searchParams";
+
+        public const string AnonymizationConfigurationLocation = "anonymizationConfigurationLocation";
+
+        public const string AnonymizationConfigurationFileETag = "anonymizationConfigurationFileHash";
+
+        public const string ContinuationToken = "continuationToken";
+
+        public const string GroupId = "groupId";
+
+        public const string StorageAccountContainerName = "storageAccountContainerName";
+
+        public const string ResourceTypeSearchParameterHashMap = "resourceTypeSearchParameterHashMap";
     }
 }

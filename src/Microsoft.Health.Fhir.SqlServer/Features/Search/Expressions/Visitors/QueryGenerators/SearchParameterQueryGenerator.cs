@@ -35,6 +35,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             return expression.Expression.AcceptVisitor(this, context);
         }
 
+        public override SearchParameterQueryGeneratorContext VisitSortParameter(SortExpression expression, SearchParameterQueryGeneratorContext context)
+        {
+            short searchParamId = context.Model.GetSearchParamId(expression.Parameter.Url);
+            var searchParamIdColumn = VLatest.SearchParam.SearchParamId;
+
+            context.StringBuilder
+                .Append(searchParamIdColumn, context.TableAlias)
+                .Append(" = ")
+                .AppendLine(context.Parameters.AddParameter(searchParamIdColumn, searchParamId).ParameterName);
+
+            return context;
+        }
+
         public override SearchParameterQueryGeneratorContext VisitMissingSearchParameter(MissingSearchParameterExpression expression, SearchParameterQueryGeneratorContext context)
         {
             Debug.Assert(!expression.IsMissing, "IsMissing=true expressions should have been rewritten");

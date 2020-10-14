@@ -22,6 +22,15 @@ serviceAccount:
   # If not set and create is true, a name is generated using the fullname template
   name:
 
+podIdentity:
+  enabled: false
+  # identityClientId: my-id
+  # identityResourceId: my-identity-resource-id
+
+export:
+  enabled: false
+  blobStorageUri: https://mystorageaccount.blob.core.windows.net
+
 podSecurityContext: {}
   # fsGroup: 2000
 
@@ -54,6 +63,8 @@ database:
     # More at https://godoc.org/github.com/Azure/azure-sdk-for-go/services/preview/sql/mgmt/2015-05-01-preview/sql#DatabaseEdition
     edition: 5
     maxPoolSize: 100
+    schema:
+      automaticUpdatesEnabled: false
   cosmosDb:
     initialCollectionThroughput: "400"
     # databaseId: health

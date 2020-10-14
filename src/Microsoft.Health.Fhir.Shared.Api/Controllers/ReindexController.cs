@@ -14,8 +14,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
-using Microsoft.Health.Fhir.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Api.Features.Routing;
@@ -25,6 +25,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Messages.Reindex;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
 
@@ -81,6 +82,21 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 .SetLastModifiedHeader();
 
             result.SetContentLocationHeader(_urlResolver, OperationsConstants.Reindex, response.Id);
+            return result;
+        }
+
+        [HttpPost]
+        [HttpGet]
+        [Route(KnownRoutes.ReindexSingleResource)]
+        [AuditEventType(AuditEventSubType.Reindex)]
+        public async Task<IActionResult> ReindexSingleResource(string typeParameter, string idParameter)
+        {
+            CheckIfReindexIsEnabledAndRespond();
+
+            ReindexSingleResourceResponse response = await _mediator.SendReindexSingleResourceRequestAsync(Request.Method, typeParameter, idParameter, HttpContext.RequestAborted);
+
+            var result = FhirResult.Create(response.ParameterResource, HttpStatusCode.OK);
+
             return result;
         }
 

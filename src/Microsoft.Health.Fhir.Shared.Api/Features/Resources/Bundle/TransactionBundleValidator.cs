@@ -32,10 +32,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         /// <summary>
         /// This method validates if transaction bundle contains multiple entries that are modifying the same resource.
         /// It also validates if the request operations within a entry is a valid operation.
+        /// If a conditional create or update is executed and a resource exists, the value is populated in the idDictionary.
         /// </summary>
         /// <param name="bundle"> The input bundle</param>
+        /// <param name="idDictionary">The id dictionary that stores fullUrl to actual ids.</param>
         /// <param name="cancellationToken"> The cancellation token</param>
-        public async Task ValidateBundle(Hl7.Fhir.Model.Bundle bundle, CancellationToken cancellationToken)
+        public async Task ValidateBundle(Hl7.Fhir.Model.Bundle bundle, IDictionary<string, (string resourceId, string resourceType)> idDictionary, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(bundle, nameof(bundle));
 
@@ -45,7 +47,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             {
                 if (ShouldValidateBundleEntry(entry))
                 {
-                    string resourceId = await GetResourceId(entry, cancellationToken);
+                    string resourceId = await GetResourceId(entry, idDictionary, cancellationToken);
                     string conditionalCreateQuery = entry.Request.IfNoneExist;
 
                     if (!string.IsNullOrEmpty(resourceId))
@@ -68,50 +70,45 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             return string.IsNullOrWhiteSpace(conditionalCreateQuery) ? entry.Request.Url : entry.Request.Url + "?" + conditionalCreateQuery;
         }
 
-        private async Task<string> GetResourceId(EntryComponent entry, CancellationToken cancellationToken)
+        private async Task<string> GetResourceId(EntryComponent entry, IDictionary<string, (string resourceId, string resourceType)> idDictionary, CancellationToken cancellationToken)
         {
+            // If there is no search or conditional operations, then use the FullUrl for posts and the request url otherwise
             if (string.IsNullOrWhiteSpace(entry.Request.IfNoneExist) && !entry.Request.Url.Contains("?", StringComparison.Ordinal))
             {
-                if (entry.Request.Method == HTTPVerb.POST)
-                {
-                    return entry.FullUrl;
-                }
-
-                return entry.Request.Url;
+                return entry.Request.Method == HTTPVerb.POST ? entry.FullUrl : entry.Request.Url;
             }
-            else
+
+            string resourceType = null;
+            StringValues conditionalQueries;
+
+            if (entry.Request.Method == HTTPVerb.PUT)
             {
-                string resourceType = null;
-                StringValues conditionalQueries;
-                HTTPVerb requestMethod = (HTTPVerb)entry.Request.Method;
-                bool conditionalCreate = requestMethod == HTTPVerb.POST;
-                bool condtionalUpdate = requestMethod == HTTPVerb.PUT;
+                string[] conditionalUpdate = entry.Request.Url.Split('?');
+                resourceType = conditionalUpdate[0];
+                conditionalQueries = conditionalUpdate[1];
+            }
+            else if (entry.Request.Method == HTTPVerb.POST)
+            {
+                resourceType = entry.Request.Url;
+                conditionalQueries = entry.Request.IfNoneExist;
+            }
 
-                if (condtionalUpdate)
-                {
-                    string[] conditinalUpdateParameters = entry.Request.Url.Split("?");
-                    resourceType = conditinalUpdateParameters[0];
-                    conditionalQueries = conditinalUpdateParameters[1];
-                }
-                else if (conditionalCreate)
-                {
-                    resourceType = entry.Request.Url;
-                    conditionalQueries = entry.Request.IfNoneExist;
-                }
+            IReadOnlyCollection<SearchResultEntry> matchedResults = await _referenceResolver.GetExistingResourceId(entry.Request.Url, resourceType, conditionalQueries, cancellationToken);
 
-                IReadOnlyCollection<SearchResultEntry> matchedResults = await _referenceResolver.GetExistingResourceId(entry.Request.Url, resourceType, conditionalQueries, cancellationToken);
-                int? count = matchedResults?.Count;
-
-                if (count > 1)
+            if (matchedResults?.Count > 1)
+            {
+                // Multiple matches: The server returns a 412 Precondition Failed error indicating the client's criteria were not selective enought
+                throw new PreconditionFailedException(string.Format(Api.Resources.ConditionalOperationInBundleNotSelectiveEnough, conditionalQueries));
+            }
+            else if (matchedResults?.Count == 1)
+            {
+                // If this entry has a fullUrl, then save it to the idDictionary for matching later
+                if (!string.IsNullOrWhiteSpace(entry.FullUrl))
                 {
-                    // Multiple matches: The server returns a 412 Precondition Failed error indicating the client's criteria were not selective enough
-                    throw new PreconditionFailedException(string.Format(Api.Resources.ConditionalOperationInBundleNotSelectiveEnough, conditionalQueries));
+                    idDictionary.Add(entry.FullUrl, (matchedResults.First().Resource.ResourceId, entry.Resource.TypeName));
                 }
 
-                if (count == 1)
-                {
-                    return entry.Resource.TypeName + "/" + matchedResults.First().Resource.ResourceId;
-                }
+                return entry.Resource.TypeName + "/" + matchedResults.First().Resource.ResourceId;
             }
 
             return string.Empty;

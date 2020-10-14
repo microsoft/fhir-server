@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using System.Globalization;
@@ -25,6 +26,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Client;
+using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Storage;
 using Microsoft.IO;
 using Task = System.Threading.Tasks.Task;
@@ -41,36 +43,40 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly SqlServerDataStoreConfiguration _configuration;
         private readonly SqlServerFhirModel _model;
         private readonly SearchParameterToSearchValueTypeMap _searchParameterTypeMap;
-        private readonly VLatest.UpsertResourceTvpGenerator<ResourceMetadata> _upsertResourceTvpGenerator;
+        private readonly VLatest.UpsertResourceTvpGenerator<ResourceMetadata> _upsertResourceTvpGeneratorVLatest;
         private readonly RecyclableMemoryStreamManager _memoryStreamManager;
         private readonly CoreFeatureConfiguration _coreFeatures;
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private readonly ILogger<SqlServerFhirDataStore> _logger;
+        private readonly SchemaInformation _schemaInformation;
 
         public SqlServerFhirDataStore(
             SqlServerDataStoreConfiguration configuration,
             SqlServerFhirModel model,
             SearchParameterToSearchValueTypeMap searchParameterTypeMap,
-            VLatest.UpsertResourceTvpGenerator<ResourceMetadata> upsertResourceTvpGenerator,
+            VLatest.UpsertResourceTvpGenerator<ResourceMetadata> upsertResourceTvpGeneratorVLatest,
             IOptions<CoreFeatureConfiguration> coreFeatures,
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
-            ILogger<SqlServerFhirDataStore> logger)
+            ILogger<SqlServerFhirDataStore> logger,
+            SchemaInformation schemaInformation)
         {
             EnsureArg.IsNotNull(configuration, nameof(configuration));
             EnsureArg.IsNotNull(model, nameof(model));
             EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));
-            EnsureArg.IsNotNull(upsertResourceTvpGenerator, nameof(upsertResourceTvpGenerator));
+            EnsureArg.IsNotNull(upsertResourceTvpGeneratorVLatest, nameof(upsertResourceTvpGeneratorVLatest));
             EnsureArg.IsNotNull(coreFeatures, nameof(coreFeatures));
             EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
 
             _configuration = configuration;
             _model = model;
             _searchParameterTypeMap = searchParameterTypeMap;
-            _upsertResourceTvpGenerator = upsertResourceTvpGenerator;
+            _upsertResourceTvpGeneratorVLatest = upsertResourceTvpGeneratorVLatest;
             _coreFeatures = coreFeatures.Value;
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _logger = logger;
+            _schemaInformation = schemaInformation;
 
             _memoryStreamManager = new RecyclableMemoryStreamManager();
         }
@@ -101,17 +107,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 stream.Seek(0, 0);
 
                 VLatest.UpsertResource.PopulateCommand(
-                    sqlCommandWrapper,
-                    baseResourceSurrogateId: ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.UtcDateTime),
-                    resourceTypeId: _model.GetResourceTypeId(resource.ResourceTypeName),
-                    resourceId: resource.ResourceId,
-                    eTag: weakETag == null ? null : (int?)etag,
-                    allowCreate: allowCreate,
-                    isDeleted: resource.IsDeleted,
-                    keepHistory: keepHistory,
-                    requestMethod: resource.Request.Method,
-                    rawResource: stream,
-                    tableValuedParameters: _upsertResourceTvpGenerator.Generate(resourceMetadata));
+                sqlCommandWrapper,
+                baseResourceSurrogateId: ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.UtcDateTime),
+                resourceTypeId: _model.GetResourceTypeId(resource.ResourceTypeName),
+                resourceId: resource.ResourceId,
+                eTag: weakETag == null ? null : (int?)etag,
+                allowCreate: allowCreate,
+                isDeleted: resource.IsDeleted,
+                keepHistory: keepHistory,
+                requestMethod: resource.Request.Method,
+                rawResource: stream,
+                tableValuedParameters: _upsertResourceTvpGeneratorVLatest.Generate(resourceMetadata));
 
                 try
                 {
@@ -197,20 +203,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             rawResource = await reader.ReadToEndAsync();
                         }
 
+                        bool isRawResourceMetaSet = false;
+
+                        if (_schemaInformation.Current >= 4)
+                        {
+                            isRawResourceMetaSet = sqlDataReader.Read(resourceTable.IsRawResourceMetaSet, 5);
+                        }
+
                         return new ResourceWrapper(
                             key.Id,
                             version.ToString(CultureInfo.InvariantCulture),
                             key.ResourceType,
-                            new RawResource(rawResource, FhirResourceFormat.Json),
+                            new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
                             null,
                             new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
                             isDeleted,
                             searchIndices: null,
                             compartmentIndices: null,
                             lastModifiedClaims: null)
-                        {
-                            IsHistory = isHistory,
-                        };
+                            {
+                                IsHistory = isHistory,
+                            };
                     }
                 }
             }
@@ -224,6 +237,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 VLatest.HardDeleteResource.PopulateCommand(sqlCommandWrapper, resourceTypeId: _model.GetResourceTypeId(key.ResourceType), resourceId: key.Id);
 
                 await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+            }
+        }
+
+        public async Task UpdateSearchParameterHashBatchAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken)
+        {
+            // TODO: use bach command to update only hash values for list updateHashValueOnly
+            // this is a place holder update until we batch update resources
+            foreach (var resource in resources)
+            {
+                await UpsertAsync(resource, WeakETag.FromVersionId(resource.Version), false, true, cancellationToken);
+            }
+        }
+
+        public async Task UpdateSearchParameterIndicesBatchAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken)
+        {
+            // TODO: use batch command to update both hash values and search index values for list updateSearchIndices
+
+            // this is a place holder update until we batch update resources
+            foreach (var resource in resources)
+            {
+                await UpsertAsync(resource, WeakETag.FromVersionId(resource.Version), false, true, cancellationToken);
             }
         }
 
@@ -246,6 +280,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 // Transaction supported added in listedCapability
                 builder.AddRestInteraction(SystemRestfulInteraction.Transaction);
             }
+        }
+
+        public Task<ResourceWrapper> UpdateSearchIndexForResourceAsync(ResourceWrapper resourceWrapper, WeakETag weakETag, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
         }
     }
 }

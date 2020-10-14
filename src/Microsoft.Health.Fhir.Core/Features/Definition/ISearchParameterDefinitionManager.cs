@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
 
@@ -24,6 +23,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         /// Gets the list of all search parameters.
         /// </summary>
         IEnumerable<SearchParameterInfo> AllSearchParameters { get; }
+
+        /// <summary>
+        /// Represents a mapping of resource type to a hash of the search parameters
+        /// currently supported for that resource type.
+        /// </summary>
+        IReadOnlyDictionary<string, string> SearchParameterHashMap { get; }
 
         /// <summary>
         /// Gets list of search parameters for the given <paramref name="resourceType"/>.
@@ -64,5 +69,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         /// <param name="componentIndex">The optional component index if the search parameter is a composite</param>
         /// <returns>The search parameter type.</returns>
         SearchParamType GetSearchParameterType(SearchParameterInfo searchParameter, int? componentIndex);
+
+        /// <summary>
+        /// Updates the existing resource type - search parameter hash mapping with the given new values.
+        /// </summary>
+        /// <param name="updatedSearchParamHashMap">Dictionary containing resource type to search parameter hash values</param>
+        public void UpdateSearchParameterHashMap(Dictionary<string, string> updatedSearchParamHashMap);
+
+        /// <summary>
+        /// Gets the hash of the current search parameters that are supported for the given resource type.
+        /// </summary>
+        /// <param name="resourceType">Resource type for which we need the hash of search parameters.</param>
+        /// <returns>A string representing a hash of the search parameters.</returns>
+        public string GetSearchParameterHashForResourceType(string resourceType);
     }
 }

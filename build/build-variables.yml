@@ -19,7 +19,6 @@ variables:
   TestEnvironmentUrl_R5: 'https://$(DeploymentEnvironmentName)-r5.azurewebsites.net'
   TestEnvironmentUrl_R5_Sql: 'https://$(DeploymentEnvironmentName)-r5-sql.azurewebsites.net'
   #-----------------------------------------------------------------------------------------
-  CrucibleEnvironmentUrl: 'https://crucible.mshapis.com/'
   TestClientUrl: 'https://$(DeploymentEnvironmentName)-client/'
   ConnectedServiceName: 'Microsoft Health Open Source Subscription'
   WindowsVmImage: 'windows-latest'
