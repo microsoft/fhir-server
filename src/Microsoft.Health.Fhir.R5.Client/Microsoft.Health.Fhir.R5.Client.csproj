@@ -6,7 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Ensure.That" Version="9.2.0" />
-    <PackageReference Include="Hl7.Fhir.R5" Version="1.10.0-alpha-20200811-1" />
+    <PackageReference Include="Hl7.Fhir.R5" Version="2.0.0-beta2" />
     <PackageReference Include="Microsoft.Azure.Services.AppAuthentication" Version="1.5.0" />
     <PackageReference Include="Microsoft.Health.Client" Version="1.0.0-master-20200910-2" />
     <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" Version="6.5.1" />
