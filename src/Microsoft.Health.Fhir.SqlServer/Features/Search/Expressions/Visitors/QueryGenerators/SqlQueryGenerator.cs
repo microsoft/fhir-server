@@ -5,12 +5,15 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using EnsureThat;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer;
+using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
@@ -22,20 +25,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private readonly bool _isHistorySearch;
         private int _tableExpressionCounter = -1;
         private SqlRootExpression _rootExpression;
-        private const int MaxIncludedItems = 100;
+        private readonly SchemaInformation _schemaInfo;
 
         private HashSet<int> _cteToLimit = new HashSet<int>();
 
-        public SqlQueryGenerator(IndentedStringBuilder sb, SqlQueryParameterManager parameters, SqlServerFhirModel model, bool isHistorySearch)
+        public SqlQueryGenerator(IndentedStringBuilder sb, SqlQueryParameterManager parameters, SqlServerFhirModel model, bool isHistorySearch, SchemaInformation schemaInfo)
         {
             EnsureArg.IsNotNull(sb, nameof(sb));
             EnsureArg.IsNotNull(parameters, nameof(parameters));
             EnsureArg.IsNotNull(model, nameof(model));
+            EnsureArg.IsNotNull(schemaInfo, nameof(schemaInfo));
 
             StringBuilder = sb;
             Parameters = parameters;
             Model = model;
             _isHistorySearch = isHistorySearch;
+            _schemaInfo = schemaInfo;
         }
 
         public IndentedStringBuilder StringBuilder { get; }
@@ -73,6 +78,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
 
             string resourceTableAlias = "r";
+            var (searchParamInfo, sortOrder) = searchOptions.GetFirstSupportedSortParam();
 
             if (searchOptions.CountOnly)
             {
@@ -98,7 +104,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 StringBuilder.Append(expression.TableExpressions.Count > 0 ? "CAST(IsMatch AS bit) AS IsMatch, " : "CAST(1 AS bit) AS IsMatch, ");
                 StringBuilder.Append(expression.TableExpressions.Count > 0 ? "CAST(IsPartial AS bit) AS IsPartial, " : "CAST(0 AS bit) AS IsPartial, ");
 
-                StringBuilder.AppendLine(VLatest.Resource.RawResource, resourceTableAlias);
+                if (_schemaInfo.Current > 3)
+                {
+                    // IsRawResourceMetaSet column was added in V4
+                    StringBuilder.Append(VLatest.Resource.IsRawResourceMetaSet, resourceTableAlias).Append(", ");
+                }
+                else
+                {
+                    StringBuilder.Append("CAST(0 AS bit) AS IsRawResourceMetaSet, ");
+                }
+
+                StringBuilder.Append(VLatest.Resource.RawResource, resourceTableAlias);
+                if (searchParamInfo != null && searchParamInfo.Name != KnownQueryParameterNames.LastUpdated)
+                {
+                    StringBuilder.Append(", ").Append(TableExpressionName(_tableExpressionCounter)).Append(".SortValue");
+                }
+
+                StringBuilder.AppendLine();
             }
 
             StringBuilder.Append("FROM ").Append(VLatest.Resource).Append(" ").AppendLine(resourceTableAlias);
@@ -126,11 +148,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             if (!searchOptions.CountOnly)
             {
-                var sortOrder = searchOptions.GetFirstSortOrderForSupportedParam();
-
-                StringBuilder.Append("ORDER BY ")
+                StringBuilder.Append("ORDER BY ");
+                if (searchParamInfo == null || searchParamInfo.Name == KnownQueryParameterNames.LastUpdated)
+                {
+                    StringBuilder
                     .Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).Append(" ")
                     .AppendLine(sortOrder == SortOrder.Ascending ? "ASC" : "DESC");
+                }
+                else
+                {
+                    StringBuilder
+                    .Append($"{TableExpressionName(_tableExpressionCounter)}.SortValue ")
+                    .Append(sortOrder == SortOrder.Ascending ? "ASC" : "DESC").Append(", ")
+                    .Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).AppendLine(" ASC ");
+                }
             }
 
             StringBuilder.Append("OPTION(RECOMPILE)");
@@ -241,12 +272,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     break;
 
                 case TableExpressionKind.Top:
-                    var sortOrder = context.GetFirstSortOrderForSupportedParam();
+                    var (paramInfo, sortOrder) = context.GetFirstSupportedSortParam();
+                    var tableExpressionName = TableExpressionName(_tableExpressionCounter - 1);
+                    var sortExpression = (paramInfo == null || paramInfo.Name == KnownQueryParameterNames.LastUpdated) ? null : $"{tableExpressionName}.SortValue";
 
                     // Everything in the top expression is considered a match
-                    StringBuilder.Append("SELECT DISTINCT TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1)).AppendLine(") Sid1, 1 AS IsMatch, 0 AS IsPartial ")
-                        .Append("FROM ").AppendLine(TableExpressionName(_tableExpressionCounter - 1))
-                        .AppendLine($"ORDER BY Sid1 {(sortOrder == SortOrder.Ascending ? "ASC" : "DESC")}");
+                    StringBuilder.Append("SELECT DISTINCT TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1)).Append(") Sid1, 1 AS IsMatch, 0 AS IsPartial ")
+                        .AppendLine(sortExpression == null ? string.Empty : $", {sortExpression}")
+                        .Append("FROM ").AppendLine(tableExpressionName)
+                        .AppendLine($"ORDER BY {(sortExpression == null ? string.Empty : $"{sortExpression} {(sortOrder == SortOrder.Ascending ? "ASC" : "DESC")}, ")} Sid1 {((sortExpression != null || sortOrder == SortOrder.Ascending) ? "ASC" : "DESC")}");
 
                     // For any includes, the source of the resource surrogate ids to join on is saved
                     _cteMainSelect = TableExpressionName(_tableExpressionCounter);
@@ -353,7 +387,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     {
                         // In case its revinclude, we limit the number of returned items as the resultset size is potentially
                         // unbounded. we ask for +1 so in the limit expression we know if to mark at truncated...
-                        StringBuilder.Append("TOP (").Append(Parameters.AddParameter(MaxIncludedItems + 1)).Append(") ");
+                        StringBuilder.Append("TOP (").Append(Parameters.AddParameter(context.IncludeCount + 1)).Append(") ");
                     }
 
                     var table = !includeExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias;
@@ -393,6 +427,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ResourceTypeId, table)
                             .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.ResourceTypeId, Model.GetResourceTypeId(includeExpression.ResourceType)));
 
+                        if (includeExpression.Reversed)
+                        {
+                            delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ResourceTypeId, referenceSourceTableAlias)
+                                .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.ResourceTypeId, Model.GetResourceTypeId(includeExpression.SourceResourceType)));
+                        }
+
                         // Limit the join to the main select CTE.
                         // The main select will have max+1 items in the result set to account for paging, so we only want to join using the max amount.
                         delimited.BeginDelimitedElement().Append(VLatest.Resource.ResourceSurrogateId, table)
@@ -422,7 +462,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     {
                         // the related cte is a reverse include, limit the number of returned items and count to
                         // see if we are over the threshold (to produce a warning to the client)
-                        StringBuilder.Append("TOP (").Append(Parameters.AddParameter(MaxIncludedItems)).Append(") ");
+                        StringBuilder.Append("TOP (").Append(Parameters.AddParameter(context.IncludeCount)).Append(") ");
                     }
 
                     StringBuilder.Append("Sid1, IsMatch, ");
@@ -430,7 +470,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     if (isRev)
                     {
                         StringBuilder.Append("CASE WHEN count(*) over() > ")
-                        .Append(Parameters.AddParameter(MaxIncludedItems))
+                        .Append(Parameters.AddParameter(context.IncludeCount))
                         .AppendLine(" THEN 1 ELSE 0 END AS IsPartial ");
                     }
                     else
@@ -456,7 +496,69 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     }
 
                     break;
+                case TableExpressionKind.Sort:
+                    if (tableExpression.ChainLevel != 0)
+                    {
+                        throw new InvalidOperationException("Multiple chain level is not possible.");
+                    }
 
+                    var (searchParamInfo, searchSort) = context.GetFirstSupportedSortParam();
+                    var continuationToken = ContinuationToken.FromString(context.ContinuationToken);
+                    object sortValue = null;
+                    Health.SqlServer.Features.Schema.Model.Column sortColumnName = default(Health.SqlServer.Features.Schema.Model.Column);
+
+                    if (searchParamInfo.Type == ValueSets.SearchParamType.Date)
+                    {
+                        sortColumnName = VLatest.DateTimeSearchParam.StartDateTime;
+
+                        if (continuationToken != null)
+                        {
+                            DateTime dateSortValue;
+                            if (DateTime.TryParseExact(continuationToken.SortValue, "o", null, DateTimeStyles.None, out dateSortValue))
+                            {
+                                sortValue = dateSortValue;
+                            }
+                        }
+                    }
+
+                    if (!string.IsNullOrEmpty(sortColumnName) && tableExpression.SearchParameterQueryGenerator != null)
+                    {
+                        StringBuilder.Append("SELECT ").Append(VLatest.Resource.ResourceSurrogateId, null).Append(" AS Sid1, ")
+                            .Append(sortColumnName, null).AppendLine(" as SortValue")
+                            .Append("FROM ").AppendLine(tableExpression.SearchParameterQueryGenerator.Table);
+
+                        using (var delimited = StringBuilder.BeginDelimitedWhereClause())
+                        {
+                            AppendHistoryClause(delimited);
+
+                            if (tableExpression.DenormalizedPredicate != null)
+                            {
+                                delimited.BeginDelimitedElement();
+                                tableExpression.DenormalizedPredicate?.AcceptVisitor(DispatchingDenormalizedSearchParameterQueryGenerator.Instance, GetContext());
+                            }
+
+                            if (tableExpression.NormalizedPredicate != null)
+                            {
+                                delimited.BeginDelimitedElement();
+                                tableExpression.NormalizedPredicate.AcceptVisitor(tableExpression.SearchParameterQueryGenerator, GetContext());
+                            }
+
+                            // if continuation token exists, add it to the query
+                            if (continuationToken != null)
+                            {
+                                var sortOperand = searchSort == SortOrder.Ascending ? ">" : "<";
+
+                                delimited.BeginDelimitedElement();
+                                StringBuilder.Append("((").Append(sortColumnName, null).Append($" = ").Append(Parameters.AddParameter(sortColumnName, sortValue));
+                                StringBuilder.Append(" AND ").Append(VLatest.Resource.ResourceSurrogateId, null).Append($" >= ").Append(Parameters.AddParameter(VLatest.Resource.ResourceSurrogateId, continuationToken.ResourceSurrogateId)).Append(")");
+                                StringBuilder.Append(" OR ").Append(sortColumnName, null).Append($" {sortOperand} ").Append(Parameters.AddParameter(sortColumnName, sortValue)).AppendLine(")");
+                            }
+
+                            AppendIntersectionWithPredecessor(delimited, tableExpression);
+                        }
+                    }
+
+                    break;
                 default:
                     throw new ArgumentOutOfRangeException(tableExpression.Kind.ToString());
             }
@@ -494,10 +596,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     case TableExpressionKind.NotExists:
                     case TableExpressionKind.Normal:
                     case TableExpressionKind.Chain:
+                    case TableExpressionKind.Top:
                         return currentIndex - 1;
                     case TableExpressionKind.Concatenation:
                         return FindImpl(currentIndex - 1);
-
+                    case TableExpressionKind.Sort:
+                        return currentIndex - 1;
                     default:
                         throw new ArgumentOutOfRangeException(currentTableExpression.Kind.ToString());
                 }

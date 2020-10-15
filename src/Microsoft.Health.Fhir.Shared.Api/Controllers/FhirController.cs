@@ -147,7 +147,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.Create)]
         public async Task<IActionResult> Create([FromBody] Resource resource)
         {
-            ResourceElement response = await _mediator.CreateResourceAsync(resource.ToResourceElement(), HttpContext.RequestAborted);
+            RawResourceElement response = await _mediator.CreateResourceAsync(resource.ToResourceElement(), HttpContext.RequestAborted);
 
             return FhirResult.Create(response, HttpStatusCode.Created)
                 .SetETagHeader()
@@ -177,7 +177,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 return Ok();
             }
 
-            ResourceElement response = createResponse.Outcome.Resource;
+            RawResourceElement response = createResponse.Outcome.RawResourceElement;
 
             return FhirResult.Create(response, HttpStatusCode.Created)
                 .SetETagHeader()
@@ -226,17 +226,17 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             switch (saveOutcome.Outcome)
             {
                 case SaveOutcomeType.Created:
-                    return FhirResult.Create(saveOutcome.Resource, HttpStatusCode.Created)
+                    return FhirResult.Create(saveOutcome.RawResourceElement, HttpStatusCode.Created)
                         .SetETagHeader()
                         .SetLastModifiedHeader()
                         .SetLocationHeader(_urlResolver);
                 case SaveOutcomeType.Updated:
-                    return FhirResult.Create(saveOutcome.Resource, HttpStatusCode.OK)
+                    return FhirResult.Create(saveOutcome.RawResourceElement, HttpStatusCode.OK)
                         .SetETagHeader()
                         .SetLastModifiedHeader();
             }
 
-            return FhirResult.Create(saveOutcome.Resource, HttpStatusCode.BadRequest);
+            return FhirResult.Create(saveOutcome.RawResourceElement, HttpStatusCode.BadRequest);
         }
 
         /// <summary>
@@ -249,7 +249,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.Read)]
         public async Task<IActionResult> Read(string typeParameter, string idParameter)
         {
-            ResourceElement response = await _mediator.GetResourceAsync(new ResourceKey(typeParameter, idParameter), HttpContext.RequestAborted);
+            RawResourceElement response = await _mediator.GetResourceAsync(new ResourceKey(typeParameter, idParameter), HttpContext.RequestAborted);
 
             return FhirResult.Create(response)
                 .SetETagHeader()
@@ -342,7 +342,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.VRead)]
         public async Task<IActionResult> VRead(string typeParameter, string idParameter, string vidParameter)
         {
-            ResourceElement response = await _mediator.GetResourceAsync(new ResourceKey(typeParameter, idParameter, vidParameter), HttpContext.RequestAborted);
+            RawResourceElement response = await _mediator.GetResourceAsync(new ResourceKey(typeParameter, idParameter, vidParameter), HttpContext.RequestAborted);
 
             return FhirResult.Create(response, HttpStatusCode.OK)
                 .SetETagHeader()

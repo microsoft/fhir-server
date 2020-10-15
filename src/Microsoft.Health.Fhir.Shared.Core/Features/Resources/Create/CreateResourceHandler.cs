@@ -18,6 +18,7 @@ using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
 {
@@ -57,8 +58,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
 
             await _referenceResolver.ResolveReferencesAsync(resource, _referenceIdDictionary, resource.ResourceType.ToString(), cancellationToken);
 
-            ResourceWrapper resourceWrapper = CreateResourceWrapper(resource, deleted: false);
-
+            ResourceWrapper resourceWrapper = CreateResourceWrapper(resource, deleted: false, keepMeta: true);
             bool keepHistory = await ConformanceProvider.Value.CanKeepHistory(resource.TypeName, cancellationToken);
 
             UpsertOutcome result = await FhirDataStore.UpsertAsync(
@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
 
             resource.VersionId = result.Wrapper.Version;
 
-            return new UpsertResourceResponse(new SaveOutcome(resource.ToResourceElement(), SaveOutcomeType.Created));
+            return new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(result.Wrapper), SaveOutcomeType.Created));
         }
     }
 }

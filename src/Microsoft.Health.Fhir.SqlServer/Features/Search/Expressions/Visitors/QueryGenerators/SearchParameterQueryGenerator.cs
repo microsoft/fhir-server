@@ -4,9 +4,9 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Data.SqlClient;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
+using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer;
@@ -33,6 +33,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 .Append("AND ");
 
             return expression.Expression.AcceptVisitor(this, context);
+        }
+
+        public override SearchParameterQueryGeneratorContext VisitSortParameter(SortExpression expression, SearchParameterQueryGeneratorContext context)
+        {
+            short searchParamId = context.Model.GetSearchParamId(expression.Parameter.Url);
+            var searchParamIdColumn = VLatest.SearchParam.SearchParamId;
+
+            context.StringBuilder
+                .Append(searchParamIdColumn, context.TableAlias)
+                .Append(" = ")
+                .AppendLine(context.Parameters.AddParameter(searchParamIdColumn, searchParamId).ParameterName);
+
+            return context;
         }
 
         public override SearchParameterQueryGeneratorContext VisitMissingSearchParameter(MissingSearchParameterExpression expression, SearchParameterQueryGeneratorContext context)

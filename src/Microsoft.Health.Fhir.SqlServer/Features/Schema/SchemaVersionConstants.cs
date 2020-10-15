@@ -8,6 +8,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
     public static class SchemaVersionConstants
     {
         public const int Max = (int)SchemaVersion.V4;
-        public const int Min = (int)SchemaVersion.V1;
+        public const int Min = (int)SchemaVersion.V4;
     }
 }

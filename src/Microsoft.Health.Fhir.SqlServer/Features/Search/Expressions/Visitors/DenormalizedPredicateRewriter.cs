@@ -22,13 +22,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public Expression VisitSqlRoot(SqlRootExpression expression, object context)
         {
-            if (expression.TableExpressions.Count == 0 || expression.DenormalizedExpressions.Count == 0 || expression.TableExpressions.All(t => t.Kind == TableExpressionKind.Include))
+            if (expression.TableExpressions.Count == 0 || expression.DenormalizedExpressions.Count == 0)
             {
                 return expression;
             }
 
             Expression extractedDenormalizedExpression = null;
             List<Expression> newDenormalizedPredicates = null;
+            bool containsDenormalizedExpressionNotOnSearchParameterTables = false;
 
             for (int i = 0; i < expression.DenormalizedExpressions.Count; i++)
             {
@@ -45,18 +46,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
                             break;
                         default:
+                            containsDenormalizedExpressionNotOnSearchParameterTables = true;
                             newDenormalizedPredicates?.Add(currentExpression);
                             break;
                     }
                 }
             }
 
-            if (extractedDenormalizedExpression == null)
+            var newTableExpressions = new List<TableExpression>(expression.TableExpressions.Count);
+
+            if (containsDenormalizedExpressionNotOnSearchParameterTables)
             {
-                return expression;
+                // There is a predicate over _id, which is on the Resource table but not on the search parameter tables.
+                // So the first table expression should be an "All" expression, where we restrict the resultset to resources with that ID.
+                newTableExpressions.Add(new TableExpression(null, null, TableExpression.And(expression.DenormalizedExpressions), TableExpressionKind.All));
             }
 
-            var newTableExpressions = new List<TableExpression>(expression.TableExpressions.Count);
             foreach (var tableExpression in expression.TableExpressions)
             {
                 if (tableExpression.Kind == TableExpressionKind.Include)
@@ -77,7 +82,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 }
             }
 
-            return new SqlRootExpression(newTableExpressions, newDenormalizedPredicates);
+            return new SqlRootExpression(newTableExpressions, Array.Empty<Expression>());
         }
 
         public Expression VisitTable(TableExpression tableExpression, object context)

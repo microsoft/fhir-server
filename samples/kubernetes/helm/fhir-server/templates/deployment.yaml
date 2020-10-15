@@ -79,6 +79,8 @@ spec:
               value: "true"
             - name: SqlServer__Initialize
               value: "true"
+            - name: SqlServer__SchemaOptions__AutomaticUpdatesEnabled
+              value: {{ .Values.database.sql.schema.automaticUpdatesEnabled | quote }}
             - name: DATABASESERVERNAME
               valueFrom:
                 secretKeyRef:
@@ -108,6 +110,8 @@ spec:
               value: "true"
             - name: SqlServer__Initialize
               value: "true"
+            - name: SqlServer__SchemaOptions__AutomaticUpdatesEnabled
+              value: {{ .Values.database.sql.schema.automaticUpdatesEnabled | quote }}
             - name: DATABASEUSERNAME
               value: {{ .Values.database.sqlContainer.userName }}
             - name: DATABASEPASSWORD

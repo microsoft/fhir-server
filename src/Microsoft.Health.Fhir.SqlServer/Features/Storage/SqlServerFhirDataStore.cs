@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Data.SqlClient;
 using System.Globalization;
 using System.IO;
 using System.IO.Compression;
@@ -15,6 +14,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -26,6 +26,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Client;
+using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Storage;
 using Microsoft.IO;
 using Task = System.Threading.Tasks.Task;
@@ -37,41 +38,43 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     /// </summary>
     internal class SqlServerFhirDataStore : IFhirDataStore, IProvideCapability
     {
-        internal static readonly Encoding ResourceEncoding = new UnicodeEncoding(bigEndian: false, byteOrderMark: false);
-
         private readonly SqlServerDataStoreConfiguration _configuration;
         private readonly SqlServerFhirModel _model;
         private readonly SearchParameterToSearchValueTypeMap _searchParameterTypeMap;
-        private readonly VLatest.UpsertResourceTvpGenerator<ResourceMetadata> _upsertResourceTvpGenerator;
+        private readonly VLatest.UpsertResourceTvpGenerator<ResourceMetadata> _upsertResourceTvpGeneratorVLatest;
         private readonly RecyclableMemoryStreamManager _memoryStreamManager;
         private readonly CoreFeatureConfiguration _coreFeatures;
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private readonly ILogger<SqlServerFhirDataStore> _logger;
+        private readonly SchemaInformation _schemaInformation;
 
         public SqlServerFhirDataStore(
             SqlServerDataStoreConfiguration configuration,
             SqlServerFhirModel model,
             SearchParameterToSearchValueTypeMap searchParameterTypeMap,
-            VLatest.UpsertResourceTvpGenerator<ResourceMetadata> upsertResourceTvpGenerator,
+            VLatest.UpsertResourceTvpGenerator<ResourceMetadata> upsertResourceTvpGeneratorVLatest,
             IOptions<CoreFeatureConfiguration> coreFeatures,
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
-            ILogger<SqlServerFhirDataStore> logger)
+            ILogger<SqlServerFhirDataStore> logger,
+            SchemaInformation schemaInformation)
         {
             EnsureArg.IsNotNull(configuration, nameof(configuration));
             EnsureArg.IsNotNull(model, nameof(model));
             EnsureArg.IsNotNull(searchParameterTypeMap, nameof(searchParameterTypeMap));
-            EnsureArg.IsNotNull(upsertResourceTvpGenerator, nameof(upsertResourceTvpGenerator));
+            EnsureArg.IsNotNull(upsertResourceTvpGeneratorVLatest, nameof(upsertResourceTvpGeneratorVLatest));
             EnsureArg.IsNotNull(coreFeatures, nameof(coreFeatures));
             EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
 
             _configuration = configuration;
             _model = model;
             _searchParameterTypeMap = searchParameterTypeMap;
-            _upsertResourceTvpGenerator = upsertResourceTvpGenerator;
+            _upsertResourceTvpGeneratorVLatest = upsertResourceTvpGeneratorVLatest;
             _coreFeatures = coreFeatures.Value;
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _logger = logger;
+            _schemaInformation = schemaInformation;
 
             _memoryStreamManager = new RecyclableMemoryStreamManager();
         }
@@ -90,29 +93,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 resource.SearchIndices?.ToLookup(e => _searchParameterTypeMap.GetSearchValueType(e)),
                 resource.LastModifiedClaims);
 
-            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
+            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             using (var stream = new RecyclableMemoryStream(_memoryStreamManager))
-            using (var gzipStream = new GZipStream(stream, CompressionMode.Compress))
-            using (var writer = new StreamWriter(gzipStream, ResourceEncoding))
             {
-                writer.Write(resource.RawResource.Data);
-                writer.Flush();
+                CompressedRawResourceConverter.WriteCompressedRawResource(stream, resource.RawResource.Data);
 
                 stream.Seek(0, 0);
 
                 VLatest.UpsertResource.PopulateCommand(
-                    sqlCommandWrapper,
-                    baseResourceSurrogateId: ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.UtcDateTime),
-                    resourceTypeId: _model.GetResourceTypeId(resource.ResourceTypeName),
-                    resourceId: resource.ResourceId,
-                    eTag: weakETag == null ? null : (int?)etag,
-                    allowCreate: allowCreate,
-                    isDeleted: resource.IsDeleted,
-                    keepHistory: keepHistory,
-                    requestMethod: resource.Request.Method,
-                    rawResource: stream,
-                    tableValuedParameters: _upsertResourceTvpGenerator.Generate(resourceMetadata));
+                sqlCommandWrapper,
+                baseResourceSurrogateId: ResourceSurrogateIdHelper.LastUpdatedToResourceSurrogateId(resource.LastModified.UtcDateTime),
+                resourceTypeId: _model.GetResourceTypeId(resource.ResourceTypeName),
+                resourceId: resource.ResourceId,
+                eTag: weakETag == null ? null : (int?)etag,
+                allowCreate: allowCreate,
+                isDeleted: resource.IsDeleted,
+                keepHistory: keepHistory,
+                requestMethod: resource.Request.Method,
+                rawResource: stream,
+                tableValuedParameters: _upsertResourceTvpGeneratorVLatest.Generate(resourceMetadata));
 
                 try
                 {
@@ -152,7 +152,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<ResourceWrapper> GetAsync(ResourceKey key, CancellationToken cancellationToken)
         {
-            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
+            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             {
                 int? requestedVersion = null;
                 if (!string.IsNullOrEmpty(key.VersionId))
@@ -190,28 +190,32 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             resourceTable.RawResource);
 
                         string rawResource;
-
                         using (rawResourceStream)
-                        using (var gzipStream = new GZipStream(rawResourceStream, CompressionMode.Decompress))
-                        using (var reader = new StreamReader(gzipStream, ResourceEncoding))
                         {
-                            rawResource = await reader.ReadToEndAsync();
+                            rawResource = await CompressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
+                        }
+
+                        bool isRawResourceMetaSet = false;
+
+                        if (_schemaInformation.Current >= 4)
+                        {
+                            isRawResourceMetaSet = sqlDataReader.Read(resourceTable.IsRawResourceMetaSet, 5);
                         }
 
                         return new ResourceWrapper(
                             key.Id,
                             version.ToString(CultureInfo.InvariantCulture),
                             key.ResourceType,
-                            new RawResource(rawResource, FhirResourceFormat.Json),
+                            new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
                             null,
                             new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
                             isDeleted,
                             searchIndices: null,
                             compartmentIndices: null,
                             lastModifiedClaims: null)
-                        {
-                            IsHistory = isHistory,
-                        };
+                            {
+                                IsHistory = isHistory,
+                            };
                     }
                 }
             }
@@ -219,7 +223,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task HardDeleteAsync(ResourceKey key, CancellationToken cancellationToken)
         {
-            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
+            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
                 VLatest.HardDeleteResource.PopulateCommand(sqlCommandWrapper, resourceTypeId: _model.GetResourceTypeId(key.ResourceType), resourceId: key.Id);
@@ -268,6 +272,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 // Transaction supported added in listedCapability
                 builder.AddRestInteraction(SystemRestfulInteraction.Transaction);
             }
+        }
+
+        public Task<ResourceWrapper> UpdateSearchIndexForResourceAsync(ResourceWrapper resourceWrapper, WeakETag weakETag, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
         }
     }
 }

@@ -18,10 +18,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// </summary>
         /// <param name="resourceType">The resource that supports the reference.</param>
         /// <param name="referenceSearchParameter">THe search parameter that establishes the reference relationship.</param>
+        /// <param name="sourceResourceType">The source type of the reference.</param>
         /// <param name="targetResourceType">The target type of the reference.</param>
         /// <param name="wildCard">If this is a wildcard reference include (include all referenced resources).</param>
         /// <param name="reversed">If this is a reversed include (revinclude) expression.</param>
-        public IncludeExpression(string resourceType, SearchParameterInfo referenceSearchParameter, string targetResourceType, bool wildCard, bool reversed)
+        public IncludeExpression(string resourceType, SearchParameterInfo referenceSearchParameter, string sourceResourceType, string targetResourceType, bool wildCard, bool reversed)
         {
             EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
 
@@ -30,11 +31,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 EnsureArg.IsNotNull(referenceSearchParameter, nameof(referenceSearchParameter));
             }
 
+            if (reversed)
+            {
+                EnsureArg.IsNotNull(sourceResourceType, nameof(sourceResourceType));
+            }
+
             ResourceType = resourceType;
             ReferenceSearchParameter = referenceSearchParameter;
             TargetResourceType = targetResourceType;
             WildCard = wildCard;
             Reversed = reversed;
+            SourceResourceType = sourceResourceType;
         }
 
         /// <summary>
@@ -51,6 +58,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// Gets the target resource type. Value will be null if none are specified.
         /// </summary>
         public string TargetResourceType { get; }
+
+        /// <summary>
+        /// Gets the source resource type. Value will be null if none are specified.
+        /// </summary>
+        public string SourceResourceType { get; }
 
         /// <summary>
         /// Gets if the include is a wildcard include.
