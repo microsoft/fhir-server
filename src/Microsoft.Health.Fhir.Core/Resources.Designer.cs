@@ -503,6 +503,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Multiple sort parameters are currently not supported. Only a single sort parameter is supported..
+        /// </summary>
+        internal static string MultiSortParameterNotSupported {
+            get {
+                return ResourceManager.GetString("MultiSortParameterNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to No search parameters found needing to be indexed.  Job cancelled..
         /// </summary>
         internal static string NoSearchParametersNeededToBeIndexed {
@@ -589,6 +598,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string ReferenceResourceTypeNotSupported {
             get {
                 return ResourceManager.GetString("ReferenceResourceTypeNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Reindex job id {0} is in state {1} and cannot be cancelled..
+        /// </summary>
+        internal static string ReindexJobInCompletedState {
+            get {
+                return ResourceManager.GetString("ReindexJobInCompletedState", resourceCulture);
             }
         }
         
@@ -787,6 +805,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string SearchParameterDefinitionInvalidResource {
             get {
                 return ResourceManager.GetString("SearchParameterDefinitionInvalidResource", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Search parameter {0} is no longer supported and cannot be marked enabled..
+        /// </summary>
+        internal static string SearchParameterNoLongerSupported {
+            get {
+                return ResourceManager.GetString("SearchParameterNoLongerSupported", resourceCulture);
             }
         }
         

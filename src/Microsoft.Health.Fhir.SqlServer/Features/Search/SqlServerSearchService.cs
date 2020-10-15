@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Data.SqlClient;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -16,6 +15,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -29,6 +29,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Features.Client;
+using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Storage;
 using SortOrder = Microsoft.Health.Fhir.Core.Features.Search.SortOrder;
@@ -39,12 +40,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
     {
         private readonly SqlServerFhirModel _model;
         private readonly SqlRootExpressionRewriter _sqlRootExpressionRewriter;
+
+        private readonly SortRewriter _sortRewriter;
         private readonly ChainFlatteningRewriter _chainFlatteningRewriter;
         private readonly StringOverflowRewriter _stringOverflowRewriter;
         private readonly ILogger<SqlServerSearchService> _logger;
         private readonly BitColumn _isMatch = new BitColumn("IsMatch");
         private readonly BitColumn _isPartial = new BitColumn("IsPartial");
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
+        private const string SortValueColumnName = "SortValue";
+        private readonly SchemaInformation _schemaInformation;
 
         private bool _isResultPartial;
 
@@ -55,8 +60,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SqlRootExpressionRewriter sqlRootExpressionRewriter,
             ChainFlatteningRewriter chainFlatteningRewriter,
             StringOverflowRewriter stringOverflowRewriter,
+            SortRewriter sortRewriter,
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
-            ILogger<SqlServerSearchService> logger)
+            ILogger<SqlServerSearchService> logger,
+            SchemaInformation schemaInformation)
             : base(searchOptionsFactory, fhirDataStore)
         {
             EnsureArg.IsNotNull(sqlRootExpressionRewriter, nameof(sqlRootExpressionRewriter));
@@ -64,14 +71,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             EnsureArg.IsNotNull(stringOverflowRewriter, nameof(stringOverflowRewriter));
             EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
+            EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
 
             _model = model;
             _sqlRootExpressionRewriter = sqlRootExpressionRewriter;
+            _sortRewriter = sortRewriter;
             _chainFlatteningRewriter = chainFlatteningRewriter;
             _stringOverflowRewriter = stringOverflowRewriter;
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _logger = logger;
             _isResultPartial = false;
+
+            // Initialise supported sort params with SQL related values
+            SearchParameterInfoExtensions.AppendSearchParameterInfoExtensions(SupportedSortParameterNames.Names);
+            _schemaInformation = schemaInformation;
         }
 
         protected override async Task<SearchResult> SearchInternalAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
@@ -128,15 +141,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             // AND in the continuation token
             if (!string.IsNullOrWhiteSpace(searchOptions.ContinuationToken) && !searchOptions.CountOnly)
             {
-                if (long.TryParse(searchOptions.ContinuationToken, NumberStyles.None, CultureInfo.InvariantCulture, out var token))
+                var continuationToken = ContinuationToken.FromString(searchOptions.ContinuationToken);
+                if (continuationToken != null)
                 {
-                    var sortOrder = searchOptions.GetFirstSortOrderForSupportedParam();
+                    // in case it's a _lastUpdated sort optimization
+                    if (string.IsNullOrEmpty(continuationToken.SortValue))
+                    {
+                        (SearchParameterInfo searchParamInfo, SortOrder sortOrder) = searchOptions.GetFirstSupportedSortParam();
 
-                    Expression lastUpdatedExpression = sortOrder == SortOrder.Ascending ? Expression.GreaterThan(SqlFieldName.ResourceSurrogateId, null, token)
-                                                                                                : Expression.LessThan(SqlFieldName.ResourceSurrogateId, null, token);
+                        Expression lastUpdatedExpression = sortOrder == SortOrder.Ascending ? Expression.GreaterThan(SqlFieldName.ResourceSurrogateId, null, continuationToken.ResourceSurrogateId)
+                                                                                                    : Expression.LessThan(SqlFieldName.ResourceSurrogateId, null, continuationToken.ResourceSurrogateId);
 
-                    var tokenExpression = Expression.SearchParameter(SqlSearchParameters.ResourceSurrogateIdParameter, lastUpdatedExpression);
-                    searchExpression = searchExpression == null ? tokenExpression : (Expression)Expression.And(tokenExpression, searchExpression);
+                        var tokenExpression = Expression.SearchParameter(SqlSearchParameters.ResourceSurrogateIdParameter, lastUpdatedExpression);
+                        searchExpression = searchExpression == null ? tokenExpression : (Expression)Expression.And(tokenExpression, searchExpression);
+                    }
                 }
                 else
                 {
@@ -155,6 +173,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                                .AcceptVisitor(DateTimeEqualityRewriter.Instance)
                                                .AcceptVisitor(FlatteningRewriter.Instance)
                                                .AcceptVisitor(_sqlRootExpressionRewriter)
+                                               .AcceptVisitor(_sortRewriter, searchOptions)
                                                .AcceptVisitor(DenormalizedPredicateRewriter.Instance)
                                                .AcceptVisitor(NormalizedPredicateReorderer.Instance)
                                                .AcceptVisitor(_chainFlatteningRewriter)
@@ -167,14 +186,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                                .AcceptVisitor(IncludeRewriter.Instance)
                                            ?? SqlRootExpression.WithDenormalizedExpressions();
 
-            using (SqlConnectionWrapper sqlConnectionWrapper = _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
+            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
                 var stringBuilder = new IndentedStringBuilder(new StringBuilder());
 
                 EnableTimeAndIoMessageLogging(stringBuilder, sqlConnectionWrapper);
 
-                var queryGenerator = new SqlQueryGenerator(stringBuilder, new SqlQueryParameterManager(sqlCommandWrapper.Parameters), _model, historySearch);
+                var queryGenerator = new SqlQueryGenerator(stringBuilder, new SqlQueryParameterManager(sqlCommandWrapper.Parameters), _model, historySearch, _schemaInformation);
 
                 expression.AcceptVisitor(queryGenerator, searchOptions);
 
@@ -195,9 +214,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     bool moreResults = false;
                     int matchCount = 0;
 
+                    // Currently we support only date time sort type.
+                    DateTime? sortValue = null;
+
                     while (await reader.ReadAsync(cancellationToken))
                     {
-                        (short resourceTypeId, string resourceId, int version, bool isDeleted, long resourceSurrogateId, string requestMethod, bool isMatch, bool isPartialEntry, Stream rawResourceStream) = reader.ReadRow(
+                        (short resourceTypeId, string resourceId, int version, bool isDeleted, long resourceSurrogateId, string requestMethod, bool isMatch, bool isPartialEntry, bool isRawResourceMetaSet, Stream rawResourceStream) = reader.ReadRow(
                             VLatest.Resource.ResourceTypeId,
                             VLatest.Resource.ResourceId,
                             VLatest.Resource.Version,
@@ -206,6 +228,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                             VLatest.Resource.RequestMethod,
                             _isMatch,
                             _isPartial,
+                            VLatest.Resource.IsRawResourceMetaSet,
                             VLatest.Resource.RawResource);
 
                         // If we get to this point, we know there are more results so we need a continuation token
@@ -213,6 +236,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         if (matchCount >= searchOptions.MaxItemCount && isMatch)
                         {
                             moreResults = true;
+
+                            // At this point we are at the last row.
+                            // if we have more columns, it means sort expressions were added.
+                            if (reader.FieldCount > 10)
+                            {
+                                sortValue = reader.GetValue(SortValueColumnName) as DateTime?;
+                            }
+
                             continue;
                         }
 
@@ -224,12 +255,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         }
 
                         string rawResource;
-
                         using (rawResourceStream)
-                        using (var gzipStream = new GZipStream(rawResourceStream, CompressionMode.Decompress))
-                        using (var streamReader = new StreamReader(gzipStream, SqlServerFhirDataStore.ResourceEncoding))
                         {
-                            rawResource = await streamReader.ReadToEndAsync();
+                            rawResource = await CompressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
                         }
 
                         // as long as at least one entry was marked as partial, this resultset
@@ -241,7 +269,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 resourceId,
                                 version.ToString(CultureInfo.InvariantCulture),
                                 _model.GetResourceTypeName(resourceTypeId),
-                                new RawResource(rawResource, FhirResourceFormat.Json),
+                                new RawResource(rawResource, FhirResourceFormat.Json, isMetaSet: isRawResourceMetaSet),
                                 new ResourceRequest(requestMethod),
                                 new DateTimeOffset(ResourceSurrogateIdHelper.ResourceSurrogateIdToLastUpdated(resourceSurrogateId), TimeSpan.Zero),
                                 isDeleted,
@@ -268,7 +296,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         unsupportedSortingParameters = searchOptions.UnsupportedSortingParams;
                     }
 
-                    return new SearchResult(resources, searchOptions.UnsupportedSearchParams, unsupportedSortingParameters, moreResults ? newContinuationId.Value.ToString(CultureInfo.InvariantCulture) : null, _isResultPartial);
+                    // Continuation token prep
+                    ContinuationToken continuationToken = null;
+                    if (moreResults)
+                    {
+                        if (sortValue.HasValue)
+                        {
+                            continuationToken = new ContinuationToken(new object[]
+                            {
+                                sortValue.Value.ToString("o"),
+                                newContinuationId ?? 0,
+                            });
+                        }
+                        else
+                        {
+                            continuationToken = new ContinuationToken(new object[]
+                            {
+                                newContinuationId ?? 0,
+                            });
+                        }
+                    }
+
+                    return new SearchResult(resources, searchOptions.UnsupportedSearchParams, unsupportedSortingParameters, continuationToken?.ToJson(), _isResultPartial);
                 }
             }
         }

@@ -3,15 +3,20 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Microsoft.Health.Fhir.Core.Exceptions;
+using EnsureThat;
+using Microsoft.Health.Fhir.Core.Models;
 
-namespace Microsoft.Health.Fhir.Api.Features.Audit
+namespace Microsoft.Health.Fhir.Core.Messages.Reindex
 {
-    public class AuditException : FhirException
+    public class ReindexSingleResourceResponse
     {
-        public AuditException(string controllerName, string actionName)
-            : base(string.Format(Resources.MissingAuditInformation, controllerName, actionName))
+        public ReindexSingleResourceResponse(ResourceElement parameter)
         {
+            EnsureArg.IsNotNull(parameter, nameof(parameter));
+
+            ParameterResource = parameter;
         }
+
+        public ResourceElement ParameterResource { get; }
     }
 }

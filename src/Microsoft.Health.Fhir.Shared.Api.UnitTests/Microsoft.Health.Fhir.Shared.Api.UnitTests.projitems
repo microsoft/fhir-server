@@ -17,7 +17,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\TestHttpMessageHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ActionResults\FhirResultTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ApiNotifications\ApiNotificationMiddlewareTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Features\Audit\AuditHeaderReaderTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Audit\AuditHelperTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Audit\AuditLoggingFilterAttributeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Bundle\FhirTransactionFailedExceptionTests.cs" />
@@ -42,6 +41,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Headers\ExportResultExtensionsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Headers\FhirResultExtensionsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\HealthCheck\HealthCheckCachingTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\BundleSerializerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\TransactionExceptionHandlerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\TransactionBundleValidatorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\BundleHandlerTests.cs" />

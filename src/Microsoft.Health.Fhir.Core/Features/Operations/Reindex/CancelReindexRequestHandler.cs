@@ -63,7 +63,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 // If the job is already completed for any reason, return conflict status.
                 if (outcome.JobRecord.Status.IsFinished())
                 {
-                    return new CancelReindexResponse(HttpStatusCode.Conflict, null);
+                    throw new RequestNotValidException(
+                        string.Format(Resources.ReindexJobInCompletedState, outcome.JobRecord.Id, outcome.JobRecord.Status));
                 }
 
                 // Try to cancel the job.

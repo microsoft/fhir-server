@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using EnsureThat;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -22,19 +23,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         private IDictionary<string, IDictionary<string, SearchParameterInfo>> _typeLookup;
         private bool _started;
+        private Dictionary<string, string> _resourceTypeSearchParameterHashMap;
 
         public SearchParameterDefinitionManager(IModelInfoProvider modelInfoProvider)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
 
             _modelInfoProvider = modelInfoProvider;
+            _resourceTypeSearchParameterHashMap = new Dictionary<string, string>();
         }
 
         internal IDictionary<Uri, SearchParameterInfo> UrlLookup { get; set; }
 
+        internal IDictionary<string, IDictionary<string, SearchParameterInfo>> TypeLookup { get => _typeLookup; }
+
         public IEnumerable<SearchParameterInfo> AllSearchParameters => UrlLookup.Values;
 
-        public string SearchParametersHash { get; set; }
+        public IReadOnlyDictionary<string, string> SearchParameterHashMap
+        {
+            get { return new ReadOnlyDictionary<string, string>(_resourceTypeSearchParameterHashMap); }
+        }
 
         public void Start()
         {
@@ -106,6 +114,36 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             SearchParameterInfo componentSearchParameter = GetSearchParameter(component.DefinitionUrl);
 
             return componentSearchParameter.Type;
+        }
+
+        public void UpdateSearchParameterHashMap(Dictionary<string, string> updatedSearchParamHashMap)
+        {
+            // TODO: Make this thread-safe.
+            EnsureArg.IsNotNull(updatedSearchParamHashMap, nameof(updatedSearchParamHashMap));
+
+            foreach (KeyValuePair<string, string> kvp in updatedSearchParamHashMap)
+            {
+                if (_resourceTypeSearchParameterHashMap.ContainsKey(kvp.Key))
+                {
+                    _resourceTypeSearchParameterHashMap[kvp.Key] = kvp.Value;
+                }
+                else
+                {
+                    _resourceTypeSearchParameterHashMap.Add(kvp.Key, kvp.Value);
+                }
+            }
+        }
+
+        public string GetSearchParameterHashForResourceType(string resourceType)
+        {
+            EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
+
+            if (_resourceTypeSearchParameterHashMap.TryGetValue(resourceType, out string hash))
+            {
+                return hash;
+            }
+
+            return null;
         }
     }
 }
