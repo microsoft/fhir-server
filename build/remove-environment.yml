@@ -1,0 +1,25 @@
+# DESCRIPTION: 	
+# Cleans up a PR environment if it has gotten into a bad state.
+
+trigger: none
+
+variables:
+- name: DeploymentEnvironmentName
+  value: 'msh-fhir-pr-$(pr_number)'
+- template: build-variables.yml
+
+stages:
+- stage: cleanupAks
+  displayName: 'Cleanup AKS Deployments'
+  jobs:
+  - template: ./jobs/cleanup-aks.yml
+    parameters:
+      subscription: $(ConnectedServiceName)
+      clusterName: $(clusterName)
+      clusterResourceGroup: $(clusterResourceGroup)
+
+- stage: cleanup
+  displayName: 'Cleanup Azure Environment'
+  dependsOn: []
+  jobs:
+  - template: ./jobs/cleanup.yml

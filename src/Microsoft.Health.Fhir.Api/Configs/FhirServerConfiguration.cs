@@ -12,6 +12,8 @@ namespace Microsoft.Health.Fhir.Api.Configs
 {
     public class FhirServerConfiguration : IApiConfiguration
     {
+        public string PathBase { get; set; } = string.Empty;
+
         public FeatureConfiguration Features { get; } = new FeatureConfiguration();
 
         public SecurityConfiguration Security { get; } = new SecurityConfiguration();

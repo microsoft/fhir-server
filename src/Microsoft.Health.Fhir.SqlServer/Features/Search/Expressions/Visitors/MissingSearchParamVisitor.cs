@@ -33,7 +33,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 {
                     EnsureAllocatedAndPopulated(ref newTableExpressions, expression.TableExpressions, i);
 
-                    if (expression.TableExpressions.Count == 1)
+                    // If this is the first expression, we need to add another expression before it
+                    if (i == 0)
                     {
                         // seed with all resources so that we have something to restrict
                         newTableExpressions.Add(

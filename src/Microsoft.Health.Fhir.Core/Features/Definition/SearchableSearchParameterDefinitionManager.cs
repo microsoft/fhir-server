@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public IEnumerable<SearchParameterInfo> AllSearchParameters => GetAllSearchParameters();
 
-        public string SearchParametersHash => _inner.SearchParametersHash;
+        public IReadOnlyDictionary<string, string> SearchParameterHashMap => _inner.SearchParameterHashMap;
 
         public IEnumerable<SearchParameterInfo> GetSearchParameters(string resourceType)
         {
@@ -105,6 +105,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             {
                 return _inner.AllSearchParameters.Where(x => x.IsSearchable);
             }
+        }
+
+        public void UpdateSearchParameterHashMap(Dictionary<string, string> updatedSearchParamHashMap)
+        {
+            _inner.UpdateSearchParameterHashMap(updatedSearchParamHashMap);
+        }
+
+        public string GetSearchParameterHashForResourceType(string resourceType)
+        {
+            return _inner.GetSearchParameterHashForResourceType(resourceType);
         }
     }
 }

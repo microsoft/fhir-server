@@ -138,6 +138,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
+        public async Task GivenAnIncludeSearchExpressionWithMissingModifier_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        {
+            string query = $"_tag={Fixture.Tag}&_include=DiagnosticReport:patient:Patient&code=429858000&organization:missing=true";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
+
+            ValidateBundle(
+                bundle,
+                Fixture.SmithSnomedDiagnosticReport,
+                Fixture.SmithPatient,
+                Fixture.TrumanSnomedDiagnosticReport,
+                Fixture.TrumanPatient);
+
+            ValidateSearchEntryMode(bundle, ResourceType.DiagnosticReport);
+        }
+
+        [Fact]
         public async Task GivenAnIncludeSearchExpressionWithSimpleSearchAndCount_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"_tag={Fixture.Tag}&_include=DiagnosticReport:patient:Patient&code=429858000&_count=1";
