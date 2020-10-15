@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Linq;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Search;
 
@@ -12,25 +13,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
     {
         // Returns the sort order of first supported _sort query parameter
 
-        public static SortOrder GetFirstSortOrderForSupportedParam(this SearchOptions searchOptions)
+        public static (Core.Models.SearchParameterInfo, SortOrder) GetFirstSupportedSortParam(this SearchOptions searchOptions)
         {
             EnsureArg.IsNotNull(searchOptions, nameof(searchOptions));
-
-            var sortOrder = SortOrder.Ascending;
+            var sortParams = searchOptions.Sort.Where(x => x.searchParameterInfo.IsSortSupported());
+            if (sortParams.Count() > 1)
+            {
+                // We don't support more than one sort param.
+                throw new SearchParameterNotSupportedException(Core.Resources.MultiSortParameterNotSupported);
+            }
 
             foreach (var sortOptions in searchOptions.Sort)
             {
                 if (sortOptions.searchParameterInfo.IsSortSupported())
                 {
-                    return sortOptions.sortOrder;
+                    return sortOptions;
                 }
                 else
                 {
-                    throw new SearchParameterNotSupportedException(string.Format(Core.Resources.SearchSortParameterNotSupported, sortOptions.searchParameterInfo.Name));
+                    throw new SearchParameterNotSupportedException(string.Format(Core.Resources.SearchParameterNotSupported, sortOptions.searchParameterInfo.Name));
                 }
             }
 
-            return sortOrder;
+            return (null, SortOrder.Ascending);
         }
     }
 }

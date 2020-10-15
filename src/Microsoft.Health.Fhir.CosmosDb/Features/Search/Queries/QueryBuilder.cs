@@ -166,10 +166,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                    true,
                    (KnownResourceWrapperProperties.IsDeleted, false));
 
-                AppendFilterCondition(
-                   "AND",
-                   false,
-                   (KnownResourceWrapperProperties.SearchParameterHash, searchParameterHash));
+                _queryHelper.AppendSearchParameterHashFliter(searchParameterHash);
 
                 var query = new QueryDefinition(_queryBuilder.ToString());
                 _queryParameterManager.AddToQuery(query);

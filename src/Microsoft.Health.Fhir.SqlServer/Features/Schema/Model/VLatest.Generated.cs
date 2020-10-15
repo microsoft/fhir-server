@@ -18,7 +18,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         internal readonly static CompartmentTypeTable CompartmentType = new CompartmentTypeTable();
         internal readonly static DateTimeSearchParamTable DateTimeSearchParam = new DateTimeSearchParamTable();
         internal readonly static ExportJobTable ExportJob = new ExportJobTable();
-        internal readonly static InstanceSchemaTable InstanceSchema = new InstanceSchemaTable();
         internal readonly static NumberSearchParamTable NumberSearchParam = new NumberSearchParamTable();
         internal readonly static QuantityCodeTable QuantityCode = new QuantityCodeTable();
         internal readonly static QuantitySearchParamTable QuantitySearchParam = new QuantitySearchParamTable();
@@ -27,7 +26,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         internal readonly static ResourceTable Resource = new ResourceTable();
         internal readonly static ResourceTypeTable ResourceType = new ResourceTypeTable();
         internal readonly static ResourceWriteClaimTable ResourceWriteClaim = new ResourceWriteClaimTable();
-        internal readonly static SchemaVersionTable SchemaVersion = new SchemaVersionTable();
         internal readonly static SearchParamTable SearchParam = new SearchParamTable();
         internal readonly static StringSearchParamTable StringSearchParam = new StringSearchParamTable();
         internal readonly static SystemTable System = new SystemTable();
@@ -41,21 +39,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
         internal readonly static UriSearchParamTable UriSearchParam = new UriSearchParamTable();
         internal readonly static AcquireExportJobsProcedure AcquireExportJobs = new AcquireExportJobsProcedure();
         internal readonly static CreateExportJobProcedure CreateExportJob = new CreateExportJobProcedure();
-        internal readonly static DeleteInstanceSchemaProcedure DeleteInstanceSchema = new DeleteInstanceSchemaProcedure();
         internal readonly static GetExportJobByHashProcedure GetExportJobByHash = new GetExportJobByHashProcedure();
         internal readonly static GetExportJobByIdProcedure GetExportJobById = new GetExportJobByIdProcedure();
-        internal readonly static GetInstanceSchemaByNameProcedure GetInstanceSchemaByName = new GetInstanceSchemaByNameProcedure();
-        internal readonly static GetSearchParamStatusesProcedure GetSearchParamStatuses = new GetSearchParamStatusesProcedure();
         internal readonly static HardDeleteResourceProcedure HardDeleteResource = new HardDeleteResourceProcedure();
         internal readonly static ReadResourceProcedure ReadResource = new ReadResourceProcedure();
-        internal readonly static SelectCompatibleSchemaVersionsProcedure SelectCompatibleSchemaVersions = new SelectCompatibleSchemaVersionsProcedure();
-        internal readonly static SelectCurrentSchemaVersionProcedure SelectCurrentSchemaVersion = new SelectCurrentSchemaVersionProcedure();
-        internal readonly static SelectCurrentVersionsInformationProcedure SelectCurrentVersionsInformation = new SelectCurrentVersionsInformationProcedure();
         internal readonly static UpdateExportJobProcedure UpdateExportJob = new UpdateExportJobProcedure();
-        internal readonly static UpsertInstanceSchemaProcedure UpsertInstanceSchema = new UpsertInstanceSchemaProcedure();
         internal readonly static UpsertResourceProcedure UpsertResource = new UpsertResourceProcedure();
-        internal readonly static UpsertSchemaVersionProcedure UpsertSchemaVersion = new UpsertSchemaVersionProcedure();
-        internal readonly static UpsertSearchParamsProcedure UpsertSearchParams = new UpsertSearchParamsProcedure();
         internal class ClaimTypeTable : Table
         {
             internal ClaimTypeTable(): base("dbo.ClaimType")
@@ -116,19 +105,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly NullableDateTime2Column HeartbeatDateTime = new NullableDateTime2Column("HeartbeatDateTime", 7);
             internal readonly VarCharColumn RawJobRecord = new VarCharColumn("RawJobRecord", -1);
             internal readonly TimestampColumn JobVersion = new TimestampColumn("JobVersion");
-        }
-
-        internal class InstanceSchemaTable : Table
-        {
-            internal InstanceSchemaTable(): base("dbo.InstanceSchema")
-            {
-            }
-
-            internal readonly VarCharColumn Name = new VarCharColumn("Name", 64, "Latin1_General_100_CS_AS");
-            internal readonly IntColumn CurrentVersion = new IntColumn("CurrentVersion");
-            internal readonly IntColumn MaxVersion = new IntColumn("MaxVersion");
-            internal readonly IntColumn MinVersion = new IntColumn("MinVersion");
-            internal readonly DateTime2Column Timeout = new DateTime2Column("Timeout", 0);
         }
 
         internal class NumberSearchParamTable : Table
@@ -221,6 +197,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly BitColumn IsDeleted = new BitColumn("IsDeleted");
             internal readonly NullableVarCharColumn RequestMethod = new NullableVarCharColumn("RequestMethod", 10);
             internal readonly VarBinaryColumn RawResource = new VarBinaryColumn("RawResource", -1);
+            internal readonly BitColumn IsRawResourceMetaSet = new BitColumn("IsRawResourceMetaSet");
         }
 
         internal class ResourceTypeTable : Table
@@ -244,16 +221,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly NVarCharColumn ClaimValue = new NVarCharColumn("ClaimValue", 128);
         }
 
-        internal class SchemaVersionTable : Table
-        {
-            internal SchemaVersionTable(): base("dbo.SchemaVersion")
-            {
-            }
-
-            internal readonly IntColumn Version = new IntColumn("Version");
-            internal readonly VarCharColumn Status = new VarCharColumn("Status", 10);
-        }
-
         internal class SearchParamTable : Table
         {
             internal SearchParamTable(): base("dbo.SearchParam")
@@ -262,9 +229,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
 
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly VarCharColumn Uri = new VarCharColumn("Uri", 128, "Latin1_General_100_CS_AS");
-            internal readonly VarCharColumn Status = new VarCharColumn("Status", 10);
-            internal readonly DateTimeOffsetColumn LastUpdated = new DateTimeOffsetColumn("LastUpdated", 7);
-            internal readonly BitColumn IsPartiallySupported = new BitColumn("IsPartiallySupported");
         }
 
         internal class StringSearchParamTable : Table
@@ -458,19 +422,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
         }
 
-        internal class DeleteInstanceSchemaProcedure : StoredProcedure
-        {
-            internal DeleteInstanceSchemaProcedure(): base("dbo.DeleteInstanceSchema")
-            {
-            }
-
-            public void PopulateCommand(SqlCommandWrapper command)
-            {
-                command.CommandType = global::System.Data.CommandType.StoredProcedure;
-                command.CommandText = "dbo.DeleteInstanceSchema";
-            }
-        }
-
         internal class GetExportJobByHashProcedure : StoredProcedure
         {
             internal GetExportJobByHashProcedure(): base("dbo.GetExportJobByHash")
@@ -498,34 +449,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
                 command.CommandType = global::System.Data.CommandType.StoredProcedure;
                 command.CommandText = "dbo.GetExportJobById";
                 _id.AddParameter(command.Parameters, id);
-            }
-        }
-
-        internal class GetInstanceSchemaByNameProcedure : StoredProcedure
-        {
-            internal GetInstanceSchemaByNameProcedure(): base("dbo.GetInstanceSchemaByName")
-            {
-            }
-
-            private readonly ParameterDefinition<System.String> _name = new ParameterDefinition<System.String>("@name", global::System.Data.SqlDbType.VarChar, false, 64);
-            public void PopulateCommand(SqlCommandWrapper command, System.String name)
-            {
-                command.CommandType = global::System.Data.CommandType.StoredProcedure;
-                command.CommandText = "dbo.GetInstanceSchemaByName";
-                _name.AddParameter(command.Parameters, name);
-            }
-        }
-
-        internal class GetSearchParamStatusesProcedure : StoredProcedure
-        {
-            internal GetSearchParamStatusesProcedure(): base("dbo.GetSearchParamStatuses")
-            {
-            }
-
-            public void PopulateCommand(SqlCommandWrapper command)
-            {
-                command.CommandType = global::System.Data.CommandType.StoredProcedure;
-                command.CommandText = "dbo.GetSearchParamStatuses";
             }
         }
 
@@ -565,45 +488,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
         }
 
-        internal class SelectCompatibleSchemaVersionsProcedure : StoredProcedure
-        {
-            internal SelectCompatibleSchemaVersionsProcedure(): base("dbo.SelectCompatibleSchemaVersions")
-            {
-            }
-
-            public void PopulateCommand(SqlCommandWrapper command)
-            {
-                command.CommandType = global::System.Data.CommandType.StoredProcedure;
-                command.CommandText = "dbo.SelectCompatibleSchemaVersions";
-            }
-        }
-
-        internal class SelectCurrentSchemaVersionProcedure : StoredProcedure
-        {
-            internal SelectCurrentSchemaVersionProcedure(): base("dbo.SelectCurrentSchemaVersion")
-            {
-            }
-
-            public void PopulateCommand(SqlCommandWrapper command)
-            {
-                command.CommandType = global::System.Data.CommandType.StoredProcedure;
-                command.CommandText = "dbo.SelectCurrentSchemaVersion";
-            }
-        }
-
-        internal class SelectCurrentVersionsInformationProcedure : StoredProcedure
-        {
-            internal SelectCurrentVersionsInformationProcedure(): base("dbo.SelectCurrentVersionsInformation")
-            {
-            }
-
-            public void PopulateCommand(SqlCommandWrapper command)
-            {
-                command.CommandType = global::System.Data.CommandType.StoredProcedure;
-                command.CommandText = "dbo.SelectCurrentVersionsInformation";
-            }
-        }
-
         internal class UpdateExportJobProcedure : StoredProcedure
         {
             internal UpdateExportJobProcedure(): base("dbo.UpdateExportJob")
@@ -622,27 +506,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
                 _status.AddParameter(command.Parameters, status);
                 _rawJobRecord.AddParameter(command.Parameters, rawJobRecord);
                 _jobVersion.AddParameter(command.Parameters, jobVersion);
-            }
-        }
-
-        internal class UpsertInstanceSchemaProcedure : StoredProcedure
-        {
-            internal UpsertInstanceSchemaProcedure(): base("dbo.UpsertInstanceSchema")
-            {
-            }
-
-            private readonly ParameterDefinition<System.String> _name = new ParameterDefinition<System.String>("@name", global::System.Data.SqlDbType.VarChar, false, 64);
-            private readonly ParameterDefinition<System.Int32> _maxVersion = new ParameterDefinition<System.Int32>("@maxVersion", global::System.Data.SqlDbType.Int, false);
-            private readonly ParameterDefinition<System.Int32> _minVersion = new ParameterDefinition<System.Int32>("@minVersion", global::System.Data.SqlDbType.Int, false);
-            private readonly ParameterDefinition<System.Int32> _addMinutesOnTimeout = new ParameterDefinition<System.Int32>("@addMinutesOnTimeout", global::System.Data.SqlDbType.Int, false);
-            public void PopulateCommand(SqlCommandWrapper command, System.String name, System.Int32 maxVersion, System.Int32 minVersion, System.Int32 addMinutesOnTimeout)
-            {
-                command.CommandType = global::System.Data.CommandType.StoredProcedure;
-                command.CommandText = "dbo.UpsertInstanceSchema";
-                _name.AddParameter(command.Parameters, name);
-                _maxVersion.AddParameter(command.Parameters, maxVersion);
-                _minVersion.AddParameter(command.Parameters, minVersion);
-                _addMinutesOnTimeout.AddParameter(command.Parameters, addMinutesOnTimeout);
             }
         }
 
@@ -861,70 +724,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
         }
 
-        internal class UpsertSchemaVersionProcedure : StoredProcedure
-        {
-            internal UpsertSchemaVersionProcedure(): base("dbo.UpsertSchemaVersion")
-            {
-            }
-
-            private readonly ParameterDefinition<System.Int32> _version = new ParameterDefinition<System.Int32>("@version", global::System.Data.SqlDbType.Int, false);
-            private readonly ParameterDefinition<System.String> _status = new ParameterDefinition<System.String>("@status", global::System.Data.SqlDbType.VarChar, false, 10);
-            public void PopulateCommand(SqlCommandWrapper command, System.Int32 version, System.String status)
-            {
-                command.CommandType = global::System.Data.CommandType.StoredProcedure;
-                command.CommandText = "dbo.UpsertSchemaVersion";
-                _version.AddParameter(command.Parameters, version);
-                _status.AddParameter(command.Parameters, status);
-            }
-        }
-
-        internal class UpsertSearchParamsProcedure : StoredProcedure
-        {
-            internal UpsertSearchParamsProcedure(): base("dbo.UpsertSearchParams")
-            {
-            }
-
-            private readonly SearchParamTableTypeTableValuedParameterDefinition _searchParams = new SearchParamTableTypeTableValuedParameterDefinition("@searchParams");
-            public void PopulateCommand(SqlCommandWrapper command, global::System.Collections.Generic.IEnumerable<SearchParamTableTypeRow> searchParams)
-            {
-                command.CommandType = global::System.Data.CommandType.StoredProcedure;
-                command.CommandText = "dbo.UpsertSearchParams";
-                _searchParams.AddParameter(command.Parameters, searchParams);
-            }
-
-            public void PopulateCommand(SqlCommandWrapper command, UpsertSearchParamsTableValuedParameters tableValuedParameters)
-            {
-                PopulateCommand(command, searchParams: tableValuedParameters.SearchParams);
-            }
-        }
-
-        internal class UpsertSearchParamsTvpGenerator<TInput> : IStoredProcedureTableValuedParametersGenerator<TInput, UpsertSearchParamsTableValuedParameters>
-        {
-            public UpsertSearchParamsTvpGenerator(ITableValuedParameterRowGenerator<TInput, SearchParamTableTypeRow> SearchParamTableTypeRowGenerator)
-            {
-                this.SearchParamTableTypeRowGenerator = SearchParamTableTypeRowGenerator;
-            }
-
-            private readonly ITableValuedParameterRowGenerator<TInput, SearchParamTableTypeRow> SearchParamTableTypeRowGenerator;
-            public UpsertSearchParamsTableValuedParameters Generate(TInput input)
-            {
-                return new UpsertSearchParamsTableValuedParameters(SearchParamTableTypeRowGenerator.GenerateRows(input));
-            }
-        }
-
-        internal struct UpsertSearchParamsTableValuedParameters
-        {
-            internal UpsertSearchParamsTableValuedParameters(global::System.Collections.Generic.IEnumerable<SearchParamTableTypeRow> SearchParams)
-            {
-                this.SearchParams = SearchParams;
-            }
-
-            internal global::System.Collections.Generic.IEnumerable<SearchParamTableTypeRow> SearchParams
-            {
-                get;
-            }
-        }
-
         private class CompartmentAssignmentTableTypeTableValuedParameterDefinition : TableValuedParameterDefinition<CompartmentAssignmentTableTypeRow>
         {
             internal CompartmentAssignmentTableTypeTableValuedParameterDefinition(System.String parameterName): base(parameterName, "dbo.CompartmentAssignmentTableType_1")
@@ -934,7 +733,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly TinyIntColumn CompartmentTypeId = new TinyIntColumn("CompartmentTypeId");
             internal readonly VarCharColumn ReferenceResourceId = new VarCharColumn("ReferenceResourceId", 64, "Latin1_General_100_CS_AS");
             protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{CompartmentTypeId, ReferenceResourceId};
-            protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, CompartmentAssignmentTableTypeRow rowData)
+            protected override void FillSqlDataRecord(global::Microsoft.Data.SqlClient.Server.SqlDataRecord record, CompartmentAssignmentTableTypeRow rowData)
             {
                 CompartmentTypeId.Set(record, 0, rowData.CompartmentTypeId);
                 ReferenceResourceId.Set(record, 1, rowData.ReferenceResourceId);
@@ -971,7 +770,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly DateTimeOffsetColumn EndDateTime = new DateTimeOffsetColumn("EndDateTime", 7);
             internal readonly BitColumn IsLongerThanADay = new BitColumn("IsLongerThanADay");
             protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay};
-            protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, DateTimeSearchParamTableTypeRow rowData)
+            protected override void FillSqlDataRecord(global::Microsoft.Data.SqlClient.Server.SqlDataRecord record, DateTimeSearchParamTableTypeRow rowData)
             {
                 SearchParamId.Set(record, 0, rowData.SearchParamId);
                 StartDateTime.Set(record, 1, rowData.StartDateTime);
@@ -1022,7 +821,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly NullableDecimalColumn LowValue = new NullableDecimalColumn("LowValue", 18, 6);
             internal readonly NullableDecimalColumn HighValue = new NullableDecimalColumn("HighValue", 18, 6);
             protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{SearchParamId, SingleValue, LowValue, HighValue};
-            protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, NumberSearchParamTableTypeRow rowData)
+            protected override void FillSqlDataRecord(global::Microsoft.Data.SqlClient.Server.SqlDataRecord record, NumberSearchParamTableTypeRow rowData)
             {
                 SearchParamId.Set(record, 0, rowData.SearchParamId);
                 SingleValue.Set(record, 1, rowData.SingleValue);
@@ -1075,7 +874,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly NullableDecimalColumn LowValue = new NullableDecimalColumn("LowValue", 18, 6);
             internal readonly NullableDecimalColumn HighValue = new NullableDecimalColumn("HighValue", 18, 6);
             protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{SearchParamId, SystemId, QuantityCodeId, SingleValue, LowValue, HighValue};
-            protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, QuantitySearchParamTableTypeRow rowData)
+            protected override void FillSqlDataRecord(global::Microsoft.Data.SqlClient.Server.SqlDataRecord record, QuantitySearchParamTableTypeRow rowData)
             {
                 SearchParamId.Set(record, 0, rowData.SearchParamId);
                 SystemId.Set(record, 1, rowData.SystemId);
@@ -1141,7 +940,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly VarCharColumn ReferenceResourceId = new VarCharColumn("ReferenceResourceId", 64, "Latin1_General_100_CS_AS");
             internal readonly NullableIntColumn ReferenceResourceVersion = new NullableIntColumn("ReferenceResourceVersion");
             protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId, ReferenceResourceVersion};
-            protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, ReferenceSearchParamTableTypeRow rowData)
+            protected override void FillSqlDataRecord(global::Microsoft.Data.SqlClient.Server.SqlDataRecord record, ReferenceSearchParamTableTypeRow rowData)
             {
                 SearchParamId.Set(record, 0, rowData.SearchParamId);
                 BaseUri.Set(record, 1, rowData.BaseUri);
@@ -1202,7 +1001,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly NullableIntColumn SystemId2 = new NullableIntColumn("SystemId2");
             internal readonly VarCharColumn Code2 = new VarCharColumn("Code2", 128, "Latin1_General_100_CS_AS");
             protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{SearchParamId, BaseUri1, ReferenceResourceTypeId1, ReferenceResourceId1, ReferenceResourceVersion1, SystemId2, Code2};
-            protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, ReferenceTokenCompositeSearchParamTableTypeRow rowData)
+            protected override void FillSqlDataRecord(global::Microsoft.Data.SqlClient.Server.SqlDataRecord record, ReferenceTokenCompositeSearchParamTableTypeRow rowData)
             {
                 SearchParamId.Set(record, 0, rowData.SearchParamId);
                 BaseUri1.Set(record, 1, rowData.BaseUri1);
@@ -1272,7 +1071,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly TinyIntColumn ClaimTypeId = new TinyIntColumn("ClaimTypeId");
             internal readonly NVarCharColumn ClaimValue = new NVarCharColumn("ClaimValue", 128);
             protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{ClaimTypeId, ClaimValue};
-            protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, ResourceWriteClaimTableTypeRow rowData)
+            protected override void FillSqlDataRecord(global::Microsoft.Data.SqlClient.Server.SqlDataRecord record, ResourceWriteClaimTableTypeRow rowData)
             {
                 ClaimTypeId.Set(record, 0, rowData.ClaimTypeId);
                 ClaimValue.Set(record, 1, rowData.ClaimValue);
@@ -1298,49 +1097,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             }
         }
 
-        private class SearchParamTableTypeTableValuedParameterDefinition : TableValuedParameterDefinition<SearchParamTableTypeRow>
-        {
-            internal SearchParamTableTypeTableValuedParameterDefinition(System.String parameterName): base(parameterName, "dbo.SearchParamTableType_1")
-            {
-            }
-
-            internal readonly VarCharColumn Uri = new VarCharColumn("Uri", 128, "Latin1_General_100_CS_AS");
-            internal readonly VarCharColumn Status = new VarCharColumn("Status", 10);
-            internal readonly BitColumn IsPartiallySupported = new BitColumn("IsPartiallySupported");
-            protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{Uri, Status, IsPartiallySupported};
-            protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, SearchParamTableTypeRow rowData)
-            {
-                Uri.Set(record, 0, rowData.Uri);
-                Status.Set(record, 1, rowData.Status);
-                IsPartiallySupported.Set(record, 2, rowData.IsPartiallySupported);
-            }
-        }
-
-        internal struct SearchParamTableTypeRow
-        {
-            internal SearchParamTableTypeRow(System.String Uri, System.String Status, System.Boolean IsPartiallySupported)
-            {
-                this.Uri = Uri;
-                this.Status = Status;
-                this.IsPartiallySupported = IsPartiallySupported;
-            }
-
-            internal System.String Uri
-            {
-                get;
-            }
-
-            internal System.String Status
-            {
-                get;
-            }
-
-            internal System.Boolean IsPartiallySupported
-            {
-                get;
-            }
-        }
-
         private class StringSearchParamTableTypeTableValuedParameterDefinition : TableValuedParameterDefinition<StringSearchParamTableTypeRow>
         {
             internal StringSearchParamTableTypeTableValuedParameterDefinition(System.String parameterName): base(parameterName, "dbo.StringSearchParamTableType_1")
@@ -1351,7 +1107,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly NVarCharColumn Text = new NVarCharColumn("Text", 256, "Latin1_General_100_CI_AI_SC");
             internal readonly NullableNVarCharColumn TextOverflow = new NullableNVarCharColumn("TextOverflow", -1, "Latin1_General_100_CI_AI_SC");
             protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{SearchParamId, Text, TextOverflow};
-            protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, StringSearchParamTableTypeRow rowData)
+            protected override void FillSqlDataRecord(global::Microsoft.Data.SqlClient.Server.SqlDataRecord record, StringSearchParamTableTypeRow rowData)
             {
                 SearchParamId.Set(record, 0, rowData.SearchParamId);
                 Text.Set(record, 1, rowData.Text);
@@ -1397,7 +1153,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly DateTimeOffsetColumn EndDateTime2 = new DateTimeOffsetColumn("EndDateTime2", 7);
             internal readonly BitColumn IsLongerThanADay2 = new BitColumn("IsLongerThanADay2");
             protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{SearchParamId, SystemId1, Code1, StartDateTime2, EndDateTime2, IsLongerThanADay2};
-            protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, TokenDateTimeCompositeSearchParamTableTypeRow rowData)
+            protected override void FillSqlDataRecord(global::Microsoft.Data.SqlClient.Server.SqlDataRecord record, TokenDateTimeCompositeSearchParamTableTypeRow rowData)
             {
                 SearchParamId.Set(record, 0, rowData.SearchParamId);
                 SystemId1.Set(record, 1, rowData.SystemId1);
@@ -1468,7 +1224,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly NullableDecimalColumn HighValue3 = new NullableDecimalColumn("HighValue3", 18, 6);
             internal readonly BitColumn HasRange = new BitColumn("HasRange");
             protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{SearchParamId, SystemId1, Code1, SingleValue2, LowValue2, HighValue2, SingleValue3, LowValue3, HighValue3, HasRange};
-            protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, TokenNumberNumberCompositeSearchParamTableTypeRow rowData)
+            protected override void FillSqlDataRecord(global::Microsoft.Data.SqlClient.Server.SqlDataRecord record, TokenNumberNumberCompositeSearchParamTableTypeRow rowData)
             {
                 SearchParamId.Set(record, 0, rowData.SearchParamId);
                 SystemId1.Set(record, 1, rowData.SystemId1);
@@ -1565,7 +1321,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly NullableDecimalColumn LowValue2 = new NullableDecimalColumn("LowValue2", 18, 6);
             internal readonly NullableDecimalColumn HighValue2 = new NullableDecimalColumn("HighValue2", 18, 6);
             protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{SearchParamId, SystemId1, Code1, SystemId2, QuantityCodeId2, SingleValue2, LowValue2, HighValue2};
-            protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, TokenQuantityCompositeSearchParamTableTypeRow rowData)
+            protected override void FillSqlDataRecord(global::Microsoft.Data.SqlClient.Server.SqlDataRecord record, TokenQuantityCompositeSearchParamTableTypeRow rowData)
             {
                 SearchParamId.Set(record, 0, rowData.SearchParamId);
                 SystemId1.Set(record, 1, rowData.SystemId1);
@@ -1643,7 +1399,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly NullableIntColumn SystemId = new NullableIntColumn("SystemId");
             internal readonly VarCharColumn Code = new VarCharColumn("Code", 128, "Latin1_General_100_CS_AS");
             protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{SearchParamId, SystemId, Code};
-            protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, TokenSearchParamTableTypeRow rowData)
+            protected override void FillSqlDataRecord(global::Microsoft.Data.SqlClient.Server.SqlDataRecord record, TokenSearchParamTableTypeRow rowData)
             {
                 SearchParamId.Set(record, 0, rowData.SearchParamId);
                 SystemId.Set(record, 1, rowData.SystemId);
@@ -1688,7 +1444,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly NVarCharColumn Text2 = new NVarCharColumn("Text2", 256, "Latin1_General_100_CI_AI_SC");
             internal readonly NullableNVarCharColumn TextOverflow2 = new NullableNVarCharColumn("TextOverflow2", -1, "Latin1_General_100_CI_AI_SC");
             protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{SearchParamId, SystemId1, Code1, Text2, TextOverflow2};
-            protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, TokenStringCompositeSearchParamTableTypeRow rowData)
+            protected override void FillSqlDataRecord(global::Microsoft.Data.SqlClient.Server.SqlDataRecord record, TokenStringCompositeSearchParamTableTypeRow rowData)
             {
                 SearchParamId.Set(record, 0, rowData.SearchParamId);
                 SystemId1.Set(record, 1, rowData.SystemId1);
@@ -1744,7 +1500,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly NVarCharColumn Text = new NVarCharColumn("Text", 400, "Latin1_General_CI_AI");
             protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{SearchParamId, Text};
-            protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, TokenTextTableTypeRow rowData)
+            protected override void FillSqlDataRecord(global::Microsoft.Data.SqlClient.Server.SqlDataRecord record, TokenTextTableTypeRow rowData)
             {
                 SearchParamId.Set(record, 0, rowData.SearchParamId);
                 Text.Set(record, 1, rowData.Text);
@@ -1782,7 +1538,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly NullableIntColumn SystemId2 = new NullableIntColumn("SystemId2");
             internal readonly VarCharColumn Code2 = new VarCharColumn("Code2", 128, "Latin1_General_100_CS_AS");
             protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{SearchParamId, SystemId1, Code1, SystemId2, Code2};
-            protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, TokenTokenCompositeSearchParamTableTypeRow rowData)
+            protected override void FillSqlDataRecord(global::Microsoft.Data.SqlClient.Server.SqlDataRecord record, TokenTokenCompositeSearchParamTableTypeRow rowData)
             {
                 SearchParamId.Set(record, 0, rowData.SearchParamId);
                 SystemId1.Set(record, 1, rowData.SystemId1);
@@ -1838,7 +1594,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema.Model
             internal readonly SmallIntColumn SearchParamId = new SmallIntColumn("SearchParamId");
             internal readonly VarCharColumn Uri = new VarCharColumn("Uri", 256, "Latin1_General_100_CS_AS");
             protected override global::System.Collections.Generic.IEnumerable<Column> Columns => new Column[]{SearchParamId, Uri};
-            protected override void FillSqlDataRecord(global::Microsoft.SqlServer.Server.SqlDataRecord record, UriSearchParamTableTypeRow rowData)
+            protected override void FillSqlDataRecord(global::Microsoft.Data.SqlClient.Server.SqlDataRecord record, UriSearchParamTableTypeRow rowData)
             {
                 SearchParamId.Set(record, 0, rowData.SearchParamId);
                 Uri.Set(record, 1, rowData.Uri);

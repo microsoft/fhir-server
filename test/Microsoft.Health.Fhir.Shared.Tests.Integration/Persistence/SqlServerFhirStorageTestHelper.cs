@@ -4,16 +4,20 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Data.SqlClient;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using EnsureThat;
+using MediatR;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
+using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.SqlServer.Dac.Compare;
+using NSubstitute;
 using Polly;
 using Xunit;
 
@@ -23,17 +27,19 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
     public class SqlServerFhirStorageTestHelper : IFhirStorageTestHelper, ISqlServerFhirStorageTestHelper
     {
-        private readonly string _connectionString;
+        private readonly string _masterDatabaseName;
         private readonly string _initialConnectionString;
-        private readonly string _masterConnectionString;
         private readonly SqlServerFhirModel _sqlServerFhirModel;
+        private readonly ISqlConnectionFactory _sqlConnectionFactory;
 
-        public SqlServerFhirStorageTestHelper(string connectionString, string initialConnectionString, string masterConnectionString, SqlServerFhirModel sqlServerFhirModel)
+        public SqlServerFhirStorageTestHelper(string initialConnectionString, string masterDatabaseName, SqlServerFhirModel sqlServerFhirModel, ISqlConnectionFactory sqlConnectionFactory)
         {
-            _connectionString = connectionString;
+            EnsureArg.IsNotNull(sqlConnectionFactory, nameof(sqlConnectionFactory));
+
+            _masterDatabaseName = masterDatabaseName;
             _initialConnectionString = initialConnectionString;
-            _masterConnectionString = masterConnectionString;
             _sqlServerFhirModel = sqlServerFhirModel;
+            _sqlConnectionFactory = sqlConnectionFactory;
         }
 
         public async Task CreateAndInitializeDatabase(string databaseName, bool forceIncrementalSchemaUpgrade, SchemaInitializer schemaInitializer = null, CancellationToken cancellationToken = default)
@@ -42,7 +48,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             schemaInitializer = schemaInitializer ?? CreateSchemaInitializer(testConnectionString);
 
             // Create the database.
-            using (var connection = new SqlConnection(_masterConnectionString))
+            using (var connection = await _sqlConnectionFactory.GetSqlConnectionAsync(_masterDatabaseName, cancellationToken))
             {
                 await connection.OpenAsync(cancellationToken);
 
@@ -62,7 +68,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)))
                 .ExecuteAsync(async () =>
                 {
-                    using (var connection = new SqlConnection(testConnectionString))
+                    using (var connection = await _sqlConnectionFactory.GetSqlConnectionAsync(databaseName, cancellationToken))
                     {
                         await connection.OpenAsync(cancellationToken);
                         using (SqlCommand sqlCommand = connection.CreateCommand())
@@ -73,13 +79,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     }
                 });
 
-            schemaInitializer.Initialize(forceIncrementalSchemaUpgrade);
+            await schemaInitializer.InitializeAsync(forceIncrementalSchemaUpgrade, cancellationToken);
             _sqlServerFhirModel.Start();
         }
 
         public async Task DeleteDatabase(string databaseName, CancellationToken cancellationToken = default)
         {
-            using (var connection = new SqlConnection(_masterConnectionString))
+            using (var connection = await _sqlConnectionFactory.GetSqlConnectionAsync(_masterDatabaseName, cancellationToken))
             {
                 await connection.OpenAsync(cancellationToken);
                 SqlConnection.ClearAllPools();
@@ -108,7 +114,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public async Task DeleteAllExportJobRecordsAsync(CancellationToken cancellationToken = default)
         {
-            using (var connection = new SqlConnection(_connectionString))
+            using (var connection = await _sqlConnectionFactory.GetSqlConnectionAsync())
             {
                 var command = new SqlCommand("DELETE FROM dbo.ExportJob", connection);
 
@@ -117,21 +123,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        public async Task DeleteSearchParameterStatusAsync(string uri, CancellationToken cancellationToken = default)
-        {
-            using (var connection = new SqlConnection(_connectionString))
-            {
-                var command = new SqlCommand("DELETE FROM dbo.SearchParam WHERE Uri = @uri", connection);
-                command.Parameters.AddWithValue("@uri", uri);
-
-                await command.Connection.OpenAsync(cancellationToken);
-                await command.ExecuteNonQueryAsync(cancellationToken);
-            }
-        }
-
         public async Task DeleteExportJobRecordAsync(string id, CancellationToken cancellationToken = default)
         {
-            using (var connection = new SqlConnection(_connectionString))
+            using (var connection = await _sqlConnectionFactory.GetSqlConnectionAsync())
             {
                 var command = new SqlCommand("DELETE FROM dbo.ExportJob WHERE Id = @id", connection);
 
@@ -150,7 +144,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         async Task<object> IFhirStorageTestHelper.GetSnapshotToken()
         {
-            using (var connection = new SqlConnection(_connectionString))
+            using (var connection = await _sqlConnectionFactory.GetSqlConnectionAsync())
             {
                 await connection.OpenAsync();
 
@@ -162,7 +156,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         async Task IFhirStorageTestHelper.ValidateSnapshotTokenIsCurrent(object snapshotToken)
         {
-            using (var connection = new SqlConnection(_connectionString))
+            using (var connection = await _sqlConnectionFactory.GetSqlConnectionAsync())
             {
                 await connection.OpenAsync();
 
@@ -195,7 +189,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                     command.CommandText = sb.ToString();
                     using (var reader = await command.ExecuteReaderAsync())
                     {
-                        while (reader.Read())
+                        while (await reader.ReadAsync())
                         {
                             Assert.True(reader.IsDBNull(1) || reader.GetInt64(1) <= (long)snapshotToken);
                         }
@@ -208,11 +202,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         {
             var schemaOptions = new SqlServerSchemaOptions { AutomaticUpdatesEnabled = true };
             var config = new SqlServerDataStoreConfiguration { ConnectionString = testConnectionString, Initialize = true, SchemaOptions = schemaOptions };
-            var schemaInformation = new SchemaInformation((int)SchemaVersion.V1, (int)SchemaVersion.V4);
+            var schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
             var scriptProvider = new ScriptProvider<SchemaVersion>();
-            var schemaUpgradeRunner = new SchemaUpgradeRunner(scriptProvider, config, NullLogger<SchemaUpgradeRunner>.Instance);
+            var baseScriptProvider = new BaseScriptProvider();
+            var mediator = Substitute.For<IMediator>();
+            var sqlConnectionFactory = new DefaultSqlConnectionFactory(config);
+            var schemaUpgradeRunner = new SchemaUpgradeRunner(scriptProvider, baseScriptProvider, mediator, NullLogger<SchemaUpgradeRunner>.Instance, sqlConnectionFactory);
 
-            return new SchemaInitializer(config, schemaUpgradeRunner, schemaInformation, NullLogger<SchemaInitializer>.Instance);
+            return new SchemaInitializer(config, schemaUpgradeRunner, schemaInformation, sqlConnectionFactory, NullLogger<SchemaInitializer>.Instance);
         }
     }
 }

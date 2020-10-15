@@ -71,6 +71,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly IAuditEventTypeMapping _auditEventTypeMapping;
         private readonly IFhirAuthorizationService _authorizationService;
         private readonly BundleConfiguration _bundleConfiguration;
+        private readonly string _originalRequestBase;
 
         public BundleHandler(
             IHttpContextAccessor httpContextAccessor,
@@ -121,6 +122,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             _httpAuthenticationFeature = httpContextAccessor.HttpContext.Features.Get<IHttpAuthenticationFeature>();
             _router = httpContextAccessor.HttpContext.GetRouteData().Routers.First();
             _requestServices = httpContextAccessor.HttpContext.RequestServices;
+            _originalRequestBase = httpContextAccessor.HttpContext.Request.PathBase;
             _emptyRequestsOrder = new List<int>();
             _referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
         }
@@ -282,6 +284,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             var requestUri = new Uri(_fhirRequestContextAccessor.FhirRequestContext.BaseUri, requestUrl);
             httpContext.Request.Scheme = requestUri.Scheme;
             httpContext.Request.Host = new HostString(requestUri.Host, requestUri.Port);
+            httpContext.Request.PathBase = _originalRequestBase;
             httpContext.Request.Path = requestUri.LocalPath;
             httpContext.Request.QueryString = new QueryString(requestUri.Query);
             httpContext.Request.Method = requestMethod.ToString();

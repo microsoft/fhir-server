@@ -35,7 +35,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         protected async Task<Bundle> ExecuteAndValidateBundle(string searchUrl, bool sort, params Resource[] expectedResources)
         {
-            return await ExecuteAndValidateBundle(searchUrl, searchUrl, sort, expectedResources);
+            var actualDecodedUrl = WebUtility.UrlDecode(searchUrl);
+            return await ExecuteAndValidateBundle(searchUrl, actualDecodedUrl, sort, expectedResources);
         }
 
         protected async Task<Bundle> ExecuteAndValidateBundle(string searchUrl, string selfLink, params Resource[] expectedResources)
@@ -49,14 +50,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         protected async Task<Bundle> ExecuteAndValidateBundle(string searchUrl, string selfLink, bool sort, params Resource[] expectedResources)
         {
-            FhirResponse<Bundle> firstBundle = await Client.SearchAsync(searchUrl);
+            Bundle firstBundle = await Client.SearchAsync(searchUrl);
 
             var pageSize = 10;
             var expectedFirstBundle = expectedResources.Length > pageSize ? expectedResources.ToList().GetRange(0, pageSize).ToArray() : expectedResources;
 
             ValidateBundle(firstBundle, selfLink, sort, expectedFirstBundle);
 
-            var nextLink = firstBundle.Resource.NextLink?.ToString();
+            var nextLink = firstBundle.NextLink?.ToString();
             if (nextLink != null)
             {
                 FhirResponse<Bundle> secondBundle = await Client.SearchAsync(nextLink);

@@ -49,6 +49,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         private readonly IMediator _mediator;
         private readonly ISearchService _searchService;
         private readonly ResourceIdProvider _resourceIdProvider;
+        private readonly ResourceDeserializer _deserializer;
+        private readonly FhirJsonParser _fhirJsonParser = new FhirJsonParser();
         private IFhirAuthorizationService _authorizationService;
 
         public ResourceHandlerTests()
@@ -62,7 +64,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             _rawResourceFactory = Substitute.For<RawResourceFactory>(new FhirJsonSerializer());
             _resourceWrapperFactory = Substitute.For<IResourceWrapperFactory>();
             _resourceWrapperFactory
-                .Create(Arg.Any<ResourceElement>(), Arg.Any<bool>())
+                .Create(Arg.Any<ResourceElement>(), Arg.Any<bool>(), Arg.Any<bool>())
                 .Returns(x => CreateResourceWrapper(x.ArgAt<ResourceElement>(0), x.ArgAt<bool>(1)));
 
             _conformanceStatement = CapabilityStatementMock.GetMockedCapabilityStatement();
@@ -98,11 +100,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             collection.Add(x => new UpsertResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, _authorizationService, ModelInfoProvider.Instance)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new ConditionalCreateResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, x.GetService<IMediator>(), _resourceIdProvider, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new ConditionalUpsertResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, x.GetService<IMediator>(), _resourceIdProvider, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
-            collection.Add(x => new GetResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, Deserializers.ResourceDeserializer, _resourceIdProvider, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(x => new GetResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new DeleteResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
 
             ServiceProvider provider = collection.BuildServiceProvider();
             _mediator = new Mediator(type => provider.GetService(type));
+
+            _deserializer = new ResourceDeserializer(
+                (FhirResourceFormat.Json, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastUpdated) => _fhirJsonParser.Parse(str).ToResourceElement())));
         }
 
         [Fact]
@@ -113,12 +118,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             var wrapper = CreateResourceWrapper(resource, false);
 
-            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true, Arg.Any<CancellationToken>()).Returns(new UpsertOutcome(wrapper, SaveOutcomeType.Created));
+            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true, Arg.Any<CancellationToken>()).Returns(x => new UpsertOutcome(x.Arg<ResourceWrapper>(), SaveOutcomeType.Created));
 
-            resource = await _mediator.CreateResourceAsync(resource);
+            var rawResource = await _mediator.CreateResourceAsync(resource);
+            var deserializedResource = rawResource.ToResourceElement(_deserializer);
 
-            Assert.NotNull(resource.Id);
-            Assert.NotEqual("id1", resource.Id);
+            Assert.NotNull(deserializedResource.Id);
+            Assert.NotEqual("id1", deserializedResource.Id);
         }
 
         [Fact]
@@ -130,9 +136,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true, Arg.Any<CancellationToken>())
                 .Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapper>(0), SaveOutcomeType.Created));
 
-            resource = (await _mediator.UpsertResourceAsync(resource)).Resource;
-
-            Assert.NotNull(resource.Id);
+            var rawResource = (await _mediator.UpsertResourceAsync(resource)).RawResourceElement;
+            var deserializedResource = rawResource.ToResourceElement(_deserializer);
+            Assert.NotNull(deserializedResource.Id);
         }
 
         [Fact]
@@ -145,12 +151,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             var wrapper = CreateResourceWrapper(resource, false);
 
-            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true, Arg.Any<CancellationToken>()).Returns(new UpsertOutcome(wrapper, SaveOutcomeType.Created));
+            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true, Arg.Any<CancellationToken>()).Returns(x => new UpsertOutcome(x.Arg<ResourceWrapper>(), SaveOutcomeType.Created));
 
-            resource = await _mediator.CreateResourceAsync(resource);
+            var rawResource = await _mediator.CreateResourceAsync(resource);
+            var deserializedResource = rawResource.ToResourceElement(_deserializer);
 
-            Assert.NotNull(resource.Id);
-            Assert.Equal("id2", resource.Id);
+            Assert.NotNull(deserializedResource.Id);
+            Assert.Equal("id2", deserializedResource.Id);
         }
 
         [Fact]
@@ -165,9 +172,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true, Arg.Any<CancellationToken>())
                     .Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapper>(0), SaveOutcomeType.Created));
 
-                resource = (await _mediator.UpsertResourceAsync(resource)).Resource;
+                var rawResource = (await _mediator.UpsertResourceAsync(resource)).RawResourceElement;
+                var deserializedResource = rawResource.ToResourceElement(_deserializer);
 
-                Assert.Equal(new DateTimeOffset(baseDate.AddMilliseconds(6), TimeSpan.Zero), resource.LastUpdated);
+                Assert.Equal(new DateTimeOffset(baseDate.AddMilliseconds(6), TimeSpan.Zero), deserializedResource.LastUpdated);
             }
         }
 
@@ -188,8 +196,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 .Returns(x => new UpsertOutcome(CreateWrapper(x.ArgAt<ResourceWrapper>(0)), SaveOutcomeType.Created));
 
             var outcome = await _mediator.UpsertResourceAsync(resource);
+            var deserialized = outcome.RawResourceElement.ToResourceElement(_deserializer);
 
-            Assert.Equal("version1", outcome.Resource.VersionId);
+            // Version gets overriden during RawResource creation to 1
+            Assert.Equal("1", outcome.RawResourceElement.VersionId);
+            Assert.Equal("1", deserialized.VersionId);
         }
 
         [Fact]
@@ -229,9 +240,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                 .Returns(x => new UpsertOutcome(CreateWrapper(x.ArgAt<ResourceWrapper>(0)), SaveOutcomeType.Updated));
 
             var outcome = await _mediator.UpsertResourceAsync(resource, null);
+            var deserialized = outcome.RawResourceElement.ToResourceElement(_deserializer);
 
+            // Version gets overriden during RawResource creation to 1
             Assert.NotNull(outcome);
-            Assert.Equal("version1", outcome.Resource.VersionId);
+            Assert.Equal("1", outcome.RawResourceElement.VersionId);
+            Assert.Equal("1", deserialized.VersionId);
         }
 
         [Fact]
@@ -351,7 +365,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             _fhirDataStore.GetAsync(Arg.Is<ResourceKey>(x => x.Id == "readDataPatient" && x.VersionId == "history"), Arg.Any<CancellationToken>()).Returns(history);
 
-            var result = await _mediator.GetResourceAsync(new ResourceKey("Patient", "readDataPatient", "history"));
+            ResourceElement result = (await _mediator.GetResourceAsync(new ResourceKey("Patient", "readDataPatient", "history"))).ToResourceElement(_deserializer);
 
             Assert.NotNull(result);
             Assert.Equal(patient.Scalar<string>(birthDateProp), result.Scalar<string>(birthDateProp));
@@ -371,7 +385,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             _fhirDataStore.GetAsync(Arg.Is<ResourceKey>(x => x.Id == "readDataPatient"), Arg.Any<CancellationToken>()).Returns(latest);
 
-            ResourceElement result = await _mediator.GetResourceAsync(new ResourceKey("Patient", "readDataPatient", "latest"));
+            ResourceElement result = (await _mediator.GetResourceAsync(new ResourceKey("Patient", "readDataPatient", "latest"))).ToResourceElement(_deserializer);
 
             Assert.NotNull(result);
             Assert.Equal(patient.Scalar<string>(birthDateProp), result.Scalar<string>(birthDateProp));
@@ -382,7 +396,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         {
             return new ResourceWrapper(
                 resource,
-                _rawResourceFactory.Create(resource),
+                _rawResourceFactory.Create(resource, keepMeta: true),
                 new ResourceRequest(HttpMethod.Post, "http://fhir"),
                 isDeleted,
                 null,
@@ -395,7 +409,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         {
             return Substitute.For<ResourceWrapper>(
                 resource,
-                _rawResourceFactory.Create(resource),
+                _rawResourceFactory.Create(resource, keepMeta: true),
                 new ResourceRequest(HttpMethod.Put, "http://fhir"),
                 isDeleted,
                 null,
