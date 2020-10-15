@@ -10,7 +10,6 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using MediatR;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -141,30 +140,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return FhirResult.Create(response, HttpStatusCode.Accepted)
                 .SetETagHeader()
                 .SetLastModifiedHeader();
-        }
-
-        [HttpGet]
-        [Route(KnownRoutes.ReindexOperationDefinition, Name = RouteNames.ReindexOperationDefintion)]
-        [AllowAnonymous]
-        public async Task<IActionResult> ReindexOperationDefintion()
-        {
-            CheckIfReindexIsEnabledAndRespond();
-
-            ReindexOperationDefinitionResponse response = await _mediator.GetReindexOperationDefinitionAsync(OperationsConstants.Reindex, HttpContext.RequestAborted);
-
-            return FhirResult.Create(response.OperationDefinition, HttpStatusCode.OK);
-        }
-
-        [HttpGet]
-        [Route(KnownRoutes.ResourceReindexOperationDefinition, Name = RouteNames.ResourceReindexOperationDefinition)]
-        [AllowAnonymous]
-        public async Task<IActionResult> ResourceReindexOperationDefinition()
-        {
-            CheckIfReindexIsEnabledAndRespond();
-
-            ReindexOperationDefinitionResponse response = await _mediator.GetReindexOperationDefinitionAsync(OperationsConstants.ResourceReindex, HttpContext.RequestAborted);
-
-            return FhirResult.Create(response.OperationDefinition, HttpStatusCode.OK);
         }
 
         /// <summary>

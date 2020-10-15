@@ -28,6 +28,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         public const string ResourceTypeByIdHistory = ResourceTypeById + "/" + History;
         public const string ResourceTypeByIdAndVid = ResourceTypeByIdHistory + "/" + VidRouteSegment;
 
+        public const string OperationDefinition = "OperationDefinition";
+
         public const string Export = "$export";
         public const string ExportResourceType = ResourceType + "/" + Export;
         public const string ExportResourceTypeById = ResourceTypeById + "/" + Export;
@@ -49,7 +51,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         public const string CompartmentTypeByResourceType = CompartmentTypeRouteSegment + "/" + IdRouteSegment + "/" + CompartmentResourceTypeRouteSegment;
 
         public const string Metadata = "metadata";
-        public const string OperationDefinition = "OperationDefinition";
         public const string Versions = "$versions";
 
         public const string HealthCheck = "/health/check";

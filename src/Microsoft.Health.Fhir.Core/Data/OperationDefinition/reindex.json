@@ -13,5 +13,14 @@
     "system": true,
     "type": false,
     "instance": false,
-    "parameter": []
+    "parameter": [
+        {
+            "name": "maximumConcurrency",
+            "use": "in",
+            "min": 0,
+            "max": "1",
+            "documentation": "Determines how many threads will be used for the reindex process.",
+            "type": "integer"
+        }
+    ]
 }

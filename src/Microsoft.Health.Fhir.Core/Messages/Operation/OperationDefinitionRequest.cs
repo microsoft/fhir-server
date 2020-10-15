@@ -6,17 +6,17 @@
 using EnsureThat;
 using MediatR;
 
-namespace Microsoft.Health.Fhir.Core.Messages.Export
+namespace Microsoft.Health.Fhir.Core.Messages.Operation
 {
-    public class ExportOperationDefinitionRequest : IRequest<ExportOperationDefinitionResponse>
+    public class OperationDefinitionRequest : IRequest<OperationDefinitionResponse>
     {
-        public ExportOperationDefinitionRequest(string route)
+        public OperationDefinitionRequest(string operationName)
         {
-            EnsureArg.IsNotNullOrWhiteSpace(route, nameof(route));
+            EnsureArg.IsNotNullOrWhiteSpace(operationName, nameof(operationName));
 
-            Route = route;
+            OperationName = operationName;
         }
 
-        public string Route { get; }
+        public string OperationName { get; }
     }
 }

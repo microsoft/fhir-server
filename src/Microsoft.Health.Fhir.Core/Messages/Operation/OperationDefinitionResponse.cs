@@ -6,11 +6,11 @@
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Models;
 
-namespace Microsoft.Health.Fhir.Core.Messages.Export
+namespace Microsoft.Health.Fhir.Core.Messages.Operation
 {
-    public class ExportOperationDefinitionResponse
+    public class OperationDefinitionResponse
     {
-        public ExportOperationDefinitionResponse(ResourceElement operationDefinition)
+        public OperationDefinitionResponse(ResourceElement operationDefinition)
         {
             EnsureArg.IsNotNull(operationDefinition, nameof(operationDefinition));
 
