@@ -1,7 +1,4 @@
--- NOTE: This script DROPS AND RECREATES all database objects.
 -- Style guide: please see: https://github.com/ktaranov/sqlserver-kit/blob/master/SQL%20Server%20Name%20Convention%20and%20T-SQL%20Programming%20Style.md
-
-
 
 /*************************************************************
     Schema Version
@@ -1437,7 +1434,7 @@ AS
 
     DECLARE @resourceSurrogateId bigint = @baseResourceSurrogateId + (NEXT VALUE FOR ResourceSurrogateIdUniquifierSequence)
     DECLARE @isRawResourceMetaSet bit
-    
+
     IF (@version = 1) BEGIN SET @isRawResourceMetaSet = 1 END ELSE BEGIN SET @isRawResourceMetaSet = 0 END
 
     INSERT INTO dbo.Resource
@@ -1714,7 +1711,7 @@ AS
         (Id, Hash, Status, HeartbeatDateTime, RawJobRecord)
     VALUES
         (@id, @hash, @status, @heartbeatDateTime, @rawJobRecord)
-  
+
     SELECT CAST(MIN_ACTIVE_ROWVERSION() AS INT)
 
     COMMIT TRANSACTION
@@ -1822,7 +1819,7 @@ AS
     UPDATE dbo.ExportJob
     SET Status = @status, HeartbeatDateTime = @heartbeatDateTime, RawJobRecord = @rawJobRecord
     WHERE Id = @id
-  
+
     SELECT MIN_ACTIVE_ROWVERSION()
 
     COMMIT TRANSACTION
@@ -1883,6 +1880,6 @@ AS
     SET Status = 'Running', HeartbeatDateTime = @heartbeatDateTime, RawJobRecord = JSON_MODIFY(RawJobRecord,'$.status', 'Running')
     OUTPUT inserted.RawJobRecord, inserted.JobVersion
     FROM dbo.ExportJob job INNER JOIN @availableJobs availableJob ON job.Id = availableJob.Id AND job.JobVersion = availableJob.JobVersion
-   
+
     COMMIT TRANSACTION
 GO
