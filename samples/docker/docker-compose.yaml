@@ -12,6 +12,7 @@ services:
       SqlServer__ConnectionString: "Server=tcp:sql,1433;Initial Catalog=FHIR;Persist Security Info=False;User ID=sa;Password=${SAPASSWORD};MultipleActiveResultSets=False;Connection Timeout=30;"
       SqlServer__AllowDatabaseCreation: "true"
       SqlServer__Initialize: "true"
+      SqlServer__SchemaOptions__AutomaticUpdatesEnabled: "true"
       DataStore: "SqlServer"
     ports:     
       - "8080:8080"

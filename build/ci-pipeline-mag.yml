@@ -58,6 +58,7 @@ stages:
 
           New-AzResourceGroupDeployment -Name "$(DeploymentEnvironmentNameR4)" -ResourceGroupName "$(resourceGroupRoot)" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy.json -TemplateParameterObject $templateParameters -Verbose
 
+          $templateParameters["sqlSchemaAutomaticUpdatesEnabled"] = "true"
           $templateParameters["solutionType"] = "FhirServerSqlServer"
           $templateParameters["serviceName"] = "$(DeploymentEnvironmentNameR4Sql)"
           $templateParameters["sqlLocation"] = "$(SqlRegion)"

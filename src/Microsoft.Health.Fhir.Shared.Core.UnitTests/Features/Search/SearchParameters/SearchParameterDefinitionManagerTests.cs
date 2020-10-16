@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -247,6 +248,77 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public void GivenASearchParameterDefinitionManager_WhenGettingNonexistentSearchParameterByUrl_ExceptionIsThrown()
         {
             Assert.Throws<SearchParameterNotSupportedException>(() => _searchParameterDefinitionManager.GetSearchParameter(_testSearchParamInfo.Url));
+        }
+
+        [Fact]
+        public void GivenASearchParameterDefinitionManager_WhenAddingNewSearchParameterHash_SearchParamHashMapContainsTheNewData()
+        {
+            // Validate that initial search param map is empty
+            Assert.Equal(0, _searchParameterDefinitionManager.SearchParameterHashMap.Count);
+
+            // Add new resource type - search parameter hash information.
+            Dictionary<string, string> hashMap = new Dictionary<string, string>
+            {
+                { "Patient", "patientHash1" },
+                { "Observation", "observationHash1" },
+            };
+
+            _searchParameterDefinitionManager.UpdateSearchParameterHashMap(hashMap);
+
+            var searchParamMap = _searchParameterDefinitionManager.SearchParameterHashMap;
+            Assert.Equal(2, searchParamMap.Count);
+            Assert.Equal("patientHash1", searchParamMap["Patient"]);
+            Assert.Equal("observationHash1", searchParamMap["Observation"]);
+        }
+
+        [Fact]
+        public void GivenASearchParameterDefinitionManager_WhenUpdatingExistingParameters_SearchParamHashMapContainsTheUpdatedData()
+        {
+            // Initialize search parameter hash map
+            var hashMap = new Dictionary<string, string>
+            {
+                { "Patient", "patientHash1" },
+                { "Observation", "observationHash1" },
+            };
+            _searchParameterDefinitionManager.UpdateSearchParameterHashMap(hashMap);
+
+            // Update existing resource type with new hash
+            _searchParameterDefinitionManager.UpdateSearchParameterHashMap(new Dictionary<string, string>() { { "Patient", "patientHash2" } });
+
+            IReadOnlyDictionary<string, string> searchParamMap = _searchParameterDefinitionManager.SearchParameterHashMap;
+            Assert.Equal(2, searchParamMap.Count);
+            Assert.Equal("patientHash2", searchParamMap["Patient"]);
+            Assert.Equal("observationHash1", searchParamMap["Observation"]);
+        }
+
+        [Fact]
+        public void GivenASearchParameterDefinitionManager_WhenGettingSearchParameterHashForExistingResourceType_ThenHashIsReturned()
+        {
+            // Initialize search parameter hash map
+            var hashMap = new Dictionary<string, string>
+            {
+                { "Patient", "patientHash1" },
+                { "Observation", "observationHash1" },
+            };
+            _searchParameterDefinitionManager.UpdateSearchParameterHashMap(hashMap);
+
+            var searchParamHash = _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient");
+            Assert.Equal("patientHash1", searchParamHash);
+        }
+
+        [Fact]
+        public void GivenASearchParameterDefinitionManager_WhenGettingSearchParameterHashForMissingResourceType_ThenNullIsReturned()
+        {
+            // Initialize search parameter hash map
+            var hashMap = new Dictionary<string, string>
+            {
+                { "Patient", "patientHash1" },
+                { "Observation", "observationHash1" },
+            };
+            _searchParameterDefinitionManager.UpdateSearchParameterHashMap(hashMap);
+
+            var searchParamHash = _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Medication");
+            Assert.Null(searchParamHash);
         }
 
         [Fact]

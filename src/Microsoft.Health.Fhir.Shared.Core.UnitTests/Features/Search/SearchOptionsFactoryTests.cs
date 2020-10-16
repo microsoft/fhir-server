@@ -12,12 +12,14 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Core.UnitTests.Features.Context;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Xunit;
@@ -38,6 +40,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private readonly SearchParameterInfo _resourceTypeSearchParameterInfo;
         private readonly SearchParameterInfo _lastUpdatedSearchParameterInfo;
         private readonly CoreFeatureConfiguration _coreFeatures;
+        private DefaultFhirRequestContext _defaultFhirRequestContext;
 
         public SearchOptionsFactoryTests()
         {
@@ -48,11 +51,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             searchParameterDefinitionManager.GetSearchParameter(Arg.Any<string>(), SearchParameterNames.ResourceType).Returns(_resourceTypeSearchParameterInfo);
             searchParameterDefinitionManager.GetSearchParameter(Arg.Any<string>(), SearchParameterNames.LastUpdated).Returns(_lastUpdatedSearchParameterInfo);
             _coreFeatures = new CoreFeatureConfiguration();
+            _defaultFhirRequestContext = new DefaultFhirRequestContext();
 
             _factory = new SearchOptionsFactory(
                 _expressionParser,
                 () => searchParameterDefinitionManager,
                 new OptionsWrapper<CoreFeatureConfiguration>(_coreFeatures),
+                _defaultFhirRequestContext.SetupAccessor(),
                 NullLogger<SearchOptionsFactory>.Instance);
         }
 
@@ -432,12 +437,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
-        public void GivenCountParameterAboveThanMaximumAllowed_WhenCreated_ThenSearchOptionsThrowException()
+        public void GivenCountParameterAboveThanMaximumAllowed_WhenCreated_ThenSearchOptionsAddIssueToContext()
         {
             _coreFeatures.MaxItemCountPerSearch = 10;
             _coreFeatures.DefaultItemCountPerSearch = 1;
 
-            Assert.Throws<BadRequestException>(() => CreateSearchOptions(queryParameters: new[] { Tuple.Create<string, string>("_count", "11"), }));
+            CreateSearchOptions(queryParameters: new[] { Tuple.Create<string, string>("_count", "11"), });
+
+            Assert.Collection(_defaultFhirRequestContext.BundleIssues, issue => issue.Diagnostics.Contains("exceeds limit"));
         }
 
         [Fact]

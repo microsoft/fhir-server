@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
 
             var newResourceValues = Samples.GetJsonSample("WeightInGrams").ToPoco();
-            newResourceValues.Id = saveResult.Resource.Id;
+            newResourceValues.Id = saveResult.RawResourceElement.Id;
 
             await Assert.ThrowsAsync<ResourceConflictException>(async () =>
                 await Mediator.UpsertResourceAsync(newResourceValues.ToResourceElement(), WeakETag.FromVersionId("invalidVersion")));
