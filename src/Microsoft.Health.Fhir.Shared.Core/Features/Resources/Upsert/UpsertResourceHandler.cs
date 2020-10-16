@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Upsert
 
             resource.VersionId = result.Wrapper.Version;
 
-            return new UpsertResourceResponse(new SaveOutcome(resource.ToResourceElement(), result.OutcomeType));
+            return new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(result.Wrapper), result.OutcomeType));
         }
 
         private async Task<UpsertOutcome> UpsertAsync(UpsertResourceRequest message, ResourceWrapper resourceWrapper, bool allowCreate, bool keepHistory, CancellationToken cancellationToken)
