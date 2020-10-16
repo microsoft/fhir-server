@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -278,7 +279,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             var documentQuery = _cosmosQueryFactory.Create<T>(_containerScope.Value, context);
 
-            return await documentQuery.ExecuteNextAsync(cancellationToken);
+            try
+            {
+                return await documentQuery.ExecuteNextAsync(cancellationToken);
+            }
+            catch (CosmosException e) when (e.StatusCode == HttpStatusCode.BadRequest && continuationToken != null && e.ResponseBody.StartsWith("Malformed continuation token", StringComparison.OrdinalIgnoreCase))
+            {
+                // there isn't a status code that indicates this condition, so we rely on the error message.
+                throw new BadRequestException(Core.Resources.InvalidContinuationToken);
+            }
         }
 
         public void Build(ICapabilityStatementBuilder builder)
