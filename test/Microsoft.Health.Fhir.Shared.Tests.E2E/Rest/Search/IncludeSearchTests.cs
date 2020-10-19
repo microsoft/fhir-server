@@ -86,6 +86,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
+        public async Task GivenAnIncludeSearchExpressionWithOnlyDenormalizedPredicates_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        {
+            string lastUpdatedString = Uri.EscapeDataString(Fixture.PatientGroup.Meta.LastUpdated.Value.ToString("o"));
+
+            FhirResponse<Bundle> results = await Client.SearchAsync(ResourceType.Group, $"_lastUpdated={lastUpdatedString}&_include=Group:member:Patient");
+            Assert.Contains(results.Resource.Entry, e => e.Search.Mode == Bundle.SearchEntryMode.Match && e.Resource.Id == Fixture.PatientGroup.Id);
+            Assert.Contains(results.Resource.Entry, e => e.Search.Mode == Bundle.SearchEntryMode.Include && e.Resource.Id == Fixture.AdamsPatient.Id);
+        }
+
+        [Fact]
         public async Task GivenAnIncludeSearchExpressionWithMultipleDenormalizedParameters_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             var guid = Guid.NewGuid().ToString();
