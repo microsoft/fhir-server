@@ -23,8 +23,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
         public Expression VisitSqlRoot(SqlRootExpression expression, object context)
         {
             if (expression.TableExpressions.Count == 0 || expression.DenormalizedExpressions.Count == 0 ||
-                expression.TableExpressions.All(e => e.Kind == TableExpressionKind.Include)) // this case is handled in IncludeDenormalizedRewriter
+                expression.TableExpressions.All(e => e.Kind == TableExpressionKind.Include))
             {
+                // if only Include expressions, the case is handled in IncludeDenormalizedRewriter
                 return expression;
             }
 
