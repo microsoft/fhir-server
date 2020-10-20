@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Web;
 using Hl7.Fhir.Model;
-using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Xunit;

@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
@@ -11,14 +12,18 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 {
-    public class SearchParameterSupportResolverTests
+    public class SearchParameterSupportResolverTests : IAsyncLifetime
     {
-        private readonly SearchParameterSupportResolver _resolver;
+        private SearchParameterSupportResolver _resolver;
 
-        public SearchParameterSupportResolverTests()
+        public async Task InitializeAsync()
         {
-            _resolver = new SearchParameterSupportResolver(SearchParameterFixtureData.SearchDefinitionManager, SearchParameterFixtureData.Manager);
+            _resolver = new SearchParameterSupportResolver(
+                await SearchParameterFixtureData.GetSearchDefinitionManager(),
+                await SearchParameterFixtureData.GetManager());
         }
+
+        public Task DisposeAsync() => Task.CompletedTask;
 
         [Fact]
         public void GivenASupportedSearchParameter_WhenResolvingSupport_ThenTrueIsReturned()
