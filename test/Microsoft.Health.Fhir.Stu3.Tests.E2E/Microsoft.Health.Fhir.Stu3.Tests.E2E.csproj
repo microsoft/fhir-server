@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netcoreapp3.1</TargetFramework>
     <IsPackable>true</IsPackable>
@@ -18,8 +18,8 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="3.1.8" />
-    <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection" Version="1.0.0-master-20201008-2" />
-    <PackageReference Include="Microsoft.Health.Test.Utilities" Version="1.0.0-master-20201008-2" />
+    <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection" Version="1.0.0-istartable-to-ihostedservice-20201019-174945-preview" />
+    <PackageReference Include="Microsoft.Health.Test.Utilities" Version="1.0.0-istartable-to-ihostedservice-20201019-174945-preview" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.7.0" />
     <PackageReference Include="selenium.chrome.webdriver" Version="83.0.0" />
     <PackageReference Include="selenium.webdriver" Version="3.141.0" />
@@ -50,7 +50,6 @@
   <Import Project="..\Microsoft.Health.Fhir.Shared.Tests.E2E.Common\Microsoft.Health.Fhir.Shared.Tests.E2E.Common.projitems" Label="Shared" />
   <Import Project="..\Microsoft.Health.Fhir.Shared.Tests.Crucible\Microsoft.Health.Fhir.Shared.Tests.Crucible.projitems" Label="Shared" />
   <Target Name="VerifyExactSdkVersion" BeforeTargets="Build">
-
     <!--
       Verify that the we are compiling with the exact version of the SDK that is specified in the global.json file.
       If the version specified in the file is not installed on the system, dotnet uses the latest installed version instead.

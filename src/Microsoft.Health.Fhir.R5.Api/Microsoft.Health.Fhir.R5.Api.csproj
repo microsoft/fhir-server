@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netcoreapp3.1</TargetFramework>
     <RootNamespace>Microsoft.Health.Fhir.Api</RootNamespace>
@@ -7,7 +7,6 @@
     <DefineConstants>R5</DefineConstants>
     <NoWarn>$(NoWarn);NU1603</NoWarn>
   </PropertyGroup>
-
   <ItemGroup>
     <PackageReference Include="Ensure.That" Version="9.2.0" />
     <PackageReference Include="FluentValidation" Version="8.6.1" />
@@ -16,12 +15,9 @@
     <PackageReference Include="MediatR.Extensions.Microsoft.DependencyInjection" Version="8.1.0" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="3.1.8" />
   </ItemGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.Api\Microsoft.Health.Fhir.Api.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.R5.Core\Microsoft.Health.Fhir.R5.Core.csproj" />
   </ItemGroup>
-
   <Import Project="..\Microsoft.Health.Fhir.Shared.Api\Microsoft.Health.Fhir.Shared.Api.projitems" Label="Shared" />
-
 </Project>

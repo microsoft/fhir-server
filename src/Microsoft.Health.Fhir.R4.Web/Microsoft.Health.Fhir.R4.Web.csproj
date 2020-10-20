@@ -1,10 +1,8 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Web">
-
+<Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
     <TargetFramework>netcoreapp3.1</TargetFramework>
     <UserSecretsId>29a71f18-2146-4ff0-a511-da3cf615d951</UserSecretsId>
   </PropertyGroup>
-
   <ItemGroup>
     <PackageReference Include="IdentityServer4" Version="3.1.0" />
     <PackageReference Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.14.0" />
@@ -15,13 +13,11 @@
     <PackageReference Include="prometheus-net.DotNetRuntime" Version="3.4.0" />
     <PackageReference Include="prometheus-net.SystemMetrics" Version="1.0.1" />
   </ItemGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.Azure\Microsoft.Health.Fhir.Azure.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.CosmosDb\Microsoft.Health.Fhir.CosmosDb.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.R4.Api\Microsoft.Health.Fhir.R4.Api.csproj" />
     <ProjectReference Include="..\Microsoft.Health.Fhir.SqlServer\Microsoft.Health.Fhir.SqlServer.csproj" />
   </ItemGroup>
-
   <Import Project="..\Microsoft.Health.Fhir.Shared.Web\Microsoft.Health.Fhir.Shared.Web.projitems" Label="Shared" />
 </Project>

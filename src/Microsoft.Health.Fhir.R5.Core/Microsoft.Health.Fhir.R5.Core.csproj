@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netcoreapp3.1</TargetFramework>
     <RootNamespace>Microsoft.Health.Fhir.Core</RootNamespace>
@@ -10,7 +10,6 @@
   <ItemGroup>
     <None Remove="Features\Definition\unsupported-search-parameters.json" />
   </ItemGroup>
-
   <ItemGroup>
     <PackageReference Include="AngleSharp" Version="0.14.0" />
     <PackageReference Include="Ensure.That" Version="9.2.0" />
@@ -23,11 +22,8 @@
     <PackageReference Include="System.Collections.Immutable" Version="1.7.1" />
     <PackageReference Include="System.Net.Http" Version="4.3.4" />
   </ItemGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
   </ItemGroup>
-
   <Import Project="..\Microsoft.Health.Fhir.Shared.Core\Microsoft.Health.Fhir.Shared.Core.projitems" Label="Shared" />
-
 </Project>
