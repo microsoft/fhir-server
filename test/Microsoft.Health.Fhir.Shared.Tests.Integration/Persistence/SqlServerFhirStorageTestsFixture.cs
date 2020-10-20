@@ -73,7 +73,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var sqlServerFhirModel = new SqlServerFhirModel(
                 config,
-                _schemaInitializer,
                 schemaInformation,
                 searchParameterDefinitionManager,
                 () => _filebasedSearchParameterStatusDataStore,

@@ -26,9 +26,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             EnsureArg.IsNotNull(notification, nameof(notification));
 
-            // TODO: Use version information to call modularized start methods (work item 75557).
-            int? version = notification.Version;
-            _sqlServerFhirModel.Start();
+            int version = notification.Version;
+            bool isFullSchemaSnapshot = notification.IsFullSchemaSnapshot;
+
+            // If it is a snapshot upgrade, then we need to run initialization for all schema versions up to the current version.
+            _sqlServerFhirModel.Initialize(version, isFullSchemaSnapshot);
 
             return Task.CompletedTask;
         }
