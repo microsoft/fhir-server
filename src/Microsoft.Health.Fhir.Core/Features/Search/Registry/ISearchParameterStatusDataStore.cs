@@ -12,6 +12,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
     {
         Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses();
 
-        Task UpdateStatuses(IEnumerable<ResourceSearchParameterStatus> statuses);
+        Task UpsertStatuses(IEnumerable<ResourceSearchParameterStatus> statuses);
     }
 }

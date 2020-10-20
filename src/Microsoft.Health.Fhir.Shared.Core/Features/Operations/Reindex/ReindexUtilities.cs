@@ -114,7 +114,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 });
             }
 
-            await _searchParameterStatusDataStore.UpdateStatuses(searchParameterStatusList);
+            await _searchParameterStatusDataStore.UpsertStatuses(searchParameterStatusList);
 
             return (true, null);
         }
