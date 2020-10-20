@@ -35,8 +35,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
             _queryFactory = queryFactory;
         }
 
-        public Uri CollectionUri { get; set; }
-
         public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses()
         {
             using var cancellationSource = new CancellationTokenSource(TimeSpan.FromMinutes(1));
