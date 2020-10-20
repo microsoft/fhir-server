@@ -141,7 +141,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 using JsonReader jsonReader = new JsonTextReader(reader);
                 try
                 {
-                    bundle = new BundleWrapper(FhirJsonNode.Read(jsonReader).ToTypedElement(_modelInfoProvider.StructureDefinitionSummaryProvider));
+                    ISourceNode sourceNode = FhirJsonNode.Read(jsonReader);
+                    bundle = new BundleWrapper(sourceNode.ToTypedElement(_modelInfoProvider.StructureDefinitionSummaryProviderForSourceNode(sourceNode)));
                 }
                 catch (FormatException ex)
                 {

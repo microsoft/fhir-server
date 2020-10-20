@@ -14,24 +14,25 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators;
+using Microsoft.Health.Fhir.Tests.Common;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 {
-    public class IncludeRewriterTests : IAsyncLifetime
+    public class IncludeRewriterTests : IClassFixture<IncludeRewriterTests.IncludeRewriterFixture>, IAsyncLifetime
     {
-        private readonly SearchParameterDefinitionManager _searchParameterDefinitionManager;
-        private IReadOnlyList<string> _includeTargetTypes = new List<string>() { "MedicationRequest" };
+        private readonly IncludeRewriterFixture _fixture;
+        private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
 
-        public IncludeRewriterTests()
+        public IncludeRewriterTests(IncludeRewriterFixture fixture)
         {
-            ModelInfoProvider.SetProvider(new VersionSpecificModelInfoProvider());
-            _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance);
+            _fixture = fixture;
+            _searchParameterDefinitionManager = fixture.SearchParameterDefinitionManager;
         }
 
         public async Task InitializeAsync()
         {
-            await _searchParameterDefinitionManager.StartAsync(CancellationToken.None);
+            await _fixture.Start();
         }
 
         public Task DisposeAsync() => Task.CompletedTask;
@@ -1623,6 +1624,32 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 new List<Expression>());
 
             Assert.Throws<SearchOperationNotSupportedException>(() => ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).TableExpressions);
+        }
+
+        public class IncludeRewriterFixture
+        {
+            private bool isInitialized = false;
+
+            public IncludeRewriterFixture()
+            {
+                IModelInfoProvider modelInfoProvider = MockModelInfoProviderBuilder
+                    .Create(FhirSpecification.R4)
+                    .AddKnownTypes("Device", "DiagnosticReport", "MedicationRequest", "MedicationDispense", "Location", "Practitioner", "Organization")
+                    .Build();
+
+                SearchParameterDefinitionManager = new SearchParameterDefinitionManager(modelInfoProvider);
+            }
+
+            public ISearchParameterDefinitionManager SearchParameterDefinitionManager { get; }
+
+            public async Task Start()
+            {
+                if (!isInitialized)
+                {
+                    await ((SearchParameterDefinitionManager)SearchParameterDefinitionManager).StartAsync(CancellationToken.None);
+                    isInitialized = true;
+                }
+            }
         }
     }
 }
