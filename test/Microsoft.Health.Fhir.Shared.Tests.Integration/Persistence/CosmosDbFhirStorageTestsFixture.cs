@@ -45,6 +45,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private IFhirOperationDataStore _fhirOperationDataStore;
         private IFhirStorageTestHelper _fhirStorageTestHelper;
         private FilebasedSearchParameterStatusDataStore _filebasedSearchParameterStatusDataStore;
+        private ISearchParameterStatusDataStore _searchParameterStatusDataStore;
         private CosmosClient _cosmosClient;
 
         public CosmosDbFhirStorageTestsFixture()
@@ -124,6 +125,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             var documentClient = new NonDisposingScope(_container);
 
+            _searchParameterStatusDataStore = new CosmosDbSearchParameterStatusDataStore(
+                () => documentClient,
+                _cosmosDataStoreConfiguration,
+                cosmosDocumentQueryFactory);
+
             _fhirDataStore = new CosmosFhirDataStore(
                 documentClient,
                 _cosmosDataStoreConfiguration,
@@ -142,10 +148,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 new CosmosQueryFactory(responseProcessor, new NullFhirCosmosQueryLogger()),
                 NullLogger<CosmosFhirOperationDataStore>.Instance);
 
-            _fhirStorageTestHelper = new CosmosDbFhirStorageTestHelper(
-                _container,
-                _cosmosDataStoreConfiguration.DatabaseId,
-                _cosmosCollectionConfiguration.CollectionId);
+            _fhirStorageTestHelper = new CosmosDbFhirStorageTestHelper(_container);
         }
 
         public async Task DisposeAsync()
@@ -178,6 +181,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             if (serviceType.IsInstanceOfType(this))
             {
                 return this;
+            }
+
+            if (serviceType == typeof(ISearchParameterStatusDataStore))
+            {
+                return _searchParameterStatusDataStore;
+            }
+
+            if (serviceType == typeof(FilebasedSearchParameterStatusDataStore))
+            {
+                return _filebasedSearchParameterStatusDataStore;
             }
 
             return null;

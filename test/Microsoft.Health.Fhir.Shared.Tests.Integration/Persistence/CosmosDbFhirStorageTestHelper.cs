@@ -7,6 +7,8 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Azure.Cosmos;
+using Microsoft.Health.Core.Extensions;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry;
 using Newtonsoft.Json.Linq;
 using Xunit;
 
@@ -18,17 +20,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private const string ReindexJobPartitionKey = "ReindexJob";
 
         private readonly Container _documentClient;
-        private readonly string _databaseId;
-        private readonly string _collectionId;
 
-        public CosmosDbFhirStorageTestHelper(
-            Container documentClient,
-            string databaseId,
-            string collectionId)
+        public CosmosDbFhirStorageTestHelper(Container documentClient)
         {
             _documentClient = documentClient;
-            _databaseId = databaseId;
-            _collectionId = collectionId;
         }
 
         public async Task DeleteAllExportJobRecordsAsync(CancellationToken cancellationToken = default)
@@ -39,6 +34,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public async Task DeleteExportJobRecordAsync(string id, CancellationToken cancellationToken = default)
         {
             await _documentClient.DeleteItemStreamAsync(id, new PartitionKey(ExportJobPartitionKey), cancellationToken: cancellationToken);
+        }
+
+        public async Task DeleteSearchParameterStatusAsync(string uri, CancellationToken cancellationToken = default)
+        {
+            await _documentClient.DeleteItemStreamAsync(uri.ComputeHash(), new PartitionKey(SearchParameterStatusWrapper.SearchParameterStatusPartitionKey), cancellationToken: cancellationToken);
         }
 
         public async Task DeleteAllReindexJobRecordsAsync(CancellationToken cancellationToken = default)

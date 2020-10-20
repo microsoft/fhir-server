@@ -26,6 +26,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         Task DeleteExportJobRecordAsync(string id, CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// Deletes specified search parameter statuses from the database.
+        /// </summary>
+        /// <param name="uri">The string URI of the status to be deleted.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>A task.</returns>
+        Task DeleteSearchParameterStatusAsync(string uri, CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Deletes all reindex job records from the database.
         /// </summary>
         /// <param name="cancellationToken">The cancellation token.</param>

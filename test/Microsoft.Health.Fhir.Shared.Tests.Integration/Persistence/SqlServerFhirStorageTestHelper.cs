@@ -137,6 +137,18 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
+        public async Task DeleteSearchParameterStatusAsync(string uri, CancellationToken cancellationToken = default)
+        {
+            using (var connection = await _sqlConnectionFactory.GetSqlConnectionAsync())
+            {
+                var command = new SqlCommand("DELETE FROM dbo.SearchParam WHERE Uri = @uri", connection);
+                command.Parameters.AddWithValue("@uri", uri);
+
+                await command.Connection.OpenAsync(cancellationToken);
+                await command.ExecuteNonQueryAsync(cancellationToken);
+            }
+        }
+
         public Task DeleteAllReindexJobRecordsAsync(CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();

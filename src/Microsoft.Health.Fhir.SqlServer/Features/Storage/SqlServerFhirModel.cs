@@ -16,8 +16,10 @@ using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
@@ -36,7 +38,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     {
         private readonly SqlServerDataStoreConfiguration _configuration;
         private readonly SchemaInitializer _schemaInitializer;
+        private readonly SchemaInformation _schemaInformation;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
+        private readonly ISearchParameterStatusDataStore _filebasedSearchParameterStatusDataStore;
         private readonly SecurityConfiguration _securityConfiguration;
         private readonly ILogger<SqlServerFhirModel> _logger;
         private Dictionary<string, short> _resourceTypeToId;
@@ -51,19 +55,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         public SqlServerFhirModel(
             SqlServerDataStoreConfiguration configuration,
             SchemaInitializer schemaInitializer,
+            SchemaInformation schemaInformation,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
+            FilebasedSearchParameterStatusDataStore.Resolver filebasedRegistry,
             IOptions<SecurityConfiguration> securityConfiguration,
             ILogger<SqlServerFhirModel> logger)
         {
             EnsureArg.IsNotNull(configuration, nameof(configuration));
             EnsureArg.IsNotNull(schemaInitializer, nameof(schemaInitializer));
+            EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
+            EnsureArg.IsNotNull(filebasedRegistry, nameof(filebasedRegistry));
             EnsureArg.IsNotNull(securityConfiguration?.Value, nameof(securityConfiguration));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _configuration = configuration;
             _schemaInitializer = schemaInitializer;
+            _schemaInformation = schemaInformation;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
+            _filebasedSearchParameterStatusDataStore = filebasedRegistry.Invoke();
             _securityConfiguration = securityConfiguration.Value;
             _logger = logger;
         }
@@ -132,6 +142,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return _quantityCodeToId.TryGetValue(code, out quantityCodeId);
         }
 
+        // TODO: Once this no longer implements IStartable, rename to "EnsureInitialized" (work item 75558).
         public void Start()
         {
             _schemaInitializer.Start();
@@ -139,6 +150,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             if (_searchParameterDefinitionManager is IStartable startable)
             {
                 startable.Start();
+            }
+
+            // As long as SqlServerFhirModel implements IStartable, avoid initialization if we are only running the base schema.
+            if (_schemaInformation.Current == null)
+            {
+                return;
             }
 
             var connectionStringBuilder = new SqlConnectionStringBuilder(_configuration.ConnectionString);
@@ -275,9 +292,55 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         _quantityCodeToId = quantityCodeToId;
                         _claimNameToId = claimNameToId;
                         _compartmentTypeToId = compartmentTypeToId;
-
-                        _started = true;
                     }
+                }
+
+                // Search parameter statuses are only supported in version four and higher.
+                if (_schemaInformation.Current >= 5)
+                {
+                    InitializeSearchParameterStatusInformation();
+                }
+
+                _started = true;
+            }
+        }
+
+        private void InitializeSearchParameterStatusInformation()
+        {
+            using (var connection = new SqlConnection(_configuration.ConnectionString))
+            {
+                connection.Open();
+
+                using (SqlCommand sqlCommand = connection.CreateCommand())
+                {
+                    sqlCommand.CommandText = @"
+                        SET XACT_ABORT ON
+                        BEGIN TRANSACTION
+                        DECLARE @lastUpdated datetimeoffset(7) = SYSDATETIMEOFFSET()
+    
+                        UPDATE dbo.SearchParam
+                        SET Status = sps.Status, LastUpdated = @lastUpdated, IsPartiallySupported = sps.IsPartiallySupported
+                        FROM dbo.SearchParam INNER JOIN @searchParamStatuses as sps
+                        ON dbo.SearchParam.Uri = sps.Uri
+                        COMMIT TRANSACTION";
+
+                    IEnumerable<ResourceSearchParameterStatus> statuses = _filebasedSearchParameterStatusDataStore
+                        .GetSearchParameterStatuses().GetAwaiter().GetResult();
+
+                    var collection = new SearchParameterStatusCollection();
+                    collection.AddRange(statuses);
+
+                    var tableValuedParameter = new SqlParameter
+                    {
+                        ParameterName = "searchParamStatuses",
+                        SqlDbType = SqlDbType.Structured,
+                        Value = collection,
+                        Direction = ParameterDirection.Input,
+                        TypeName = "dbo.SearchParamTableType_1",
+                    };
+
+                    sqlCommand.Parameters.Add(tableValuedParameter);
+                    sqlCommand.ExecuteNonQuery();
                 }
             }
         }
