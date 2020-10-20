@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
         }
 
         /// <inheritdoc />
-        public void LogExecuted(HttpContext httpContext, IClaimsExtractor claimsExtractor)
+        public void LogExecuted(HttpContext httpContext, IClaimsExtractor claimsExtractor, bool shouldCheckForAuthXFailure = false)
         {
             EnsureArg.IsNotNull(claimsExtractor, nameof(claimsExtractor));
             EnsureArg.IsNotNull(httpContext, nameof(httpContext));

@@ -5,10 +5,11 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Hl7.Fhir.Model;
-using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Rest;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
 {
@@ -16,6 +17,44 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
     {
         public IncludeSearchTestFixture(DataStore dataStore, Format format, TestFhirServerFactory testFhirServerFactory)
             : base(dataStore, format, testFhirServerFactory)
+        {
+        }
+
+        public Organization Organization { get; private set; }
+
+        public Practitioner Practitioner { get; private set; }
+
+        public Group PatientGroup { get; private set; }
+
+        public string Tag { get; private set; }
+
+        public Patient AdamsPatient { get; private set; }
+
+        public Observation AdamsLoincObservation { get; private set; }
+
+        public Patient TrumanPatient { get; private set; }
+
+        public Observation TrumanSnomedObservation { get; private set; }
+
+        public Observation TrumanLoincObservation { get; private set; }
+
+        public DiagnosticReport TrumanSnomedDiagnosticReport { get; private set; }
+
+        public DiagnosticReport TrumanLoincDiagnosticReport { get; private set; }
+
+        public Patient SmithPatient { get; private set; }
+
+        public Observation SmithSnomedObservation { get; private set; }
+
+        public Observation SmithLoincObservation { get; private set; }
+
+        public DiagnosticReport SmithSnomedDiagnosticReport { get; private set; }
+
+        public DiagnosticReport SmithLoincDiagnosticReport { get; private set; }
+
+        public Location Location { get; private set; }
+
+        protected override async Task OnInitializedAsync()
         {
             Tag = Guid.NewGuid().ToString();
 
@@ -31,29 +70,29 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
                     },
             };
 
-            Organization = TestFhirClient.CreateAsync(new Organization { Meta = meta, Address = new List<Address> { new Address { City = "Seattle" } } }).Result.Resource;
-            Practitioner = TestFhirClient.CreateAsync(new Practitioner { Meta = meta }).Result.Resource;
+            Organization = (await TestFhirClient.CreateAsync(new Organization { Meta = meta, Address = new List<Address> { new Address { City = "Seattle" } } })).Resource;
+            Practitioner = (await TestFhirClient.CreateAsync(new Practitioner { Meta = meta })).Resource;
 
-            AdamsPatient = TestFhirClient.CreateAsync(new Patient { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Adams" } } }).Result.Resource;
-            SmithPatient = TestFhirClient.CreateAsync(new Patient { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Smith" } }, ManagingOrganization = new ResourceReference($"Organization/{Organization.Id}") }).Result.Resource;
-            TrumanPatient = TestFhirClient.CreateAsync(new Patient { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Truman" } } }).Result.Resource;
+            AdamsPatient = (await TestFhirClient.CreateAsync(new Patient { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Adams" } } })).Resource;
+            SmithPatient = (await TestFhirClient.CreateAsync(new Patient { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Smith" } }, ManagingOrganization = new ResourceReference($"Organization/{Organization.Id}") })).Resource;
+            TrumanPatient = (await TestFhirClient.CreateAsync(new Patient { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Truman" } } })).Resource;
 
-            AdamsLoincObservation = CreateObservation(AdamsPatient, loincCode);
-            SmithLoincObservation = CreateObservation(SmithPatient, loincCode);
-            SmithSnomedObservation = CreateObservation(SmithPatient, snomedCode);
-            TrumanLoincObservation = CreateObservation(TrumanPatient, loincCode);
-            TrumanSnomedObservation = CreateObservation(TrumanPatient, snomedCode);
+            AdamsLoincObservation = await CreateObservation(AdamsPatient, loincCode);
+            SmithLoincObservation = await CreateObservation(SmithPatient, loincCode);
+            SmithSnomedObservation = await CreateObservation(SmithPatient, snomedCode);
+            TrumanLoincObservation = await CreateObservation(TrumanPatient, loincCode);
+            TrumanSnomedObservation = await CreateObservation(TrumanPatient, snomedCode);
 
-            SmithSnomedDiagnosticReport = CreateDiagnosticReport(SmithPatient, SmithSnomedObservation, snomedCode);
-            TrumanSnomedDiagnosticReport = CreateDiagnosticReport(TrumanPatient, TrumanSnomedObservation, snomedCode);
-            SmithLoincDiagnosticReport = CreateDiagnosticReport(SmithPatient, SmithLoincObservation, loincCode);
-            TrumanLoincDiagnosticReport = CreateDiagnosticReport(TrumanPatient, TrumanLoincObservation, loincCode);
+            SmithSnomedDiagnosticReport = await CreateDiagnosticReport(SmithPatient, SmithSnomedObservation, snomedCode);
+            TrumanSnomedDiagnosticReport = await CreateDiagnosticReport(TrumanPatient, TrumanSnomedObservation, snomedCode);
+            SmithLoincDiagnosticReport = await CreateDiagnosticReport(SmithPatient, SmithLoincObservation, loincCode);
+            TrumanLoincDiagnosticReport = await CreateDiagnosticReport(TrumanPatient, TrumanLoincObservation, loincCode);
 
-            Location = TestFhirClient.CreateAsync(new Location
+            Location = (await TestFhirClient.CreateAsync(new Location
             {
                 ManagingOrganization = new ResourceReference($"Organization/{Organization.Id}"),
                 Meta = new Meta { Tag = new List<Coding> { new Coding("testTag", Tag) } },
-            }).Result.Resource;
+            })).Resource;
 
             var group = new Group
             {
@@ -67,11 +106,11 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
                     },
             };
 
-            PatientGroup = TestFhirClient.CreateAsync(group).Result.Resource;
+            PatientGroup = (await TestFhirClient.CreateAsync(@group)).Resource;
 
-            DiagnosticReport CreateDiagnosticReport(Patient patient, Observation observation, CodeableConcept code)
+            async Task<DiagnosticReport> CreateDiagnosticReport(Patient patient, Observation observation, CodeableConcept code)
             {
-                return TestFhirClient.CreateAsync(
+                return (await TestFhirClient.CreateAsync(
                     new DiagnosticReport
                     {
                         Meta = meta,
@@ -79,12 +118,12 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
                         Code = code,
                         Subject = new ResourceReference($"Patient/{patient.Id}"),
                         Result = new List<ResourceReference> { new ResourceReference($"Observation/{observation.Id}") },
-                    }).Result.Resource;
+                    })).Resource;
             }
 
-            Observation CreateObservation(Patient patient, CodeableConcept code)
+            async Task<Observation> CreateObservation(Patient patient, CodeableConcept code)
             {
-                return TestFhirClient.CreateAsync(
+                return (await TestFhirClient.CreateAsync(
                     new Observation()
                     {
                         Meta = meta,
@@ -96,42 +135,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
                             new ResourceReference($"Organization/{Organization.Id}"),
                             new ResourceReference($"Practitioner/{Practitioner.Id}"),
                         },
-                    }).Result.Resource;
+                    })).Resource;
             }
         }
-
-        public Organization Organization { get; }
-
-        public Practitioner Practitioner { get; }
-
-        public Group PatientGroup { get; }
-
-        public string Tag { get; }
-
-        public Patient AdamsPatient { get; }
-
-        public Observation AdamsLoincObservation { get; }
-
-        public Patient TrumanPatient { get; }
-
-        public Observation TrumanSnomedObservation { get; }
-
-        public Observation TrumanLoincObservation { get; }
-
-        public DiagnosticReport TrumanSnomedDiagnosticReport { get; }
-
-        public DiagnosticReport TrumanLoincDiagnosticReport { get; }
-
-        public Patient SmithPatient { get; }
-
-        public Observation SmithSnomedObservation { get; }
-
-        public Observation SmithLoincObservation { get; }
-
-        public DiagnosticReport SmithSnomedDiagnosticReport { get; }
-
-        public DiagnosticReport SmithLoincDiagnosticReport { get; }
-
-        public Location Location { get; }
     }
 }

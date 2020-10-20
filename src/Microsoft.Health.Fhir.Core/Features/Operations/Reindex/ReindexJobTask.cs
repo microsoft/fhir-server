@@ -199,7 +199,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         foreach (var finishedTask in finishedTasks)
                         {
                             queryTasks.Remove(finishedTask);
-                            queryCancellationTokens.Remove(finishedTask.Result);
+                            queryCancellationTokens.Remove(await finishedTask);
                         }
                     }
 

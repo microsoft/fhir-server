@@ -17,10 +17,11 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Serialization;
 using Xunit;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 {
-    public class SearchIndexerTests
+    public class SearchIndexerTests : IAsyncLifetime
     {
         private ISearchIndexer _indexer;
 
@@ -33,15 +34,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             ContractResolver = new CamelCasePropertyNamesContractResolver(),
         };
 
-        public SearchIndexerTests()
+        public async Task InitializeAsync()
         {
             _indexer = new TypedElementSearchIndexer(
-                SearchParameterFixtureData.SupportedSearchDefinitionManager,
-                SearchParameterFixtureData.Manager,
+                await SearchParameterFixtureData.GetSupportedSearchDefinitionManager(),
+                await SearchParameterFixtureData.GetManager(),
                 new LightweightReferenceToElementResolver(new ReferenceSearchValueParser(new FhirRequestContextAccessor()), ModelInfoProvider.Instance),
                 ModelInfoProvider.Instance,
                 NullLogger<SearchIndexer>.Instance);
         }
+
+        public Task DisposeAsync() => Task.CompletedTask;
 
         [Theory]
         [InlineData("DocumentReference-example-relatesTo-code-appends")]
