@@ -71,5 +71,13 @@ namespace Microsoft.Health.Fhir.Core
                 ElementResolver = elementResolver,
             };
         }
+
+        public IStructureDefinitionSummaryProvider StructureDefinitionSummaryProviderForSourceNode(ISourceNode sourceNode)
+        {
+            // SourceNode is not required when we have access to the full generated StructureDefinitionSummaryProvider
+            // but it is required when looking at generic FHIR data.
+
+            return StructureDefinitionSummaryProvider;
+        }
     }
 }
