@@ -14,19 +14,19 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
 {
-    public class CosmosDbStatusRegistryInitializer : ICollectionUpdater
+    public class CosmosDbSearchParameterStatusInitializer : ICollectionUpdater
     {
-        private readonly ISearchParameterRegistry _filebasedRegistry;
+        private readonly ISearchParameterStatusDataStore _filebasedSearchParameterStatusDataStore;
         private readonly ICosmosQueryFactory _queryFactory;
 
-        public CosmosDbStatusRegistryInitializer(
-            FilebasedSearchParameterRegistry.Resolver filebasedRegistry,
+        public CosmosDbSearchParameterStatusInitializer(
+            FilebasedSearchParameterStatusDataStore.Resolver filebasedSearchParameterStatusDataStoreResolver,
             ICosmosQueryFactory queryFactory)
         {
-            EnsureArg.IsNotNull(filebasedRegistry, nameof(filebasedRegistry));
+            EnsureArg.IsNotNull(filebasedSearchParameterStatusDataStoreResolver, nameof(filebasedSearchParameterStatusDataStoreResolver));
             EnsureArg.IsNotNull(queryFactory, nameof(queryFactory));
 
-            _filebasedRegistry = filebasedRegistry.Invoke();
+            _filebasedSearchParameterStatusDataStore = filebasedSearchParameterStatusDataStoreResolver.Invoke();
             _queryFactory = queryFactory;
         }
 
@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
 
             if (!results.Any())
             {
-                var statuses = await _filebasedRegistry.GetSearchParameterStatuses();
+                var statuses = await _filebasedSearchParameterStatusDataStore.GetSearchParameterStatuses();
 
                 foreach (var batch in statuses.TakeBatch(100))
                 {

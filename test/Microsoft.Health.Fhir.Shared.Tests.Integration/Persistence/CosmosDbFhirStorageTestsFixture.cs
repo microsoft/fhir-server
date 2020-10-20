@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private IFhirDataStore _fhirDataStore;
         private IFhirOperationDataStore _fhirOperationDataStore;
         private IFhirStorageTestHelper _fhirStorageTestHelper;
-        private FilebasedSearchParameterRegistry _filebasedSearchParameterRegistry;
+        private FilebasedSearchParameterStatusDataStore _filebasedSearchParameterStatusDataStore;
         private CosmosClient _cosmosClient;
 
         public CosmosDbFhirStorageTestsFixture()
@@ -79,14 +79,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance);
             searchParameterDefinitionManager.Start();
 
-            _filebasedSearchParameterRegistry = new FilebasedSearchParameterRegistry(searchParameterDefinitionManager, ModelInfoProvider.Instance);
+            _filebasedSearchParameterStatusDataStore = new FilebasedSearchParameterStatusDataStore(searchParameterDefinitionManager, ModelInfoProvider.Instance);
 
             var updaters = new ICollectionUpdater[]
             {
                 new FhirCollectionSettingsUpdater(_cosmosDataStoreConfiguration, optionsMonitor, NullLogger<FhirCollectionSettingsUpdater>.Instance),
                 new StoredProcedureInstaller(fhirStoredProcs),
-                new CosmosDbStatusRegistryInitializer(
-                    () => _filebasedSearchParameterRegistry,
+                new CosmosDbSearchParameterStatusInitializer(
+                    () => _filebasedSearchParameterStatusDataStore,
                     new CosmosQueryFactory(
                         new CosmosResponseProcessor(Substitute.For<IFhirRequestContextAccessor>(), Substitute.For<IMediator>(), NullLogger<CosmosResponseProcessor>.Instance),
                         NullFhirCosmosQueryLogger.Instance)),
