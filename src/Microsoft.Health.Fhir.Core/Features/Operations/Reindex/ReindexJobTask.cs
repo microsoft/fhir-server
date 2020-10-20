@@ -305,6 +305,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     await jobSemaphore.WaitAsync();
                     try
                     {
+                        _reindexJobRecord.Progress += results.Results.Count();
                         query.Status = OperationStatus.Completed;
                         await UpdateJobAsync(cancellationToken);
                     }
