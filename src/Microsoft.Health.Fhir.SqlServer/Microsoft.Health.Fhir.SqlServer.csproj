@@ -7,17 +7,23 @@
     <None Remove="Features\Schema\Migrations\3.diff.sql" />
     <None Remove="Features\Schema\Migrations\4.diff.sql" />
     <None Remove="Features\Schema\Migrations\4.sql" />
+    <None Remove="Features\Schema\Migrations\5.diff.sql" />
+    <None Remove="Features\Schema\Migrations\5.sql" />
+    <None Remove="Features\Schema\Migrations\6.diff.sql" />
+    <None Remove="Features\Schema\Migrations\6.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\2.diff.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\3.diff.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\4.diff.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\4.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\5.diff.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\5.sql" />
-    <GenerateFilesInputs Include="Features\Schema\Migrations\5.sql" />
+    <EmbeddedResource Include="Features\Schema\Migrations\6.diff.sql" />
+    <EmbeddedResource Include="Features\Schema\Migrations\6.sql" />
+    <GenerateFilesInputs Include="Features\Schema\Migrations\6.sql" />
     <Generated Include="Features\Schema\Model\VLatest.Generated.cs">
       <Generator>SqlModelGenerator</Generator>
       <Namespace>Microsoft.Health.Fhir.SqlServer.Features.Schema.Model</Namespace>
-      <Args>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)\Features\Schema\Migrations\5.sql'))</Args>
+      <Args>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)\Features\Schema\Migrations\6.sql'))</Args>
     </Generated>
   </ItemGroup>
   <ItemGroup>

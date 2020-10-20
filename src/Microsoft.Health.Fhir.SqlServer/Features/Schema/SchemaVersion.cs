@@ -15,5 +15,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Schema
         V3 = 3,
         V4 = 4,
         V5 = 5,
+        V6 = 6,
     }
 }

@@ -123,4 +123,7 @@
   <data name="TransactionProcessingException" xml:space="preserve">
     <value>There was an internal server error while processing the transaction.</value>
   </data>
+  <data name="SchemaVersionNeedsUpgrading" xml:space="preserve">
+    <value>Search parameter status information should not be null.</value>
+  </data>
 </root>
