@@ -145,8 +145,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             if (runAllInitialization)
             {
                 InitializeV1();
-                InitializeV6();
-                _highestInitializedVersion = 6;
+
+                if (version >= 6)
+                {
+                    InitializeV6();
+                }
+
+                _highestInitializedVersion = version;
             }
             else
             {
@@ -156,7 +161,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         InitializeV1();
                         _highestInitializedVersion = 1;
                         break;
-                    case 5:
+                    case 6:
                         InitializeV6();
                         _highestInitializedVersion = 6;
                         break;
