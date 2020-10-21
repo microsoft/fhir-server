@@ -17,7 +17,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string ExportContentTypeHeaderValue = "application/json";
 
-        public const string AnonymizedExport = "anonymized_export";
+        public const string AnonymizedExport = "anonymized-export";
 
         public const string Reindex = "reindex";
 

@@ -10,6 +10,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Routing;
@@ -31,14 +32,20 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     {
         private readonly IMediator _mediator;
         private readonly OperationsConfiguration _operationConfiguration;
+        private readonly FeatureConfiguration _featureConfiguration;
 
-        public OperationDefinitionController(IMediator mediator, IOptions<OperationsConfiguration> operationsConfig)
+        public OperationDefinitionController(
+            IMediator mediator,
+            IOptions<OperationsConfiguration> operationsConfig,
+            IOptions<FeatureConfiguration> featureConfig)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(operationsConfig?.Value, nameof(operationsConfig));
+            EnsureArg.IsNotNull(featureConfig?.Value, nameof(featureConfig));
 
             _mediator = mediator;
             _operationConfiguration = operationsConfig.Value;
+            _featureConfiguration = featureConfig.Value;
         }
 
         [HttpGet]
@@ -81,6 +88,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return await GetOperationDefinitionAsync(OperationsConstants.GroupExport);
         }
 
+        [HttpGet]
+        [Route(KnownRoutes.AnonymizedExportOperationDefinition, Name = RouteNames.AnonymizedExportOperationDefinition)]
+        [AllowAnonymous]
+        public async Task<IActionResult> AnonymizedExportOperationDefinition()
+        {
+            return await GetOperationDefinitionAsync(OperationsConstants.AnonymizedExport);
+        }
+
         private async Task<IActionResult> GetOperationDefinitionAsync(string operationName)
         {
             CheckIfOperationIsEnabledAndRespond(operationName);
@@ -99,6 +114,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 case OperationsConstants.GroupExport:
                 case OperationsConstants.PatientExport:
                     operationEnabled = _operationConfiguration.Export.Enabled;
+                    break;
+                case OperationsConstants.AnonymizedExport:
+                    operationEnabled = _featureConfiguration.SupportsAnonymizedExport;
                     break;
                 case OperationsConstants.Reindex:
                 case OperationsConstants.ResourceReindex:

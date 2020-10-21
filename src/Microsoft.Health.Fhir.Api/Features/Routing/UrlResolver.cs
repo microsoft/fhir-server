@@ -297,6 +297,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 case OperationsConstants.GroupExport:
                     routeName = RouteNames.GroupExportOperationDefinition;
                     break;
+                case OperationsConstants.AnonymizedExport:
+                    routeName = RouteNames.AnonymizedExportOperationDefinition;
+                    break;
                 case OperationsConstants.Reindex:
                     routeName = RouteNames.ReindexOperationDefintion;
                     break;

@@ -6,6 +6,7 @@
 using System;
 using EnsureThat;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
@@ -21,14 +22,20 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
     public class OperationsCapabilityProvider : IProvideCapability
     {
         private readonly OperationsConfiguration _operationConfiguration;
+        private readonly FeatureConfiguration _featureConfiguration;
         private readonly IUrlResolver _urlResolver;
 
-        public OperationsCapabilityProvider(IOptions<OperationsConfiguration> operationConfiguration, IUrlResolver urlResolver)
+        public OperationsCapabilityProvider(
+            IOptions<OperationsConfiguration> operationConfiguration,
+            IOptions<FeatureConfiguration> featureConfiguration,
+            IUrlResolver urlResolver)
         {
             EnsureArg.IsNotNull(operationConfiguration?.Value, nameof(operationConfiguration));
+            EnsureArg.IsNotNull(featureConfiguration?.Value, nameof(featureConfiguration));
             EnsureArg.IsNotNull(urlResolver, nameof(urlResolver));
 
             _operationConfiguration = operationConfiguration.Value;
+            _featureConfiguration = featureConfiguration.Value;
             _urlResolver = urlResolver;
         }
 
@@ -43,6 +50,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
             {
                 builder.Update(AddReindexDetails);
             }
+
+            if (_featureConfiguration.SupportsAnonymizedExport)
+            {
+                builder.Update(AddAnonymizedExportDetails);
+            }
         }
 
         public void AddExportDetails(ListedCapabilityStatement capabilityStatement)
@@ -50,6 +62,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
             GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.Export);
             GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.PatientExport);
             GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.GroupExport);
+        }
+
+        public void AddAnonymizedExportDetails(ListedCapabilityStatement capabilityStatement)
+        {
+            GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.AnonymizedExport);
         }
 
         public void AddReindexDetails(ListedCapabilityStatement capabilityStatement)

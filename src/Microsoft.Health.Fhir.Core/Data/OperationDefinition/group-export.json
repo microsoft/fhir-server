@@ -9,6 +9,9 @@
     "kind": "operation",
     "description": "Export all patient compartment data that are part of the specified group. More details regarding bulk export can be found [here] [http://hl7.org/fhir/uv/bulkdata/export/index.html]. This operation is asynchronous as defined in the [FHIR Asynchronous Request Pattern](http://hl7.org/fhir/async.html)",
     "code": "export",
+    "resource" : [
+        "Group"
+      ],
     "base": "/",
     "system": false,
     "type": true,
