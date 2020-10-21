@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Linq;
 using EnsureThat;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Configs;
@@ -12,6 +13,7 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Api.Features.Operations
 {
@@ -60,8 +62,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
         public void AddExportDetails(ListedCapabilityStatement capabilityStatement)
         {
             GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.Export);
-            GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.PatientExport);
-            GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.GroupExport);
+            GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.PatientExport, KnownResourceTypes.Patient);
+            GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.GroupExport, KnownResourceTypes.Group);
         }
 
         public void AddAnonymizedExportDetails(ListedCapabilityStatement capabilityStatement)
@@ -83,6 +85,34 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
                 Name = operationType,
                 Definition = operationDefinitionUri.ToString(),
             });
+        }
+
+        private void GetAndAddOperationDefinitionUriToCapabilityStatement(ListedCapabilityStatement capabilityStatement, string operationType, string resourceType)
+        {
+            Uri operationDefinitionUri = _urlResolver.ResolveOperationDefinitionUrl(operationType);
+
+            ListedRestComponent listedRestComponent = capabilityStatement.Rest.Server();
+            ListedResourceComponent resourceComponent = listedRestComponent.Resource.SingleOrDefault(x => string.Equals(x.Type, resourceType, StringComparison.OrdinalIgnoreCase));
+
+            if (resourceComponent == null)
+            {
+                resourceComponent = new ListedResourceComponent
+                {
+                    Type = resourceType,
+                    Profile = new ReferenceComponent
+                    {
+                        Reference = $"http://hl7.org/fhir/StructureDefinition/{resourceType}",
+                    },
+                };
+            }
+
+            resourceComponent.Operation.Add(new OperationComponent()
+            {
+                Name = operationType,
+                Definition = operationDefinitionUri.ToString(),
+            });
+
+            listedRestComponent.Resource.Add(resourceComponent);
         }
     }
 }
