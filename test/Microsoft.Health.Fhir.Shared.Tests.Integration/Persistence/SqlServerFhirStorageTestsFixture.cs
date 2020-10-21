@@ -67,6 +67,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _schemaInitializer = new SchemaInitializer(config, schemaUpgradeRunner, schemaInformation, sqlConnectionFactory, NullLogger<SchemaInitializer>.Instance);
 
             var searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance);
+            searchParameterDefinitionManager.Start();
+
             _filebasedSearchParameterStatusDataStore = new FilebasedSearchParameterStatusDataStore(searchParameterDefinitionManager, ModelInfoProvider.Instance);
 
             var securityConfiguration = new SecurityConfiguration { PrincipalClaims = { "oid" } };
