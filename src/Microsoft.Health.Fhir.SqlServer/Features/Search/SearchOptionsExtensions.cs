@@ -37,5 +37,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             return (null, SortOrder.Ascending);
         }
+
+        /// <summary>
+        /// A helper method to determain if a supported sort param exists.
+        /// </summary>
+        /// <param name="searchOptions">The SearchOptions context</param>
+        /// <returns>True if exists, false otherwise.</returns>
+        public static bool SupportedSortParamExists(this SearchOptions searchOptions)
+        {
+            return GetFirstSupportedSortParam(searchOptions).Item1 != null;
+        }
     }
 }

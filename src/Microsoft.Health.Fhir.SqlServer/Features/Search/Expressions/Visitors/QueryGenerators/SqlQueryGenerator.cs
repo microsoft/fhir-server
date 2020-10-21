@@ -485,13 +485,31 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     _includeCtes.Add(TableExpressionName(_tableExpressionCounter));
                     break;
                 case TableExpressionKind.IncludeUnionAll:
-                    StringBuilder.AppendLine("SELECT Sid1, IsMatch, IsPartial ");
+                    StringBuilder.Append("SELECT Sid1, IsMatch, IsPartial ");
+                    if (context.SupportedSortParamExists())
+                    {
+                        StringBuilder.Append(", ").AppendLine("SortValue");
+                    }
+                    else
+                    {
+                        StringBuilder.AppendLine();
+                    }
+
                     StringBuilder.Append("FROM ").AppendLine(_cteMainSelect);
 
                     foreach (var includeCte in _includeCtes)
                     {
                         StringBuilder.AppendLine("UNION ALL");
-                        StringBuilder.AppendLine("SELECT Sid1, IsMatch, IsPartial ");
+                        StringBuilder.Append("SELECT Sid1, IsMatch, IsPartial");
+                        if (context.SupportedSortParamExists())
+                        {
+                            StringBuilder.AppendLine(", NULL as SortValue ");
+                        }
+                        else
+                        {
+                            StringBuilder.AppendLine();
+                        }
+
                         StringBuilder.Append("FROM ").AppendLine(includeCte);
                     }
 
