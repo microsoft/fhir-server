@@ -48,6 +48,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             WildCard = wildCard;
             Reversed = reversed;
             Iterate = iterate;
+
+            Requires = GetRequiredResources();
+            Produces = GetProducedResources();
         }
 
         /// <summary>
@@ -74,6 +77,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         ///  Gets the type of resources referenced by resourceType. Used when iterating over wildcard results.
         /// </summary>
         public IReadOnlyCollection<string> ReferencedTypes { get; }
+
+        /// <summary>
+        ///  Gets the type of resources the expression requires (includes from).
+        /// </summary>
+        public IReadOnlyCollection<string> Requires { get; }
+
+        /// <summary>
+        ///  Gets the type of resources the expression produces.
+        /// </summary>
+        public IReadOnlyCollection<string> Produces { get; }
 
         /// <summary>
         /// Gets if the include is a wildcard include.
@@ -105,6 +118,58 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             var wildcard = WildCard ? " Wildcard" : string.Empty;
             var paramName = ReferenceSearchParameter != null ? $" {ReferenceSearchParameter.Name}" : string.Empty;
             return $"({reversed}Include{iterate}{wildcard}{paramName}{targetType})";
+        }
+
+        private IReadOnlyCollection<string> GetRequiredResources()
+        {
+            if (Reversed)
+            {
+                if (TargetResourceType != null)
+                {
+                    return new List<string> { TargetResourceType }.AsReadOnly();
+                }
+                else if (ReferenceSearchParameter?.TargetResourceTypes != null && ReferenceSearchParameter.TargetResourceTypes.Any())
+                {
+                    return ReferenceSearchParameter.TargetResourceTypes;
+                }
+                else if (WildCard)
+                {
+                    return ReferencedTypes;
+                }
+
+                // impossible case
+                return new List<string>().AsReadOnly();
+            }
+            else
+            {
+                return new List<string> { SourceResourceType }.AsReadOnly();
+            }
+        }
+
+        private IReadOnlyCollection<string> GetProducedResources()
+        {
+            if (Reversed)
+            {
+                return new List<string> { SourceResourceType }.AsReadOnly();
+            }
+            else
+            {
+                if (TargetResourceType != null)
+                {
+                    return new List<string> { TargetResourceType }.AsReadOnly();
+                }
+                else if (ReferenceSearchParameter?.TargetResourceTypes != null && ReferenceSearchParameter.TargetResourceTypes.Any())
+                {
+                    return ReferenceSearchParameter.TargetResourceTypes;
+                }
+                else if (WildCard)
+                {
+                    return ReferencedTypes;
+                }
+
+                // impossible case
+                return new List<string>().AsReadOnly();
+            }
         }
     }
 }

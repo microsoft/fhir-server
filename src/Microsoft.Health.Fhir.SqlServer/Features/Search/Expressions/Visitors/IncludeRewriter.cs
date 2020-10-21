@@ -163,58 +163,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                         return false;
                     }
 
-                    // Order so that _include:iterate source type will appear after relevant include target
-                    // and _revinclude:iterate target type appears after it's already been included
-                    var xTargetTypes = xInclude.WildCard ? xInclude.ReferencedTypes : xInclude.ReferenceSearchParameter?.TargetResourceTypes;
-                    var yTargetTypes = yInclude.WildCard ? yInclude.ReferencedTypes : yInclude.ReferenceSearchParameter?.TargetResourceTypes;
-
-                    // Both are _revinclude or both are _include, order so that one's target resource type should appear after the other's source resource types if types are equal
-                    if (xInclude.Reversed == yInclude.Reversed)
-                    {
-                        // x's target type matches y's source type => x > y
-                        if ((xInclude.TargetResourceType != null && xInclude.TargetResourceType == yInclude.SourceResourceType)
-                            || (xInclude.TargetResourceType == null && xTargetTypes != null && xTargetTypes.Contains(yInclude.SourceResourceType)))
-                        {
-                            return xInclude.Reversed ? false : true;
-                        }
-
-                        // y's target type matches x's source type => x < y
-                        if ((yInclude.TargetResourceType != null && yInclude.TargetResourceType == xInclude.SourceResourceType)
-                            || (yInclude.TargetResourceType == null && yTargetTypes != null && yTargetTypes.Contains(xInclude.SourceResourceType)))
-                        {
-                            return xInclude.Reversed ? true : false;
-                        }
-                    }
-
-                    // x is _include and y is _revinclude
-                    else if (!xInclude.Reversed && yInclude.Reversed)
-                    {
-                        // x's specified target type matches y's target type => x < y
-                        if ((xInclude.TargetResourceType != null && yInclude.TargetResourceType != null && xInclude.TargetResourceType == yInclude.TargetResourceType)
-                            || (xInclude.TargetResourceType != null && yTargetTypes != null && yTargetTypes.Contains(xInclude.TargetResourceType)))
-                        {
-                            return true;
-                        }
-
-                        // one of x's target types matches y's target type => x < y
-                        if ((xInclude.TargetResourceType == null && xTargetTypes != null && yInclude.TargetResourceType != null && xTargetTypes.Contains(yInclude.TargetResourceType))
-                            || (xInclude.TargetResourceType == null && xTargetTypes != null && yTargetTypes != null && xTargetTypes.Intersect(yTargetTypes).Any()))
-                        {
-                            return true;
-                        }
-                    }
-
-                    // x is _revinclude and y is _include
-                    else if (xInclude.Reversed && !yInclude.Reversed)
-                    {
-                        // x's source type matches y's source type
-                        if (xInclude.SourceResourceType == yInclude.SourceResourceType)
-                        {
-                            return true;
-                        }
-                    }
-
-                    return false;
+                    return xInclude.Produces.Intersect(yInclude.Requires).Any();
                 }
             }
         }
