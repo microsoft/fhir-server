@@ -3,9 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators;
 
@@ -28,22 +29,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return expression;
             }
 
-            List<TableExpression> reorderedExpressions;
-
             // TableExpressions contains at least one Include expression
-            var nonIncludeExpressions = expression.TableExpressions.Where(e => e.Kind != TableExpressionKind.Include);
-            var includeExpressions = expression.TableExpressions.Where(e => e.Kind == TableExpressionKind.Include);
+            var nonIncludeExpressions = expression.TableExpressions.Where(e => e.Kind != TableExpressionKind.Include).ToList();
+            var includeExpressions = expression.TableExpressions.Where(e => e.Kind == TableExpressionKind.Include).ToList();
 
             // Sort include expressions if there is an include iterate expression
-            // Order so that include iterate expression appear after the expressions thet select from
+            // Order so that include iterate expression appear after the expressions they select from
             IEnumerable<TableExpression> sortedIncludeExpressions = includeExpressions;
-            if (includeExpressions.Any(e => e.Kind == TableExpressionKind.Include && (e.NormalizedPredicate as IncludeExpression).Iterate))
+
+            if (includeExpressions.Any(e => ((IncludeExpression)e.NormalizedPredicate).Iterate))
             {
-                sortedIncludeExpressions = IncludeExpressionTopologicalSort.Sort(includeExpressions);
+                IEnumerable<TableExpression> nonIterateExpressions = includeExpressions.Where(e => !((IncludeExpression)e.NormalizedPredicate).Iterate);
+                List<TableExpression> iterateExpressions = includeExpressions.Where(e => ((IncludeExpression)e.NormalizedPredicate).Iterate).ToList();
+                sortedIncludeExpressions = nonIterateExpressions.Concat(SortIncludeIterateExpressions(iterateExpressions));
             }
 
             // Add sorted include expressions after all other expressions
-            reorderedExpressions = nonIncludeExpressions.Concat(sortedIncludeExpressions).ToList();
+            var reorderedExpressions = nonIncludeExpressions.Concat(sortedIncludeExpressions).ToList();
 
             // We are adding an extra CTE after each include cte, so we traverse the ordered
             // list from the end and add a limit expression after each include expression
@@ -54,8 +56,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                     case IncludeQueryGenerator _:
                         reorderedExpressions.Insert(i + 1, IncludeLimitExpression);
                         break;
-                    default:
-                        break;
                 }
             }
 
@@ -63,108 +63,53 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return new SqlRootExpression(reorderedExpressions, expression.DenormalizedExpressions);
         }
 
-        private class IncludeExpressionTopologicalSort
+        private static IList<TableExpression> SortIncludeIterateExpressions(IList<TableExpression> expressions)
         {
-            // Based on Khan's algorithm. See https://en.wikipedia.org/wiki/Topological_sorting.
-            // The search queries are acyclic.
-            public static IList<TableExpression> Sort(IEnumerable<TableExpression> includeExpressions)
+            if (expressions.Count == 1)
             {
-                var graph = new IncludeExpressionDependencyGraph(includeExpressions);
-                var sortedExpressions = new List<TableExpression>();
-
-                while (graph.NodesWithoutIncomingEdges.Any())
-                {
-                    // Remove a node without incoming edges and add to the sorted list
-                    var v = graph.NodesWithoutIncomingEdges.First();
-                    sortedExpressions.Add(v);
-
-                    graph.RemoveNodeAndAllOutgoingEdges(v);
-                }
-
-                return sortedExpressions;
+                return expressions;
             }
 
-            // Dependency graph of parameters so that parameter b depends on a means that b includes from a, therefore a should appear before b.
-            private class IncludeExpressionDependencyGraph
+            ILookup<string, TableExpression> expressionsThatProduceType = expressions.
+                SelectMany(expression => ((IncludeExpression)expression.NormalizedPredicate).Produces.Select(producedType => (producedType, expression)))
+                .ToLookup(p => p.producedType, p => p.expression, StringComparer.Ordinal);
+
+            var visited = new Dictionary<TableExpression, bool>();
+            var sorted = new List<TableExpression>();
+
+            foreach (TableExpression tableExpression in expressions)
             {
-                // private static readonly IncludeExpressionComparer Comparer = new IncludeExpressionComparer();
-                public IncludeExpressionDependencyGraph(IEnumerable<TableExpression> includeExpressions)
+                Dfs(tableExpression);
+            }
+
+            return sorted;
+
+            void Dfs(TableExpression e)
+            {
+                if (visited.TryGetValue(e, out var completed))
                 {
-                    OutgoingEdges = new Dictionary<TableExpression, IList<TableExpression>>();
-                    IncomingEdgesCount = new Dictionary<TableExpression, int>();
-
-                    // Add graph nodes (parameters) and edges (dependencies)
-                    foreach (var v in includeExpressions)
+                    if (!completed)
                     {
-                        OutgoingEdges.Add(v, new List<TableExpression>());
-                        IncomingEdgesCount.TryAdd(v, 0);
+                        throw new BadRequestException("cycle...");
+                    }
 
-                        foreach (var u in includeExpressions)
-                        {
-                            // if (v != u && Comparer.Compare(v, u) < 0)
-                            if (v != u && IsDependencyEdge(v, u))
-                            {
-                                IncomingEdgesCount.TryAdd(u, 0);
-                                OutgoingEdges[v].Add(u);
-                                IncomingEdgesCount[u]++;
-                            }
-                        }
+                    return;
+                }
+
+                // mark visiting
+                visited.Add(e, false);
+
+                foreach (string requiredType in ((IncludeExpression)e.NormalizedPredicate).Requires)
+                {
+                    foreach (TableExpression producingExpression in expressionsThatProduceType[requiredType])
+                    {
+                        Dfs(producingExpression);
                     }
                 }
 
-                public IDictionary<TableExpression, IList<TableExpression>> OutgoingEdges { get; private set; }
-
-                public IDictionary<TableExpression, int> IncomingEdgesCount { get; private set; }
-
-                public IEnumerable<TableExpression> NodesWithoutIncomingEdges
-                {
-                    get { return IncomingEdgesCount.Where(e => e.Value == 0).Select(e => e.Key); }
-                }
-
-                // Remove v and all v's edges and update incoming edge count accordingly
-                public void RemoveNodeAndAllOutgoingEdges(TableExpression v)
-                {
-                    if (OutgoingEdges.ContainsKey(v))
-                    {
-                        // Remove all edges
-                        IList<TableExpression> edges;
-                        if (OutgoingEdges.TryGetValue(v, out edges))
-                        {
-                            while (edges.Any())
-                            {
-                                var u = edges[0];
-                                edges.RemoveAt(0);
-                                IncomingEdgesCount[u]--;
-                            }
-                        }
-
-                        // Remove node
-                        OutgoingEdges.Remove(v);
-                        IncomingEdgesCount.Remove(v);
-                    }
-                }
-
-                // (x, y) is a graph edge if x needs to appear before y in the sorted query.
-                // That is, y has dependency on x.
-                private static bool IsDependencyEdge(TableExpression x, TableExpression y)
-                {
-                    if (x.Kind != TableExpressionKind.Include || y.Kind != TableExpressionKind.Include)
-                    {
-                        return false;
-                    }
-
-                    // Both expressions are Include expressions
-                    var xInclude = (IncludeExpression)x.NormalizedPredicate;
-                    var yInclude = (IncludeExpression)y.NormalizedPredicate;
-
-                    // If x is :iterate and y is not :iterate, than there's no dependency.
-                    if (xInclude.Iterate && !yInclude.Iterate)
-                    {
-                        return false;
-                    }
-
-                    return xInclude.Produces.Intersect(yInclude.Requires).Any();
-                }
+                // mark visited
+                visited[e] = true;
+                sorted.Add(e);
             }
         }
     }

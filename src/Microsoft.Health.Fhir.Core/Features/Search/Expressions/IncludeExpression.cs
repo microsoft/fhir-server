@@ -15,6 +15,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     /// </summary>
     public class IncludeExpression : Expression
     {
+        private IReadOnlyCollection<string> _requires;
+        private IReadOnlyCollection<string> _produces;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="IncludeExpression"/> class.
         /// </summary>
@@ -44,13 +47,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             ReferenceSearchParameter = referenceSearchParameter;
             SourceResourceType = sourceResourceType;
             TargetResourceType = targetResourceType;
-            ReferencedTypes = referencedTypes?.ToList().AsReadOnly();
+            ReferencedTypes = referencedTypes?.ToList();
             WildCard = wildCard;
             Reversed = reversed;
             Iterate = iterate;
-
-            Requires = GetRequiredResources();
-            Produces = GetProducedResources();
         }
 
         /// <summary>
@@ -81,12 +81,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <summary>
         ///  Gets the type of resources the expression requires (includes from).
         /// </summary>
-        public IReadOnlyCollection<string> Requires { get; }
+        public IReadOnlyCollection<string> Requires => _requires ??= GetRequiredResources();
 
         /// <summary>
         ///  Gets the type of resources the expression produces.
         /// </summary>
-        public IReadOnlyCollection<string> Produces { get; }
+        public IReadOnlyCollection<string> Produces => _produces ??= GetProducedResources();
 
         /// <summary>
         /// Gets if the include is a wildcard include.

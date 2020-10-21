@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -1416,40 +1417,21 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
             // Assert the number of expressions and their order is correct, including IncludeUnionAll expression, which was added in the IncludeRewriter visit.
             Assert.NotNull(orderedExpressions);
-            Assert.Equal(11, orderedExpressions.Count);
 
-            Assert.Equal(TableExpressionKind.All, orderedExpressions[0].Kind);
-            Assert.Equal(TableExpressionKind.Top, orderedExpressions[1].Kind);
+            var includeExpressions = orderedExpressions.Select(e => e.NormalizedPredicate).OfType<IncludeExpression>().ToList();
 
-            Assert.Equal(TableExpressionKind.Include, orderedExpressions[2].Kind);
-            var includeExpression = (IncludeExpression)orderedExpressions[2].NormalizedPredicate;
-            Assert.Equal("MedicationDispense", includeExpression.ResourceType);
-            Assert.Equal("performer", includeExpression.ReferenceSearchParameter.Name);
+            void AssertAppearsBefore(string beforeParameterName, string afterParameterName)
+            {
+                Assert.True(includeExpressions.FindIndex(e => e.ReferenceSearchParameter.Name == beforeParameterName) < includeExpressions.FindIndex(e => e.ReferenceSearchParameter.Name == afterParameterName));
+            }
 
-            Assert.Equal(TableExpressionKind.IncludeLimit, orderedExpressions[3].Kind);
+            // non-iterate comes first
+            AssertAppearsBefore("performer", "location");
+            AssertAppearsBefore("performer", "endpoint");
+            AssertAppearsBefore("performer", "general-practitioner");
 
-            Assert.Equal(TableExpressionKind.Include, orderedExpressions[4].Kind);
-            includeExpression = (IncludeExpression)orderedExpressions[4].NormalizedPredicate;
-            Assert.Equal("Patient", includeExpression.ResourceType);
-            Assert.Equal("general-practitioner", includeExpression.ReferenceSearchParameter.Name);
-
-            Assert.Equal(TableExpressionKind.IncludeLimit, orderedExpressions[9].Kind);
-
-            Assert.Equal(TableExpressionKind.Include, orderedExpressions[6].Kind);
-            includeExpression = (IncludeExpression)orderedExpressions[6].NormalizedPredicate;
-            Assert.Equal("Device", includeExpression.ResourceType);
-            Assert.Equal("location", includeExpression.ReferenceSearchParameter.Name);
-
-            Assert.Equal(TableExpressionKind.IncludeLimit, orderedExpressions[7].Kind);
-
-            Assert.Equal(TableExpressionKind.Include, orderedExpressions[8].Kind);
-            includeExpression = (IncludeExpression)orderedExpressions[8].NormalizedPredicate;
-            Assert.Equal("Location", includeExpression.ResourceType);
-            Assert.Equal("endpoint", includeExpression.ReferenceSearchParameter.Name);
-
-            Assert.Equal(TableExpressionKind.IncludeLimit, orderedExpressions[9].Kind);
-
-            Assert.Equal(TableExpressionKind.IncludeUnionAll, orderedExpressions[10].Kind);
+            // Device:location then Location:endpoint
+            AssertAppearsBefore("location", "endpoint");
         }
 
         // Wildcard Queries
