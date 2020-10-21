@@ -10,6 +10,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)Context\DefaultFhirRequestContext.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Context\FhirRequestContextExtensions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Definitions.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Deserializers.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Mocks\CapabilityStatementMock.cs" />

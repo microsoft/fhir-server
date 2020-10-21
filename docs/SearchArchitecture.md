@@ -1,6 +1,6 @@
 # Search architecture and implementation
 
-This document attempts to describe how search is implemented for the FHIR service.
+This document attempts to describe how search is implemented for the FHIR service. The [FHIR specification](https://www.hl7.org/fhir/search.html) has more information on how search is defined.
 
 Search functionality consists of three areas:
 
@@ -10,35 +10,35 @@ Search functionality consists of three areas:
 
 ## Extraction
 
-Because the searchable value can be mapped to any arbitrary property within the resource and the property could be a single value or a list of values, the first step is to extract these searchable values out of the resource. To do that, we use the FHIR Path and the expression defined in the search parameter definition file.
+The searchable value for a resource can be mapped to any property within the resource and can also be a single value or a list of values. Because of this, the first step in searching is to extract these searchable values out of the resource. To do that, we use the [FHIR Path](https://hl7.org/fhirpath/) and the expression defined in the search parameter definition file.
 
-These searchable values are in various types. To make persistence and search easy, they will be converted to types that implement a common `ISearchValue` interface, which will be described in more detail in [Normalized search value type](#Normalized-search-value-type) section.
+These searchable values are in various types. To make persistence and search easy, the searchable values will be converted to types that implement a common `ISearchValue` interface, which will be described in more detail in [Normalized search value type](#Normalized-search-value-type) section.
 
 ### Normalized search value type
 
-Each search parameter type has its own type that implements the `ISearchValue` interface and its responsibility is to normalize the value so that it can be stored using different persistence layers and it can be searched efficiently.
+Each search parameter type has its own type that implements the `ISearchValue` interface and its responsibility is to normalize the value so that it can be stored using different persistence layers and efficiently searched.
 
-#### CompositeSearchValue
+#### [CompositeSearchValue](https://www.hl7.org/fhir/search.html#composite)
 
 `CompositeSearchValue` simply contains a list of `ISearchValue`. This is because each component of the composite search value could be any search parameter type.
 
 For example, the `code-value-concept` of the `Observation` resource is a composite search parameter with the first component being a token search value and the second component being a `CodeableConcept`, which is a list of token search values. On the other hand, the `coordinate` of the `Sequence` resource is a composite search parameter with the first component being a `CodeableConcept`, which is a list of token search values, and the second and third components being integers.
 
-#### DateTimeSearchValue
+#### [DateTimeSearchValue](https://www.hl7.org/fhir/search.html#date)
 
 Because FHIR supports partial dates, all date and time will be normalized into start and end date. Missing portion of the date and time will be populated automatically.
 
 For example, '2018-05' will be populated with start date being '2018-05-01T00:00:00.0000000Z' and end date being '2018-05-31T23:59:59.9999999Z'. '2017-03-01' will be populated with start date being '2017-03-01T00:00:00.0000000Z' and end date being '2017-03-01T23:59:59.9999999Z'.
 
-#### NumberSearchValue
+#### [NumberSearchValue](https://www.hl7.org/fhir/search.html#number)
 
 Number value will be stored as decimal value.
 
-#### QuantitySearchValue
+#### [QuantitySearchValue](https://www.hl7.org/fhir/search.html#quantity)
 
 System and code will be stored as string values and quantity value will be stored as decimal.
 
-#### ReferenceSearchValue
+#### [ReferenceSearchValue](https://www.hl7.org/fhir/search.html#reference)
 
 The resource could contain a reference represented by a relative URL (e.g., Patient/123) or an absolute URL (e.g., <http://example.com/Patient/123>). An absolute URL could be either referencing a "external" resource (e.g., resource that exists on an external system) or referencing a "internal" resource (e.g., resource that exist within the current system). This can be determined by matching the service base URL.
 
@@ -74,15 +74,15 @@ Using the examples above:
 
 _One thing to note is that with this approach if the service base URL changes (e.g., change in the domain name) and there is an internal reference with absolute URL using the old domain name, then the search using the absolute URL with the new service base URL will find resources that contains the absolute URL with the old domain name._
 
-#### StringSearchValue
+#### [StringSearchValue](https://www.hl7.org/fhir/search.html#string)
 
 String value will be stored as is.
 
-#### TokenSearchValue
+#### [TokenSearchValue](https://www.hl7.org/fhir/search.html#token)
 
 System, code, and text will be stored as string values.
 
-#### UriSearchValue
+#### [UriSearchValue](https://www.hl7.org/fhir/search.html#uri)
 
 The Uri will be stored as string value.
 

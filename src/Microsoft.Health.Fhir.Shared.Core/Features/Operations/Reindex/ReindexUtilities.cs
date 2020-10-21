@@ -9,8 +9,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 {
@@ -19,19 +21,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private Func<IScoped<IFhirDataStore>> _fhirDataStoreFactory;
         private ISearchIndexer _searchIndexer;
         private ResourceDeserializer _deserializer;
+        private readonly ISupportedSearchParameterDefinitionManager _searchParameterDefinitionManager;
+        private readonly ISearchParameterRegistry _searchParameterRegistry;
 
         public ReindexUtilities(
             Func<IScoped<IFhirDataStore>> fhirDataStoreFactory,
             ISearchIndexer searchIndexer,
-            ResourceDeserializer deserializer)
+            ResourceDeserializer deserializer,
+            ISupportedSearchParameterDefinitionManager searchParameterDefinitionManager,
+            ISearchParameterRegistry searchParameterRegistry)
         {
             EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));
             EnsureArg.IsNotNull(searchIndexer, nameof(searchIndexer));
             EnsureArg.IsNotNull(deserializer, nameof(deserializer));
+            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
+            EnsureArg.IsNotNull(searchParameterRegistry, nameof(searchParameterRegistry));
 
             _fhirDataStoreFactory = fhirDataStoreFactory;
             _searchIndexer = searchIndexer;
             _deserializer = deserializer;
+            _searchParameterDefinitionManager = searchParameterDefinitionManager;
+            _searchParameterRegistry = searchParameterRegistry;
         }
 
         /// <summary>
@@ -40,38 +50,73 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// Needed updates will be committed in a batch
         /// </summary>
         /// <param name="results">The resource batch to process</param>
-        /// <param name="searchParamHash">the current hash value of the search parameters</param>
+        /// <param name="resourceTypeSearchParameterHashMap">Map of resource type to current hash value of the search parameters for that resource type</param>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>A Task</returns>
-        public async Task ProcessSearchResultsAsync(SearchResult results, string searchParamHash, CancellationToken cancellationToken)
+        public async Task ProcessSearchResultsAsync(SearchResult results, IReadOnlyDictionary<string, string> resourceTypeSearchParameterHashMap, CancellationToken cancellationToken)
         {
-            var updateHashValueOnly = new List<ResourceWrapper>();
+            EnsureArg.IsNotNull(results, nameof(results));
+            EnsureArg.IsNotNull(resourceTypeSearchParameterHashMap, nameof(resourceTypeSearchParameterHashMap));
+
             var updateSearchIndices = new List<ResourceWrapper>();
 
             foreach (var entry in results.Results)
             {
+                if (!resourceTypeSearchParameterHashMap.TryGetValue(entry.Resource.ResourceTypeName, out string searchParamHash))
+                {
+                    searchParamHash = string.Empty;
+                }
+
                 entry.Resource.SearchParameterHash = searchParamHash;
                 var resourceElement = _deserializer.Deserialize(entry.Resource);
                 var newIndices = _searchIndexer.Extract(resourceElement);
-                var newIndicesHash = new HashSet<SearchIndexEntry>(newIndices);
-                var prevIndicesHash = new HashSet<SearchIndexEntry>(entry.Resource.SearchIndices);
 
-                if (newIndicesHash.SetEquals(prevIndicesHash))
+                // TODO: If it reasonable to do so, we can compare
+                // old and new search indices to avoid unnecessarily updating search indices
+                // when not changes have been made.
+                entry.Resource.UpdateSearchIndices(newIndices);
+                updateSearchIndices.Add(entry.Resource);
+
+                if (cancellationToken.IsCancellationRequested)
                 {
-                    updateHashValueOnly.Add(entry.Resource);
-                }
-                else
-                {
-                    entry.Resource.UpdateSearchIndices(newIndices);
-                    updateSearchIndices.Add(entry.Resource);
+                    return;
                 }
             }
 
             using (IScoped<IFhirDataStore> store = _fhirDataStoreFactory())
             {
-                await store.Value.UpdateSearchParameterHashBatchAsync(updateHashValueOnly, cancellationToken);
                 await store.Value.UpdateSearchParameterIndicesBatchAsync(updateSearchIndices, cancellationToken);
             }
+        }
+
+        public async Task<(bool, string)> UpdateSearchParameters(IReadOnlyCollection<string> searchParameterUris, CancellationToken cancellationToken)
+        {
+            var searchParameterStatusList = new List<ResourceSearchParameterStatus>();
+
+            foreach (string uri in searchParameterUris)
+            {
+                var searchParamUri = new Uri(uri);
+
+                try
+                {
+                    _searchParameterDefinitionManager.SetSearchParameterEnabled(searchParamUri);
+                }
+                catch (SearchParameterNotSupportedException)
+                {
+                    return (false, string.Format(Core.Resources.SearchParameterNoLongerSupported, uri));
+                }
+
+                searchParameterStatusList.Add(new ResourceSearchParameterStatus()
+                {
+                    LastUpdated = DateTimeOffset.UtcNow,
+                    Status = SearchParameterStatus.Enabled,
+                    Uri = searchParamUri,
+                });
+            }
+
+            await _searchParameterRegistry.UpdateStatuses(searchParameterStatusList);
+
+            return (true, null);
         }
     }
 }

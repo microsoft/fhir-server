@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public IEnumerable<SearchParameterInfo> AllSearchParameters => _inner.AllSearchParameters.Where(x => x.IsSupported);
 
-        public string SearchParametersHash => _inner.SearchParametersHash;
+        public IReadOnlyDictionary<string, string> SearchParameterHashMap => _inner.SearchParameterHashMap;
 
         public IEnumerable<SearchParameterInfo> GetSearchParameters(string resourceType)
         {
@@ -80,6 +80,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         public IEnumerable<SearchParameterInfo> GetSupportedButNotSearchableParams()
         {
             return _inner.AllSearchParameters.Where(p => p.IsSearchable == false && p.IsSupported == true);
+        }
+
+        public void SetSearchParameterEnabled(Uri searchParameterUri)
+        {
+            var supportedParameter = GetSearchParameter(searchParameterUri);
+            supportedParameter.IsSearchable = true;
+        }
+
+        public void UpdateSearchParameterHashMap(Dictionary<string, string> updatedSearchParamHashMap)
+        {
+            _inner.UpdateSearchParameterHashMap(updatedSearchParamHashMap);
+        }
+
+        public string GetSearchParameterHashForResourceType(string resourceType)
+        {
+            return _inner.GetSearchParameterHashForResourceType(resourceType);
         }
     }
 }

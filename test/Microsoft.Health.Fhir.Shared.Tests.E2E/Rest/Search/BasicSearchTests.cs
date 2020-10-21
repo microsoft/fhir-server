@@ -9,10 +9,12 @@ using System.Globalization;
 using System.Linq;
 using System.Net;
 using Hl7.Fhir.ElementModel;
+using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
@@ -59,6 +61,40 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenResourceWithVariousValues_WhenSearchedWithCityParam_ThenOnlyResourcesMatchingAllSearchParamsShouldBeReturned()
+        {
+            var tag = Guid.NewGuid().ToString();
+
+            // Create various resources.
+            Patient[] patients = await Client.CreateResourcesAsync<Patient>(
+                p => SetPatientInfo(p, "seattle", "Robinson"), // match
+                p => SetPatientInfo(p, "Portland", "Williamas"),
+                p => SetPatientInfo(p, "SEATTLE", "Skouras"), // match
+                p => SetPatientInfo(p, "Sea", "Luecke"),
+                p => SetPatientInfo(p, "Seattle", "Jones"), // match
+                p => SetPatientInfo(p, "New York", "Cook"),
+                p => SetPatientInfo(p, "Amsterdam", "Hill"));
+
+            await ExecuteAndValidateBundle("Patient?address-city=Seattle", patients[0], patients[2], patients[4]);
+
+            void SetPatientInfo(Patient patient, string city, string family)
+            {
+                patient.Meta = new Meta();
+                patient.Meta.Tag.Add(new Coding(null, tag));
+                patient.Address = new List<Address>()
+                {
+                    new Address() { City = city },
+                };
+
+                patient.Name = new List<HumanName>()
+                {
+                    new HumanName() { Family = family },
+                };
+            }
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
         public async Task GivenVariousTypesOfResources_WhenSearchedByResourceType_ThenOnlyResourcesMatchingTheResourceTypeShouldBeReturned()
         {
             // Create various resources.
@@ -81,6 +117,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             await ExecuteAndValidateBundle("Patient?_type:missing=true");
             await ExecuteAndValidateBundle("Patient?_type:missing=false", femalePatient, unspecifiedPatient);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenResourcesWithMissingReference_WhenSearchedWithTheMissingModiferAndOtherParameter_ThenOnlyMatchingResourcesWithMissingOrPresentReferenceAreReturned()
+        {
+            Patient patientWithReference = (await Client.CreateResourcesAsync<Patient>(p =>
+            {
+                p.Gender = AdministrativeGender.Female;
+                p.ManagingOrganization = new ResourceReference("Organization/123");
+            })).Single();
+            Patient femalePatient = (await Client.CreateResourcesAsync<Patient>(p => p.Gender = AdministrativeGender.Female)).Single();
+            Patient unspecifiedPatient = (await Client.CreateResourcesAsync<Patient>(p => { })).Single();
+
+            await ExecuteAndValidateBundle("Patient?gender=female&organization:missing=true", femalePatient);
+            await ExecuteAndValidateBundle("Patient?gender=female&organization:missing=false", patientWithReference);
         }
 
         [Fact]
@@ -119,12 +171,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             const int count = 2;
 
             // Create the resources
-            Patient[] patients = await Client.CreateResourcesAsync<Patient>(numberOfResources);
+            var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
+
+            Patient patient = Samples.GetDefaultPatient().ToPoco<Patient>();
+            var patients = new Patient[numberOfResources];
+
+            for (int i = 0; i < numberOfResources; i++)
+            {
+                patient.Meta = new Meta();
+                patient.Meta.Tag.Add(tag);
+
+                FhirResponse<Patient> createdPatient = await Client.CreateAsync(patient);
+                patients[i] = createdPatient.Resource;
+            }
 
             Bundle results = new Bundle();
 
             // Search with count = 2, which should results in 5 pages.
-            string url = $"Patient?_count={count}";
+            string url = $"Patient?_count={count}&_tag={tag.Code}";
             string baseUrl = Fixture.GenerateFullUrl(url);
 
             int loop = 1;
@@ -481,6 +545,33 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 });
 
             await ExecuteAndValidateBundle($"NamingSystem?type={code}", library);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenASearchRequest_WhenExceedingMaxCount_ThenAnOperationOutcomeWarningIsReturnedInTheBundle()
+        {
+            Bundle bundle = await Client.SearchAsync("?_count=" + int.MaxValue);
+
+            Assert.Equal(KnownResourceTypes.OperationOutcome, bundle.Entry.First().Resource.TypeName);
+            Assert.Contains("exceeds limit", (string)bundle.Scalar("entry.resource.issue.diagnostics"));
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenASearchRequest_WhenExceedingMaxCount_ThenResourcesAreSerializedInBundle()
+        {
+            var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
+
+            Patient patient = Samples.GetDefaultPatient().ToPoco<Patient>();
+            patient.Meta = new Meta();
+            patient.Meta.Tag.Add(tag);
+            await Client.CreateAsync(patient);
+
+            Bundle bundle = await Client.SearchAsync($"Patient?_tag={tag.Code}&_count=" + int.MaxValue);
+
+            Assert.Equal(KnownResourceTypes.OperationOutcome, bundle.Entry.First().Resource.TypeName);
+            Assert.NotNull(bundle.Entry.Skip(1).First().Resource);
         }
     }
 }

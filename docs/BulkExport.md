@@ -38,10 +38,6 @@ https://test-fhir-server/$export
 
 ## What is supported
 
-System-wide, Patient compartment, and Group exports are supported. Checking the export status through the URL returned by the location header during the queuing is also supported. Cancelling the actual export job is supported.
-
-In addition to the features mentioned in the FHIR export specification the query parameter ```_container``` can be used to specify a specific container in the blob storage to export to.
-If a container is specified, the data will be exported to that container in a new folder with the name <timestamp>-<id>
-If no container is specified, the data will be exported to a new container with the name <id>
+For more details on Bulk Export, see the [Azure API for FHIR Export Data page](https://docs.microsoft.com/en-us/azure/healthcare-apis/export-data).
 
 Exported data can be deidentified using the [FHIR Tools for Anonymization](https://github.com/microsoft/FHIR-Tools-for-Anonymization#how-to-perform-de-identified-export-operation-on-the-fhir-server)

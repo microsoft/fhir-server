@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             var valueSpan = includeValue.AsSpan();
             if (!TrySplit(SearchSplitChar, ref valueSpan, out ReadOnlySpan<char> originalType))
             {
-                throw new InvalidSearchOperationException(Core.Resources.IncludeMissingType);
+                throw new InvalidSearchOperationException(isReversed ? Core.Resources.RevIncludeMissingType : Core.Resources.IncludeMissingType);
             }
 
             if (resourceType.Equals(KnownResourceTypes.DomainResource, StringComparison.InvariantCultureIgnoreCase))
