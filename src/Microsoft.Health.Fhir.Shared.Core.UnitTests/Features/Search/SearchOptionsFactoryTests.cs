@@ -12,7 +12,6 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
-using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -470,10 +469,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
-        public void GivenInValidTypeParameterForGlobalSearch_WhenCreated_ThenSearchOptionsCreated()
+        public void GivenInvalidTypeParameterForGlobalSearch_WhenCreated_ThenSearchOptionsCreated()
         {
             Assert.Throws<BadRequestException>(() =>
-            CreateSearchOptions(queryParameters: new[] { Tuple.Create<string, string>("_type", "ham_spam"), }));
+            CreateSearchOptions(queryParameters: new[] { Tuple.Create<string, string>("_type", "ham_spam") }));
+        }
+
+        [Fact]
+        public void GivenSomeInvalidTypesParameterForGlobalSearch_WhenCreated_ThenSearchOptionsCreated()
+        {
+            var types = string.Join(',', ModelInfoProvider.GetResourceTypeNames().Take(2).Append("ham_spam"));
+            Assert.Throws<BadRequestException>(() =>
+            CreateSearchOptions(queryParameters: new[] { Tuple.Create<string, string>("_type", types) }));
         }
 
         private SearchOptions CreateSearchOptions(
