@@ -456,6 +456,26 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(_coreFeatures.DefaultIncludeCountPerSearch, options.IncludeCount);
         }
 
+        [Fact]
+        public void GivenValidTypeParameterForGlobalSearch_WhenCreated_ThenSearchOptionsCreated()
+        {
+            CreateSearchOptions(queryParameters: new[] { Tuple.Create<string, string>("_type", ModelInfoProvider.GetResourceTypeNames().First()) });
+        }
+
+        [Fact]
+        public void GivenValidTypesParameterForGlobalSearch_WhenCreated_ThenSearchOptionsCreated()
+        {
+            var types = string.Join(',', ModelInfoProvider.GetResourceTypeNames().Take(3));
+            CreateSearchOptions(queryParameters: new[] { Tuple.Create<string, string>("_type", types) });
+        }
+
+        [Fact]
+        public void GivenInValidTypeParameterForGlobalSearch_WhenCreated_ThenSearchOptionsCreated()
+        {
+            Assert.Throws<BadRequestException>(() =>
+            CreateSearchOptions(queryParameters: new[] { Tuple.Create<string, string>("_type", "ham_spam"), }));
+        }
+
         private SearchOptions CreateSearchOptions(
             string resourceType = DefaultResourceType,
             IReadOnlyList<Tuple<string, string>> queryParameters = null,

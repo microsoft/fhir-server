@@ -98,6 +98,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 {
                     // TODO: We need to handle format parameter.
                 }
+                else if (query.Item1 == KnownQueryParameterNames.Type)
+                {
+                    var types = query.Item2.SplitByOrSeparator();
+                    var badTypes = types.Where(type => !ModelInfoProvider.IsKnownResource(type)).ToArray();
+                    if (badTypes.Length != 0)
+                    {
+                        throw new BadRequestException(string.Format(Core.Resources.InvalidTypeParameter, string.Join(",", badTypes)));
+                    }
+                }
                 else if (string.IsNullOrWhiteSpace(query.Item1) || string.IsNullOrWhiteSpace(query.Item2))
                 {
                     // Query parameter with empty value is not supported.
