@@ -5,7 +5,9 @@
 
 using System.Collections.Generic;
 using Microsoft.Health.Fhir.Core;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
@@ -1571,6 +1573,49 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(TableExpressionKind.IncludeLimit, orderedExpressions[5].Kind);
 
             Assert.Equal(TableExpressionKind.IncludeUnionAll, orderedExpressions[6].Kind);
+        }
+
+        [Fact]
+        public void GivenASqlRootExpressionWithCyclicIncludeIterate_WhenVisitedByIncludeRewriter_AnErrorIsExpected()
+        {
+            // Order the following cyclic query:
+            // [base]/MedicationDispense?_include=MedicationDispense:prescription&_include:iterate=MedicationRequest:patient&_include:iterate=Patient:general-practitioner&_revinclude:iterate=DiagnosticReport:performer:Practitioner&_include:iterate=DiagnosticReport:patient&_id=12345
+
+            var refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("MedicationDispense", "prescription");
+            var includeMedicationDispense = new IncludeExpression("MedicationDispense", refSearchParameter, "MedicationDispense", null, null, false, false, false);
+
+            refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("MedicationRequest", "patient");
+            var includeIterateMedicationRequestPatient = new IncludeExpression("MedicationRequest", refSearchParameter, "MedicationRequest", null, null, false, false, true);
+
+            refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("Patient", "general-practitioner");
+            var includeIteratePatientPractitioner = new IncludeExpression("Patient", refSearchParameter, "Patient", null, null, false, false, true);
+
+            refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("DiagnosticReport", "performer");
+            var revIncludeIterateDiagnosticReportPerformer = new IncludeExpression("DiagnosticReport", refSearchParameter, "DiagnosticReport", "Practitioner", null, false, true, true);
+
+            refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter("DiagnosticReport", "patient");
+            var includeIterateDiagnosticReportPatient = new IncludeExpression("DiagnosticReport", refSearchParameter, "DiagnosticReport", null, null, false, false, true);
+
+            Expression denormalizedExpression = Expression.And(new List<Expression>
+                {
+                    new SearchParameterExpression(new SearchParameterInfo("_type"), new StringExpression(StringOperator.Equals, FieldName.String, null, "MedicationDispense", false)),
+                    new SearchParameterExpression(new SearchParameterInfo("_id"), new StringExpression(StringOperator.Equals, FieldName.String, null, "12345", false)),
+                });
+
+            var sqlExpression = new SqlRootExpression(
+                new List<TableExpression>
+                {
+                    new TableExpression(null, null, denormalizedExpression, TableExpressionKind.All),
+                    new TableExpression(IncludeQueryGenerator.Instance,  includeMedicationDispense, null, TableExpressionKind.Include),
+                    new TableExpression(IncludeQueryGenerator.Instance,  includeIterateMedicationRequestPatient, null, TableExpressionKind.Include),
+                    new TableExpression(IncludeQueryGenerator.Instance,  includeIteratePatientPractitioner, null, TableExpressionKind.Include),
+                    new TableExpression(IncludeQueryGenerator.Instance,  revIncludeIterateDiagnosticReportPerformer, null, TableExpressionKind.Include),
+                    new TableExpression(IncludeQueryGenerator.Instance,  includeIterateDiagnosticReportPatient, null, TableExpressionKind.Include),
+                    new TableExpression(null, null, null, TableExpressionKind.Top),
+                },
+                new List<Expression>());
+
+            Assert.Throws<InvalidSearchOperationException>(() => ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).TableExpressions);
         }
     }
 }

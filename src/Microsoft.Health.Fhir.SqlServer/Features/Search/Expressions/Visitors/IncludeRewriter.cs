@@ -28,22 +28,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return expression;
             }
 
-            List<TableExpression> reorderedExpressions;
-
             // TableExpressions contains at least one Include expression
-            var nonIncludeExpressions = expression.TableExpressions.Where(e => e.Kind != TableExpressionKind.Include);
-            var includeExpressions = expression.TableExpressions.Where(e => e.Kind == TableExpressionKind.Include);
+            var nonIncludeExpressions = expression.TableExpressions.Where(e => e.Kind != TableExpressionKind.Include).ToList();
+            var includeExpressions = expression.TableExpressions.Where(e => e.Kind == TableExpressionKind.Include).ToList();
 
             // Sort include expressions if there is an include iterate expression
-            // Order so that include iterate expression appear after the expressions thet select from
+            // Order so that include iterate expression appear after the expressions they select from
             IEnumerable<TableExpression> sortedIncludeExpressions = includeExpressions;
-            if (includeExpressions.Any(e => e.Kind == TableExpressionKind.Include && (e.NormalizedPredicate as IncludeExpression).Iterate))
+            if (includeExpressions.Any(e => ((IncludeExpression)e.NormalizedPredicate).Iterate))
             {
-                sortedIncludeExpressions = IncludeExpressionTopologicalSort.Sort(includeExpressions);
+                IEnumerable<TableExpression> nonIncludeIterateExpressions = includeExpressions.Where(e => !((IncludeExpression)e.NormalizedPredicate).Iterate);
+                List<TableExpression> includeIterateExpressions = includeExpressions.Where(e => ((IncludeExpression)e.NormalizedPredicate).Iterate).ToList();
+                sortedIncludeExpressions = nonIncludeIterateExpressions.Concat(SortIncludeIterateExpressions(includeIterateExpressions));
             }
 
             // Add sorted include expressions after all other expressions
-            reorderedExpressions = nonIncludeExpressions.Concat(sortedIncludeExpressions).ToList();
+            var reorderedExpressions = nonIncludeExpressions.Concat(sortedIncludeExpressions).ToList();
 
             // We are adding an extra CTE after each include cte, so we traverse the ordered
             // list from the end and add a limit expression after each include expression
@@ -63,159 +63,103 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return new SqlRootExpression(reorderedExpressions, expression.DenormalizedExpressions);
         }
 
-        private class IncludeExpressionTopologicalSort
+        private static IList<TableExpression> SortIncludeIterateExpressions(IList<TableExpression> expressions)
         {
             // Based on Khan's algorithm. See https://en.wikipedia.org/wiki/Topological_sorting.
             // The search queries are acyclic.
-            public static IList<TableExpression> Sort(IEnumerable<TableExpression> includeExpressions)
+            if (expressions.Count == 1)
             {
-                var graph = new IncludeExpressionDependencyGraph(includeExpressions);
-                var sortedExpressions = new List<TableExpression>();
-
-                while (graph.NodesWithoutIncomingEdges.Any())
-                {
-                    // Remove a node without incoming edges and add to the sorted list
-                    var v = graph.NodesWithoutIncomingEdges.First();
-                    sortedExpressions.Add(v);
-
-                    graph.RemoveNodeAndAllOutgoingEdges(v);
-                }
-
-                return sortedExpressions;
+                return expressions;
             }
 
-            // Dependency graph of parameters so that parameter b depends on a means that b includes from a, therefore a should appear before b.
-            private class IncludeExpressionDependencyGraph
+            var graph = new IncludeIterateExpressionDependencyGraph(expressions);
+            var sortedExpressions = new List<TableExpression>();
+
+            while (graph.NodesWithoutIncomingEdges.Any())
             {
-                // private static readonly IncludeExpressionComparer Comparer = new IncludeExpressionComparer();
-                public IncludeExpressionDependencyGraph(IEnumerable<TableExpression> includeExpressions)
+                // Remove a node without incoming edges and add to the sorted list
+                var v = graph.NodesWithoutIncomingEdges.First();
+                sortedExpressions.Add(v);
+
+                graph.RemoveNodeAndAllOutgoingEdges(v);
+            }
+
+            // If there are edges, then the graph contains a cycle
+            if (graph.OutgoingEdges.Any())
+            {
+                throw new InvalidSearchOperationException("Cyclic include iterate queries are not allowed");
+            }
+
+            return sortedExpressions;
+        }
+
+        // Dependency graph of parameters so that parameter b depends on a means that b includes from a, therefore a should appear before b.
+        private class IncludeIterateExpressionDependencyGraph
+        {
+            // private static readonly IncludeExpressionComparer Comparer = new IncludeExpressionComparer();
+            public IncludeIterateExpressionDependencyGraph(IEnumerable<TableExpression> includeIterateExpressions)
+            {
+                OutgoingEdges = new Dictionary<TableExpression, IList<TableExpression>>();
+                IncomingEdgesCount = new Dictionary<TableExpression, int>();
+
+                // Add graph nodes (parameters) and edges (dependencies)
+                foreach (var v in includeIterateExpressions)
                 {
-                    OutgoingEdges = new Dictionary<TableExpression, IList<TableExpression>>();
-                    IncomingEdgesCount = new Dictionary<TableExpression, int>();
+                    OutgoingEdges.Add(v, new List<TableExpression>());
+                    IncomingEdgesCount.TryAdd(v, 0);
 
-                    // Add graph nodes (parameters) and edges (dependencies)
-                    foreach (var v in includeExpressions)
+                    foreach (var u in includeIterateExpressions)
                     {
-                        OutgoingEdges.Add(v, new List<TableExpression>());
-                        IncomingEdgesCount.TryAdd(v, 0);
-
-                        foreach (var u in includeExpressions)
+                        if (v != u && IsDependencyEdge(v, u))
                         {
-                            // if (v != u && Comparer.Compare(v, u) < 0)
-                            if (v != u && IsDependencyEdge(v, u))
-                            {
-                                IncomingEdgesCount.TryAdd(u, 0);
-                                OutgoingEdges[v].Add(u);
-                                IncomingEdgesCount[u]++;
-                            }
+                            IncomingEdgesCount.TryAdd(u, 0);
+                            OutgoingEdges[v].Add(u);
+                            IncomingEdgesCount[u]++;
                         }
                     }
                 }
+            }
 
-                public IDictionary<TableExpression, IList<TableExpression>> OutgoingEdges { get; private set; }
+            public IDictionary<TableExpression, IList<TableExpression>> OutgoingEdges { get; private set; }
 
-                public IDictionary<TableExpression, int> IncomingEdgesCount { get; private set; }
+            public IDictionary<TableExpression, int> IncomingEdgesCount { get; private set; }
 
-                public IEnumerable<TableExpression> NodesWithoutIncomingEdges
+            public IEnumerable<TableExpression> NodesWithoutIncomingEdges
+            {
+                get { return IncomingEdgesCount.Where(e => e.Value == 0).Select(e => e.Key); }
+            }
+
+            // Remove v and all v's edges and update incoming edge count accordingly
+            public void RemoveNodeAndAllOutgoingEdges(TableExpression v)
+            {
+                if (OutgoingEdges.ContainsKey(v))
                 {
-                    get { return IncomingEdgesCount.Where(e => e.Value == 0).Select(e => e.Key); }
+                    // Remove all edges
+                    IList<TableExpression> edges;
+                    if (OutgoingEdges.TryGetValue(v, out edges))
+                    {
+                        while (edges.Any())
+                        {
+                            var u = edges[0];
+                            edges.RemoveAt(0);
+                            IncomingEdgesCount[u]--;
+                        }
+                    }
+
+                    // Remove node
+                    OutgoingEdges.Remove(v);
+                    IncomingEdgesCount.Remove(v);
                 }
+            }
 
-                // Remove v and all v's edges and update incoming edge count accordingly
-                public void RemoveNodeAndAllOutgoingEdges(TableExpression v)
-                {
-                    if (OutgoingEdges.ContainsKey(v))
-                    {
-                        // Remove all edges
-                        IList<TableExpression> edges;
-                        if (OutgoingEdges.TryGetValue(v, out edges))
-                        {
-                            while (edges.Any())
-                            {
-                                var u = edges[0];
-                                edges.RemoveAt(0);
-                                IncomingEdgesCount[u]--;
-                            }
-                        }
+            // (x, y) is a graph edge if x needs to appear before y in the sorted query. That is, y has dependency on x.
+            private static bool IsDependencyEdge(TableExpression x, TableExpression y)
+            {
+                // Assumes both expressions are include iterate expressions
+                var xInclude = (IncludeExpression)x.NormalizedPredicate;
+                var yInclude = (IncludeExpression)y.NormalizedPredicate;
 
-                        // Remove node
-                        OutgoingEdges.Remove(v);
-                        IncomingEdgesCount.Remove(v);
-                    }
-                }
-
-                // (x, y) is a graph edge if x needs to appear before y in the sorted query.
-                // That is, y has dependency on x.
-                private static bool IsDependencyEdge(TableExpression x, TableExpression y)
-                {
-                    if (x.Kind != TableExpressionKind.Include || y.Kind != TableExpressionKind.Include)
-                    {
-                        return false;
-                    }
-
-                    // Both expressions are Include expressions
-                    var xInclude = (IncludeExpression)x.NormalizedPredicate;
-                    var yInclude = (IncludeExpression)y.NormalizedPredicate;
-
-                    // If x is :iterate and y is not :iterate, than there's no dependency.
-                    if (xInclude.Iterate && !yInclude.Iterate)
-                    {
-                        return false;
-                    }
-
-                    // Order so that _include:iterate source type will appear after relevant include target
-                    // and _revinclude:iterate target type appears after it's already been included
-                    var xTargetTypes = xInclude.WildCard ? xInclude.ReferencedTypes : xInclude.ReferenceSearchParameter?.TargetResourceTypes;
-                    var yTargetTypes = yInclude.WildCard ? yInclude.ReferencedTypes : yInclude.ReferenceSearchParameter?.TargetResourceTypes;
-
-                    // Both are _revinclude or both are _include, order so that one's target resource type should appear after the other's source resource types if types are equal
-                    if (xInclude.Reversed == yInclude.Reversed)
-                    {
-                        // x's target type matches y's source type => x > y
-                        if ((xInclude.TargetResourceType != null && xInclude.TargetResourceType == yInclude.SourceResourceType)
-                            || (xInclude.TargetResourceType == null && xTargetTypes != null && xTargetTypes.Contains(yInclude.SourceResourceType)))
-                        {
-                            return xInclude.Reversed ? false : true;
-                        }
-
-                        // y's target type matches x's source type => x < y
-                        if ((yInclude.TargetResourceType != null && yInclude.TargetResourceType == xInclude.SourceResourceType)
-                            || (yInclude.TargetResourceType == null && yTargetTypes != null && yTargetTypes.Contains(xInclude.SourceResourceType)))
-                        {
-                            return xInclude.Reversed ? true : false;
-                        }
-                    }
-
-                    // x is _include and y is _revinclude
-                    else if (!xInclude.Reversed && yInclude.Reversed)
-                    {
-                        // x's specified target type matches y's target type => x < y
-                        if ((xInclude.TargetResourceType != null && yInclude.TargetResourceType != null && xInclude.TargetResourceType == yInclude.TargetResourceType)
-                            || (xInclude.TargetResourceType != null && yTargetTypes != null && yTargetTypes.Contains(xInclude.TargetResourceType)))
-                        {
-                            return true;
-                        }
-
-                        // one of x's target types matches y's target type => x < y
-                        if ((xInclude.TargetResourceType == null && xTargetTypes != null && yInclude.TargetResourceType != null && xTargetTypes.Contains(yInclude.TargetResourceType))
-                            || (xInclude.TargetResourceType == null && xTargetTypes != null && yTargetTypes != null && xTargetTypes.Intersect(yTargetTypes).Any()))
-                        {
-                            return true;
-                        }
-                    }
-
-                    // x is _revinclude and y is _include
-                    else if (xInclude.Reversed && !yInclude.Reversed)
-                    {
-                        // x's source type matches y's source type
-                        if (xInclude.SourceResourceType == yInclude.SourceResourceType)
-                        {
-                            return true;
-                        }
-                    }
-
-                    return false;
-                }
+                return xInclude.Produces.Intersect(yInclude.Requires).Any();
             }
         }
     }
