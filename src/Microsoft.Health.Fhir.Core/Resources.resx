@@ -235,6 +235,10 @@
     <value>The _revinclude search is missing the type to search.</value>
     <comment>_revinclude is a query parameter.</comment>
   </data>
+  <data name="RevIncludeIterateTargetTypeNotSpecified" xml:space="preserve">
+    <value>The '_revinclude:iterate={0}' search parameter has multiple target types. Please specify a target type.</value>
+    <comment>_revinclude:iterate is a query parameter.</comment>
+  </data>
   <data name="InvalidBooleanConfigSetting" xml:space="preserve">
     <value>Field '{0}' with value '{1}' is not supported.</value>
   </data>
