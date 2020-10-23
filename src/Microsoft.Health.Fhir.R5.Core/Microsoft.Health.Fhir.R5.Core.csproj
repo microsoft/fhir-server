@@ -5,7 +5,6 @@
   </PropertyGroup>
   <PropertyGroup>
     <DefineConstants>R5</DefineConstants>
-    <NoWarn>$(NoWarn);NU1603</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <None Remove="Features\Definition\unsupported-search-parameters.json" />
