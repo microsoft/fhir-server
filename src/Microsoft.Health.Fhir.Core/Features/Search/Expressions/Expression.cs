@@ -76,12 +76,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <param name="referenceSearchParameter">The search parameter that establishes the reference between resources</param>
         /// <param name="sourceResourceType">The source resource type (used in revinclude).</param>
         /// <param name="targetResourceType">The target resource type (used in include).</param>
+        /// <param name="referencedTypes">The type of resources referenced by resourceType</param>
         /// <param name="wildCard">If this is a wildcard include.</param>
         /// <param name="reversed">If this is a reversed include (revinclude) expression.</param>
+        /// <param name="iterate">If this is include has :iterate (:recurse) modifier.</param>
         /// <returns>A <see cref="IncludeExpression"/> that represents an include on <param name="targetResourceType"> through <paramref name="referenceSearchParameter"/>.</param></returns>
-        public static IncludeExpression Include(string resourceType, SearchParameterInfo referenceSearchParameter, string sourceResourceType, string targetResourceType, bool wildCard, bool reversed)
+        public static IncludeExpression Include(string resourceType, SearchParameterInfo referenceSearchParameter, string sourceResourceType, string targetResourceType, IEnumerable<string> referencedTypes, bool wildCard, bool reversed, bool iterate)
         {
-            return new IncludeExpression(resourceType, referenceSearchParameter, sourceResourceType, targetResourceType, wildCard, reversed);
+            return new IncludeExpression(resourceType, referenceSearchParameter, sourceResourceType, targetResourceType, referencedTypes, wildCard, reversed, iterate);
         }
 
         /// <summary>
