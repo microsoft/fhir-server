@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
         public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses()
         {
             // If the search parameter table in SQL does not yet contain status columns
-            if (_schemaInformation.Current < 4)
+            if (_schemaInformation.Current < 6)
             {
                 // Get status information from file.
                 return await _filebasedSearchParameterStatusDataStore.GetSearchParameterStatuses();
@@ -96,7 +96,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
         {
             EnsureArg.IsNotNull(statuses, nameof(statuses));
 
-            if (_schemaInformation.Current < 4)
+            if (_schemaInformation.Current < 6)
             {
                 throw new BadRequestException(Resources.SchemaVersionNeedsUpgrading);
             }
