@@ -101,10 +101,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 else if (query.Item1 == KnownQueryParameterNames.Type)
                 {
                     var types = query.Item2.SplitByOrSeparator();
-                    var badTypes = types.Where(type => !ModelInfoProvider.IsKnownResource(type)).ToArray();
-                    if (badTypes.Length != 0)
+                    var badTypes = types.Where(type => !ModelInfoProvider.IsKnownResource(type)).ToHashSet();
+
+                    if (badTypes.Count != 0)
                     {
-                        throw new BadRequestException(string.Format(Core.Resources.InvalidTypeParameter, string.Join(",", badTypes)));
+                        _contextAccessor.FhirRequestContext.BundleIssues.Add(
+                            new OperationOutcomeIssue(
+                                OperationOutcomeConstants.IssueSeverity.Information,
+                                OperationOutcomeConstants.IssueType.Informational,
+                                string.Format(Core.Resources.InvalidTypeParameter, string.Join(",", badTypes))));
+                        if (badTypes.Count != types.Count)
+                        {
+                            searchParams.Add(KnownQueryParameterNames.Type, string.Join(',', types.Except(badTypes)));
+                            foreach (var badType in badTypes)
+                            {
+                                unsupportedSearchParameters.Add(new Tuple<string, string>(KnownQueryParameterNames.Type, badType));
+                            }
+                        }
+                        else
+                        {
+                            unsupportedSearchParameters.Add(query);
+                        }
+                    }
+                    else
+                    {
+                        searchParams.Add(KnownQueryParameterNames.Type, query.Item2);
                     }
                 }
                 else if (string.IsNullOrWhiteSpace(query.Item1) || string.IsNullOrWhiteSpace(query.Item2))

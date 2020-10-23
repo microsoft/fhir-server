@@ -458,29 +458,32 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public void GivenValidTypeParameterForGlobalSearch_WhenCreated_ThenSearchOptionsCreated()
         {
-            CreateSearchOptions(queryParameters: new[] { Tuple.Create<string, string>("_type", ModelInfoProvider.GetResourceTypeNames().First()) });
+            var options = CreateSearchOptions(queryParameters: new[] { Tuple.Create<string, string>("_type", ModelInfoProvider.GetResourceTypeNames().First()) });
+            Assert.Empty(options.UnsupportedSearchParams);
         }
 
         [Fact]
         public void GivenValidTypesParameterForGlobalSearch_WhenCreated_ThenSearchOptionsCreated()
         {
             var types = string.Join(',', ModelInfoProvider.GetResourceTypeNames().Take(3));
-            CreateSearchOptions(queryParameters: new[] { Tuple.Create<string, string>("_type", types) });
+            var options = CreateSearchOptions(queryParameters: new[] { Tuple.Create<string, string>("_type", types) });
+            Assert.Empty(options.UnsupportedSearchParams);
         }
 
         [Fact]
-        public void GivenInvalidTypeParameterForGlobalSearch_WhenCreated_ThenSearchOptionsCreated()
+        public void GivenInvalidTypeParameterForGlobalSearch_WhenCreated_ThenItAppearInUnsupportedParameters()
         {
-            Assert.Throws<BadRequestException>(() =>
-            CreateSearchOptions(queryParameters: new[] { Tuple.Create<string, string>("_type", "ham_spam") }));
+            var options = CreateSearchOptions(queryParameters: new[] { Tuple.Create<string, string>("_type", "ham_spam") });
+            Assert.Single(options.UnsupportedSearchParams, x => x.Item1 == "_type" && x.Item2 == "ham_spam");
         }
 
         [Fact]
-        public void GivenSomeInvalidTypesParameterForGlobalSearch_WhenCreated_ThenSearchOptionsCreated()
+        public void GivenSomeInvalidTypesParameterForGlobalSearch_WhenCreated_ThenTheyAppearInUnsupportedParameters()
         {
-            var types = string.Join(',', ModelInfoProvider.GetResourceTypeNames().Take(2).Append("ham_spam"));
-            Assert.Throws<BadRequestException>(() =>
-            CreateSearchOptions(queryParameters: new[] { Tuple.Create<string, string>("_type", types) }));
+            var types = string.Join(',', ModelInfoProvider.GetResourceTypeNames().Take(2).Append("ham").Append("spam"));
+            var options = CreateSearchOptions(queryParameters: new[] { Tuple.Create<string, string>("_type", types) });
+            Assert.Single(options.UnsupportedSearchParams, x => x.Item1 == "_type" && x.Item2 == "ham");
+            Assert.Single(options.UnsupportedSearchParams, x => x.Item1 == "_type" && x.Item2 == "spam");
         }
 
         private SearchOptions CreateSearchOptions(
