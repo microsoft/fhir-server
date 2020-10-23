@@ -8,10 +8,11 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core {
+namespace Microsoft.Health.Fhir.Core
+{
     using System;
-    
-    
+
+
     /// <summary>
     ///   A strongly-typed resource class, for looking up localized strings, etc.
     /// </summary>
@@ -22,977 +23,1193 @@ namespace Microsoft.Health.Fhir.Core {
     [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-    internal class Resources {
-        
+    internal class Resources
+    {
+
         private static global::System.Resources.ResourceManager resourceMan;
-        
+
         private static global::System.Globalization.CultureInfo resourceCulture;
-        
+
         [global::System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("Microsoft.Performance", "CA1811:AvoidUncalledPrivateCode")]
-        internal Resources() {
+        internal Resources()
+        {
         }
-        
+
         /// <summary>
         ///   Returns the cached ResourceManager instance used by this class.
         /// </summary>
         [global::System.ComponentModel.EditorBrowsableAttribute(global::System.ComponentModel.EditorBrowsableState.Advanced)]
-        internal static global::System.Resources.ResourceManager ResourceManager {
-            get {
-                if (object.ReferenceEquals(resourceMan, null)) {
+        internal static global::System.Resources.ResourceManager ResourceManager
+        {
+            get
+            {
+                if (object.ReferenceEquals(resourceMan, null))
+                {
                     global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("Microsoft.Health.Fhir.Core.Resources", typeof(Resources).Assembly);
                     resourceMan = temp;
                 }
                 return resourceMan;
             }
         }
-        
+
         /// <summary>
         ///   Overrides the current thread's CurrentUICulture property for all
         ///   resource lookups using this strongly typed resource class.
         /// </summary>
         [global::System.ComponentModel.EditorBrowsableAttribute(global::System.ComponentModel.EditorBrowsableState.Advanced)]
-        internal static global::System.Globalization.CultureInfo Culture {
-            get {
+        internal static global::System.Globalization.CultureInfo Culture
+        {
+            get
+            {
                 return resourceCulture;
             }
-            set {
+            set
+            {
                 resourceCulture = value;
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to {0} and {1} cannot both be specified..
         /// </summary>
-        internal static string AtCannotBeSpecifiedWithBeforeOrSince {
-            get {
+        internal static string AtCannotBeSpecifiedWithBeforeOrSince
+        {
+            get
+            {
                 return ResourceManager.GetString("AtCannotBeSpecifiedWithBeforeOrSince", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Only a bundle can be submitted for batch or transaction processing..
         /// </summary>
-        internal static string BundleRequiredForBatchOrTransaction {
-            get {
+        internal static string BundleRequiredForBatchOrTransaction
+        {
+            get
+            {
                 return ResourceManager.GetString("BundleRequiredForBatchOrTransaction", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The chained parameter must be a reference search parameter type..
         /// </summary>
-        internal static string ChainedParameterMustBeReferenceSearchParamType {
-            get {
+        internal static string ChainedParameterMustBeReferenceSearchParamType
+        {
+            get
+            {
                 return ResourceManager.GetString("ChainedParameterMustBeReferenceSearchParamType", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The chained parameter is not supported..
         /// </summary>
-        internal static string ChainedParameterNotSupported {
-            get {
+        internal static string ChainedParameterNotSupported
+        {
+            get
+            {
                 return ResourceManager.GetString("ChainedParameterNotSupported", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The reference search parameter &apos;{0}&apos; refers to multiple possible resource types. Please specify a type in the search expression: {1}.
         /// </summary>
-        internal static string ChainedParameterSpecifyType {
-            get {
+        internal static string ChainedParameterSpecifyType
+        {
+            get
+            {
                 return ResourceManager.GetString("ChainedParameterSpecifyType", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Comparator &apos;{0}&apos; is not supported for search parameter &apos;{1}&apos;..
         /// </summary>
-        internal static string ComparatorNotSupported {
-            get {
+        internal static string ComparatorNotSupported
+        {
+            get
+            {
                 return ResourceManager.GetString("ComparatorNotSupported", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The compartment definition contains one or more invalid entries..
         /// </summary>
-        internal static string CompartmentDefinitionContainsInvalidEntry {
-            get {
+        internal static string CompartmentDefinitionContainsInvalidEntry
+        {
+            get
+            {
                 return ResourceManager.GetString("CompartmentDefinitionContainsInvalidEntry", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to bundle.entry[{0}].resource has duplicate resources..
         /// </summary>
-        internal static string CompartmentDefinitionDupeResource {
-            get {
+        internal static string CompartmentDefinitionDupeResource
+        {
+            get
+            {
                 return ResourceManager.GetString("CompartmentDefinitionDupeResource", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to bundle.entry[{0}] is null..
         /// </summary>
-        internal static string CompartmentDefinitionInvalidBundle {
-            get {
+        internal static string CompartmentDefinitionInvalidBundle
+        {
+            get
+            {
                 return ResourceManager.GetString("CompartmentDefinitionInvalidBundle", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to bundle.entry[{0}].resource.code is null. Not a valid compartment type..
         /// </summary>
-        internal static string CompartmentDefinitionInvalidCompartmentType {
-            get {
+        internal static string CompartmentDefinitionInvalidCompartmentType
+        {
+            get
+            {
                 return ResourceManager.GetString("CompartmentDefinitionInvalidCompartmentType", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to bundle.entry[{0}].resource is null or is not a CompartmentDefinition resource..
         /// </summary>
-        internal static string CompartmentDefinitionInvalidResource {
-            get {
+        internal static string CompartmentDefinitionInvalidResource
+        {
+            get
+            {
                 return ResourceManager.GetString("CompartmentDefinitionInvalidResource", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to bundle.entry[{0}].resource.url is invalid..
         /// </summary>
-        internal static string CompartmentDefinitionInvalidUrl {
-            get {
+        internal static string CompartmentDefinitionInvalidUrl
+        {
+            get
+            {
                 return ResourceManager.GetString("CompartmentDefinitionInvalidUrl", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to bundle.entry[{0}].resource has duplicate compartment definitions..
         /// </summary>
-        internal static string CompartmentDefinitionIsDupe {
-            get {
+        internal static string CompartmentDefinitionIsDupe
+        {
+            get
+            {
                 return ResourceManager.GetString("CompartmentDefinitionIsDupe", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Compartment id is null or empty..
         /// </summary>
-        internal static string CompartmentIdIsInvalid {
-            get {
+        internal static string CompartmentIdIsInvalid
+        {
+            get
+            {
                 return ResourceManager.GetString("CompartmentIdIsInvalid", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Compartment type {0} is invalid..
         /// </summary>
-        internal static string CompartmentTypeIsInvalid {
-            get {
+        internal static string CompartmentTypeIsInvalid
+        {
+            get
+            {
                 return ResourceManager.GetString("CompartmentTypeIsInvalid", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The composite separator cannot be found..
         /// </summary>
-        internal static string CompositeSeparatorNotFound {
-            get {
+        internal static string CompositeSeparatorNotFound
+        {
+            get
+            {
                 return ResourceManager.GetString("CompositeSeparatorNotFound", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Operation was not attempted because search criteria was not selective enough..
         /// </summary>
-        internal static string ConditionalOperationNotSelectiveEnough {
-            get {
+        internal static string ConditionalOperationNotSelectiveEnough
+        {
+            get
+            {
                 return ResourceManager.GetString("ConditionalOperationNotSelectiveEnough", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Found result with Id &apos;{0}&apos;, which did not match the provided Id &apos;{1}&apos;..
         /// </summary>
-        internal static string ConditionalUpdateMismatchedIds {
-            get {
+        internal static string ConditionalUpdateMismatchedIds
+        {
+            get
+            {
                 return ResourceManager.GetString("ConditionalUpdateMismatchedIds", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The prefix used to identify custom audit headers cannot be empty..
         /// </summary>
-        internal static string CustomHeaderPrefixCannotBeEmpty {
-            get {
+        internal static string CustomHeaderPrefixCannotBeEmpty
+        {
+            get
+            {
                 return ResourceManager.GetString("CustomHeaderPrefixCannotBeEmpty", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The date time string &apos;{0}&apos; is not in a correct format..
         /// </summary>
-        internal static string DateTimeStringIsIncorrectlyFormatted {
-            get {
+        internal static string DateTimeStringIsIncorrectlyFormatted
+        {
+            get
+            {
                 return ResourceManager.GetString("DateTimeStringIsIncorrectlyFormatted", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to At least one portion of the date time string &apos;{0}&apos; is out of range..
         /// </summary>
-        internal static string DateTimeStringIsOutOfRange {
-            get {
+        internal static string DateTimeStringIsOutOfRange
+        {
+            get
+            {
                 return ResourceManager.GetString("DateTimeStringIsOutOfRange", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Deleting a specific record version is not supported..
         /// </summary>
-        internal static string DeleteVersionNotAllowed {
-            get {
+        internal static string DeleteVersionNotAllowed
+        {
+            get
+            {
                 return ResourceManager.GetString("DeleteVersionNotAllowed", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to There are {0} roles with the name &apos;{1}&apos;.
         /// </summary>
-        internal static string DuplicateRoleNames {
-            get {
+        internal static string DuplicateRoleNames
+        {
+            get
+            {
                 return ResourceManager.GetString("DuplicateRoleNames", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Error validating roles:
         ///{0}.
         /// </summary>
-        internal static string ErrorValidatingRoles {
-            get {
+        internal static string ErrorValidatingRoles
+        {
+            get
+            {
                 return ResourceManager.GetString("ErrorValidatingRoles", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Authorization failed..
         /// </summary>
-        internal static string Forbidden {
-            get {
+        internal static string Forbidden
+        {
+            get
+            {
                 return ResourceManager.GetString("Forbidden", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Parameter {0} cannot a be a value in the future..
         /// </summary>
-        internal static string HistoryParameterBeforeCannotBeFuture {
-            get {
+        internal static string HistoryParameterBeforeCannotBeFuture
+        {
+            get
+            {
                 return ResourceManager.GetString("HistoryParameterBeforeCannotBeFuture", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Id must be any combination of upper or lower case ASCII letters (&apos;A&apos;..&apos;Z&apos;, and &apos;a&apos;..&apos;z&apos;), numerals (&apos;0&apos;..&apos;9&apos;), &apos;-&apos; and &apos;.&apos;, with a length limit of 64 characters. (This might be an integer, an un-prefixed OID, UUID, or any other identifier pattern that meets these constraints.).
         /// </summary>
-        internal static string IdRequirements {
-            get {
+        internal static string IdRequirements
+        {
+            get
+            {
                 return ResourceManager.GetString("IdRequirements", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to A valid if-match header is required for resource type &apos;{0}&apos;..
         /// </summary>
-        internal static string IfMatchHeaderRequiredForResource {
-            get {
+        internal static string IfMatchHeaderRequiredForResource
+        {
+            get
+            {
                 return ResourceManager.GetString("IfMatchHeaderRequiredForResource", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Illegal attribute name &apos;{0}&apos; on element &apos;{1}&apos;..
         /// </summary>
-        internal static string IllegalHtmlAttribute {
-            get {
+        internal static string IllegalHtmlAttribute
+        {
+            get
+            {
                 return ResourceManager.GetString("IllegalHtmlAttribute", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Illegal element name &apos;{0}&apos;..
         /// </summary>
-        internal static string IllegalHtmlElement {
-            get {
+        internal static string IllegalHtmlElement
+        {
+            get
+            {
                 return ResourceManager.GetString("IllegalHtmlElement", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The div element must not be empty or only whitespace..
         /// </summary>
-        internal static string IllegalHtmlEmpty {
-            get {
+        internal static string IllegalHtmlEmpty
+        {
+            get
+            {
                 return ResourceManager.GetString("IllegalHtmlEmpty", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to XHTML content should be contained within a single &lt;div&gt; element..
         /// </summary>
-        internal static string IllegalHtmlOuterDiv {
-            get {
+        internal static string IllegalHtmlOuterDiv
+        {
+            get
+            {
                 return ResourceManager.GetString("IllegalHtmlOuterDiv", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Error while parsing XHTML: {0} Line: {1} Col: {2}..
         /// </summary>
-        internal static string IllegalHtmlParsingError {
-            get {
+        internal static string IllegalHtmlParsingError
+        {
+            get
+            {
                 return ResourceManager.GetString("IllegalHtmlParsingError", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The _include search cannot be used against the base route..
         /// </summary>
-        internal static string IncludeCannotBeAgainstBase {
-            get {
+        internal static string IncludeCannotBeAgainstBase
+        {
+            get
+            {
                 return ResourceManager.GetString("IncludeCannotBeAgainstBase", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The _include search is missing the type to search..
         /// </summary>
-        internal static string IncludeMissingType {
-            get {
+        internal static string IncludeMissingType
+        {
+            get
+            {
                 return ResourceManager.GetString("IncludeMissingType", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Field &apos;{0}&apos; with value &apos;{1}&apos; is not supported..
         /// </summary>
-        internal static string InvalidBooleanConfigSetting {
-            get {
+        internal static string InvalidBooleanConfigSetting
+        {
+            get
+            {
                 return ResourceManager.GetString("InvalidBooleanConfigSetting", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Given conditional reference &apos;{0}&apos; does not resolve to a resource..
         /// </summary>
-        internal static string InvalidConditionalReference {
-            get {
+        internal static string InvalidConditionalReference
+        {
+            get
+            {
                 return ResourceManager.GetString("InvalidConditionalReference", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Resource type and query parameter must be present in a given request &apos;{0}&apos;..
         /// </summary>
-        internal static string InvalidConditionalReferenceParameters {
-            get {
+        internal static string InvalidConditionalReferenceParameters
+        {
+            get
+            {
                 return ResourceManager.GetString("InvalidConditionalReferenceParameters", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Value &apos;{0}&apos; is not supported. Please select from the following list of supported capabilities: [{1}]..
         /// </summary>
-        internal static string InvalidConfigSetting {
-            get {
+        internal static string InvalidConfigSetting
+        {
+            get
+            {
                 return ResourceManager.GetString("InvalidConfigSetting", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The continuation token is invalid..
         /// </summary>
-        internal static string InvalidContinuationToken {
-            get {
+        internal static string InvalidContinuationToken
+        {
+            get
+            {
                 return ResourceManager.GetString("InvalidContinuationToken", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The count must be greater than zero..
         /// </summary>
-        internal static string InvalidSearchCountSpecified {
-            get {
+        internal static string InvalidSearchCountSpecified
+        {
+            get
+            {
                 return ResourceManager.GetString("InvalidSearchCountSpecified", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The &apos;_total&apos; parameter value &apos;{0}&apos; is invalid. The supported values are: {1}..
         /// </summary>
-        internal static string InvalidTotalParameter {
-            get {
+        internal static string InvalidTotalParameter
+        {
+            get
+            {
                 return ResourceManager.GetString("InvalidTotalParameter", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The &apos;_type&apos; parameter contains unknown resource(s): {0}.
         /// </summary>
-        internal static string InvalidTypeParameter {
-            get {
+        internal static string InvalidTypeParameter
+        {
+            get
+            {
                 return ResourceManager.GetString("InvalidTypeParameter", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Invalid value for :missing modifier. Valid values are: true, false..
         /// </summary>
-        internal static string InvalidValueTypeForMissingModifier {
-            get {
+        internal static string InvalidValueTypeForMissingModifier
+        {
+            get
+            {
                 return ResourceManager.GetString("InvalidValueTypeForMissingModifier", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The requested job &quot;{0}&quot; was not found..
         /// </summary>
-        internal static string JobNotFound {
-            get {
+        internal static string JobNotFound
+        {
+            get
+            {
                 return ResourceManager.GetString("JobNotFound", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Malformed search value &apos;{0}&apos;..
         /// </summary>
-        internal static string MalformedSearchValue {
-            get {
+        internal static string MalformedSearchValue
+        {
+            get
+            {
                 return ResourceManager.GetString("MalformedSearchValue", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Modifier &apos;{0}&apos; is not supported for search parameter &apos;{1}&apos;..
         /// </summary>
-        internal static string ModifierNotSupported {
-            get {
+        internal static string ModifierNotSupported
+        {
+            get
+            {
                 return ResourceManager.GetString("ModifierNotSupported", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Only one token separator can be specified..
         /// </summary>
-        internal static string MoreThanOneTokenSeparatorSpecified {
-            get {
+        internal static string MoreThanOneTokenSeparatorSpecified
+        {
+            get
+            {
                 return ResourceManager.GetString("MoreThanOneTokenSeparatorSpecified", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to No more than two token separators can be specified..
         /// </summary>
-        internal static string MoreThanTwoTokenSeparatorSpecified {
-            get {
+        internal static string MoreThanTwoTokenSeparatorSpecified
+        {
+            get
+            {
                 return ResourceManager.GetString("MoreThanTwoTokenSeparatorSpecified", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Query parameter &apos;{0}&apos; cannot be specified more than once..
         /// </summary>
-        internal static string MultipleQueryParametersNotAllowed {
-            get {
+        internal static string MultipleQueryParametersNotAllowed
+        {
+            get
+            {
                 return ResourceManager.GetString("MultipleQueryParametersNotAllowed", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Multiple sort parameters are currently not supported. Only a single sort parameter is supported..
         /// </summary>
-        internal static string MultiSortParameterNotSupported {
-            get {
+        internal static string MultiSortParameterNotSupported
+        {
+            get
+            {
                 return ResourceManager.GetString("MultiSortParameterNotSupported", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to No search parameters found needing to be indexed.  Job cancelled..
         /// </summary>
-        internal static string NoSearchParametersNeededToBeIndexed {
-            get {
+        internal static string NoSearchParametersNeededToBeIndexed
+        {
+            get
+            {
                 return ResourceManager.GetString("NoSearchParametersNeededToBeIndexed", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The number of composite components specified for search parameter &apos;{0}&apos; exceeded the number of components defined..
         /// </summary>
-        internal static string NumberOfCompositeComponentsExceeded {
-            get {
+        internal static string NumberOfCompositeComponentsExceeded
+        {
+            get
+            {
                 return ResourceManager.GetString("NumberOfCompositeComponentsExceeded", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Only equal comparator is supported for this search type..
         /// </summary>
-        internal static string OnlyEqualComparatorIsSupported {
-            get {
+        internal static string OnlyEqualComparatorIsSupported
+        {
+            get
+            {
                 return ResourceManager.GetString("OnlyEqualComparatorIsSupported", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Only one modifier separator can be specified..
         /// </summary>
-        internal static string OnlyOneModifierSeparatorSupported {
-            get {
+        internal static string OnlyOneModifierSeparatorSupported
+        {
+            get
+            {
                 return ResourceManager.GetString("OnlyOneModifierSeparatorSupported", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Only one active or paused reindex job allowed.  Cancel any previous jobs before submitting a new job..
         /// </summary>
-        internal static string OnlyOneResourceJobAllowed {
-            get {
+        internal static string OnlyOneResourceJobAllowed
+        {
+            get
+            {
                 return ResourceManager.GetString("OnlyOneResourceJobAllowed", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Failed to retrieve the OpenId configuration from the authentication provider..
         /// </summary>
-        internal static string OpenIdConfiguration {
-            get {
+        internal static string OpenIdConfiguration
+        {
+            get
+            {
                 return ResourceManager.GetString("OpenIdConfiguration", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to {0} operation failed for reason: {1}.
         /// </summary>
-        internal static string OperationFailed {
-            get {
+        internal static string OperationFailed
+        {
+            get
+            {
                 return ResourceManager.GetString("OperationFailed", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to  or .
         /// </summary>
-        internal static string OrDelimiter {
-            get {
+        internal static string OrDelimiter
+        {
+            get
+            {
                 return ResourceManager.GetString("OrDelimiter", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to ReadHistory is disabled for resources of type &apos;{0}&apos;..
         /// </summary>
-        internal static string ReadHistoryDisabled {
-            get {
+        internal static string ReadHistoryDisabled
+        {
+            get
+            {
                 return ResourceManager.GetString("ReadHistoryDisabled", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Resource type &apos;{0}&apos; in the reference &apos;{1}&apos; is not supported..
         /// </summary>
-        internal static string ReferenceResourceTypeNotSupported {
-            get {
+        internal static string ReferenceResourceTypeNotSupported
+        {
+            get
+            {
                 return ResourceManager.GetString("ReferenceResourceTypeNotSupported", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Reindex job id {0} is in state {1} and cannot be cancelled..
         /// </summary>
-        internal static string ReindexJobInCompletedState {
-            get {
+        internal static string ReindexJobInCompletedState
+        {
+            get
+            {
                 return ResourceManager.GetString("ReindexJobInCompletedState", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The requested action is not allowed..
         /// </summary>
-        internal static string RequestedActionNotAllowed {
-            get {
+        internal static string RequestedActionNotAllowed
+        {
+            get
+            {
                 return ResourceManager.GetString("RequestedActionNotAllowed", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Resource creation is not allowed..
         /// </summary>
-        internal static string ResourceCreationNotAllowed {
-            get {
+        internal static string ResourceCreationNotAllowed
+        {
+            get
+            {
                 return ResourceManager.GetString("ResourceCreationNotAllowed", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Resource type &apos;{0}&apos; with id &apos;{1}&apos; couldn&apos;t be found..
         /// </summary>
-        internal static string ResourceNotFoundById {
-            get {
+        internal static string ResourceNotFoundById
+        {
+            get
+            {
                 return ResourceManager.GetString("ResourceNotFoundById", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Resource type &apos;{0}&apos; with id &apos;{1}&apos; and version &apos;{2}&apos; couldn&apos;t be found..
         /// </summary>
-        internal static string ResourceNotFoundByIdAndVersion {
-            get {
+        internal static string ResourceNotFoundByIdAndVersion
+        {
+            get
+            {
                 return ResourceManager.GetString("ResourceNotFoundByIdAndVersion", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Resource type &apos;{0}&apos; is not supported..
         /// </summary>
-        internal static string ResourceNotSupported {
-            get {
+        internal static string ResourceNotSupported
+        {
+            get
+            {
                 return ResourceManager.GetString("ResourceNotSupported", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The requested resource exceeded the backing database&apos;s size limit..
         /// </summary>
-        internal static string ResourceTooLarge {
-            get {
+        internal static string ResourceTooLarge
+        {
+            get
+            {
                 return ResourceManager.GetString("ResourceTooLarge", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The supplied version &apos;{0}&apos; did not match..
         /// </summary>
-        internal static string ResourceVersionConflict {
-            get {
+        internal static string ResourceVersionConflict
+        {
+            get
+            {
                 return ResourceManager.GetString("ResourceVersionConflict", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The reverse chain search is missing the reference to search..
         /// </summary>
-        internal static string ReverseChainMissingReference {
-            get {
+        internal static string ReverseChainMissingReference
+        {
+            get
+            {
                 return ResourceManager.GetString("ReverseChainMissingReference", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The reverse chain search is missing the type to search..
         /// </summary>
-        internal static string ReverseChainMissingType {
-            get {
+        internal static string ReverseChainMissingType
+        {
+            get
+            {
                 return ResourceManager.GetString("ReverseChainMissingType", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The &apos;_revinclude:iterate={0}&apos; search parameter has multiple target types. Please specify a target type..
         /// </summary>
-        internal static string RevIncludeIterateTargetTypeNotSpecified {
-            get {
+        internal static string RevIncludeIterateTargetTypeNotSpecified
+        {
+            get
+            {
                 return ResourceManager.GetString("RevIncludeIterateTargetTypeNotSpecified", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The _revinclude search is missing the type to search..
         /// </summary>
-        internal static string RevIncludeMissingType {
-            get {
+        internal static string RevIncludeMissingType
+        {
+            get
+            {
                 return ResourceManager.GetString("RevIncludeMissingType", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Comparator is not supported when multiple values are specified using OR search parameter..
         /// </summary>
-        internal static string SearchComparatorNotSupported {
-            get {
+        internal static string SearchComparatorNotSupported
+        {
+            get
+            {
                 return ResourceManager.GetString("SearchComparatorNotSupported", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The &apos;_count&apos; parameter exceeds limit configured for server. Current limit is {0} while `_count` parameter set to {1}..
         /// </summary>
-        internal static string SearchParamaterCountExceedLimit {
-            get {
+        internal static string SearchParamaterCountExceedLimit
+        {
+            get
+            {
                 return ResourceManager.GetString("SearchParamaterCountExceedLimit", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The search parameter with definition URL &apos;{0}&apos; is not supported..
         /// </summary>
-        internal static string SearchParameterByDefinitionUriNotSupported {
-            get {
+        internal static string SearchParameterByDefinitionUriNotSupported
+        {
+            get
+            {
                 return ResourceManager.GetString("SearchParameterByDefinitionUriNotSupported", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to bundle.entry[{0}].resource.base is not defined..
         /// </summary>
-        internal static string SearchParameterDefinitionBaseNotDefined {
-            get {
+        internal static string SearchParameterDefinitionBaseNotDefined
+        {
+            get
+            {
                 return ResourceManager.GetString("SearchParameterDefinitionBaseNotDefined", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to bundle.entry[{0}].component[{1}] cannot refer to a composite SearchParameter..
         /// </summary>
-        internal static string SearchParameterDefinitionComponentReferenceCannotBeComposite {
-            get {
+        internal static string SearchParameterDefinitionComponentReferenceCannotBeComposite
+        {
+            get
+            {
                 return ResourceManager.GetString("SearchParameterDefinitionComponentReferenceCannotBeComposite", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The search parameter definition contains one or more invalid entries..
         /// </summary>
-        internal static string SearchParameterDefinitionContainsInvalidEntry {
-            get {
+        internal static string SearchParameterDefinitionContainsInvalidEntry
+        {
+            get
+            {
                 return ResourceManager.GetString("SearchParameterDefinitionContainsInvalidEntry", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to A search parameter with the same definition URL &apos;{0}&apos; already exists..
         /// </summary>
-        internal static string SearchParameterDefinitionDuplicatedEntry {
-            get {
+        internal static string SearchParameterDefinitionDuplicatedEntry
+        {
+            get
+            {
                 return ResourceManager.GetString("SearchParameterDefinitionDuplicatedEntry", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to bundle.entry[{0}].component is null or empty..
         /// </summary>
-        internal static string SearchParameterDefinitionInvalidComponent {
-            get {
+        internal static string SearchParameterDefinitionInvalidComponent
+        {
+            get
+            {
                 return ResourceManager.GetString("SearchParameterDefinitionInvalidComponent", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to bundle.entry[{0}].component[{1}].expression is null or empty..
         /// </summary>
-        internal static string SearchParameterDefinitionInvalidComponentExpression {
-            get {
+        internal static string SearchParameterDefinitionInvalidComponentExpression
+        {
+            get
+            {
                 return ResourceManager.GetString("SearchParameterDefinitionInvalidComponentExpression", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to bundle.entry[{0}].component[{1}].definition.reference is null or empty or does not refer to a valid SearchParameter resource..
         /// </summary>
-        internal static string SearchParameterDefinitionInvalidComponentReference {
-            get {
+        internal static string SearchParameterDefinitionInvalidComponentReference
+        {
+            get
+            {
                 return ResourceManager.GetString("SearchParameterDefinitionInvalidComponentReference", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to bundle.entry[{0}].url is invalid..
         /// </summary>
-        internal static string SearchParameterDefinitionInvalidDefinitionUri {
-            get {
+        internal static string SearchParameterDefinitionInvalidDefinitionUri
+        {
+            get
+            {
                 return ResourceManager.GetString("SearchParameterDefinitionInvalidDefinitionUri", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to bundle.entry[{0}].resource.expression is null or empty..
         /// </summary>
-        internal static string SearchParameterDefinitionInvalidExpression {
-            get {
+        internal static string SearchParameterDefinitionInvalidExpression
+        {
+            get
+            {
                 return ResourceManager.GetString("SearchParameterDefinitionInvalidExpression", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to bundle.entry[{0}].resource is not a SearchParameter resource..
         /// </summary>
-        internal static string SearchParameterDefinitionInvalidResource {
-            get {
+        internal static string SearchParameterDefinitionInvalidResource
+        {
+            get
+            {
                 return ResourceManager.GetString("SearchParameterDefinitionInvalidResource", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Search parameter {0} is no longer supported and cannot be marked enabled..
         /// </summary>
-        internal static string SearchParameterNoLongerSupported {
-            get {
+        internal static string SearchParameterNoLongerSupported
+        {
+            get
+            {
                 return ResourceManager.GetString("SearchParameterNoLongerSupported", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The search parameter &apos;{0}&apos; is not supported for resource type &apos;{1}&apos;..
         /// </summary>
-        internal static string SearchParameterNotSupported {
-            get {
+        internal static string SearchParameterNotSupported
+        {
+            get
+            {
                 return ResourceManager.GetString("SearchParameterNotSupported", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The search sort parameter &apos;{0}&apos; is not supported..
         /// </summary>
-        internal static string SearchSortParameterNotSupported {
-            get {
+        internal static string SearchSortParameterNotSupported
+        {
+            get
+            {
                 return ResourceManager.GetString("SearchSortParameterNotSupported", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Microsoft FHIR Server.
         /// </summary>
-        internal static string ServerName {
-            get {
+        internal static string ServerName
+        {
+            get
+            {
                 return ResourceManager.GetString("ServerName", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The _sort parameter is not supported..
         /// </summary>
-        internal static string SortNotSupported {
-            get {
+        internal static string SortNotSupported
+        {
+            get
+            {
                 return ResourceManager.GetString("SortNotSupported", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Include result was truncated.
         /// </summary>
-        internal static string TruncatedIncludeMessage {
-            get {
+        internal static string TruncatedIncludeMessage
+        {
+            get
+            {
                 return ResourceManager.GetString("TruncatedIncludeMessage", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Bundle type is not present. Possible values are: transaction or batch.
         /// </summary>
-        internal static string TypeNotPresent {
-            get {
+        internal static string TypeNotPresent
+        {
+            get
+            {
                 return ResourceManager.GetString("TypeNotPresent", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Unable to delete secret from SecretStore.
         /// </summary>
-        internal static string UnableToDeleteSecret {
-            get {
+        internal static string UnableToDeleteSecret
+        {
+            get
+            {
                 return ResourceManager.GetString("UnableToDeleteSecret", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Unable to get secret from SecretStore.
         /// </summary>
-        internal static string UnableToGetSecret {
-            get {
+        internal static string UnableToGetSecret
+        {
+            get
+            {
                 return ResourceManager.GetString("UnableToGetSecret", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Unable to set secret in SecretStore.
         /// </summary>
-        internal static string UnableToSetSecret {
-            get {
+        internal static string UnableToSetSecret
+        {
+            get
+            {
                 return ResourceManager.GetString("UnableToSetSecret", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Unknown Error..
         /// </summary>
-        internal static string UnknownError {
-            get {
+        internal static string UnknownError
+        {
+            get
+            {
                 return ResourceManager.GetString("UnknownError", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Unsupported configuration found..
         /// </summary>
-        internal static string UnsupportedConfigurationMessage {
-            get {
+        internal static string UnsupportedConfigurationMessage
+        {
+            get
+            {
                 return ResourceManager.GetString("UnsupportedConfigurationMessage", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The &apos;_total&apos; parameter value &apos;{0}&apos; is not supported. The supported values are: {1}..
         /// </summary>
-        internal static string UnsupportedTotalParameter {
-            get {
+        internal static string UnsupportedTotalParameter
+        {
+            get
+            {
                 return ResourceManager.GetString("UnsupportedTotalParameter", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to Resource id is required for updates..
         /// </summary>
-        internal static string UpdateRequestsRequireId {
-            get {
+        internal static string UpdateRequestsRequireId
+        {
+            get
+            {
                 return ResourceManager.GetString("UpdateRequestsRequireId", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to User requested cancellation of operation..
         /// </summary>
-        internal static string UserRequestedCancellation {
-            get {
+        internal static string UserRequestedCancellation
+        {
+            get
+            {
                 return ResourceManager.GetString("UserRequestedCancellation", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to All OK.
         /// </summary>
-        internal static string ValidationPassed {
-            get {
+        internal static string ValidationPassed
+        {
+            get
+            {
                 return ResourceManager.GetString("ValidationPassed", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to VersionId should not be in the weak ETag format..
         /// </summary>
-        internal static string VersionIdFormatNotETag {
-            get {
+        internal static string VersionIdFormatNotETag
+        {
+            get
+            {
                 return ResourceManager.GetString("VersionIdFormatNotETag", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to WeakETag must be in the weak ETag format..
         /// </summary>
-        internal static string WeakETagFormatRequired {
-            get {
+        internal static string WeakETagFormatRequired
+        {
+            get
+            {
                 return ResourceManager.GetString("WeakETagFormatRequired", resourceCulture);
             }
         }
