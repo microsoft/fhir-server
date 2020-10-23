@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
             await ExecuteAndValidate(
                 () => _client.PostBundleAsync(Samples.GetDefaultBatch().ToPoco()),
                 (type: typeof(ApiResponseNotification), count: 1, resourceType: Samples.GetDefaultBatch().ToPoco().ResourceType.ToString()),
-                (type: typeof(CosmosStorageRequestMetricsNotification), count: 10, resourceType: Samples.GetDefaultBatch().ToPoco().ResourceType.ToString()));
+                (type: typeof(CosmosStorageRequestMetricsNotification), count: 14, resourceType: Samples.GetDefaultBatch().ToPoco().ResourceType.ToString()));
         }
 
         [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]

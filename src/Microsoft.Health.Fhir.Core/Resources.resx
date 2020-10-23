@@ -450,4 +450,7 @@
     <value>Reindex job id {0} is in state {1} and cannot be cancelled.</value>
     <comment>{0} is the id of the reindex which is a a GUID.  {1} is the state, an enumerated set of state values.</comment>
   </data>
+  <data name="ResourceConflict" xml:space="preserve">
+    <value>A conditional create or update is currently being attempted with the same parameters.</value>
+  </data>
 </root>

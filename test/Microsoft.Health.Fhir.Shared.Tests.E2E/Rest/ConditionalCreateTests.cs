@@ -4,7 +4,9 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Linq;
 using System.Net;
+using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -103,6 +105,36 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 "&"));
 
             Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenConcurrentResources_WhenCreatingConditionallyWithNoIdAndNoExisting_TheServerShouldReturnOneResourceSuccessfully()
+        {
+            string identifier = Guid.NewGuid().ToString();
+
+            var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
+            observation.Id = null;
+            observation.Identifier.Add(new Identifier(null, identifier));
+
+            async Task<HttpStatusCode> ExecuteRequest()
+            {
+                try
+                {
+                    var response = await _client.CreateAsync(observation, $"identifier={identifier}");
+                    return response.StatusCode;
+                }
+                catch (FhirException ex)
+                {
+                    return ex.StatusCode;
+                }
+            }
+
+            HttpStatusCode[] tasks = await Task.WhenAll(Enumerable.Range(1, 20)
+                .Select(_ => ExecuteRequest()));
+
+            Assert.Equal(1, tasks.Count(x => x == HttpStatusCode.Created));
+            Assert.Equal(tasks.Length - 1, tasks.Count(x => x == HttpStatusCode.Conflict || x == HttpStatusCode.OK));
         }
     }
 }

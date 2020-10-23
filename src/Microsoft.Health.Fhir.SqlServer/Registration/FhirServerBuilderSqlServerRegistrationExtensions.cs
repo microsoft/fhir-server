@@ -82,6 +82,10 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf();
 
+            services.Add<ConditionalCreateTransactionBehavior>()
+                .Transient()
+                .AsImplementedInterfaces();
+
             return fhirServerBuilder;
         }
 

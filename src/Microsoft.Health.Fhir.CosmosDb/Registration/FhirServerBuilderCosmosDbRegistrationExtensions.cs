@@ -199,6 +199,10 @@ namespace Microsoft.Extensions.DependencyInjection
             // FhirCosmosClientInitializer is Singleton, so provide a factory that can resolve new RequestHandlers
             services.AddFactory<IEnumerable<RequestHandler>>();
 
+            services.Add<ConditionalCreateLockingBehavior>()
+                .Transient()
+                .AsImplementedInterfaces();
+
             return fhirServerBuilder;
         }
 
