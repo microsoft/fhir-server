@@ -77,5 +77,14 @@ namespace Microsoft.Health.Fhir.SqlServer {
                 return ResourceManager.GetString("TransactionProcessingException", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Cyclic include iterate queries are not supported..
+        /// </summary>
+        internal static string UnsupportedCyclicIncludeIterateQueries {
+            get {
+                return ResourceManager.GetString("UnsupportedCyclicIncludeIterateQueries", resourceCulture);
+            }
+        }
     }
 }
