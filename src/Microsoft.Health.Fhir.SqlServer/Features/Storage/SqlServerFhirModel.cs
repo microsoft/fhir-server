@@ -8,11 +8,13 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
@@ -33,7 +35,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     /// many many times in the database. For more compact storage, we use IDs instead of the strings when referencing these.
     /// Also, because the number of distinct values is small, we can maintain all values in memory and avoid joins when querying.
     /// </summary>
-    public sealed class SqlServerFhirModel
+    public sealed class SqlServerFhirModel : IRequireInitializationOnFirstRequest
     {
         private readonly SqlServerDataStoreConfiguration _configuration;
         private readonly SchemaInformation _schemaInformation;
@@ -137,8 +139,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return _quantityCodeToId.TryGetValue(code, out quantityCodeId);
         }
 
+        public Task EnsureInitialized()
+        {
+            if (_schemaInformation.Current == null)
+            {
+                // TODO: What is the correct error to throw here?
+                throw new NullReferenceException("The current schema version should not be null");
+            }
+
+            // If the fhir-server is just starting up, synchronize the fhir-server dictionaries with the SQL database
+            Initialize((int)_schemaInformation.Current, true);
+
+            return Task.CompletedTask;
+        }
+
         public void Initialize(int version, bool runAllInitialization)
         {
+            if (_highestInitializedVersion == version)
+            {
+                return;
+            }
+
             var connectionStringBuilder = new SqlConnectionStringBuilder(_configuration.ConnectionString);
             _logger.LogInformation("Initializing {Server} {Database} to version {Version}", connectionStringBuilder.DataSource, connectionStringBuilder.InitialCatalog, version);
 
@@ -159,11 +180,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     case 1:
                         InitializeV1();
-                        _highestInitializedVersion = 1;
                         break;
                     case 6:
                         InitializeV6();
-                        _highestInitializedVersion = 6;
                         break;
                 }
 
