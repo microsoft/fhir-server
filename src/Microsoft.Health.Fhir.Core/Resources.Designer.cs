@@ -377,15 +377,6 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to reversed include iterate target type not specified is not supported..
-        /// </summary>
-		internal static string RevIncludeIterateTargetTypeNotSpecified {
-            get {
-                return ResourceManager.GetString("RevIncludeIterateTargetTypeNotSpecified", resourceCulture);
-            }
-        }
-		
-        /// <summary>
         ///   Looks up a localized string similar to Field &apos;{0}&apos; with value &apos;{1}&apos; is not supported..
         /// </summary>
         internal static string InvalidBooleanConfigSetting {
@@ -706,6 +697,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string ReverseChainMissingType {
             get {
                 return ResourceManager.GetString("ReverseChainMissingType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The &apos;_revinclude:iterate={0}&apos; search parameter has multiple target types. Please specify a target type..
+        /// </summary>
+        internal static string RevIncludeIterateTargetTypeNotSpecified {
+            get {
+                return ResourceManager.GetString("RevIncludeIterateTargetTypeNotSpecified", resourceCulture);
             }
         }
         
