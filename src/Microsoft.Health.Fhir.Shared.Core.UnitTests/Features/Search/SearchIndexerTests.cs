@@ -15,6 +15,7 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
+using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
@@ -55,14 +56,23 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var document = Samples.GetJsonSample<DocumentReference>(resourceFile).ToResourceElement();
             var indexDocument = Samples.GetJson($"{resourceFile}.indexes");
 
-            var indexes = _indexer.Extract(document)
+            var indices = _indexer.Extract(document)
                 .Select(x => new { x.SearchParameter.Name, x.SearchParameter.Type, x.Value })
                 .OrderBy(x => x.Name)
                 .ToArray();
 
-            var asJson = JsonConvert.SerializeObject(indexes, Formatting.Indented, _settings);
+            var extractedIndices = new List<JToken>();
+            foreach (var index in indices)
+            {
+                extractedIndices.Add(JToken.Parse(JsonConvert.SerializeObject(index, Formatting.Indented, _settings)));
+            }
 
-            Assert.Equal(indexDocument, asJson);
+            var expectedJObjects = JArray.Parse(indexDocument);
+
+            for (var i = 0; i < expectedJObjects.Count; i++)
+            {
+                Assert.True(JToken.DeepEquals(expectedJObjects[i], extractedIndices[i]));
+            }
         }
     }
 }

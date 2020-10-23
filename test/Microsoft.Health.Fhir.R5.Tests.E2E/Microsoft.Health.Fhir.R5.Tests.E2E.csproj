@@ -3,7 +3,6 @@
     <TargetFramework>netcoreapp3.1</TargetFramework>
     <IsPackable>true</IsPackable>
     <RootNamespace>Microsoft.Health.Fhir.Tests.E2E</RootNamespace>
-    <NoWarn>$(NoWarn);NU1603</NoWarn>
     <IncludeContentInPack>false</IncludeContentInPack>
     <DefineConstants>R5</DefineConstants>
   </PropertyGroup>

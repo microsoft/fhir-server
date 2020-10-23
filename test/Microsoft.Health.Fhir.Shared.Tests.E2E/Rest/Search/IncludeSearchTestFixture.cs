@@ -20,17 +20,47 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
         {
         }
 
+        public CareTeam CareTeam { get; private set; }
+
+        public Medication PercocetMedication { get; private set; }
+
+        public Medication TramadolMedication { get; private set; }
+
         public Organization Organization { get; private set; }
 
+        public Organization LabAOrganization { get; private set; }
+
+        public Organization LabBOrganization { get; private set; }
+
+        public Organization LabCOrganization { get; private set; }
+
+        public Organization LabDOrganization { get; private set; }
+
+        public Organization LabEOrganization { get; private set; }
+
+        public Organization LabFOrganization { get; private set; }
+
         public Practitioner Practitioner { get; private set; }
+
+        public Practitioner AndersonPractitioner { get; private set; }
+
+        public Practitioner SanchezPractitioner { get; private set; }
+
+        public Practitioner TaylorPractitioner { get; private set; }
 
         public Group PatientGroup { get; private set; }
 
         public string Tag { get; private set; }
 
+        public Patient Patient { get; private set; }
+
         public Patient AdamsPatient { get; private set; }
 
         public Observation AdamsLoincObservation { get; private set; }
+
+        public MedicationDispense AdamsMedicationDispense { get; private set; }
+
+        public MedicationRequest AdamsMedicationRequest { get; private set; }
 
         public Patient TrumanPatient { get; private set; }
 
@@ -42,6 +72,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
 
         public DiagnosticReport TrumanLoincDiagnosticReport { get; private set; }
 
+        public MedicationDispense TrumanMedicationDispenseWithoutRequest { get; private set; }
+
         public Patient SmithPatient { get; private set; }
 
         public Observation SmithSnomedObservation { get; private set; }
@@ -51,6 +83,10 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
         public DiagnosticReport SmithSnomedDiagnosticReport { get; private set; }
 
         public DiagnosticReport SmithLoincDiagnosticReport { get; private set; }
+
+        public MedicationDispense SmithMedicationDispense { get; private set; }
+
+        public MedicationRequest SmithMedicationRequest { get; private set; }
 
         public Location Location { get; private set; }
 
@@ -70,33 +106,57 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
                     },
             };
 
-            Organization = (await TestFhirClient.CreateAsync(new Organization { Meta = meta, Address = new List<Address> { new Address { City = "Seattle" } } })).Resource;
-            Practitioner = (await TestFhirClient.CreateAsync(new Practitioner { Meta = meta })).Resource;
+            PercocetMedication = TestFhirClient.CreateAsync(new Medication { Meta = meta, Code = new CodeableConcept("http://snomed.info/sct", "16590-619-30", "Percocet tablet") }).Result.Resource;
+            TramadolMedication = TestFhirClient.CreateAsync(new Medication { Meta = meta, Code = new CodeableConcept("http://snomed.info/sct", "108505002", "Tramadol hydrochloride (substance)") }).Result.Resource;
+            Organization = TestFhirClient.CreateAsync(new Organization { Meta = meta, Address = new List<Address> { new Address { City = "Seattle" } } }).Result.Resource;
+            Practitioner = TestFhirClient.CreateAsync(new Practitioner { Meta = meta }).Result.Resource;
+            Patient = CreatePatient("Pati", Practitioner, Organization);
 
-            AdamsPatient = (await TestFhirClient.CreateAsync(new Patient { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Adams" } } })).Resource;
-            SmithPatient = (await TestFhirClient.CreateAsync(new Patient { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Smith" } }, ManagingOrganization = new ResourceReference($"Organization/{Organization.Id}") })).Resource;
-            TrumanPatient = (await TestFhirClient.CreateAsync(new Patient { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Truman" } } })).Resource;
+            // Organization Hierarchy
+            LabFOrganization = TestFhirClient.CreateAsync(new Organization { Meta = meta }).Result.Resource;
+            LabEOrganization = TestFhirClient.CreateAsync(new Organization { Meta = meta, PartOf = new ResourceReference($"Organization/{LabFOrganization.Id}") }).Result.Resource;
+            LabDOrganization = TestFhirClient.CreateAsync(new Organization { Meta = meta, PartOf = new ResourceReference($"Organization/{LabEOrganization.Id}") }).Result.Resource;
+            LabCOrganization = TestFhirClient.CreateAsync(new Organization { Meta = meta, PartOf = new ResourceReference($"Organization/{LabDOrganization.Id}") }).Result.Resource;
+            LabBOrganization = TestFhirClient.CreateAsync(new Organization { Meta = meta, PartOf = new ResourceReference($"Organization/{LabCOrganization.Id}") }).Result.Resource;
+            LabAOrganization = TestFhirClient.CreateAsync(new Organization { Meta = meta, PartOf = new ResourceReference($"Organization/{LabBOrganization.Id}") }).Result.Resource;
 
-            AdamsLoincObservation = await CreateObservation(AdamsPatient, loincCode);
-            SmithLoincObservation = await CreateObservation(SmithPatient, loincCode);
-            SmithSnomedObservation = await CreateObservation(SmithPatient, snomedCode);
-            TrumanLoincObservation = await CreateObservation(TrumanPatient, loincCode);
-            TrumanSnomedObservation = await CreateObservation(TrumanPatient, snomedCode);
+            AndersonPractitioner = TestFhirClient.CreateAsync(new Practitioner { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Anderson" } } }).Result.Resource;
+            SanchezPractitioner = TestFhirClient.CreateAsync(new Practitioner { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Sanchez" } } }).Result.Resource;
+            TaylorPractitioner = TestFhirClient.CreateAsync(new Practitioner { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Taylor" } } }).Result.Resource;
+
+            AdamsPatient = CreatePatient("Adams", AndersonPractitioner, Organization);
+            SmithPatient = CreatePatient("Smith",  SanchezPractitioner, Organization);
+            TrumanPatient = CreatePatient("Truman",  TaylorPractitioner, Organization);
+
+            AdamsLoincObservation = await CreateObservation(AdamsPatient, Practitioner, Organization, loincCode);
+            SmithLoincObservation = await CreateObservation(SmithPatient, Practitioner, Organization, loincCode);
+            SmithSnomedObservation = await CreateObservation(SmithPatient, Practitioner, Organization, snomedCode);
+            TrumanLoincObservation = await CreateObservation(TrumanPatient, Practitioner, Organization, loincCode);
+            TrumanSnomedObservation = await CreateObservation(TrumanPatient, Practitioner, Organization, snomedCode);
 
             SmithSnomedDiagnosticReport = await CreateDiagnosticReport(SmithPatient, SmithSnomedObservation, snomedCode);
             TrumanSnomedDiagnosticReport = await CreateDiagnosticReport(TrumanPatient, TrumanSnomedObservation, snomedCode);
             SmithLoincDiagnosticReport = await CreateDiagnosticReport(SmithPatient, SmithLoincObservation, loincCode);
             TrumanLoincDiagnosticReport = await CreateDiagnosticReport(TrumanPatient, TrumanLoincObservation, loincCode);
 
-            Location = (await TestFhirClient.CreateAsync(new Location
+            AdamsMedicationRequest = CreateMedicationRequest(AdamsPatient, AndersonPractitioner, PercocetMedication);
+            SmithMedicationRequest = CreateMedicationRequest(SmithPatient, SanchezPractitioner, PercocetMedication);
+
+            AdamsMedicationDispense = CreateMedicationDispense(AdamsMedicationRequest, AdamsPatient, TramadolMedication);
+            SmithMedicationDispense = CreateMedicationDispense(SmithMedicationRequest, SmithPatient, TramadolMedication);
+            TrumanMedicationDispenseWithoutRequest = CreateMedicationDispense(null, TrumanPatient, TramadolMedication);
+
+            CareTeam = await CreateCareTeam();
+
+            Location = TestFhirClient.CreateAsync(new Location
             {
                 ManagingOrganization = new ResourceReference($"Organization/{Organization.Id}"),
-                Meta = new Meta { Tag = new List<Coding> { new Coding("testTag", Tag) } },
-            })).Resource;
+                Meta = meta,
+            }).Result.Resource;
 
             var group = new Group
             {
-                Meta = new Meta { Tag = new List<Coding> { new Coding("testTag", Tag) } },
+                Meta = meta,
                 Type = Group.GroupType.Person, Actual = true,
                 Member = new List<Group.MemberComponent>
                     {
@@ -121,7 +181,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
                     })).Resource;
             }
 
-            async Task<Observation> CreateObservation(Patient patient, CodeableConcept code)
+            async Task<Observation> CreateObservation(Patient patient, Practitioner practitioner, Organization organization, CodeableConcept code)
             {
                 return (await TestFhirClient.CreateAsync(
                     new Observation()
@@ -130,10 +190,109 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
                         Status = ObservationStatus.Final,
                         Code = code,
                         Subject = new ResourceReference($"Patient/{patient.Id}"),
-                        Performer = new List<ResourceReference>
+                        Performer = new List<ResourceReference>()
                         {
-                            new ResourceReference($"Organization/{Organization.Id}"),
-                            new ResourceReference($"Practitioner/{Practitioner.Id}"),
+                            new ResourceReference($"Organization/{organization.Id}"),
+                            new ResourceReference($"Practitioner/{practitioner.Id}"),
+                        },
+                    })).Resource;
+            }
+
+            Patient CreatePatient(string familyName, Practitioner practitioner, Organization organization)
+            {
+                return TestFhirClient.CreateAsync(
+                    new Patient
+                    {
+                        Meta = meta,
+                        Name = new List<HumanName> { new HumanName { Family = familyName } },
+                        GeneralPractitioner = new List<ResourceReference>()
+                        {
+                            new ResourceReference($"Practitioner/{practitioner.Id}"),
+                        },
+                        ManagingOrganization = new ResourceReference($"Organization/{organization.Id}"),
+                    }).Result.Resource;
+            }
+
+            MedicationDispense CreateMedicationDispense(MedicationRequest medicationRequest, Patient patient, Medication medication)
+            {
+               return TestFhirClient.CreateAsync(
+                    new MedicationDispense
+                    {
+                        Meta = meta,
+                        AuthorizingPrescription = medicationRequest == null ? null : new List<ResourceReference>
+                        {
+                            new ResourceReference($"MedicationRequest/{medicationRequest.Id}"),
+                        },
+                        Subject = new ResourceReference($"Patient/{patient.Id}"),
+                        Performer = new List<MedicationDispense.PerformerComponent>()
+                        {
+                            new MedicationDispense.PerformerComponent()
+                            {
+                                Actor = new ResourceReference($"Practitioner/{Practitioner.Id}"),
+                            },
+                        },
+#if R5
+                        Medication = new CodeableReference
+                        {
+                            Concept = medication.Code,
+                            Reference = new ResourceReference($"Medication/{medication.Id}"),
+                        },
+#else
+                        Medication = medication.Code,
+#endif
+#if Stu3
+                        Status = MedicationDispense.MedicationDispenseStatus.InProgress,
+#else
+                        Status = MedicationDispense.MedicationDispenseStatusCodes.InProgress,
+#endif
+                    }).Result.Resource;
+            }
+
+            MedicationRequest CreateMedicationRequest(Patient patient, Practitioner practitioner, Medication medication)
+            {
+                return TestFhirClient.CreateAsync(
+                    new MedicationRequest
+                    {
+                        Meta = meta,
+                        Subject = new ResourceReference($"Patient/{patient.Id}"),
+#if Stu3
+                        Intent = MedicationRequest.MedicationRequestIntent.Order,
+                        Status = MedicationRequest.MedicationRequestStatus.Completed,
+                        Requester = new MedicationRequest.RequesterComponent
+                        {
+                            Agent = new ResourceReference($"Practitioner/{practitioner.Id}"),
+                        },
+#else
+                        IntentElement = new Code<MedicationRequest.medicationRequestIntent> { Value = MedicationRequest.medicationRequestIntent.Order },
+                        StatusElement = new Code<MedicationRequest.medicationrequestStatus> { Value = MedicationRequest.medicationrequestStatus.Completed },
+                        Requester = new ResourceReference($"Practitioner/{practitioner.Id}"),
+
+#endif
+#if R5
+                        Medication = new CodeableReference
+                        {
+                            Concept = medication.Code,
+                            Reference = new ResourceReference($"Medication/{medication.Id}"),
+                        },
+#else
+                        Medication = medication.Code,
+#endif
+                    }).Result.Resource;
+            }
+
+            async Task<CareTeam> CreateCareTeam()
+            {
+                return (await TestFhirClient.CreateAsync(
+                    new CareTeam
+                    {
+                        Meta = meta,
+                        Participant = new List<CareTeam.ParticipantComponent>()
+                        {
+                            new CareTeam.ParticipantComponent { Member = new ResourceReference($"Patient/{AdamsPatient.Id}") },
+                            new CareTeam.ParticipantComponent { Member = new ResourceReference($"Patient/{SmithPatient.Id}") },
+                            new CareTeam.ParticipantComponent { Member = new ResourceReference($"Patient/{TrumanPatient.Id}") },
+                            new CareTeam.ParticipantComponent { Member = new ResourceReference($"Organization/{Organization.Id}") },
+                            new CareTeam.ParticipantComponent { Member = new ResourceReference($"Practitioner/{Practitioner.Id}") },
                         },
                     })).Resource;
             }
