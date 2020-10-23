@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 if (!bool.TryParse(value, out bool isMissing))
                 {
                     // An invalid value was specified.
-                    throw new InvalidSearchOperationException(Core.Resources.InvalidValueTypeForMissingModifier);
+                    throw new InvalidSearchOperationException(Resources.InvalidValueTypeForMissingModifier);
                 }
 
                 return Expression.MissingSearchParameter(searchParameter, isMissing);
@@ -84,10 +84,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 // We have to handle :text modifier specially because if :text modifier is supplied for token search param,
                 // then we want to search the display text using the specified text, and therefore
                 // we don't want to actually parse the specified text into token.
-                if (searchParameter.Type != ValueSets.SearchParamType.Token)
+                if (searchParameter.Type != SearchParamType.Token)
                 {
                     throw new InvalidSearchOperationException(
-                        string.Format(CultureInfo.InvariantCulture, Core.Resources.ModifierNotSupported, modifier, searchParameter.Name));
+                        string.Format(CultureInfo.InvariantCulture, Resources.ModifierNotSupported, modifier, searchParameter.Name));
                 }
 
                 outputExpression = Expression.StartsWith(FieldName.TokenText, null, value, true);
@@ -95,43 +95,50 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             else
             {
                 // Build the expression for based on the search value.
-                if (searchParameter.Type == ValueSets.SearchParamType.Composite)
+                if (searchParameter.Type == SearchParamType.Composite)
                 {
                     if (modifier != null)
                     {
                         throw new InvalidSearchOperationException(
-                            string.Format(CultureInfo.InvariantCulture, Core.Resources.ModifierNotSupported, modifier, searchParameter.Name));
+                            string.Format(CultureInfo.InvariantCulture, Resources.ModifierNotSupported, modifier, searchParameter.Name));
                     }
 
-                    IReadOnlyList<string> compositeValueParts = value.SplitByCompositeSeparator();
-
-                    if (compositeValueParts.Count > searchParameter.Component.Count)
+                    IReadOnlyList<string> orParts = value.SplitByOrSeparator();
+                    var orExpressions = new Expression[orParts.Count];
+                    for (int orIndex = 0; orIndex < orParts.Count; orIndex++)
                     {
-                        throw new InvalidSearchOperationException(
-                            string.Format(CultureInfo.InvariantCulture, Core.Resources.NumberOfCompositeComponentsExceeded, searchParameter.Name));
+                        IReadOnlyList<string> compositeValueParts = orParts[orIndex].SplitByCompositeSeparator();
+
+                        if (compositeValueParts.Count > searchParameter.Component.Count)
+                        {
+                            throw new InvalidSearchOperationException(
+                                string.Format(CultureInfo.InvariantCulture, Resources.NumberOfCompositeComponentsExceeded, searchParameter.Name));
+                        }
+
+                        var compositeExpressions = new Expression[compositeValueParts.Count];
+
+                        var searchParameterComponentInfos = searchParameter.Component.ToList();
+
+                        for (int componentIndex = 0; componentIndex < compositeValueParts.Count; componentIndex++)
+                        {
+                            SearchParameterComponentInfo component = searchParameterComponentInfos[componentIndex];
+
+                            // Find the corresponding search parameter info.
+                            SearchParameterInfo componentSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(component.DefinitionUrl);
+
+                            string componentValue = compositeValueParts[componentIndex];
+
+                            compositeExpressions[componentIndex] = Build(
+                                componentSearchParameter,
+                                modifier: null,
+                                componentIndex: componentIndex,
+                                value: componentValue);
+                        }
+
+                        orExpressions[orIndex] = Expression.And(compositeExpressions);
                     }
 
-                    var compositeExpressions = new Expression[compositeValueParts.Count];
-
-                    var searchParameterComponentInfos = searchParameter.Component.ToList();
-
-                    for (int i = 0; i < compositeValueParts.Count; i++)
-                    {
-                        var component = searchParameterComponentInfos[i];
-
-                        // Find the corresponding search parameter info.
-                        SearchParameterInfo componentSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(component.DefinitionUrl);
-
-                        string componentValue = compositeValueParts[i];
-
-                        compositeExpressions[i] = Build(
-                            componentSearchParameter,
-                            modifier: null,
-                            componentIndex: i,
-                            value: componentValue);
-                    }
-
-                    outputExpression = Expression.And(compositeExpressions);
+                    outputExpression = orExpressions.Length == 1 ? orExpressions[0] : Expression.Or(orExpressions);
                 }
                 else
                 {
@@ -157,9 +164,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             // By default, the comparator is equal.
             SearchComparator comparator = SearchComparator.Eq;
 
-            if (searchParameter.Type == ValueSets.SearchParamType.Date ||
-                searchParameter.Type == ValueSets.SearchParamType.Number ||
-                searchParameter.Type == ValueSets.SearchParamType.Quantity)
+            if (searchParameter.Type == SearchParamType.Date ||
+                searchParameter.Type == SearchParamType.Number ||
+                searchParameter.Type == SearchParamType.Quantity)
             {
                 // If the search parameter type supports comparator, parse the comparator (if present).
                 Tuple<string, SearchComparator> matchedComparator = SearchParamComparators.FirstOrDefault(
@@ -198,7 +205,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             {
                 if (comparator != SearchComparator.Eq)
                 {
-                    throw new InvalidSearchOperationException(Core.Resources.SearchComparatorNotSupported);
+                    throw new InvalidSearchOperationException(Resources.SearchComparatorNotSupported);
                 }
 
                 // This is a multiple value expression.
