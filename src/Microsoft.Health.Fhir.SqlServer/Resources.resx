@@ -123,4 +123,7 @@
   <data name="TransactionProcessingException" xml:space="preserve">
     <value>There was an internal server error while processing the transaction.</value>
   </data>
+  <data name="CyclicIncludeIterateNotSupported" xml:space="preserve">
+    <value>Cyclic include iterate queries are not supported.</value>
+  </data>
 </root>

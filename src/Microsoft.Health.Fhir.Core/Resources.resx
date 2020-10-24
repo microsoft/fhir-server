@@ -227,6 +227,10 @@
     <value>The _include search cannot be used against the base route.</value>
     <comment>_include is a query parameter.</comment>
   </data>
+  <data name="IncludeIterateCircularReferenceExecutedOnce" xml:space="preserve">
+    <value>The parameter {0}={1} with circular reference is executed once (a single iteration).</value>
+    <comment>_include:iterate or _revinclude:iterate is a query parameter.</comment>
+  </data>
   <data name="IncludeMissingType" xml:space="preserve">
     <value>The _include search is missing the type to search.</value>
     <comment>_include is a query parameter.</comment>
