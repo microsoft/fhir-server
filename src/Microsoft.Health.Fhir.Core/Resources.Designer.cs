@@ -385,7 +385,7 @@ namespace Microsoft.Health.Fhir.Core {
             }
         }
 
-        // <summary>
+        /// <summary>
         ///   Looks up a localized string similar to The _revinclude search is missing the type to search..
         /// </summary>
         internal static string RevIncludeMissingType {
