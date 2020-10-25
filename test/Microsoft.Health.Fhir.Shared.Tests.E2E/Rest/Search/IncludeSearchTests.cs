@@ -984,6 +984,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public async Task GivenARevIncludeIterateSearchExpressionWithMultitypeArrayReference_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
             // Non-recursive iteration - Reference array of multiple target types: CareTeam:participant of type Patient, Practitioner, Organization, etc.
+            // CareTeam:participant is a circular reference, however CareTeam:participant:Patient isn't, so we're not expecting an informational Issue
             string query = $"_revinclude:iterate=CareTeam:participant:Patient&_revinclude=Patient:general-practitioner&_tag={Fixture.Tag}";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.Practitioner, query);

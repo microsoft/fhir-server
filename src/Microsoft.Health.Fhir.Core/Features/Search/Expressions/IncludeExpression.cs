@@ -51,7 +51,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             WildCard = wildCard;
             Reversed = reversed;
             Iterate = iterate;
-            CircularReference = SourceResourceType == TargetResourceType || (ReferenceSearchParameter?.TargetResourceTypes != null && ReferenceSearchParameter.TargetResourceTypes.Contains(sourceResourceType));
+            CircularReference = TargetResourceType != null ? SourceResourceType == TargetResourceType
+                                                           : ReferenceSearchParameter?.TargetResourceTypes != null && ReferenceSearchParameter.TargetResourceTypes.Contains(sourceResourceType);
         }
 
         /// <summary>
