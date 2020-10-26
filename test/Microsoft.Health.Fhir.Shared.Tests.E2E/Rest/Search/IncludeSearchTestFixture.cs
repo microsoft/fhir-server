@@ -106,27 +106,27 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
                     },
             };
 
-            PercocetMedication = TestFhirClient.CreateAsync(new Medication { Meta = meta, Code = new CodeableConcept("http://snomed.info/sct", "16590-619-30", "Percocet tablet") }).Result.Resource;
-            TramadolMedication = TestFhirClient.CreateAsync(new Medication { Meta = meta, Code = new CodeableConcept("http://snomed.info/sct", "108505002", "Tramadol hydrochloride (substance)") }).Result.Resource;
-            Organization = TestFhirClient.CreateAsync(new Organization { Meta = meta, Address = new List<Address> { new Address { City = "Seattle" } } }).Result.Resource;
-            Practitioner = TestFhirClient.CreateAsync(new Practitioner { Meta = meta }).Result.Resource;
-            Patient = CreatePatient("Pati", Practitioner, Organization);
+            PercocetMedication = (await TestFhirClient.CreateAsync(new Medication { Meta = meta, Code = new CodeableConcept("http://snomed.info/sct", "16590-619-30", "Percocet tablet") })).Resource;
+            TramadolMedication = (await TestFhirClient.CreateAsync(new Medication { Meta = meta, Code = new CodeableConcept("http://snomed.info/sct", "108505002", "Tramadol hydrochloride (substance)") })).Resource;
+            Organization = (await TestFhirClient.CreateAsync(new Organization { Meta = meta, Address = new List<Address> { new Address { City = "Seattle" } } })).Resource;
+            Practitioner = (await TestFhirClient.CreateAsync(new Practitioner { Meta = meta })).Resource;
+            Patient = await CreatePatient("Pati", Practitioner, Organization);
 
             // Organization Hierarchy
             LabFOrganization = TestFhirClient.CreateAsync(new Organization { Meta = meta }).Result.Resource;
-            LabEOrganization = TestFhirClient.CreateAsync(new Organization { Meta = meta, PartOf = new ResourceReference($"Organization/{LabFOrganization.Id}") }).Result.Resource;
-            LabDOrganization = TestFhirClient.CreateAsync(new Organization { Meta = meta, PartOf = new ResourceReference($"Organization/{LabEOrganization.Id}") }).Result.Resource;
-            LabCOrganization = TestFhirClient.CreateAsync(new Organization { Meta = meta, PartOf = new ResourceReference($"Organization/{LabDOrganization.Id}") }).Result.Resource;
-            LabBOrganization = TestFhirClient.CreateAsync(new Organization { Meta = meta, PartOf = new ResourceReference($"Organization/{LabCOrganization.Id}") }).Result.Resource;
-            LabAOrganization = TestFhirClient.CreateAsync(new Organization { Meta = meta, PartOf = new ResourceReference($"Organization/{LabBOrganization.Id}") }).Result.Resource;
+            LabEOrganization = (await TestFhirClient.CreateAsync(new Organization { Meta = meta, PartOf = new ResourceReference($"Organization/{LabFOrganization.Id}") })).Resource;
+            LabDOrganization = (await TestFhirClient.CreateAsync(new Organization { Meta = meta, PartOf = new ResourceReference($"Organization/{LabEOrganization.Id}") })).Resource;
+            LabCOrganization = (await TestFhirClient.CreateAsync(new Organization { Meta = meta, PartOf = new ResourceReference($"Organization/{LabDOrganization.Id}") })).Resource;
+            LabBOrganization = (await TestFhirClient.CreateAsync(new Organization { Meta = meta, PartOf = new ResourceReference($"Organization/{LabCOrganization.Id}") })).Resource;
+            LabAOrganization = (await TestFhirClient.CreateAsync(new Organization { Meta = meta, PartOf = new ResourceReference($"Organization/{LabBOrganization.Id}") })).Resource;
 
-            AndersonPractitioner = TestFhirClient.CreateAsync(new Practitioner { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Anderson" } } }).Result.Resource;
-            SanchezPractitioner = TestFhirClient.CreateAsync(new Practitioner { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Sanchez" } } }).Result.Resource;
-            TaylorPractitioner = TestFhirClient.CreateAsync(new Practitioner { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Taylor" } } }).Result.Resource;
+            AndersonPractitioner = (await TestFhirClient.CreateAsync(new Practitioner { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Anderson" } } })).Resource;
+            SanchezPractitioner = (await TestFhirClient.CreateAsync(new Practitioner { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Sanchez" } } })).Resource;
+            TaylorPractitioner = (await TestFhirClient.CreateAsync(new Practitioner { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Taylor" } } })).Resource;
 
-            AdamsPatient = CreatePatient("Adams", AndersonPractitioner, Organization);
-            SmithPatient = CreatePatient("Smith",  SanchezPractitioner, Organization);
-            TrumanPatient = CreatePatient("Truman",  TaylorPractitioner, Organization);
+            AdamsPatient = await CreatePatient("Adams", AndersonPractitioner, Organization);
+            SmithPatient = await CreatePatient("Smith",  SanchezPractitioner, Organization);
+            TrumanPatient = await CreatePatient("Truman",  TaylorPractitioner, Organization);
 
             AdamsLoincObservation = await CreateObservation(AdamsPatient, Practitioner, Organization, loincCode);
             SmithLoincObservation = await CreateObservation(SmithPatient, Practitioner, Organization, loincCode);
@@ -139,20 +139,20 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
             SmithLoincDiagnosticReport = await CreateDiagnosticReport(SmithPatient, SmithLoincObservation, loincCode);
             TrumanLoincDiagnosticReport = await CreateDiagnosticReport(TrumanPatient, TrumanLoincObservation, loincCode);
 
-            AdamsMedicationRequest = CreateMedicationRequest(AdamsPatient, AndersonPractitioner, PercocetMedication);
-            SmithMedicationRequest = CreateMedicationRequest(SmithPatient, SanchezPractitioner, PercocetMedication);
+            AdamsMedicationRequest = await CreateMedicationRequest(AdamsPatient, AndersonPractitioner, PercocetMedication);
+            SmithMedicationRequest = await CreateMedicationRequest(SmithPatient, SanchezPractitioner, PercocetMedication);
 
-            AdamsMedicationDispense = CreateMedicationDispense(AdamsMedicationRequest, AdamsPatient, TramadolMedication);
-            SmithMedicationDispense = CreateMedicationDispense(SmithMedicationRequest, SmithPatient, TramadolMedication);
-            TrumanMedicationDispenseWithoutRequest = CreateMedicationDispense(null, TrumanPatient, TramadolMedication);
+            AdamsMedicationDispense = await CreateMedicationDispense(AdamsMedicationRequest, AdamsPatient, TramadolMedication);
+            SmithMedicationDispense = await CreateMedicationDispense(SmithMedicationRequest, SmithPatient, TramadolMedication);
+            TrumanMedicationDispenseWithoutRequest = await CreateMedicationDispense(null, TrumanPatient, TramadolMedication);
 
             CareTeam = await CreateCareTeam();
 
-            Location = TestFhirClient.CreateAsync(new Location
+            Location = (await TestFhirClient.CreateAsync(new Location
             {
                 ManagingOrganization = new ResourceReference($"Organization/{Organization.Id}"),
                 Meta = meta,
-            }).Result.Resource;
+            })).Resource;
 
             var group = new Group
             {
@@ -198,9 +198,9 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
                     })).Resource;
             }
 
-            Patient CreatePatient(string familyName, Practitioner practitioner, Organization organization)
+            async Task<Patient> CreatePatient(string familyName, Practitioner practitioner, Organization organization)
             {
-                return TestFhirClient.CreateAsync(
+                return (await TestFhirClient.CreateAsync(
                     new Patient
                     {
                         Meta = meta,
@@ -210,12 +210,12 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
                             new ResourceReference($"Practitioner/{practitioner.Id}"),
                         },
                         ManagingOrganization = new ResourceReference($"Organization/{organization.Id}"),
-                    }).Result.Resource;
+                    })).Resource;
             }
 
-            MedicationDispense CreateMedicationDispense(MedicationRequest medicationRequest, Patient patient, Medication medication)
+            async Task<MedicationDispense> CreateMedicationDispense(MedicationRequest medicationRequest, Patient patient, Medication medication)
             {
-               return TestFhirClient.CreateAsync(
+               return (await TestFhirClient.CreateAsync(
                     new MedicationDispense
                     {
                         Meta = meta,
@@ -245,12 +245,12 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
 #else
                         Status = MedicationDispense.MedicationDispenseStatusCodes.InProgress,
 #endif
-                    }).Result.Resource;
+                    })).Resource;
             }
 
-            MedicationRequest CreateMedicationRequest(Patient patient, Practitioner practitioner, Medication medication)
+            async Task<MedicationRequest> CreateMedicationRequest(Patient patient, Practitioner practitioner, Medication medication)
             {
-                return TestFhirClient.CreateAsync(
+                return (await TestFhirClient.CreateAsync(
                     new MedicationRequest
                     {
                         Meta = meta,
@@ -277,7 +277,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
 #else
                         Medication = medication.Code,
 #endif
-                    }).Result.Resource;
+                    })).Resource;
             }
 
             async Task<CareTeam> CreateCareTeam()
