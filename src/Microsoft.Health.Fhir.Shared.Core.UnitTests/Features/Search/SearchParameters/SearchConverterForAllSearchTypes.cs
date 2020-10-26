@@ -20,12 +20,14 @@ using Xunit.Abstractions;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 {
-    public class SearchConverterForAllSearchTypes
+    public class SearchConverterForAllSearchTypes : IClassFixture<SearchParameterFixtureData>
     {
+        private readonly SearchParameterFixtureData _fixture;
         private readonly ITestOutputHelper _outputHelper;
 
-        public SearchConverterForAllSearchTypes(ITestOutputHelper outputHelper)
+        public SearchConverterForAllSearchTypes(SearchParameterFixtureData fixture, ITestOutputHelper outputHelper)
         {
+            _fixture = fixture;
             _outputHelper = outputHelper;
         }
 
@@ -129,7 +131,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             var parsed = SearchParameterFixtureData.Compiler.Parse(parameterInfo.Expression);
 
-            SearchParameterDefinitionManager searchParameterDefinitionManager = await SearchParameterFixtureData.GetSearchDefinitionManager();
+            SearchParameterDefinitionManager searchParameterDefinitionManager = await _fixture.GetSearchDefinitionManager();
 
             (SearchParamType Type, Expression, Uri DefinitionUrl)[] componentExpressions = parameterInfo.Component
                 .Select(x => (searchParameterDefinitionManager.UrlLookup[x.DefinitionUrl].Type,
@@ -161,7 +163,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             Task<SearchParameterDefinitionManager> searchParameterDefinitionManagerTask = SearchParameterFixtureData.CreateSearchParameterDefinitionManager(ModelInfoProvider.Instance);
 
-            // XUnit does not currently support async signatures for MemberDataAttributes. Until it dooes we need to block on
+            // XUnit does not currently support async signatures for MemberDataAttributes. Until it does we need to block on
             // this task, which could cause a deadlock, but we know that the task should have completed synchronously,
             // so there should not be a problem.
 

@@ -24,9 +24,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 {
     public class SearchParameterFixtureData
     {
-        private static SearchParameterDefinitionManager _searchDefinitionManager;
-        private static SupportedSearchParameterDefinitionManager _supportedSearchDefinitionManager;
+        // this type is immutable and is safe to reuse
         private static FhirNodeToSearchValueTypeConverterManager _fhirNodeToSearchValueTypeConverterManager;
+
+        private SearchParameterDefinitionManager _searchDefinitionManager;
+        private SupportedSearchParameterDefinitionManager _supportedSearchDefinitionManager;
 
         static SearchParameterFixtureData()
         {
@@ -35,12 +37,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         public static FhirPathCompiler Compiler { get; } = new FhirPathCompiler();
 
-        public static async Task<SearchParameterDefinitionManager> GetSearchDefinitionManager()
+        public async Task<SearchParameterDefinitionManager> GetSearchDefinitionManager()
         {
             return _searchDefinitionManager ??= await CreateSearchParameterDefinitionManager(new VersionSpecificModelInfoProvider());
         }
 
-        public static async Task<SupportedSearchParameterDefinitionManager> GetSupportedSearchDefinitionManager()
+        public async Task<SupportedSearchParameterDefinitionManager> GetSupportedSearchDefinitionManager()
         {
             return _supportedSearchDefinitionManager ??= new SupportedSearchParameterDefinitionManager(await GetSearchDefinitionManager());
         }
@@ -50,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             return _fhirNodeToSearchValueTypeConverterManager ??= await CreateFhirElementToSearchValueTypeConverterManager();
         }
 
-        public static async Task<FhirNodeToSearchValueTypeConverterManager> CreateFhirElementToSearchValueTypeConverterManager()
+        private static async Task<FhirNodeToSearchValueTypeConverterManager> CreateFhirElementToSearchValueTypeConverterManager()
         {
             var types = typeof(IFhirNodeToSearchValueTypeConverter)
                 .Assembly
