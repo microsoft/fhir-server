@@ -27,6 +27,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     {
         private static readonly string SupportedTotalTypes = $"'{TotalType.Accurate}', '{TotalType.None}'".ToLower(CultureInfo.CurrentCulture);
 
+        private static readonly List<string> IncludeIterateModifiers = new List<string> { "_include:iterate", "_include:recurse" };
+        private static readonly List<string> RevIncludeIterateModifiers = new List<string> { "_revinclude:iterate", "_revinclude:recurse" };
+        private static readonly List<string> AllIterateModifiers = IncludeIterateModifiers.Concat(RevIncludeIterateModifiers).ToList();
+
         private readonly IExpressionParser _expressionParser;
         private readonly IFhirRequestContextAccessor _contextAccessor;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
@@ -204,16 +208,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             if (searchParams.Include?.Count > 0)
             {
                 searchExpressions.AddRange(searchParams.Include.Select(
-                    q => _expressionParser.ParseInclude(parsedResourceType.ToString(), q, false /* not reversed */))
+                    q => _expressionParser.ParseInclude(parsedResourceType.ToString(), q, false /* not reversed */, false /* no iterate */))
                     .Where(item => item != null));
             }
 
             if (searchParams.RevInclude?.Count > 0)
             {
                 searchExpressions.AddRange(searchParams.RevInclude.Select(
-                    q => _expressionParser.ParseInclude(parsedResourceType.ToString(), q, true /* reversed */))
+                    q => _expressionParser.ParseInclude(parsedResourceType.ToString(), q, true /* reversed */, false /* no iterate */))
                     .Where(item => item != null));
             }
+
+            // Parse _include:iterate (_include:recurse) parameters.
+            // :iterate (:recurse) modifiers are not supported by Hl7.Fhir.Rest, hence not added to the Include collection and exist in the Parameters list.
+            // See https://github.com/FirelyTeam/fhir-net-api/issues/222
+            // _include:iterate (_include:recurse) expression may appear without a preceding _include parameter
+            // when applied on a circular reference
+            searchExpressions.AddRange(ParseIncludeIterateExpressions(searchParams));
+
+            // remove _include:iterate and _revinclude:iterate parameters from unsupportedSearchParameters
+            unsupportedSearchParameters.RemoveAll(p => AllIterateModifiers.Contains(p.Item1));
 
             if (!string.IsNullOrWhiteSpace(compartmentType))
             {
@@ -285,6 +299,31 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
 
             return searchOptions;
+
+            IEnumerable<IncludeExpression> ParseIncludeIterateExpressions(SearchParams searchParams)
+            {
+                return searchParams.Parameters
+                .Where(p => p != null && AllIterateModifiers.Where(m => string.Equals(p.Item1, m, StringComparison.OrdinalIgnoreCase)).Any())
+                .Select(p =>
+                {
+                    var includeResourceType = p.Item2?.Split(':')[0];
+                    if (!ModelInfoProvider.IsKnownResource(includeResourceType))
+                    {
+                        throw new ResourceNotSupportedException(includeResourceType);
+                    }
+
+                    var reversed = RevIncludeIterateModifiers.Contains(p.Item1);
+                    var expression = _expressionParser.ParseInclude(includeResourceType, p.Item2, reversed, true);
+
+                    // Reversed Iterate expressions (not wildcard) must specify target type if there is more than one possible target type
+                    if (expression.Reversed && expression.Iterate && expression.TargetResourceType == null && expression.ReferenceSearchParameter?.TargetResourceTypes?.Count > 1)
+                    {
+                        throw new BadRequestException(string.Format(Core.Resources.RevIncludeIterateTargetTypeNotSpecified, p.Item2));
+                    }
+
+                    return expression;
+                });
+            }
 
             void ValidateTotalType(TotalType totalType)
             {

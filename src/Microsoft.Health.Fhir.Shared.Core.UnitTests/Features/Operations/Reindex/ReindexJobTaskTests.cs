@@ -214,6 +214,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             Assert.Equal(OperationStatus.Completed, job.Status);
             Assert.Equal(10, job.Count);
+            Assert.Equal(4, job.Progress);
             Assert.Equal("Appointment,AppointmentResponse", job.ResourceList);
             Assert.Equal("http://hl7.org/fhir/SearchParameter/AppointmentResponse-appointment", job.SearchParamList);
             Assert.Collection<ReindexJobQueryStatus>(

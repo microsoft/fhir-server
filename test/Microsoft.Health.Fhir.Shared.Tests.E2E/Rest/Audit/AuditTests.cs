@@ -510,13 +510,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenATransactionBundleWithValidEntries_WhenSuccessfulPost_ThenAuditLogEntriesShouldBeCreated()
         {
+            Patient existingPatient = Samples.GetDefaultPatient().ToPoco<Patient>();
+            existingPatient.Id = "123";
+
+            await _client.UpdateAsync<Patient>(existingPatient);
+
             // Even entries are audit executed entry and odd entries are audit executing entry
             List<(string expectedActions, string expectedPathSegments, HttpStatusCode? expectedStatusCodes, ResourceType? resourceType)> expectedList = new List<(string, string, HttpStatusCode?, ResourceType?)>
             {
                 ("transaction", string.Empty, HttpStatusCode.OK, null),
                 ("create", "Patient", HttpStatusCode.Created, ResourceType.Patient),
                 ("create", "Patient", HttpStatusCode.Created, ResourceType.Patient),
-                ("update", "Patient/123", HttpStatusCode.OK, ResourceType.Patient),
+                ("update", $"Patient/{existingPatient.Id}", HttpStatusCode.OK, ResourceType.Patient),
                 ("update", "Patient?identifier=http:/example.org/fhir/ids|456456", HttpStatusCode.Created, ResourceType.Patient),
             };
 
