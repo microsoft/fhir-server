@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
                 foreach (var result in converters.Where(x => x.hasConverter || !parameterInfo.IsPartiallySupported))
                 {
-                    var found = (await SearchParameterFixtureData.GetManager()).TryGetConverter(result.result.FhirNodeType, SearchIndexer.GetSearchValueTypeForSearchParamType(result.result.SearchParamType), out var converter);
+                    var found = (await SearchParameterFixtureData.GetFhirNodeToSearchValueTypeConverterManagerAsync()).TryGetConverter(result.result.FhirNodeType, SearchIndexer.GetSearchValueTypeForSearchParamType(result.result.SearchParamType), out var converter);
 
                     var converterText = found ? converter.GetType().Name : "None";
                     string searchTermMapping = $"Search term '{parameterName}' ({result.result.SearchParamType}) mapped to '{result.result.FhirNodeType}', converter: {converterText}";
@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             var unsupported = new UnsupportedSearchParameters();
 
-            SearchParameterDefinitionManager manager = await SearchParameterFixtureData.CreateSearchParameterDefinitionManager(ModelInfoProvider.Instance);
+            SearchParameterDefinitionManager manager = await SearchParameterFixtureData.CreateSearchParameterDefinitionManagerAsync(ModelInfoProvider.Instance);
 
             var resourceAndSearchParameters = ModelInfoProvider.Instance
                 .GetResourceTypeNames()
@@ -131,7 +131,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             var parsed = SearchParameterFixtureData.Compiler.Parse(parameterInfo.Expression);
 
-            SearchParameterDefinitionManager searchParameterDefinitionManager = await _fixture.GetSearchDefinitionManager();
+            SearchParameterDefinitionManager searchParameterDefinitionManager = await _fixture.GetSearchDefinitionManagerAsync();
 
             (SearchParamType Type, Expression, Uri DefinitionUrl)[] componentExpressions = parameterInfo.Component
                 .Select(x => (searchParameterDefinitionManager.UrlLookup[x.DefinitionUrl].Type,
@@ -144,7 +144,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 (parameterInfo.Type, parsed, parameterInfo.Url),
                 componentExpressions).ToArray();
 
-            var fhirNodeToSearchValueTypeConverterManager = await SearchParameterFixtureData.GetManager();
+            var fhirNodeToSearchValueTypeConverterManager = await SearchParameterFixtureData.GetFhirNodeToSearchValueTypeConverterManagerAsync();
 
             var converters = results
                 .Select(result => (
@@ -161,7 +161,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         public static IEnumerable<object[]> GetAllSearchParameters()
         {
-            Task<SearchParameterDefinitionManager> searchParameterDefinitionManagerTask = SearchParameterFixtureData.CreateSearchParameterDefinitionManager(ModelInfoProvider.Instance);
+            Task<SearchParameterDefinitionManager> searchParameterDefinitionManagerTask = SearchParameterFixtureData.CreateSearchParameterDefinitionManagerAsync(ModelInfoProvider.Instance);
 
             // XUnit does not currently support async signatures for MemberDataAttributes. Until it does we need to block on
             // this task, which could cause a deadlock, but we know that the task should have completed synchronously,

@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     {
         private readonly ConcurrentDictionary<(DataStore dataStore, Type startupType), Lazy<Task<TestFhirServer>>> _cache = new ConcurrentDictionary<(DataStore dataStore, Type startupType), Lazy<Task<TestFhirServer>>>();
 
-        public async Task<TestFhirServer> GetTestFhirServer(DataStore dataStore, Type startupType)
+        public async Task<TestFhirServer> GetTestFhirServerAsync(DataStore dataStore, Type startupType)
         {
             return await _cache.GetOrAdd(
                     (dataStore, startupType),

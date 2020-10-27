@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
                 WebServer = builder.Build();
                 WebServer.Start();
 
-                TestFhirServer testFhirServer = await _testFhirServerFactory.GetTestFhirServer(DataStore.CosmosDb, null);
+                TestFhirServer testFhirServer = await _testFhirServerFactory.GetTestFhirServerAsync(DataStore.CosmosDb, null);
                 TestFhirClient = testFhirServer.GetTestFhirClient(ResourceFormat.Json);
             }
         }

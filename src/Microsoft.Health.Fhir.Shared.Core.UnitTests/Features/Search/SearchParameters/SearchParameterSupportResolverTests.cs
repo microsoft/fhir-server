@@ -22,8 +22,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public async Task InitializeAsync()
         {
             _resolver = new SearchParameterSupportResolver(
-                await _fixture.GetSearchDefinitionManager(),
-                await SearchParameterFixtureData.GetManager());
+                await _fixture.GetSearchDefinitionManagerAsync(),
+                await SearchParameterFixtureData.GetFhirNodeToSearchValueTypeConverterManagerAsync());
         }
 
         public Task DisposeAsync() => Task.CompletedTask;

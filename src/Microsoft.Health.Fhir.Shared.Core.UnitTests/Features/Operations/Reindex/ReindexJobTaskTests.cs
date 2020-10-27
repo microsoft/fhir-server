@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 () => _fhirOperationDataStore.CreateMockScope(),
                 Options.Create(_reindexJobConfiguration),
                 () => _searchService.CreateMockScope(),
-                await _fixture.GetSupportedSearchDefinitionManager(),
+                await _fixture.GetSupportedSearchDefinitionManagerAsync(),
                 _reindexUtilities,
                 NullLogger<ReindexJobTask>.Instance);
 
@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         public async Task GivenSupportedParams_WhenExecuted_ThenCorrectSearchIsPerformed()
         {
             // Add one parameter that needs to be indexed
-            var param = (await _fixture.GetSearchDefinitionManager()).AllSearchParameters.FirstOrDefault(p => p.Name == "status");
+            var param = (await _fixture.GetSearchDefinitionManagerAsync()).AllSearchParameters.FirstOrDefault(p => p.Name == "status");
             param.IsSearchable = false;
 
             ReindexJobRecord job = CreateReindexJobRecord();
@@ -116,7 +116,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         public async Task GivenContinuationToken_WhenExecuted_ThenAdditionalQueryAdded()
         {
             // Add one parameter that needs to be indexed
-            var param = (await _fixture.GetSearchDefinitionManager()).AllSearchParameters.FirstOrDefault(p => p.Name == "identifier");
+            var param = (await _fixture.GetSearchDefinitionManagerAsync()).AllSearchParameters.FirstOrDefault(p => p.Name == "identifier");
             param.IsSearchable = false;
 
             ReindexJobRecord job = CreateReindexJobRecord();
@@ -159,7 +159,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         public async Task GivenRunningJob_WhenExecuted_ThenQueuedQueryCompleted()
         {
             // Add one parameter that needs to be indexed
-            var param = (await _fixture.GetSearchDefinitionManager()).AllSearchParameters.FirstOrDefault(p => p.Name == "appointment");
+            var param = (await _fixture.GetSearchDefinitionManagerAsync()).AllSearchParameters.FirstOrDefault(p => p.Name == "appointment");
             param.IsSearchable = false;
 
             var resourceTypeSearchParamHashMap = new Dictionary<string, string>();
@@ -252,7 +252,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         public async Task GivenQueryInRunningState_WhenExecuted_ThenQueryResetToQueuedOnceStale()
         {
             // Add one parameter that needs to be indexed
-            var param = (await _fixture.GetSearchDefinitionManager()).AllSearchParameters.FirstOrDefault(p => p.Name == "appointment");
+            var param = (await _fixture.GetSearchDefinitionManagerAsync()).AllSearchParameters.FirstOrDefault(p => p.Name == "appointment");
             param.IsSearchable = false;
 
             _reindexJobConfiguration.JobHeartbeatTimeoutThreshold = new TimeSpan(0, 0, 0, 1, 0);
@@ -286,7 +286,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         public async Task GivenQueryWhichContinuallyFails_WhenExecuted_ThenJobWillBeMarkedFailed()
         {
             // Add one parameter that needs to be indexed
-            var param = (await _fixture.GetSearchDefinitionManager()).AllSearchParameters.FirstOrDefault(p => p.Name == "appointment");
+            var param = (await _fixture.GetSearchDefinitionManagerAsync()).AllSearchParameters.FirstOrDefault(p => p.Name == "appointment");
             param.IsSearchable = false;
 
             var job = CreateReindexJobRecord(maxResourcePerQuery: 3);

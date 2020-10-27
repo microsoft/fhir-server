@@ -37,22 +37,22 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         public static FhirPathCompiler Compiler { get; } = new FhirPathCompiler();
 
-        public async Task<SearchParameterDefinitionManager> GetSearchDefinitionManager()
+        public async Task<SearchParameterDefinitionManager> GetSearchDefinitionManagerAsync()
         {
-            return _searchDefinitionManager ??= await CreateSearchParameterDefinitionManager(new VersionSpecificModelInfoProvider());
+            return _searchDefinitionManager ??= await CreateSearchParameterDefinitionManagerAsync(new VersionSpecificModelInfoProvider());
         }
 
-        public async Task<SupportedSearchParameterDefinitionManager> GetSupportedSearchDefinitionManager()
+        public async Task<SupportedSearchParameterDefinitionManager> GetSupportedSearchDefinitionManagerAsync()
         {
-            return _supportedSearchDefinitionManager ??= new SupportedSearchParameterDefinitionManager(await GetSearchDefinitionManager());
+            return _supportedSearchDefinitionManager ??= new SupportedSearchParameterDefinitionManager(await GetSearchDefinitionManagerAsync());
         }
 
-        public static async Task<FhirNodeToSearchValueTypeConverterManager> GetManager()
+        public static async Task<FhirNodeToSearchValueTypeConverterManager> GetFhirNodeToSearchValueTypeConverterManagerAsync()
         {
-            return _fhirNodeToSearchValueTypeConverterManager ??= await CreateFhirElementToSearchValueTypeConverterManager();
+            return _fhirNodeToSearchValueTypeConverterManager ??= await CreateFhirElementToSearchValueTypeConverterManagerAsync();
         }
 
-        private static async Task<FhirNodeToSearchValueTypeConverterManager> CreateFhirElementToSearchValueTypeConverterManager()
+        private static async Task<FhirNodeToSearchValueTypeConverterManager> CreateFhirElementToSearchValueTypeConverterManagerAsync()
         {
             var types = typeof(IFhirNodeToSearchValueTypeConverter)
                 .Assembly
@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             return new FhirNodeToSearchValueTypeConverterManager(fhirNodeToSearchValueTypeConverters);
         }
 
-        public static async Task<SearchParameterDefinitionManager> CreateSearchParameterDefinitionManager(IModelInfoProvider modelInfoProvider)
+        public static async Task<SearchParameterDefinitionManager> CreateSearchParameterDefinitionManagerAsync(IModelInfoProvider modelInfoProvider)
         {
             var definitionManager = new SearchParameterDefinitionManager(modelInfoProvider);
             await definitionManager.StartAsync(CancellationToken.None);
@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var statusManager = new SearchParameterStatusManager(
                 statusRegistry,
                 definitionManager,
-                new SearchParameterSupportResolver(definitionManager, await GetManager()),
+                new SearchParameterSupportResolver(definitionManager, await GetFhirNodeToSearchValueTypeConverterManagerAsync()),
                 Substitute.For<IMediator>());
             await statusManager.EnsureInitialized();
 

@@ -41,8 +41,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public async Task InitializeAsync()
         {
             _indexer = new TypedElementSearchIndexer(
-                await _fixture.GetSupportedSearchDefinitionManager(),
-                await SearchParameterFixtureData.GetManager(),
+                await _fixture.GetSupportedSearchDefinitionManagerAsync(),
+                await SearchParameterFixtureData.GetFhirNodeToSearchValueTypeConverterManagerAsync(),
                 new LightweightReferenceToElementResolver(new ReferenceSearchValueParser(new FhirRequestContextAccessor()), ModelInfoProvider.Instance),
                 ModelInfoProvider.Instance,
                 NullLogger<SearchIndexer>.Instance);

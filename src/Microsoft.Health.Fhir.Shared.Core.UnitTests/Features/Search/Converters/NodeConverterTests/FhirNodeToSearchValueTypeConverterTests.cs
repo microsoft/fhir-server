@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
         where TTypeConverter : IFhirNodeToSearchValueTypeConverter, new()
         where TElement : Element, new()
     {
-        protected override Task<IFhirNodeToSearchValueTypeConverter> GetTypeConverter()
+        protected override Task<IFhirNodeToSearchValueTypeConverter> GetTypeConverterAsync()
         {
             return Task.FromResult((IFhirNodeToSearchValueTypeConverter)new TTypeConverter());
         }

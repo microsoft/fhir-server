@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             await using (var testFhirServerFactory = new TestFhirServerFactory())
             {
                 var testFhirServer = await testFhirServerFactory
-                    .GetTestFhirServer(_dataStore, null);
+                    .GetTestFhirServerAsync(_dataStore, null);
 
                 // Obtaining a client is required for configuring the security options.
                 testFhirServer.GetTestFhirClient(ResourceFormat.Json, reusable: false);

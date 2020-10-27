@@ -23,12 +23,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters.NodeCo
 
         protected virtual ITypedElement TypedElement => Element.ToTypedElement();
 
-        protected abstract Task<IFhirNodeToSearchValueTypeConverter> GetTypeConverter();
+        protected abstract Task<IFhirNodeToSearchValueTypeConverter> GetTypeConverterAsync();
 
         [Fact]
         public async Task GivenANullValue_WhenConverted_ThenNoSearchValueShouldBeCreated()
         {
-            IEnumerable<ISearchValue> values = (await GetTypeConverter()).ConvertTo(null);
+            IEnumerable<ISearchValue> values = (await GetTypeConverterAsync()).ConvertTo(null);
 
             Assert.NotNull(values);
             Assert.Empty(values);
@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters.NodeCo
         {
             setup(Element);
 
-            IEnumerable<ISearchValue> values = (await GetTypeConverter()).ConvertTo(TypedElement);
+            IEnumerable<ISearchValue> values = (await GetTypeConverterAsync()).ConvertTo(TypedElement);
 
             Assert.NotNull(values);
             Assert.Collection(
@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters.NodeCo
         {
             setup(Element);
 
-            IEnumerable<ISearchValue> values = (await GetTypeConverter()).ConvertTo(TypedElement);
+            IEnumerable<ISearchValue> values = (await GetTypeConverterAsync()).ConvertTo(TypedElement);
 
             Assert.NotNull(values);
             Assert.Empty(values);

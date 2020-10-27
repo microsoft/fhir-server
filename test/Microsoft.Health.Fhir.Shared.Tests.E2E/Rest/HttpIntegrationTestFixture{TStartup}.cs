@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         public async Task InitializeAsync()
         {
-            TestFhirServer = await _testFhirServerFactory.GetTestFhirServer(_dataStore, typeof(TStartup));
+            TestFhirServer = await _testFhirServerFactory.GetTestFhirServerAsync(_dataStore, typeof(TStartup));
 
             TestFhirClient = TestFhirServer.GetTestFhirClient(_resourceFormat);
 
