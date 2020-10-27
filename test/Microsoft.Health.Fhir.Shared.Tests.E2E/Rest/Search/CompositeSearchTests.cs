@@ -21,6 +21,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         private const string ObservationWithTPMTDiplotype = "ObservationWithTPMTDiplotype";
         private const string ObservationWithTPMTHaplotypeOne = "ObservationWithTPMTHaplotypeOne";
         private const string ObservationWithBloodPressure = "ObservationWithBloodPressure";
+        private const string ObservationWithEyeColor = "ObservationWithEyeColor";
+        private const string ObservationWithLongEyeColor = "ObservationWithLongEyeColor";
 
         private const string DocumentReferenceExample = "DocumentReference-example-relatesTo-code-appends";
         private const string DocumentReferenceExample002 = "DocumentReference-example-relatesTo-code-transforms-replaces-target";
@@ -52,19 +54,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [InlineData("code-value-quantity=unknownSystem|443849008$10")]
         [InlineData("code-value-quantity=http://snomed.info/sct|443849008$eq10|unknownSystem|{score}")]
         [InlineData("code-value-quantity=http://snomed.info/sct|443849008$eq10|http://unitsofmeasure.org|unknownQuantityId")]
+        [InlineData("code-value-quantity=http://loinc.org|8310-5$39|http://unitsofmeasure.org|Cel,http://snomed.info/sct|443849008$10|http://unitsofmeasure.org|{score}", ObservationWith20MinuteApgarScore, ObservationWithTemperature)]
+        [InlineData("code-value-quantity=http://loinc.org|8310-5$gt36.6|http://unitsofmeasure.org|Cel,http://loinc.org|9272-6$0|http://unitsofmeasure.org|{score}", ObservationWith1MinuteApgarScore, ObservationWithTemperature)]
         public async Task GivenACompositeSearchParameterWithTokenAndQuantity_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue, params string[] expectedObservationNames)
         {
             await SearchAndValidateObservations(queryValue, expectedObservationNames);
         }
 
         [Theory]
-        [InlineData("code-value-string=http://snomed.info/sct|162806009$blue", "ObservationWithEyeColor")]
-        [InlineData("code-value-string=162806009$blue", "ObservationWithEyeColor")]
-        [InlineData("code-value-string=162806009$Lorem", "ObservationWithLongEyeColor")]
-        [InlineData("code-value-string=162806009$" + StringSearchTestFixture.LongString, "ObservationWithLongEyeColor")]
+        [InlineData("code-value-string=http://snomed.info/sct|162806009$blue", ObservationWithEyeColor)]
+        [InlineData("code-value-string=162806009$blue", ObservationWithEyeColor)]
+        [InlineData("code-value-string=162806009$Lorem", ObservationWithLongEyeColor)]
+        [InlineData("code-value-string=162806009$" + StringSearchTestFixture.LongString, ObservationWithLongEyeColor)]
         [InlineData("code-value-string=162806009$" + StringSearchTestFixture.LongString + "Not")]
-        [InlineData("code-value-string=http://snomed.info/sct|$blue", "ObservationWithEyeColor")]
+        [InlineData("code-value-string=http://snomed.info/sct|$blue", ObservationWithEyeColor)]
         [InlineData("code-value-string=http://snomed.info/sct|162806009$red")]
+        [InlineData("code-value-string=162806009$Lorem,162806009$blue", ObservationWithLongEyeColor, ObservationWithEyeColor)]
         public async Task GivenACompositeSearchParameterWithTokenAndString_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue, params string[] expectedObservationNames)
         {
             await SearchAndValidateObservations(queryValue, expectedObservationNames);
@@ -96,6 +101,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [InlineData("combo-code-value-concept=http://snomed.info/sct|249227004$http:/acme.ped/apgarcolor|2", ObservationWith20MinuteApgarScore)] // Match: Observation.component[1].code against Observation.component[0].valueCodeableConcept.coding[1]
         [InlineData("combo-code-value-concept=http://loinc.org/la|LA6724-4$http:/acme.ped/apgarcolor|2")] // Not match: Observation.component[0].valueCodeableConcept.coding[0] against Observation.component[0].valueCodeableConcept.coding[1]
         [InlineData("combo-code-value-concept=169895004$http://loinc.org/la|LA6725-1")] // Not match: Observation.code[1] against Observation.component[4].valueCodeableConcept.coding[0]
+        [InlineData("combo-code-value-concept=http://snomed.info/sct|249227004$http://loinc.org/la|LA6722-8", ObservationWith1MinuteApgarScore)] // Match: Observation.component[0].code against Observation.component[0].valueCodeableConcept.coding[0]
+        [InlineData("combo-code-value-concept=http://snomed.info/sct|249227004$http://loinc.org/la|LA6722-8,http://snomed.info/sct|249227004$http://loinc.org/la|LA6724-4", ObservationWith20MinuteApgarScore, ObservationWith1MinuteApgarScore)]
         public async Task GivenACompositeSearchParameterWithTokenAndToken_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue, params string[] expectedObservationNames)
         {
             await SearchAndValidateObservations(queryValue, expectedObservationNames);
