@@ -14,6 +14,7 @@ using EnsureThat;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Client;
 using Microsoft.Health.SqlServer.Features.Schema;
@@ -49,7 +50,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
         public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses()
         {
             // If the search parameter table in SQL does not yet contain status columns
-            if (_schemaInformation.Current < 4)
+            if (_schemaInformation.Current < SchemaVersionConstants.SearchParameterStatusSchemaVersion)
             {
                 // Get status information from file.
                 return await _filebasedSearchParameterStatusDataStore.GetSearchParameterStatuses();
@@ -96,7 +97,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
         {
             EnsureArg.IsNotNull(statuses, nameof(statuses));
 
-            if (_schemaInformation.Current < 4)
+            if (_schemaInformation.Current < SchemaVersionConstants.SearchParameterStatusSchemaVersion)
             {
                 throw new BadRequestException(Resources.SchemaVersionNeedsUpgrading);
             }
