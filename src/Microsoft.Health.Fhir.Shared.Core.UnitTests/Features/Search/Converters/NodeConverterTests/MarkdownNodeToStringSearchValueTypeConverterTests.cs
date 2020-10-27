@@ -7,23 +7,24 @@ using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Xunit;
 using static Microsoft.Health.Fhir.Tests.Common.Search.SearchValueValidationHelper;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
 {
     public class MarkdownNodeToStringSearchValueTypeConverterTests : FhirNodeToSearchValueTypeConverterTests<MarkdownNodeToStringSearchValueTypeConverter, Markdown>
     {
         [Fact]
-        public void GivenAMarkdownWithNoValue_WhenConverted_ThenNoSearchValueShouldBeCreated()
+        public async Task GivenAMarkdownWithNoValue_WhenConverted_ThenNoSearchValueShouldBeCreated()
         {
-            Test(md => md.Value = null);
+            await Test(md => md.Value = null);
         }
 
         [Fact]
-        public void GivenAMarkdownWithValue_WhenConverted_ThenAStringSearchValueShouldBeCreated()
+        public async Task GivenAMarkdownWithValue_WhenConverted_ThenAStringSearchValueShouldBeCreated()
         {
             const string markdown = "```code```";
 
-            Test(
+            await Test(
                 md => md.Value = markdown,
                 ValidateString,
                 markdown);
