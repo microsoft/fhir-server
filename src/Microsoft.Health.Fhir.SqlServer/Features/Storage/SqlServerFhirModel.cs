@@ -142,10 +142,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public Task EnsureInitialized()
         {
-            if (_schemaInformation.Current == null)
-            {
-                throw new InvalidOperationException(Resources.SchemaVersionShouldNotBeNull);
-            }
+            ThrowIfCurrentSchemaVersionIsNull();
 
             // If the fhir-server is just starting up, synchronize the fhir-server dictionaries with the SQL database
             Initialize((int)_schemaInformation.Current, true);
@@ -406,10 +403,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         private void ThrowIfNotInitialized()
         {
+            ThrowIfCurrentSchemaVersionIsNull();
+
             if (_highestInitializedVersion < _schemaInformation.Current)
             {
                 _logger.LogError($"The {nameof(SqlServerFhirModel)} instance has not run the initialization required for the current schema version");
                 throw new ServiceUnavailableException();
+            }
+        }
+
+        private void ThrowIfCurrentSchemaVersionIsNull()
+        {
+            if (_schemaInformation.Current == null)
+            {
+                throw new InvalidOperationException(Resources.SchemaVersionShouldNotBeNull);
             }
         }
     }
