@@ -19,6 +19,7 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
 using Microsoft.Health.SqlServer.Configs;
@@ -164,32 +165,30 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             if (runAllInitialization)
             {
-                InitializeV1();
+                InitializeBase();
 
-                if (version >= 6)
+                if (version >= SchemaVersionConstants.SearchParameterStatusSchemaVersion)
                 {
-                    InitializeV6();
+                    InitializeSearchParameterStatuses();
                 }
-
-                _highestInitializedVersion = version;
             }
             else
             {
                 switch (version)
                 {
                     case 1:
-                        InitializeV1();
+                        InitializeBase();
                         break;
-                    case 6:
-                        InitializeV6();
+                    case SchemaVersionConstants.SearchParameterStatusSchemaVersion:
+                        InitializeSearchParameterStatuses();
                         break;
                 }
-
-                _highestInitializedVersion = version;
             }
+
+            _highestInitializedVersion = version;
         }
 
-        private void InitializeV1()
+        private void InitializeBase()
         {
             using (var connection = new SqlConnection(_configuration.ConnectionString))
             {
@@ -326,7 +325,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        private void InitializeV6()
+        private void InitializeSearchParameterStatuses()
         {
             using (var connection = new SqlConnection(_configuration.ConnectionString))
             {
