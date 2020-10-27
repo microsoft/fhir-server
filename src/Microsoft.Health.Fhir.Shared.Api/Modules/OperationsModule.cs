@@ -6,6 +6,7 @@
 using EnsureThat;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Features.Operations.DataConvert;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 
@@ -55,6 +56,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsSelf();
 
             services.AddSingleton<IReindexUtilities, ReindexUtilities>();
+
+            services.AddSingleton<IDataConvertEngine, DataConvertEngine>();
         }
     }
 }

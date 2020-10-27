@@ -323,4 +323,15 @@
   <data name="ContainerIsRequiredForAnonymizedExport" xml:space="preserve">
     <value>Missing '_container' for anonymized export</value>
   </data>
+  <data name="DataConvertParameterNotValid" xml:space="preserve">
+    <value>Data convert does not support the following parameter {0} for a POST operation.</value>
+    <comment>{0} = the parameter name which was invalid</comment>
+  </data>
+  <data name="DataConvertParameterValueNotValid" xml:space="preserve">
+    <value>Value of the following parameter {0} is invalid.</value>
+    <comment>{0} = the parameter name which was invalid</comment>
+  </data>
+  <data name="DataConvertParametersNotValid" xml:space="preserve">
+    <value>Data convert operation parameters must be specified as a FHIR Parameters resource.  Provided body in this request is not valid.</value>
+  </data>
 </root>

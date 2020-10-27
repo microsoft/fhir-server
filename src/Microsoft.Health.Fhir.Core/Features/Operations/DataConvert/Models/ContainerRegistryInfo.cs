@@ -3,14 +3,14 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Configs
+namespace Microsoft.Health.Fhir.Core.Features.Operations.DataConvert.Models
 {
-    public class OperationsConfiguration
+    public class ContainerRegistryInfo
     {
-        public ExportJobConfiguration Export { get; set; } = new ExportJobConfiguration();
+        public string ContainerRegistryServer { get; set; } = string.Empty;
 
-        public ReindexJobConfiguration Reindex { get; set; } = new ReindexJobConfiguration();
+        public string ContainerRegistryUsername { get; set; } = string.Empty;
 
-        public DataConvertConfiguration DataConvert { get; set; } = new DataConvertConfiguration();
+        public string ContainerRegistryPassword { get; set; } = string.Empty;
     }
 }

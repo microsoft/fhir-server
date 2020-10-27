@@ -3,14 +3,13 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-namespace Microsoft.Health.Fhir.Core.Configs
+using System.Threading.Tasks;
+using Microsoft.Health.Fhir.Core.Messages.DataConvert;
+
+namespace Microsoft.Health.Fhir.Core.Features.Operations.DataConvert
 {
-    public class OperationsConfiguration
+    public interface IDataConvertEngine
     {
-        public ExportJobConfiguration Export { get; set; } = new ExportJobConfiguration();
-
-        public ReindexJobConfiguration Reindex { get; set; } = new ReindexJobConfiguration();
-
-        public DataConvertConfiguration DataConvert { get; set; } = new DataConvertConfiguration();
+        public Task<DataConvertResponse> Process(DataConvertRequest convertRequest);
     }
 }

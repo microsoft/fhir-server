@@ -400,5 +400,29 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("ContainerIsRequiredForAnonymizedExport", resourceCulture);
             }
         }
+
+        public static string DataConvertParameterNotValid
+        {
+            get
+            {
+                return ResourceManager.GetString("DataConvertParameterNotValid", resourceCulture);
+            }
+        }
+
+        public static string DataConvertParameterValueNotValid
+        {
+            get
+            {
+                return ResourceManager.GetString("DataConvertParameterValueNotValid", resourceCulture);
+            }
+        }
+
+        public static string DataConvertParametersNotValid
+        {
+            get
+            {
+                return ResourceManager.GetString("DataConvertParametersNotValid", resourceCulture);
+            }
+        }
     }
 }
