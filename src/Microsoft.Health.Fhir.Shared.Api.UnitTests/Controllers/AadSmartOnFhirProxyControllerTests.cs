@@ -171,7 +171,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [InlineData("authorization_code", "clientId", "clientSecret", null, null)]
         [InlineData("authorization_code", "clientId", "clientSecret", "InvalidCode", null)]
         [InlineData("authorization_code", "clientId", "clientSecret", "eyAiY29kZSIgOiAiZm9vIiB9", null)] // eyAiY29kZSIgOiAiZm9vIiB9 is { "code" : "foo" } base 64 encoded
-        public void GivenInvalidQueryParams_WhenTokenRequestAction_ThenBadRequestExceptionThrown(
+        public async Task GivenInvalidQueryParams_WhenTokenRequestAction_ThenBadRequestExceptionThrown(
             string grantType, string clientId, string clientSecret, string compoundCode, string redirectUriString)
         {
             Uri redirectUri = null;
@@ -188,7 +188,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 Content = new StringContent("{ \"client_id\" : \"client id\", \"scope\" : \"scope\"}"),
             };
 
-            Assert.ThrowsAsync<AadSmartOnFhirProxyBadRequestException>(() => _controller.Token(grantType, compoundCode, redirectUri, clientId, clientSecret)).Wait();
+            await Assert.ThrowsAsync<AadSmartOnFhirProxyBadRequestException>(() => _controller.Token(grantType, compoundCode, redirectUri, clientId, clientSecret));
         }
 
         [Theory]

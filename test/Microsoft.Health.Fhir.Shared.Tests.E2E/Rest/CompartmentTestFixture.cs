@@ -6,12 +6,11 @@
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
-using Xunit;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
-    public class CompartmentTestFixture : HttpIntegrationTestFixture, IAsyncLifetime
+    public class CompartmentTestFixture : HttpIntegrationTestFixture
     {
         public CompartmentTestFixture(DataStore dataStore, Format format, TestFhirServerFactory testFhirServerFactory)
             : base(dataStore, format, testFhirServerFactory)
@@ -28,7 +27,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         public Condition Condition { get; private set; }
 
-        public async Task InitializeAsync()
+        protected override async Task OnInitializedAsync()
         {
             // Create various resources.
             Device = await TestFhirClient.CreateAsync(Samples.GetJsonSample<Device>("Device-d1"));
@@ -56,11 +55,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             conditionToCreate.Subject.Reference = patientReference;
 
             Condition = await TestFhirClient.CreateAsync(conditionToCreate);
-        }
-
-        public Task DisposeAsync()
-        {
-            return Task.CompletedTask;
         }
     }
 }

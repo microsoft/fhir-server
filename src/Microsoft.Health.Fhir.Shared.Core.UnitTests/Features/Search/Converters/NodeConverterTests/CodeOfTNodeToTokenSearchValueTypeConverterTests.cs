@@ -4,6 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
@@ -14,16 +16,12 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters.NodeConverterTests;
 using Xunit;
 using static Microsoft.Health.Fhir.Tests.Common.Search.SearchValueValidationHelper;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
 {
     public class CodeOfTNodeToTokenSearchValueTypeConverterTests : FhirNodeInstanceToSearchValueTypeConverterTests<Code<ObservationStatus>>
     {
-        public CodeOfTNodeToTokenSearchValueTypeConverterTests()
-            : base(new CodeNodeToTokenSearchValueTypeConverter(CodeSystemResolver()))
-        {
-        }
-
         protected override ITypedElement TypedElement
         {
             get
@@ -37,26 +35,26 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
             }
         }
 
-        private static CodeSystemResolver CodeSystemResolver()
+        protected override async Task<IFhirNodeToSearchValueTypeConverter> GetTypeConverterAsync()
         {
             var resolver = new CodeSystemResolver(ModelInfoProvider.Instance);
-            resolver.Start();
-            return resolver;
+            await resolver.StartAsync(CancellationToken.None);
+            return new CodeNodeToTokenSearchValueTypeConverter(resolver);
         }
 
         [Fact]
-        public void GivenACodeAndSystem_WhenConverted_ThenATokenSearchValueShouldBeCreated()
+        public async Task GivenACodeAndSystem_WhenConverted_ThenATokenSearchValueShouldBeCreated()
         {
-            Test(
+            await Test(
                 code => code.Value = ObservationStatus.Final,
                 ValidateToken,
                 new Token("http://hl7.org/fhir/observation-status", "final"));
         }
 
         [Fact]
-        public void GivenANullCode_WhenConverted_ThenNullValueReturned()
+        public async Task GivenANullCode_WhenConverted_ThenNullValueReturned()
         {
-            Test(
+            await Test(
                 code => code.Value = null,
                 ValidateNull,
                 new Code<ResourceType>(null));

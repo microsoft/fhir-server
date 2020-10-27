@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore;
@@ -13,15 +14,30 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Fhir.Tests.E2E.Rest;
+using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
 {
-    public class SmartProxyTestFixture : IDisposable
+    public class SmartProxyTestFixture : IDisposable, IAsyncLifetime
     {
+        private readonly TestFhirServerFactory _testFhirServerFactory;
+
         public SmartProxyTestFixture(TestFhirServerFactory testFhirServerFactory)
         {
             EnsureArg.IsNotNull(testFhirServerFactory, nameof(testFhirServerFactory));
+            _testFhirServerFactory = testFhirServerFactory;
+        }
 
+        public IWebHost WebServer { get; private set; }
+
+        public int Port { get; private set; } = 6001;
+
+        public string SmartLauncherUrl { get; private set; }
+
+        public TestFhirClient TestFhirClient { get; private set; }
+
+        public async Task InitializeAsync()
+        {
             string environmentUrl = Environment.GetEnvironmentVariable($"TestEnvironmentUrl{Constants.TestEnvironmentVariableVersionSuffix}");
 
             // Only set up test fixture if running against remote server
@@ -46,17 +62,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
                 WebServer = builder.Build();
                 WebServer.Start();
 
-                TestFhirClient = testFhirServerFactory.GetTestFhirServer(DataStore.CosmosDb, null).GetTestFhirClient(ResourceFormat.Json);
+                TestFhirServer testFhirServer = await _testFhirServerFactory.GetTestFhirServerAsync(DataStore.CosmosDb, null);
+                TestFhirClient = testFhirServer.GetTestFhirClient(ResourceFormat.Json);
             }
         }
 
-        public IWebHost WebServer { get; }
-
-        public int Port { get; } = 6001;
-
-        public string SmartLauncherUrl { get; }
-
-        public TestFhirClient TestFhirClient { get; }
+        public Task DisposeAsync()
+        {
+            Dispose();
+            return Task.CompletedTask;
+        }
 
         public void Dispose()
         {
