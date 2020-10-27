@@ -4,8 +4,9 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core;
-using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -17,7 +18,7 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 {
-    public class IncludeRewriterTests
+    public class IncludeRewriterTests : IAsyncLifetime
     {
         private readonly SearchParameterDefinitionManager _searchParameterDefinitionManager;
         private IReadOnlyList<string> _includeTargetTypes = new List<string>() { "MedicationRequest" };
@@ -26,8 +27,14 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         {
             ModelInfoProvider.SetProvider(new VersionSpecificModelInfoProvider());
             _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance);
-            _searchParameterDefinitionManager.Start();
         }
+
+        public async Task InitializeAsync()
+        {
+            await _searchParameterDefinitionManager.StartAsync(CancellationToken.None);
+        }
+
+        public Task DisposeAsync() => Task.CompletedTask;
 
         // Basic Queries with 0-2 include search parameters with all the pair combinations
 

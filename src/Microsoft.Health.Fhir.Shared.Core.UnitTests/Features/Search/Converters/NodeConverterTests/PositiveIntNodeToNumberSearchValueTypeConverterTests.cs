@@ -7,23 +7,24 @@ using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Xunit;
 using static Microsoft.Health.Fhir.Tests.Common.Search.SearchValueValidationHelper;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
 {
     public class PositiveIntNodeToNumberSearchValueTypeConverterTests : FhirNodeToSearchValueTypeConverterTests<IntegerNodeToNumberSearchValueTypeConverter, PositiveInt>
     {
         [Fact]
-        public void GivenAPositiveIntWithNoValue_WhenConverted_ThenNoSearchValueShouldBeCreated()
+        public async Task GivenAPositiveIntWithNoValue_WhenConverted_ThenNoSearchValueShouldBeCreated()
         {
-            Test(pi => pi.Value = null);
+            await Test(pi => pi.Value = null);
         }
 
         [Fact]
-        public void GivenAPositiveIntWithValue_WhenConverted_ThenANumberValueShouldBeCreated()
+        public async Task GivenAPositiveIntWithValue_WhenConverted_ThenANumberValueShouldBeCreated()
         {
             const int value = 10;
 
-            Test(
+            await Test(
                 pi => pi.Value = value,
                 ValidateNumber,
                 (decimal)value);

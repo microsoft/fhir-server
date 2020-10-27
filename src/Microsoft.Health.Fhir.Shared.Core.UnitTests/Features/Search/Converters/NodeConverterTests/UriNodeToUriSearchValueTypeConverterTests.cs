@@ -7,23 +7,24 @@ using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Xunit;
 using static Microsoft.Health.Fhir.Tests.Common.Search.SearchValueValidationHelper;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
 {
     public class UriNodeToUriSearchValueTypeConverterTests : FhirNodeToSearchValueTypeConverterTests<UriNodeToUriSearchValueTypeConverter, FhirUri>
     {
         [Fact]
-        public void GivenAFhirUriWithNoValue_WhenConverted_ThenNoSearchValueShouldBeCreated()
+        public async Task GivenAFhirUriWithNoValue_WhenConverted_ThenNoSearchValueShouldBeCreated()
         {
-            Test(uri => uri.Value = null);
+            await Test(uri => uri.Value = null);
         }
 
         [Fact]
-        public void GivenAFhirUriWithValue_WhenConverted_ThenAUriSearchValueShouldBeCreated()
+        public async Task GivenAFhirUriWithValue_WhenConverted_ThenAUriSearchValueShouldBeCreated()
         {
             const string value = "http://uri";
 
-            Test(
+            await Test(
                 uri => uri.Value = value,
                 ValidateUri,
                 value);
