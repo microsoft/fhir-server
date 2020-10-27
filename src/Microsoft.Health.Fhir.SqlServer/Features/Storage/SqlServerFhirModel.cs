@@ -162,6 +162,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             if (runAllInitialization)
             {
+                // Run schema initialization required for [SchemaVersion.Min, SchemaVersion.Current]
                 InitializeBase();
 
                 if (version >= SchemaVersionConstants.SearchParameterStatusSchemaVersion)
@@ -171,14 +172,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
             else
             {
-                switch (version)
+                // Only run the schema initialization required for the current version
+                if (version == SchemaVersionConstants.SearchParameterStatusSchemaVersion)
                 {
-                    case 1:
-                        InitializeBase();
-                        break;
-                    case SchemaVersionConstants.SearchParameterStatusSchemaVersion:
-                        InitializeSearchParameterStatuses();
-                        break;
+                    InitializeSearchParameterStatuses();
                 }
             }
 
