@@ -9,6 +9,7 @@ using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Xunit;
 using static Microsoft.Health.Fhir.Tests.Common.Search.SearchValueValidationHelper;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
 {
@@ -22,23 +23,23 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
         }
 
         [Fact]
-        public void GivenACodeableConceptWithText_WhenConverted_ThenATokenSearchValueShouldBeCreated()
+        public async Task GivenACodeableConceptWithText_WhenConverted_ThenATokenSearchValueShouldBeCreated()
         {
             const string text = "text";
 
-            Test(
+            await Test(
                 cc => cc.Text = text,
                 ValidateToken,
                 new Token(text: text));
         }
 
         [Fact]
-        public void GivenACodeableConceptWithTextThatIsTheSameAsTheDisplayOfACoding_WhenConverted_ThenATokenSearchValueShouldNotBeCreatedForTheConceptText()
+        public async Task GivenACodeableConceptWithTextThatIsTheSameAsTheDisplayOfACoding_WhenConverted_ThenATokenSearchValueShouldNotBeCreatedForTheConceptText()
         {
             const string system = "system";
             const string text = "text";
 
-            Test(
+            await Test(
                 cc =>
                 {
                     cc.Text = text;
@@ -49,13 +50,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
         }
 
         [Fact]
-        public void GivenACodeableConceptWithTextThatIsDifferentThanTheDisplayOfACoding_WhenConverted_ThenATokenSearchValueShouldBeCreatedForTheConceptText()
+        public async Task GivenACodeableConceptWithTextThatIsDifferentThanTheDisplayOfACoding_WhenConverted_ThenATokenSearchValueShouldBeCreatedForTheConceptText()
         {
             const string system = "system";
             const string conceptText = "conceptText";
             const string codingDisplayText = "codingDisplay";
 
-            Test(
+            await Test(
                 cc =>
                 {
                     cc.Text = conceptText;
@@ -67,28 +68,28 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
         }
 
         [Fact]
-        public void GivenACodeableConceptWithNullCoding_WhenConverted_ThenNoSearchValueShouldBeCreated()
+        public async Task GivenACodeableConceptWithNullCoding_WhenConverted_ThenNoSearchValueShouldBeCreated()
         {
-            Test(cc => cc.Coding = null);
+            await Test(cc => cc.Coding = null);
         }
 
         [Theory]
         [MemberData(nameof(GetMultipleCodingDataSource))]
-        public void GivenACodeableConceptWithCodings_WhenConverted_ThenOneOrMultipleTokenSearchValuesShouldBeCreated(params Token[] tokens)
+        public async Task GivenACodeableConceptWithCodings_WhenConverted_ThenOneOrMultipleTokenSearchValuesShouldBeCreated(params Token[] tokens)
         {
-            Test(
+            await Test(
                 cc => cc.Coding.AddRange(tokens.Select(token => new Coding(token.System, token.Code, token.Text))),
                 ValidateToken,
                 tokens);
         }
 
         [Fact]
-        public void GivenACodeableConceptWithEmptyCoding_WhenConverted_ThenEmptyCodingShouldBeExcluded()
+        public async Task GivenACodeableConceptWithEmptyCoding_WhenConverted_ThenEmptyCodingShouldBeExcluded()
         {
             const string system = "system";
             const string text = "text";
 
-            Test(
+            await Test(
                 cc =>
                 {
                     cc.Coding.Add(new Coding(null, null, null));
@@ -103,9 +104,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
         [InlineData("system", null, null)]
         [InlineData(null, "code", null)]
         [InlineData(null, null, "text")]
-        public void GivenACodeableConceptWithPartialCoding_WhenConverted_ThenATokenSearchValueShouldBeCreated(string system, string code, string text)
+        public async Task GivenACodeableConceptWithPartialCoding_WhenConverted_ThenATokenSearchValueShouldBeCreated(string system, string code, string text)
         {
-            Test(
+            await Test(
                 cc =>
                 {
                     cc.Coding.Add(new Coding(system, code, text));

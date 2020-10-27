@@ -7,6 +7,7 @@ using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Xunit;
 using static Microsoft.Health.Fhir.Tests.Common.Search.SearchValueValidationHelper;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
 {
@@ -16,12 +17,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
         [InlineData("2018-01", "2018-12-25T15:30")]
         [InlineData(null, "2017")]
         [InlineData("2018-10-15T12:33:55", null)]
-        public void GivenAPeriodWithValue_WhenConverted_ThenADateTimeSearchValueShouldBeCreated(string start, string end)
+        public async Task GivenAPeriodWithValue_WhenConverted_ThenADateTimeSearchValueShouldBeCreated(string start, string end)
         {
             string expectedStart = start ?? "0001-01-01T00:00:00";
             string expectedEnd = end ?? "9999-12-31T23:59:59";
 
-            Test(
+            await Test(
                 period =>
                 {
                     period.Start = start;

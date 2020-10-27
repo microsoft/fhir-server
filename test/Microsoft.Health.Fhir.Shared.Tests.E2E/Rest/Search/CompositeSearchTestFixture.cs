@@ -5,10 +5,12 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
@@ -36,17 +38,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public CompositeSearchTestFixture(DataStore dataStore, Format format, TestFhirServerFactory testFhirServerFactory)
             : base(dataStore, format, testFhirServerFactory)
         {
-            Observations = CreateResultDictionary<Observation>(ObservationTestFileNames);
-            DocumentReferences = CreateResultDictionary<DocumentReference>(DocumentReferenceTestFiles);
         }
 
         public string TestSessionId { get; } = Guid.NewGuid().ToString();
 
-        public IReadOnlyDictionary<string, Observation> Observations { get; }
+        public IReadOnlyDictionary<string, Observation> Observations { get; private set; }
 
-        public IReadOnlyDictionary<string, DocumentReference> DocumentReferences { get; }
+        public IReadOnlyDictionary<string, DocumentReference> DocumentReferences { get; private set; }
 
-        private Dictionary<string, T> CreateResultDictionary<T>(string[] files)
+        protected async override Task OnInitializedAsync()
+        {
+            Observations = await CreateResultDictionary<Observation>(ObservationTestFileNames);
+            DocumentReferences = await CreateResultDictionary<DocumentReference>(DocumentReferenceTestFiles);
+        }
+
+        private async Task<Dictionary<string, T>> CreateResultDictionary<T>(string[] files)
             where T : Resource
         {
             var resultDictionary = new Dictionary<string, T>(files.Length);
@@ -55,7 +61,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             {
                 string testFileName = files[i];
 
-                T result = TestFhirClient.CreateResourcesAsync<T>(() =>
+                T result = await TestFhirClient.CreateResourcesAsync<T>(() =>
                 {
                     T resource = Samples.GetJsonSample<T>(testFileName);
 
@@ -70,7 +76,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     }
 
                     return resource;
-                }).Result;
+                });
 
                 resultDictionary.Add(testFileName, result);
             }

@@ -49,10 +49,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
         {
             await client.RefreshConformanceStatementAsync();
 
-            using (var testFhirServerFactory = new TestFhirServerFactory())
+            await using (var testFhirServerFactory = new TestFhirServerFactory())
             {
-                var testFhirServer = testFhirServerFactory
-                    .GetTestFhirServer(_dataStore, null);
+                var testFhirServer = await testFhirServerFactory
+                    .GetTestFhirServerAsync(_dataStore, null);
 
                 // Obtaining a client is required for configuring the security options.
                 testFhirServer.GetTestFhirClient(ResourceFormat.Json, reusable: false);

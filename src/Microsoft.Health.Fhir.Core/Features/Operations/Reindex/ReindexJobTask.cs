@@ -199,7 +199,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         foreach (var finishedTask in finishedTasks)
                         {
                             queryTasks.Remove(finishedTask);
-                            queryCancellationTokens.Remove(finishedTask.Result);
+                            queryCancellationTokens.Remove(await finishedTask);
                         }
                     }
 
@@ -305,6 +305,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     await jobSemaphore.WaitAsync();
                     try
                     {
+                        _reindexJobRecord.Progress += results.Results.Count();
                         query.Status = OperationStatus.Completed;
                         await UpdateJobAsync(cancellationToken);
                     }
