@@ -79,6 +79,15 @@ namespace Microsoft.Health.Fhir.SqlServer {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The current schema version should not be null..
+        /// </summary>
+        internal static string SchemaVersionShouldNotBeNull {
+            get {
+                return ResourceManager.GetString("SchemaVersionShouldNotBeNull", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to There was an internal server error while processing the transaction..
         /// </summary>
         internal static string TransactionProcessingException {

@@ -143,8 +143,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         {
             if (_schemaInformation.Current == null)
             {
-                // TODO: What is the correct error to throw here?
-                throw new NullReferenceException("The current schema version should not be null");
+                throw new InvalidOperationException(Resources.SchemaVersionShouldNotBeNull);
             }
 
             // If the fhir-server is just starting up, synchronize the fhir-server dictionaries with the SQL database
@@ -203,25 +202,33 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     sqlCommand.CommandText = @"
                         SET XACT_ABORT ON
                         BEGIN TRANSACTION
-                        INSERT INTO dbo.ResourceType (Name) 
+
+                        INSERT INTO dbo.ResourceType (Name)
                         SELECT value FROM string_split(@resourceTypes, ',')
-                        EXCEPT SELECT Name FROM dbo.ResourceType WITH (TABLOCKX); 
+                        EXCEPT SELECT Name FROM dbo.ResourceType WITH (TABLOCKX);
+
                         -- result set 1
                         SELECT ResourceTypeId, Name FROM dbo.ResourceType;
+
                         INSERT INTO dbo.SearchParam (Uri)
-                        SELECT * FROM  OPENJSON (@searchParams) 
+                        SELECT * FROM  OPENJSON (@searchParams)
                         WITH (Uri varchar(128) '$.Uri')
-                        EXCEPT SELECT Uri FROM dbo.SearchParam
+                        EXCEPT SELECT Uri FROM dbo.SearchParam;
+
                         -- result set 2
                         SELECT Uri, SearchParamId FROM dbo.SearchParam;
-                        INSERT INTO dbo.ClaimType (Name) 
+
+                        INSERT INTO dbo.ClaimType (Name)
                         SELECT value FROM string_split(@claimTypes, ',')
-                        EXCEPT SELECT Name FROM dbo.ClaimType; 
+                        EXCEPT SELECT Name FROM dbo.ClaimType;
+
                         -- result set 3
                         SELECT ClaimTypeId, Name FROM dbo.ClaimType;
-                        INSERT INTO dbo.CompartmentType (Name) 
+
+                        INSERT INTO dbo.CompartmentType (Name)
                         SELECT value FROM string_split(@compartmentTypes, ',')
-                        EXCEPT SELECT Name FROM dbo.CompartmentType; 
+                        EXCEPT SELECT Name FROM dbo.CompartmentType;
+
                         -- result set 4
                         SELECT CompartmentTypeId, Name FROM dbo.CompartmentType;
                         
@@ -229,6 +236,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     
                         -- result set 5
                         SELECT Value, SystemId from dbo.System;
+
                         -- result set 6
                         SELECT Value, QuantityCodeId FROM dbo.QuantityCode";
 

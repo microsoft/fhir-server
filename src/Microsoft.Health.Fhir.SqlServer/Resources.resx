@@ -126,4 +126,7 @@
   <data name="SchemaVersionNeedsUpgrading" xml:space="preserve">
     <value>Search parameter status information should not be null.</value>
   </data>
+  <data name="SchemaVersionShouldNotBeNull" xml:space="preserve">
+    <value>The current schema version should not be null.</value>
+  </data>
 </root>
