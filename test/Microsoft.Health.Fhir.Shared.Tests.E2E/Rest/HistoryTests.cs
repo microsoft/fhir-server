@@ -5,12 +5,15 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -18,6 +21,7 @@ using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
+using Xunit.Sdk;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
@@ -80,19 +84,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public async Task GivenAValueForSince_WhenGettingSystemHistory_TheServerShouldReturnOnlyRecordsModifiedAfterSinceValue()
         {
-            var since = await GetStartTimeForHistoryTest();
+            var tag = Guid.NewGuid().ToString();
+
+            var since = await GetStartTimeForHistoryTest(tag);
             var sinceUriString = HttpUtility.UrlEncode(since.ToString("o"));
 
             Thread.Sleep(500);  // put a small gap between since and the first edits
             _createdResource.Resource.Text = new Narrative { Div = "<div>Changed by E2E test</div>" };
 
-            var tag = Guid.NewGuid().ToString();
-
             var updatedResource = await CreateResourceWithTag(_createdResource.Resource, tag);
 
             using FhirResponse<Bundle> readResponse = await _client.SearchAsync($"_history?_tag={tag}&_since={sinceUriString}");
 
-            Assert.Single(readResponse.Resource.Entry);
+            AssertCount(1, readResponse.Resource.Entry);
 
             var obsHistory = readResponse.Resource.Entry[0].Resource as Observation;
 
@@ -101,7 +105,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             using FhirResponse<Bundle> selfLinkResponse = await _client.SearchAsync(readResponse.Resource.SelfLink.ToString());
 
-            Assert.Single(selfLinkResponse.Resource.Entry);
+            AssertCount(1, selfLinkResponse.Resource.Entry);
 
             obsHistory = selfLinkResponse.Resource.Entry[0].Resource as Observation;
 
@@ -112,12 +116,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public async Task GivenAValueForSinceAndBeforeWithModifications_WhenGettingSystemHistory_TheServerShouldOnlyCorrectResources()
         {
-            var since = await GetStartTimeForHistoryTest();
+            var tag = Guid.NewGuid().ToString();
+
+            var since = await GetStartTimeForHistoryTest(tag);
 
             Thread.Sleep(500);  // put a small gap between since and the first edits
 
             _createdResource.Resource.Text = new Narrative { Div = "<div>Changed by E2E test</div>" };
-            var tag = Guid.NewGuid().ToString();
+
             await CreateResourceWithTag(_createdResource.Resource, tag);
             var newPatient = await CreateResourceWithTag(Samples.GetDefaultPatient().ToPoco(), tag);
 
@@ -129,7 +135,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             using FhirResponse<Bundle> readResponse = await _client.SearchAsync($"_history?_tag={tag}&_since={sinceUriString}&_before={beforeUriString}");
 
-            Assert.Equal(2, readResponse.Resource.Entry.Count);
+            AssertCount(2, readResponse.Resource.Entry);
 
             Patient patientHistory;
             var obsHistory = readResponse.Resource.Entry[0].Resource as Observation;
@@ -158,13 +164,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public async Task GivenAValueForSinceAndBeforeCloseToLastModifiedTime_WhenGettingSystemHistory_TheServerShouldNotMissRecords()
         {
-            var since = await GetStartTimeForHistoryTest();
+            var tag = Guid.NewGuid().ToString();
+
+            var since = await GetStartTimeForHistoryTest(tag);
 
             var newResources = new List<Resource>();
 
             // First make a few edits
             _createdResource.Resource.Text = new Narrative { Div = "<div>Changed by E2E test</div>" };
-            var tag = Guid.NewGuid().ToString();
             await CreateResourceWithTag(_createdResource.Resource, tag);
 
             newResources.Add(await CreateResourceWithTag(Samples.GetDefaultPatient().ToPoco(), tag));
@@ -180,7 +187,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // Query all the recent changes
             using FhirResponse<Bundle> allChanges = await _client.SearchAsync($"_history?_tag={tag}&_since=" + sinceUriString);
 
-            Assert.Equal(7, allChanges.Resource.Entry.Count);
+            AssertCount(7, allChanges.Resource.Entry);
 
             // now choose a value of before that is as close as possible to one of the last updated times
             var lastUpdatedTimes = allChanges.Resource.Entry.Select(e => e.Resource.Meta.LastUpdated).OrderBy(d => d.Value);
@@ -190,7 +197,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Thread.Sleep(500);
             var firstSet = await _client.SearchAsync($"_history?_tag={tag}&_since={sinceUriString}&_before={beforeUriString}");
 
-            Assert.Equal(4, firstSet.Resource.Entry.Count);
+            AssertCount(4, firstSet.Resource.Entry);
 
             sinceUriString = beforeUriString;
             before = DateTime.UtcNow;
@@ -198,7 +205,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Thread.Sleep(500); // wait 500 milliseconds to make sure that the value passed to the server for _before is not a time in the future
             var secondSet = await _client.SearchAsync($"_history?_tag={tag}&_since={sinceUriString}&_before={beforeUriString}");
 
-            Assert.Equal(3, secondSet.Resource.Entry.Count);
+            AssertCount(3, secondSet.Resource.Entry);
 
             foreach (var r in newResources)
             {
@@ -209,13 +216,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public async Task GivenAQueryThatReturnsMoreThan10Results_WhenGettingSystemHistory_TheServerShouldBatchTheResponse()
         {
-            var since = await GetStartTimeForHistoryTest();
+            var tag = Guid.NewGuid().ToString();
+            var since = await GetStartTimeForHistoryTest(tag);
 
             var newResources = new List<Resource>();
 
             // First make 11 edits
             _createdResource.Resource.Text = new Narrative { Div = "<div>Changed by E2E test</div>" };
-            var tag = Guid.NewGuid().ToString();
             await CreateResourceWithTag(_createdResource.Resource, tag);
             newResources.Add(await CreateResourceWithTag(Samples.GetDefaultPatient().ToPoco(), tag));
             newResources.Add(await CreateResourceWithTag(Samples.GetDefaultOrganization().ToPoco(), tag));
@@ -236,7 +243,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             using FhirResponse<Bundle> readResponse = await _client.SearchAsync($"_history?_tag={tag}&_since={sinceUriString}");
 
-            Assert.Equal(10, readResponse.Resource.Entry.Count);
+            AssertCount(10, readResponse.Resource.Entry);
 
             Thread.Sleep(500);
 
@@ -247,11 +254,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             using FhirResponse<Bundle> firstBatch = await _client.SearchAsync($"_history?_tag={tag}&_since={sinceUriString}&_before={beforeUriString}");
 
-            Assert.Equal(10, firstBatch.Resource.Entry.Count);
+            AssertCount(10, firstBatch.Resource.Entry);
 
             var secondBatch = await _client.SearchAsync(firstBatch.Resource.NextLink.ToString());
 
-            Assert.Single(secondBatch.Resource.Entry);
+            AssertCount(1, secondBatch.Resource.Entry);
 
             foreach (var r in newResources)
             {
@@ -267,7 +274,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var updatedResource = await CreateResourceWithTag(_createdResource.Resource, tag);
 
             // ensure that the server has fully processed the PUT
-            var since = await GetStartTimeForHistoryTest();
+            var since = await GetStartTimeForHistoryTest(tag);
 
             var sinceUriString = HttpUtility.UrlEncode(since.ToString("o"));
 
@@ -284,7 +291,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var updatedResource = await CreateResourceWithTag(_createdResource.Resource, tag);
 
             // ensure that the server has fully processed the PUT
-            var since = await GetStartTimeForHistoryTest();
+            var since = await GetStartTimeForHistoryTest(tag);
             var before = updatedResource.Meta.LastUpdated.Value.AddMilliseconds(100);
 
             Thread.Sleep(500);
@@ -319,7 +326,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Fact]
         public async Task GivenAValueForUnSupportedAt_WhenGettingSystemHistory_TheAtIsDroppedFromUrl()
         {
-            var at = await GetStartTimeForHistoryTest();
+            var tag = Guid.NewGuid().ToString();
+            var at = await GetStartTimeForHistoryTest(tag);
             var atUriString = HttpUtility.UrlEncode(at.ToString("o"));
 
             using FhirResponse<Bundle> readResponse = await _client.SearchAsync("_history?_at=" + atUriString);
@@ -335,9 +343,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         /// so we can start from clean start point
         /// </summary>
         /// <returns>DateIimeOffset set to a good value for _since</returns>
-        private async Task<DateTimeOffset> GetStartTimeForHistoryTest()
+        private async Task<DateTimeOffset> GetStartTimeForHistoryTest(string tag)
         {
-            using FhirResponse<Resource> response = await _client.CreateAsync(Samples.GetDefaultPatient().ToPoco());
+            Resource resource = Samples.GetDefaultPatient().ToPoco();
+            resource.Meta = new Meta();
+            resource.Meta.Tag.Add(new Coding(string.Empty, tag));
+            resource.Meta.Tag.Add(new Coding(string.Empty, "startTimeResource"));
+
+            using FhirResponse<Resource> response = await _client.CreateAsync(resource);
             await Task.Delay(10);
             return response.Resource.Meta.LastUpdated.Value.AddMilliseconds(1);
         }
@@ -348,6 +361,26 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             resource.Meta = new Meta();
             resource.Meta.Tag.Add(new Coding(string.Empty, tag));
             return await _client.CreateAsync(resource);
+        }
+
+        private void AssertCount<TBase>(int expected, ICollection<TBase> collection)
+            where TBase : Base
+        {
+            if (collection.Count == expected)
+            {
+                return;
+            }
+
+            var sb = new StringBuilder("Expected count to be ").Append(expected).Append(" but was ").Append(collection.Count).AppendLine(" . Contents:");
+            var fhirJsonSerializer = new FhirJsonSerializer(new SerializerSettings() { AppendNewLine = false, Pretty = false });
+            using var sw = new StringWriter(sb);
+
+            foreach (TBase element in collection)
+            {
+                sb.AppendLine(fhirJsonSerializer.SerializeToString(element));
+            }
+
+            throw new XunitException(sb.ToString());
         }
     }
 }
