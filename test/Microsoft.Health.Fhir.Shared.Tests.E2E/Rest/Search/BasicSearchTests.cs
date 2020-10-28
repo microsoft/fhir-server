@@ -178,10 +178,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             OperationOutcome.IssueSeverity[] expectedIssueSeverities = { OperationOutcome.IssueSeverity.Warning };
 
             Bundle bundle = await Client.SearchAsync("?_type=Patient1");
+            Assert.DoesNotContain(bundle.Link[0].Url, "Patient1");
             OperationOutcome outcome = GetOutcome(bundle);
             ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, outcome);
 
             bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient1"));
+            Assert.DoesNotContain(bundle.Link[0].Url, "Patient1");
             outcome = GetOutcome(bundle);
             ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, outcome);
 
@@ -205,11 +207,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             OperationOutcome.IssueSeverity[] expectedIssueSeverities = { OperationOutcome.IssueSeverity.Warning };
 
             Bundle bundle = await Client.SearchAsync("?_type=Patient,Patient1");
+            Assert.DoesNotContain(bundle.Link[0].Url, "Patient1");
             OperationOutcome outcome = GetOutcome(bundle);
             ValidateBundle(bundle, patients.AsEnumerable<Resource>().Append(outcome).ToArray());
             ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, outcome);
 
             bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient1,Patient"));
+            Assert.DoesNotContain(bundle.Link[0].Url, "Patient1");
             outcome = GetOutcome(bundle);
             ValidateBundle(bundle, patients.AsEnumerable<Resource>().Append(outcome).ToArray());
             ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, outcome);
