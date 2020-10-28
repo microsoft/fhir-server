@@ -96,7 +96,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var sessionMessageHandler = new SessionMessageHandler(innerHandler, _asyncLocalSessionTokenContainer);
 
-            var httpClient = new HttpClient(sessionMessageHandler) {BaseAddress = BaseAddress};
+            var httpClient = new HttpClient(sessionMessageHandler) { BaseAddress = BaseAddress };
 
             return new TestFhirClient(httpClient, this, format, clientApplication, user);
         }
