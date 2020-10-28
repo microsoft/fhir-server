@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         {
             EnsureArg.IsNotNullOrWhiteSpace(s, nameof(s));
 
-            return new StringSearchValue(s);
+            return new StringSearchValue(s.UnescapeSearchParameterValue());
         }
 
         /// <inheritdoc />

@@ -34,7 +34,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 p => SetPatientInfo(p, LongString, "Murphy"),
                 p => SetPatientInfo(p, "Montreal", "Richard", given: "Bea"),
                 p => SetPatientInfo(p, "New York", "Muller"),
-                p => SetPatientInfo(p, "Portland", "Müller"));
+                p => SetPatientInfo(p, "Portland", "Müller"),
+                p => SetPatientInfo(p, "Moscow", "Richard,Muller"));
 
             void SetPatientInfo(Patient patient, string city, string family, string given = null)
             {
