@@ -83,6 +83,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             {
                 var operationOutcome = new OperationOutcome
                 {
+                    Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,
                     Issue = new List<OperationOutcome.IssueComponent>(_fhirRequestContextAccessor.FhirRequestContext.BundleIssues.Select(x => x.ToPoco())),
                 };
 

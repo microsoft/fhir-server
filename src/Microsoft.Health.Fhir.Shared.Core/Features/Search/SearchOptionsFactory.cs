@@ -111,12 +111,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     {
                         _contextAccessor.FhirRequestContext.BundleIssues.Add(
                             new OperationOutcomeIssue(
-                                OperationOutcomeConstants.IssueSeverity.Information,
-                                OperationOutcomeConstants.IssueType.Informational,
-                                string.Format(Core.Resources.InvalidTypeParameter, string.Join(",", badTypes))));
+                                OperationOutcomeConstants.IssueSeverity.Warning,
+                                OperationOutcomeConstants.IssueType.NotSupported,
+                                string.Format(Core.Resources.InvalidTypeParameter, badTypes.Select(type => $"'{type}'").JoinByOrSeparator())));
                         if (badTypes.Count != types.Count)
                         {
-                            searchParams.Add(KnownQueryParameterNames.Type, string.Join(',', types.Except(badTypes)));
+                            searchParams.Add(KnownQueryParameterNames.Type, types.Except(badTypes).JoinByOrSeparator());
                             foreach (var badType in badTypes)
                             {
                                 unsupportedSearchParameters.Add(new Tuple<string, string>(KnownQueryParameterNames.Type, badType));

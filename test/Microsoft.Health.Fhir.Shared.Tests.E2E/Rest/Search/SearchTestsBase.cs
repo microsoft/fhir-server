@@ -117,7 +117,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 expectedResources.Select(er => new Action<Resource>(r => Assert.True(er.IsExactly(r)))).ToArray());
         }
 
-        protected void ValidateOperationOutcome(string[] expectedDiagnostics, IssueType[] expectedCodeTypes, OperationOutcome operationOutcome)
+        protected void ValidateOperationOutcome(string[] expectedDiagnostics, IssueSeverity[] expectedIsseSeverity, IssueType[] expectedCodeTypes, OperationOutcome operationOutcome)
         {
             Assert.NotNull(operationOutcome?.Id);
             Assert.NotEmpty(operationOutcome?.Issue);
@@ -128,7 +128,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             for (int iter = 0; iter < operationOutcome.Issue.Count; iter++)
             {
                 Assert.Equal(expectedCodeTypes[iter], operationOutcome.Issue[iter].Code);
-                Assert.Equal(OperationOutcome.IssueSeverity.Error, operationOutcome.Issue[iter].Severity);
+                Assert.Equal(expectedIsseSeverity[iter], operationOutcome.Issue[iter].Severity);
                 Assert.Equal(expectedDiagnostics[iter], operationOutcome.Issue[iter].Diagnostics);
             }
         }

@@ -1038,8 +1038,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
 
             string[] expectedDiagnostics = { string.Format(Core.Resources.RevIncludeIterateTargetTypeNotSpecified, "Patient:general-practitioner") };
+            IssueSeverity[] expectedIssueSeverities = { IssueSeverity.Error };
             IssueType[] expectedCodeTypes = { IssueType.Invalid };
-            ValidateOperationOutcome(expectedDiagnostics, expectedCodeTypes, fhirException.OperationOutcome);
+            ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, fhirException.OperationOutcome);
         }
 
         [Fact]

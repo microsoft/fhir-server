@@ -20,6 +20,7 @@ using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Api.Features.Routing
@@ -207,9 +208,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                     {
                         // 3. The parameter is not supported.
                         IEnumerable<string> removedValues = searchParamsToRemove[searchParam.Key];
-
                         StringValues usedValues = removedValues.Any()
-                            ? new StringValues(searchParam.Value.Except(removedValues).ToArray())
+                            ? new StringValues(searchParam.Value.Select(x => x.SplitByOrSeparator().Except(removedValues).JoinByOrSeparator()).ToArray())
                             : searchParam.Value;
 
                         if (usedValues.Any())

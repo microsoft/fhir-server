@@ -171,6 +171,61 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenInvalidTypeOfResources_WhenSearchingAcrossAllResourceTypes_ThenSearchHasProperOutcome()
+        {
+            string[] expectedDiagnostics = { string.Format(Core.Resources.InvalidTypeParameter, "'Patient1'") };
+            OperationOutcome.IssueType[] expectedCodeTypes = { OperationOutcome.IssueType.NotSupported };
+            OperationOutcome.IssueSeverity[] expectedIssueSeverities = { OperationOutcome.IssueSeverity.Warning };
+
+            Bundle bundle = await Client.SearchAsync("?_type=Patient1");
+            OperationOutcome outcome = GetOutcome(bundle);
+            ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, outcome);
+
+            bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient1"));
+            outcome = GetOutcome(bundle);
+            ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, outcome);
+
+            static OperationOutcome GetOutcome(Bundle bundle)
+            {
+                var outcomeEnity = bundle.Entry.Where(x => x.Resource.ResourceType == ResourceType.OperationOutcome).FirstOrDefault();
+                Assert.NotNull(outcomeEnity);
+                var outcome = outcomeEnity.Resource as OperationOutcome;
+                Assert.NotNull(outcome);
+                return outcome;
+            }
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenSomeInvalidTypeOfResources_WhenSearchingAcrossAllResourceTypes_ThenSearchHasProperOutcome()
+        {
+            Patient[] patients = await Client.CreateResourcesAsync<Patient>(3);
+            string[] expectedDiagnostics = { string.Format(Core.Resources.InvalidTypeParameter, "'Patient1'") };
+            OperationOutcome.IssueType[] expectedCodeTypes = { OperationOutcome.IssueType.NotSupported };
+            OperationOutcome.IssueSeverity[] expectedIssueSeverities = { OperationOutcome.IssueSeverity.Warning };
+
+            Bundle bundle = await Client.SearchAsync("?_type=Patient,Patient1");
+            OperationOutcome outcome = GetOutcome(bundle);
+            ValidateBundle(bundle, patients.AsEnumerable<Resource>().Append(outcome).ToArray());
+            ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, outcome);
+
+            bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient1,Patient"));
+            outcome = GetOutcome(bundle);
+            ValidateBundle(bundle, patients.AsEnumerable<Resource>().Append(outcome).ToArray());
+            ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, outcome);
+
+            static OperationOutcome GetOutcome(Bundle bundle)
+            {
+                var outcomeEnity = bundle.Entry.Where(x => x.Resource.ResourceType == ResourceType.OperationOutcome).FirstOrDefault();
+                Assert.NotNull(outcomeEnity);
+                var outcome = outcomeEnity.Resource as OperationOutcome;
+                Assert.NotNull(outcome);
+                return outcome;
+            }
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
         public async Task GivenResources_WhenSearchedWithCount_ThenNumberOfResourcesReturnedShouldNotExceedCount()
         {
             const int numberOfResources = 5;
@@ -541,14 +596,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             var code = Guid.NewGuid().ToString();
             NamingSystem library = await Client.CreateAsync(new NamingSystem
-                {
-                    Name = "test",
-                    Status = PublicationStatus.Draft,
-                    Kind = NamingSystem.NamingSystemType.Codesystem,
-                    Date = "2019",
-                    UniqueId = new List<NamingSystem.UniqueIdComponent> { new NamingSystem.UniqueIdComponent { Type = NamingSystem.NamingSystemIdentifierType.Uri, Value = "https://localhost" } },
-                    Type = new CodeableConcept("https://localhost/", code),
-                });
+            {
+                Name = "test",
+                Status = PublicationStatus.Draft,
+                Kind = NamingSystem.NamingSystemType.Codesystem,
+                Date = "2019",
+                UniqueId = new List<NamingSystem.UniqueIdComponent> { new NamingSystem.UniqueIdComponent { Type = NamingSystem.NamingSystemIdentifierType.Uri, Value = "https://localhost" } },
+                Type = new CodeableConcept("https://localhost/", code),
+            });
 
             await ExecuteAndValidateBundle($"NamingSystem?type={code}", library);
         }
