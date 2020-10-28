@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         public async Task InitializeAsync()
         {
-            _createdResource = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
+            _createdResource = await _client.CreateByUpdateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
         }
 
         public async Task DisposeAsync()
@@ -247,8 +247,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             Thread.Sleep(500);
 
-            newResources.Add(await _client.CreateAsync(Samples.GetJsonSample("ObservationWithBloodPressure").ToPoco()));
-            newResources.Add(await _client.CreateAsync(Samples.GetJsonSample("ObservationWithEyeColor").ToPoco()));
+            newResources.Add(await _client.CreateByUpdateAsync(Samples.GetJsonSample("ObservationWithBloodPressure").ToPoco()));
+            newResources.Add(await _client.CreateByUpdateAsync(Samples.GetJsonSample("ObservationWithEyeColor").ToPoco()));
 
             Thread.Sleep(500);
 
@@ -296,7 +296,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             Thread.Sleep(500);
 
-            var newPatient = await _client.CreateAsync(Samples.GetDefaultPatient().ToPoco());
+            var newPatient = await _client.CreateByUpdateAsync(Samples.GetDefaultPatient().ToPoco());
 
             Assert.True(before < newPatient.Resource.Meta.LastUpdated.Value);
 
@@ -350,7 +350,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             resource.Meta.Tag.Add(new Coding(string.Empty, tag));
             resource.Meta.Tag.Add(new Coding(string.Empty, "startTimeResource"));
 
-            using FhirResponse<Resource> response = await _client.CreateAsync(resource);
+            using FhirResponse<Resource> response = await _client.CreateByUpdateAsync(resource);
             await Task.Delay(10);
             return response.Resource.Meta.LastUpdated.Value.AddMilliseconds(1);
         }
@@ -360,7 +360,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             resource.Meta = new Meta();
             resource.Meta.Tag.Add(new Coding(string.Empty, tag));
-            return await _client.CreateAsync(resource);
+            return await _client.CreateByUpdateAsync(resource);
         }
 
         private void AssertCount<TBase>(int expected, ICollection<TBase> collection)

@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Task = System.Threading.Tasks.Task;
@@ -69,6 +70,19 @@ namespace Microsoft.Health.Fhir.Client
             }
 
             return resources;
+        }
+
+        /// <summary>
+        /// Performs a create by calling <see cref="FhirClient.UpdateAsync{T}(T,string,System.Threading.CancellationToken)"/>, by assigning a new GUID to the Id property.
+        /// This is sometimes desirable over calling <see cref="FhirClient.CreateAsync{T}(T,string,System.Threading.CancellationToken)"/> when you want to be sure that at most
+        /// one resource is created, even if the call has to be issued multiple times.
+        /// </summary>
+        public static Task<FhirResponse<T>> CreateByUpdateAsync<T>(this FhirClient client, T resource, CancellationToken cancellationToken = default)
+            where T : Resource
+        {
+            resource.Id = Guid.NewGuid().ToString();
+
+            return client.UpdateAsync(resource, cancellationToken: cancellationToken);
         }
     }
 }
