@@ -8,6 +8,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
 using System.Threading;
@@ -24,6 +25,7 @@ using Polly.Retry;
 using Task = System.Threading.Tasks.Task;
 #if !R5
 using RestfulCapabilityMode = Hl7.Fhir.Model.CapabilityStatement.RestfulCapabilityMode;
+
 #endif
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
@@ -94,7 +96,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var sessionMessageHandler = new SessionMessageHandler(innerHandler, _asyncLocalSessionTokenContainer);
 
-            var httpClient = new HttpClient(sessionMessageHandler) { BaseAddress = BaseAddress };
+            var httpClient = new HttpClient(sessionMessageHandler) {BaseAddress = BaseAddress};
 
             return new TestFhirClient(httpClient, this, format, clientApplication, user);
         }
@@ -219,7 +221,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         private class SessionMessageHandler : DelegatingHandler
         {
             private readonly AsyncLocal<SessionTokenContainer> _asyncLocalSessionTokenContainer;
-            private readonly AsyncRetryPolicy _polly;
+            private readonly AsyncRetryPolicy<HttpResponseMessage> _polly;
 
             public SessionMessageHandler(HttpMessageHandler innerHandler, AsyncLocal<SessionTokenContainer> asyncLocalSessionTokenContainer)
                 : base(innerHandler)
@@ -227,14 +229,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 _asyncLocalSessionTokenContainer = asyncLocalSessionTokenContainer;
                 EnsureArg.IsNotNull(asyncLocalSessionTokenContainer, nameof(asyncLocalSessionTokenContainer));
                 _polly = Policy.Handle<HttpRequestException>(x =>
-                {
-                    if (x.InnerException is IOException || x.InnerException is SocketException)
                     {
-                        return true;
-                    }
+                        if (x.InnerException is IOException || x.InnerException is SocketException)
+                        {
+                            return true;
+                        }
 
-                    return false;
-                }).WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
+                        return false;
+                    })
+                    .OrResult<HttpResponseMessage>(message => (int)message.StatusCode == 429)
+                    .WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
             }
 
             protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
