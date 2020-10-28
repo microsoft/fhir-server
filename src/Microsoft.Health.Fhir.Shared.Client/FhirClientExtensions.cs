@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Linq;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Task = System.Threading.Tasks.Task;
@@ -20,14 +19,10 @@ namespace Microsoft.Health.Fhir.Client
 
         public static async Task DeleteAllResources(this FhirClient client, ResourceType resourceType, string searchUrl)
         {
-            while (true)
+            Bundle bundle = null;
+            while (bundle == null || bundle.NextLink != null)
             {
-                Bundle bundle = await client.SearchAsync(resourceType, searchUrl, count: 100);
-
-                if (!bundle.Entry.Any())
-                {
-                    break;
-                }
+                bundle = bundle == null ? await client.SearchAsync(resourceType, searchUrl, count: 100) : await client.SearchAsync(bundle.NextLink.ToString());
 
                 foreach (Bundle.EntryComponent entry in bundle.Entry)
                 {
@@ -37,7 +32,7 @@ namespace Microsoft.Health.Fhir.Client
         }
 
         public static async Task<TResource[]> CreateResourcesAsync<TResource>(this FhirClient client, int count)
-           where TResource : Resource, new()
+            where TResource : Resource, new()
         {
             TResource[] resources = new TResource[count];
 
