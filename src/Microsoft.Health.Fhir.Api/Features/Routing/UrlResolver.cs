@@ -209,7 +209,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                         // 3. The parameter is not supported.
                         IEnumerable<string> removedValues = searchParamsToRemove[searchParam.Key];
                         StringValues usedValues = removedValues.Any()
-                            ? new StringValues(searchParam.Value.Select(x => x.SplitByOrSeparator().Except(removedValues).JoinByOrSeparator()).ToArray())
+                            ? new StringValues(
+                                searchParam.Value.Select(x => x.SplitByOrSeparator().Except(removedValues).JoinByOrSeparator())
+                                .Where(x => !string.IsNullOrEmpty(x))
+                                .ToArray())
                             : searchParam.Value;
 
                         if (usedValues.Any())
