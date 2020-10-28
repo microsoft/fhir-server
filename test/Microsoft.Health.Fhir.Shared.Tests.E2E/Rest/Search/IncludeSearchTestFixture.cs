@@ -34,15 +34,15 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
             Organization = TestFhirClient.CreateAsync(new Organization { Meta = meta, Address = new List<Address> { new Address { City = "Seattle" } } }).Result.Resource;
             Practitioner = TestFhirClient.CreateAsync(new Practitioner { Meta = meta }).Result.Resource;
 
-            AdamsPatient = TestFhirClient.CreateAsync(new Patient { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Adams" } } }).Result.Resource;
-            SmithPatient = TestFhirClient.CreateAsync(new Patient { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Smith" } }, ManagingOrganization = new ResourceReference($"Organization/{Organization.Id}") }).Result.Resource;
-            TrumanPatient = TestFhirClient.CreateAsync(new Patient { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Truman" } } }).Result.Resource;
+            AdamsPatient = TestFhirClient.CreateAsync(new Patient { Meta = meta, BirthDate = "1974-12-25", Name = new List<HumanName> { new HumanName { Family = "Adams" } } }).Result.Resource;
+            SmithPatient = TestFhirClient.CreateAsync(new Patient { Meta = meta, BirthDate = "1981-07-02", Name = new List<HumanName> { new HumanName { Family = "Smith" } }, ManagingOrganization = new ResourceReference($"Organization/{Organization.Id}") }).Result.Resource;
+            TrumanPatient = TestFhirClient.CreateAsync(new Patient { Meta = meta, BirthDate = "1941-01-15", Name = new List<HumanName> { new HumanName { Family = "Truman" } } }).Result.Resource;
 
-            AdamsLoincObservation = CreateObservation(AdamsPatient, loincCode);
-            SmithLoincObservation = CreateObservation(SmithPatient, loincCode);
-            SmithSnomedObservation = CreateObservation(SmithPatient, snomedCode);
-            TrumanLoincObservation = CreateObservation(TrumanPatient, loincCode);
-            TrumanSnomedObservation = CreateObservation(TrumanPatient, snomedCode);
+            AdamsLoincObservation = CreateObservation(AdamsPatient, loincCode, "1990-06-12");
+            SmithLoincObservation = CreateObservation(SmithPatient, loincCode, "2008-04-10");
+            SmithSnomedObservation = CreateObservation(SmithPatient, snomedCode, "1977-09-01");
+            TrumanLoincObservation = CreateObservation(TrumanPatient, loincCode, "2018-11-09");
+            TrumanSnomedObservation = CreateObservation(TrumanPatient, snomedCode, "1980-03-17");
 
             SmithSnomedDiagnosticReport = CreateDiagnosticReport(SmithPatient, SmithSnomedObservation, snomedCode);
             TrumanSnomedDiagnosticReport = CreateDiagnosticReport(TrumanPatient, TrumanSnomedObservation, snomedCode);
@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
                     }).Result.Resource;
             }
 
-            Observation CreateObservation(Patient patient, CodeableConcept code)
+            Observation CreateObservation(Patient patient, CodeableConcept code, string effectiveDate)
             {
                 return TestFhirClient.CreateAsync(
                     new Observation()
@@ -96,6 +96,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
                             new ResourceReference($"Organization/{Organization.Id}"),
                             new ResourceReference($"Practitioner/{Practitioner.Id}"),
                         },
+                        Effective = new FhirDateTime(effectiveDate),
                     }).Result.Resource;
             }
         }

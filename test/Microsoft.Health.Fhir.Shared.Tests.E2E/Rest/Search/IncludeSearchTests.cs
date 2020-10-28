@@ -5,9 +5,9 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Web;
 using Hl7.Fhir.Model;
-using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Xunit;
@@ -449,6 +449,84 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.AdamsPatient);
 
             ValidateSearchEntryMode(bundle, ResourceType.Patient);
+        }
+
+        [Fact]
+        public async Task GivenRevincludeSearchExpression_WhenSearchedAndSortedByLastUpdated_ThenCorrectBundleShouldBeReturned()
+        {
+            // looking for an appointment referencing a Patient, however this kind of reference was
+            // not created in this fixture.
+            string query = $"_sort=_lastUpdated&_tag={Fixture.Tag}&_revinclude=Observation:subject";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
+
+            ValidateBundle(
+                bundle,
+                Fixture.TrumanPatient,
+                Fixture.AdamsPatient,
+                Fixture.SmithPatient,
+                Fixture.AdamsLoincObservation,
+                Fixture.SmithLoincObservation,
+                Fixture.SmithSnomedObservation,
+                Fixture.TrumanLoincObservation,
+                Fixture.TrumanSnomedObservation);
+
+            ValidateSearchEntryMode(bundle, ResourceType.Patient);
+
+            var rids = bundle.Entry.Where(x => x.Resource.ResourceType == ResourceType.Patient).Select(x => x.Resource.Id).ToList();
+            Assert.Equal(rids.OrderBy(x => x).ToList(), rids);
+        }
+
+        [Fact]
+        public async Task GivenRevincludeSearchExpression_WhenSearchedAndSortedByDate_ThenCorrectBundleWithOnlyMatchesShouldBeReturned()
+        {
+            // looking for an appointment referencing a Patient, however this kind of reference was
+            // not created in this fixture.
+            string query = $"_sort=birthdate&_tag={Fixture.Tag}&_revinclude=Observation:subject";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
+
+            ValidateBundle(
+                bundle,
+                Fixture.TrumanPatient,
+                Fixture.AdamsPatient,
+                Fixture.SmithPatient,
+                Fixture.AdamsLoincObservation,
+                Fixture.SmithLoincObservation,
+                Fixture.SmithSnomedObservation,
+                Fixture.TrumanLoincObservation,
+                Fixture.TrumanSnomedObservation);
+
+            ValidateSearchEntryMode(bundle, ResourceType.Patient);
+
+            var dateList = bundle.Entry.Where(x => x.Resource.ResourceType == ResourceType.Patient).Select(x => DateTime.ParseExact(((Patient)x.Resource).BirthDate, "yyyy-MM-dd", null)).ToList();
+            Assert.Equal(dateList.OrderBy(x => x).ToList(), dateList);
+        }
+
+        [Fact]
+        public async Task GivenIncludeSearchExpression_WhenSearchedAndSortedByDate_ThenCorrectBundleShouldBeReturned()
+        {
+            // looking for an appointment referencing a Patient, however this kind of reference was
+            // not created in this fixture.
+            string query = $"_sort=date&_tag={Fixture.Tag}&_include=Observation:subject";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.Observation, query);
+
+            ValidateBundle(
+                bundle,
+                Fixture.TrumanPatient,
+                Fixture.AdamsPatient,
+                Fixture.SmithPatient,
+                Fixture.AdamsLoincObservation,
+                Fixture.SmithLoincObservation,
+                Fixture.SmithSnomedObservation,
+                Fixture.TrumanLoincObservation,
+                Fixture.TrumanSnomedObservation);
+
+            ValidateSearchEntryMode(bundle, ResourceType.Observation);
+
+            var dateList = bundle.Entry.Where(x => x.Resource.ResourceType == ResourceType.Observation).Select(x => DateTime.ParseExact(((FhirDateTime)((Observation)x.Resource).Effective).Value, "yyyy-MM-dd", null)).ToList();
+            Assert.Equal(dateList.OrderBy(x => x).ToList(), dateList);
         }
 
         private static void ValidateSearchEntryMode(Bundle bundle, ResourceType matchResourceType)
