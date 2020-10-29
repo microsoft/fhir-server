@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
     public class DataConvertConfiguration
     {
         /// <summary>
-        /// Determines whether dataConvert is enbaled or not.
+        /// Determines whether dataConvert is enabled or not.
         /// </summary>
         public bool Enabled { get; set; }
 
@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public TimeSpan ContainerRegistryTokenExpiration { get; set; } = TimeSpan.FromMinutes(30);
 
         /// <summary>
-        /// Determines timeout for convert execution to terminate long running evil templates.
+        /// Determines timeout for convert execution to terminate long running templates.
         /// </summary>
         public TimeSpan ProcessTimeoutThreshold { get; set; } = TimeSpan.FromSeconds(30);
     }

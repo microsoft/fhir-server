@@ -29,9 +29,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.DataConvert
             IDataConvertEngine dataConvertEngine,
             IOptions<DataConvertConfiguration> dataConvertConfiguration)
         {
-            EnsureArg.IsNotNull(authorizationService);
-            EnsureArg.IsNotNull(dataConvertEngine);
-            EnsureArg.IsNotNull(dataConvertConfiguration);
+            EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
+            EnsureArg.IsNotNull(dataConvertEngine, nameof(dataConvertEngine));
+            EnsureArg.IsNotNull(dataConvertConfiguration, nameof(dataConvertConfiguration));
 
             _authorizationService = authorizationService;
             _dataConvertEngine = dataConvertEngine;
@@ -47,17 +47,30 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.DataConvert
                 throw new UnauthorizedFhirActionException();
             }
 
-            var dataConvertTask = _dataConvertEngine.Process(request);
-            return await ExecuteWithTimeout(dataConvertTask, _dataConvertConfiguration.ProcessTimeoutThreshold, cancellationToken);
+            return await ExecuteWithTimeoutAync(cancellationToken => _dataConvertEngine.Process(request, cancellationToken), _dataConvertConfiguration.ProcessTimeoutThreshold, cancellationToken);
         }
 
-        private async Task<TResult> ExecuteWithTimeout<TResult>(Task<TResult> runTask, TimeSpan timeout, CancellationToken cancellationToken)
+        /// <summary>
+        /// This task can either be cancelled due to external cancellation or timeout.
+        /// </summary>
+        /// <typeparam name="TResult">Type of return value</typeparam>
+        /// <param name="runTaskFactory">Task factory to get task</param>
+        /// <param name="timeout">Time out span</param>
+        /// <param name="cancellationToken">External cancellation token</param>
+        /// <returns>The result of run task</returns>
+        private async Task<TResult> ExecuteWithTimeoutAync<TResult>(
+            Func<CancellationToken, Task<TResult>> runTaskFactory,
+            TimeSpan timeout,
+            CancellationToken cancellationToken)
         {
             using (var timeoutCancellation = new CancellationTokenSource())
             using (var combinedCancellation = CancellationTokenSource
                 .CreateLinkedTokenSource(cancellationToken, timeoutCancellation.Token))
             {
-                var completedTask = await Task.WhenAny(runTask, Task.Delay(timeout, cancellationToken));
+                var runTask = runTaskFactory(combinedCancellation.Token);
+                var completedTask = await Task.WhenAny(runTask, Task.Delay(timeout, timeoutCancellation.Token));
+
+                // Cancel the task which is still running.
                 timeoutCancellation.Cancel();
                 if (completedTask == runTask)
                 {

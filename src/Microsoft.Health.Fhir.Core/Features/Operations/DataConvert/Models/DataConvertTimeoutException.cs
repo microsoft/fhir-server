@@ -11,10 +11,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.DataConvert.Models
 {
     public class DataConvertTimeoutException : FhirException
     {
-        public DataConvertTimeoutException()
-        {
-        }
-
         public DataConvertTimeoutException(string message)
             : base(message)
         {
