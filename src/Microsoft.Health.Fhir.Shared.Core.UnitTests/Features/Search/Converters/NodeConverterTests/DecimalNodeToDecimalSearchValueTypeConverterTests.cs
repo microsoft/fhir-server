@@ -7,23 +7,24 @@ using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Xunit;
 using static Microsoft.Health.Fhir.Tests.Common.Search.SearchValueValidationHelper;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
 {
     public class DecimalNodeToDecimalSearchValueTypeConverterTests : FhirNodeToSearchValueTypeConverterTests<DecimalNodeToNumberSearchValueTypeConverter, FhirDecimal>
     {
         [Fact]
-        public void GivenAFhirDecimalWithNoValue_WhenConverted_ThenNoSearchValueShouldBeCreated()
+        public async Task GivenAFhirDecimalWithNoValue_WhenConverted_ThenNoSearchValueShouldBeCreated()
         {
-            Test(d => d.Value = null);
+            await Test(d => d.Value = null);
         }
 
         [Fact]
-        public void GivenAFhirDecimalWithValue_WhenConverted_ThenASearchValueShouldBeCreated()
+        public async Task GivenAFhirDecimalWithValue_WhenConverted_ThenASearchValueShouldBeCreated()
         {
             const decimal value = 190.5m;
 
-            Test(
+            await Test(
                 d => d.Value = value,
                 ValidateNumber,
                 value);

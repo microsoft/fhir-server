@@ -7,23 +7,24 @@ using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Xunit;
 using static Microsoft.Health.Fhir.Tests.Common.Search.SearchValueValidationHelper;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
 {
     public class OidNodeToUriSearchValueTypeConverterTests : FhirNodeToSearchValueTypeConverterTests<OidNodeToUriSearchValueTypeConverter, Oid>
     {
         [Fact]
-        public void GivenAOidWithNoValue_WhenConverted_ThenNoSearchValueShouldBeCreated()
+        public async Task GivenAOidWithNoValue_WhenConverted_ThenNoSearchValueShouldBeCreated()
         {
-            Test(oid => oid.Value = null);
+            await Test(oid => oid.Value = null);
         }
 
         [Fact]
-        public void GivenAOidWithValue_WhenConverted_ThenAUriSearchValueShouldBeCreated()
+        public async Task GivenAOidWithValue_WhenConverted_ThenAUriSearchValueShouldBeCreated()
         {
             const string id = "1.3.6.1.4.1.343";
 
-            Test(
+            await Test(
                 oid => oid.Value = id,
                 ValidateUri,
                 id);

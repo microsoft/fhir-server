@@ -8,7 +8,6 @@ using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -21,26 +20,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 {
     public class CreateReindexRequestHandler : IRequestHandler<CreateReindexRequest, CreateReindexResponse>
     {
-        private readonly IClaimsExtractor _claimsExtractor;
         private readonly IFhirOperationDataStore _fhirOperationDataStore;
         private readonly IFhirAuthorizationService _authorizationService;
         private readonly ReindexJobConfiguration _reindexJobConfiguration;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
 
         public CreateReindexRequestHandler(
-            IClaimsExtractor claimsExtractor,
             IFhirOperationDataStore fhirOperationDataStore,
             IFhirAuthorizationService authorizationService,
             IOptions<ReindexJobConfiguration> reindexJobConfiguration,
             ISearchParameterDefinitionManager searchParameterDefinitionManager)
         {
-            EnsureArg.IsNotNull(claimsExtractor, nameof(claimsExtractor));
             EnsureArg.IsNotNull(fhirOperationDataStore, nameof(fhirOperationDataStore));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsNotNull(reindexJobConfiguration, nameof(reindexJobConfiguration));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
 
-            _claimsExtractor = claimsExtractor;
             _fhirOperationDataStore = fhirOperationDataStore;
             _authorizationService = authorizationService;
             _reindexJobConfiguration = reindexJobConfiguration.Value;
@@ -64,7 +59,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             var jobRecord = new ReindexJobRecord(
                 _searchParameterDefinitionManager.SearchParameterHashMap,
                 request.MaximumConcurrency ?? _reindexJobConfiguration.DefaultMaximumThreadsPerReindexJob,
-                request.Scope,
                 _reindexJobConfiguration.MaximumNumberOfResourcesPerQuery);
             var outcome = await _fhirOperationDataStore.CreateReindexJobAsync(jobRecord, cancellationToken);
 

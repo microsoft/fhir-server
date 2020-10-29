@@ -9,10 +9,12 @@ using System.Globalization;
 using System.Linq;
 using System.Net;
 using Hl7.Fhir.ElementModel;
+using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
@@ -22,14 +24,20 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
-    public class BasicSearchTests : SearchTestsBase<HttpIntegrationTestFixture>
+    public class BasicSearchTests : SearchTestsBase<HttpIntegrationTestFixture>, IAsyncLifetime
     {
         public BasicSearchTests(HttpIntegrationTestFixture fixture)
             : base(fixture)
         {
-            // Delete all patients before starting the test.
-            Client.DeleteAllResources(ResourceType.Patient).Wait();
         }
+
+        public async Task InitializeAsync()
+        {
+            // Delete all patients before starting the test.
+            await Client.DeleteAllResources(ResourceType.Patient);
+        }
+
+        public Task DisposeAsync() => Task.CompletedTask;
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
@@ -161,7 +169,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(bundle, "_search");
         }
 
-        [Fact(Skip = "Failing CI build")]
+        [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenResources_WhenSearchedWithCount_ThenNumberOfResourcesReturnedShouldNotExceedCount()
         {
@@ -169,12 +177,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             const int count = 2;
 
             // Create the resources
-            Patient[] patients = await Client.CreateResourcesAsync<Patient>(numberOfResources);
+            var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
+
+            Patient patient = Samples.GetDefaultPatient().ToPoco<Patient>();
+            var patients = new Patient[numberOfResources];
+
+            for (int i = 0; i < numberOfResources; i++)
+            {
+                patient.Meta = new Meta();
+                patient.Meta.Tag.Add(tag);
+
+                FhirResponse<Patient> createdPatient = await Client.CreateAsync(patient);
+                patients[i] = createdPatient.Resource;
+            }
 
             Bundle results = new Bundle();
 
             // Search with count = 2, which should results in 5 pages.
-            string url = $"Patient?_count={count}";
+            string url = $"Patient?_count={count}&_tag={tag.Code}";
             string baseUrl = Fixture.GenerateFullUrl(url);
 
             int loop = 1;
@@ -531,6 +551,33 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 });
 
             await ExecuteAndValidateBundle($"NamingSystem?type={code}", library);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenASearchRequest_WhenExceedingMaxCount_ThenAnOperationOutcomeWarningIsReturnedInTheBundle()
+        {
+            Bundle bundle = await Client.SearchAsync("?_count=" + int.MaxValue);
+
+            Assert.Equal(KnownResourceTypes.OperationOutcome, bundle.Entry.First().Resource.TypeName);
+            Assert.Contains("exceeds limit", (string)bundle.Scalar("entry.resource.issue.diagnostics"));
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenASearchRequest_WhenExceedingMaxCount_ThenResourcesAreSerializedInBundle()
+        {
+            var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
+
+            Patient patient = Samples.GetDefaultPatient().ToPoco<Patient>();
+            patient.Meta = new Meta();
+            patient.Meta.Tag.Add(tag);
+            await Client.CreateAsync(patient);
+
+            Bundle bundle = await Client.SearchAsync($"Patient?_tag={tag.Code}&_count=" + int.MaxValue);
+
+            Assert.Equal(KnownResourceTypes.OperationOutcome, bundle.Entry.First().Resource.TypeName);
+            Assert.NotNull(bundle.Entry.Skip(1).First().Resource);
         }
     }
 }

@@ -7,25 +7,26 @@ using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Xunit;
 using static Microsoft.Health.Fhir.Tests.Common.Search.SearchValueValidationHelper;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
 {
     public class QuantityNodeToQuantitySearchValueTypeConverterTests : FhirNodeToSearchValueTypeConverterTests<QuantityNodeToQuantitySearchValueTypeConverter, Quantity>
     {
         [Fact]
-        public void GivenAQuantityWithNoValue_WhenConverted_ThenNoSearchValueShouldBeCreated()
+        public async Task GivenAQuantityWithNoValue_WhenConverted_ThenNoSearchValueShouldBeCreated()
         {
-            Test(q => q.Value = null);
+            await Test(q => q.Value = null);
         }
 
         [Fact]
-        public void GivenAQuantityWithValue_WhenConverted_ThenAQuantityValueShouldBeCreated()
+        public async Task GivenAQuantityWithValue_WhenConverted_ThenAQuantityValueShouldBeCreated()
         {
             const string system = "qs";
             const string code = "qc";
             const decimal value = 100.123456m;
 
-            Test(
+            await Test(
                 q =>
                 {
                     q.System = system;
@@ -37,13 +38,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
         }
 
         [Fact]
-        public void GivenASimpleQuantityWithValue_WhenConverted_ThenASimpleQuantityValueShouldBeCreated()
+        public async Task GivenASimpleQuantityWithValue_WhenConverted_ThenASimpleQuantityValueShouldBeCreated()
         {
             const string system = "s";
             const string code = "g";
             const decimal value = 0.123m;
 
-            Test(
+            await Test(
                 sq =>
                 {
                     sq.System = system;

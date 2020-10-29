@@ -39,6 +39,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         /// While on a RawResource resulting from a create, the version should be correct and isMetaSet would be true.
         /// </summary>
         [JsonProperty("isMetaSet")]
-        public bool IsMetaSet { get; protected set; }
+        public bool IsMetaSet { get; set; }
     }
 }
