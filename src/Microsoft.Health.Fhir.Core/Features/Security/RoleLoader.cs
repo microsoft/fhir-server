@@ -6,9 +6,10 @@
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Newtonsoft.Json;
@@ -26,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
     /// behavior when multiple config providers set array elements can
     /// lead to unexpected results)
     /// </summary>
-    public class RoleLoader : IStartable
+    public class RoleLoader : IHostedService
     {
         private readonly AuthorizationConfiguration _authorizationConfiguration;
         private readonly IHostEnvironment _hostEnvironment;
@@ -43,7 +44,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
             _fileProvider = hostEnvironment.ContentRootFileProvider;
         }
 
-        public void Start()
+        public Task StartAsync(CancellationToken cancellationToken)
         {
             using Stream schemaContents = GetType().Assembly.GetManifestResourceStream(GetType(), "roles.schema.json");
 
@@ -73,7 +74,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Security
                         string.Format(CultureInfo.CurrentCulture, Resources.DuplicateRoleNames, grouping.Count(), grouping.Key));
                 }
             }
+
+            return Task.CompletedTask;
         }
+
+        public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
         private Role RoleContractToRole(RoleContract roleContract)
         {

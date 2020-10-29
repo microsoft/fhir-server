@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             optionsMonitor.Get(CosmosDb.Constants.CollectionConfigurationName).Returns(_cosmosCollectionConfiguration);
 
             var searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance);
-            searchParameterDefinitionManager.Start();
+            await searchParameterDefinitionManager.StartAsync(CancellationToken.None);
 
             _filebasedSearchParameterStatusDataStore = new FilebasedSearchParameterStatusDataStore(searchParameterDefinitionManager, ModelInfoProvider.Instance);
 

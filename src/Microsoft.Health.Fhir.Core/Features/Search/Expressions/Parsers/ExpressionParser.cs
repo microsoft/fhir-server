@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             return ParseImpl(resourceType, key.AsSpan(), value);
         }
 
-        public IncludeExpression ParseInclude(string resourceType, string includeValue, bool isReversed)
+        public IncludeExpression ParseInclude(string resourceType, string includeValue, bool isReversed, bool iterate)
         {
             var valueSpan = includeValue.AsSpan();
             if (!TrySplit(SearchSplitChar, ref valueSpan, out ReadOnlySpan<char> originalType))
@@ -79,6 +79,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             }
 
             SearchParameterInfo refSearchParameter;
+            List<string> referencedTypes = null;
             bool wildCard = false;
             string targetType = null;
 
@@ -101,7 +102,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(originalType.ToString(), searchParam.ToString());
             }
 
-            return new IncludeExpression(resourceType, refSearchParameter, originalType.ToString(), targetType, wildCard, isReversed);
+            if (wildCard)
+            {
+                referencedTypes = new List<string>();
+                var searchParameters = _searchParameterDefinitionManager.GetSearchParameters(resourceType)
+                    .Where(p => p.Type == ValueSets.SearchParamType.Reference);
+
+                foreach (var p in searchParameters)
+                {
+                    foreach (var t in p.TargetResourceTypes)
+                    {
+                        if (!referencedTypes.Contains(t))
+                        {
+                            referencedTypes.Add(t);
+                        }
+                    }
+                }
+            }
+
+            return new IncludeExpression(resourceType, refSearchParameter, originalType.ToString(), targetType, referencedTypes, wildCard, isReversed, iterate);
         }
 
         private Expression ParseImpl(string resourceType, ReadOnlySpan<char> key, string value)

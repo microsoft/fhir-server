@@ -5,10 +5,11 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
+using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
@@ -22,7 +23,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
     /// Provides an <see cref="Container"/> instance that is opened and whose collection has been properly initialized for use.
     /// Initialization starts asynchronously during application startup and is guaranteed to complete before any web request is handled by a controller.
     /// </summary>
-    public class CosmosContainerProvider : IStartable, IRequireInitializationOnFirstRequest, IDisposable
+    public class CosmosContainerProvider : IHostedService, IRequireInitializationOnFirstRequest, IDisposable
     {
         private readonly ILogger<CosmosContainerProvider> _logger;
         private Lazy<Container> _container;
@@ -73,13 +74,18 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <summary>
         /// Starts the initialization of the document client and cosmos data store.
         /// </summary>
-        public void Start()
+        /// <param name="cancellationToken">The cancellation token.</param>
+        public Task StartAsync(CancellationToken cancellationToken)
         {
 #pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
             // The result is ignored and will be awaited in EnsureInitialized(). Exceptions are logged within CosmosClientInitializer.
             _initializationOperation.EnsureInitialized();
 #pragma warning restore CS4014
+
+            return Task.CompletedTask;
         }
+
+        public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
         /// <summary>
         /// Returns a task representing the initialization operation. Once completed,

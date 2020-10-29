@@ -24,14 +24,20 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
-    public class BasicSearchTests : SearchTestsBase<HttpIntegrationTestFixture>
+    public class BasicSearchTests : SearchTestsBase<HttpIntegrationTestFixture>, IAsyncLifetime
     {
         public BasicSearchTests(HttpIntegrationTestFixture fixture)
             : base(fixture)
         {
-            // Delete all patients before starting the test.
-            Client.DeleteAllResources(ResourceType.Patient).Wait();
         }
+
+        public async Task InitializeAsync()
+        {
+            // Delete all patients before starting the test.
+            await Client.DeleteAllResources(ResourceType.Patient);
+        }
+
+        public Task DisposeAsync() => Task.CompletedTask;
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]

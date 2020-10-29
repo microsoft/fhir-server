@@ -9,6 +9,7 @@ using System.Linq;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -70,7 +71,7 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add<CosmosContainerProvider>()
                 .Singleton()
                 .AsSelf()
-                .AsService<IStartable>() // so that it starts initializing ASAP
+                .AsService<IHostedService>() // so that it starts initializing ASAP
                 .AsService<IRequireInitializationOnFirstRequest>(); // so that web requests block on its initialization.
 
             services.Add<CosmosClientReadWriteTestProvider>()
