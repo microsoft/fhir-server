@@ -45,6 +45,8 @@ To see what is releasing in the FHIR Server, please refer to the [releases](http
 
 * [Azure API for FHIR documentation](https://docs.microsoft.com/azure/healthcare-apis/)
 * [FHIR Server Samples Repo](https://github.com/Microsoft/fhir-server-samples): A demo sandbox using the Azure API for FHIR.
+* [Health Architectures](https://github.com/microsoft/health-architectures): A collection of reference architectures illustrating end-to-end best practices for using the Azure API for FHIR and related technologies.
+* [FHIR Proxy](https://github.com/microsoft/health-architectures/tree/master/FHIR/FHIRProxy): Secure FHIR Gateway and Proxy to FHIR Servers.
 * [Features](https://docs.microsoft.com/en-us/azure/healthcare-apis/fhir-features-supported): This document lists the main features of the FHIR Server for Azure and Azure API for FHIR.
 * Blog: [FHIR Server for Azure, an open source project for modern healthcare](https://cloudblogs.microsoft.com/industry-blog/industry/health/fhir-server-for-azure-an-open-source-project-for-cloud-based-health-solutions/).
 * Blog: [Azure API for FHIR moves to general availability](https://azure.microsoft.com/en-us/blog/azure-api-for-fhir-moves-to-general-availability/).
