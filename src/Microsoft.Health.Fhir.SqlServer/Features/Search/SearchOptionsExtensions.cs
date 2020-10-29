@@ -39,15 +39,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         }
 
         /// <summary>
-        /// A helper method to determain if a supported sort param exists.
+        /// A helper method to determine if a supported sort param exists.
         /// </summary>
         /// <param name="searchOptions">The SearchOptions context</param>
         /// <returns>True if exists, false otherwise.</returns>
         public static bool SupportedSortParamExists(this SearchOptions searchOptions)
         {
-            Core.Models.SearchParameterInfo searchParamInfo = GetFirstSupportedSortParam(searchOptions).Item1;
+            (Core.Models.SearchParameterInfo searchParamInfo, SortOrder _) = GetFirstSupportedSortParam(searchOptions);
 
-            // any sort param is valid, except _ldateUpdated because it's a special case
+            // any sort param is valid, except _lastUpdated because it's a special case
             return searchParamInfo != null && searchParamInfo.Name != Core.Features.KnownQueryParameterNames.LastUpdated;
         }
     }

@@ -606,9 +606,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     break;
                 case TableExpressionKind.IncludeUnionAll:
                     StringBuilder.Append("SELECT Sid1, IsMatch, IsPartial ");
-                    if (context.SupportedSortParamExists())
+                    bool supportedSortParamExists = context.SupportedSortParamExists();
+                    if (supportedSortParamExists)
                     {
-                        StringBuilder.Append(", ").AppendLine("SortValue");
+                        StringBuilder.AppendLine(", SortValue");
                     }
                     else
                     {
@@ -621,7 +622,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     {
                         StringBuilder.AppendLine("UNION ALL");
                         StringBuilder.Append("SELECT Sid1, IsMatch, IsPartial");
-                        if (context.SupportedSortParamExists())
+                        if (supportedSortParamExists)
                         {
                             StringBuilder.AppendLine(", NULL as SortValue ");
                         }

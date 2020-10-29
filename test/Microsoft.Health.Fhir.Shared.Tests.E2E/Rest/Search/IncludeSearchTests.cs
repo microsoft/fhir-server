@@ -848,6 +848,38 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
+        public async Task GivenARevIncludeIterateSearchExpressionWithSingleIteration_WhenSearchedAndSorted_TheIterativeResultsShouldBeAddedToTheBundleAsc()
+        {
+            // Non-recursive iteration - Single iteration (_revinclude:iterate)
+            string query = $"_revinclude=MedicationRequest:patient&_revinclude:iterate=MedicationDispense:prescription&_tag={Fixture.Tag}&_sort=birthdate";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
+
+            ValidateBundle(
+                bundle,
+                Fixture.PatiPatient,
+                Fixture.AdamsPatient,
+                Fixture.SmithPatient,
+                Fixture.TrumanPatient,
+                Fixture.AdamsMedicationRequest,
+                Fixture.SmithMedicationRequest,
+                Fixture.AdamsMedicationDispense,
+                Fixture.SmithMedicationDispense);
+
+            ValidateSearchEntryMode(bundle, ResourceType.Patient);
+
+            ValidateBundleUrl(Client.HttpClient.BaseAddress, ResourceType.Patient, query, bundle.Link[0].Url);
+
+            // ensure that the included resources are not counted
+            bundle = await Client.SearchAsync(ResourceType.Patient, $"{query}&_summary=count");
+            Assert.Equal(4, bundle.Total);
+
+            // ensure that the included resources are not counted when _total is specified and the results fit in a single bundle.
+            bundle = await Client.SearchAsync(ResourceType.Patient, $"{query}&_total=accurate");
+            Assert.Equal(4, bundle.Total);
+        }
+
+        [Fact]
         public async Task GivenARevIncludeRecurseSearchExpressionWithSingleIteration_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
             // Non-recursive iteration - Single iteration (_revinclude:recurse)
@@ -1129,83 +1161,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             ValidateSearchEntryMode(bundle, ResourceType.Patient);
         }
-
-        [Fact]
-        public async Task GivenRevincludeSearchExpression_WhenSearchedAndSortedByLastUpdated_ThenCorrectBundleShouldBeReturned()
-        {
-            // looking for an appointment referencing a Patient, however this kind of reference was
-            // not created in this fixture.
-            string query = $"_sort=_lastUpdated&_tag={Fixture.Tag}&_revinclude=Observation:subject";
-
-            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
-
-            ValidateBundle(
-                bundle,
-                Fixture.TrumanPatient,
-                Fixture.AdamsPatient,
-                Fixture.SmithPatient,
-                Fixture.AdamsLoincObservation,
-                Fixture.SmithLoincObservation,
-                Fixture.SmithSnomedObservation,
-                Fixture.TrumanLoincObservation,
-                Fixture.TrumanSnomedObservation);
-
-            ValidateSearchEntryMode(bundle, ResourceType.Patient);
-
-            var rids = bundle.Entry.Where(x => x.Resource.ResourceType == ResourceType.Patient).Select(x => x.Resource.Id).ToList();
-            Assert.Equal(rids.OrderBy(x => x).ToList(), rids);
-        }
-
-        /*[Fact]
-        public async Task GivenRevincludeSearchExpression_WhenSearchedAndSortedByDate_ThenCorrectBundleWithOnlyMatchesShouldBeReturned()
-        {
-            // looking for an appointment referencing a Patient, however this kind of reference was
-            // not created in this fixture.
-            string query = $"Patient?_sort=birthdate&_tag={Fixture.Tag}&_revinclude=Observation:subject";
-
-            Bundle bundle = await ExecuteAndValidateBundle(
-                query,
-                Fixture.TrumanPatient,
-                Fixture.AdamsPatient,
-                Fixture.SmithPatient,
-                Fixture.PatiPatient,
-                Fixture.AdamsLoincObservation,
-                Fixture.SmithLoincObservation,
-                Fixture.SmithSnomedObservation,
-                Fixture.TrumanLoincObservation,
-                Fixture.TrumanSnomedObservation);
-
-            ValidateSearchEntryMode(bundle, ResourceType.Patient);
-
-            var dateList = bundle.Entry.Where(x => x.Resource.ResourceType == ResourceType.Patient).Select(x => DateTime.ParseExact(((Patient)x.Resource).BirthDate, "yyyy-MM-dd", null)).ToList();
-            Assert.Equal(dateList.OrderBy(x => x).ToList(), dateList);
-        }*/
-
-        /*[Fact]
-        public async Task GivenIncludeSearchExpression_WhenSearchedAndSortedByDate_ThenCorrectBundleShouldBeReturned()
-        {
-            // looking for an appointment referencing a Patient, however this kind of reference was
-            // not created in this fixture.
-            string query = $"_sort=date&_tag={Fixture.Tag}&_include=Observation:subject";
-
-            Bundle bundle = await Client.SearchAsync(ResourceType.Observation, query);
-
-            ValidateBundle(
-                bundle,
-                Fixture.TrumanPatient,
-                Fixture.AdamsPatient,
-                Fixture.SmithPatient,
-                Fixture.AdamsLoincObservation,
-                Fixture.SmithLoincObservation,
-                Fixture.SmithSnomedObservation,
-                Fixture.TrumanLoincObservation,
-                Fixture.TrumanSnomedObservation);
-
-            ValidateSearchEntryMode(bundle, ResourceType.Observation);
-
-            var dateList = bundle.Entry.Where(x => x.Resource.ResourceType == ResourceType.Observation).Select(x => DateTime.ParseExact(((FhirDateTime)((Observation)x.Resource).Effective).Value, "yyyy-MM-dd", null)).ToList();
-            Assert.Equal(dateList.OrderBy(x => x).ToList(), dateList);
-        }*/
 
         [Fact]
         public async Task GivenAnIncludeIterateSearchExpressionWithCircularReference_WhenSearched_IncludedOneIterationResults()
