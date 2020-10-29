@@ -83,7 +83,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
         [Theory]
         [InlineData(@"testing", "testing")]
         [InlineData(@"t\e|s$t,i|\ng", @"t\\e\|s\$t\,i\|\\ng")]
-        public void GiveASearchValue_WhenToStringIsCalled_ThenCorrectStringShouldBeReturned(string s, string expected)
+        [InlineData(@"a\\b\,c\$d\|", @"a\\b\,c\$d\|")]
+        public void GiveASearchValue_WhenToStringIsCalled_ThenEscapedStringShouldBeReturned(string s, string expected)
         {
             StringSearchValue value = new StringSearchValue(s);
 
