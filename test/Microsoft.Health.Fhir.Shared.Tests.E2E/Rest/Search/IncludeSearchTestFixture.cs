@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
 
         public string Tag { get; private set; }
 
-        public Patient Patient { get; private set; }
+        public Patient PatiPatient { get; private set; }
 
         public Patient AdamsPatient { get; private set; }
 
@@ -110,7 +110,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
             TramadolMedication = (await TestFhirClient.CreateAsync(new Medication { Meta = meta, Code = new CodeableConcept("http://snomed.info/sct", "108505002", "Tramadol hydrochloride (substance)") })).Resource;
             Organization = (await TestFhirClient.CreateAsync(new Organization { Meta = meta, Address = new List<Address> { new Address { City = "Seattle" } } })).Resource;
             Practitioner = (await TestFhirClient.CreateAsync(new Practitioner { Meta = meta })).Resource;
-            Patient = await CreatePatient("Pati", Practitioner, Organization);
+            PatiPatient = await CreatePatient("Pati", Practitioner, Organization, "1990-01-01");
 
             // Organization Hierarchy
             LabFOrganization = TestFhirClient.CreateAsync(new Organization { Meta = meta }).Result.Resource;

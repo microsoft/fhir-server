@@ -9,6 +9,7 @@ using System.Linq;
 using System.Net;
 using System.Web;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Xunit;
@@ -478,7 +479,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             ValidateBundle(
                 bundle,
-                Fixture.Patient,
+                Fixture.PatiPatient,
                 Fixture.SmithPatient,
                 Fixture.TrumanPatient,
                 Fixture.AdamsPatient);
@@ -824,7 +825,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             ValidateBundle(
                 bundle,
-                Fixture.Patient,
+                Fixture.PatiPatient,
                 Fixture.AdamsPatient,
                 Fixture.SmithPatient,
                 Fixture.TrumanPatient,
@@ -856,7 +857,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             ValidateBundle(
                 bundle,
-                Fixture.Patient,
+                Fixture.PatiPatient,
                 Fixture.AdamsPatient,
                 Fixture.SmithPatient,
                 Fixture.TrumanPatient,
@@ -908,7 +909,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.LabDOrganization,
                 Fixture.LabEOrganization,
                 Fixture.LabFOrganization,
-                Fixture.Patient,
+                Fixture.PatiPatient,
                 Fixture.AdamsPatient,
                 Fixture.SmithPatient,
                 Fixture.TrumanPatient,
@@ -936,7 +937,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.SmithMedicationDispense,
                 Fixture.AdamsMedicationRequest,
                 Fixture.SmithMedicationRequest,
-                Fixture.Patient,
+                Fixture.PatiPatient,
                 Fixture.AdamsPatient,
                 Fixture.SmithPatient,
                 Fixture.TrumanPatient,
@@ -968,7 +969,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.SmithMedicationDispense,
                 Fixture.AdamsMedicationRequest,
                 Fixture.SmithMedicationRequest,
-                Fixture.Patient,
+                Fixture.PatiPatient,
                 Fixture.AdamsPatient,
                 Fixture.SmithPatient,
                 Fixture.TrumanPatient,
@@ -994,7 +995,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.SanchezPractitioner,
                 Fixture.TaylorPractitioner,
                 Fixture.Practitioner,
-                Fixture.Patient,
+                Fixture.PatiPatient,
                 Fixture.AdamsPatient,
                 Fixture.SmithPatient,
                 Fixture.TrumanPatient,
@@ -1023,7 +1024,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.SanchezPractitioner,
                 Fixture.AdamsPatient,
                 Fixture.SmithPatient,
-                Fixture.Patient);
+                Fixture.PatiPatient);
 
             ValidateSearchEntryMode(bundle, ResourceType.MedicationDispense);
         }
@@ -1078,7 +1079,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.SanchezPractitioner,
                 Fixture.TaylorPractitioner,
                 Fixture.Practitioner,
-                Fixture.Patient,
+                Fixture.PatiPatient,
                 Fixture.AdamsPatient,
                 Fixture.SmithPatient,
                 Fixture.TrumanPatient,
@@ -1102,7 +1103,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.SanchezPractitioner,
                 Fixture.TaylorPractitioner,
                 Fixture.Practitioner,
-                Fixture.Patient,
+                Fixture.PatiPatient,
                 Fixture.AdamsPatient,
                 Fixture.SmithPatient,
                 Fixture.TrumanPatient);
@@ -1121,7 +1122,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 bundle,
                 Fixture.AdamsMedicationRequest,
                 Fixture.SmithMedicationRequest,
-                Fixture.Patient,
+                Fixture.PatiPatient,
                 Fixture.AdamsPatient,
                 Fixture.SmithPatient,
                 Fixture.TrumanPatient);
@@ -1169,6 +1170,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.TrumanPatient,
                 Fixture.AdamsPatient,
                 Fixture.SmithPatient,
+                Fixture.PatiPatient,
                 Fixture.AdamsLoincObservation,
                 Fixture.SmithLoincObservation,
                 Fixture.SmithSnomedObservation,
