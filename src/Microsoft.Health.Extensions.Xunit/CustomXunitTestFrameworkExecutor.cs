@@ -30,9 +30,12 @@ namespace Microsoft.Health.Extensions.Xunit
 
         protected override void RunTestCases(IEnumerable<IXunitTestCase> testCases, IMessageSink executionMessageSink, ITestFrameworkExecutionOptions executionOptions)
         {
-            using (var assemblyRunner = new AssemblyRunner(TestAssembly, testCases, DiagnosticMessageSink, executionMessageSink, executionOptions))
+            for (int i = 1; i <= 10; i++)
             {
-                assemblyRunner.RunAsync().GetAwaiter().GetResult();
+                using (var assemblyRunner = new AssemblyRunner(TestAssembly, testCases, DiagnosticMessageSink, executionMessageSink, executionOptions))
+                {
+                    assemblyRunner.RunAsync().GetAwaiter().GetResult();
+                }
             }
         }
 
