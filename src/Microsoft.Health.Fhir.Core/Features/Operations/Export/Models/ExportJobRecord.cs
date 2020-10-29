@@ -20,6 +20,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         public ExportJobRecord(
             Uri requestUri,
             ExportJobType exportType,
+            string exportFormat,
             string resourceType,
             string hash,
             IReadOnlyCollection<KeyValuePair<string, string>> requestorClaims = null,
@@ -39,6 +40,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             Hash = hash;
             RequestUri = requestUri;
             ExportType = exportType;
+            ExportFormat = exportFormat;
             ResourceType = resourceType;
             RequestorClaims = requestorClaims;
             Since = since;
@@ -78,6 +80,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
         [JsonProperty(JobRecordProperties.ExportType)]
         public ExportJobType ExportType { get; private set; }
+
+        [JsonProperty(JobRecordProperties.ExportFormat)]
+        public string ExportFormat { get; private set; }
 
         [JsonProperty(JobRecordProperties.ResourceType)]
         public string ResourceType { get; private set; }
