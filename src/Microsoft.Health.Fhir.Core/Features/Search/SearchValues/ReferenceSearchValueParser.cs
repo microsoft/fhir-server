@@ -40,6 +40,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         public ReferenceSearchValue Parse(string s)
         {
             EnsureArg.IsNotNullOrWhiteSpace(s, nameof(s));
+
             Match match = ReferenceRegex.Match(s);
 
             if (match.Success)

@@ -49,7 +49,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
         [InlineData("scheme://test.com/Appointment/123", null, null, "scheme://test.com/Appointment/123")]
         [InlineData("http://localhost/Appointment/xyz", "http://localhost/", ResourceType.Appointment, "xyz")]
         [InlineData("hTTpS://LOCALHOST/stu3/Patient/Test", null, ResourceType.Patient, "Test")]
-        [InlineData("hTTpS://LOCALHOST/stu3/Patient/T\\,e\\|s\\$t", null, ResourceType.Patient, "T,e|s$t")]
         public void GivenAValidReference_WhenParsing_ThenCorrectSearchValueShouldBeReturned(string reference, string baseUri, ResourceType? resourceType, string resourceId)
         {
             ReferenceSearchValue value = _referenceSearchValueParser.Parse(reference);
