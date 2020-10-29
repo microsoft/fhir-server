@@ -5,10 +5,10 @@ The application registration process for OSS FHIR Server is similar to that for 
 If the value of FhirServer:Security:EnabledOSS for the FHIR server is set to True, you will need to register a confidential application for the server, define app roles, and expose the API to other client applications.
 
 Select Expose an API from the portal, specify your server url in the Application ID Url.
-![image.png](/images/AppRegOSS/image-293325d0-d5ba-4e1d-ab49-5595fb0f105f.png)
+![image.png](/docs/images/AppRegOSS/image-293325d0-d5ba-4e1d-ab49-5595fb0f105f.png)
 
 Then define the user consent and admin consent scope for the FHIR server.
-![image.png](/images/AppRegOSS/image-aa69a1a1-acac-40da-beae-22aea328f53f.png)
+![image.png](/docs/images/AppRegOSS/image-aa69a1a1-acac-40da-beae-22aea328f53f.png)
 
 If you want to pre-authorize an application without requiring user authentication, you can add the application to the list of Authorized client applications. This is an optional step.
 
@@ -77,11 +77,11 @@ You can register a confidential client application as outlined in the document. 
 
 Select API Permissions from the portal, and then My APIs to add permissions to the client app. Select appropriate role(s) for the application.
 
-![image.png](/images/AppRegOSS/image-4a7f3341-6075-4cd9-935d-96923ad88ecf.png)
+![image.png](/docs/images/AppRegOSS/image-4a7f3341-6075-4cd9-935d-96923ad88ecf.png)
 
 Similarly, you can assign users and groups to the role(s) using Enterprise Applications from the portal.
 
-![image.png](/images/AppRegOSS/image-8f6232e0-1f75-41b8-aba3-8a392cd52460.png)
+![image.png](/docs/images/AppRegOSS/image-8f6232e0-1f75-41b8-aba3-8a392cd52460.png)
 
 # Register Application for a public client application
 
@@ -89,9 +89,9 @@ You can register a public client application as outlined in the document. The on
 - you grant permissions by using the defined app roles, as described above.
 - you specify Redirect URIs for SPA apps, Postman and SMART on FHIR apps using "Mobile and desktop applications", instead of using the "single-page application" platform.
 
-![image.png](/images/AppRegOSS/image-7238b1aa-112b-48da-b6fd-a5e852dca1bf.png)
+![image.png](/docs/images/AppRegOSS/image-7238b1aa-112b-48da-b6fd-a5e852dca1bf.png)
 
-![image.png](/images/AppRegOSS/image-2c6535a6-9675-4397-a52a-21fce0d844a2.png)
+![image.png](/docs/images/AppRegOSS/image-2c6535a6-9675-4397-a52a-21fce0d844a2.png)
 
 
 
