@@ -7,23 +7,24 @@ using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Xunit;
 using static Microsoft.Health.Fhir.Tests.Common.Search.SearchValueValidationHelper;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
 {
     public class IdNodeToTokenSearchValueTypeConverterTests : FhirNodeToSearchValueTypeConverterTests<IdNodeToTokenSearchValueTypeConverter, Id>
     {
         [Fact]
-        public void GivenAnIdWithNoValue_WhenConverted_ThenNoSearchValueShouldBeCreated()
+        public async Task GivenAnIdWithNoValue_WhenConverted_ThenNoSearchValueShouldBeCreated()
         {
-            Test(id => id.Value = null);
+            await Test(id => id.Value = null);
         }
 
         [Fact]
-        public void GivenAnIdWithValue_WhenConverted_ThenATokenSearchValueShouldBeCreated()
+        public async Task GivenAnIdWithValue_WhenConverted_ThenATokenSearchValueShouldBeCreated()
         {
             const string identifier = "id";
 
-            Test(
+            await Test(
                 id => id.Value = identifier,
                 ValidateToken,
                 new Token(null, identifier, null));

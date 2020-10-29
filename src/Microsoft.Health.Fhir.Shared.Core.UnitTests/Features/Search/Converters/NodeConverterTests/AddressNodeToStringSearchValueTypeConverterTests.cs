@@ -7,89 +7,90 @@ using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Xunit;
 using static Microsoft.Health.Fhir.Tests.Common.Search.SearchValueValidationHelper;
+using Task=System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
 {
     public class AddressNodeToStringSearchValueTypeConverterTests : FhirNodeToSearchValueTypeConverterTests<AddressNodeToStringSearchValueConverter, Address>
     {
         [Fact]
-        public void GivenAnAddressWithCity_WhenConverted_ThenAStringSearchValueShouldBeCreated()
+        public async Task GivenAnAddressWithCity_WhenConverted_ThenAStringSearchValueShouldBeCreated()
         {
             const string city = "Seattle";
 
-            Test(
+            await Test(
                 address => address.City = city,
                 ValidateString,
                 city);
         }
 
         [Fact]
-        public void GivenAnAddressWithCountry_WhenConverted_ThenAStringSearchValueShouldBeCreated()
+        public async Task GivenAnAddressWithCountry_WhenConverted_ThenAStringSearchValueShouldBeCreated()
         {
             const string country = "USA";
 
-            Test(
+            await Test(
                 address => address.Country = country,
                 ValidateString,
                 country);
         }
 
         [Fact]
-        public void GivenAnAddressWithDistrict_WhenConverted_ThenAStringSearchValueShouldBeCreated()
+        public async Task GivenAnAddressWithDistrict_WhenConverted_ThenAStringSearchValueShouldBeCreated()
         {
             const string district = "DC";
 
-            Test(
+            await Test(
                 address => address.District = district,
                 ValidateString,
                 district);
         }
 
         [Fact]
-        public void GivenAnAddressWithNoLine_WhenConverted_ThenOneOrMultipleStringSearchValueShouldBeCreated()
+        public async Task GivenAnAddressWithNoLine_WhenConverted_ThenOneOrMultipleStringSearchValueShouldBeCreated()
         {
-            Test(address => address.Line = null);
+            await Test(address => address.Line = null);
         }
 
         [Theory]
         [InlineData("Line1")]
         [InlineData("Line1", "Line2")]
-        public void GivenAnAddressWithLine_WhenConverted_ThenOneOrMultipleStringSearchValueShouldBeCreated(params string[] lines)
+        public async Task GivenAnAddressWithLine_WhenConverted_ThenOneOrMultipleStringSearchValueShouldBeCreated(params string[] lines)
         {
-            Test(
+            await Test(
                 address => address.Line = lines,
                 ValidateString,
                 lines);
         }
 
         [Fact]
-        public void GivenAnAddressWithPostalCode_WhenConverted_ThenAStringSearchValueShouldBeCreated()
+        public async Task GivenAnAddressWithPostalCode_WhenConverted_ThenAStringSearchValueShouldBeCreated()
         {
             const string postalCode = "98052";
 
-            Test(
+            await Test(
                 address => address.PostalCode = postalCode,
                 ValidateString,
                 postalCode);
         }
 
         [Fact]
-        public void GivenAnAddressWithState_WhenConverted_ThenAStringSearchValueShouldBeCreated()
+        public async Task GivenAnAddressWithState_WhenConverted_ThenAStringSearchValueShouldBeCreated()
         {
             const string state = "Washington";
 
-            Test(
+            await Test(
                 address => address.State = state,
                 ValidateString,
                 state);
         }
 
         [Fact]
-        public void GivenAnAddressWithText_WhenConverted_ThenAStringSearchValueShouldBeCreated()
+        public async Task GivenAnAddressWithText_WhenConverted_ThenAStringSearchValueShouldBeCreated()
         {
             const string text = "Text";
 
-            Test(
+            await Test(
                 address => address.Text = text,
                 ValidateString,
                 text);
