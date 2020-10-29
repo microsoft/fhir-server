@@ -5,12 +5,12 @@
 
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Health.Fhir.Core.Messages.DataConvert;
+using Microsoft.Health.Fhir.Core.Features.Operations.DataConvert.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.DataConvert
 {
-    public interface IDataConvertEngine
+    public interface IContainerRegistryTokenProvider
     {
-        public Task<DataConvertResponse> Process(DataConvertRequest convertRequest, CancellationToken cancellationToken);
+        public Task<string> GetTokenAsync(ContainerRegistryInfo containerRegistryInfo, CancellationToken cancellationToken);
     }
 }

@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.DataConvert
                 throw new UnauthorizedFhirActionException();
             }
 
-            var dataConvertTask = _dataConvertEngine.Process(request);
+            var dataConvertTask = _dataConvertEngine.Process(request, cancellationToken);
             return await ExecuteWithTimeout(dataConvertTask, _dataConvertConfiguration.ProcessTimeoutThreshold, cancellationToken);
         }
 

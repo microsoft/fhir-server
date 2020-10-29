@@ -3,14 +3,17 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Threading;
-using System.Threading.Tasks;
-using Microsoft.Health.Fhir.Core.Messages.DataConvert;
+using System;
+using EnsureThat;
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations.DataConvert
+namespace Microsoft.Health.Fhir.Core.Features.Operations.DataConvert.Models
 {
-    public interface IDataConvertEngine
+    public class ContainerRegistryTokenProviderException : Exception
     {
-        public Task<DataConvertResponse> Process(DataConvertRequest convertRequest, CancellationToken cancellationToken);
+        public ContainerRegistryTokenProviderException(string message)
+            : base(message)
+        {
+            EnsureArg.IsNotNullOrWhiteSpace(message, nameof(message));
+        }
     }
 }
