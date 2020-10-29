@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         }
 
         [Fact]
-        public void GivenSqlRootExpressionWithDenormalizedPredicateAndOnlyIncludeTableExpression_WhenRewritten_DenormalizedPRedicateIsPreserved()
+        public void GivenSqlRootExpressionWithDenormalizedPredicateAndOnlyIncludeTableExpression_WhenRewritten_DenormalizedPredicateIsPreserved()
         {
             var inputExpression = new SqlRootExpression(
                 new List<TableExpression>
