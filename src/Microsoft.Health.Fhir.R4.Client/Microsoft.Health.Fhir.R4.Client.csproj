@@ -8,7 +8,7 @@
     <PackageReference Include="Ensure.That" Version="9.2.0" />
     <PackageReference Include="Hl7.Fhir.R4" Version="1.9.0" />
     <PackageReference Include="Microsoft.Azure.Services.AppAuthentication" Version="1.5.0" />
-    <PackageReference Include="Microsoft.Health.Client" Version="1.0.0-master-20201008-2" />
+    <PackageReference Include="Microsoft.Health.Client" Version="1.0.0-master-20201022-1" />
     <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" Version="6.7.1" />
     <PackageReference Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" Version="6.7.1" />
   </ItemGroup>

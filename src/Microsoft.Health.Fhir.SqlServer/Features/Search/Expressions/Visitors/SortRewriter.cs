@@ -10,8 +10,9 @@ using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
-    /// A visitor for a Sort paramater.
-    /// It creates the correct Generator and populates the normalized predicates.
+    /// <summary>
+    /// It creates the correct generator and populates the normalized predicates for sort parameters.
+    /// </summary>
     internal class SortRewriter : SqlExpressionRewriter<SearchOptions>
     {
         private readonly NormalizedSearchParameterQueryGeneratorFactory _normalizedSearchParameterQueryGeneratorFactory;

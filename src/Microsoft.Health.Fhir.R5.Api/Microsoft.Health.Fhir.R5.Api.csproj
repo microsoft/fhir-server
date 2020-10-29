@@ -5,16 +5,16 @@
   </PropertyGroup>
   <PropertyGroup>
     <DefineConstants>R5</DefineConstants>
-    <NoWarn>$(NoWarn);NU1603</NoWarn>
+    
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Ensure.That" Version="9.2.0" />
     <PackageReference Include="FluentValidation" Version="8.6.1" />
-    <PackageReference Include="Hl7.Fhir.R5" Version="1.10.0-alpha-20200811-1" />
+    <PackageReference Include="Hl7.Fhir.R5" Version="1.9.0-beta-june2020" />
     <PackageReference Include="MediatR" Version="8.1.0" />
     <PackageReference Include="MediatR.Extensions.Microsoft.DependencyInjection" Version="8.1.0" />
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="3.1.8" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="3.1.9" />
   </ItemGroup>
 
   <ItemGroup>

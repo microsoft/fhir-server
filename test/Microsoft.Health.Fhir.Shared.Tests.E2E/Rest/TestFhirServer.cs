@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     public abstract class TestFhirServer : IDisposable
     {
         private readonly ConcurrentDictionary<(ResourceFormat format, TestApplication clientApplication, TestUser user), Lazy<TestFhirClient>> _cache = new ConcurrentDictionary<(ResourceFormat format, TestApplication clientApplication, TestUser user), Lazy<TestFhirClient>>();
-        private readonly AsyncLocal<SessionTokenContainer> _asyncLocalSessionTokenContainer = new AsyncLocal<SessionTokenContainer>();
+        private static readonly AsyncLocal<SessionTokenContainer> _asyncLocalSessionTokenContainer = new AsyncLocal<SessionTokenContainer>();
 
         private readonly Dictionary<string, AuthenticationHttpMessageHandler> _authenticationHandlers = new Dictionary<string, AuthenticationHttpMessageHandler>();
 
@@ -54,6 +54,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         public Uri BaseAddress { get; }
 
+        public static void CreateSession()
+        {
+            if (_asyncLocalSessionTokenContainer.Value == null)
+            {
+                // Ensure that we are able to preserve session tokens across requests in this execution context and its children.
+                _asyncLocalSessionTokenContainer.Value = new SessionTokenContainer();
+            }
+        }
+
         public TestFhirClient GetTestFhirClient(ResourceFormat format, bool reusable = true, AuthenticationHttpMessageHandler authenticationHandler = null)
         {
             return GetTestFhirClient(format, TestApplications.GlobalAdminServicePrincipal, null, reusable, authenticationHandler);
@@ -61,12 +70,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         public TestFhirClient GetTestFhirClient(ResourceFormat format, TestApplication clientApplication, TestUser user, bool reusable = true, AuthenticationHttpMessageHandler authenticationHandler = null)
         {
-            if (_asyncLocalSessionTokenContainer.Value == null)
-            {
-                // Ensure that we are able to preserve session tokens across requests in this execution context and its children.
-                _asyncLocalSessionTokenContainer.Value = new SessionTokenContainer();
-            }
-
             if (!reusable)
             {
                 return CreateFhirClient(format, clientApplication, user, authenticationHandler);

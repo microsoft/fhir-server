@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 });
 
             await schemaInitializer.InitializeAsync(forceIncrementalSchemaUpgrade, cancellationToken);
-            _sqlServerFhirModel.Start();
+            await _sqlServerFhirModel.StartAsync(cancellationToken);
         }
 
         public async Task DeleteDatabase(string databaseName, CancellationToken cancellationToken = default)

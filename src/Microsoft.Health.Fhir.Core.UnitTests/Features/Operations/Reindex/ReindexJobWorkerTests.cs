@@ -112,7 +112,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         {
             Dictionary<string, string> searchParameterHashMap = new Dictionary<string, string>();
             searchParameterHashMap.Add("patient", "hash1");
-            return new ReindexJobWrapper(new ReindexJobRecord(searchParameterHashMap, 5, "patient"), WeakETag.FromVersionId("0"));
+            return new ReindexJobWrapper(new ReindexJobRecord(searchParameterHashMap, 5), WeakETag.FromVersionId("0"));
         }
     }
 }
