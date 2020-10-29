@@ -23,7 +23,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [InlineData("Organization/123", 0)]
         [InlineData("Organization/1")]
         [InlineData("organization/123")]
-        [InlineData("Organization/a\\,bc", 2)]
         public async Task GivenAReferenceSearchParam_WhenSearched_ThenCorrectBundleShouldBeReturned(string valueToSearch, params int[] matchIndices)
         {
             string query = $"organization={valueToSearch}";

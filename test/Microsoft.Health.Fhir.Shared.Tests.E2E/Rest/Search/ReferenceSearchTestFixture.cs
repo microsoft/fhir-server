@@ -27,8 +27,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             Patients = await TestFhirClient.CreateResourcesAsync<Patient>(
                 p => p.ManagingOrganization = new ResourceReference("Organization/123"),
-                p => p.ManagingOrganization = new ResourceReference("Organization/abc"),
-                p => p.ManagingOrganization = new ResourceReference("Organization/a\\,bc"));
+                p => p.ManagingOrganization = new ResourceReference("Organization/abc"));
         }
     }
 }
