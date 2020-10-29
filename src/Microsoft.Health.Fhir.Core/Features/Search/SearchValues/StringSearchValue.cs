@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         {
             EnsureArg.IsNotNullOrWhiteSpace(s, nameof(s));
 
-            String = s;
+            String = s.UnescapeSearchParameterValue();
         }
 
         /// <summary>
@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         {
             EnsureArg.IsNotNullOrWhiteSpace(s, nameof(s));
 
-            return new StringSearchValue(s.UnescapeSearchParameterValue());
+            return new StringSearchValue(s);
         }
 
         /// <inheritdoc />
