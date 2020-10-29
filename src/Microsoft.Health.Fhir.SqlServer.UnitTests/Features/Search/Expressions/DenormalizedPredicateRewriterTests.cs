@@ -89,6 +89,22 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Equal(new TableExpression(null, null, Expression.And(inputExpression.DenormalizedExpressions), TableExpressionKind.All).ToString(), visitedExpression.TableExpressions[0].ToString());
         }
 
+        [Fact]
+        public void GivenSqlRootExpressionWithDenormalizedPredicateAndOnlyIncludeTableExpression_WhenRewritten_DenormalizedPredicateIsPreserved()
+        {
+            var inputExpression = new SqlRootExpression(
+                new List<TableExpression>
+                {
+                    new TableExpression(null, null, null, TableExpressionKind.Include),
+                },
+                new List<Expression>
+                {
+                    new SearchParameterExpression(new SearchParameterInfo(SearchParameterNames.ResourceType), Expression.Equals(FieldName.String, null, "TestParamValue1")),
+                });
+            var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(DenormalizedPredicateRewriter.Instance);
+            Assert.Same(inputExpression.DenormalizedExpressions, visitedExpression.DenormalizedExpressions);
+        }
+
         [Theory]
         [InlineData(SearchParameterNames.ResourceType)]
         [InlineData(SqlSearchParameters.ResourceSurrogateIdParameterName)]
