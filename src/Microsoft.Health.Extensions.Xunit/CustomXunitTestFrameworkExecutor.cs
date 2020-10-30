@@ -39,6 +39,7 @@ namespace Microsoft.Health.Extensions.Xunit
         private class AssemblyRunner : XunitTestAssemblyRunner
         {
             private readonly Dictionary<Type, object> _assemblyFixtureMappings = new Dictionary<Type, object>();
+            private ExecutionContext _context;
 
             public AssemblyRunner(ITestAssembly testAssembly, IEnumerable<IXunitTestCase> testCases, IMessageSink diagnosticMessageSink, IMessageSink executionMessageSink, ITestFrameworkExecutionOptions executionOptions)
                 : base(testAssembly, testCases, diagnosticMessageSink, executionMessageSink, executionOptions)
@@ -62,6 +63,8 @@ namespace Microsoft.Health.Extensions.Xunit
                         _assemblyFixtureMappings[fixtureAttr.FixtureType] = Activator.CreateInstance(fixtureAttr.FixtureType);
                     }
                 });
+
+                _context = ExecutionContext.Capture();
             }
 
             protected override Task BeforeTestAssemblyFinishedAsync()
@@ -75,7 +78,11 @@ namespace Microsoft.Health.Extensions.Xunit
             }
 
             protected override Task<RunSummary> RunTestCollectionAsync(IMessageBus messageBus, ITestCollection testCollection, IEnumerable<IXunitTestCase> testCases, CancellationTokenSource cancellationTokenSource)
-                => new CollectionRunner(_assemblyFixtureMappings, testCollection, testCases, DiagnosticMessageSink, messageBus, TestCaseOrderer, new ExceptionAggregator(Aggregator), cancellationTokenSource).RunAsync();
+            {
+                Task<RunSummary> result = null;
+                ExecutionContext.Run(_context, state => result = new CollectionRunner(_assemblyFixtureMappings, testCollection, testCases, DiagnosticMessageSink, messageBus, TestCaseOrderer, new ExceptionAggregator(Aggregator), cancellationTokenSource).RunAsync(), state: null);
+                return result;
+            }
         }
 
         private class CollectionRunner : XunitTestCollectionRunner

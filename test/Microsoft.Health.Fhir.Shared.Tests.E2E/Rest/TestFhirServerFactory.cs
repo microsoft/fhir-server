@@ -20,6 +20,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     {
         private readonly ConcurrentDictionary<(DataStore dataStore, Type startupType), Lazy<Task<TestFhirServer>>> _cache = new ConcurrentDictionary<(DataStore dataStore, Type startupType), Lazy<Task<TestFhirServer>>>();
 
+        public TestFhirServerFactory()
+        {
+            // allow cosmos DB session consistency
+            TestFhirServer.CreateSession();
+        }
+
         public async Task<TestFhirServer> GetTestFhirServerAsync(DataStore dataStore, Type startupType)
         {
             return await _cache.GetOrAdd(

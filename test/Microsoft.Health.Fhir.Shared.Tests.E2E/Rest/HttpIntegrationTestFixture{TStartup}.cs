@@ -36,8 +36,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 Format.Xml => ResourceFormat.Xml,
                 _ => throw new ArgumentOutOfRangeException(nameof(format), format, null)
             };
-
-            TestFhirServer.CreateSession();
         }
 
         public bool IsUsingInProcTestServer { get; private set; }

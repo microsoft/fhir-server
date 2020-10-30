@@ -24,6 +24,7 @@ using Polly.Retry;
 using Task = System.Threading.Tasks.Task;
 #if !R5
 using RestfulCapabilityMode = Hl7.Fhir.Model.CapabilityStatement.RestfulCapabilityMode;
+
 #endif
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
@@ -219,7 +220,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         private class SessionMessageHandler : DelegatingHandler
         {
             private readonly AsyncLocal<SessionTokenContainer> _asyncLocalSessionTokenContainer;
-            private readonly AsyncRetryPolicy _polly;
+            private readonly AsyncRetryPolicy<HttpResponseMessage> _polly;
 
             public SessionMessageHandler(HttpMessageHandler innerHandler, AsyncLocal<SessionTokenContainer> asyncLocalSessionTokenContainer)
                 : base(innerHandler)
@@ -227,14 +228,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 _asyncLocalSessionTokenContainer = asyncLocalSessionTokenContainer;
                 EnsureArg.IsNotNull(asyncLocalSessionTokenContainer, nameof(asyncLocalSessionTokenContainer));
                 _polly = Policy.Handle<HttpRequestException>(x =>
-                {
-                    if (x.InnerException is IOException || x.InnerException is SocketException)
                     {
-                        return true;
-                    }
+                        if (x.InnerException is IOException || x.InnerException is SocketException)
+                        {
+                            return true;
+                        }
 
-                    return false;
-                }).WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
+                        return false;
+                    })
+                    .OrResult<HttpResponseMessage>(message => (int)message.StatusCode == 429)
+                    .WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
             }
 
             protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
