@@ -67,8 +67,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 return new ContinuationToken(new object[] { sid });
             }
 
-            var result = JsonSerializer.Deserialize<object[]>(json, Options);
-            return new ContinuationToken(result);
+            try
+            {
+                object[] result = JsonSerializer.Deserialize<object[]>(json, Options);
+                return new ContinuationToken(result);
+            }
+            catch (JsonException)
+            {
+                return null;
+            }
         }
 
         private class ContinuationTokenConverter : System.Text.Json.Serialization.JsonConverter<object>

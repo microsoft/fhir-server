@@ -579,5 +579,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Equal(KnownResourceTypes.OperationOutcome, bundle.Entry.First().Resource.TypeName);
             Assert.NotNull(bundle.Entry.Skip(1).First().Resource);
         }
+
+        [Theory]
+        [InlineData("RiskAssessment?probability=gt55555555555555555555555555555555555555555555555")]
+        [InlineData("RiskAssessment?probability=gt")]
+        [InlineData("RiskAssessment?probability=foo")]
+        [InlineData("Observation?date=05")]
+        [InlineData("Observation?code=a|b|c|d")]
+        [InlineData("Observation?value-quantity=5.40e-3|http://unitsofmeasure.org|g|extra")]
+        [InlineData("Observation?ct=YWJj")]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenASearchRequestWithInvalidValues_WhenHandled_ReturnsABadRequestError(string uri)
+        {
+            System.Net.Http.HttpResponseMessage httpResponseMessage = await Client.HttpClient.GetAsync(uri);
+            Assert.Equal(HttpStatusCode.BadRequest, httpResponseMessage.StatusCode);
+        }
     }
 }

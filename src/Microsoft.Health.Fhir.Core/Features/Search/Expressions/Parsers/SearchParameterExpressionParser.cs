@@ -11,6 +11,7 @@ using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.Utility;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
@@ -39,16 +40,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 
             _searchParameterDefinitionManager = searchParameterDefinitionManagerResolver();
 
-            _parserDictionary = new Dictionary<SearchParamType, Func<string, ISearchValue>>()
-            {
-                { SearchParamType.Date, DateTimeSearchValue.Parse },
-                { SearchParamType.Number, NumberSearchValue.Parse },
-                { SearchParamType.Quantity, QuantitySearchValue.Parse },
-                { SearchParamType.Reference, referenceSearchValueParser.Parse },
-                { SearchParamType.String, StringSearchValue.Parse },
-                { SearchParamType.Token, TokenSearchValue.Parse },
-                { SearchParamType.Uri, UriSearchValue.Parse },
-            };
+            _parserDictionary = new (SearchParamType type, Func<string, ISearchValue> parser)[]
+                {
+                    (SearchParamType.Date, DateTimeSearchValue.Parse),
+                    (SearchParamType.Number, NumberSearchValue.Parse),
+                    (SearchParamType.Quantity, QuantitySearchValue.Parse),
+                    (SearchParamType.Reference, referenceSearchValueParser.Parse),
+                    (SearchParamType.String, StringSearchValue.Parse),
+                    (SearchParamType.Token, TokenSearchValue.Parse),
+                    (SearchParamType.Uri, UriSearchValue.Parse),
+                }
+                .ToDictionary(entry => entry.type, entry => CreateParserWithErrorHandling(entry.parser));
         }
 
         public Expression Parse(
@@ -224,5 +226,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 return Expression.Or(expressions);
             }
         }
+
+        private static Func<string, ISearchValue> CreateParserWithErrorHandling(Func<string, ISearchValue> parser) =>
+            input =>
+            {
+                try
+                {
+                    return parser(input);
+                }
+                catch (FormatException e)
+                {
+                    throw new BadRequestException(e.Message);
+                }
+                catch (OverflowException e)
+                {
+                    throw new BadRequestException(e.Message);
+                }
+                catch (ArgumentException e)
+                {
+                    throw new BadRequestException(e.Message);
+                }
+            };
     }
 }
