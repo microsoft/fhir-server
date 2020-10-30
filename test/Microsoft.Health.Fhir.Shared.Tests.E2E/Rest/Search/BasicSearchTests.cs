@@ -153,7 +153,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await ExecuteAndValidateBundle("?_type=Patient", patients);
 
             Bundle bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient"));
-            ValidateBundle(bundle, "_search", patients);
+            ValidateBundle(bundle, "?_type=Patient", patients);
 
             bundle = await Client.SearchAsync("?_type=Observation,Patient");
             Assert.True(bundle.Entry.Count > patients.Length);
@@ -162,11 +162,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             await ExecuteAndValidateBundle($"?_type=Observation,Patient&_id={observation.Id}", observation);
             bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient,Observation"), ("_id", observation.Id));
-            ValidateBundle(bundle, "_search", observation);
+            ValidateBundle(bundle, $"?_type=Patient,Observation&_id={observation.Id}", observation);
 
             await ExecuteAndValidateBundle($"?_type=Observation,Patient&_id={organization.Id}");
             bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient,Observation"), ("_id", organization.Id));
-            ValidateBundle(bundle, "_search");
+            ValidateBundle(bundle, $"?_type=Patient,Observation&_id={organization.Id}");
         }
 
         [Fact]
