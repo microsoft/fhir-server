@@ -61,9 +61,30 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
         }
 
         [Theory]
+        [InlineData("testing", "testing")]
+        [InlineData(@"t\e|s$t,i|\ng", @"t\e|s$t,i|\ng")]
+        [InlineData(@"a\\b\,c\$d\|", @"a\b,c$d|")]
+        public void GivenAString_WhenParseStringIntoSearchValue_ThenStringValueGotUnescaped(string data, string expected)
+        {
+            StringSearchValue value = StringSearchValue.Parse(data);
+            Assert.Equal(expected, value.String);
+        }
+
+        [Theory]
+        [InlineData("testing", "testing")]
+        [InlineData(@"t\e|s$t,i|\ng", @"t\e|s$t,i|\ng")]
+        [InlineData(@"a\\b\,c\$d\|", @"a\b,c$d|")]
+        public void GivenAString_WhenSearchValueCreated_ThenStringValueGotUnescaped(string data, string expected)
+        {
+            StringSearchValue value = new StringSearchValue(data);
+            Assert.Equal(expected, value.String);
+        }
+
+        [Theory]
         [InlineData(@"testing", "testing")]
         [InlineData(@"t\e|s$t,i|\ng", @"t\\e\|s\$t\,i\|\\ng")]
-        public void GiveASearchValue_WhenToStringIsCalled_ThenCorrectStringShouldBeReturned(string s, string expected)
+        [InlineData(@"a\\b\,c\$d\|", @"a\\b\,c\$d\|")]
+        public void GiveASearchValue_WhenToStringIsCalled_ThenEscapedStringShouldBeReturned(string s, string expected)
         {
             StringSearchValue value = new StringSearchValue(s);
 

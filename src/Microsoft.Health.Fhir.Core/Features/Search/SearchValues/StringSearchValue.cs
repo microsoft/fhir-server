@@ -21,11 +21,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         {
             EnsureArg.IsNotNullOrWhiteSpace(s, nameof(s));
 
-            String = s;
+            String = s.UnescapeSearchParameterValue();
         }
 
         /// <summary>
-        /// Gets the string value.
+        /// Gets the unescaped string value.
         /// </summary>
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1720:Identifier contains type name", Justification = "Represents a FHIR search parameter of type string")]
         public string String { get; }
