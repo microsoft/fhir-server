@@ -219,10 +219,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             var tag = Guid.NewGuid().ToString();
 
-            List<Resource> resources = new List<Resource>();
+            var resources = new List<Resource>();
 
             // create the resources which will have an timestamp bigger than the 'now' var
-            Patient[] patients = await CreatePatients(tag);
+            var patients = await CreatePatients(tag);
 
             foreach (Patient p in patients)
             {
@@ -243,12 +243,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             var tag = Guid.NewGuid().ToString();
 
-            List<Resource> resources = new List<Resource>();
+            var resources = new List<Resource>();
 
             // create the resources which will have an timestamp bigger than the 'now' var
-            Patient[] patients = await CreatePatients(tag);
+            var patients = await CreatePatients(tag);
 
-            List<Observation> observations = new List<Observation>();
+            var observations = new List<Observation>();
             for (int i = 0; i < patients.Length; i++)
             {
                 var obs = await AddObservationToPatient(patients[i], "1990-01-01", tag);
@@ -269,12 +269,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             var tag = Guid.NewGuid().ToString();
 
-            List<Resource> resources = new List<Resource>();
+            var resources = new List<Resource>();
 
             // create the resources which will have an timestamp bigger than the 'now' var
-            Patient[] patients = await CreatePatients(tag);
+            var patients = await CreatePatients(tag);
 
-            List<Observation> observations = new List<Observation>();
+            var observations = new List<Observation>();
             for (int i = 0; i < patients.Length; i++)
             {
                 var obs = await AddObservationToPatient(patients[i], "1990-01-01", tag);
@@ -296,12 +296,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             var tag = Guid.NewGuid().ToString();
 
-            List<Resource> resources = new List<Resource>();
+            var resources = new List<Resource>();
 
             // create the resources which will have an timestamp bigger than the 'now' var
-            Patient[] patients = await CreatePatients(tag);
+            var patients = await CreatePatients(tag);
 
-            List<Observation> observations = new List<Observation>();
+            var observations = new List<Observation>();
             for (int i = 0; i < patients.Length; i++)
             {
                 var obs = await AddObservationToPatient(patients[i], "1990-01-01", tag);
@@ -322,13 +322,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             var tag = Guid.NewGuid().ToString();
 
-            List<Resource> resources = new List<Resource>();
+            var resources = new List<Resource>();
 
             // create the resources which will have an timestamp bigger than the 'now' var
-            Patient[] patients = await CreatePatients(tag);
+            var patients = await CreatePatients(tag);
 
-            string[] dates = new string[] { "1990-01-01", "1991-01-01", "1992-01-01", "1993-01-01" };
-            List<Observation> observations = new List<Observation>();
+            var dates = new string[] { "1990-01-01", "1991-01-01", "1992-01-01", "1993-01-01" };
+            var observations = new List<Observation>();
             for (int i = 0; i < patients.Length; i++)
             {
                 var obs = await AddObservationToPatient(patients[i], dates[i], tag);
@@ -349,13 +349,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             var tag = Guid.NewGuid().ToString();
 
-            List<Resource> resources = new List<Resource>();
+            var resources = new List<Resource>();
 
             // create the resources which will have an timestamp bigger than the 'now' var
-            Patient[] patients = await CreatePatients(tag);
+            var patients = await CreatePatients(tag);
 
-            string[] dates = new string[] { "1990-01-01", "1991-01-01", "1992-01-01", "1993-01-01" };
-            List<Observation> observations = new List<Observation>();
+            var dates = new string[] { "1990-01-01", "1991-01-01", "1992-01-01", "1993-01-01" };
+            var observations = new List<Observation>();
             for (int i = 0; i < patients.Length; i++)
             {
                 var obs = await AddObservationToPatient(patients[i], dates[i], tag);
