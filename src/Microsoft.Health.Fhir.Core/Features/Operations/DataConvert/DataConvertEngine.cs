@@ -9,17 +9,20 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Fhir.Converter.Hl7v2;
-using Microsoft.Health.Fhir.Converter.TemplateManagement;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.DataConvert.Models;
 using Microsoft.Health.Fhir.Core.Messages.DataConvert;
+using Microsoft.Health.Fhir.Liquid.Converter.Hl7v2;
+using Microsoft.Health.Fhir.TemplateManagement;
+using Microsoft.Health.Fhir.TemplateManagement.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.DataConvert
 {
     public class DataConvertEngine : IDataConvertEngine
     {
         private readonly IContainerRegistryTokenProvider _containerRegistryTokenProvider;
+        private readonly IOCIClientProvider _ocrClient;
+        private readonly ITemplateProvider _templateProvider;
         private readonly DataConvertConfiguration _dataConvertConfiguration;
         private readonly Hl7v2Processor _hl7v2Processor;
 
@@ -29,11 +32,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.DataConvert
 
         public DataConvertEngine(
             IContainerRegistryTokenProvider containerRegistryTokenProvider,
+            IOCIClientProvider ociClient,
+            ITemplateProvider templatgeProvider,
             IOptions<DataConvertConfiguration> dataConvertConfiguration)
         {
             EnsureArg.IsNotNull(containerRegistryTokenProvider);
+            EnsureArg.IsNotNull(ociClient);
+            EnsureArg.IsNotNull(templatgeProvider);
             EnsureArg.IsNotNull(dataConvertConfiguration);
 
+            _ocrClient = ociClient;
+            _templateProvider = templatgeProvider;
             _containerRegistryTokenProvider = containerRegistryTokenProvider;
             _dataConvertConfiguration = dataConvertConfiguration.Value;
             _hl7v2Processor = new Hl7v2Processor();
@@ -53,10 +62,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.DataConvert
             }
 
             var token = await _containerRegistryTokenProvider.GetTokenAsync(targetRegistry, cancellationToken);
-            TemplateContainer templates = ServerEngine.Engine.OCIPull(token, imageInfo);
+
+            _ocrClient.RegisterOCIClient(token, targetRegistry.ContainerRegistryServer);
+            var templateContainer = _templateProvider.GetTemplateContainer(imageInfo);
+
+            var hl7v2TemplatteProvider = new Hl7v2TemplateProvider(templateContainer.GetTemplates());
 
             // ToDo: implement generic processor selector
-            string bundleResult = _hl7v2Processor.Convert(convertRequest.InputData, convertRequest.EntryPointTemplate, templates.Layers.Last().templates);
+            string bundleResult = _hl7v2Processor.Convert(convertRequest.InputData, convertRequest.EntryPointTemplate, hl7v2TemplatteProvider);
             return new DataConvertResponse(bundleResult);
         }
 

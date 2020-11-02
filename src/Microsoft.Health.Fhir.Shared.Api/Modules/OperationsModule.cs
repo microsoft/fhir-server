@@ -9,6 +9,7 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Operations.DataConvert;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
+using Microsoft.Health.Fhir.TemplateManagement;
 
 namespace Microsoft.Health.Fhir.Api.Modules
 {
@@ -56,6 +57,10 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsSelf();
 
             services.AddSingleton<IReindexUtilities, ReindexUtilities>();
+
+            services.AddSingleton<IOCIClientProvider, OCIClientProvider>();
+
+            services.AddSingleton<ITemplateProvider, TemplateProvider>();
 
             services.AddSingleton<IDataConvertEngine, DataConvertEngine>();
 
