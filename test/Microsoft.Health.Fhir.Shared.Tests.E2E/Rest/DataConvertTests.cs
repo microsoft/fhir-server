@@ -48,6 +48,11 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         [Fact]
         public async Task GivenAValidRequest_WhenDataConvert_CorrectResponseShouldBeReturned()
         {
+            if (_isUsingInProcTestServer)
+            {
+                return;
+            }
+
             var requestMessage = GenerateDataConvertRequest();
             HttpResponseMessage response = await _testFhirClient.HttpClient.SendAsync(requestMessage);
 
