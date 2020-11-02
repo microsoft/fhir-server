@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.DataCo
         public async Task GivenAConvertTask_WhichRunsLongTime_TimeoutExceptionShouldBeThrown()
         {
             Task<DataConvertResponse> delayedResult = Task.Delay(2000).ContinueWith(_ => new DataConvertResponse("test"));
-            _dataConvertEngine.Process(default).ReturnsForAnyArgs(delayedResult);
+            _dataConvertEngine.Process(default, default).ReturnsForAnyArgs(delayedResult);
 
             await Assert.ThrowsAsync<DataConvertTimeoutException>(() => _dataConvertRequestHandler.Handle(GetSampleHl7v2Request(), default));
         }
@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.DataCo
         public async Task GivenAConvertTask_WhichRunsFast_TimeoutExceptionShouldNotBeThrown()
         {
             Task<DataConvertResponse> delayedResult = Task.Delay(500).ContinueWith(_ => new DataConvertResponse("test"));
-            _dataConvertEngine.Process(default).ReturnsForAnyArgs(delayedResult);
+            _dataConvertEngine.Process(default, default).ReturnsForAnyArgs(delayedResult);
 
             await _dataConvertRequestHandler.Handle(GetSampleHl7v2Request(), default);
         }
