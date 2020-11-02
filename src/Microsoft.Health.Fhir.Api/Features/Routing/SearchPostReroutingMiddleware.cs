@@ -22,7 +22,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         {
             var request = context.Request;
 
-            if (request.Method == "POST" && request.Path.Value.EndsWith("_search", System.StringComparison.InvariantCulture))
+            if (request != null
+                && request.Method == "POST"
+                && request.Path.Value.EndsWith(KnownRoutes.Search, System.StringComparison.OrdinalIgnoreCase)
+                && request.ContentType == "application/x-www-form-urlencoded")
             {
                 if (request.HasFormContentType)
                 {
@@ -35,7 +38,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                     request.Query = new QueryCollection(dic);
                 }
 
-                request.Path = request.Path.Value.Substring(0, request.Path.Value.Length - 7);
+                request.Path = request.Path.Value.Substring(0, request.Path.Value.Length - KnownRoutes.Search.Length);
                 request.Method = "GET";
             }
 
