@@ -267,6 +267,29 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenPostSearchWithCount_WhenSearched_ThenNextLinkUrlWouldYeildMoreResults()
+        {
+            // Create the resources
+            Patient[] patients = await Client.CreateResourcesAsync<Patient>(4);
+            var pageSize = 2;
+            Bundle bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient"), ("_count", pageSize.ToString()));
+
+            var expectedFirstBundle = patients.Length > pageSize ? patients.ToList().GetRange(0, pageSize).ToArray() : patients;
+            ValidateBundle(bundle, "?_type=Patient&_count=2", expectedFirstBundle);
+
+            var nextLink = bundle.NextLink?.ToString();
+            if (nextLink != null)
+            {
+                FhirResponse<Bundle> secondBundle = await Client.SearchAsync(nextLink);
+
+                // Truncating host and appending continuation token
+                nextLink = "?_type=Patient&_count=2" + nextLink.Substring(nextLink.IndexOf("&ct"));
+                ValidateBundle(secondBundle, nextLink, patients.ToList().GetRange(pageSize, patients.Length - pageSize).ToArray());
+            }
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
         public async Task GivenResourceWithHistory_WhenSearchedWithParams_ThenOnlyCurrentVersionShouldBeReturned()
         {
             // Create a coding that can be used to limit search to only the items within this test
@@ -541,14 +564,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             var code = Guid.NewGuid().ToString();
             NamingSystem library = await Client.CreateAsync(new NamingSystem
-                {
-                    Name = "test",
-                    Status = PublicationStatus.Draft,
-                    Kind = NamingSystem.NamingSystemType.Codesystem,
-                    Date = "2019",
-                    UniqueId = new List<NamingSystem.UniqueIdComponent> { new NamingSystem.UniqueIdComponent { Type = NamingSystem.NamingSystemIdentifierType.Uri, Value = "https://localhost" } },
-                    Type = new CodeableConcept("https://localhost/", code),
-                });
+            {
+                Name = "test",
+                Status = PublicationStatus.Draft,
+                Kind = NamingSystem.NamingSystemType.Codesystem,
+                Date = "2019",
+                UniqueId = new List<NamingSystem.UniqueIdComponent> { new NamingSystem.UniqueIdComponent { Type = NamingSystem.NamingSystemIdentifierType.Uri, Value = "https://localhost" } },
+                Type = new CodeableConcept("https://localhost/", code),
+            });
 
             await ExecuteAndValidateBundle($"NamingSystem?type={code}", library);
         }
