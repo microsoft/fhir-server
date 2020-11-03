@@ -26,11 +26,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
             _rootAliasName = rootAliasName;
         }
 
-        public void AppendSelectFromRoot(string selectList)
+        public void AppendSelect(string selectList)
         {
             _queryBuilder
                 .Append("SELECT ")
-                .Append(selectList)
+                .Append(selectList);
+        }
+
+        public void AppendFromRoot()
+        {
+            _queryBuilder
                 .Append(" FROM root ")
                 .AppendLine(_rootAliasName);
         }

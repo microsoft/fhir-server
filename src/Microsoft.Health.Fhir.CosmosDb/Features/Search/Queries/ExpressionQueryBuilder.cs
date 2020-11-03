@@ -90,14 +90,18 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                 // We do not currently support specifying the system for the _type parameter value.
                 // We would need to add it to the document, but for now it seems pretty unlikely that it will
                 // be specified when searching.
-                expression.Expression.AcceptVisitor(this, context.WithFieldNameOverride(SearchValueConstants.RootResourceTypeName));
+                expression.Expression.AcceptVisitor(this, context.WithFieldNameOverride((n, i) => SearchValueConstants.RootResourceTypeName));
             }
             else if (expression.Parameter.Name == SearchParameterNames.LastUpdated)
             {
                 // For LastUpdate queries, the LastModified property on the root is
                 // more performant than the searchIndices _lastUpdated.st and _lastUpdate.et
                 // we will override the mapping for that
-                expression.Expression.AcceptVisitor(this, context.WithFieldNameOverride(SearchValueConstants.LastModified));
+                expression.Expression.AcceptVisitor(this, context.WithFieldNameOverride((n, i) => SearchValueConstants.LastModified));
+            }
+            else if (expression.Parameter.Name == SearchValueConstants.TypeIdCompositeSearchParameterName)
+            {
+                expression.Expression.AcceptVisitor(this, context.WithFieldNameOverride((n, i) => i switch { 0 => SearchValueConstants.RootResourceTypeName, 1 => KnownResourceWrapperProperties.ResourceId, _ => throw new InvalidOperationException("unexpected component index") }));
             }
             else
             {
@@ -307,9 +311,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
         private string GetFieldName(IFieldExpression fieldExpression, Context state)
         {
-            if (state.FieldNameOverride != null)
+            string overrideValue = state.FieldNameOverride?.Invoke(fieldExpression.FieldName, fieldExpression.ComponentIndex);
+            if (overrideValue != null)
             {
-                return state.FieldNameOverride;
+                return overrideValue;
             }
 
             string fieldNameInString = GetMappedValue(FieldNameMapping, fieldExpression.FieldName);
@@ -370,7 +375,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
         /// </summary>
         internal struct Context
         {
-            public Context(string instanceVariableName, string fieldNameOverride)
+            public Context(string instanceVariableName, Func<FieldName, int?, string> fieldNameOverride)
             {
                 InstanceVariableName = instanceVariableName;
                 FieldNameOverride = fieldNameOverride;
@@ -378,14 +383,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
             public string InstanceVariableName { get; }
 
-            public string FieldNameOverride { get; }
+            public Func<FieldName, int?, string> FieldNameOverride { get; }
 
             public Context WithInstanceVariableName(string instanceVariableName)
             {
                 return new Context(instanceVariableName: instanceVariableName, fieldNameOverride: FieldNameOverride);
             }
 
-            public Context WithFieldNameOverride(string fieldNameOverride)
+            public Context WithFieldNameOverride(Func<FieldName, int?, string> fieldNameOverride)
             {
                 return new Context(instanceVariableName: InstanceVariableName, fieldNameOverride: fieldNameOverride);
             }
