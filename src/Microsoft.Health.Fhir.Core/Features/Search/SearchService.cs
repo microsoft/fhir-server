@@ -30,7 +30,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// </summary>
         /// <param name="searchOptionsFactory">The search options factory.</param>
         /// <param name="fhirDataStore">The data store</param>
-        /// <param name="modelInfoProvider">The model info provider</param>
         protected SearchService(ISearchOptionsFactory searchOptionsFactory, IFhirDataStore fhirDataStore)
         {
             EnsureArg.IsNotNull(searchOptionsFactory, nameof(searchOptionsFactory));
@@ -58,9 +57,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             string compartmentId,
             string resourceType,
             IReadOnlyList<Tuple<string, string>> queryParameters,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            bool returnOriginResource = false)
         {
-            SearchOptions searchOptions = _searchOptionsFactory.Create(compartmentType, compartmentId, resourceType, queryParameters);
+            SearchOptions searchOptions = _searchOptionsFactory.Create(compartmentType, compartmentId, resourceType, queryParameters, returnOriginResource);
 
             // Execute the actual search.
             return await SearchInternalAsync(searchOptions, cancellationToken);

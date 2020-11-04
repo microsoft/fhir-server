@@ -28,7 +28,6 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
-using Microsoft.Health.Fhir.Core.Features.Operations.Versions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Messages.Create;
@@ -457,19 +456,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             ResourceElement response = await _mediator.GetCapabilitiesAsync(HttpContext.RequestAborted);
 
             return FhirResult.Create(response);
-        }
-
-        /// <summary>
-        /// Returns the list of versions the server supports along with the default version it will use if no fhirVersion parameter is present.
-        /// </summary>
-        [HttpGet]
-        [AllowAnonymous]
-        [Route(KnownRoutes.Versions)]
-        public async Task<IActionResult> Versions()
-        {
-            VersionsResult response = await _mediator.GetOperationVersionsAsync(HttpContext.RequestAborted);
-
-            return new OperationVersionsResult(response, HttpStatusCode.OK);
         }
 
         /// <summary>

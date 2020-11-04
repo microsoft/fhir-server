@@ -437,6 +437,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 httpContext.Request.GetDisplayUrl(),
                 originalFhirRequestContext.BaseUri.OriginalString,
                 originalFhirRequestContext.CorrelationId,
+                originalFhirRequestContext.QueryParameters,
                 httpContext.Request.Headers,
                 httpContext.Response.Headers)
             {

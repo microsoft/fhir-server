@@ -38,6 +38,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.Configure<RouteOptions>(options =>
             {
                 options.ConstraintMap.Add(KnownRoutes.ResourceTypeRouteConstraint, typeof(ResourceTypesRouteConstraint));
+                options.ConstraintMap.Add(KnownRoutes.ResourceIdRouteConstraint, typeof(ResourceIdRouteConstraint));
                 options.ConstraintMap.Add(KnownRoutes.CompartmentTypeRouteConstraint, typeof(CompartmentTypesRouteConstraint));
                 options.ConstraintMap.Add(KnownRoutes.CompartmentResourceTypeRouteConstraint, typeof(CompartmentResourceTypesRouteConstraint));
             });

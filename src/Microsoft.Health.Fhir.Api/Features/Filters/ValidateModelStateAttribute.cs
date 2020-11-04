@@ -15,11 +15,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
     [AttributeUsage(AttributeTargets.Class)]
     public class ValidateModelStateAttribute : ActionFilterAttribute
     {
+        private static readonly string[] _contentMethods = { "POST", "PUT", "PATCH" };
+
         public override void OnActionExecuting(ActionExecutingContext context)
         {
             EnsureArg.IsNotNull(context, nameof(context));
 
-            if (!context.ModelState.IsValid)
+            if (!context.ModelState.IsValid && _contentMethods.Contains(context.HttpContext.Request.Method.ToUpperInvariant()))
             {
                 var validationErrors = context.ModelState
                     .SelectMany(x => x.Value.Errors.Select(error => new OperationOutcomeIssue(

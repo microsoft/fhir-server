@@ -25,6 +25,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
             string uriString,
             string baseUriString,
             string correlationId,
+            IReadOnlyList<Tuple<string, string>> queryParameters,
             IDictionary<string, StringValues> requestHeaders,
             IDictionary<string, StringValues> responseHeaders)
         {
@@ -32,12 +33,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
             EnsureArg.IsNotNullOrWhiteSpace(uriString, nameof(uriString));
             EnsureArg.IsNotNullOrWhiteSpace(baseUriString, nameof(baseUriString));
             EnsureArg.IsNotNullOrWhiteSpace(correlationId, nameof(correlationId));
+            EnsureArg.IsNotNull(queryParameters, nameof(queryParameters));
             EnsureArg.IsNotNull(responseHeaders, nameof(responseHeaders));
 
             Method = method;
             _uriString = uriString;
             _baseUriString = baseUriString;
             CorrelationId = correlationId;
+            QueryParameters = queryParameters;
             RequestHeaders = requestHeaders;
             ResponseHeaders = responseHeaders;
             IncludePartiallyIndexedSearchParams = false;
@@ -56,6 +59,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
         public string AuditEventType { get; set; }
 
         public ClaimsPrincipal Principal { get; set; }
+
+        public IReadOnlyList<Tuple<string, string>> QueryParameters { get; }
 
         public IDictionary<string, StringValues> RequestHeaders { get; }
 

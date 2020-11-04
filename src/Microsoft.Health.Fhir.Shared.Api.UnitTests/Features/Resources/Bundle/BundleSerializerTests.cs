@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Resources.Bundle
         public BundleSerializerTests()
         {
             var requestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
-            requestContextAccessor.FhirRequestContext.Returns(x => new FhirRequestContext("get", "https://localhost/Patient", "https://localhost", "correlation", new Dictionary<string, StringValues>(), new Dictionary<string, StringValues>()));
+            requestContextAccessor.FhirRequestContext.Returns(x => new FhirRequestContext("get", "https://localhost/Patient", "https://localhost", "correlation", new Tuple<string, string>[0], new Dictionary<string, StringValues>(), new Dictionary<string, StringValues>()));
 
             _wrapperFactory = new ResourceWrapperFactory(
                                      new RawResourceFactory(new FhirJsonSerializer()),

@@ -32,6 +32,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Context
 
         public IDictionary<string, StringValues> ResponseHeaders { get; set; }
 
+        public IReadOnlyList<Tuple<string, string>> QueryParameters { get; }
+
         public IList<OperationOutcomeIssue> BundleIssues { get; set; } = new List<OperationOutcomeIssue>();
 
         public string ResourceType { get; set; }

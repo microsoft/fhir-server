@@ -3,11 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using MediatR;
+using System.Net;
 
-namespace Microsoft.Health.Fhir.Core.Messages.Get
+namespace Microsoft.Health.Fhir.Core.Features.Operations.Routing
 {
-    public class GetOperationVersionsRequest : IRequest<GetOperationVersionsResponse>
+    public interface IOperationResponse
     {
+        public HttpStatusCode StatusCode { get; }
     }
 }

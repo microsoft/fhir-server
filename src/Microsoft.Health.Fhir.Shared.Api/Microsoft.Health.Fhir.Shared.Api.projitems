@@ -9,10 +9,10 @@
     <Import_RootNamespace>Microsoft.Health.Fhir.Api</Import_RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)Controllers\OperationController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ReindexController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ExportController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\FhirController.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Controllers\ValidateController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ActionConstraints\ConditionalConstraintAttribute.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ActionResults\FhirResult.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ActionResults\OperationOutcomeResult.cs" />
@@ -20,7 +20,13 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\ContentTypes\ContentTypeService.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ParameterCompatibleFilter.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidationQueryFilterAndParameterParserAttribute.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\OptionalBodyBinder.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Versions\GetOperationVersionsHandler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Versions\GetOperationVersionsRequest.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Versions\GetOperationVersionsResponse.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Versions\VersionsResult.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\BundleSerializer.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Routing\Operations\IOperationActionResultResponse.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Routing\QueryStringParser.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\FeatureFlags\Validate\ValidateFeatureModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\FeatureFlags\Validate\ValidatePostConfigureOptions.cs" />

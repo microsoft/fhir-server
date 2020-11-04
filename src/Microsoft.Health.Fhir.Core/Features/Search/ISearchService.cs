@@ -36,13 +36,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <param name="resourceType">The resource type that should be searched. If null is specified we search all resource types.</param>
         /// <param name="queryParameters">The search queries.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
+        /// <param name="returnOriginResource">Specifies if the origin resource should also be returned.</param>
         /// <returns>A <see cref="SearchResult"/> representing the result.</returns>
         Task<SearchResult> SearchCompartmentAsync(
             string compartmentType,
             string compartmentId,
             string resourceType,
             IReadOnlyList<Tuple<string, string>> queryParameters,
-            CancellationToken cancellationToken);
+            CancellationToken cancellationToken,
+            bool returnOriginResource = false);
 
         Task<SearchResult> SearchHistoryAsync(
             string resourceType,

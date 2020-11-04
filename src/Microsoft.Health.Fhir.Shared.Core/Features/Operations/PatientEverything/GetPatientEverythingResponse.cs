@@ -3,20 +3,21 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using EnsureThat;
-using MediatR;
+using System.Net;
+using Microsoft.Health.Fhir.Core.Features.Operations.Routing;
 using Microsoft.Health.Fhir.Core.Models;
 
-namespace Microsoft.Health.Fhir.Core.Messages.Operation
+namespace Microsoft.Health.Fhir.Core.Messages.Operation.PatientEverything
 {
-    public class ValidateOperationRequest : IRequest<ValidateOperationResponse>, IRequest
+    public class GetPatientEverythingResponse : IOperationFhirResponse
     {
-        public ValidateOperationRequest(ResourceElement resourceElement)
+        public GetPatientEverythingResponse(IResourceElement bundle)
         {
-            EnsureArg.IsNotNull(resourceElement, nameof(resourceElement));
-            Resource = resourceElement;
+            Response = bundle;
         }
 
-        public ResourceElement Resource { get; }
+        public IResourceElement Response { get; }
+
+        public HttpStatusCode StatusCode => HttpStatusCode.OK;
     }
 }

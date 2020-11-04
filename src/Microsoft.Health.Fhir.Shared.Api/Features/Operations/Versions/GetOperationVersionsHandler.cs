@@ -8,10 +8,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
-using Microsoft.Health.Fhir.Core.Messages.Get;
 using Microsoft.Health.Fhir.Core.Models;
 
-namespace Microsoft.Health.Fhir.Core.Features.Conformance
+namespace Microsoft.Health.Fhir.Api.Operations.Versions
 {
     public class GetOperationVersionsHandler : IRequestHandler<GetOperationVersionsRequest, GetOperationVersionsResponse>
     {

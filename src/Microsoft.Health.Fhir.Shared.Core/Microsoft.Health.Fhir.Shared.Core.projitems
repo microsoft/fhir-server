@@ -16,8 +16,15 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\DefaultParserSettings.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Export\GroupMemberExtractor.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Export\ResourceToNdjsonBytesSerializer.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\PatientEverything\GetPatientEverythingRequest.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\PatientEverything\GetPatientEverythingResponse.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\PatientEverything\PatientEverythingRequestHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexSingleResourceRequestHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexUtilities.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\ValidateResource\ValidateOperationHandler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\ValidateResource\ValidateOperationRequest.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\ValidateResource\ValidateOperationResponse.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\ValidateResource\ValidateResourceOperationValidator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Persistence\RawResourceFactory.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\BaseResourceHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Create\ConditionalCreateResourceHandler.cs" />

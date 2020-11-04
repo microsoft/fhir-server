@@ -6,6 +6,7 @@
 using FluentValidation;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
+using Microsoft.Health.Fhir.Core.Messages.Operation.Validate;
 
 namespace Microsoft.Health.Fhir.Core.Messages.Operation
 {

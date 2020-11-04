@@ -13,18 +13,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     /// </summary>
     public class CompartmentSearchExpression : Expression
     {
-        /// <summary>
-        /// Initializes a new instance of the <see cref="CompartmentSearchExpression"/> class.
-        /// </summary>
-        /// <param name="compartmentType">The compartment type.</param>
-        /// <param name="compartmentId">The compartment id.</param>
-        public CompartmentSearchExpression(string compartmentType, string compartmentId)
+        public CompartmentSearchExpression(string compartmentType, string compartmentId, bool includeOriginResource = false)
         {
             EnsureArg.IsTrue(ModelInfoProvider.IsKnownCompartmentType(compartmentType), nameof(compartmentType));
             EnsureArg.IsNotNullOrWhiteSpace(compartmentId, nameof(compartmentId));
 
             CompartmentType = compartmentType;
             CompartmentId = compartmentId;
+            IncludeOriginResource = includeOriginResource;
         }
 
         /// <summary>
@@ -36,6 +32,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// The compartment id.
         /// </summary>
         public string CompartmentId { get; }
+
+        /// <summary>
+        /// When true, the origin resource should be returned with the compartment resources. The default is false.
+        /// </summary>
+        public bool IncludeOriginResource { get; }
 
         public override TOutput AcceptVisitor<TContext, TOutput>(IExpressionVisitor<TContext, TOutput> visitor, TContext context)
         {

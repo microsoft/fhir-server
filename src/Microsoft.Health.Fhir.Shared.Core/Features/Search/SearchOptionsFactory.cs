@@ -69,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             return Create(null, null, resourceType, queryParameters);
         }
 
-        public SearchOptions Create(string compartmentType, string compartmentId, string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters)
+        public SearchOptions Create(string compartmentType, string compartmentId, string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters, bool returnOriginResource = false)
         {
             var searchOptions = new SearchOptions();
 
@@ -274,7 +274,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         throw new InvalidSearchOperationException(Core.Resources.CompartmentIdIsInvalid);
                     }
 
-                    searchExpressions.Add(Expression.CompartmentSearch(compartmentType, compartmentId));
+                    searchExpressions.Add(Expression.CompartmentSearch(compartmentType, compartmentId, returnOriginResource));
                 }
                 else
                 {

@@ -22,12 +22,16 @@ using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Formatters;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
+using Microsoft.Health.Fhir.Api.Operations.Versions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Operations.Routing;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Messages.Get;
+using Microsoft.Health.Fhir.Core.Messages.Operation;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Api.Modules
@@ -150,6 +154,10 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             // Register a factory to resolve a scope that returns all components that provide capabilities
             services.AddFactory<IScoped<IEnumerable<IProvideCapability>>>();
+
+            services.Add<OperationRequestContent>().Scoped().AsImplementedInterfaces();
+
+            services.RegisterOperationsInAssembly(KnownAssemblies.All);
 
             services.AddLazy();
             services.AddScoped();

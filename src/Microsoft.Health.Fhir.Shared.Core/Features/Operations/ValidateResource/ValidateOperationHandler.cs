@@ -11,6 +11,7 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Operation;
+using Microsoft.Health.Fhir.Core.Messages.Operation.Validate;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation
@@ -20,7 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         public static readonly OperationOutcomeIssue ValidationPassed = new OperationOutcomeIssue(
                     OperationOutcomeConstants.IssueSeverity.Information,
                     OperationOutcomeConstants.IssueType.Informational,
-                    Resources.ValidationPassed);
+                    Core.Resources.ValidationPassed);
 
         private readonly IFhirAuthorizationService _authorizationService;
 

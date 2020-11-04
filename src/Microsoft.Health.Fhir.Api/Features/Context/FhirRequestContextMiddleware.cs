@@ -3,6 +3,9 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
@@ -47,6 +50,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
                 uriString: uriInString,
                 baseUriString: baseUriInString,
                 correlationId: correlationId,
+                queryParameters: GetQueriesForSearch(context),
                 requestHeaders: context.Request.Headers,
                 responseHeaders: context.Response.Headers);
 
@@ -56,6 +60,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Context
 
             // Call the next delegate/middleware in the pipeline
             await _next(context);
+        }
+
+        private static IReadOnlyList<Tuple<string, string>> GetQueriesForSearch(HttpContext context)
+        {
+            IReadOnlyList<Tuple<string, string>> queries = Array.Empty<Tuple<string, string>>();
+
+            if (context.Request.Query != null)
+            {
+                queries = context.Request.Query
+                    .SelectMany(query => query.Value, (query, value) => Tuple.Create(query.Key, value)).ToArray();
+            }
+
+            return queries;
         }
     }
 }

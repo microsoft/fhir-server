@@ -302,7 +302,22 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
         public object VisitCompartment(CompartmentSearchExpression expression, Context context)
         {
+            if (expression.IncludeOriginResource)
+            {
+                _queryBuilder.Append("((")
+                    .Append(SearchValueConstants.RootAliasName).Append(".resourceId").Append(" = ").Append(AddParameterMapping(expression.CompartmentId))
+                    .Append(" AND ").Append(SearchValueConstants.RootAliasName).Append(".").Append(SearchValueConstants.RootResourceTypeName).Append(" = ").Append(AddParameterMapping(expression.CompartmentType))
+                    .AppendLine(")")
+                    .Append(" OR ");
+            }
+
             AppendArrayContainsFilter(GetCompartmentIndicesParamName(expression.CompartmentType), expression.CompartmentId);
+
+            if (expression.IncludeOriginResource)
+            {
+                _queryBuilder.AppendLine(")");
+            }
+
             return null;
         }
 

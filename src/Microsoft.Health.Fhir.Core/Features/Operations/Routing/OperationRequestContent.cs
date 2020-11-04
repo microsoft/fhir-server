@@ -3,21 +3,20 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Collections.Generic;
-using EnsureThat;
+using System.Threading;
 using Microsoft.Health.Fhir.Core.Models;
 
-namespace Microsoft.Health.Fhir.Core.Messages.Operation
+namespace Microsoft.Health.Fhir.Core.Features.Operations.Routing
 {
-    public class ValidateOperationResponse
+    public class OperationRequestContent : IOperationRequestContent
     {
-        public ValidateOperationResponse(params OperationOutcomeIssue[] issues)
+        private readonly AsyncLocal<ResourceElement> _resourceCurrent = new AsyncLocal<ResourceElement>();
+
+        public ResourceElement Resource
         {
-            EnsureArg.IsNotNull(issues, nameof(issues));
+            get => _resourceCurrent.Value;
 
-            Issues = issues;
+            set => _resourceCurrent.Value = value;
         }
-
-        public ICollection<OperationOutcomeIssue> Issues { get; }
     }
 }

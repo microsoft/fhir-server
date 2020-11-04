@@ -10,13 +10,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
     internal class KnownRoutes
     {
         internal const string ResourceTypeRouteConstraint = "fhirResource";
+        internal const string ResourceIdRouteConstraint = "fhirResourceId";
         internal const string CompartmentResourceTypeRouteConstraint = "fhirCompartmentResource";
         internal const string CompartmentTypeRouteConstraint = "fhirCompartment";
 
         private const string ResourceTypeRouteSegment = "{" + KnownActionParameterNames.ResourceType + ":" + ResourceTypeRouteConstraint + "}";
         private const string CompartmentResourceTypeRouteSegment = "{" + KnownActionParameterNames.ResourceType + ":" + CompartmentResourceTypeRouteConstraint + "}";
         private const string CompartmentTypeRouteSegment = "{" + KnownActionParameterNames.CompartmentType + ":" + CompartmentTypeRouteConstraint + "}";
-        private const string IdRouteSegment = "{" + KnownActionParameterNames.Id + "}";
+        private const string IdRouteSegment = "{" + KnownActionParameterNames.Id + ":" + ResourceIdRouteConstraint + "}";
         private const string VidRouteSegment = "{" + KnownActionParameterNames.Vid + "}";
 
         public const string History = "_history";
@@ -45,7 +46,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
 
         public const string Metadata = "metadata";
 
-        public const string Versions = "$versions";
+        public const string Operation = "${" + KnownActionParameterNames.Operation + "}";
 
         public const string HealthCheck = "/health/check";
         public const string CustomError = "/CustomError";
