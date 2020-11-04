@@ -77,6 +77,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             FeedResponse<FhirCosmosResourceWrapper> matches = await ExecuteSearchAsync(
                 _queryBuilder.BuildSqlQuerySpec(searchOptions, includeExpressions),
                 searchOptions,
+                searchOptions.CountOnly ? null : searchOptions.ContinuationToken,
                 cancellationToken);
 
             IList<FhirCosmosResourceWrapper> includes = Array.Empty<FhirCosmosResourceWrapper>();
@@ -99,14 +100,20 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     {
                         searchOptions.Expression = expression;
 
-                        FeedResponse<FhirCosmosResourceWrapper> includeResponse = await ExecuteSearchAsync(
-                            _queryBuilder.BuildSqlQuerySpec(searchOptions, Array.Empty<IncludeExpression>()),
-                            searchOptions,
-                            cancellationToken);
+                        var localIncludes = new List<FhirCosmosResourceWrapper>();
+                        FeedResponse<FhirCosmosResourceWrapper> includeResponse = null;
+                        do
+                        {
+                            includeResponse = await ExecuteSearchAsync(
+                                _queryBuilder.BuildSqlQuerySpec(searchOptions, Array.Empty<IncludeExpression>()),
+                                searchOptions,
+                                includeResponse?.ContinuationToken,
+                                cancellationToken);
+                            localIncludes.AddRange(includeResponse);
+                        }
+                        while (!string.IsNullOrEmpty(includeResponse.ContinuationToken));
 
-                        includes = includeResponse.ToList();
-
-                        // TODO: follow continuation token
+                        includes = localIncludes;
                     }
                     finally
                     {
@@ -156,6 +163,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             FeedResponse<FhirCosmosResourceWrapper> results = await ExecuteSearchAsync(
                 _queryBuilder.GenerateHistorySql(searchOptions),
                 searchOptions,
+                searchOptions.CountOnly ? null : searchOptions.ContinuationToken,
                 cancellationToken);
 
             return CreateSearchResult(searchOptions, results.Select(r => new SearchResultEntry(r)), results.ContinuationToken);
@@ -169,6 +177,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             FeedResponse<FhirCosmosResourceWrapper> results = await ExecuteSearchAsync(
                 _queryBuilder.GenerateReindexSql(searchOptions, searchParameterHash),
                 searchOptions,
+                searchOptions.CountOnly ? null : searchOptions.ContinuationToken,
                 cancellationToken);
 
             return CreateSearchResult(searchOptions, results.Select(r => new SearchResultEntry(r)), results.ContinuationToken);
@@ -177,14 +186,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         private async Task<FeedResponse<FhirCosmosResourceWrapper>> ExecuteSearchAsync(
             QueryDefinition sqlQuerySpec,
             SearchOptions searchOptions,
+            string continuationToken,
             CancellationToken cancellationToken)
         {
             var feedOptions = new QueryRequestOptions
             {
                 MaxItemCount = searchOptions.MaxItemCount,
             };
-
-            string continuationToken = searchOptions.CountOnly ? null : searchOptions.ContinuationToken;
 
             return await _fhirDataStore.ExecuteDocumentQueryAsync<FhirCosmosResourceWrapper>(sqlQuerySpec, feedOptions, continuationToken, cancellationToken);
         }
