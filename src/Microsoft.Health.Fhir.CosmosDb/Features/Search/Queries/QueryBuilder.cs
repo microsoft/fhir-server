@@ -213,7 +213,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                         _queryBuilder.Append(")");
                     }
 
-                    _queryBuilder.AppendLine(") AS referencesToInclude");
+                    _queryBuilder.Append(") AS referencesToInclude");
                 }
 
                 _queryHelper.AppendFromRoot();

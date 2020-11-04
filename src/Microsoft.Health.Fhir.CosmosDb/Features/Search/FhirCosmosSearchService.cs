@@ -81,6 +81,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 cancellationToken);
 
             var includes = new List<FhirCosmosResourceWrapper>();
+            bool includesTruncated = false;
 
             if (includeExpressions.Count > 0 && matches.Count > 0)
             {
@@ -94,32 +95,32 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                             Expression.And(
                                 Expression.Equals(FieldName.TokenCode, 0, r.ResourceTypeName),
                                 Expression.Equals(FieldName.TokenCode, 1, r.ResourceId))).ToList()));
-                    Expression snapshot = searchOptions.Expression;
 
-                    try
+                    SearchOptions includeSearchOptions = searchOptions.Clone();
+                    includeSearchOptions.Expression = expression;
+                    includeSearchOptions.MaxItemCount = includeSearchOptions.IncludeCount;
+
+                    FeedResponse<FhirCosmosResourceWrapper> includeResponse = null;
+                    do
                     {
-                        searchOptions.Expression = expression;
-
-                        FeedResponse<FhirCosmosResourceWrapper> includeResponse = null;
-                        do
+                        if (includes.Count >= searchOptions.IncludeCount)
                         {
-                            includeResponse = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
-                                _queryBuilder.BuildSqlQuerySpec(searchOptions, Array.Empty<IncludeExpression>()),
-                                searchOptions,
-                                includeResponse?.ContinuationToken,
-                                cancellationToken);
-                            includes.AddRange(includeResponse);
+                            includesTruncated = true;
+                            break;
                         }
-                        while (!string.IsNullOrEmpty(includeResponse.ContinuationToken));
+
+                        includeResponse = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
+                            _queryBuilder.BuildSqlQuerySpec(includeSearchOptions, Array.Empty<IncludeExpression>()),
+                            includeSearchOptions,
+                            includeResponse?.ContinuationToken,
+                            cancellationToken);
+                        includes.AddRange(includeResponse);
                     }
-                    finally
-                    {
-                        searchOptions.Expression = snapshot;
-                    }
+                    while (!string.IsNullOrEmpty(includeResponse.ContinuationToken));
                 }
             }
 
-            if (revIncludeExpressions.Count > 0 && matches.Count > 0)
+            if (revIncludeExpressions.Count > 0 && matches.Count > 0 && !includesTruncated)
             {
                 foreach (IncludeExpression revIncludeExpression in revIncludeExpressions)
                 {
@@ -135,32 +136,31 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
                     Expression expression = Expression.And(sourceTypeExpression, referenceExpression);
 
-                    Expression snapshot = searchOptions.Expression;
+                    SearchOptions revIncludeSearchOptions = searchOptions.Clone();
+                    revIncludeSearchOptions.Expression = expression;
+                    revIncludeSearchOptions.MaxItemCount = revIncludeSearchOptions.IncludeCount - includes.Count;
 
-                    try
+                    FeedResponse<FhirCosmosResourceWrapper> includeResponse = null;
+                    do
                     {
-                        searchOptions.Expression = expression;
-
-                        FeedResponse<FhirCosmosResourceWrapper> includeResponse = null;
-                        do
+                        if (includes.Count >= searchOptions.IncludeCount)
                         {
-                            includeResponse = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
-                                _queryBuilder.BuildSqlQuerySpec(searchOptions, Array.Empty<IncludeExpression>()),
-                                searchOptions,
-                                includeResponse?.ContinuationToken,
-                                cancellationToken);
-                            includes.AddRange(includeResponse);
+                            includesTruncated = true;
+                            break;
                         }
-                        while (!string.IsNullOrEmpty(includeResponse.ContinuationToken));
+
+                        includeResponse = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
+                            _queryBuilder.BuildSqlQuerySpec(revIncludeSearchOptions, Array.Empty<IncludeExpression>()),
+                            revIncludeSearchOptions,
+                            includeResponse?.ContinuationToken,
+                            cancellationToken);
+                        includes.AddRange(includeResponse);
                     }
-                    finally
-                    {
-                        searchOptions.Expression = snapshot;
-                    }
+                    while (!string.IsNullOrEmpty(includeResponse.ContinuationToken));
                 }
             }
 
-            SearchResult searchResult = CreateSearchResult(searchOptions, matches.Select(m => new SearchResultEntry(m, SearchEntryMode.Match)).Concat(includes.Select(i => new SearchResultEntry(i, SearchEntryMode.Include))), matches.ContinuationToken);
+            SearchResult searchResult = CreateSearchResult(searchOptions, matches.Select(m => new SearchResultEntry(m, SearchEntryMode.Match)).Concat(includes.Select(i => new SearchResultEntry(i, SearchEntryMode.Include))), matches.ContinuationToken, includesTruncated);
 
             if (searchOptions.IncludeTotal == TotalType.Accurate && !searchOptions.CountOnly)
             {
@@ -248,7 +248,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             return (await _fhirDataStore.ExecuteDocumentQueryAsync<int>(sqlQuerySpec, feedOptions, null, cancellationToken)).Single();
         }
 
-        public static SearchResult CreateSearchResult(SearchOptions searchOptions, IEnumerable<SearchResultEntry> results, string continuationToken)
+        public static SearchResult CreateSearchResult(SearchOptions searchOptions, IEnumerable<SearchResultEntry> results, string continuationToken, bool includesTruncated = false)
         {
             IReadOnlyList<(string parameterName, string reason)> unsupportedSortingParameters;
             if (searchOptions.Sort?.Count > 0)
@@ -268,7 +268,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 results,
                 searchOptions.UnsupportedSearchParams,
                 unsupportedSortingParameters,
-                continuationToken);
+                continuationToken,
+                includesTruncated);
         }
 
         private static void ExtractIncludeExpressions(Expression inputExpression, out Expression expressionWithoutIncludes, out IReadOnlyList<IncludeExpression> includeExpressions, out IReadOnlyList<IncludeExpression> revIncludeExpressions)

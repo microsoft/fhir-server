@@ -36,7 +36,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
         public void AppendFromRoot()
         {
             _queryBuilder
-                .Append(" FROM root ")
+                .AppendLine()
+                .Append("FROM root ")
                 .AppendLine(_rootAliasName);
         }
 
@@ -66,7 +67,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
         public void AppendSystemDataFilter(bool systemDataValue = false)
         {
             _queryBuilder
-                .Append(" WHERE ")
+                .Append("WHERE ")
                 .Append(_rootAliasName).Append(".isSystem")
                 .Append(" = ")
                 .AppendLine(_queryParameterManager.AddOrGetParameterMapping(systemDataValue));

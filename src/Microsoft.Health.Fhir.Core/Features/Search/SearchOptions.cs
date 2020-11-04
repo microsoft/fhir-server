@@ -96,5 +96,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// Gets the list of sorting parameters.
         /// </summary>
         public IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> Sort { get; internal set; }
+
+        public SearchOptions Clone() => (SearchOptions)MemberwiseClone();
     }
 }
