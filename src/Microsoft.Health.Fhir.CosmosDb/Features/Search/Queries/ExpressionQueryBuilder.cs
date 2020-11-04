@@ -105,7 +105,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
             }
             else
             {
-                AppendSubquery(expression.Parameter.Name, expression.Expression, context);
+                string parameterName = expression.Parameter.Name == SearchValueConstants.WildcardReferenceSearchParameterName ? null : expression.Parameter.Name;
+                AppendSubquery(parameterName, expression.Expression, context);
             }
 
             _queryBuilder.AppendLine();
@@ -149,11 +150,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
             context = context.WithInstanceVariableName(SearchValueConstants.SearchIndexAliasName);
 
-            VisitBinary(GetMappedValue(FieldNameMapping, FieldName.ParamName), BinaryOperator.Equal, parameterName, context);
+            if (parameterName != null)
+            {
+                VisitBinary(GetMappedValue(FieldNameMapping, FieldName.ParamName), BinaryOperator.Equal, parameterName, context);
+            }
 
             if (expression != null)
             {
-                _queryBuilder.Append(" AND ");
+                if (parameterName != null)
+                {
+                    _queryBuilder.Append(" AND ");
+                }
 
                 expression.AcceptVisitor(this, context);
             }

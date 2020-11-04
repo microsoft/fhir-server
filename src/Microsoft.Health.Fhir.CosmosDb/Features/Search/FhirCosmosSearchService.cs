@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -25,44 +26,37 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
     {
         private readonly CosmosFhirDataStore _fhirDataStore;
         private readonly IQueryBuilder _queryBuilder;
+        private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
+        private readonly SearchParameterInfo _resourceTypeSearchParameter;
 
         public FhirCosmosSearchService(
             ISearchOptionsFactory searchOptionsFactory,
             CosmosFhirDataStore fhirDataStore,
-            IQueryBuilder queryBuilder)
+            IQueryBuilder queryBuilder,
+            ISearchParameterDefinitionManager searchParameterDefinitionManager)
             : base(searchOptionsFactory, fhirDataStore)
         {
             EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
             EnsureArg.IsNotNull(queryBuilder, nameof(queryBuilder));
+            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
 
             _fhirDataStore = fhirDataStore;
             _queryBuilder = queryBuilder;
+            _searchParameterDefinitionManager = searchParameterDefinitionManager;
+            _resourceTypeSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.ResourceType);
         }
 
         protected override async Task<SearchResult> SearchInternalAsync(
             SearchOptions searchOptions,
             CancellationToken cancellationToken)
         {
-            IReadOnlyList<IncludeExpression> includeExpressions;
-            switch (searchOptions.Expression)
-            {
-                case IncludeExpression ie:
-                    searchOptions.Expression = null;
-                    includeExpressions = Array.Empty<IncludeExpression>();
-                    break;
-                case MultiaryExpression me when me.Expressions.Any(e => e is IncludeExpression):
-                    includeExpressions = me.Expressions.OfType<IncludeExpression>().ToList();
-                    searchOptions.Expression = (me.Expressions.Count - includeExpressions.Count) switch
-                    {
-                        0 => null,
-                        1 => me.Expressions.Single(e => !(e is IncludeExpression)),
-                        _ => new MultiaryExpression(me.MultiaryOperation, me.Expressions.Where(e => !(e is IncludeExpression)).ToList()),
-                    };
-                    break;
-                default:
-                    includeExpressions = Array.Empty<IncludeExpression>();
-                    break;
-            }
+            ExtractIncludeExpressions(
+                searchOptions.Expression,
+                out Expression expressionWithoutIncludes,
+                out IReadOnlyList<IncludeExpression> includeExpressions,
+                out IReadOnlyList<IncludeExpression> revIncludeExpressions);
+
+            searchOptions.Expression = expressionWithoutIncludes;
 
             if (searchOptions.CountOnly)
             {
@@ -75,14 +69,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 return new SearchResult(count, searchOptions.UnsupportedSearchParams);
             }
 
-            if (includeExpressions.Any(e => e.Reversed))
+            if (includeExpressions.Any(e => e.Iterate) || revIncludeExpressions.Any(e => e.Iterate))
             {
-                throw new BadRequestException("_revInclude is not supported");
-            }
-
-            if (includeExpressions.Any(e => e.Iterate))
-            {
-                throw new BadRequestException("_include:iterate is not supported");
+                throw new BadRequestException("_include:iterate and _revinclude:iterate are not supported");
             }
 
             FeedResponse<FhirCosmosResourceWrapper> matches = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
@@ -91,9 +80,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 searchOptions.CountOnly ? null : searchOptions.ContinuationToken,
                 cancellationToken);
 
-            IList<FhirCosmosResourceWrapper> includes = Array.Empty<FhirCosmosResourceWrapper>();
+            var includes = new List<FhirCosmosResourceWrapper>();
 
-            if (includeExpressions.Count > 0)
+            if (includeExpressions.Count > 0 && matches.Count > 0)
             {
                 var referencesToInclude = matches.SelectMany(m => m.ReferencesToInclude).Distinct().ToList();
 
@@ -111,7 +100,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     {
                         searchOptions.Expression = expression;
 
-                        var localIncludes = new List<FhirCosmosResourceWrapper>();
                         FeedResponse<FhirCosmosResourceWrapper> includeResponse = null;
                         do
                         {
@@ -120,11 +108,50 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                                 searchOptions,
                                 includeResponse?.ContinuationToken,
                                 cancellationToken);
-                            localIncludes.AddRange(includeResponse);
+                            includes.AddRange(includeResponse);
                         }
                         while (!string.IsNullOrEmpty(includeResponse.ContinuationToken));
+                    }
+                    finally
+                    {
+                        searchOptions.Expression = snapshot;
+                    }
+                }
+            }
 
-                        includes = localIncludes;
+            if (revIncludeExpressions.Count > 0 && matches.Count > 0)
+            {
+                foreach (IncludeExpression revIncludeExpression in revIncludeExpressions)
+                {
+                    SearchParameterExpression sourceTypeExpression = Expression.SearchParameter(_resourceTypeSearchParameter, Expression.Equals(FieldName.TokenCode, null, revIncludeExpression.SourceResourceType));
+                    SearchParameterInfo referenceSearchParameter = revIncludeExpression.WildCard ? new SearchParameterInfo(SearchValueConstants.WildcardReferenceSearchParameterName) : revIncludeExpression.ReferenceSearchParameter;
+                    SearchParameterExpression referenceExpression = Expression.SearchParameter(
+                        referenceSearchParameter,
+                        Expression.Or(
+                            matches.Select(m =>
+                                Expression.And(
+                                    Expression.Equals(FieldName.ReferenceResourceType, null, m.ResourceTypeName),
+                                    Expression.Equals(FieldName.ReferenceResourceId, null, m.ResourceId))).ToArray()));
+
+                    Expression expression = Expression.And(sourceTypeExpression, referenceExpression);
+
+                    Expression snapshot = searchOptions.Expression;
+
+                    try
+                    {
+                        searchOptions.Expression = expression;
+
+                        FeedResponse<FhirCosmosResourceWrapper> includeResponse = null;
+                        do
+                        {
+                            includeResponse = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
+                                _queryBuilder.BuildSqlQuerySpec(searchOptions, Array.Empty<IncludeExpression>()),
+                                searchOptions,
+                                includeResponse?.ContinuationToken,
+                                cancellationToken);
+                            includes.AddRange(includeResponse);
+                        }
+                        while (!string.IsNullOrEmpty(includeResponse.ContinuationToken));
                     }
                     finally
                     {
@@ -242,6 +269,38 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 searchOptions.UnsupportedSearchParams,
                 unsupportedSortingParameters,
                 continuationToken);
+        }
+
+        private static void ExtractIncludeExpressions(Expression inputExpression, out Expression expressionWithoutIncludes, out IReadOnlyList<IncludeExpression> includeExpressions, out IReadOnlyList<IncludeExpression> revIncludeExpressions)
+        {
+            switch (inputExpression)
+            {
+                case IncludeExpression ie when ie.Reversed:
+                    expressionWithoutIncludes = null;
+                    includeExpressions = Array.Empty<IncludeExpression>();
+                    revIncludeExpressions = new[] { ie };
+                    return;
+                case IncludeExpression ie:
+                    expressionWithoutIncludes = null;
+                    includeExpressions = new[] { ie };
+                    revIncludeExpressions = Array.Empty<IncludeExpression>();
+                    return;
+                case MultiaryExpression me when me.Expressions.Any(e => e is IncludeExpression):
+                    includeExpressions = me.Expressions.OfType<IncludeExpression>().Where(ie => !ie.Reversed).ToList();
+                    revIncludeExpressions = me.Expressions.OfType<IncludeExpression>().Where(ie => ie.Reversed).ToList();
+                    expressionWithoutIncludes = (me.Expressions.Count - (includeExpressions.Count + revIncludeExpressions.Count)) switch
+                    {
+                        0 => null,
+                        1 => me.Expressions.Single(e => !(e is IncludeExpression)),
+                        _ => new MultiaryExpression(me.MultiaryOperation, me.Expressions.Where(e => !(e is IncludeExpression)).ToList()),
+                    };
+                    return;
+                default:
+                    expressionWithoutIncludes = inputExpression;
+                    includeExpressions = Array.Empty<IncludeExpression>();
+                    revIncludeExpressions = Array.Empty<IncludeExpression>();
+                    return;
+            }
         }
     }
 }
