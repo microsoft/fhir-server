@@ -64,6 +64,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     break;
             }
 
+            if (searchOptions.CountOnly)
+            {
+                int count = (await ExecuteSearchAsync<int>(
+                    _queryBuilder.BuildSqlQuerySpec(searchOptions, Array.Empty<IncludeExpression>()),
+                    searchOptions,
+                    searchOptions.CountOnly ? null : searchOptions.ContinuationToken,
+                    cancellationToken)).Single();
+
+                return new SearchResult(count, searchOptions.UnsupportedSearchParams);
+            }
+
             if (includeExpressions.Any(e => e.Reversed))
             {
                 throw new BadRequestException("_revInclude is not supported");
@@ -74,7 +85,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 throw new BadRequestException("_include:iterate is not supported");
             }
 
-            FeedResponse<FhirCosmosResourceWrapper> matches = await ExecuteSearchAsync(
+            FeedResponse<FhirCosmosResourceWrapper> matches = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
                 _queryBuilder.BuildSqlQuerySpec(searchOptions, includeExpressions),
                 searchOptions,
                 searchOptions.CountOnly ? null : searchOptions.ContinuationToken,
@@ -104,7 +115,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                         FeedResponse<FhirCosmosResourceWrapper> includeResponse = null;
                         do
                         {
-                            includeResponse = await ExecuteSearchAsync(
+                            includeResponse = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
                                 _queryBuilder.BuildSqlQuerySpec(searchOptions, Array.Empty<IncludeExpression>()),
                                 searchOptions,
                                 includeResponse?.ContinuationToken,
@@ -160,7 +171,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             SearchOptions searchOptions,
             CancellationToken cancellationToken)
         {
-            FeedResponse<FhirCosmosResourceWrapper> results = await ExecuteSearchAsync(
+            FeedResponse<FhirCosmosResourceWrapper> results = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
                 _queryBuilder.GenerateHistorySql(searchOptions),
                 searchOptions,
                 searchOptions.CountOnly ? null : searchOptions.ContinuationToken,
@@ -174,7 +185,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             string searchParameterHash,
             CancellationToken cancellationToken)
         {
-            FeedResponse<FhirCosmosResourceWrapper> results = await ExecuteSearchAsync(
+            FeedResponse<FhirCosmosResourceWrapper> results = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
                 _queryBuilder.GenerateReindexSql(searchOptions, searchParameterHash),
                 searchOptions,
                 searchOptions.CountOnly ? null : searchOptions.ContinuationToken,
@@ -183,7 +194,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             return CreateSearchResult(searchOptions, results.Select(r => new SearchResultEntry(r)), results.ContinuationToken);
         }
 
-        private async Task<FeedResponse<FhirCosmosResourceWrapper>> ExecuteSearchAsync(
+        private async Task<FeedResponse<T>> ExecuteSearchAsync<T>(
             QueryDefinition sqlQuerySpec,
             SearchOptions searchOptions,
             string continuationToken,
@@ -194,7 +205,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 MaxItemCount = searchOptions.MaxItemCount,
             };
 
-            return await _fhirDataStore.ExecuteDocumentQueryAsync<FhirCosmosResourceWrapper>(sqlQuerySpec, feedOptions, continuationToken, cancellationToken);
+            return await _fhirDataStore.ExecuteDocumentQueryAsync<T>(sqlQuerySpec, feedOptions, continuationToken, cancellationToken);
         }
 
         private async Task<int> ExecuteCountSearchAsync(
