@@ -47,6 +47,11 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// </summary>
         public uint NumberOfPagesPerCommit { get; set; } = 10;
 
+        /// <summary>
+        /// Formats for export jobs.
+        /// </summary>
+#pragma warning disable CA2227 // Collection properties should be read only
         public IList<ExportJobFormatConfiguration> ExportJobFormats { get; set; }
+#pragma warning restore CA2227 // Collection properties should be read only
     }
 }

@@ -1620,7 +1620,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
-            string actualIds = _inMemoryDestinationClient.GetExportedData(new Uri(ContainerFilePath(PatientFileName), UriKind.Relative));
+            string actualIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
 
             Assert.Equal("1", actualIds);
             Assert.Equal(containerName, _inMemoryDestinationClient.ConnectedContainer);
@@ -1629,6 +1629,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         private ExportJobRecord CreateExportJobRecord(
             string requestEndpoint = "https://localhost/ExportJob/",
             ExportJobType exportJobType = ExportJobType.All,
+            string format = ExportFormatTags.ResourceName,
             string resourceType = null,
             string hash = "hash",
             PartialDateTime since = null,
@@ -1644,6 +1645,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             return new ExportJobRecord(
                 new Uri(requestEndpoint),
                 exportJobType,
+                format,
                 resourceType,
                 hash,
                 since: since,
@@ -1688,6 +1690,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _exportJobRecord = exportJobRecord ?? new ExportJobRecord(
                 new Uri("https://localhost/ExportJob/"),
                 ExportJobType.Patient,
+                ExportFormatTags.ResourceName,
                 null,
                 "hash",
                 storageAccountConnectionHash: string.Empty,
@@ -1701,14 +1704,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
                 return _lastExportJobOutcome;
             });
-        }
-
-        private string ContainerFilePath(string fileName)
-        {
-            string dateTime = _exportJobRecord.QueuedTime.UtcDateTime.ToString("s")
-                            .Replace("-", string.Empty, StringComparison.OrdinalIgnoreCase)
-                            .Replace(":", string.Empty, StringComparison.OrdinalIgnoreCase);
-            return dateTime + "-" + _exportJobRecord.Id + "/" + fileName;
         }
     }
 }

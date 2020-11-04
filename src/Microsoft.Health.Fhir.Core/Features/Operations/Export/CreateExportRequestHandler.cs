@@ -76,11 +76,45 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             // Otherwise, we will create a new export job. This will be a best effort since the likelihood of this happen should be small.
             ExportJobOutcome outcome = await _fhirOperationDataStore.GetExportJobByHashAsync(hash, cancellationToken);
 
+            ExportJobFormatConfiguration formatConfiguration = null;
+
+            if (request.Format != null)
+            {
+                formatConfiguration = _exportJobConfiguration.ExportJobFormats.FirstOrDefault(
+                (ExportJobFormatConfiguration formatConfig) => formatConfig.Name.Equals(request.Format, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (formatConfiguration == null)
+            {
+                if (request.ContainerName != null)
+                {
+                    formatConfiguration = _exportJobConfiguration.ExportJobFormats.FirstOrDefault((ExportJobFormatConfiguration formatConfig) => formatConfig.ContainerDefault);
+                }
+                else
+                {
+                    formatConfiguration = _exportJobConfiguration.ExportJobFormats.FirstOrDefault((ExportJobFormatConfiguration formatConfig) => formatConfig.NoContainerDefault);
+                }
+
+                if (formatConfiguration == null)
+                {
+                    formatConfiguration = _exportJobConfiguration.ExportJobFormats.FirstOrDefault();
+                }
+
+                if (formatConfiguration == null)
+                {
+                    formatConfiguration = new ExportJobFormatConfiguration()
+                    {
+                        Format = ExportFormatTags.ResourceName,
+                    };
+                }
+            }
+
             if (outcome == null)
             {
                 var jobRecord = new ExportJobRecord(
                     request.RequestUri,
                     request.RequestType,
+                    formatConfiguration.Format,
                     request.ResourceType,
                     hash,
                     requestorClaims,
