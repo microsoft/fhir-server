@@ -21,7 +21,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         public ReindexJobRecord(
             IReadOnlyDictionary<string, string> searchParametersHash,
             ushort maxiumumConcurrency = 1,
-            string scope = null,
             uint maxResourcesPerQuery = 100)
         {
             EnsureArg.IsNotNull(searchParametersHash, nameof(searchParametersHash));
@@ -36,7 +35,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
 
             ResourceTypeSearchParameterHashMap = searchParametersHash;
             MaximumConcurrency = maxiumumConcurrency;
-            Scope = scope;
             MaximumNumberOfResourcesPerQuery = maxResourcesPerQuery;
         }
 
@@ -44,9 +42,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         protected ReindexJobRecord()
         {
         }
-
-        [JsonProperty(JobRecordProperties.Scope)]
-        public string Scope { get; private set; }
 
         [JsonProperty(JobRecordProperties.MaximumConcurrency)]
         public ushort MaximumConcurrency { get; private set; }

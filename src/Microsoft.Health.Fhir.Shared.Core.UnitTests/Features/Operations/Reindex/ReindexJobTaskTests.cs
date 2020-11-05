@@ -333,7 +333,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 paramHashMap = new Dictionary<string, string>() { { "Patient", "patientHash" } };
             }
 
-            return new ReindexJobRecord(paramHashMap, maxiumumConcurrency: 1, scope: null, maxResourcePerQuery);
+            return new ReindexJobRecord(paramHashMap, maxiumumConcurrency: 1, maxResourcePerQuery);
         }
     }
 }
