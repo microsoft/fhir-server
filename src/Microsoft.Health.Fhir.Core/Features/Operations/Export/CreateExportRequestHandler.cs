@@ -84,30 +84,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 (ExportJobFormatConfiguration formatConfig) => formatConfig.Name.Equals(request.Format, StringComparison.OrdinalIgnoreCase));
             }
 
-            if (formatConfiguration == null)
+            formatConfiguration ??= _exportJobConfiguration.ExportJobFormats.FirstOrDefault(
+                (ExportJobFormatConfiguration formatConfig) => request.ContainerName != null ? formatConfig.ContainerDefault : formatConfig.NoContainerDefault);
+
+            formatConfiguration ??= _exportJobConfiguration.ExportJobFormats.FirstOrDefault();
+
+            formatConfiguration ??= new ExportJobFormatConfiguration()
             {
-                if (request.ContainerName != null)
-                {
-                    formatConfiguration = _exportJobConfiguration.ExportJobFormats.FirstOrDefault((ExportJobFormatConfiguration formatConfig) => formatConfig.ContainerDefault);
-                }
-                else
-                {
-                    formatConfiguration = _exportJobConfiguration.ExportJobFormats.FirstOrDefault((ExportJobFormatConfiguration formatConfig) => formatConfig.NoContainerDefault);
-                }
-
-                if (formatConfiguration == null)
-                {
-                    formatConfiguration = _exportJobConfiguration.ExportJobFormats.FirstOrDefault();
-                }
-
-                if (formatConfiguration == null)
-                {
-                    formatConfiguration = new ExportJobFormatConfiguration()
-                    {
-                        Format = ExportFormatTags.ResourceName,
-                    };
-                }
-            }
+                Format = ExportFormatTags.ResourceName,
+            };
 
             if (outcome == null)
             {

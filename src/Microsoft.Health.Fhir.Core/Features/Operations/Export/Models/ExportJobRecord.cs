@@ -36,6 +36,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         {
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
             EnsureArg.IsNotNullOrWhiteSpace(hash, nameof(hash));
+            EnsureArg.IsNotNullOrWhiteSpace(exportFormat, nameof(exportFormat));
 
             Hash = hash;
             RequestUri = requestUri;

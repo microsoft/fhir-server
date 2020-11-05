@@ -50,8 +50,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// <summary>
         /// Formats for export jobs.
         /// </summary>
-#pragma warning disable CA2227 // Collection properties should be read only
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2227:Collection properties should be read only", Justification = "This is a configuration class")]
         public IList<ExportJobFormatConfiguration> ExportJobFormats { get; set; }
-#pragma warning restore CA2227 // Collection properties should be read only
     }
 }
