@@ -212,8 +212,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             string searchParameterHash,
             CancellationToken cancellationToken)
         {
+            QueryDefinition queryDefinition = _queryBuilder.GenerateReindexSql(searchOptions, searchParameterHash);
+
+            if (searchOptions.CountOnly)
+            {
+                int count = await ExecuteCountSearchAsync(queryDefinition, searchOptions, cancellationToken);
+                return new SearchResult(count, searchOptions.UnsupportedSearchParams);
+            }
+
             FeedResponse<FhirCosmosResourceWrapper> results = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
-                _queryBuilder.GenerateReindexSql(searchOptions, searchParameterHash),
+                queryDefinition,
                 searchOptions,
                 searchOptions.CountOnly ? null : searchOptions.ContinuationToken,
                 cancellationToken);
