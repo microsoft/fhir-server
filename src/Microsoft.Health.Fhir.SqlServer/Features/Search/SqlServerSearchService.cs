@@ -50,8 +50,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private const string SortValueColumnName = "SortValue";
         private readonly SchemaInformation _schemaInformation;
 
-        private bool _isResultPartial;
-
         public SqlServerSearchService(
             ISearchOptionsFactory searchOptionsFactory,
             IFhirDataStore fhirDataStore,
@@ -79,7 +77,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _stringOverflowRewriter = stringOverflowRewriter;
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _logger = logger;
-            _isResultPartial = false;
 
             // Initialise supported sort params with SQL related values
             SearchParameterInfoExtensions.AppendSearchParameterInfoExtensions(SupportedSortParameterNames.Names);
@@ -216,6 +213,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     // Currently we support only date time sort type.
                     DateTime? sortValue = null;
 
+                    var isResultPartial = false;
+
                     while (await reader.ReadAsync(cancellationToken))
                     {
                         (short resourceTypeId, string resourceId, int version, bool isDeleted, long resourceSurrogateId, string requestMethod, bool isMatch, bool isPartialEntry, bool isRawResourceMetaSet, Stream rawResourceStream) = reader.ReadRow(
@@ -261,7 +260,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                         // as long as at least one entry was marked as partial, this resultset
                         // should be marked as partial
-                        _isResultPartial = _isResultPartial || isPartialEntry;
+                        isResultPartial ||= isPartialEntry;
 
                         resources.Add(new SearchResultEntry(
                             new ResourceWrapper(
@@ -316,7 +315,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         }
                     }
 
-                    return new SearchResult(resources, searchOptions.UnsupportedSearchParams, unsupportedSortingParameters, continuationToken?.ToJson(), _isResultPartial);
+                    return new SearchResult(resources, searchOptions.UnsupportedSearchParams, unsupportedSortingParameters, continuationToken?.ToJson(), isResultPartial);
                 }
             }
         }
