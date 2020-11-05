@@ -13,6 +13,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 {
@@ -181,9 +182,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
                 if (includes?.Count > 0)
                 {
+                    // add to the projection an array of {r1
                     _queryBuilder.AppendLine(",");
 
-                    _queryBuilder.Append("ARRAY(SELECT p.rt, p.ri FROM p in r.searchIndices WHERE ");
+                    _queryBuilder
+                        .Append("ARRAY(SELECT p.")
+                        .Append(SearchValueConstants.ReferenceResourceTypeName)
+                        .Append(", p.")
+                        .Append(SearchValueConstants.ReferenceResourceIdName)
+                        .Append(" FROM p in r.")
+                        .Append(KnownResourceWrapperProperties.SearchIndices).Append(" WHERE ");
 
                     for (var i = 0; i < includes.Count; i++)
                     {
@@ -198,22 +206,32 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
                         if (includeExpression.WildCard)
                         {
-                            _queryBuilder.Append("IS_DEFINED(p.ri)");
+                            _queryBuilder.Append("IS_DEFINED(p.").Append(SearchValueConstants.ReferenceResourceIdName).Append(")");
                         }
                         else
                         {
-                            _queryBuilder.Append("p.p = '").Append(includeExpression.ReferenceSearchParameter.Name).Append("'");
+                            _queryBuilder
+                                .Append("p.")
+                                .Append(SearchValueConstants.ParamName)
+                                .Append(" = '")
+                                .Append(includeExpression.ReferenceSearchParameter.Name)
+                                .Append("'");
                         }
 
                         if (!string.IsNullOrEmpty(includeExpression.TargetResourceType))
                         {
-                            _queryBuilder.Append(" AND p.rt = '").Append(includeExpression.TargetResourceType).Append("'");
+                            _queryBuilder
+                                .Append(" AND p.")
+                                .Append(SearchValueConstants.ReferenceResourceTypeName)
+                                .Append(" = '")
+                                .Append(includeExpression.TargetResourceType)
+                                .Append("'");
                         }
 
                         _queryBuilder.Append(")");
                     }
 
-                    _queryBuilder.Append(") AS referencesToInclude");
+                    _queryBuilder.Append(") AS ").Append(KnownDocumentProperties.ReferencesToInclude);
                 }
 
                 _queryHelper.AppendFromRoot();

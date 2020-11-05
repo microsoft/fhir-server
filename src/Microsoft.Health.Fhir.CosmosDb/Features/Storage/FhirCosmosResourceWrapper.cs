@@ -8,7 +8,6 @@ using System.Collections.Generic;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
-using Microsoft.Health.Fhir.CosmosDb.Features.Search;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search;
 using Newtonsoft.Json;
 
@@ -92,8 +91,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         [JsonProperty(KnownDocumentProperties.PartitionKey)]
         public string PartitionKey => ToResourceKey().ToPartitionKey();
 
-        [JsonProperty("referencesToInclude")]
-        public IReadOnlyList<ResourceToInclude> ReferencesToInclude { get; set; }
+        [JsonProperty(KnownDocumentProperties.ReferencesToInclude)]
+        public IReadOnlyList<ResourceTypeAndId> ReferencesToInclude { get; set; }
 
         internal string GetETagOrVersion()
         {
@@ -105,40 +104,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
 
             return base.Version;
-        }
-
-        public class ResourceToInclude : IEquatable<ResourceToInclude>
-        {
-            [JsonProperty(SearchValueConstants.ReferenceResourceTypeName)]
-            public string ResourceTypeName { get; set; }
-
-            [JsonProperty(SearchValueConstants.ReferenceResourceIdName)]
-            public string ResourceId { get; set; }
-
-            public bool Equals(ResourceToInclude other)
-            {
-                if (ReferenceEquals(null, other))
-                {
-                    return false;
-                }
-
-                if (ReferenceEquals(this, other))
-                {
-                    return true;
-                }
-
-                return ResourceTypeName == other.ResourceTypeName && ResourceId == other.ResourceId;
-            }
-
-            public override bool Equals(object obj)
-            {
-                return Equals(obj as ResourceToInclude);
-            }
-
-            public override int GetHashCode()
-            {
-                return HashCode.Combine(ResourceTypeName, ResourceId);
-            }
         }
     }
 }
