@@ -16,6 +16,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -50,6 +51,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private const string SortValueColumnName = "SortValue";
         private readonly SchemaInformation _schemaInformation;
         private readonly ISupportedSortingParameterRegistry _sortingParameterRegistry;
+        private readonly IFhirRequestContextAccessor _requestContextAccessor;
 
         public SqlServerSearchService(
             ISearchOptionsFactory searchOptionsFactory,
@@ -62,6 +64,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             SchemaInformation schemaInformation,
             ISupportedSortingParameterRegistry sortingParameterRegistry,
+            IFhirRequestContextAccessor requestContextAccessor,
             ILogger<SqlServerSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore)
         {
@@ -71,6 +74,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             EnsureArg.IsNotNull(sortingParameterRegistry, nameof(sortingParameterRegistry));
+            EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _model = model;
@@ -83,6 +87,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
             _schemaInformation = schemaInformation;
             _sortingParameterRegistry = sortingParameterRegistry;
+            _requestContextAccessor = requestContextAccessor;
         }
 
         protected override async Task<SearchResult> SearchInternalAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
@@ -147,8 +152,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     {
                         (SearchParameterInfo searchParamInfo, SortOrder sortOrder) = searchOptions.Sort.Count == 0 ? default : searchOptions.Sort[0];
 
-                        Expression lastUpdatedExpression = sortOrder == SortOrder.Ascending ? Expression.GreaterThan(SqlFieldName.ResourceSurrogateId, null, continuationToken.ResourceSurrogateId)
-                                                                                                    : Expression.LessThan(SqlFieldName.ResourceSurrogateId, null, continuationToken.ResourceSurrogateId);
+                        Expression lastUpdatedExpression = sortOrder == SortOrder.Ascending
+                            ? Expression.GreaterThan(SqlFieldName.ResourceSurrogateId, null, continuationToken.ResourceSurrogateId)
+                            : Expression.LessThan(SqlFieldName.ResourceSurrogateId, null, continuationToken.ResourceSurrogateId);
 
                         var tokenExpression = Expression.SearchParameter(SqlSearchParameters.ResourceSurrogateIdParameter, lastUpdatedExpression);
                         searchExpression = searchExpression == null ? tokenExpression : (Expression)Expression.And(tokenExpression, searchExpression);
@@ -282,20 +288,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     // call NextResultAsync to get the info messages
                     await reader.NextResultAsync(cancellationToken);
 
-                    IReadOnlyList<(string parameterName, string reason)> unsupportedSortingParameters;
-                    if (searchOptions.Sort?.Count > 0)
-                    {
-                        unsupportedSortingParameters = searchOptions
-                            .UnsupportedSortingParams
-                            .Concat(searchOptions.Sort
-                                .Where(x => !_sortingParameterRegistry.IsSortSupported(x.searchParameterInfo))
-                                .Select(s => (s.searchParameterInfo.Name, Core.Resources.SortNotSupported))).ToList();
-                    }
-                    else
-                    {
-                        unsupportedSortingParameters = searchOptions.UnsupportedSortingParams;
-                    }
-
                     // Continuation token prep
                     ContinuationToken continuationToken = null;
                     if (moreResults)
@@ -317,7 +309,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         }
                     }
 
-                    return new SearchResult(resources, searchOptions.UnsupportedSearchParams, unsupportedSortingParameters, continuationToken?.ToJson(), isResultPartial);
+                    if (isResultPartial)
+                    {
+                        _requestContextAccessor.FhirRequestContext.BundleIssues.Add(
+                            new OperationOutcomeIssue(
+                                OperationOutcomeConstants.IssueSeverity.Warning,
+                                OperationOutcomeConstants.IssueType.Incomplete,
+                                Core.Resources.TruncatedIncludeMessage));
+                    }
+
+                    return new SearchResult(resources, searchOptions.UnsupportedSearchParams, continuationToken?.ToJson(), searchOptions.Sort);
                 }
             }
         }

@@ -3,14 +3,11 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
-using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
@@ -123,24 +120,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             SearchResultEntry[] wrappers = fetchedResults
                 .Select(r => new SearchResultEntry(r)).ToArray();
 
-            IReadOnlyList<(string parameterName, string reason)> unsupportedSortingParameters;
-            if (searchOptions.Sort?.Count > 0)
-            {
-                unsupportedSortingParameters = searchOptions
-                    .UnsupportedSortingParams
-                    .Concat(searchOptions.Sort
-                        .Where(x => !string.Equals(x.searchParameterInfo.Name, KnownQueryParameterNames.LastUpdated, StringComparison.OrdinalIgnoreCase))
-                        .Select(s => (s.searchParameterInfo.Name, Core.Resources.SortNotSupported))).ToList();
-            }
-            else
-            {
-                unsupportedSortingParameters = searchOptions.UnsupportedSortingParams;
-            }
-
             return new SearchResult(
                 wrappers,
                 searchOptions.UnsupportedSearchParams,
-                unsupportedSortingParameters,
                 fetchedResults.ContinuationToken);
         }
     }

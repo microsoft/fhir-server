@@ -108,7 +108,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             var searchResult = new SearchResult(
                 Enumerable.Empty<SearchResultEntry>(),
                 new[] { Tuple.Create("unknown1", "unknown") },
-                Enumerable.Empty<(string, string)>().ToArray(),
                 null);
 
             _searchService.SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), CancellationToken.None)
@@ -123,7 +122,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             params SearchResultEntry[] searchResults)
         {
             _searchService.SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), CancellationToken.None)
-                .Returns(new SearchResult(searchResults, Enumerable.Empty<Tuple<string, string>>().ToArray(), Enumerable.Empty<(string, string)>().ToArray(), null));
+                .Returns(new SearchResult(searchResults, Enumerable.Empty<Tuple<string, string>>().ToArray(), null));
 
             _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true, Arg.Any<CancellationToken>())
                 .Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapper>(0), SaveOutcomeType.Created));

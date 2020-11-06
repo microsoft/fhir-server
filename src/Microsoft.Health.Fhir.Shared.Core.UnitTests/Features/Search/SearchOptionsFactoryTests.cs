@@ -12,9 +12,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
-using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
@@ -58,6 +56,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 () => searchParameterDefinitionManager,
                 new OptionsWrapper<CoreFeatureConfiguration>(_coreFeatures),
                 _defaultFhirRequestContext.SetupAccessor(),
+                Substitute.For<ISupportedSortingParameterRegistry>(),
                 NullLogger<SearchOptionsFactory>.Instance);
         }
 
@@ -262,8 +261,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.NotNull(options.Sort);
             Assert.Empty(options.Sort);
 
-            Assert.Equal(2, options.UnsupportedSortingParams.Count);
-            Assert.Equal(paramName, options.UnsupportedSortingParams.First().parameterName);
+            Assert.False(true);
+            ////Assert.Equal(2, options.UnsupportedSortingParams.Count);
+            ////Assert.Equal(paramName, options.UnsupportedSortingParams.First().parameterName);
         }
 
         [Fact]
@@ -306,8 +306,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.NotNull(options.Sort);
             Assert.Empty(options.Sort);
 
-            Assert.Equal(1, options.UnsupportedSortingParams.Count);
-            Assert.Equal(paramName, options.UnsupportedSortingParams.First().parameterName);
+            Assert.False(true);
+            ////Assert.Equal(1, options.UnsupportedSortingParams.Count);
+            ////Assert.Equal(paramName, options.UnsupportedSortingParams.First().parameterName);
         }
 
         [Theory]

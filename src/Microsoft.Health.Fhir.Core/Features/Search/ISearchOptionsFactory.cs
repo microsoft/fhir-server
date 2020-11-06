@@ -5,14 +5,13 @@
 
 using System;
 using System.Collections.Generic;
-using Hl7.Fhir.Model;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
     public interface ISearchOptionsFactory
     {
-        (SearchOptions searchOptions, IReadOnlyList<OperationOutcome> warnings) Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters);
+        SearchOptions Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters);
 
-        (SearchOptions searchOptions, IReadOnlyList<OperationOutcome> warnings) Create(string compartmentType, string compartmentId, string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters);
+        SearchOptions Create(string compartmentType, string compartmentId, string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters);
     }
 }

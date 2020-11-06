@@ -65,15 +65,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             _resourceTypeSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(ResourceType.Resource.ToString(), SearchParameterNames.ResourceType);
         }
 
-        public (SearchOptions searchOptions, IReadOnlyList<OperationOutcome> warnings) Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters)
+        public SearchOptions Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters)
         {
             return Create(null, null, resourceType, queryParameters);
         }
 
-        public (SearchOptions searchOptions, IReadOnlyList<OperationOutcome> warnings) Create(string compartmentType, string compartmentId, string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters)
+        public SearchOptions Create(string compartmentType, string compartmentId, string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters)
         {
             var searchOptions = new SearchOptions();
-            ImmutableList<OperationOutcome> warnings = ImmutableList<OperationOutcome>.Empty;
 
             string continuationToken = null;
 
@@ -284,18 +283,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     catch (SearchParameterNotSupportedException)
                     {
                         sortingsValid = false;
-                        warnings = warnings.Add(new OperationOutcome
-                        {
-                            Issue = new List<OperationOutcome.IssueComponent>
-                            {
-                                new OperationOutcome.IssueComponent
-                                {
-                                    Severity = OperationOutcome.IssueSeverity.Warning,
-                                    Code = OperationOutcome.IssueType.NotSupported,
-                                    Diagnostics = string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchParameterNotSupported, sorting.Item1, parsedResourceType.ToString()),
-                                },
-                            },
-                        });
+                        _contextAccessor.FhirRequestContext.BundleIssues.Add(new OperationOutcomeIssue(
+                            OperationOutcomeConstants.IssueSeverity.Warning,
+                            OperationOutcomeConstants.IssueType.NotSupported,
+                            string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchParameterNotSupported, sorting.Item1, parsedResourceType.ToString())));
                     }
                 }
 
@@ -307,18 +298,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                         foreach (var errorMessage in errorMessages)
                         {
-                            warnings = warnings.Add(new OperationOutcome
-                            {
-                                Issue = new List<OperationOutcome.IssueComponent>
-                                {
-                                    new OperationOutcome.IssueComponent
-                                    {
-                                        Severity = OperationOutcome.IssueSeverity.Warning,
-                                        Code = OperationOutcome.IssueType.NotSupported,
-                                        Diagnostics = errorMessage,
-                                    },
-                                },
-                            });
+                            _contextAccessor.FhirRequestContext.BundleIssues.Add(new OperationOutcomeIssue(
+                                OperationOutcomeConstants.IssueSeverity.Warning,
+                                OperationOutcomeConstants.IssueType.NotSupported,
+                                errorMessage));
                         }
                     }
                 }
@@ -327,7 +310,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 {
                     searchOptions.Sort = sortings;
                 }
-
             }
 
             if (searchOptions.Sort == null)
@@ -335,7 +317,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 searchOptions.Sort = Array.Empty<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)>();
             }
 
-            return (searchOptions, warnings);
+            return searchOptions;
 
             IEnumerable<IncludeExpression> ParseIncludeIterateExpressions(SearchParams searchParams)
             {

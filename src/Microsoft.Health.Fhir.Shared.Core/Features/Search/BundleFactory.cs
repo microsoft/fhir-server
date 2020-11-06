@@ -104,40 +104,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             {
                 bundle.NextLink = _urlResolver.ResolveRouteUrl(
                     result.UnsupportedSearchParameters,
-                    result.UnsupportedSortingParameters,
+                    result.SortOrder,
                     Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(result.ContinuationToken)),
                     true);
             }
 
-            if (result.Partial)
-            {
-                // if the query resulted in a partial indication, add appropriate outcome
-                // as an entry
-
-                var entryComponent = new Bundle.EntryComponent()
-                {
-                    Resource = new OperationOutcome
-                    {
-                        Issue = new List<OperationOutcome.IssueComponent>
-                        {
-                            new OperationOutcome.IssueComponent
-                            {
-                                Severity = OperationOutcome.IssueSeverity.Warning,
-                                Code = OperationOutcome.IssueType.Incomplete,
-                                Diagnostics = Core.Resources.TruncatedIncludeMessage,
-                            },
-                        },
-                    },
-                    Search = new Bundle.SearchComponent
-                    {
-                        Mode = Bundle.SearchEntryMode.Outcome,
-                    },
-                };
-                bundle.Entry.Add(entryComponent);
-            }
-
             // Add the self link to indicate which search parameters were used.
-            bundle.SelfLink = _urlResolver.ResolveRouteUrl(result.UnsupportedSearchParameters, result.UnsupportedSortingParameters);
+            bundle.SelfLink = _urlResolver.ResolveRouteUrl(result.UnsupportedSearchParameters);
 
             bundle.Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId;
             bundle.Type = type;
