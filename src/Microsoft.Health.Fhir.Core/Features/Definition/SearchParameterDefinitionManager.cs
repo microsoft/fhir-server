@@ -57,8 +57,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             _typeLookup = builder.ResourceTypeDictionary;
             UrlLookup = builder.UriDictionary;
 
-            List<string> list = UrlLookup.Values.Where(p => p.Type == ValueSets.SearchParamType.Composite).Select(p => string.Join("|", p.Component.Select(c => UrlLookup[c.DefinitionUrl].Type))).Distinct().ToList();
-
             return Task.CompletedTask;
         }
 
