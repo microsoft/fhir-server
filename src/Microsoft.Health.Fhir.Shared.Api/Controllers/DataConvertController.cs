@@ -60,10 +60,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             ValidateParams(inputParams);
 
-            string inputData = ReadStringParameter(inputParams, JobRecordProperties.InputData);
-            string templateSetReference = ReadStringParameter(inputParams, JobRecordProperties.TemplateSetReference);
-            string entryPointTemplate = ReadStringParameter(inputParams, JobRecordProperties.EntryPointTemplate);
-            DataConvertInputDataType inputDataType = ReadEnumParameter<DataConvertInputDataType>(inputParams, JobRecordProperties.InputDataType);
+            string inputData = ReadStringParameter(inputParams, OperationParameterProperties.InputData);
+            string templateSetReference = ReadStringParameter(inputParams, OperationParameterProperties.TemplateSetReference);
+            string entryPointTemplate = ReadStringParameter(inputParams, OperationParameterProperties.EntryPointTemplate);
+            DataConvertInputDataType inputDataType = ReadEnumParameter<DataConvertInputDataType>(inputParams, OperationParameterProperties.InputDataType);
 
             var dataConvertRequest = new DataConvertRequest(inputData, inputDataType, templateSetReference, entryPointTemplate);
             DataConvertResponse response = await _mediator.Send(dataConvertRequest, cancellationToken: default);
@@ -127,16 +127,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             var postParams = new HashSet<string>()
             {
-                JobRecordProperties.InputData,
-                JobRecordProperties.InputDataType,
-                JobRecordProperties.TemplateSetReference,
-                JobRecordProperties.EntryPointTemplate,
-            };
-
-            var patchParams = new HashSet<string>()
-            {
-                JobRecordProperties.MaximumConcurrency,
-                JobRecordProperties.Status,
+                OperationParameterProperties.InputData,
+                OperationParameterProperties.InputDataType,
+                OperationParameterProperties.TemplateSetReference,
+                OperationParameterProperties.EntryPointTemplate,
             };
 
             var supportedParams = new Dictionary<string, HashSet<string>>();

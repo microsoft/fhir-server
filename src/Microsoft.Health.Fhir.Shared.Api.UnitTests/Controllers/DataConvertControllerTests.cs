@@ -68,10 +68,10 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Controllers
             await _dataConverteEnabledController.DataConvert(body);
             await _mediator.Received().Send(
                 Arg.Is<DataConvertRequest>(
-                    r => r.InputData.ToString().Equals(body.Parameter.Find(p => p.Name.Equals(JobRecordProperties.InputData)).Value.ToString())
-                && r.InputDataType.ToString() == body.Parameter.Find(p => p.Name.Equals(JobRecordProperties.InputDataType)).Value.ToString()
-                && r.TemplateSetReference == body.Parameter.Find(p => p.Name.Equals(JobRecordProperties.TemplateSetReference)).Value.ToString()
-                && r.EntryPointTemplate == body.Parameter.Find(p => p.Name.Equals(JobRecordProperties.EntryPointTemplate)).Value.ToString()),
+                    r => r.InputData.ToString().Equals(body.Parameter.Find(p => p.Name.Equals(OperationParameterProperties.InputData)).Value.ToString())
+                && r.InputDataType.ToString() == body.Parameter.Find(p => p.Name.Equals(OperationParameterProperties.InputDataType)).Value.ToString()
+                && r.TemplateSetReference == body.Parameter.Find(p => p.Name.Equals(OperationParameterProperties.TemplateSetReference)).Value.ToString()
+                && r.EntryPointTemplate == body.Parameter.Find(p => p.Name.Equals(OperationParameterProperties.EntryPointTemplate)).Value.ToString()),
                 Arg.Any<CancellationToken>());
             _mediator.ClearReceivedCalls();
         }
@@ -103,7 +103,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Controllers
             parametersResource.Parameter = new List<Parameters.ParameterComponent>();
 
             parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = "foo", Value = new FhirDecimal(5) });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.InputData, Value = new FhirString(GetSampleHl7v2Message()) });
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = OperationParameterProperties.InputData, Value = new FhirString(GetSampleHl7v2Message()) });
 
             return parametersResource;
         }
@@ -113,9 +113,9 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Controllers
             var parametersResource = new Parameters();
             parametersResource.Parameter = new List<Parameters.ParameterComponent>();
 
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.InputData, Value = new FhirString(GetSampleHl7v2Message()) });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.InputDataType, Value = new FhirString("Hl7v2") });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.TemplateSetReference, Value = new FhirString("test.azurecr.io/testimage:latest") });
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = OperationParameterProperties.InputData, Value = new FhirString(GetSampleHl7v2Message()) });
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = OperationParameterProperties.InputDataType, Value = new FhirString("Hl7v2") });
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = OperationParameterProperties.TemplateSetReference, Value = new FhirString("test.azurecr.io/testimage:latest") });
 
             return parametersResource;
         }
@@ -125,10 +125,10 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Controllers
             var parametersResource = new Parameters();
             parametersResource.Parameter = new List<Parameters.ParameterComponent>();
 
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.InputData, Value = new FhirString(GetSampleHl7v2Message()) });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.InputDataType, Value = new FhirString("Hl7v2") });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.TemplateSetReference, Value = new FhirString("test.azurecr.io/testimage:latest") });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.EntryPointTemplate, Value = new FhirString("ADT_A01") });
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = OperationParameterProperties.InputData, Value = new FhirString(GetSampleHl7v2Message()) });
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = OperationParameterProperties.InputDataType, Value = new FhirString("Hl7v2") });
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = OperationParameterProperties.TemplateSetReference, Value = new FhirString("test.azurecr.io/testimage:latest") });
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = OperationParameterProperties.EntryPointTemplate, Value = new FhirString("ADT_A01") });
             parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = "foo", Value = new FhirDecimal(5) });
 
             return parametersResource;
@@ -139,10 +139,10 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Controllers
             var parametersResource = new Parameters();
             parametersResource.Parameter = new List<Parameters.ParameterComponent>();
 
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.InputData, Value = new FhirString(GetSampleHl7v2Message()) });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.InputDataType, Value = new FhirString("Hl7v2") });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.TemplateSetReference, Value = new FhirString("test.azurecr.io/testimage:latest") });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.EntryPointTemplate, Value = new FhirString("ADT_A01") });
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = OperationParameterProperties.InputData, Value = new FhirString(GetSampleHl7v2Message()) });
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = OperationParameterProperties.InputDataType, Value = new FhirString("Hl7v2") });
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = OperationParameterProperties.TemplateSetReference, Value = new FhirString("test.azurecr.io/testimage:latest") });
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = OperationParameterProperties.EntryPointTemplate, Value = new FhirString("ADT_A01") });
 
             return parametersResource;
         }
