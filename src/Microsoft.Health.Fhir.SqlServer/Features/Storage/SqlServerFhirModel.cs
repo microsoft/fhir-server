@@ -160,7 +160,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             var connectionStringBuilder = new SqlConnectionStringBuilder(_configuration.ConnectionString);
             _logger.LogInformation("Initializing {Server} {Database} to version {Version}", connectionStringBuilder.DataSource, connectionStringBuilder.InitialCatalog, version);
 
-            if (runAllInitialization)
+            // If we are apply a full snap shot schema file, or if the server is just starting up
+            if (runAllInitialization || _highestInitializedVersion == 0)
             {
                 // Run schema initialization required for [SchemaVersion.Min, SchemaVersion.Current]
                 InitializeBase();
