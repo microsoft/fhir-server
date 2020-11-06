@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -19,11 +20,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             KnownQueryParameterNames.LastUpdated, "birthdate", "date", "abatement-date", "onset-date", "issued", "created", "started", "authoredon",
         };
 
-        public bool IsSortSupported(SearchParameterInfo searchParameterInfo)
+        public bool ValidateSortings(IReadOnlyList<(SearchParameterInfo searchParameter, SortOrder sortOrder)> sortings, out IReadOnlyList<string> errorMessages)
         {
-            EnsureArg.IsNotNull(searchParameterInfo, nameof(searchParameterInfo));
+            EnsureArg.IsNotNull(sortings, nameof(sortings));
 
-            return _supportedParameterNames.Contains(searchParameterInfo.Name);
+            switch (sortings)
+            {
+                case { Count: 0 }:
+                case { Count: 1 } when _supportedParameterNames.Contains(sortings[0].searchParameter.Name):
+                    errorMessages = Array.Empty<string>();
+                    return true;
+                case { Count: 1 }:
+                    errorMessages = new[] { string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchSortParameterNotSupported, sortings[0].searchParameter.Name) };
+                    return false;
+                default:
+                    errorMessages = new[] { Core.Resources.MultiSortParameterNotSupported };
+                    return false;
+            }
         }
     }
 }

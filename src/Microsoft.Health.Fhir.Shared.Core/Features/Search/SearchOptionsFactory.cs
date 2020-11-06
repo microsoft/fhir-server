@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Globalization;
 using System.Linq;
 using EnsureThat;
@@ -64,14 +65,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             _resourceTypeSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(ResourceType.Resource.ToString(), SearchParameterNames.ResourceType);
         }
 
-        public SearchOptions Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters)
+        public (SearchOptions searchOptions, IReadOnlyList<OperationOutcome> warnings) Create(string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters)
         {
             return Create(null, null, resourceType, queryParameters);
         }
 
-        public SearchOptions Create(string compartmentType, string compartmentId, string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters)
+        public (SearchOptions searchOptions, IReadOnlyList<OperationOutcome> warnings) Create(string compartmentType, string compartmentId, string resourceType, IReadOnlyList<Tuple<string, string>> queryParameters)
         {
             var searchOptions = new SearchOptions();
+            ImmutableList<OperationOutcome> warnings = ImmutableList<OperationOutcome>.Empty;
 
             string continuationToken = null;
 
@@ -269,40 +271,71 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             if (searchParams.Sort?.Count > 0)
             {
-                var sortings = new List<(SearchParameterInfo, SortOrder)>();
-                List<(string parameterName, string reason)> unsupportedSortings = null;
+                var sortings = new List<(SearchParameterInfo, SortOrder)>(searchParams.Sort.Count);
+                bool sortingsValid = true;
 
                 foreach (Tuple<string, Hl7.Fhir.Rest.SortOrder> sorting in searchParams.Sort)
                 {
                     try
                     {
                         SearchParameterInfo searchParameterInfo = _searchParameterDefinitionManager.GetSearchParameter(parsedResourceType.ToString(), sorting.Item1);
-
-                        if (_supportedSortingParameterRegistry.IsSortSupported(searchParameterInfo))
-                        {
-                            sortings.Add((searchParameterInfo, sorting.Item2.ToCoreSortOrder()));
-                        }
-                        else
-                        {
-                            throw new SearchParameterNotSupportedException(string.Format(Core.Resources.SearchSortParameterNotSupported, searchParameterInfo.Name));
-                        }
+                        sortings.Add((searchParameterInfo, sorting.Item2.ToCoreSortOrder()));
                     }
                     catch (SearchParameterNotSupportedException)
                     {
-                        (unsupportedSortings ??= new List<(string parameterName, string reason)>()).Add((sorting.Item1, string.Format(Core.Resources.SearchSortParameterNotSupported, sorting.Item1)));
+                        sortingsValid = false;
+                        warnings = warnings.Add(new OperationOutcome
+                        {
+                            Issue = new List<OperationOutcome.IssueComponent>
+                            {
+                                new OperationOutcome.IssueComponent
+                                {
+                                    Severity = OperationOutcome.IssueSeverity.Warning,
+                                    Code = OperationOutcome.IssueType.NotSupported,
+                                    Diagnostics = string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchParameterNotSupported, sorting.Item1, parsedResourceType.ToString()),
+                                },
+                            },
+                        });
                     }
                 }
 
-                searchOptions.Sort = sortings;
-                searchOptions.UnsupportedSortingParams = (IReadOnlyList<(string parameterName, string reason)>)unsupportedSortings ?? Array.Empty<(string parameterName, string reason)>();
-            }
-            else
-            {
-                searchOptions.Sort = Array.Empty<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)>();
-                searchOptions.UnsupportedSortingParams = Array.Empty<(string parameterName, string reason)>();
+                if (sortingsValid)
+                {
+                    if (!_supportedSortingParameterRegistry.ValidateSortings(sortings, out IReadOnlyList<string> errorMessages))
+                    {
+                        sortingsValid = false;
+
+                        foreach (var errorMessage in errorMessages)
+                        {
+                            warnings = warnings.Add(new OperationOutcome
+                            {
+                                Issue = new List<OperationOutcome.IssueComponent>
+                                {
+                                    new OperationOutcome.IssueComponent
+                                    {
+                                        Severity = OperationOutcome.IssueSeverity.Warning,
+                                        Code = OperationOutcome.IssueType.NotSupported,
+                                        Diagnostics = errorMessage,
+                                    },
+                                },
+                            });
+                        }
+                    }
+                }
+
+                if (sortingsValid)
+                {
+                    searchOptions.Sort = sortings;
+                }
+
             }
 
-            return searchOptions;
+            if (searchOptions.Sort == null)
+            {
+                searchOptions.Sort = Array.Empty<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)>();
+            }
+
+            return (searchOptions, warnings);
 
             IEnumerable<IncludeExpression> ParseIncludeIterateExpressions(SearchParams searchParams)
             {

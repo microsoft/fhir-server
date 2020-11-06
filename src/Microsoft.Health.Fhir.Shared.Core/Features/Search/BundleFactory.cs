@@ -113,23 +113,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             {
                 // if the query resulted in a partial indication, add appropriate outcome
                 // as an entry
-                var resource = new OperationOutcome();
-                resource.Issue = new List<OperationOutcome.IssueComponent>();
-                resource.Issue.Add(new OperationOutcome.IssueComponent
-                {
-                    Severity = OperationOutcome.IssueSeverity.Warning,
-                    Code = OperationOutcome.IssueType.Incomplete,
-                    Diagnostics = Core.Resources.TruncatedIncludeMessage,
-                });
 
-                bundle.Entry.Add(new Bundle.EntryComponent()
+                var entryComponent = new Bundle.EntryComponent()
                 {
-                    Resource = resource,
+                    Resource = new OperationOutcome
+                    {
+                        Issue = new List<OperationOutcome.IssueComponent>
+                        {
+                            new OperationOutcome.IssueComponent
+                            {
+                                Severity = OperationOutcome.IssueSeverity.Warning,
+                                Code = OperationOutcome.IssueType.Incomplete,
+                                Diagnostics = Core.Resources.TruncatedIncludeMessage,
+                            },
+                        },
+                    },
                     Search = new Bundle.SearchComponent
                     {
                         Mode = Bundle.SearchEntryMode.Outcome,
                     },
-                });
+                };
+                bundle.Entry.Add(entryComponent);
             }
 
             // Add the self link to indicate which search parameters were used.
