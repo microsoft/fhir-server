@@ -123,5 +123,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Equal(2, bundle.Total);
             Assert.NotEmpty(bundle.Entry);
         }
+
+        [Fact]
+        public async Task GivenAEscapedStringSearchParams_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        {
+            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, $"name=Richard\\,Muller&_tag={Fixture.FixtureTag}");
+
+            ValidateBundle(bundle, Fixture.Patients[7]);
+        }
     }
 }

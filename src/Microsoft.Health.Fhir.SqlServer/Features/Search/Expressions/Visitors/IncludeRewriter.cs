@@ -87,7 +87,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             // If there are edges, then the graph contains a cycle
             if (graph.OutgoingEdges.Any())
             {
-                throw new InvalidSearchOperationException("Cyclic include iterate queries are not allowed");
+                throw new SearchOperationNotSupportedException(Resources.CyclicIncludeIterateNotSupported);
             }
 
             return sortedExpressions;

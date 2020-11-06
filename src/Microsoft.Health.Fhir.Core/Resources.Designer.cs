@@ -10,8 +10,8 @@
 
 namespace Microsoft.Health.Fhir.Core {
     using System;
-    
-    
+
+
     /// <summary>
     ///   A strongly-typed resource class, for looking up localized strings, etc.
     /// </summary>
@@ -373,6 +373,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string IncludeCannotBeAgainstBase {
             get {
                 return ResourceManager.GetString("IncludeCannotBeAgainstBase", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The include iterate circular reference executed once..
+        /// </summary>
+        internal static string IncludeIterateCircularReferenceExecutedOnce {
+            get {
+                return ResourceManager.GetString("IncludeIterateCircularReferenceExecutedOnce", resourceCulture);
             }
         }
         
@@ -998,3 +1007,4 @@ namespace Microsoft.Health.Fhir.Core {
         }
     }
 }
+
