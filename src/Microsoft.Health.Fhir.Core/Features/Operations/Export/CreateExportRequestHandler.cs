@@ -79,10 +79,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             ExportJobFormatConfiguration formatConfiguration = null;
 
-            if (request.Format != null)
+            if (request.FormatName != null)
             {
                 formatConfiguration = _exportJobConfiguration.ExportJobFormats.FirstOrDefault(
-                (ExportJobFormatConfiguration formatConfig) => formatConfig.Name.Equals(request.Format, StringComparison.OrdinalIgnoreCase));
+                (ExportJobFormatConfiguration formatConfig) => formatConfig.Name.Equals(request.FormatName, StringComparison.OrdinalIgnoreCase));
 
                 if (formatConfiguration == null)
                 {

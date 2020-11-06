@@ -214,7 +214,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                 actualRecord = record;
             }), Arg.Any<CancellationToken>());
 
-            var request = new CreateExportRequest(RequestUrl, ExportJobType.All, containerName: containerSpecified ? "test" : null, format: formatName);
+            var request = new CreateExportRequest(RequestUrl, ExportJobType.All, containerName: containerSpecified ? "test" : null, formatName: formatName);
             CreateExportResponse response = await _createExportRequestHandler.Handle(request, _cancellationToken);
 
             Assert.Equal(expectedFormat, actualRecord.ExportFormat);
@@ -269,7 +269,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
         [Fact]
         public async Task GivenARequestWithAnNonexistantFormatName_WhenConverted_ThenABadRequestIsReturned()
         {
-            var request = new CreateExportRequest(RequestUrl, ExportJobType.All, format: "invalid");
+            var request = new CreateExportRequest(RequestUrl, ExportJobType.All, formatName: "invalid");
             await Assert.ThrowsAsync<BadRequestException>(() => _createExportRequestHandler.Handle(request, _cancellationToken));
         }
 

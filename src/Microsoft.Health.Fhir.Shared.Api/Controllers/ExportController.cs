@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
             [FromQuery(Name = KnownQueryParameterNames.Type)] string resourceType,
             [FromQuery(Name = KnownQueryParameterNames.Container)] string containerName,
-            [FromQuery(Name = KnownQueryParameterNames.Format)] string format,
+            [FromQuery(Name = KnownQueryParameterNames.Format)] string formatName,
             [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationLocation)] string anonymizationConfigLocation,
             [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationFileEtag)] string anonymizationConfigFileETag)
         {
@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 CheckContainerNameForAnonymizedExport(containerName);
             }
 
-            return await SendExportRequest(ExportJobType.All, since, resourceType, containerName: containerName, format: format, anonymizationConfigLocation: anonymizationConfigLocation, anonymizationConfigFileETag: anonymizationConfigFileETag);
+            return await SendExportRequest(ExportJobType.All, since, resourceType, containerName: containerName, formatName: formatName, anonymizationConfigLocation: anonymizationConfigLocation, anonymizationConfigFileETag: anonymizationConfigFileETag);
         }
 
         [HttpGet]
@@ -108,7 +108,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
             [FromQuery(Name = KnownQueryParameterNames.Type)] string resourceType,
             [FromQuery(Name = KnownQueryParameterNames.Container)] string containerName,
-            [FromQuery(Name = KnownQueryParameterNames.Format)] string format,
+            [FromQuery(Name = KnownQueryParameterNames.Format)] string formatName,
             string typeParameter)
         {
             CheckIfExportIsEnabled();
@@ -119,7 +119,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new RequestNotValidException(string.Format(Resources.UnsupportedResourceType, typeParameter));
             }
 
-            return await SendExportRequest(ExportJobType.Patient, since, resourceType, containerName: containerName, format: format);
+            return await SendExportRequest(ExportJobType.Patient, since, resourceType, containerName: containerName, formatName: formatName);
         }
 
         [HttpGet]
@@ -130,7 +130,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
             [FromQuery(Name = KnownQueryParameterNames.Type)] string resourceType,
             [FromQuery(Name = KnownQueryParameterNames.Container)] string containerName,
-            [FromQuery(Name = KnownQueryParameterNames.Format)] string format,
+            [FromQuery(Name = KnownQueryParameterNames.Format)] string formatName,
             string typeParameter,
             string idParameter)
         {
@@ -142,7 +142,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new RequestNotValidException(string.Format(Resources.UnsupportedResourceType, typeParameter));
             }
 
-            return await SendExportRequest(ExportJobType.Group, since, resourceType, idParameter, containerName: containerName, format: format);
+            return await SendExportRequest(ExportJobType.Group, since, resourceType, idParameter, containerName: containerName, formatName: formatName);
         }
 
         [HttpGet]
@@ -187,7 +187,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             string resourceType = null,
             string groupId = null,
             string containerName = null,
-            string format = null,
+            string formatName = null,
             string anonymizationConfigLocation = null,
             string anonymizationConfigFileETag = null)
         {
@@ -198,7 +198,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 since,
                 groupId,
                 containerName,
-                format,
+                formatName,
                 anonymizationConfigLocation,
                 anonymizationConfigFileETag,
                 HttpContext.RequestAborted);

@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 since: null,
                 resourceType: null,
                 containerName: null,
-                format: null,
+                formatName: null,
                 anonymizationConfigLocation: null,
                 anonymizationConfigFileETag: null));
         }
@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 since: null,
                 resourceType: null,
                 containerName: null,
-                format: null,
+                formatName: null,
                 typeParameter: ResourceType.Patient.ToString()));
         }
 
@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 since: null,
                 resourceType: null,
                 containerName: null,
-                format: null,
+                formatName: null,
                 typeParameter: ResourceType.Group.ToString(),
                 idParameter: "id"));
         }
