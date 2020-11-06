@@ -9,6 +9,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
     {
         /// <summary>
         /// The name of the format. This is how the format is referenced in the _format parameter when creating a new export job.
+        /// The name is used as a unique identifier. Formats should not share names.
         /// </summary>
         public string Name { get; set; } = string.Empty;
 

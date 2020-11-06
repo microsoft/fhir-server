@@ -45,6 +45,15 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             _fhirStorageTestHelper = fixture.TestHelper;
 
             _exportJobConfiguration = new ExportJobConfiguration();
+            _exportJobConfiguration.ExportJobFormats = new List<ExportJobFormatConfiguration>();
+            _exportJobConfiguration.ExportJobFormats.Add(new ExportJobFormatConfiguration()
+            {
+                Name = "test",
+                Format = ExportFormatTags.ResourceName,
+                ContainerDefault = true,
+                NoContainerDefault = true,
+            });
+
             IOptions<ExportJobConfiguration> optionsExportConfig = Substitute.For<IOptions<ExportJobConfiguration>>();
             optionsExportConfig.Value.Returns(_exportJobConfiguration);
 
