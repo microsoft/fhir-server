@@ -12,6 +12,8 @@ using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Export;
 using Microsoft.Health.Fhir.Core.Models;
@@ -41,7 +43,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 
         public CreateExportRequestHandlerTests(FhirStorageTestsFixture fixture)
         {
-            _fhirOperationDataStore = fixture.OperationDataStore;
+            _fhirOperationDataStore = AddListener(fixture.OperationDataStore);
             _fhirStorageTestHelper = fixture.TestHelper;
 
             _exportJobConfiguration = new ExportJobConfiguration();
@@ -178,6 +180,118 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 
             Assert.NotNull(newResponse);
             Assert.Equal(response.JobId, newResponse.JobId);
+        }
+
+        [Theory]
+        [InlineData("test1", false, ExportFormatTags.ResourceName)]
+        [InlineData(null, false, ExportFormatTags.Timestamp)]
+        [InlineData(null, true, ExportFormatTags.Id)]
+        public async Task GivenARequestWithDifferentFormatNames_WhenConverted_ThenTheProperFormatStringIsReturned(string formatName, bool containerSpecified, string expectedFormat)
+        {
+            _exportJobConfiguration.ExportJobFormats.Clear();
+            _exportJobConfiguration.ExportJobFormats.Add(new ExportJobFormatConfiguration()
+            {
+                Name = "test1",
+                Format = ExportFormatTags.ResourceName,
+            });
+            _exportJobConfiguration.ExportJobFormats.Add(new ExportJobFormatConfiguration()
+            {
+                Name = "test2",
+                Format = ExportFormatTags.Id,
+                ContainerDefault = true,
+            });
+            _exportJobConfiguration.ExportJobFormats.Add(new ExportJobFormatConfiguration()
+            {
+                Name = "test3",
+                Format = ExportFormatTags.Timestamp,
+                NoContainerDefault = true,
+            });
+
+            ExportJobRecord actualRecord = null;
+            await _fhirOperationDataStore.CreateExportJobAsync(
+                Arg.Do<ExportJobRecord>(record =>
+            {
+                actualRecord = record;
+            }), Arg.Any<CancellationToken>());
+
+            var request = new CreateExportRequest(RequestUrl, ExportJobType.All, containerName: containerSpecified ? "test" : null, format: formatName);
+            CreateExportResponse response = await _createExportRequestHandler.Handle(request, _cancellationToken);
+
+            Assert.Equal(expectedFormat, actualRecord.ExportFormat);
+        }
+
+        [Fact]
+        public async Task GivenARequest_WhenNoDefaultFormatsAreSet_ThenTheFirstFormatIsReturned()
+        {
+            _exportJobConfiguration.ExportJobFormats.Clear();
+            _exportJobConfiguration.ExportJobFormats.Add(new ExportJobFormatConfiguration()
+            {
+                Name = "test1",
+                Format = ExportFormatTags.Id,
+            });
+            _exportJobConfiguration.ExportJobFormats.Add(new ExportJobFormatConfiguration()
+            {
+                Name = "test2",
+                Format = ExportFormatTags.Timestamp,
+            });
+
+            ExportJobRecord actualRecord = null;
+            await _fhirOperationDataStore.CreateExportJobAsync(
+                Arg.Do<ExportJobRecord>(record =>
+                {
+                    actualRecord = record;
+                }), Arg.Any<CancellationToken>());
+
+            var request = new CreateExportRequest(RequestUrl, ExportJobType.All);
+            CreateExportResponse response = await _createExportRequestHandler.Handle(request, _cancellationToken);
+
+            Assert.Equal(ExportFormatTags.Id, actualRecord.ExportFormat);
+        }
+
+        [Fact]
+        public async Task GivenARequest_WhenNoFormatsAreSet_ThenHardcodedDefaultIsReturned()
+        {
+            _exportJobConfiguration.ExportJobFormats.Clear();
+
+            ExportJobRecord actualRecord = null;
+            await _fhirOperationDataStore.CreateExportJobAsync(
+                Arg.Do<ExportJobRecord>(record =>
+                {
+                    actualRecord = record;
+                }), Arg.Any<CancellationToken>());
+
+            var request = new CreateExportRequest(RequestUrl, ExportJobType.All);
+            CreateExportResponse response = await _createExportRequestHandler.Handle(request, _cancellationToken);
+
+            Assert.Equal(ExportFormatTags.ResourceName, actualRecord.ExportFormat);
+        }
+
+        [Fact]
+        public async Task GivenARequestWithAnNonexistantFormatName_WhenConverted_ThenABadRequestIsReturned()
+        {
+            var request = new CreateExportRequest(RequestUrl, ExportJobType.All, format: "invalid");
+            await Assert.ThrowsAsync<BadRequestException>(() => _createExportRequestHandler.Handle(request, _cancellationToken));
+        }
+
+        private T AddListener<T>(T baseObject)
+        {
+            Type type = typeof(T);
+            T spy = (T)Substitute.For(new[] { typeof(T) }, new object[0]);
+            foreach (var method in typeof(T).GetMethods())
+            {
+                object[] inputArgs = new object[method.GetParameters().Length];
+                for (int index = 0; index < inputArgs.Length; index++)
+                {
+                    inputArgs[index] = default;
+                }
+
+                type.InvokeMember(method.Name, System.Reflection.BindingFlags.InvokeMethod, null, spy, inputArgs).ReturnsForAnyArgs(args =>
+                {
+                    return type.InvokeMember(method.Name, System.Reflection.BindingFlags.InvokeMethod, null, baseObject, args.Args());
+                });
+            }
+
+            return spy;
         }
 
         private class MockClaimsExtractor : IClaimsExtractor

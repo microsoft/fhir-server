@@ -16,6 +16,7 @@ using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Export;
@@ -82,6 +83,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 formatConfiguration = _exportJobConfiguration.ExportJobFormats.FirstOrDefault(
                 (ExportJobFormatConfiguration formatConfig) => formatConfig.Name.Equals(request.Format, StringComparison.OrdinalIgnoreCase));
+
+                if (formatConfiguration == null)
+                {
+                    throw new BadRequestException(Resources.ExportFormatInvalid);
+                }
             }
 
             formatConfiguration ??= _exportJobConfiguration.ExportJobFormats.FirstOrDefault(
