@@ -7,9 +7,11 @@ using EnsureThat;
 using Microsoft.Azure.Storage.Blob;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Azure.ContainerRegistry;
 using Microsoft.Health.Fhir.Azure.ExportDestinationClient;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.DataConvert;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 using Microsoft.Health.Fhir.Core.Registration;
 
@@ -58,6 +60,17 @@ namespace Microsoft.Health.Fhir.Azure
                     .Transient()
                     .AsService<IExportClientInitializer<CloudBlobClient>>();
             }
+
+            return fhirServerBuilder;
+        }
+
+        public static IFhirServerBuilder AddContainerRegistryTokenProvider(this IFhirServerBuilder fhirServerBuilder)
+        {
+            EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
+
+            fhirServerBuilder.Services.Add<ContainerRegistryBasicTokenProvider>()
+                .Singleton()
+                .AsService<IContainerRegistryTokenProvider>();
 
             return fhirServerBuilder;
         }
