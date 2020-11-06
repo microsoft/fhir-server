@@ -33,26 +33,30 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
         private readonly IExpressionParser _expressionParser;
         private readonly IFhirRequestContextAccessor _contextAccessor;
+        private readonly ISupportedSortingParameterRegistry _supportedSortingParameterRegistry;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ILogger _logger;
         private readonly SearchParameterInfo _resourceTypeSearchParameter;
-        private CoreFeatureConfiguration _featureConfiguration;
+        private readonly CoreFeatureConfiguration _featureConfiguration;
 
         public SearchOptionsFactory(
             IExpressionParser expressionParser,
             ISearchParameterDefinitionManager.SearchableSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
             IOptions<CoreFeatureConfiguration> featureConfiguration,
             IFhirRequestContextAccessor contextAccessor,
+            ISupportedSortingParameterRegistry supportedSortingParameterRegistry,
             ILogger<SearchOptionsFactory> logger)
         {
             EnsureArg.IsNotNull(expressionParser, nameof(expressionParser));
             EnsureArg.IsNotNull(searchParameterDefinitionManagerResolver, nameof(searchParameterDefinitionManagerResolver));
             EnsureArg.IsNotNull(featureConfiguration?.Value, nameof(featureConfiguration));
             EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
+            EnsureArg.IsNotNull(supportedSortingParameterRegistry, nameof(supportedSortingParameterRegistry));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _expressionParser = expressionParser;
             _contextAccessor = contextAccessor;
+            _supportedSortingParameterRegistry = supportedSortingParameterRegistry;
             _searchParameterDefinitionManager = searchParameterDefinitionManagerResolver();
             _logger = logger;
             _featureConfiguration = featureConfiguration.Value;
@@ -274,7 +278,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     {
                         SearchParameterInfo searchParameterInfo = _searchParameterDefinitionManager.GetSearchParameter(parsedResourceType.ToString(), sorting.Item1);
 
-                        if (searchParameterInfo.IsSortSupported())
+                        if (_supportedSortingParameterRegistry.IsSortSupported(searchParameterInfo))
                         {
                             sortings.Add((searchParameterInfo, sorting.Item2.ToCoreSortOrder()));
                         }

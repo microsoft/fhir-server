@@ -49,6 +49,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private const string SortValueColumnName = "SortValue";
         private readonly SchemaInformation _schemaInformation;
+        private readonly ISupportedSortingParameterRegistry _sortingParameterRegistry;
 
         public SqlServerSearchService(
             ISearchOptionsFactory searchOptionsFactory,
@@ -59,16 +60,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             StringOverflowRewriter stringOverflowRewriter,
             SortRewriter sortRewriter,
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
-            ILogger<SqlServerSearchService> logger,
-            SchemaInformation schemaInformation)
+            SchemaInformation schemaInformation,
+            ISupportedSortingParameterRegistry sortingParameterRegistry,
+            ILogger<SqlServerSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore)
         {
             EnsureArg.IsNotNull(sqlRootExpressionRewriter, nameof(sqlRootExpressionRewriter));
             EnsureArg.IsNotNull(chainFlatteningRewriter, nameof(chainFlatteningRewriter));
             EnsureArg.IsNotNull(stringOverflowRewriter, nameof(stringOverflowRewriter));
             EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
-            EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
+            EnsureArg.IsNotNull(sortingParameterRegistry, nameof(sortingParameterRegistry));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
             _model = model;
             _sqlRootExpressionRewriter = sqlRootExpressionRewriter;
@@ -78,9 +81,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _logger = logger;
 
-            // Initialise supported sort params with SQL related values
-            SearchParameterInfoExtensions.AppendSearchParameterInfoExtensions(SupportedSortParameterNames.Names);
             _schemaInformation = schemaInformation;
+            _sortingParameterRegistry = sortingParameterRegistry;
         }
 
         protected override async Task<SearchResult> SearchInternalAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
@@ -260,7 +262,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                         // as long as at least one entry was marked as partial, this resultset
                         // should be marked as partial
-                        isResultPartial ||= isPartialEntry;
+                        isResultPartial = isResultPartial || isPartialEntry;
 
                         resources.Add(new SearchResultEntry(
                             new ResourceWrapper(
@@ -286,7 +288,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         unsupportedSortingParameters = searchOptions
                             .UnsupportedSortingParams
                             .Concat(searchOptions.Sort
-                                .Where(x => !x.searchParameterInfo.IsSortSupported())
+                                .Where(x => !_sortingParameterRegistry.IsSortSupported(x.searchParameterInfo))
                                 .Select(s => (s.searchParameterInfo.Name, Core.Resources.SortNotSupported))).ToList();
                     }
                     else

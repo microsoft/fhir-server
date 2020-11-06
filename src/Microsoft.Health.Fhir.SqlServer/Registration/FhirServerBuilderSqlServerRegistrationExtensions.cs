@@ -82,6 +82,11 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf();
 
+            services.Add<SqlServerSupportedSortingParameterRegistry>()
+                .Singleton()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
             return fhirServerBuilder;
         }
 
