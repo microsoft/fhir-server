@@ -58,13 +58,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.AddSingleton<IReindexUtilities, ReindexUtilities>();
 
-            services.AddSingleton<IOCIClientProvider, OCIClientProvider>();
-
-            services.AddSingleton<ITemplateProvider, TemplateProvider>();
-
+            services.AddSingleton<ITemplateProviderFactory, TemplateProviderFactory>();
             services.AddSingleton<IDataConvertEngine, DataConvertEngine>();
-
-            services.AddSingleton<IContainerRegistryTokenProvider, ContainerRegistryBasicTokenProvider>();
         }
     }
 }

@@ -5,7 +5,6 @@
 
 using System;
 using System.Threading.Tasks;
-using EnsureThat.Enforcers;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.DataConvert;
@@ -49,14 +48,14 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.DataCo
 
         private DataConvertRequestHandler GetRequestHandler()
         {
-            var datatConvertConfig = new DataConvertConfiguration
+            var dataConvertConfig = new DataConvertConfiguration
             {
                 Enabled = true,
                 ProcessTimeoutThreshold = TimeSpan.FromSeconds(1),
             };
 
             IOptions<DataConvertConfiguration> dataConvertConfiguration = Substitute.For<IOptions<DataConvertConfiguration>>();
-            dataConvertConfiguration.Value.Returns(datatConvertConfig);
+            dataConvertConfiguration.Value.Returns(dataConvertConfig);
             _authorizationService.CheckAccess(default).ReturnsForAnyArgs(DataActions.DataConvert);
             return new DataConvertRequestHandler(
                 _authorizationService,
@@ -66,7 +65,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.DataCo
 
         private static DataConvertRequest GetSampleHl7v2Request()
         {
-            return new DataConvertRequest(GetSampleHl7v2Message(), DataConvertInputDataType.Hl7v2, "test.azurecr.io/testimage:latest", "ADT_A01");
+            return new DataConvertRequest(GetSampleHl7v2Message(), DataConvertInputDataType.Hl7v2, "microsofthealth/fhirconverter:default", "ADT_A01");
         }
 
         private static string GetSampleHl7v2Message()

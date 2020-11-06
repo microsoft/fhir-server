@@ -9,10 +9,21 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.DataConvert.Models
 {
-    public class TemplateReferenceInvalidException : FhirException
+    public class InputDataParseErrorException : FhirException
     {
-        public TemplateReferenceInvalidException(string message)
+        public InputDataParseErrorException(string message)
             : base(message)
+        {
+            EnsureArg.IsNotNullOrWhiteSpace(message, nameof(message));
+
+            Issues.Add(new OperationOutcomeIssue(
+                OperationOutcomeConstants.IssueSeverity.Error,
+                OperationOutcomeConstants.IssueType.Exception,
+                message));
+        }
+
+        public InputDataParseErrorException(string message, System.Exception innerException)
+            : base(message, innerException)
         {
             EnsureArg.IsNotNullOrWhiteSpace(message, nameof(message));
 

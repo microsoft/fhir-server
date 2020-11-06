@@ -4,114 +4,147 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Microsoft.Extensions.Options;
-using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Extensions.Logging;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations.DataConvert.Models;
 using Microsoft.Health.Fhir.Core.Messages.DataConvert;
+using Microsoft.Health.Fhir.Liquid.Converter;
+using Microsoft.Health.Fhir.Liquid.Converter.Exceptions;
 using Microsoft.Health.Fhir.Liquid.Converter.Hl7v2;
 using Microsoft.Health.Fhir.TemplateManagement;
-using Microsoft.Health.Fhir.TemplateManagement.Models;
+using Microsoft.Health.Fhir.TemplateManager.Exceptions;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.DataConvert
 {
     public class DataConvertEngine : IDataConvertEngine
     {
         private readonly IContainerRegistryTokenProvider _containerRegistryTokenProvider;
-        private readonly IOCIClientProvider _ocrClient;
-        private readonly ITemplateProvider _templateProvider;
-        private readonly DataConvertConfiguration _dataConvertConfiguration;
-        private readonly Hl7v2Processor _hl7v2Processor;
+        private readonly ITemplateProviderFactory _templateProviderFactory;
+        private readonly ILogger<DataConvertEngine> _logger;
 
-        private const char ImageDigestDelimiter = '@';
-        private const char ImageTagDelimiter = ':';
+        private readonly Dictionary<string, IFhirConverter> _dataConverterMap = new Dictionary<string, IFhirConverter>();
         private const char ImageRegistryDelimiter = '/';
+        private const string DefaultTemplateReference = "microsofthealth/fhirconverter:default";
 
         public DataConvertEngine(
             IContainerRegistryTokenProvider containerRegistryTokenProvider,
-            IOCIClientProvider ociClient,
-            ITemplateProvider templatgeProvider,
-            IOptions<DataConvertConfiguration> dataConvertConfiguration)
+            ITemplateProviderFactory templateProviderFactory,
+            ILogger<DataConvertEngine> logger)
         {
-            EnsureArg.IsNotNull(containerRegistryTokenProvider);
-            EnsureArg.IsNotNull(ociClient);
-            EnsureArg.IsNotNull(templatgeProvider);
-            EnsureArg.IsNotNull(dataConvertConfiguration);
+            EnsureArg.IsNotNull(containerRegistryTokenProvider, nameof(containerRegistryTokenProvider));
+            EnsureArg.IsNotNull(templateProviderFactory, nameof(templateProviderFactory));
+            EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _ocrClient = ociClient;
-            _templateProvider = templatgeProvider;
             _containerRegistryTokenProvider = containerRegistryTokenProvider;
-            _dataConvertConfiguration = dataConvertConfiguration.Value;
-            _hl7v2Processor = new Hl7v2Processor();
+            _templateProviderFactory = templateProviderFactory;
+            _logger = logger;
+
+            _dataConverterMap.Add(DataConvertInputDataType.Hl7v2.ToString(), new Hl7v2Processor());
         }
 
         public async Task<DataConvertResponse> Process(DataConvertRequest convertRequest, CancellationToken cancellationToken)
         {
-            var imageInfo = ParseTemplateImageReference(convertRequest.TemplateSetReference);
-
-            var targetRegistry = _dataConvertConfiguration.ContainerRegistries
-                .Where(registry => imageInfo.Registry.Equals(registry.ContainerRegistryServer, StringComparison.OrdinalIgnoreCase))
-                .FirstOrDefault();
-
-            if (targetRegistry == null)
+            // We have embedded a default template set in the templatemanagement package.
+            // If the template set is the default refence, we don't need to retrieve token.
+            var accessToken = string.Empty;
+            if (!IsDefaultTemplateReference(convertRequest.TemplateSetReference))
             {
-                throw new ContainerRegistryNotRegisteredException($"Container registry server {imageInfo.Registry} not registered.");
+                _logger.LogInformation("Using a custom template set for data conversion.");
+                var registryServer = ExtractRegistryServer(convertRequest.TemplateSetReference);
+                accessToken = await _containerRegistryTokenProvider.GetTokenAsync(registryServer, cancellationToken);
+            }
+            else
+            {
+                _logger.LogInformation("Using the default template set for data conversion.");
             }
 
-            var token = await _containerRegistryTokenProvider.GetTokenAsync(targetRegistry, cancellationToken);
+            // Fetch templates
+            ITemplateProvider templateProvider;
+            try
+            {
+                templateProvider = await _templateProviderFactory.CreateAsync(convertRequest.TemplateSetReference, accessToken, cancellationToken);
+            }
+            catch (ContainerRegistryAuthException authEx)
+            {
+                _logger.LogError(authEx, "Failed to access container registry: unauthorized.");
+                throw new GetTemplateSetFailedException(string.Format(Resources.GetTemplateSetFailed, authEx.Message), authEx);
+            }
+            catch (DefaultTemplatesInitializeException initEx)
+            {
+                _logger.LogError(initEx, "Failed to initialize default templates.");
+                throw new GetTemplateSetFailedException(string.Format(Resources.GetTemplateSetFailed, initEx.Message), initEx);
+            }
+            catch (ImageFetchException fetchException)
+            {
+                _logger.LogError(fetchException, "Failed to fetch the templates from remote.");
+                throw new GetTemplateSetFailedException(string.Format(Resources.GetTemplateSetFailed, fetchException.Message), fetchException);
+            }
+            catch (ImageValidationException validationException)
+            {
+                _logger.LogError(validationException, "Failed to validate the downloaded image.");
+                throw new GetTemplateSetFailedException(string.Format(Resources.GetTemplateSetFailed, validationException.Message), validationException);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unhandled exception: failed to get template set.");
+                throw new GetTemplateSetFailedException(string.Format(Resources.GetTemplateSetFailed, ex.Message), ex);
+            }
 
-            _ocrClient.RegisterOCIClient(token, targetRegistry.ContainerRegistryServer);
-            var templateContainer = _templateProvider.GetTemplateContainer(imageInfo);
+            var dataConverter = _dataConverterMap.GetValueOrDefault(convertRequest.InputDataType.ToString());
+            if (dataConverter == null)
+            {
+                // This case should never happen.
+                _logger.LogError("Invalid input data type for conversion.");
+                throw new RequestNotValidException("Invalid input data type for conversion.");
+            }
 
-            var hl7v2TemplatteProvider = new Hl7v2TemplateProvider(templateContainer.GetTemplates());
-
-            // ToDo: implement generic processor selector
-            string bundleResult = _hl7v2Processor.Convert(convertRequest.InputData, convertRequest.EntryPointTemplate, hl7v2TemplatteProvider);
-            return new DataConvertResponse(bundleResult);
+            try
+            {
+                string bundleResult = dataConverter.Convert(convertRequest.InputData, convertRequest.EntryPointTemplate, templateProvider);
+                return new DataConvertResponse(bundleResult);
+            }
+            catch (DataParseException dpe)
+            {
+                _logger.LogError(dpe, "Unable to parse the input data.");
+                throw new InputDataParseErrorException(string.Format(Resources.InputDataParseError, convertRequest.InputDataType.ToString()), dpe);
+            }
+            catch (InitializeException ie)
+            {
+                _logger.LogError(ie, "Fail to initialize the convert engine.");
+                throw new ConvertEngineInitializeException(Resources.ConvertEngineInitializeFailed, ie);
+            }
+            catch (FhirConverterException fce)
+            {
+                _logger.LogError(fce, "Data convert process failed.");
+                throw new DataConvertFailedException(Resources.DataConvertFailed, fce);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unhandled exception: data convert process failed.");
+                throw new DataConvertFailedException(Resources.DataConvertFailed, ex);
+            }
         }
 
-        private static ImageInfo ParseTemplateImageReference(string imageReference)
+        private string ExtractRegistryServer(string templateSetReference)
         {
-            var registryDelimiterPosition = imageReference.IndexOf(ImageRegistryDelimiter, StringComparison.InvariantCultureIgnoreCase);
-            if (registryDelimiterPosition == -1)
+            var referenceComponents = templateSetReference.Split(ImageRegistryDelimiter);
+            if (referenceComponents.Length <= 1 || string.IsNullOrWhiteSpace(referenceComponents.First()))
             {
-                throw new TemplateReferenceInvalidException("Template image format is invalid: registry server is missing.");
+                _logger.LogError("Templates set reference is invalid: cannot extract registry server.");
+                throw new TemplateReferenceInvalidException("Template reference is invalid.");
             }
 
-            var registryServer = imageReference.Substring(0, registryDelimiterPosition);
-            imageReference = imageReference.Substring(registryDelimiterPosition + 1);
-
-            if (imageReference.Contains(ImageDigestDelimiter, StringComparison.OrdinalIgnoreCase))
-            {
-                Tuple<string, string> imageMeta = SplitApart(imageReference, ImageDigestDelimiter);
-                if (string.IsNullOrEmpty(imageMeta.Item1) || string.IsNullOrEmpty(imageMeta.Item2))
-                {
-                    throw new TemplateReferenceInvalidException("Template image format is invalid.");
-                }
-
-                return new ImageInfo(registryServer, imageMeta.Item1, tag: null, digest: imageMeta.Item2);
-            }
-            else if (imageReference.Contains(ImageTagDelimiter, StringComparison.OrdinalIgnoreCase))
-            {
-                Tuple<string, string> imageMeta = SplitApart(imageReference, ImageTagDelimiter);
-                if (string.IsNullOrEmpty(imageMeta.Item1) || string.IsNullOrEmpty(imageMeta.Item2))
-                {
-                    throw new TemplateReferenceInvalidException("Template image format is invalid.");
-                }
-
-                return new ImageInfo(registryServer, imageMeta.Item1, tag: imageMeta.Item2);
-            }
-
-            return new ImageInfo(registryServer, imageReference);
+            return referenceComponents[0];
         }
 
-        private static Tuple<string, string> SplitApart(string input, char dilimeter)
+        private bool IsDefaultTemplateReference(string templateReference)
         {
-            var index = input.IndexOf(dilimeter, StringComparison.InvariantCultureIgnoreCase);
-            return new Tuple<string, string>(input.Substring(0, index), input.Substring(index + 1));
+            return string.Equals(DefaultTemplateReference, templateReference, StringComparison.OrdinalIgnoreCase);
         }
     }
 }

@@ -11,14 +11,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.DataConvert.Models
 {
     public class DataConvertTimeoutException : FhirException
     {
-        public DataConvertTimeoutException()
-        {
-        }
-
         public DataConvertTimeoutException(string message)
             : base(message)
         {
             EnsureArg.IsNotNullOrWhiteSpace(message, nameof(message));
+
             Issues.Add(new OperationOutcomeIssue(
                 OperationOutcomeConstants.IssueSeverity.Error,
                 OperationOutcomeConstants.IssueType.Exception,
@@ -29,6 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.DataConvert.Models
             : base(message, innerException)
         {
             EnsureArg.IsNotNullOrWhiteSpace(message, nameof(message));
+
             Issues.Add(new OperationOutcomeIssue(
                 OperationOutcomeConstants.IssueSeverity.Error,
                 OperationOutcomeConstants.IssueType.Exception,

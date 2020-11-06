@@ -5,12 +5,11 @@
 
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Health.Fhir.Core.Features.Operations.DataConvert.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.DataConvert
 {
     public interface IContainerRegistryTokenProvider
     {
-        public Task<string> GetTokenAsync(ContainerRegistryInfo containerRegistryInfo, CancellationToken cancellationToken);
+        public Task<string> GetTokenAsync(string registryServer, CancellationToken cancellationToken);
     }
 }
