@@ -108,9 +108,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         [Theory]
         [InlineData("test.azurecr.io")]
         [InlineData("template:default")]
-        [InlineData("test.azurecr.com/template@")]
-        [InlineData("test.azurecr.com/template:")]
-        [InlineData("test.azurecr.com/:default")]
         [InlineData("/template:default")]
         public async Task GivenAValidRequest_ButTemplateReferenceIsInvalid_WhenDataConvert_ShouldReturnBadRequest(string templateReference)
         {
@@ -121,7 +118,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             var responseContent = await response.Content.ReadAsStringAsync();
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-            Assert.Contains("Template reference format is invalid", responseContent);
+            Assert.Contains("Template reference is invalid", responseContent);
         }
 
         [Theory]
@@ -232,10 +229,10 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             var parametersResource = new Parameters();
             parametersResource.Parameter = new List<Parameters.ParameterComponent>();
 
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.InputData, Value = new FhirString(inputData) });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.InputDataType, Value = new FhirString(inputDataType) });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.TemplateSetReference, Value = new FhirString(templateSetReference) });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.EntryPointTemplate, Value = new FhirString(entryPointTemplate) });
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = OperationParameterProperties.InputData, Value = new FhirString(inputData) });
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = OperationParameterProperties.InputDataType, Value = new FhirString(inputDataType) });
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = OperationParameterProperties.TemplateSetReference, Value = new FhirString(templateSetReference) });
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = OperationParameterProperties.EntryPointTemplate, Value = new FhirString(entryPointTemplate) });
 
             return parametersResource;
         }

@@ -121,12 +121,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.DataConvert
             catch (FhirConverterException fce)
             {
                 _logger.LogError(fce, "Data convert process failed.");
-                throw new DataConvertFailedException(Resources.DataConvertFailed, fce);
+                throw new DataConvertFailedException(string.Format(Resources.DataConvertFailed, fce.Message), fce);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Unhandled exception: data convert process failed.");
-                throw new DataConvertFailedException(Resources.DataConvertFailed, ex);
+                throw new DataConvertFailedException(string.Format(Resources.DataConvertFailed, ex.Message), ex);
             }
         }
 

@@ -143,6 +143,13 @@
             "metadata": {
                 "description": "Determine whether the sql schema should be automatically upgraded on server startup. If false, sql schema will not be initialized or upgraded on the server startup. The schema migration tool will be required to perform initialize or upgrade. If true, sql schema will be upgraded to the maximum supported version."
             }
+        },
+        "enableDataConvert": {
+            "defaultValue": false,
+            "type": "Bool",
+            "metadata": {
+                "description": "Determines whether data convert will be enabled for this fhir instance. If true, an Azure container registry will be created as part of the deployment. You will need owner or user-administrator permissions for this."
+            }
         }
     },
     "variables": {
@@ -174,11 +181,15 @@
             "SqlServer:SchemaOptions:AutomaticUpdatesEnabled": "[parameters('sqlSchemaAutomaticUpdatesEnabled')]",
             "DataStore": "SqlServer",
             "FhirServer:Operations:Export:Enabled": "[parameters('enableExport')]",
-            "FhirServer:Operations:Export:StorageAccountUri": "[if(parameters('enableExport'), concat('https://', variables('storageAccountName'), variables('blobStorageUri')), 'null')]"
+            "FhirServer:Operations:Export:StorageAccountUri": "[if(parameters('enableExport'), concat('https://', variables('storageAccountName'), variables('blobStorageUri')), 'null')]",
+            "FhirServer:Operations:DataConvert:Enabled": "[parameters('enableDataConvert')]",
+            "FhirServer:Operations:DataConvert:ContainerRegistries:0:ContainerRegistryServer": "[if(parameters('enableDataConvert'), concat(variables('azureContainerRegistryName'), variables('azureContainerRegistryUri')), 'null')]"
         },
         "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'))]",
         "computedSqlServerReference": "[concat('Microsoft.Sql/servers/', variables('serviceName'))]",
-        "storageAccountName": "[concat(substring(replace(variables('serviceName'), '-', ''), 0, min(11, length(replace(variables('serviceName'), '-', '')))), uniquestring(resourceGroup().id, variables('serviceName')))]"
+        "storageAccountName": "[concat(substring(replace(variables('serviceName'), '-', ''), 0, min(11, length(replace(variables('serviceName'), '-', '')))), uniquestring(resourceGroup().id, variables('serviceName')))]",
+        "azureContainerRegistryUri": ".azurecr.io",
+        "azureContainerRegistryName": "[concat(substring(replace(variables('serviceName'), '-', ''), 0, min(11, length(replace(variables('serviceName'), '-', '')))), uniquestring(resourceGroup().id, variables('serviceName')))]"
     },
     "resources": [
         {
@@ -250,7 +261,9 @@
                     "dependsOn": [
                         "[variables('appServiceResourceId')]",
                         "[if(variables('deployAppInsights'),concat('Microsoft.Insights/components/', variables('appInsightsName')),resourceId('Microsoft.KeyVault/vaults', variables('serviceName')))]",
-                        "[resourceId('Microsoft.KeyVault/vaults/secrets', variables('serviceName'), 'SqlServer--ConnectionString')]"
+                        "[resourceId('Microsoft.KeyVault/vaults/secrets', variables('serviceName'), 'SqlServer--ConnectionString')]",
+                        "[resourceId('Microsoft.KeyVault/vaults/secrets', variables('serviceName'), 'FhirServer--Operations--DataConvert--ContainerRegistries--0--ContainerRegistryUsername')]",
+                        "[resourceId('Microsoft.KeyVault/vaults/secrets', variables('serviceName'), 'FhirServer--Operations--DataConvert--ContainerRegistries--0--ContainerRegistryPassword')]"
                     ]
                 }
             ]
@@ -397,6 +410,53 @@
                 "principalId": "[reference(concat('Microsoft.Web/sites/', variables('serviceName')), '2018-11-01', 'full').identity.principalId]",
                 "principalType": "ServicePrincipal"
             }
+        },
+        {
+            "type": "Microsoft.ContainerRegistry/registries",
+            "apiVersion": "2019-12-01-preview",
+            "name": "[variables('azureContainerRegistryName')]",
+            "condition": "[parameters('enableDataConvert')]",
+            "comments": "Container registry for storing templates images",
+            "location": "[resourceGroup().location]",
+            "tags": {
+                "displayName": "Container Registry",
+                "container.registry": "[variables('azureContainerRegistryName')]"
+            },
+            "sku": {
+                "name": "Basic",
+                "tier": "Basic"
+            },
+            "properties": {
+                "adminUserEnabled": "true"
+            }
+        },
+        {
+            "type": "Microsoft.KeyVault/vaults/secrets",
+            "name": "[concat(variables('serviceName'), '/FhirServer--Operations--DataConvert--ContainerRegistries--0--ContainerRegistryUsername')]",
+            "apiVersion": "2015-06-01",
+            "properties": {
+                "contentType": "text/plain",
+                "value": "[variables('azureContainerRegistryName')]"
+            },
+            "condition": "[parameters('enableDataConvert')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]",
+                "[variables('azureContainerRegistryName')]"
+            ]
+        },
+        {
+            "type": "Microsoft.KeyVault/vaults/secrets",
+            "name": "[concat(variables('serviceName'), '/FhirServer--Operations--DataConvert--ContainerRegistries--0--ContainerRegistryPassword')]",
+            "apiVersion": "2015-06-01",
+            "condition": "[parameters('enableDataConvert')]",
+            "properties": {
+                "contentType": "text/plain",
+                "value": "[listCredentials(resourceId('Microsoft.ContainerRegistry/registries', variables('azureContainerRegistryName')), '2017-10-01').passwords[0].value]"
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]",
+                "[variables('azureContainerRegistryName')]"
+            ]
         }
     ]
 }

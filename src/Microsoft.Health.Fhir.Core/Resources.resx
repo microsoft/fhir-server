@@ -451,7 +451,8 @@
     <comment>{0} is the id of the reindex which is a a GUID.  {1} is the state, an enumerated set of state values.</comment>
   </data>
   <data name="DataConvertFailed" xml:space="preserve">
-    <value>Failed to convert the input data.</value>
+    <value>Failed to convert the input data. Reason: {0}</value>
+    <comment>{0} is the failure reason.</comment>
   </data>
   <data name="GetTemplateSetFailed" xml:space="preserve">
     <value>Failed to get template set. Reason: {0}</value>
