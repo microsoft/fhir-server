@@ -378,7 +378,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     sqlCommand.CommandText = $@"
                         SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
                         BEGIN TRANSACTION
+
                         DECLARE @id int = (SELECT {idColumn} FROM {table} WITH (UPDLOCK) WHERE {stringColumn} = @stringValue)
+
                         IF (@id IS NULL) BEGIN
                             INSERT INTO {table} 
                                 ({stringColumn})
@@ -386,7 +388,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                                 (@stringValue)
                             SET @id = SCOPE_IDENTITY()
                         END
+
                         COMMIT TRANSACTION
+
                         SELECT @id";
 
                     sqlCommand.Parameters.AddWithValue("@stringValue", stringValue);
