@@ -92,6 +92,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
+        public async Task GivenAnIncludeSearchExpressionWithOnlyDenormalizedPredicates_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        {
+            string lastUpdatedString = Uri.EscapeDataString(Fixture.PatientGroup.Meta.LastUpdated.Value.ToString("o"));
+
+            FhirResponse<Bundle> results = await Client.SearchAsync(ResourceType.Group, $"_lastUpdated={lastUpdatedString}&_include=Group:member:Patient");
+            Assert.Contains(results.Resource.Entry, e => e.Search.Mode == Bundle.SearchEntryMode.Match && e.Resource.Id == Fixture.PatientGroup.Id);
+            Assert.Contains(results.Resource.Entry, e => e.Search.Mode == Bundle.SearchEntryMode.Include && e.Resource.Id == Fixture.AdamsPatient.Id);
+        }
+
+        [Fact]
         public async Task GivenAnIncludeSearchExpressionWithMultipleDenormalizedParameters_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             var guid = Guid.NewGuid().ToString();
@@ -984,6 +994,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public async Task GivenARevIncludeIterateSearchExpressionWithMultitypeArrayReference_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
             // Non-recursive iteration - Reference array of multiple target types: CareTeam:participant of type Patient, Practitioner, Organization, etc.
+            // CareTeam:participant is a circular reference, however CareTeam:participant:Patient isn't, so we're not expecting an informational Issue
             string query = $"_revinclude:iterate=CareTeam:participant:Patient&_revinclude=Patient:general-practitioner&_tag={Fixture.Tag}";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.Practitioner, query);
@@ -1129,17 +1140,33 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateSearchEntryMode(bundle, ResourceType.Patient);
         }
 
+        // Circular Reference - Iteration executed once
+
         [Fact]
-        public async Task GivenAnIncludeIterateSearchExpressionWithCircularReference_WhenSearched_IncludedOneIterationResults()
+        public async Task GivenAnIncludeIterateSearchExpressionWithCircularReference_WhenSearched_SingleIterationIsExecutedAndInformationalIssueIsAdded()
         {
             // Recursive queries (circular references) are not supported (see https://github.com/microsoft/fhir-server/issues/1310)
-            // Here we expect one iteration of included results
+            // Here we expect a single iteration of included results
             string query = $"_include:iterate=Organization:partof&_id={Fixture.LabAOrganization.Id}&_tag={Fixture.Tag}";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.Organization, query);
 
+            // Create OperationOutcome with Informational Issue
+            var issue = new IssueComponent
+            {
+                Code = IssueType.Informational,
+                Diagnostics = string.Format(Core.Resources.IncludeIterateCircularReferenceExecutedOnce, "_include:iterate", "Organization:partof"),
+                Severity = IssueSeverity.Information,
+            };
+
+            var operationOutcome = new OperationOutcome
+                {
+                    Issue = new List<OperationOutcome.IssueComponent> { issue },
+                };
+
             ValidateBundle(
                 bundle,
+                operationOutcome,
                 Fixture.LabAOrganization,
                 Fixture.LabBOrganization);
 
@@ -1151,16 +1178,30 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
-        public async Task GivenARevIncludeIterateSearchExpressionWithCircularReference_WhenSearched_IncludedOneIterationResults()
+        public async Task GivenARevIncludeIterateSearchExpressionWithCircularReference_WhenSearched_SingleIterationIsExecutedAndInformationalIssueIsAdded()
         {
-            // Recursive queries (circular references) are not supported (see https://github.com/microsoft/fhir-server/issues/1310)
-            // Here we expect one iteration of included results
+            // Recursive include iterate queries (circular references) are not supported (see https://github.com/microsoft/fhir-server/issues/1310)
+            // Here we expect a single iteration of included results
             string query = $"_revinclude:iterate=Organization:partof&_id={Fixture.LabBOrganization.Id}&_tag={Fixture.Tag}";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.Organization, query);
 
+            // Create OperationOutcome with Informational Issue
+            var issue = new IssueComponent
+            {
+                Code = IssueType.Informational,
+                Diagnostics = string.Format(Core.Resources.IncludeIterateCircularReferenceExecutedOnce, "_revinclude:iterate", "Organization:partof"),
+                Severity = IssueSeverity.Information,
+            };
+
+            var operationOutcome = new OperationOutcome
+            {
+                Issue = new List<OperationOutcome.IssueComponent> { issue },
+            };
+
             ValidateBundle(
                 bundle,
+                operationOutcome,
                 Fixture.LabAOrganization,
                 Fixture.LabBOrganization);
 

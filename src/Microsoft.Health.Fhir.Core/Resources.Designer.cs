@@ -395,6 +395,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The include iterate circular reference executed once..
+        /// </summary>
+        internal static string IncludeIterateCircularReferenceExecutedOnce {
+            get {
+                return ResourceManager.GetString("IncludeIterateCircularReferenceExecutedOnce", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The _include search is missing the type to search..
         /// </summary>
         internal static string IncludeMissingType {
@@ -1025,3 +1034,4 @@ namespace Microsoft.Health.Fhir.Core {
         }
     }
 }
+
