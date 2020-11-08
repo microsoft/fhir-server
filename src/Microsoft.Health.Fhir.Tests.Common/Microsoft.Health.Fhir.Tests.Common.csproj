@@ -5,6 +5,7 @@
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb</AllowedOutputExtensionsInPackageBuildOutputFolder>
+    <IsTestProject>false</IsTestProject>
   </PropertyGroup>
   <ItemGroup>
     <None Remove="DefinitionFiles\R5\SearchParameters.json" />
@@ -315,14 +316,14 @@
     <EmbeddedResource Include="TestFiles\Stu3\PatientWithMinimalData.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Patient.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Patient.xml" />
-    <EmbeddedResource Include="TestFiles\Stu3\ResourceWrapperNoVersion.json" />
+    <EmbeddedResource Include="TestFiles\R4\ResourceWrapperNoVersion.json" />
     <EmbeddedResource Include="TestFiles\Stu3\ValidCompartmentDefinition.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Weight.json" />
     <EmbeddedResource Include="TestFiles\Stu3\WeightInGrams.json" />
     <EmbeddedResource Include="TestFiles\Stu3\WeightInPounds.json" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.Health.Abstractions" Version="1.0.0-master-20201022-1" />
+    <PackageReference Include="Microsoft.Health.Abstractions" Version="1.0.0-master-20201102-1" />
     <PackageReference Include="NSubstitute" Version="4.2.2" />
     <PackageReference Include="xunit" Version="2.4.1" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.4.3" />
