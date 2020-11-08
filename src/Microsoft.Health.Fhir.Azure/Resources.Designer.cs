@@ -94,5 +94,21 @@ namespace Microsoft.Health.Fhir.Azure {
                 return ResourceManager.GetString("InvalidStorageUri", resourceCulture);
             }
         }
+
+        internal static string ContainerRegistryNotAuthorized
+        {
+            get
+            {
+                return ResourceManager.GetString("ContainerRegistryNotAuthorized", resourceCulture);
+            }
+        }
+
+        internal static string ContainerRegistryNotRegistered
+        {
+            get
+            {
+                return ResourceManager.GetString("ContainerRegistryNotRegistered", resourceCulture);
+            }
+        }
     }
 }

@@ -19,6 +19,12 @@
             ]
         },
         {
+            "id": "globalDataConverterUser",
+            "roles": [
+                "globalDataConverter"
+            ]
+        },
+        {
             "id": "globalAdminUser",
             "roles": [
                 "globalAdmin"

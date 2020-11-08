@@ -81,6 +81,11 @@ namespace Microsoft.Health.Fhir.Tests.Common
             return GetJsonSample("Bundle-Transaction");
         }
 
+        public static ResourceElement GetDefaultDataConvertParameter()
+        {
+            return GetJsonSample("Parameter-Data-Convert");
+        }
+
         /// <summary>
         /// Gets back a resource from a json sample file.
         /// </summary>

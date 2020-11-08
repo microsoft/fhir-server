@@ -316,6 +316,19 @@ namespace Microsoft.Health.Fhir.Client
             await HttpClient.SendAsync(message, cancellationToken);
         }
 
+        public async Task<string> DataConvertAsync(Parameters parameters, CancellationToken cancellationToken = default)
+        {
+            string requestPath = "$data-convert";
+            using var message = new HttpRequestMessage(HttpMethod.Post, requestPath);
+            message.Content = new StringContent(parameters.ToJson(), Encoding.UTF8, "application/json");
+
+            HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
+
+            await EnsureSuccessStatusCodeAsync(response);
+
+            return await response.Content.ReadAsStringAsync();
+        }
+
         public async Task<FhirResponse<Bundle>> PostBundleAsync(Resource bundle, CancellationToken cancellationToken = default)
         {
             var message = new HttpRequestMessage(HttpMethod.Post, string.Empty)

@@ -6,7 +6,6 @@
 using System.Threading.Tasks;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Azure.ContainerRegistry;
-using Microsoft.Health.Fhir.Azure.ContainerRegistry.Models;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.DataConvert.Models;
 using NSubstitute;
