@@ -162,7 +162,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         [Fact]
         public async Task GivenAValidRequestWithCustomizedTemplateSet_WhenDataConvert_CorrectResponseShouldReturn()
         {
-            if (_isUsingInProcTestServer)
+            if (_isUsingInProcTestServer && !IsContainerRegistryConfigured())
             {
                 return;
             }
@@ -188,7 +188,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         [InlineData("template@sha256:592535ef52d742f81e35f4d87b43d9b535ed56cf58c90a14fc5fd7ea0fbb8695")]
         public async Task GivenAValidRequest_ButTemplateSetIsNotFound_WhenDataConvert_ShouldReturnBadRequest(string imageReference)
         {
-            if (_isUsingInProcTestServer)
+            if (_isUsingInProcTestServer && !IsContainerRegistryConfigured())
             {
                 return;
             }
@@ -318,6 +318,17 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             }
 
             return containerRegistry;
+        }
+
+        private bool IsContainerRegistryConfigured()
+        {
+            ContainerRegistryInfo containerRegistry = _dataConvertConfiguration?.ContainerRegistries?.FirstOrDefault();
+            if (containerRegistry == null || string.IsNullOrWhiteSpace(containerRegistry.ContainerRegistryServer))
+            {
+                return string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("TestContainerRegistryServer"));
+            }
+
+            return true;
         }
 
         internal class AcrBasicToken : ServiceClientCredentials
