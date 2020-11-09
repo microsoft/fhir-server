@@ -260,6 +260,17 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
         }
 
         [Fact]
+        public void GivenSortingParametersButWhenNoneAreApplied_WhenSearchUrlIsResolved_ThenTheUrlWillNotContainTheSortParameter()
+        {
+            TestAndValidateRouteWithQueryParameter(
+                "?_sort=a,-b",
+                null,
+                null,
+                null,
+                new Dictionary<string, object>());
+        }
+
+        [Fact]
         public void GivenAnExportOperation_WhenOperationResultUrlIsResolved_ThenCorrectUrlShouldBeReturned()
         {
             const string id = "12345";
