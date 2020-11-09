@@ -25,7 +25,7 @@ GO
 --     GetSearchParamStatuses
 --
 -- DESCRIPTION
---     Gets all the search parameters and their statuses
+--     Gets all the search parameters and their statuses.
 --
 -- RETURN VALUE
 --     The search parameters and their statuses.
@@ -42,7 +42,7 @@ GO
 --     UpsertSearchParams
 --
 -- DESCRIPTION
---     Given a set of search parameters, creates or updates the parameters
+--     Given a set of search parameters, creates or updates the parameters.
 --
 -- PARAMETERS
 --     @searchParams
