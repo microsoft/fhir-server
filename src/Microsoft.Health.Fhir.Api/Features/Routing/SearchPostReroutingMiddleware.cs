@@ -4,7 +4,9 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
+using EnsureThat;
 using Microsoft.AspNetCore.Http;
 
 namespace Microsoft.Health.Fhir.Api.Features.Routing
@@ -15,6 +17,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
 
         public SearchPostReroutingMiddleware(RequestDelegate next)
         {
+            EnsureArg.IsNotNull(next);
             _next = next;
         }
 
@@ -24,22 +27,31 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
 
             if (request != null
                 && request.Method == "POST"
-                && request.Path.Value.EndsWith(KnownRoutes.Search, System.StringComparison.OrdinalIgnoreCase)
-                && request.ContentType == "application/x-www-form-urlencoded")
+                && request.Path.Value.EndsWith(KnownRoutes.Search, System.StringComparison.OrdinalIgnoreCase))
             {
-                if (request.HasFormContentType)
+                if (request.ContentType is null || request.ContentType == "application/x-www-form-urlencoded")
                 {
-                    var dic = request.Query.ToDictionary(k => k.Key, v => v.Value);
-                    foreach (var elem in request.Form)
+                    if (request.HasFormContentType)
                     {
-                        dic.Add(elem.Key, elem.Value);
+                        var dic = request.Query.ToDictionary(k => k.Key, v => v.Value);
+                        foreach (var elem in request.Form)
+                        {
+                            dic.Add(elem.Key, elem.Value);
+                        }
+
+                        request.Query = new QueryCollection(dic);
                     }
 
-                    request.Query = new QueryCollection(dic);
+                    request.Path = request.Path.Value.Substring(0, request.Path.Value.Length - KnownRoutes.Search.Length);
+                    request.Method = "GET";
                 }
-
-                request.Path = request.Path.Value.Substring(0, request.Path.Value.Length - KnownRoutes.Search.Length);
-                request.Method = "GET";
+                else
+                {
+                    context.Response.Clear();
+                    context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+                    await context.Response.WriteAsync(Resources.ContentTypeFormUrlEncodedExpected);
+                    return;
+                }
             }
 
             await _next.Invoke(context);
