@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
         private const string SortValueColumnName = "SortValue";
         private readonly SchemaInformation _schemaInformation;
-        private readonly ISupportedSortingParameterRegistry _sortingParameterRegistry;
+        private readonly ISortingValidator _sortingValidator;
         private readonly IFhirRequestContextAccessor _requestContextAccessor;
 
         public SqlServerSearchService(
@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SortRewriter sortRewriter,
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             SchemaInformation schemaInformation,
-            ISupportedSortingParameterRegistry sortingParameterRegistry,
+            ISortingValidator sortingValidator,
             IFhirRequestContextAccessor requestContextAccessor,
             ILogger<SqlServerSearchService> logger)
             : base(searchOptionsFactory, fhirDataStore)
@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             EnsureArg.IsNotNull(stringOverflowRewriter, nameof(stringOverflowRewriter));
             EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
-            EnsureArg.IsNotNull(sortingParameterRegistry, nameof(sortingParameterRegistry));
+            EnsureArg.IsNotNull(sortingValidator, nameof(sortingValidator));
             EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _logger = logger;
 
             _schemaInformation = schemaInformation;
-            _sortingParameterRegistry = sortingParameterRegistry;
+            _sortingValidator = sortingValidator;
             _requestContextAccessor = requestContextAccessor;
         }
 

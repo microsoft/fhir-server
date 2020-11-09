@@ -8,8 +8,8 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
-    public interface ISupportedSortingParameterRegistry
+    public interface ISortingValidator
     {
-        bool ValidateSortings(IReadOnlyList<(SearchParameterInfo searchParameter, SortOrder sortOrder)> sortings, out IReadOnlyList<string> errorMessages);
+        bool ValidateSorting(IReadOnlyList<(SearchParameterInfo searchParameter, SortOrder sortOrder)> sorting, out IReadOnlyList<string> errorMessages);
     }
 }

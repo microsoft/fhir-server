@@ -15,8 +15,10 @@ using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Api.Features.Bundle;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using NSubstitute;
 using Xunit;
@@ -140,7 +142,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
                 { "param2", new StringValues("value2") },
             };
 
-            TestAndValidateRouteWithQueryParameter(inputQueryString, unsupportedSearchParams, null, expectedRouteValues);
+            TestAndValidateRouteWithQueryParameter(inputQueryString, null, unsupportedSearchParams, null, expectedRouteValues);
         }
 
         [Fact]
@@ -156,7 +158,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
                 { "param1", new StringValues("value1") },
             };
 
-            TestAndValidateRouteWithQueryParameter(inputQueryString, unsupportedSearchParams, null, expectedRouteValues);
+            TestAndValidateRouteWithQueryParameter(inputQueryString, null, unsupportedSearchParams, null, expectedRouteValues);
         }
 
         [Fact]
@@ -174,7 +176,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
                 { "param3", new StringValues("value5") },
             };
 
-            TestAndValidateRouteWithQueryParameter(inputQueryString, unsupportedSearchParams, null, expectedRouteValues);
+            TestAndValidateRouteWithQueryParameter(inputQueryString, null, unsupportedSearchParams, null, expectedRouteValues);
         }
 
         [Fact]
@@ -190,7 +192,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
                 { ContinuationTokenQueryParamName, continuationToken },
             };
 
-            TestAndValidateRouteWithQueryParameter(inputQueryString, unsupportedSearchParams, continuationToken, expectedRouteValues);
+            TestAndValidateRouteWithQueryParameter(inputQueryString, null, unsupportedSearchParams, continuationToken, expectedRouteValues);
         }
 
         [Fact]
@@ -206,7 +208,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
                 { ContinuationTokenQueryParamName, continuationToken },
             };
 
-            TestAndValidateRouteWithQueryParameter(inputQueryString, unsupportedSearchParams, continuationToken, expectedRouteValues);
+            TestAndValidateRouteWithQueryParameter(inputQueryString, null, unsupportedSearchParams, continuationToken, expectedRouteValues);
         }
 
         [Fact]
@@ -222,7 +224,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
                 { ContinuationTokenQueryParamName, new StringValues("abc") },
             };
 
-            TestAndValidateRouteWithQueryParameter(inputQueryString, unsupportedSearchParams, continuationToken, expectedRouteValues);
+            TestAndValidateRouteWithQueryParameter(inputQueryString, null, unsupportedSearchParams, continuationToken, expectedRouteValues);
         }
 
         [Fact]
@@ -241,29 +243,21 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
                 { "param3", new StringValues("value3") },
             };
 
-            TestAndValidateRouteWithQueryParameter(inputQueryString, unsupportedSearchParams, continuationToken, expectedRouteValues);
+            TestAndValidateRouteWithQueryParameter(inputQueryString, null, unsupportedSearchParams, continuationToken, expectedRouteValues);
         }
 
-        ////[InlineData("?_sort=a,-b", null, "a,-b")]
-        ////[InlineData("?_sort=a,-b", new[] { "a" }, "-b")]
-        ////[InlineData("?_sort=a,-b", new[] { "b" }, "a")]
-        ////[InlineData("?_sort=a", null, "a")]
-        ////[InlineData("?_sort=a", new[] { "b" }, "a")]
-        ////[InlineData("?_sort=a", new[] { "a" })]
-        ////[InlineData("?_sort=a,-b&_sort=-c,d", new[] { "b" }, "a", "-c,d")]
-        ////[InlineData("?_sort=a,-b&_sort=-c,d", new[] { "b", "c", "d" }, "a")]
-        ////[InlineData("?_sort=a,-b&_sort=-c,d", new[] { "a", "b", "c", "d" })]
-        ////[InlineData("?_sort=a,b,c", new[] { "a" }, "b,c")]
-        ////[InlineData("?_sort=", null)]
-        ////[InlineData("?_sort=", new[] { "a" })]
-        ////[Theory]
-        ////public void GivenSortingParameters_WhenSearchUrlIsResolved_ThenCorrectUrlShouldBeReReturned(string queryString, string[] unsupportedSortingValues, params string[] expectedValues)
-        ////{
-        ////    TestAndValidateRouteWithQueryParameter(
-        ////        queryString,
-        ////        Array.Empty<Tuple<string, string>>(),
-        ////        expectedValues?.Length > 0 ? new Dictionary<string, object> { { KnownQueryParameterNames.Sort, new StringValues(expectedValues) } } : new Dictionary<string, object>());
-        ////}
+        [InlineData("?_sort=a,-b")]
+        [InlineData("?_sort=a,-b&_sort=-c,d")]
+        [Theory]
+        public void GivenSortingParameters_WhenSearchUrlIsResolved_ThenCorrectUrlShouldBeReReturned(string queryString)
+        {
+            TestAndValidateRouteWithQueryParameter(
+                queryString,
+                new[] { (new SearchParameterInfo("a"), SortOrder.Ascending), (new SearchParameterInfo("b"), SortOrder.Descending) },
+                null,
+                null,
+                new Dictionary<string, object> { { KnownQueryParameterNames.Sort, new StringValues(new[] { "a", "-b" }) } });
+        }
 
         [Fact]
         public void GivenAnExportOperation_WhenOperationResultUrlIsResolved_ThenCorrectUrlShouldBeReturned()
@@ -325,29 +319,19 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Routing
             bundleHttpContext.Request.Host = new HostString(Host);
             _bundleHttpContextAccessor.HttpContext.Returns(bundleHttpContext);
 
-            TestAndValidateRouteWithQueryParameter(inputQueryString, unsupportedSearchParams, continuationToken, expectedRouteValues);
+            TestAndValidateRouteWithQueryParameter(inputQueryString, null, unsupportedSearchParams, continuationToken, expectedRouteValues);
         }
 
         private void TestAndValidateRouteWithQueryParameter(
             string inputQueryString,
-            Tuple<string, string>[] unsupportedSearchParams,
-            Dictionary<string, object> expectedRouteValues)
-        {
-            TestAndValidateRouteWithQueryParameter(
-                inputQueryString,
-                unsupportedSearchParams,
-                expectedRouteValues);
-        }
-
-        private void TestAndValidateRouteWithQueryParameter(
-            string inputQueryString,
+            IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> resultSortOrder,
             Tuple<string, string>[] unsupportedSearchParams,
             string continuationToken,
             Dictionary<string, object> expectedRouteValues)
         {
             _httpContext.Request.QueryString = new QueryString(inputQueryString);
 
-            _urlResolver.ResolveRouteUrl(unsupportedSearchParams, null, continuationToken);
+            _urlResolver.ResolveRouteUrl(unsupportedSearchParams, resultSortOrder, continuationToken);
 
             ValidateUrlRouteContext(
                 routeValuesValidator: routeValues =>

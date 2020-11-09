@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Globalization;
 using System.Linq;
 using EnsureThat;
@@ -34,7 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
         private readonly IExpressionParser _expressionParser;
         private readonly IFhirRequestContextAccessor _contextAccessor;
-        private readonly ISupportedSortingParameterRegistry _supportedSortingParameterRegistry;
+        private readonly ISortingValidator _sortingValidator;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ILogger _logger;
         private readonly SearchParameterInfo _resourceTypeSearchParameter;
@@ -45,19 +44,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             ISearchParameterDefinitionManager.SearchableSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
             IOptions<CoreFeatureConfiguration> featureConfiguration,
             IFhirRequestContextAccessor contextAccessor,
-            ISupportedSortingParameterRegistry supportedSortingParameterRegistry,
+            ISortingValidator sortingValidator,
             ILogger<SearchOptionsFactory> logger)
         {
             EnsureArg.IsNotNull(expressionParser, nameof(expressionParser));
             EnsureArg.IsNotNull(searchParameterDefinitionManagerResolver, nameof(searchParameterDefinitionManagerResolver));
             EnsureArg.IsNotNull(featureConfiguration?.Value, nameof(featureConfiguration));
             EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
-            EnsureArg.IsNotNull(supportedSortingParameterRegistry, nameof(supportedSortingParameterRegistry));
+            EnsureArg.IsNotNull(sortingValidator, nameof(sortingValidator));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _expressionParser = expressionParser;
             _contextAccessor = contextAccessor;
-            _supportedSortingParameterRegistry = supportedSortingParameterRegistry;
+            _sortingValidator = sortingValidator;
             _searchParameterDefinitionManager = searchParameterDefinitionManagerResolver();
             _logger = logger;
             _featureConfiguration = featureConfiguration.Value;
@@ -292,8 +291,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
                 if (sortingsValid)
                 {
-                    if (!_supportedSortingParameterRegistry.ValidateSortings(sortings, out IReadOnlyList<string> errorMessages))
+                    if (!_sortingValidator.ValidateSorting(sortings, out IReadOnlyList<string> errorMessages))
                     {
+                        if (errorMessages == null || errorMessages.Count == 0)
+                        {
+                            throw new InvalidOperationException($"Expected {_sortingValidator.GetType().Name} to return error messages when {nameof(_sortingValidator.ValidateSorting)} returns false");
+                        }
+
                         sortingsValid = false;
 
                         foreach (var errorMessage in errorMessages)

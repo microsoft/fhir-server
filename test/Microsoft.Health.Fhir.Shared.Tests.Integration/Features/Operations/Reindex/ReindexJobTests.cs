@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             var searchParameterExpressionParser = new SearchParameterExpressionParser(() => _searchParameterDefinitionManager, new ReferenceSearchValueParser(fhirRequestContextAccessor));
             var expressionParser = new ExpressionParser(() => _searchableSearchParameterDefinitionManager, searchParameterExpressionParser);
-            var searchOptionsFactory = new SearchOptionsFactory(expressionParser, () => _searchableSearchParameterDefinitionManager, coreOptions, fhirRequestContextAccessor, Substitute.For<ISupportedSortingParameterRegistry>(), NullLogger<SearchOptionsFactory>.Instance);
+            var searchOptionsFactory = new SearchOptionsFactory(expressionParser, () => _searchableSearchParameterDefinitionManager, coreOptions, fhirRequestContextAccessor, Substitute.For<ISortingValidator>(), NullLogger<SearchOptionsFactory>.Instance);
             var cosmosSearchService = new FhirCosmosSearchService(searchOptionsFactory, _fixture.DataStore as CosmosFhirDataStore, new QueryBuilder()) as ISearchService;
 
             _searchService = cosmosSearchService.CreateMockScope();
