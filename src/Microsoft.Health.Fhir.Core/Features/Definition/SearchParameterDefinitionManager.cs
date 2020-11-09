@@ -4,11 +4,14 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using EnsureThat;
-using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -17,20 +20,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
     /// <summary>
     /// Provides mechanism to access search parameter definition.
     /// </summary>
-    public class SearchParameterDefinitionManager : ISearchParameterDefinitionManager, IStartable
+    public class SearchParameterDefinitionManager : ISearchParameterDefinitionManager, IHostedService
     {
         private readonly IModelInfoProvider _modelInfoProvider;
 
         private IDictionary<string, IDictionary<string, SearchParameterInfo>> _typeLookup;
         private bool _started;
-        private Dictionary<string, string> _resourceTypeSearchParameterHashMap;
+        private ConcurrentDictionary<string, string> _resourceTypeSearchParameterHashMap;
 
         public SearchParameterDefinitionManager(IModelInfoProvider modelInfoProvider)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
 
             _modelInfoProvider = modelInfoProvider;
-            _resourceTypeSearchParameterHashMap = new Dictionary<string, string>();
+            _resourceTypeSearchParameterHashMap = new ConcurrentDictionary<string, string>();
         }
 
         internal IDictionary<Uri, SearchParameterInfo> UrlLookup { get; set; }
@@ -41,10 +44,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public IReadOnlyDictionary<string, string> SearchParameterHashMap
         {
-            get { return new ReadOnlyDictionary<string, string>(_resourceTypeSearchParameterHashMap); }
+            get { return new ReadOnlyDictionary<string, string>(_resourceTypeSearchParameterHashMap.ToDictionary(kvp => kvp.Key, kvp => kvp.Value)); }
         }
 
-        public void Start()
+        public Task StartAsync(CancellationToken cancellationToken)
         {
             // This method is idempotent because dependent Start methods are not guaranteed to be executed in order.
             if (!_started)
@@ -62,7 +65,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
                 _started = true;
             }
+
+            return Task.CompletedTask;
         }
+
+        public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
         public IEnumerable<SearchParameterInfo> GetSearchParameters(string resourceType)
         {
@@ -118,19 +125,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public void UpdateSearchParameterHashMap(Dictionary<string, string> updatedSearchParamHashMap)
         {
-            // TODO: Make this thread-safe.
             EnsureArg.IsNotNull(updatedSearchParamHashMap, nameof(updatedSearchParamHashMap));
 
             foreach (KeyValuePair<string, string> kvp in updatedSearchParamHashMap)
             {
-                if (_resourceTypeSearchParameterHashMap.ContainsKey(kvp.Key))
-                {
-                    _resourceTypeSearchParameterHashMap[kvp.Key] = kvp.Value;
-                }
-                else
-                {
-                    _resourceTypeSearchParameterHashMap.Add(kvp.Key, kvp.Value);
-                }
+                _resourceTypeSearchParameterHashMap.AddOrUpdate(
+                    kvp.Key,
+                    kvp.Value,
+                    (resourceType, existingValue) => kvp.Value);
             }
         }
 

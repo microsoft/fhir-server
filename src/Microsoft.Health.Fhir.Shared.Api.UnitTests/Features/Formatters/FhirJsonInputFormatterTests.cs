@@ -101,8 +101,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
         public async Task GivenAResourceWithMissingResourceType_WhenParsing_ThenAnErrorShouldBeAddedToModelState()
         {
             var modelStateDictionary = new ModelStateDictionary();
-
-            var result = await ReadRequestBody(Samples.GetJson("PatientMissingResourceType"), modelStateDictionary);
+            var patient = Samples.GetJson("PatientMissingResourceType");
+            var result = await ReadRequestBody(patient, modelStateDictionary);
 
             Assert.False(result.IsModelSet);
             Assert.Equal(1, modelStateDictionary.ErrorCount);
@@ -110,7 +110,30 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Formatters
             (_, ModelStateEntry entry) = modelStateDictionary.First();
 
             Assert.Single(entry.Errors);
-            Assert.Equal(Api.Resources.ParsingError, entry.Errors.First().ErrorMessage);
+            try
+            {
+                new FhirJsonParser().Parse<Resource>(patient);
+            }
+            catch (Exception ex)
+            {
+                Assert.Equal(string.Format(Api.Resources.ParsingError, ex.Message), entry.Errors.First().ErrorMessage);
+            }
+        }
+
+        [Fact]
+        public async Task GivenAResourceWithBadDecimal_WhenParsing_ThenAnErrorShouldBeAddedToModelState()
+        {
+            var modelStateDictionary = new ModelStateDictionary();
+            var result = await ReadRequestBody(Samples.GetJson("MoneyWithWrongDecimal"), modelStateDictionary);
+
+            Assert.False(result.IsModelSet);
+            Assert.Equal(1, modelStateDictionary.ErrorCount);
+
+            (_, ModelStateEntry entry) = modelStateDictionary.First();
+
+            Assert.Single(entry.Errors);
+
+            Assert.Contains("00", entry.Errors.First().ErrorMessage);
         }
 
         private static async Task<InputFormatterResult> ReadRequestBody(string sampleJson, ModelStateDictionary modelStateDictionary)

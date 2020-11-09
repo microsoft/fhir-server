@@ -8,6 +8,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -156,7 +158,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
         }
 
         [Fact]
-        public void GivenValidRoles_WhenLoaded_AreProperlyTransformed()
+        public async Task GivenValidRoles_WhenLoaded_AreProperlyTransformed()
         {
             var roles = new
             {
@@ -172,7 +174,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
                 },
             };
 
-            AuthorizationConfiguration authConfig = Load(roles);
+            AuthorizationConfiguration authConfig = await LoadAsync(roles);
 
             Role actualRole = Assert.Single(authConfig.Roles);
             Assert.Equal(roles.roles.First().name, actualRole.Name);
@@ -180,7 +182,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
         }
 
         [Fact]
-        public void GivenValidDataActions_WhenSpecifiedAsRoleActions_AreRecognized()
+        public async Task GivenValidDataActions_WhenSpecifiedAsRoleActions_AreRecognized()
         {
             var actionNames = Enum.GetValues(typeof(DataActions)).Cast<DataActions>()
                 .Where(a => a != DataActions.All && a != DataActions.None);
@@ -197,7 +199,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
                     }).ToArray(),
             };
 
-            AuthorizationConfiguration authConfig = Load(roles);
+            AuthorizationConfiguration authConfig = await LoadAsync(roles);
 
             Assert.All(
                 actionNames.Zip(authConfig.Roles.Select(r => r.AllowedDataActions)),
@@ -206,13 +208,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
 
         [Theory]
         [MemberData(nameof(GetInvalidRoles))]
-        public void GivenInvalidRoles_WhenLoaded_RaiseValidationErrors(string description, object roles)
+        public async Task GivenInvalidRoles_WhenLoaded_RaiseValidationErrors(string description, object roles)
         {
             Assert.NotEmpty(description);
-            Assert.Throws<InvalidDefinitionException>(() => Load(roles));
+            await Assert.ThrowsAsync<InvalidDefinitionException>(() => LoadAsync(roles));
         }
 
-        private static AuthorizationConfiguration Load(object roles)
+        private static async Task<AuthorizationConfiguration> LoadAsync(object roles)
         {
             IFileProvider fileProvider = Substitute.For<IFileProvider>();
             var hostEnvironment = Substitute.For<IHostEnvironment>();
@@ -223,7 +225,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Security
 
             var authConfig = new AuthorizationConfiguration();
             var roleLoader = new RoleLoader(authConfig, hostEnvironment);
-            roleLoader.Start();
+            await roleLoader.StartAsync(CancellationToken.None);
             return authConfig;
         }
     }

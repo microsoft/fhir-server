@@ -21,8 +21,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _testHelper = (SqlServerFhirStorageTestHelper)fixture.TestHelper;
         }
 
-        // TODO Enable the test after fixing the min version from 1(hardcoded) to schemaInformation.minSupportedVersion in SchemaInitializer(shared-components repo).
-        [Fact(Skip="This needs to be upddated to support updated minSupportedVersion")]
+        [Fact]
         public async Task GivenTwoSchemaInitializationMethods_WhenCreatingTwoDatabases_BothSchemasShouldBeEquivalent()
         {
             var snapshotDatabaseName = $"SNAPSHOT_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";

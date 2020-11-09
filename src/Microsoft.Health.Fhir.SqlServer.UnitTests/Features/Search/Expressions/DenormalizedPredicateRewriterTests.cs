@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using Hl7.FhirPath.Sprache;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
@@ -88,6 +87,22 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(DenormalizedPredicateRewriter.Instance);
             Assert.Empty(visitedExpression.DenormalizedExpressions);
             Assert.Equal(new TableExpression(null, null, Expression.And(inputExpression.DenormalizedExpressions), TableExpressionKind.All).ToString(), visitedExpression.TableExpressions[0].ToString());
+        }
+
+        [Fact]
+        public void GivenSqlRootExpressionWithDenormalizedPredicateAndOnlyIncludeTableExpression_WhenRewritten_DenormalizedPredicateIsPreserved()
+        {
+            var inputExpression = new SqlRootExpression(
+                new List<TableExpression>
+                {
+                    new TableExpression(null, null, null, TableExpressionKind.Include),
+                },
+                new List<Expression>
+                {
+                    new SearchParameterExpression(new SearchParameterInfo(SearchParameterNames.ResourceType), Expression.Equals(FieldName.String, null, "TestParamValue1")),
+                });
+            var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(DenormalizedPredicateRewriter.Instance);
+            Assert.Same(inputExpression.DenormalizedExpressions, visitedExpression.DenormalizedExpressions);
         }
 
         [Theory]

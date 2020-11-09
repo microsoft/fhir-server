@@ -8,12 +8,14 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Models;
@@ -32,7 +34,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     /// many many times in the database. For more compact storage, we use IDs instead of the strings when referencing these.
     /// Also, because the number of distinct values is small, we can maintain all values in memory and avoid joins when querying.
     /// </summary>
-    public sealed class SqlServerFhirModel : IStartable
+    public sealed class SqlServerFhirModel : IHostedService
     {
         private readonly SqlServerDataStoreConfiguration _configuration;
         private readonly SchemaInitializer _schemaInitializer;
@@ -132,155 +134,152 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return _quantityCodeToId.TryGetValue(code, out quantityCodeId);
         }
 
-        public void Start()
+        public async Task StartAsync(CancellationToken cancellationToken)
         {
-            _schemaInitializer.Start();
+            await _schemaInitializer.StartAsync(cancellationToken);
 
-            if (_searchParameterDefinitionManager is IStartable startable)
+            if (_searchParameterDefinitionManager is IHostedService hostedService)
             {
-                startable.Start();
+                await hostedService.StartAsync(cancellationToken);
             }
 
             var connectionStringBuilder = new SqlConnectionStringBuilder(_configuration.ConnectionString);
 
             _logger.LogInformation("Initializing {Server} {Database}", connectionStringBuilder.DataSource, connectionStringBuilder.InitialCatalog);
 
-            using (var connection = new SqlConnection(_configuration.ConnectionString))
+            await using var connection = new SqlConnection(_configuration.ConnectionString);
+            await connection.OpenAsync(cancellationToken);
+
+            // Synchronous calls are used because this code is executed on startup and doesn't need to be async.
+            // Additionally, XUnit task scheduler constraints prevent async calls from being easily tested.
+            await using SqlCommand sqlCommand = connection.CreateCommand();
+            sqlCommand.CommandText = @"
+                SET XACT_ABORT ON
+                BEGIN TRANSACTION
+
+                INSERT INTO dbo.ResourceType (Name) 
+                SELECT value FROM string_split(@resourceTypes, ',')
+                EXCEPT SELECT Name FROM dbo.ResourceType WITH (TABLOCKX); 
+
+                -- result set 1
+                SELECT ResourceTypeId, Name FROM dbo.ResourceType;
+
+                INSERT INTO dbo.SearchParam (Uri)
+                SELECT * FROM  OPENJSON (@searchParams) 
+                WITH (Uri varchar(128) '$.Uri')
+                EXCEPT SELECT Uri FROM dbo.SearchParam;
+
+                -- result set 2
+                SELECT Uri, SearchParamId FROM dbo.SearchParam;
+
+                INSERT INTO dbo.ClaimType (Name) 
+                SELECT value FROM string_split(@claimTypes, ',')
+                EXCEPT SELECT Name FROM dbo.ClaimType; 
+
+                -- result set 3
+                SELECT ClaimTypeId, Name FROM dbo.ClaimType;
+
+                INSERT INTO dbo.CompartmentType (Name) 
+                SELECT value FROM string_split(@compartmentTypes, ',')
+                EXCEPT SELECT Name FROM dbo.CompartmentType; 
+
+                -- result set 4
+                SELECT CompartmentTypeId, Name FROM dbo.CompartmentType;
+                
+                COMMIT TRANSACTION
+
+                -- result set 5
+                SELECT Value, SystemId from dbo.System;
+
+                -- result set 6
+                SELECT Value, QuantityCodeId FROM dbo.QuantityCode";
+
+            string commaSeparatedResourceTypes = string.Join(",", ModelInfoProvider.GetResourceTypeNames());
+            string searchParametersJson = JsonConvert.SerializeObject(_searchParameterDefinitionManager.AllSearchParameters.Select(p => new { Name = p.Name, Uri = p.Url }));
+            string commaSeparatedClaimTypes = string.Join(',', _securityConfiguration.PrincipalClaims);
+            string commaSeparatedCompartmentTypes = string.Join(',', ModelInfoProvider.GetCompartmentTypeNames());
+
+            sqlCommand.Parameters.AddWithValue("@resourceTypes", commaSeparatedResourceTypes);
+            sqlCommand.Parameters.AddWithValue("@searchParams", searchParametersJson);
+            sqlCommand.Parameters.AddWithValue("@claimTypes", commaSeparatedClaimTypes);
+            sqlCommand.Parameters.AddWithValue("@compartmentTypes", commaSeparatedCompartmentTypes);
+
+            await using SqlDataReader reader = await sqlCommand.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken);
+
+            var resourceTypeToId = new Dictionary<string, short>(StringComparer.Ordinal);
+            var resourceTypeIdToTypeName = new Dictionary<short, string>();
+            var searchParamUriToId = new Dictionary<Uri, short>();
+            var systemToId = new ConcurrentDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            var quantityCodeToId = new ConcurrentDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            var claimNameToId = new Dictionary<string, byte>(StringComparer.Ordinal);
+            var compartmentTypeToId = new Dictionary<string, byte>();
+
+            // result set 1
+            while (await reader.ReadAsync(cancellationToken))
             {
-                connection.Open();
+                (short id, string resourceTypeName) = reader.ReadRow(VLatest.ResourceType.ResourceTypeId, VLatest.ResourceType.Name);
 
-                // Synchronous calls are used because this code is executed on startup and doesn't need to be async.
-                // Additionally, XUnit task scheduler constraints prevent async calls from being easily tested.
-                using (SqlCommand sqlCommand = connection.CreateCommand())
-                {
-                    sqlCommand.CommandText = @"
-                        SET XACT_ABORT ON
-                        BEGIN TRANSACTION
-
-                        INSERT INTO dbo.ResourceType (Name) 
-                        SELECT value FROM string_split(@resourceTypes, ',')
-                        EXCEPT SELECT Name FROM dbo.ResourceType WITH (TABLOCKX); 
-
-                        -- result set 1
-                        SELECT ResourceTypeId, Name FROM dbo.ResourceType;
-
-                        INSERT INTO dbo.SearchParam (Uri)
-                        SELECT * FROM  OPENJSON (@searchParams) 
-                        WITH (Uri varchar(128) '$.Uri')
-                        EXCEPT SELECT Uri FROM dbo.SearchParam;
-
-                        -- result set 2
-                        SELECT Uri, SearchParamId FROM dbo.SearchParam;
-
-                        INSERT INTO dbo.ClaimType (Name) 
-                        SELECT value FROM string_split(@claimTypes, ',')
-                        EXCEPT SELECT Name FROM dbo.ClaimType; 
-
-                        -- result set 3
-                        SELECT ClaimTypeId, Name FROM dbo.ClaimType;
-
-                        INSERT INTO dbo.CompartmentType (Name) 
-                        SELECT value FROM string_split(@compartmentTypes, ',')
-                        EXCEPT SELECT Name FROM dbo.CompartmentType; 
-
-                        -- result set 4
-                        SELECT CompartmentTypeId, Name FROM dbo.CompartmentType;
-                        
-                        COMMIT TRANSACTION
-    
-                        -- result set 5
-                        SELECT Value, SystemId from dbo.System;
-
-                        -- result set 6
-                        SELECT Value, QuantityCodeId FROM dbo.QuantityCode";
-
-                    string commaSeparatedResourceTypes = string.Join(",", ModelInfoProvider.GetResourceTypeNames());
-                    string searchParametersJson = JsonConvert.SerializeObject(_searchParameterDefinitionManager.AllSearchParameters.Select(p => new { Name = p.Name, Uri = p.Url }));
-                    string commaSeparatedClaimTypes = string.Join(',', _securityConfiguration.PrincipalClaims);
-                    string commaSeparatedCompartmentTypes = string.Join(',', ModelInfoProvider.GetCompartmentTypeNames());
-
-                    sqlCommand.Parameters.AddWithValue("@resourceTypes", commaSeparatedResourceTypes);
-                    sqlCommand.Parameters.AddWithValue("@searchParams", searchParametersJson);
-                    sqlCommand.Parameters.AddWithValue("@claimTypes", commaSeparatedClaimTypes);
-                    sqlCommand.Parameters.AddWithValue("@compartmentTypes", commaSeparatedCompartmentTypes);
-
-                    using (SqlDataReader reader = sqlCommand.ExecuteReader(CommandBehavior.SequentialAccess))
-                    {
-                        var resourceTypeToId = new Dictionary<string, short>(StringComparer.Ordinal);
-                        var resourceTypeIdToTypeName = new Dictionary<short, string>();
-                        var searchParamUriToId = new Dictionary<Uri, short>();
-                        var systemToId = new ConcurrentDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-                        var quantityCodeToId = new ConcurrentDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-                        var claimNameToId = new Dictionary<string, byte>(StringComparer.Ordinal);
-                        var compartmentTypeToId = new Dictionary<string, byte>();
-
-                        // result set 1
-                        while (reader.Read())
-                        {
-                            (short id, string resourceTypeName) = reader.ReadRow(VLatest.ResourceType.ResourceTypeId, VLatest.ResourceType.Name);
-
-                            resourceTypeToId.Add(resourceTypeName, id);
-                            resourceTypeIdToTypeName.Add(id, resourceTypeName);
-                        }
-
-                        // result set 2
-                        reader.NextResult();
-
-                        while (reader.Read())
-                        {
-                            (string uri, short searchParamId) = reader.ReadRow(VLatest.SearchParam.Uri, VLatest.SearchParam.SearchParamId);
-                            searchParamUriToId.Add(new Uri(uri), searchParamId);
-                        }
-
-                        // result set 3
-                        reader.NextResult();
-
-                        while (reader.Read())
-                        {
-                            (byte id, string claimTypeName) = reader.ReadRow(VLatest.ClaimType.ClaimTypeId, VLatest.ClaimType.Name);
-                            claimNameToId.Add(claimTypeName, id);
-                        }
-
-                        // result set 4
-                        reader.NextResult();
-
-                        while (reader.Read())
-                        {
-                            (byte id, string compartmentName) = reader.ReadRow(VLatest.CompartmentType.CompartmentTypeId, VLatest.CompartmentType.Name);
-                            compartmentTypeToId.Add(compartmentName, id);
-                        }
-
-                        // result set 5
-                        reader.NextResult();
-
-                        while (reader.Read())
-                        {
-                            var (value, systemId) = reader.ReadRow(VLatest.System.Value, VLatest.System.SystemId);
-                            systemToId.TryAdd(value, systemId);
-                        }
-
-                        // result set 6
-                        reader.NextResult();
-
-                        while (reader.Read())
-                        {
-                            (string value, int quantityCodeId) = reader.ReadRow(VLatest.QuantityCode.Value, VLatest.QuantityCode.QuantityCodeId);
-                            quantityCodeToId.TryAdd(value, quantityCodeId);
-                        }
-
-                        _resourceTypeToId = resourceTypeToId;
-                        _resourceTypeIdToTypeName = resourceTypeIdToTypeName;
-                        _searchParamUriToId = searchParamUriToId;
-                        _systemToId = systemToId;
-                        _quantityCodeToId = quantityCodeToId;
-                        _claimNameToId = claimNameToId;
-                        _compartmentTypeToId = compartmentTypeToId;
-
-                        _started = true;
-                    }
-                }
+                resourceTypeToId.Add(resourceTypeName, id);
+                resourceTypeIdToTypeName.Add(id, resourceTypeName);
             }
+
+            // result set 2
+            await reader.NextResultAsync(cancellationToken);
+
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                (string uri, short searchParamId) = reader.ReadRow(VLatest.SearchParam.Uri, VLatest.SearchParam.SearchParamId);
+                searchParamUriToId.Add(new Uri(uri), searchParamId);
+            }
+
+            // result set 3
+            await reader.NextResultAsync(cancellationToken);
+
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                (byte id, string claimTypeName) = reader.ReadRow(VLatest.ClaimType.ClaimTypeId, VLatest.ClaimType.Name);
+                claimNameToId.Add(claimTypeName, id);
+            }
+
+            // result set 4
+            await reader.NextResultAsync(cancellationToken);
+
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                (byte id, string compartmentName) = reader.ReadRow(VLatest.CompartmentType.CompartmentTypeId, VLatest.CompartmentType.Name);
+                compartmentTypeToId.Add(compartmentName, id);
+            }
+
+            // result set 5
+            await reader.NextResultAsync(cancellationToken);
+
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var (value, systemId) = reader.ReadRow(VLatest.System.Value, VLatest.System.SystemId);
+                systemToId.TryAdd(value, systemId);
+            }
+
+            // result set 6
+            await reader.NextResultAsync(cancellationToken);
+
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                (string value, int quantityCodeId) = reader.ReadRow(VLatest.QuantityCode.Value, VLatest.QuantityCode.QuantityCodeId);
+                quantityCodeToId.TryAdd(value, quantityCodeId);
+            }
+
+            _resourceTypeToId = resourceTypeToId;
+            _resourceTypeIdToTypeName = resourceTypeIdToTypeName;
+            _searchParamUriToId = searchParamUriToId;
+            _systemToId = systemToId;
+            _quantityCodeToId = quantityCodeToId;
+            _claimNameToId = claimNameToId;
+            _compartmentTypeToId = compartmentTypeToId;
+
+            _started = true;
         }
+
+        public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
         private int GetStringId(ConcurrentDictionary<string, int> cache, string stringValue, Table table, Column<int> idColumn, Column<string> stringColumn)
         {
