@@ -29,7 +29,6 @@ namespace Microsoft.Health.Fhir.Web
             services.AddDevelopmentIdentityProvider(Configuration);
 
             Core.Registration.IFhirServerBuilder fhirServerBuilder = services.AddFhirServer(Configuration)
-                .AddBackgroundWorkers()
                 .AddAzureExportDestinationClient()
                 .AddAzureExportClientInitializer(Configuration);
 
@@ -40,8 +39,14 @@ namespace Microsoft.Health.Fhir.Web
             }
             else if (dataStore.Equals(KnownDataStores.SqlServer, StringComparison.InvariantCultureIgnoreCase))
             {
-                fhirServerBuilder.AddSqlServer();
+                fhirServerBuilder.AddSqlServer(Configuration);
             }
+
+            /*
+            The execution of IHostedServices depends on the order they are added to the dependency injection container, so we
+            need to ensure that the schema is initialized before the background workers are started.
+            */
+            fhirServerBuilder.AddBackgroundWorkers();
 
             if (string.Equals(Configuration["ASPNETCORE_FORWARDEDHEADERS_ENABLED"], "true", StringComparison.OrdinalIgnoreCase))
             {

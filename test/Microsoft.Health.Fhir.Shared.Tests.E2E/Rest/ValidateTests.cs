@@ -3,7 +3,9 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -61,13 +63,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async void GivenAValidateRequest_WhenTheResourceIsInvalid_ThenADetailedErrorIsReturned(string path, string payload)
         {
             OperationOutcome outcome = await _client.ValidateAsync(path, payload);
+            Exception exception = null;
+            try
+            {
+                new FhirJsonParser().Parse<Resource>(payload);
+            }
+            catch (Exception ex)
+            {
+                exception = ex;
+            }
 
+            Assert.NotNull(exception);
             Assert.Single(outcome.Issue);
             CheckOperationOutcomeIssue(
                     outcome.Issue[0],
                     OperationOutcome.IssueSeverity.Error,
                     OperationOutcome.IssueType.Invalid,
-                    Api.Resources.ParsingError);
+                    string.Format(Api.Resources.ParsingError, exception.Message));
         }
 
         [Theory]

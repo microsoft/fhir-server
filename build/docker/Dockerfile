@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/core/sdk:3.1.401-bionic AS build
+FROM mcr.microsoft.com/dotnet/core/sdk:3.1.403-bionic AS build
 
 ARG FHIR_VERSION
 

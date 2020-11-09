@@ -59,6 +59,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         /// </summary>
         Sort,
 
+        /// <summary>
         /// Represents a table expression that is used to limit the number of included items.
         /// </summary>
         IncludeLimit,

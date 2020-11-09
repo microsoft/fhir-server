@@ -24,14 +24,20 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
-    public class BasicSearchTests : SearchTestsBase<HttpIntegrationTestFixture>
+    public class BasicSearchTests : SearchTestsBase<HttpIntegrationTestFixture>, IAsyncLifetime
     {
         public BasicSearchTests(HttpIntegrationTestFixture fixture)
             : base(fixture)
         {
-            // Delete all patients before starting the test.
-            Client.DeleteAllResources(ResourceType.Patient).Wait();
         }
+
+        public async Task InitializeAsync()
+        {
+            // Delete all patients before starting the test.
+            await Client.DeleteAllResources(ResourceType.Patient);
+        }
+
+        public Task DisposeAsync() => Task.CompletedTask;
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
@@ -163,7 +169,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateBundle(bundle, "_search");
         }
 
-        [Fact(Skip = "Failing CI build")]
+        [Fact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenResources_WhenSearchedWithCount_ThenNumberOfResourcesReturnedShouldNotExceedCount()
         {
@@ -171,12 +177,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             const int count = 2;
 
             // Create the resources
-            Patient[] patients = await Client.CreateResourcesAsync<Patient>(numberOfResources);
+            var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
+
+            Patient patient = Samples.GetDefaultPatient().ToPoco<Patient>();
+            var patients = new Patient[numberOfResources];
+
+            for (int i = 0; i < numberOfResources; i++)
+            {
+                patient.Meta = new Meta();
+                patient.Meta.Tag.Add(tag);
+
+                FhirResponse<Patient> createdPatient = await Client.CreateAsync(patient);
+                patients[i] = createdPatient.Resource;
+            }
 
             Bundle results = new Bundle();
 
             // Search with count = 2, which should results in 5 pages.
-            string url = $"Patient?_count={count}";
+            string url = $"Patient?_count={count}&_tag={tag.Code}";
             string baseUrl = Fixture.GenerateFullUrl(url);
 
             int loop = 1;
@@ -560,6 +578,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             Assert.Equal(KnownResourceTypes.OperationOutcome, bundle.Entry.First().Resource.TypeName);
             Assert.NotNull(bundle.Entry.Skip(1).First().Resource);
+        }
+
+        [Theory]
+        [InlineData("RiskAssessment?probability=gt55555555555555555555555555555555555555555555555")]
+        [InlineData("RiskAssessment?probability=gt")]
+        [InlineData("RiskAssessment?probability=foo")]
+        [InlineData("Observation?date=05")]
+        [InlineData("Observation?code=a|b|c|d")]
+        [InlineData("Observation?value-quantity=5.40e-3|http://unitsofmeasure.org|g|extra")]
+        [InlineData("Observation?ct=YWJj")]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenASearchRequestWithInvalidValues_WhenHandled_ReturnsABadRequestError(string uri)
+        {
+            System.Net.Http.HttpResponseMessage httpResponseMessage = await Client.HttpClient.GetAsync(uri);
+            Assert.Equal(HttpStatusCode.BadRequest, httpResponseMessage.StatusCode);
         }
     }
 }

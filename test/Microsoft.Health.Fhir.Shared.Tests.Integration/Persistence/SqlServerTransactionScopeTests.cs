@@ -4,9 +4,9 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Data.SqlClient;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Data.SqlClient;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.SqlServer.Features.Client;
 using Xunit;
@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             using (var transactionScope = _fixture.SqlTransactionHandler.BeginTransaction())
             {
-                using (SqlConnectionWrapper connectionWrapperWithTransaction = _fixture.SqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
+                using (SqlConnectionWrapper connectionWrapperWithTransaction = await _fixture.SqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, true))
                 using (SqlCommandWrapper sqlCommandWrapper = connectionWrapperWithTransaction.CreateSqlCommand())
                 {
                     sqlCommandWrapper.CommandText = @"
@@ -46,32 +46,32 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 }
 
                 // Within the same transaction, the resource should be found
-                using (SqlConnectionWrapper connectionWrapperWithTransaction = _fixture.SqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
+                using (SqlConnectionWrapper connectionWrapperWithTransaction = await _fixture.SqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, true))
                 {
                     await VerifyCommandResults(connectionWrapperWithTransaction, newId, true);
                 }
 
                 // Outside of the transaction, the resource should not be found
-                using (SqlConnectionWrapper connectionWrapperWithTransaction = _fixture.SqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(false))
+                using (SqlConnectionWrapper connectionWrapperWithTransaction = await _fixture.SqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false))
                 {
                     await VerifyCommandResults(connectionWrapperWithTransaction, newId, false);
                 }
 
                 // Outside of the transaction, but with the readuncommitted hint, the resource should be found.
-                using (SqlConnectionWrapper connectionWrapperWithTransaction = _fixture.SqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(false))
+                using (SqlConnectionWrapper connectionWrapperWithTransaction = await _fixture.SqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false))
                 {
                     await VerifyCommandResults(connectionWrapperWithTransaction, newId, true, "WITH (READUNCOMMITTED)");
                 }
             }
 
             // Outside of the transactionscope, the resource should not be found
-            using (SqlConnectionWrapper connectionWrapperWithTransaction = _fixture.SqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(false))
+            using (SqlConnectionWrapper connectionWrapperWithTransaction = await _fixture.SqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false))
             {
                 await VerifyCommandResults(connectionWrapperWithTransaction, newId, false);
             }
 
             // Outside of the transactionscope, but with the readuncommitted hint, the resource should not be found
-            using (SqlConnectionWrapper connectionWrapperWithTransaction = _fixture.SqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(false))
+            using (SqlConnectionWrapper connectionWrapperWithTransaction = await _fixture.SqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false))
             {
                 await VerifyCommandResults(connectionWrapperWithTransaction, newId, false, "WITH (READUNCOMMITTED)");
             }
@@ -84,7 +84,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             using (var transactionScope = _fixture.SqlTransactionHandler.BeginTransaction())
             {
-                using (SqlConnectionWrapper connectionWrapperWithTransaction = _fixture.SqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(true))
+                using (SqlConnectionWrapper connectionWrapperWithTransaction = await _fixture.SqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, true))
                 using (SqlCommandWrapper sqlCommandWrapper = connectionWrapperWithTransaction.CreateSqlCommand())
                 {
                     sqlCommandWrapper.CommandText = @"
@@ -100,7 +100,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
 
             // Outside of the transaction scope, the resource should not be found
-            using (SqlConnectionWrapper connectionWrapperWithTransaction = _fixture.SqlConnectionWrapperFactory.ObtainSqlConnectionWrapper(false))
+            using (SqlConnectionWrapper connectionWrapperWithTransaction = await _fixture.SqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(CancellationToken.None, false))
             {
                 await VerifyCommandResults(connectionWrapperWithTransaction, newId, true);
             }

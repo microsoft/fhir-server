@@ -4,19 +4,21 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Extensions.DependencyInjection;
 using Prometheus;
 using Prometheus.DotNetRuntime;
 
 namespace Microsoft.Health.Fhir.Web
 {
-    public sealed class PrometheusMetricsServer : IStartable, IDisposable
+    public sealed class PrometheusMetricsServer : IHostedService, IDisposable
     {
         private readonly PrometheusMetricsConfig _prometheusMetricsConfig;
         private readonly ILogger<PrometheusMetricsServer> _logger;
-        private KestrelMetricServer _metricsServer = null;
+        private KestrelMetricServer _metricsServer;
 
         public PrometheusMetricsServer(IOptions<PrometheusMetricsConfig> config, ILogger<PrometheusMetricsServer> logger)
         {
@@ -24,7 +26,7 @@ namespace Microsoft.Health.Fhir.Web
             _logger = logger;
         }
 
-        void IStartable.Start()
+        Task IHostedService.StartAsync(CancellationToken cancellationToken)
         {
             if (_prometheusMetricsConfig.Enabled)
             {
@@ -44,6 +46,14 @@ namespace Microsoft.Health.Fhir.Web
 
                 _metricsServer.Start();
             }
+
+            return Task.CompletedTask;
+        }
+
+        Task IHostedService.StopAsync(CancellationToken cancellationToken)
+        {
+            Dispose();
+            return Task.CompletedTask;
         }
 
         public void Dispose()

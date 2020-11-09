@@ -24,6 +24,7 @@ using Polly.Retry;
 using Task = System.Threading.Tasks.Task;
 #if !R5
 using RestfulCapabilityMode = Hl7.Fhir.Model.CapabilityStatement.RestfulCapabilityMode;
+
 #endif
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
@@ -35,7 +36,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     public abstract class TestFhirServer : IDisposable
     {
         private readonly ConcurrentDictionary<(ResourceFormat format, TestApplication clientApplication, TestUser user), Lazy<TestFhirClient>> _cache = new ConcurrentDictionary<(ResourceFormat format, TestApplication clientApplication, TestUser user), Lazy<TestFhirClient>>();
-        private readonly AsyncLocal<SessionTokenContainer> _asyncLocalSessionTokenContainer = new AsyncLocal<SessionTokenContainer>();
+        private static readonly AsyncLocal<SessionTokenContainer> _asyncLocalSessionTokenContainer = new AsyncLocal<SessionTokenContainer>();
 
         private readonly Dictionary<string, AuthenticationHttpMessageHandler> _authenticationHandlers = new Dictionary<string, AuthenticationHttpMessageHandler>();
 
@@ -54,6 +55,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         public Uri BaseAddress { get; }
 
+        public static void CreateSession()
+        {
+            if (_asyncLocalSessionTokenContainer.Value == null)
+            {
+                // Ensure that we are able to preserve session tokens across requests in this execution context and its children.
+                _asyncLocalSessionTokenContainer.Value = new SessionTokenContainer();
+            }
+        }
+
         public TestFhirClient GetTestFhirClient(ResourceFormat format, bool reusable = true, AuthenticationHttpMessageHandler authenticationHandler = null)
         {
             return GetTestFhirClient(format, TestApplications.GlobalAdminServicePrincipal, null, reusable, authenticationHandler);
@@ -61,12 +71,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         public TestFhirClient GetTestFhirClient(ResourceFormat format, TestApplication clientApplication, TestUser user, bool reusable = true, AuthenticationHttpMessageHandler authenticationHandler = null)
         {
-            if (_asyncLocalSessionTokenContainer.Value == null)
-            {
-                // Ensure that we are able to preserve session tokens across requests in this execution context and its children.
-                _asyncLocalSessionTokenContainer.Value = new SessionTokenContainer();
-            }
-
             if (!reusable)
             {
                 return CreateFhirClient(format, clientApplication, user, authenticationHandler);
@@ -216,7 +220,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         private class SessionMessageHandler : DelegatingHandler
         {
             private readonly AsyncLocal<SessionTokenContainer> _asyncLocalSessionTokenContainer;
-            private readonly AsyncRetryPolicy _polly;
+            private readonly AsyncRetryPolicy<HttpResponseMessage> _polly;
 
             public SessionMessageHandler(HttpMessageHandler innerHandler, AsyncLocal<SessionTokenContainer> asyncLocalSessionTokenContainer)
                 : base(innerHandler)
@@ -224,14 +228,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 _asyncLocalSessionTokenContainer = asyncLocalSessionTokenContainer;
                 EnsureArg.IsNotNull(asyncLocalSessionTokenContainer, nameof(asyncLocalSessionTokenContainer));
                 _polly = Policy.Handle<HttpRequestException>(x =>
-                {
-                    if (x.InnerException is IOException || x.InnerException is SocketException)
                     {
-                        return true;
-                    }
+                        if (x.InnerException is IOException || x.InnerException is SocketException)
+                        {
+                            return true;
+                        }
 
-                    return false;
-                }).WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
+                        return false;
+                    })
+                    .OrResult<HttpResponseMessage>(message => (int)message.StatusCode == 429)
+                    .WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
             }
 
             protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)

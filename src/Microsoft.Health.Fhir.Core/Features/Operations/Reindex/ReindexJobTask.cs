@@ -104,9 +104,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     var resourceList = new HashSet<string>();
                     foreach (var param in notYetIndexedParams)
                     {
-                        resourceList.UnionWith(param.TargetResourceTypes);
+                        if (param.TargetResourceTypes != null)
+                        {
+                            resourceList.UnionWith(param.TargetResourceTypes);
+                        }
 
-                        resourceList.UnionWith(param.BaseResourceTypes);
+                        if (param.BaseResourceTypes != null)
+                        {
+                            resourceList.UnionWith(param.BaseResourceTypes);
+                        }
                     }
 
                     _reindexJobRecord.Resources.AddRange(resourceList);
@@ -153,7 +159,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                     // reset stale queries to pending
                     var staleQueries = _reindexJobRecord.QueryList.Where(
-                        q => q.Status == OperationStatus.Running && q.LastModified < DateTimeOffset.UtcNow - _reindexJobConfiguration.JobHeartbeatTimeoutThreshold);
+                        q => q.Status == OperationStatus.Running && q.LastModified < Clock.UtcNow - _reindexJobConfiguration.JobHeartbeatTimeoutThreshold);
                     foreach (var staleQuery in staleQueries)
                     {
                         await jobSemaphore.WaitAsync();
@@ -162,7 +168,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                             // if this query has a created task, cancel it
                             if (queryCancellationTokens.TryGetValue(staleQuery, out var tokenSource))
                             {
-                                tokenSource.Cancel(false);
+                                try
+                                {
+                                    tokenSource.Cancel(false);
+                                }
+                                catch
+                                {
+                                    // may throw exception if the task is disposed
+                                }
                             }
 
                             staleQuery.Status = OperationStatus.Queued;
@@ -186,7 +199,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         foreach (var finishedTask in finishedTasks)
                         {
                             queryTasks.Remove(finishedTask);
-                            queryCancellationTokens.Remove(finishedTask.Result);
+                            queryCancellationTokens.Remove(await finishedTask);
                         }
                     }
 
@@ -292,6 +305,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     await jobSemaphore.WaitAsync();
                     try
                     {
+                        _reindexJobRecord.Progress += results.Results.Count();
                         query.Status = OperationStatus.Completed;
                         await UpdateJobAsync(cancellationToken);
                     }

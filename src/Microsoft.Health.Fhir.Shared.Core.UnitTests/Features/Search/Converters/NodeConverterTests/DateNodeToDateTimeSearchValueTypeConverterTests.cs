@@ -7,23 +7,24 @@ using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Search.Converters;
 using Xunit;
 using static Microsoft.Health.Fhir.Tests.Common.Search.SearchValueValidationHelper;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
 {
     public class DateNodeToDateTimeSearchValueTypeConverterTests : FhirNodeToSearchValueTypeConverterTests<DateNodeToDateTimeSearchValueTypeConverter, Date>
     {
         [Fact]
-        public void GivenADateWithNoValue_WhenConverted_ThenNoSearchValueShouldBeCreated()
+        public async Task GivenADateWithNoValue_WhenConverted_ThenNoSearchValueShouldBeCreated()
         {
-            Test(date => date.Value = null);
+            await Test(date => date.Value = null);
         }
 
         [Fact]
-        public void GivenADateWithValue_WhenConverted_ThenADateTimeSearchValueShouldBeCreated()
+        public async Task GivenADateWithValue_WhenConverted_ThenADateTimeSearchValueShouldBeCreated()
         {
             const string partialDate = "2018-01-05";
 
-            Test(
+            await Test(
                 date => date.Value = partialDate,
                 ValidateDateTime,
                 partialDate);
