@@ -51,16 +51,10 @@ namespace Microsoft.Health.Fhir.Web
                     {
                         new ApiResource(
                             DevelopmentIdentityProviderConfiguration.Audience,
-                            claimTypes: new List<string>() { authorizationConfiguration.RolesClaim, ClaimTypes.Name, ClaimTypes.NameIdentifier })
-                        {
-                            UserClaims = { authorizationConfiguration.RolesClaim },
-                        },
+                            userClaims: new List<string>() { authorizationConfiguration.RolesClaim }),
                         new ApiResource(
                             WrongAudienceClient,
-                            claimTypes: new List<string>() { authorizationConfiguration.RolesClaim, ClaimTypes.Name, ClaimTypes.NameIdentifier })
-                        {
-                            UserClaims = { authorizationConfiguration.RolesClaim },
-                        },
+                            userClaims: new List<string>() { authorizationConfiguration.RolesClaim }),
                     })
                     .AddTestUsers(developmentIdentityProviderConfiguration.Users?.Select(user =>
                         new TestUser
@@ -88,7 +82,7 @@ namespace Microsoft.Health.Fhir.Web
                                     AllowedScopes = { DevelopmentIdentityProviderConfiguration.Audience, WrongAudienceClient },
 
                                     // app roles that the client app may have
-                                    Claims = applicationConfiguration.Roles.Select(r => new Claim(authorizationConfiguration.RolesClaim, r)).Concat(new[] { new Claim("appid", applicationConfiguration.Id) }).ToList(),
+                                    Claims = (ICollection<ClientClaim>)applicationConfiguration.Roles.Select(r => new Claim(authorizationConfiguration.RolesClaim, r)).Concat(new[] { new Claim("appid", applicationConfiguration.Id) }).ToList(),
 
                                     ClientClaimsPrefix = string.Empty,
                                 }));
