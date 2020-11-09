@@ -21,16 +21,6 @@ namespace Microsoft.Health.Fhir.Api.Configs
         public bool SupportsXml { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether Conditional Update is enabled or not.
-        /// </summary>
-        public bool SupportsConditionalUpdate { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether Conditional Create is enabled or not.
-        /// </summary>
-        public bool SupportsConditionalCreate { get; set; }
-
-        /// <summary>
         /// Gets or sets a value indicating whether Validate is enabled or not.
         /// </summary>
         public bool SupportsValidate { get; set; }
