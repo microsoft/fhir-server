@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.SqlServer {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Search parameter status information should not be null..
+        ///   Looks up a localized string similar to Cannot carry out the SQL datastore operation because the SQL schema needs to be upgraded..
         /// </summary>
         internal static string SchemaVersionNeedsToBeUpgraded {
             get {
