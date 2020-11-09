@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Data.SqlClient;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -97,6 +96,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
         public async Task UpsertStatuses(IEnumerable<ResourceSearchParameterStatus> statuses)
         {
             EnsureArg.IsNotNull(statuses, nameof(statuses));
+
+            if (!statuses.Any())
+            {
+                return;
+            }
 
             if (_schemaInformation.Current < SchemaVersionConstants.SearchParameterStatusSchemaVersion)
             {
