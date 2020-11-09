@@ -61,6 +61,15 @@ namespace Microsoft.Health.Fhir.SqlServer {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Cyclic include iterate queries are not supported..
+        /// </summary>
+        internal static string CyclicIncludeIterateNotSupported {
+            get {
+                return ResourceManager.GetString("CyclicIncludeIterateNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The provided continuation token is not valid..
         /// </summary>
         internal static string InvalidContinuationToken {
@@ -72,9 +81,9 @@ namespace Microsoft.Health.Fhir.SqlServer {
         /// <summary>
         ///   Looks up a localized string similar to Search parameter status information should not be null..
         /// </summary>
-        internal static string SchemaVersionNeedsUpgrading {
+        internal static string SchemaVersionNeedsToBeUpgraded {
             get {
-                return ResourceManager.GetString("SchemaVersionNeedsUpgrading", resourceCulture);
+                return ResourceManager.GetString("SchemaVersionNeedsToBeUpgraded", resourceCulture);
             }
         }
         
@@ -93,15 +102,6 @@ namespace Microsoft.Health.Fhir.SqlServer {
         internal static string TransactionProcessingException {
             get {
                 return ResourceManager.GetString("TransactionProcessingException", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Cyclic Include Iterate Not Supported..
-        /// </summary>
-        internal static string CyclicIncludeIterateNotSupported {
-            get {
-                return ResourceManager.GetString("CyclicIncludeIterateNotSupported", resourceCulture);
             }
         }
     }

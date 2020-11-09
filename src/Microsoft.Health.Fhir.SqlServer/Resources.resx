@@ -126,7 +126,7 @@
   <data name="CyclicIncludeIterateNotSupported" xml:space="preserve">
     <value>Cyclic include iterate queries are not supported.</value>
   </data>
-  <data name="SchemaVersionNeedsUpgrading" xml:space="preserve">
+  <data name="SchemaVersionNeedsToBeUpgraded" xml:space="preserve">
     <value>Search parameter status information should not be null.</value>
   </data>
   <data name="SchemaVersionShouldNotBeNull" xml:space="preserve">

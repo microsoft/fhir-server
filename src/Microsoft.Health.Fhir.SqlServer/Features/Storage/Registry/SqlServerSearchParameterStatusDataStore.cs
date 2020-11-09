@@ -47,6 +47,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             _schemaInformation = schemaInformation;
         }
 
+        // TODO: Make cancellation token an input.
         public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses()
         {
             // If the search parameter table in SQL does not yet contain status columns
@@ -64,7 +65,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
 
                 var parameterStatuses = new List<ResourceSearchParameterStatus>();
 
-                // TODO: Make cancellation token an input.
                 using (SqlDataReader sqlDataReader = await sqlCommandWrapper.ExecuteReaderAsync(CommandBehavior.SequentialAccess, CancellationToken.None))
                 {
                     while (await sqlDataReader.ReadAsync())
@@ -93,13 +93,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             }
         }
 
+        // TODO: Make cancellation token an input.
         public async Task UpsertStatuses(IEnumerable<ResourceSearchParameterStatus> statuses)
         {
             EnsureArg.IsNotNull(statuses, nameof(statuses));
 
             if (_schemaInformation.Current < SchemaVersionConstants.SearchParameterStatusSchemaVersion)
             {
-                throw new BadRequestException(Resources.SchemaVersionNeedsUpgrading);
+                throw new BadRequestException(Resources.SchemaVersionNeedsToBeUpgraded);
             }
 
             using (IScoped<SqlConnectionWrapperFactory> scopedSqlConnectionWrapperFactory = _scopedSqlConnectionWrapperFactory())
