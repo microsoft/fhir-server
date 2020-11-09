@@ -11,6 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -231,13 +232,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
                 var referencesToInclude = matches.SelectMany(m => m.ReferencesToInclude).Distinct().ToList();
 
-                if (referencesToInclude.Count > 0)
+                // partition the references to avoid creating an excessively large query
+                foreach (IEnumerable<ResourceTypeAndId> batchOfReferencesToInclude in referencesToInclude.TakeBatch(100))
                 {
                     // construct the expression typeAndId = <Include1Type, Include1Id> OR  typeAndId = <Include2Type, Include2Id> OR ...
 
                     SearchParameterExpression expression = Expression.SearchParameter(
                         _typeIdCompositeSearchParameter,
-                        Expression.Or(referencesToInclude.Select(r =>
+                        Expression.Or(batchOfReferencesToInclude.Select(r =>
                             Expression.And(
                                 Expression.Equals(FieldName.TokenCode, 0, r.ResourceTypeName),
                                 Expression.Equals(FieldName.TokenCode, 1, r.ResourceId))).ToList()));
@@ -268,6 +270,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                         includes.AddRange(includeResponse);
                     }
                     while (!string.IsNullOrEmpty(includeResponse.ContinuationToken));
+
+                    if (includes.Count >= maxIncludeCount)
+                    {
+                        includesTruncated = true;
+                        break;
+                    }
                 }
             }
 
