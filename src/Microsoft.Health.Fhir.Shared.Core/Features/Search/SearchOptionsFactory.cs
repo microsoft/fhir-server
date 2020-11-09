@@ -321,6 +321,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         throw new BadRequestException(string.Format(Core.Resources.RevIncludeIterateTargetTypeNotSpecified, p.Item2));
                     }
 
+                    // For circular include iterate expressions, add an informational issue indicating that a single iteration is supported.
+                    // See https://www.hl7.org/fhir/search.html#revinclude.
+                    if (expression.Iterate && expression.CircularReference)
+                    {
+                        _contextAccessor.FhirRequestContext.BundleIssues.Add(
+                        new OperationOutcomeIssue(
+                            OperationOutcomeConstants.IssueSeverity.Information,
+                            OperationOutcomeConstants.IssueType.Informational,
+                            string.Format(Core.Resources.IncludeIterateCircularReferenceExecutedOnce, p.Item1, p.Item2)));
+                    }
+
                     return expression;
                 });
             }
