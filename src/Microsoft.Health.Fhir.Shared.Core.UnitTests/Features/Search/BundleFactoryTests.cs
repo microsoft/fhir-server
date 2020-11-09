@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             using (Mock.Property(() => ClockResolver.UtcNowFunc, () => _dateTime))
             {
-                actual = _bundleFactory.CreateSearchBundle(new SearchResult(new SearchResultEntry[0], _unsupportedSearchParameters,  null));
+                actual = _bundleFactory.CreateSearchBundle(new SearchResult(new SearchResultEntry[0],  null, null, _unsupportedSearchParameters));
             }
 
             Assert.NotNull(actual);
@@ -88,7 +88,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 new SearchResultEntry(CreateResourceWrapper(observation2)),
             };
 
-            var searchResult = new SearchResult(resourceWrappers, _unsupportedSearchParameters,  continuationToken: null);
+            var searchResult = new SearchResult(resourceWrappers,  continuationToken: null, sortOrder: null, unsupportedSearchParameters: _unsupportedSearchParameters);
 
             ResourceElement actual = null;
 
@@ -148,7 +148,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters, null, encodedContinuationToken, true).Returns(_nextUrl);
             _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters).Returns(_selfUrl);
 
-            var searchResult = new SearchResult(new SearchResultEntry[0], _unsupportedSearchParameters,  _continuationToken);
+            var searchResult = new SearchResult(new SearchResultEntry[0],  _continuationToken, null, _unsupportedSearchParameters);
 
             ResourceElement actual = _bundleFactory.CreateSearchBundle(searchResult);
 

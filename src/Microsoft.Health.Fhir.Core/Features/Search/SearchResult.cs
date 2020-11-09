@@ -20,14 +20,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// Initializes a new instance of the <see cref="SearchResult"/> class.
         /// </summary>
         /// <param name="results">The search results.</param>
-        /// <param name="unsupportedSearchParameters">The list of unsupported search parameters.</param>
         /// <param name="continuationToken">The continuation token.</param>
         /// <param name="sortOrder">The parameters the results are sorted by</param>
+        /// <param name="unsupportedSearchParameters">The list of unsupported search parameters.</param>
         public SearchResult(
             IEnumerable<SearchResultEntry> results,
-            IReadOnlyList<Tuple<string, string>> unsupportedSearchParameters,
             string continuationToken,
-            IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> sortOrder = null)
+            IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> sortOrder,
+            IReadOnlyList<Tuple<string, string>> unsupportedSearchParameters)
         {
             EnsureArg.IsNotNull(results, nameof(results));
             EnsureArg.IsNotNull(unsupportedSearchParameters, nameof(unsupportedSearchParameters));

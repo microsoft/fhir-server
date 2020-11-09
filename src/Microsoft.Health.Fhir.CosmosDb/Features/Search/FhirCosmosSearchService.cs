@@ -122,8 +122,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
             return new SearchResult(
                 wrappers,
-                searchOptions.UnsupportedSearchParams,
-                fetchedResults.ContinuationToken);
+                fetchedResults.ContinuationToken,
+                searchOptions.Sort,
+                searchOptions.UnsupportedSearchParams);
         }
     }
 }

@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var expectedResourceWrapper = new SearchResultEntry[0];
             var expectedUnsupportedSearchParameters = new List<Tuple<string, string>>();
 
-            var searchResult = new SearchResult(expectedResourceWrapper, expectedUnsupportedSearchParameters, null);
+            var searchResult = new SearchResult(expectedResourceWrapper, null, null, expectedUnsupportedSearchParameters);
 
             Assert.Same(expectedResourceWrapper, searchResult.Results);
             Assert.Same(expectedUnsupportedSearchParameters, searchResult.UnsupportedSearchParameters);

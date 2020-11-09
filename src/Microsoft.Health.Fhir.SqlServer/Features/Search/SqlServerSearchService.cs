@@ -318,7 +318,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                 Core.Resources.TruncatedIncludeMessage));
                     }
 
-                    return new SearchResult(resources, searchOptions.UnsupportedSearchParams, continuationToken?.ToJson(), searchOptions.Sort);
+                    return new SearchResult(resources, continuationToken?.ToJson(), searchOptions.Sort, searchOptions.UnsupportedSearchParams);
                 }
             }
         }
