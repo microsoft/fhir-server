@@ -66,7 +66,7 @@ stages:
           $templateParameters["sqlAdminPassword"] = "$(-join(((65..90) + (97..122) | Get-Random -Count 10) + ((39..46) | Get-Random -Count 1) + ((65..90) + (97..122) | Get-Random -Count 10) | % {[char]$_}))"
     
           # Deploy SQL Environment
-          New-AzResourceGroupDeployment -Name "$(DeploymentEnvironmentNameR4Sql)" -ResourceGroupName "$(resourceGroupRoot)" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy-sql.json -TemplateParameterObject $templateParameters -Verbose
+          New-AzResourceGroupDeployment -Name "$(DeploymentEnvironmentNameR4Sql)" -ResourceGroupName "$(resourceGroupRoot)" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy.json -TemplateParameterObject $templateParameters -Verbose
     - task: AzurePowerShell@4
       displayName: 'Delete resource group'
       inputs:
