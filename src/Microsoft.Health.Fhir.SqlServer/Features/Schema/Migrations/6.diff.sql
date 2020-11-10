@@ -60,18 +60,16 @@ AS
     DECLARE @lastUpdated datetimeoffset(7) = SYSDATETIMEOFFSET()
 
     -- Acquire and hold an exclusive table lock for the entire transaction to prevent parameters from being added or modified during upsert.
-    UPDATE dbo.SearchParam
-    WITH (TABLOCKX)
-    SET Status = sps.Status, LastUpdated = @lastUpdated, IsPartiallySupported = sps.IsPartiallySupported
-    FROM dbo.SearchParam INNER JOIN @searchParams as sps
-    ON dbo.SearchParam.Uri = sps.Uri
-
-    INSERT INTO dbo.SearchParam
-        (Uri, Status, LastUpdated, IsPartiallySupported)
-    SELECT sps.Uri, sps.Status, @lastUpdated, sps.IsPartiallySupported
-    FROM @searchParams AS sps
-    WHERE sps.Uri NOT IN
-        (SELECT Uri FROM dbo.SearchParam)
+    MERGE INTO dbo.SearchParam WITH (TABLOCKX) AS target
+    USING @searchParams AS source
+    ON target.Uri = source.Uri
+    WHEN MATCHED THEN
+        UPDATE
+            SET Status = source.Status, LastUpdated = @lastUpdated, IsPartiallySupported = source.IsPartiallySupported
+    WHEN NOT MATCHED BY target THEN
+        INSERT
+            (Uri, Status, LastUpdated, IsPartiallySupported)
+            VALUES (source.Uri, source.Status, @lastUpdated, source.IsPartiallySupported);
 
     COMMIT TRANSACTION
 GO
