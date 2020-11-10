@@ -163,7 +163,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
 
             await _searchParameterStatusDataStore
                 .DidNotReceive()
-                .UpsertStatuses(Arg.Any<IEnumerable<ResourceSearchParameterStatus>>());
+                .UpsertStatuses(Arg.Any<List<ResourceSearchParameterStatus>>());
         }
 
         [Fact]

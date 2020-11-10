@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             return Task.FromResult<IReadOnlyCollection<ResourceSearchParameterStatus>>(_statusResults);
         }
 
-        public Task UpsertStatuses(IEnumerable<ResourceSearchParameterStatus> statuses)
+        public Task UpsertStatuses(List<ResourceSearchParameterStatus> statuses)
         {
             // File based registry does not persist runtime updates
             return Task.CompletedTask;

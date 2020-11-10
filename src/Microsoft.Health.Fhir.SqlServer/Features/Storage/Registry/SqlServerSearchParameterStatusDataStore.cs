@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
         }
 
         // TODO: Make cancellation token an input.
-        public async Task UpsertStatuses(IEnumerable<ResourceSearchParameterStatus> statuses)
+        public async Task UpsertStatuses(List<ResourceSearchParameterStatus> statuses)
         {
             EnsureArg.IsNotNull(statuses, nameof(statuses));
 
