@@ -15,8 +15,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
         IEnumerator<SqlDataRecord> IEnumerable<SqlDataRecord>.GetEnumerator()
         {
             var sqlRow = new SqlDataRecord(
-                new SqlMetaData("Uri", SqlDbType.NVarChar, 128),
-                new SqlMetaData("Status", SqlDbType.NVarChar, 10),
+                new SqlMetaData("Uri", SqlDbType.VarChar, 128),
+                new SqlMetaData("Status", SqlDbType.VarChar, 10),
                 new SqlMetaData("IsPartiallySupported", SqlDbType.Bit));
 
             foreach (ResourceSearchParameterStatus status in this)
