@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -31,21 +31,25 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
         private readonly CosmosFhirDataStore _fhirDataStore;
         private readonly IQueryBuilder _queryBuilder;
+        private readonly IFhirRequestContextAccessor _requestContextAccessor;
         private readonly SearchParameterInfo _resourceTypeSearchParameter;
 
         public FhirCosmosSearchService(
             ISearchOptionsFactory searchOptionsFactory,
             CosmosFhirDataStore fhirDataStore,
             IQueryBuilder queryBuilder,
-            ISearchParameterDefinitionManager searchParameterDefinitionManager)
+            ISearchParameterDefinitionManager searchParameterDefinitionManager,
+            IFhirRequestContextAccessor requestContextAccessor)
             : base(searchOptionsFactory, fhirDataStore)
         {
             EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
             EnsureArg.IsNotNull(queryBuilder, nameof(queryBuilder));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
+            EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
 
             _fhirDataStore = fhirDataStore;
             _queryBuilder = queryBuilder;
+            _requestContextAccessor = requestContextAccessor;
             _resourceTypeSearchParameter = searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.ResourceType);
         }
 
@@ -187,28 +191,22 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             return (await _fhirDataStore.ExecuteDocumentQueryAsync<int>(sqlQuerySpec, feedOptions, null, cancellationToken)).Single();
         }
 
-        private static SearchResult CreateSearchResult(SearchOptions searchOptions, IEnumerable<SearchResultEntry> results, string continuationToken, bool includesTruncated = false)
+        private SearchResult CreateSearchResult(SearchOptions searchOptions, IEnumerable<SearchResultEntry> results, string continuationToken, bool includesTruncated = false)
         {
-            IReadOnlyList<(string parameterName, string reason)> unsupportedSortingParameters;
-            if (searchOptions.Sort?.Count > 0)
+            if (includesTruncated)
             {
-                unsupportedSortingParameters = searchOptions
-                    .UnsupportedSortingParams
-                    .Concat(searchOptions.Sort
-                        .Where(x => !string.Equals(x.searchParameterInfo.Name, KnownQueryParameterNames.LastUpdated, StringComparison.OrdinalIgnoreCase))
-                        .Select(s => (s.searchParameterInfo.Name, Core.Resources.SortNotSupported))).ToList();
-            }
-            else
-            {
-                unsupportedSortingParameters = searchOptions.UnsupportedSortingParams;
+                _requestContextAccessor.FhirRequestContext.BundleIssues.Add(
+                    new OperationOutcomeIssue(
+                        OperationOutcomeConstants.IssueSeverity.Warning,
+                        OperationOutcomeConstants.IssueType.Incomplete,
+                        Core.Resources.TruncatedIncludeMessage));
             }
 
             return new SearchResult(
                 results,
-                searchOptions.UnsupportedSearchParams,
-                unsupportedSortingParameters,
                 continuationToken,
-                includesTruncated);
+                searchOptions.Sort,
+                searchOptions.UnsupportedSearchParams);
         }
 
         private async Task<(IList<FhirCosmosResourceWrapper> includes, bool includesTruncated)> PerformIncludeQueries(

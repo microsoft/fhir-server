@@ -211,6 +211,10 @@ namespace Microsoft.Extensions.DependencyInjection
 
             fhirServerBuilder.Services.AddSingleton<IQueryBuilder, QueryBuilder>();
 
+            fhirServerBuilder.Services.Add<CosmosDbSortingValidator>()
+                .Singleton()
+                .AsImplementedInterfaces();
+
             return fhirServerBuilder;
         }
 
