@@ -21,7 +21,6 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
-using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.HardDelete;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Replace;
@@ -296,7 +295,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     {
                         break;
                     }
-                    catch (OperationCanceledException e) when (timeoutTokenSource.IsCancellationRequested)
+                    catch (OperationCanceledException) when (timeoutTokenSource.IsCancellationRequested)
                     {
                         break;
                     }
