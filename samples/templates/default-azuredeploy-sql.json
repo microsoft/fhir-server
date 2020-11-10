@@ -451,7 +451,7 @@
             "condition": "[parameters('enableDataConvert')]",
             "properties": {
                 "contentType": "text/plain",
-                "value": "[listCredentials(resourceId('Microsoft.ContainerRegistry/registries', variables('azureContainerRegistryName')), '2017-10-01').passwords[0].value]"
+                "value": "[if(parameters('enableDataConvert'), listCredentials(resourceId('Microsoft.ContainerRegistry/registries', variables('azureContainerRegistryName')), '2017-10-01').passwords[0].value, '')]"
             },
             "dependsOn": [
                 "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]",

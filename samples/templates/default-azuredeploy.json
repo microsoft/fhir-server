@@ -184,7 +184,7 @@
             "FhirServer:Operations:Export:Enabled": "[parameters('enableExport')]",
             "FhirServer:Operations:Export:StorageAccountUri": "[if(parameters('enableExport'), concat('https://', variables('storageAccountName'), variables('blobStorageUri')), 'null')]",
             "FhirServer:Operations:DataConvert:Enabled": "[parameters('enableDataConvert')]",
-            "FhirServer:Operations:DataConvert:ContainerRegistries:0:ContainerRegistryServer": "[if(parameters('enableDataConvert'), concat(variables('azureContainerRegistryName'), variables('azureContainerRegistryUri')), 'null')]",
+            "FhirServer:Operations:DataConvert:ContainerRegistries:0:ContainerRegistryServer": "[if(parameters('enableDataConvert'), concat(variables('azureContainerRegistryName'), variables('azureContainerRegistryUri')), 'null')]"
         },
         "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'))]",
         "storageAccountName": "[concat(substring(replace(variables('serviceName'), '-', ''), 0, min(11, length(replace(variables('serviceName'), '-', '')))), uniquestring(resourceGroup().id, variables('serviceName')))]",
@@ -437,7 +437,7 @@
             "condition": "[parameters('enableDataConvert')]",
             "properties": {
                 "contentType": "text/plain",
-                "value": "[listCredentials(resourceId('Microsoft.ContainerRegistry/registries', variables('azureContainerRegistryName')), '2017-10-01').passwords[0].value]"
+                "value": "[if(parameters('enableDataConvert'), listCredentials(resourceId('Microsoft.ContainerRegistry/registries', variables('azureContainerRegistryName')), '2017-10-01').passwords[0].value, '')]"
             },
             "dependsOn": [
                 "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]",
