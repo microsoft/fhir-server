@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             Assert.Equal(SaveOutcomeType.Created, result.Outcome.Outcome);
 
-            await _fhirDataStore.Received().UpsertAsync(Arg.Is<ResourceWrapper>(x => x.ResourceId == result.Outcome.Resource.Id), null, true, true, Arg.Any<CancellationToken>());
+            await _fhirDataStore.Received().UpsertAsync(Arg.Is<ResourceWrapper>(x => x.ResourceId == result.Outcome.RawResourceElement.Id), null, true, true, Arg.Any<CancellationToken>());
         }
 
         [Fact]

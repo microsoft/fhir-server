@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
         public static ResourceActionResult<TResult> SetContentTypeHeader<TResult>(this ResourceActionResult<TResult> result, string contentTypeValue)
         {
             EnsureArg.IsNotNull(result, nameof(result));
-            EnsureArg.IsNotNullOrWhiteSpace(contentTypeValue);
+            EnsureArg.IsNotNullOrWhiteSpace(contentTypeValue, nameof(contentTypeValue));
 
             result.Headers.Add(HeaderNames.ContentType, contentTypeValue);
             return result;

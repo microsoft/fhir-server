@@ -366,7 +366,16 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("IncludeCannotBeAgainstBase", resourceCulture);
             }
         }
-
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The include iterate circular reference executed once..
+        /// </summary>
+        internal static string IncludeIterateCircularReferenceExecutedOnce {
+            get {
+                return ResourceManager.GetString("IncludeIterateCircularReferenceExecutedOnce", resourceCulture);
+            }
+        }
+        
         /// <summary>
         ///   Looks up a localized string similar to The _include search is missing the type to search..
         /// </summary>
@@ -376,6 +385,24 @@ namespace Microsoft.Health.Fhir.Core {
             }
         }
 
+        /// <summary>
+        ///   Looks up a localized string similar to The _revinclude search is missing the type to search..
+        /// </summary>
+        internal static string RevIncludeMissingType {
+            get {
+                return ResourceManager.GetString("RevIncludeMissingType", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to reversed include iterate target type not specified is not supported..
+        /// </summary>
+		internal static string RevIncludeIterateTargetTypeNotSpecified {
+            get {
+                return ResourceManager.GetString("RevIncludeIterateTargetTypeNotSpecified", resourceCulture);
+            }
+        }
+		
         /// <summary>
         ///   Looks up a localized string similar to Field &apos;{0}&apos; with value &apos;{1}&apos; is not supported..
         /// </summary>
@@ -503,6 +530,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Multiple sort parameters are currently not supported. Only a single sort parameter is supported..
+        /// </summary>
+        internal static string MultiSortParameterNotSupported {
+            get {
+                return ResourceManager.GetString("MultiSortParameterNotSupported", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to No search parameters found needing to be indexed.  Job cancelled..
         /// </summary>
         internal static string NoSearchParametersNeededToBeIndexed {
@@ -510,7 +546,7 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("NoSearchParametersNeededToBeIndexed", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   Looks up a localized string similar to The number of composite components specified for search parameter &apos;{0}&apos; exceeded the number of components defined..
         /// </summary>
@@ -589,6 +625,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string ReferenceResourceTypeNotSupported {
             get {
                 return ResourceManager.GetString("ReferenceResourceTypeNotSupported", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Reindex job id {0} is in state {1} and cannot be cancelled..
+        /// </summary>
+        internal static string ReindexJobInCompletedState {
+            get {
+                return ResourceManager.GetString("ReindexJobInCompletedState", resourceCulture);
             }
         }
 
@@ -679,6 +724,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string SearchComparatorNotSupported {
             get {
                 return ResourceManager.GetString("SearchComparatorNotSupported", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The &apos;_count&apos; parameter exceeds limit configured for server. Current limit is {0} while `_count` parameter set to {1}..
+        /// </summary>
+        internal static string SearchParamaterCountExceedLimit {
+            get {
+                return ResourceManager.GetString("SearchParamaterCountExceedLimit", resourceCulture);
             }
         }
 
@@ -778,6 +832,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string SearchParameterDefinitionInvalidResource {
             get {
                 return ResourceManager.GetString("SearchParameterDefinitionInvalidResource", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Search parameter {0} is no longer supported and cannot be marked enabled..
+        /// </summary>
+        internal static string SearchParameterNoLongerSupported {
+            get {
+                return ResourceManager.GetString("SearchParameterNoLongerSupported", resourceCulture);
             }
         }
 
@@ -935,3 +998,4 @@ namespace Microsoft.Health.Fhir.Core {
         }
     }
 }
+

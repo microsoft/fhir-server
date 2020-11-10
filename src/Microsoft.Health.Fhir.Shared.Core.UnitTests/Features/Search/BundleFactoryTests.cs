@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Core.Internal;
@@ -14,20 +15,21 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Shared.Core.Features.Search;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
+
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 {
     public class BundleFactoryTests
     {
         private readonly FhirJsonSerializer _fhirJsonSerializer = new FhirJsonSerializer();
-        private readonly FhirJsonParser _fhirJsonParser = new FhirJsonParser();
         private readonly IUrlResolver _urlResolver = Substitute.For<IUrlResolver>();
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
-        private readonly ResourceDeserializer _resourceDeserializer;
         private readonly BundleFactory _bundleFactory;
 
         private const string _continuationToken = "ct";
@@ -42,13 +44,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         public BundleFactoryTests()
         {
-            _resourceDeserializer = new ResourceDeserializer(
-                (FhirResourceFormat.Json, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastUpdated) => _fhirJsonParser.Parse(str).ToResourceElement())));
-
             _bundleFactory = new BundleFactory(
                 _urlResolver,
-                _fhirRequestContextAccessor,
-                _resourceDeserializer);
+                _fhirRequestContextAccessor);
 
             IFhirRequestContext fhirRequestContext = Substitute.For<IFhirRequestContext>();
 
@@ -79,7 +77,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public void GivenASearchResult_WhenCreateSearchBundle_ThenCorrectBundleShouldBeReturned()
         {
-            _urlResolver.ResolveResourceUrl(Arg.Any<ResourceElement>()).Returns(x => new Uri(string.Format(_resourceUrlFormat, x.ArgAt<ResourceElement>(0).Id)));
+            _urlResolver.ResolveResourceWrapperUrl(Arg.Any<ResourceWrapper>()).Returns(x => new Uri(string.Format(_resourceUrlFormat, x.ArgAt<ResourceWrapper>(0).ResourceId)));
             _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters, _unsupportedSortingParameters).Returns(_selfUrl);
 
             ResourceElement observation1 = Samples.GetDefaultObservation().UpdateId("123");
@@ -104,14 +102,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Null(actual.Scalar<string>("Bundle.link.where(relation='next').url"));
             Assert.Collection(
                 actual.ToPoco<Bundle>().Entry,
-                e => ValidateEntry(observation1.ToPoco<Observation>(), e),
-                e => ValidateEntry(observation2.ToPoco<Observation>(), e));
+                async e => await ValidateEntry(observation1.ToPoco<Observation>(), e),
+                async e => await ValidateEntry(observation2.ToPoco<Observation>(), e));
 
             ResourceWrapper CreateResourceWrapper(ResourceElement resourceElement)
             {
                 return new ResourceWrapper(
                     resourceElement,
-                    new RawResource(_fhirJsonSerializer.SerializeToString(resourceElement.ToPoco<Observation>()), FhirResourceFormat.Json),
+                    new RawResource(_fhirJsonSerializer.SerializeToString(resourceElement.ToPoco<Observation>()), FhirResourceFormat.Json, isMetaSet: false),
                     null,
                     false,
                     null,
@@ -119,14 +117,28 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                     null);
             }
 
-            void ValidateEntry(Observation expected, Bundle.EntryComponent actualEntry)
+            async Task ValidateEntry(Observation expected, Bundle.EntryComponent actualEntry)
             {
                 Assert.NotNull(actualEntry);
-                Assert.NotNull(actualEntry.Resource);
-                Assert.Equal(expected.Id, actualEntry.Resource.Id);
-                Assert.Equal(string.Format(_resourceUrlFormat,  expected.Id), actualEntry.FullUrl);
-                Assert.NotNull(actualEntry.Search);
-                Assert.Equal(Bundle.SearchEntryMode.Match, actualEntry.Search.Mode);
+
+                var raw = actualEntry as RawBundleEntryComponent;
+
+                using (var ms = new MemoryStream())
+                using (var sr = new StreamReader(ms))
+                {
+                    await raw?.ResourceElement?.SerializeToStreamAsUtf8Json(ms);
+                    ms.Seek(0, SeekOrigin.Begin);
+                    var resourceData = await sr.ReadToEndAsync();
+                    Assert.NotNull(resourceData);
+
+                    Resource resource;
+                    resource = new FhirJsonParser().Parse(resourceData) as Resource;
+
+                    Assert.Equal(expected.Id, resource.Id);
+                    Assert.Equal(string.Format(_resourceUrlFormat, expected.Id), raw.FullUrl);
+                    Assert.NotNull(raw.Search);
+                    Assert.Equal(Bundle.SearchEntryMode.Match, raw.Search.Mode);
+                }
             }
         }
 

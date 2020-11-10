@@ -8,6 +8,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
+using Microsoft.Health.Core;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
@@ -43,12 +44,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         public async Task EnsureInitialized()
         {
             var updated = new List<SearchParameterInfo>();
+            var resourceTypeSearchParamStatusMap = new Dictionary<string, List<ResourceSearchParameterStatus>>();
 
             var parameters = (await _searchParameterRegistry.GetSearchParameterStatuses())
                 .ToDictionary(x => x.Uri);
 
             // Set states of known parameters
-            foreach (var p in _searchParameterDefinitionManager.AllSearchParameters)
+            foreach (SearchParameterInfo p in _searchParameterDefinitionManager.AllSearchParameters)
             {
                 if (parameters.TryGetValue(p.Url, out ResourceSearchParameterStatus result))
                 {
@@ -86,10 +88,61 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
                     updated.Add(p);
                 }
+
+                // We need to keep track of supported or partially supported parameters.
+                // These parameters will be used to calculate the search parameter hash below.
+                if (p.IsPartiallySupported || p.IsSupported)
+                {
+                    if (result == null)
+                    {
+                        result = new ResourceSearchParameterStatus()
+                        {
+                            Uri = p.Url,
+                            Status = SearchParameterStatus.Supported,
+                            LastUpdated = Clock.UtcNow,
+                        };
+                    }
+
+                    if (p.TargetResourceTypes != null)
+                    {
+                        foreach (string resourceType in p.TargetResourceTypes)
+                        {
+                            if (resourceTypeSearchParamStatusMap.ContainsKey(resourceType))
+                            {
+                                resourceTypeSearchParamStatusMap[resourceType].Add(result);
+                            }
+                            else
+                            {
+                                resourceTypeSearchParamStatusMap.Add(resourceType, new List<ResourceSearchParameterStatus>() { result });
+                            }
+                        }
+                    }
+
+                    if (p.BaseResourceTypes != null)
+                    {
+                        foreach (string resourceType in p.BaseResourceTypes)
+                        {
+                            if (resourceTypeSearchParamStatusMap.ContainsKey(resourceType))
+                            {
+                                resourceTypeSearchParamStatusMap[resourceType].Add(result);
+                            }
+                            else
+                            {
+                                resourceTypeSearchParamStatusMap.Add(resourceType, new List<ResourceSearchParameterStatus>() { result });
+                            }
+                        }
+                    }
+                }
             }
 
-            var searchParameterHashValue = SearchHelperUtilities.CalculateSearchParameterHash(parameters.Values);
-            await _mediator.Publish(new SearchParametersHashUpdated(searchParameterHashValue));
+            var resourceHashMap = new Dictionary<string, string>();
+            foreach (KeyValuePair<string, List<ResourceSearchParameterStatus>> kvp in resourceTypeSearchParamStatusMap)
+            {
+                string searchParamHash = SearchHelperUtilities.CalculateSearchParameterHash(kvp.Value);
+                resourceHashMap.Add(kvp.Key, searchParamHash);
+            }
+
+            await _mediator.Publish(new SearchParametersHashUpdated(resourceHashMap));
 
             await _mediator.Publish(new SearchParametersUpdated(updated));
         }

@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Security.Claims;
 using EnsureThat;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Context
 {
@@ -39,6 +40,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
             CorrelationId = correlationId;
             RequestHeaders = requestHeaders;
             ResponseHeaders = responseHeaders;
+            IncludePartiallyIndexedSearchParams = false;
         }
 
         public string Method { get; }
@@ -59,6 +61,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
 
         public IDictionary<string, StringValues> ResponseHeaders { get; }
 
+        public IList<OperationOutcomeIssue> BundleIssues { get; } = new List<OperationOutcomeIssue>();
+
         public string ResourceType { get; set; }
+
+        public bool IncludePartiallyIndexedSearchParams { get; set; }
     }
 }

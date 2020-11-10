@@ -44,13 +44,22 @@ namespace Microsoft.Health.Fhir.Api.Features.Audit
             Log(AuditAction.Executing, statusCode: null, httpContext, claimsExtractor);
         }
 
-        /// <inheritdoc />
-        public void LogExecuted(HttpContext httpContext, IClaimsExtractor claimsExtractor)
+        /// <summary>
+        /// Logs an executed audit entry for the current operation.
+        /// </summary>
+        /// <param name="httpContext">The HTTP context.</param>
+        /// <param name="claimsExtractor">The extractor used to extract claims.</param>
+        /// <param name="shouldCheckForAuthXFailure">Only emit LogExecuted messages if this is an authentication error (401), since others would already have been logged.</param>
+        public void LogExecuted(HttpContext httpContext, IClaimsExtractor claimsExtractor, bool shouldCheckForAuthXFailure = false)
         {
             EnsureArg.IsNotNull(claimsExtractor, nameof(claimsExtractor));
             EnsureArg.IsNotNull(httpContext, nameof(httpContext));
 
-            Log(AuditAction.Executed, (HttpStatusCode)httpContext.Response.StatusCode, httpContext, claimsExtractor);
+            var responseStatusCode = (HttpStatusCode)httpContext.Response.StatusCode;
+            if (!shouldCheckForAuthXFailure || responseStatusCode == HttpStatusCode.Unauthorized)
+            {
+                Log(AuditAction.Executed, responseStatusCode, httpContext, claimsExtractor);
+            }
         }
 
         private void Log(AuditAction auditAction, HttpStatusCode? statusCode, HttpContext httpContext, IClaimsExtractor claimsExtractor)

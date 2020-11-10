@@ -65,6 +65,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\TokenSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\UriSearchTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\UriSearchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\StartupForAnonymizedExportTestProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\SuppressExecutionContextHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\TestFhirServer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\TestFhirServerFactory.cs" />

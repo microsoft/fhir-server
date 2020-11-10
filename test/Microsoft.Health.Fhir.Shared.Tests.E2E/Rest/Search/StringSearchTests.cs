@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [InlineData(":contains", "123", false)]
         public async Task GivenAStringSearchParam_WhenSearched_ThenCorrectBundleShouldBeReturned(string modifier, string valueToSearch, bool shouldMatch)
         {
-            string query = string.Format("address-city{0}={1}", modifier, valueToSearch);
+            string query = string.Format("address-city{0}={1}&_tag={2}", modifier, valueToSearch, Fixture.FixtureTag);
 
             Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
 
@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [InlineData(":contains", "NotInString", false)]
         public async Task GivenAStringSearchParamAndAResourceWithALongSearchParamValue_WhenSearched_ThenCorrectBundleShouldBeReturned(string modifier, string valueToSearch, bool shouldMatch)
         {
-            string query = string.Format("address-city{0}={1}", modifier, valueToSearch);
+            string query = string.Format("address-city{0}={1}&_tag={2}", modifier, valueToSearch, Fixture.FixtureTag);
 
             Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
 
@@ -95,7 +95,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAStringSearchParamWithMultipleValues_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
-            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, "family=Smith,Ander");
+            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, $"family=Smith,Ander&_tag={Fixture.FixtureTag}");
 
             ValidateBundle(bundle, Fixture.Patients[0], Fixture.Patients[2]);
         }
@@ -103,9 +103,33 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAStringSearchParamThatCoversSeveralFields_WhenSpecifiedTwiceInASearch_IntersectsTheTwoResultsProperly()
         {
-            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, "name=Bea&name=Smith");
+            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, $"name=Bea&name=Smith&_tag={Fixture.FixtureTag}");
 
             ValidateBundle(bundle, Fixture.Patients[0]);
+        }
+
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+        [Theory]
+        [Trait(Traits.Priority, Priority.One)]
+        [InlineData("muller")]
+        [InlineData("müller")]
+        public async Task GivenAStringSearchParamWithAccentAndAResourceWithAccent_WhenSearched_ThenCorrectBundleShouldBeReturned(string searchText)
+        {
+            string query = $"name={searchText}&_total=accurate&_tag={Fixture.FixtureTag}";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, query);
+
+            Assert.NotNull(bundle);
+            Assert.Equal(2, bundle.Total);
+            Assert.NotEmpty(bundle.Entry);
+        }
+
+        [Fact]
+        public async Task GivenAEscapedStringSearchParams_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        {
+            Bundle bundle = await Client.SearchAsync(ResourceType.Patient, $"name=Richard\\,Muller&_tag={Fixture.FixtureTag}");
+
+            ValidateBundle(bundle, Fixture.Patients[7]);
         }
     }
 }

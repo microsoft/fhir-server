@@ -5,6 +5,7 @@
 
 using System.Text;
 using EnsureThat;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
 {
@@ -64,6 +65,23 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
                 .Append(_rootAliasName).Append(".isSystem")
                 .Append(" = ")
                 .AppendLine(_queryParameterManager.AddOrGetParameterMapping(systemDataValue));
+        }
+
+        public void AppendSearchParameterHashFliter(string hashValue)
+        {
+            _queryBuilder
+                .Append("AND")
+                .Append(" (")
+                .Append(_rootAliasName).Append(".")
+                .Append(KnownResourceWrapperProperties.SearchParameterHash)
+                .Append(" != ")
+                .Append(_queryParameterManager.AddOrGetParameterMapping(hashValue))
+                .Append(" OR IS_DEFINED(")
+                .Append(_rootAliasName).Append(".")
+                .Append(KnownResourceWrapperProperties.SearchParameterHash)
+                .Append(") = ")
+                .Append(_queryParameterManager.AddOrGetParameterMapping(false))
+                .Append(")");
         }
     }
 }

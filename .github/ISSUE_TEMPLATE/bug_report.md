@@ -1,12 +1,18 @@
 ---
 name: Bug report
 about: Create a report to help us improve
-labels: 
+labels: Bug
 
 ---
 
 **Describe the bug**
 A clear and concise description of what the bug is.
+
+**FHIR Version?**
+Stu3/R4/R5
+
+**Data provider?**
+CosmosDB/SQL Server
 
 **To Reproduce**
 Steps to reproduce the behavior:

@@ -180,7 +180,9 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
 
         private async Task<ReindexJobRecord> InsertNewReindexJobRecordAsync(Action<ReindexJobRecord> jobRecordCustomizer = null)
         {
-            var jobRecord = new ReindexJobRecord("searchParamHash", maxiumumConcurrency: 1, scope: "all");
+            Dictionary<string, string> searchParamHashMap = new Dictionary<string, string>();
+            searchParamHashMap.Add("Patient", "searchParamHash");
+            var jobRecord = new ReindexJobRecord(searchParamHashMap, maxiumumConcurrency: 1);
 
             jobRecordCustomizer?.Invoke(jobRecord);
 
@@ -209,7 +211,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.Integration.Features.Operations
             Assert.Equal(expected.Id, actual.Id);
             Assert.Equal(expected.CanceledTime, actual.CanceledTime);
             Assert.Equal(expected.EndTime, actual.EndTime);
-            Assert.Equal(expected.Hash, actual.Hash);
+            Assert.Equal(expected.ResourceTypeSearchParameterHashMap, actual.ResourceTypeSearchParameterHashMap);
             Assert.Equal(expected.SchemaVersion, actual.SchemaVersion);
             Assert.Equal(expected.StartTime, actual.StartTime);
             Assert.Equal(expected.Status, actual.Status);

@@ -1,0 +1,2 @@
+DROP INDEX IX_ReferenceSearchParam_SearchParamId_ResourceTypeId_ReferenceResourceTypeId_ReferenceResourceId
+ON dbo.ReferenceSearchParam

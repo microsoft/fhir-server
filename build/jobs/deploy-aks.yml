@@ -18,6 +18,9 @@ parameters:
   type: string
 - name: dnsSuffix
   type: string
+- name: schemaAutomaticUpdatesEnabled
+  type: boolean
+  default: false
 
 jobs:
 - job: provisionServiceWithHelm
@@ -104,6 +107,9 @@ jobs:
               requests:
                 cpu: 500m
                 memory: 2000Mi
+          sql:
+            schema:
+              automaticUpdatesEnabled: ${{parameters.schemaAutomaticUpdatesEnabled}}
         podIdentity:
           enabled: true
           identityClientId: $IDENTITY_CLIENT_ID

@@ -27,7 +27,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                   resource.IsHistory,
                   resource.SearchIndices,
                   resource.CompartmentIndices,
-                  resource.LastModifiedClaims)
+                  resource.LastModifiedClaims,
+                  resource.SearchParameterHash)
         {
         }
 
@@ -42,8 +43,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             bool history,
             IReadOnlyCollection<SearchIndexEntry> searchIndices,
             CompartmentIndices compartmentIndices,
-            IReadOnlyCollection<KeyValuePair<string, string>> lastModifiedClaims)
-            : base(resourceId, versionId, resourceTypeName, rawResource, request, lastModified, deleted, searchIndices, compartmentIndices, lastModifiedClaims)
+            IReadOnlyCollection<KeyValuePair<string, string>> lastModifiedClaims,
+            string searchParameterHash = null)
+            : base(resourceId, versionId, resourceTypeName, rawResource, request, lastModified, deleted, searchIndices, compartmentIndices, lastModifiedClaims, searchParameterHash)
         {
             IsHistory = history;
         }
@@ -66,6 +68,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 return ResourceId;
             }
         }
+
+        [JsonProperty(KnownDocumentProperties.ActivePeriodEndDateTime)]
+        public DateTimeOffset? ActivePeriodEndDateTime { get; }
 
         [JsonProperty(KnownDocumentProperties.ETag)]
         public string ETag { get; protected set; }

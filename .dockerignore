@@ -1,0 +1,22 @@
+# directories
+**/bin/
+**/obj/
+.github/
+.vscode/
+build/
+docs/
+release/
+samples/
+test/
+tools/
+.git/
+
+# keep minimal git info for SourceLink
+!.git/HEAD
+!.git/config
+!.git/refs/
+!.git/objects
+
+# files
+Dockerfile*
+**/*.md

@@ -11,7 +11,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
     public class JobConflictException : FhirException
     {
         public JobConflictException()
-            : base()
         {
         }
 

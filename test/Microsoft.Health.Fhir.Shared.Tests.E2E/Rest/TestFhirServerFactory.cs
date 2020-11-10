@@ -6,7 +6,9 @@
 using System;
 using System.Collections.Concurrent;
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+using Xunit;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
@@ -14,16 +16,22 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     /// Creates and caches <see cref="TestFhirServer"/> instances. This class is intended to be used as an assembly fixture,
     /// so that the <see cref="TestFhirServer"/> instances can be reused across test classes in an assembly.
     /// </summary>
-    public class TestFhirServerFactory : IDisposable
+    public class TestFhirServerFactory : IAsyncLifetime, IAsyncDisposable
     {
-        private readonly ConcurrentDictionary<(DataStore dataStore, Type startupType), Lazy<TestFhirServer>> _cache = new ConcurrentDictionary<(DataStore dataStore, Type startupType), Lazy<TestFhirServer>>();
+        private readonly ConcurrentDictionary<(DataStore dataStore, Type startupType), Lazy<Task<TestFhirServer>>> _cache = new ConcurrentDictionary<(DataStore dataStore, Type startupType), Lazy<Task<TestFhirServer>>>();
 
-        public TestFhirServer GetTestFhirServer(DataStore dataStore, Type startupType)
+        public TestFhirServerFactory()
         {
-            return _cache.GetOrAdd(
+            // allow cosmos DB session consistency
+            TestFhirServer.CreateSession();
+        }
+
+        public async Task<TestFhirServer> GetTestFhirServerAsync(DataStore dataStore, Type startupType)
+        {
+            return await _cache.GetOrAdd(
                     (dataStore, startupType),
                     tuple =>
-                        new Lazy<TestFhirServer>(() =>
+                        new Lazy<Task<TestFhirServer>>(() =>
                         {
                             TestFhirServer testFhirServer;
                             string environmentUrl = GetEnvironmentUrl(tuple.dataStore);
@@ -42,9 +50,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                                 testFhirServer = new RemoteTestFhirServer(environmentUrl);
                             }
 
-                            testFhirServer.ConfigureSecurityOptions().GetAwaiter().GetResult();
-
-                            return testFhirServer;
+                            return testFhirServer.ConfigureSecurityOptions().ContinueWith(_ => testFhirServer, TaskContinuationOptions.ExecuteSynchronously);
                         }))
                 .Value;
         }
@@ -62,13 +68,20 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
         }
 
-        public void Dispose()
+        Task IAsyncLifetime.InitializeAsync() => Task.CompletedTask;
+
+        async Task IAsyncLifetime.DisposeAsync()
         {
-            foreach (Lazy<TestFhirServer> cacheValue in _cache.Values)
+            await DisposeAsync();
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            foreach (Lazy<Task<TestFhirServer>> cacheValue in _cache.Values)
             {
                 if (cacheValue.IsValueCreated)
                 {
-                    cacheValue.Value.Dispose();
+                    (await cacheValue.Value).Dispose();
                 }
             }
         }

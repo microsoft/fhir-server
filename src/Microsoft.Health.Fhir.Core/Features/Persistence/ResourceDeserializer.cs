@@ -11,7 +11,7 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
-    public class ResourceDeserializer
+    public class ResourceDeserializer : IResourceDeserializer
     {
         private readonly IReadOnlyDictionary<FhirResourceFormat, Func<string, string, DateTimeOffset, ResourceElement>> _deserializers;
 
@@ -38,6 +38,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             return resource;
         }
 
+        public ResourceElement Deserialize(RawResourceElement rawResourceElement)
+        {
+            EnsureArg.IsNotNull(rawResourceElement, nameof(rawResourceElement));
+
+            ResourceElement resource = DeserializeRawResourceElement(rawResourceElement);
+
+            return resource;
+        }
+
         internal ResourceElement DeserializeRaw(RawResource rawResource, string version, DateTimeOffset lastModified)
         {
             EnsureArg.IsNotNull(rawResource, nameof(rawResource));
@@ -48,6 +57,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             }
 
             return deserializer(rawResource.Data, version, lastModified);
+        }
+
+        internal ResourceElement DeserializeRawResourceElement(RawResourceElement rawResourceElement)
+        {
+            EnsureArg.IsNotNull(rawResourceElement, nameof(rawResourceElement));
+
+            if (!_deserializers.TryGetValue(rawResourceElement.Format, out var deserializer))
+            {
+                throw new NotSupportedException();
+            }
+
+            return deserializer(rawResourceElement.RawResource.Data, rawResourceElement.VersionId, rawResourceElement.LastUpdated.HasValue ? rawResourceElement.LastUpdated.Value : DateTimeOffset.MinValue);
         }
     }
 }

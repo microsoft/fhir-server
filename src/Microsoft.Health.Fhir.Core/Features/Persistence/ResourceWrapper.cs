@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         public DateTimeOffset LastModified { get; protected set; }
 
         [JsonProperty(KnownResourceWrapperProperties.RawResource)]
-        public RawResource RawResource { get; protected set; }
+        public RawResource RawResource { get; set; }
 
         [JsonProperty(KnownResourceWrapperProperties.Request)]
         public ResourceRequest Request { get; protected set; }

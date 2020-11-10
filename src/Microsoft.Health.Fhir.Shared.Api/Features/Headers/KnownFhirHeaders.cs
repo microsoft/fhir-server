@@ -8,5 +8,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Headers
     public static class KnownFhirHeaders
     {
         public const string IfNoneExist = "If-None-Exist";
+        public const string PartiallyIndexedParamsHeaderName = "x-ms-use-partial-indices";
     }
 }

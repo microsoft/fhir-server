@@ -83,11 +83,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("$export")]
         [InlineData("Patient/$export")]
         [InlineData("Group/123456/$export")]
-        public async Task GivenExportIsEnabled_WhenRequestingExportWithSinceQueryParam_ThenServerShouldReturnAcceptedAndNonEmptyContentLocationHeader(string path)
+        public async Task GivenExportIsEnabled_WhenRequestingExportWithSupportedQueryParam_ThenServerShouldReturnAcceptedAndNonEmptyContentLocationHeader(string path)
         {
             var queryParam = new Dictionary<string, string>()
             {
                 { KnownQueryParameterNames.Since, DateTimeOffset.UtcNow.ToString() },
+                { KnownQueryParameterNames.Type, "Patient" },
+                { KnownQueryParameterNames.Container, "test-container" },
             };
             using HttpRequestMessage request = GenerateExportRequest(path, queryParams: queryParam);
 

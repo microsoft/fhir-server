@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -109,7 +110,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
         private ReindexJobWrapper CreateReindexJobWrapper()
         {
-            return new ReindexJobWrapper(new ReindexJobRecord("test", 5, "patient"), WeakETag.FromVersionId("0"));
+            Dictionary<string, string> searchParameterHashMap = new Dictionary<string, string>();
+            searchParameterHashMap.Add("patient", "hash1");
+            return new ReindexJobWrapper(new ReindexJobRecord(searchParameterHashMap, 5), WeakETag.FromVersionId("0"));
         }
     }
 }

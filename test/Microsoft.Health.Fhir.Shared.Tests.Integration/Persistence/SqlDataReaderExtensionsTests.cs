@@ -4,8 +4,8 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Data.SqlClient;
 using System.Linq;
+using Microsoft.Data.SqlClient;
 using Microsoft.Health.SqlServer.Features.Storage;
 using Xunit;
 

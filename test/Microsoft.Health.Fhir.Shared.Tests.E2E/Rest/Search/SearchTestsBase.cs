@@ -7,10 +7,12 @@ using System;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
+using System.Web;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Xunit;
+using static Hl7.Fhir.Model.OperationOutcome;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
@@ -35,7 +37,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         protected async Task<Bundle> ExecuteAndValidateBundle(string searchUrl, bool sort, params Resource[] expectedResources)
         {
-            return await ExecuteAndValidateBundle(searchUrl, searchUrl, sort, expectedResources);
+            var actualDecodedUrl = WebUtility.UrlDecode(searchUrl);
+            return await ExecuteAndValidateBundle(searchUrl, actualDecodedUrl, sort, expectedResources);
         }
 
         protected async Task<Bundle> ExecuteAndValidateBundle(string searchUrl, string selfLink, params Resource[] expectedResources)
@@ -49,14 +52,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         protected async Task<Bundle> ExecuteAndValidateBundle(string searchUrl, string selfLink, bool sort, params Resource[] expectedResources)
         {
-            FhirResponse<Bundle> firstBundle = await Client.SearchAsync(searchUrl);
+            Bundle firstBundle = await Client.SearchAsync(searchUrl);
 
             var pageSize = 10;
             var expectedFirstBundle = expectedResources.Length > pageSize ? expectedResources.ToList().GetRange(0, pageSize).ToArray() : expectedResources;
 
             ValidateBundle(firstBundle, selfLink, sort, expectedFirstBundle);
 
-            var nextLink = firstBundle.Resource.NextLink?.ToString();
+            var nextLink = firstBundle.NextLink?.ToString();
             if (nextLink != null)
             {
                 FhirResponse<Bundle> secondBundle = await Client.SearchAsync(nextLink);
@@ -112,6 +115,31 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Collection(
                 bundle.Entry.Select(e => e.Resource),
                 expectedResources.Select(er => new Action<Resource>(r => Assert.True(er.IsExactly(r)))).ToArray());
+        }
+
+        protected void ValidateOperationOutcome(string[] expectedDiagnostics, IssueType[] expectedCodeTypes, OperationOutcome operationOutcome)
+        {
+            Assert.NotNull(operationOutcome?.Id);
+            Assert.NotEmpty(operationOutcome?.Issue);
+
+            Assert.Equal(expectedCodeTypes.Length, operationOutcome.Issue.Count);
+            Assert.Equal(expectedDiagnostics.Length, operationOutcome.Issue.Count);
+
+            for (int iter = 0; iter < operationOutcome.Issue.Count; iter++)
+            {
+                Assert.Equal(expectedCodeTypes[iter], operationOutcome.Issue[iter].Code);
+                Assert.Equal(OperationOutcome.IssueSeverity.Error, operationOutcome.Issue[iter].Severity);
+                Assert.Equal(expectedDiagnostics[iter], operationOutcome.Issue[iter].Diagnostics);
+            }
+        }
+
+        protected void ValidateBundleUrl(Uri expectedBaseAddress, ResourceType expectedResourceType, string expectedQuery, string bundleUrl)
+        {
+            var uriBuilder = new UriBuilder(expectedBaseAddress);
+            uriBuilder.Path = expectedResourceType.ToString();
+            uriBuilder.Query = expectedQuery;
+
+            Assert.Equal(HttpUtility.UrlDecode(uriBuilder.Uri.ToString()), HttpUtility.UrlDecode(bundleUrl));
         }
     }
 }

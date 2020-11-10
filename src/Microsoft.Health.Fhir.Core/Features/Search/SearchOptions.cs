@@ -15,10 +15,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
     /// </summary>
     public class SearchOptions
     {
-        private const int DefaultItemCountPerSearch = 10;
-        private const int MaxItemCountPerSearch = 100;
+        private int _maxItemCount;
+        private int _includeCount;
 
-        private int _maxItemCount = DefaultItemCountPerSearch;
+        /// <summary>
+        /// Initializes a new instance of the <see cref="SearchOptions"/> class.
+        /// It hides constructor and prevent object creation not through <see cref="ISearchOptionsFactory"/>
+        /// </summary>
+        internal SearchOptions()
+        {
+        }
 
         /// <summary>
         /// Gets the optional continuation token.
@@ -47,12 +53,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             {
                 if (value <= 0)
                 {
-                    throw new InvalidOperationException(Core.Resources.InvalidSearchCountSpecified);
+                    throw new InvalidOperationException(Resources.InvalidSearchCountSpecified);
                 }
 
-                // The server is allowed to return less than what client has asked (http://hl7.org/fhir/STU3/search.html#count).
-                // Limit the maximum number of items if the client is asking too many.
-                _maxItemCount = Math.Min(value, MaxItemCountPerSearch);
+                _maxItemCount = value;
+            }
+        }
+
+        /// <summary>
+        /// Get the number of items to include in search results.
+        /// </summary>
+        public int IncludeCount
+        {
+            get => _includeCount;
+            internal set
+            {
+                if (value <= 0)
+                {
+                    throw new InvalidOperationException(Resources.InvalidSearchCountSpecified);
+                }
+
+                _includeCount = value;
             }
         }
 

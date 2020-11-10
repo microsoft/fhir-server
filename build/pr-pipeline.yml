@@ -93,6 +93,7 @@ stages:
       testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
       dnsSuffix: $(aksDnsSuffix)
+      schemaAutomaticUpdatesEnabled: true
 
 - stage: deployAksR4SqlContainer
   displayName: 'Deploy R4 SqlContainer in AKS'
@@ -111,6 +112,7 @@ stages:
       testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
       dnsSuffix: $(aksDnsSuffix)
+      schemaAutomaticUpdatesEnabled: true
 
 - stage: deployStu3
   displayName: 'Deploy STU3 Site'
@@ -146,6 +148,7 @@ stages:
       resourceGroup: $(DeploymentEnvironmentName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
+      schemaAutomaticUpdatesEnabled: true
 
 - stage: deployR4
   displayName: 'Deploy R4 Site'
@@ -181,6 +184,7 @@ stages:
       resourceGroup: $(DeploymentEnvironmentName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
+      schemaAutomaticUpdatesEnabled: true
 
 - stage: deployR5
   displayName: 'Deploy R5 Site'
@@ -216,6 +220,7 @@ stages:
       resourceGroup: $(DeploymentEnvironmentName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
+      schemaAutomaticUpdatesEnabled: true
 
 - stage: testAksR4Cosmos
   displayName: 'R4 CosmosDb AKS Tests'

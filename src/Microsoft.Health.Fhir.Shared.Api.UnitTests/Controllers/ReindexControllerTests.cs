@@ -21,6 +21,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Messages.Reindex;
+using Microsoft.Health.Fhir.Core.Models;
 using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
@@ -35,6 +36,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         private HttpContext _httpContext = new DefaultHttpContext();
         private static ReindexJobConfiguration _reindexJobConfig = new ReindexJobConfiguration() { Enabled = true };
         private IUrlResolver _urlResolver = Substitute.For<IUrlResolver>();
+        private static IReadOnlyDictionary<string, string> _searchParameterHashMap = new Dictionary<string, string>() { { "Patient", "hash1" } };
 
         public ReindexControllerTests()
         {
@@ -85,7 +87,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             await _mediator.Received().Send(
                 Arg.Is<GetReindexRequest>(r => r.JobId == "id"), Arg.Any<CancellationToken>());
 
-            var parametersResource = ((FhirResult)result).Result.ResourceInstance as Parameters;
+            var parametersResource = (((FhirResult)result).Result as ResourceElement).ResourceInstance as Parameters;
             Assert.Equal("Queued", parametersResource.Parameter[3].Value.ToString());
         }
 
@@ -106,12 +108,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             var result = await _reindexEnabledController.CreateReindexJob(body);
             await _mediator.Received().Send(
                 Arg.Is<CreateReindexRequest>(
-                    r => r.MaximumConcurrency.ToString().Equals(body.Parameter.Find(p => p.Name.Equals(JobRecordProperties.MaximumConcurrency)).Value.ToString())
-                && r.Scope == body.Parameter.Find(p => p.Name.Equals(JobRecordProperties.Scope)).Value.ToString()),
+                    r => r.MaximumConcurrency.ToString().Equals(body.Parameter.Find(p => p.Name.Equals(JobRecordProperties.MaximumConcurrency)).Value.ToString())),
                 Arg.Any<CancellationToken>());
             _mediator.ClearReceivedCalls();
 
-            var parametersResource = ((FhirResult)result).Result.ResourceInstance as Parameters;
+            var parametersResource = (((FhirResult)result).Result as ResourceElement).ResourceInstance as Parameters;
             Assert.Equal("Queued", parametersResource.Parameter[3].Value.ToString());
         }
 
@@ -135,7 +136,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
         private static CreateReindexResponse GetCreateReindexResponse()
         {
-            var jobRecord = new ReindexJobRecord("hash", 5, "patient");
+            var jobRecord = new ReindexJobRecord(_searchParameterHashMap, 5);
             var jobWrapper = new ReindexJobWrapper(
                 jobRecord,
                 WeakETag.FromVersionId("33a64df551425fcc55e4d42a148795d9f25f89d4"));
@@ -144,7 +145,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
         private static GetReindexResponse GetReindexJobResponse()
         {
-            var jobRecord = new ReindexJobRecord("hash", 5, "patient");
+            var jobRecord = new ReindexJobRecord(_searchParameterHashMap, 5);
             var jobWrapper = new ReindexJobWrapper(
                 jobRecord,
                 WeakETag.FromVersionId("33a64df551425fcc55e4d42a148795d9f25f89d4"));
@@ -158,7 +159,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             parametersResource.Parameter.Add(new Parameters.ParameterComponent()
                 { Name = JobRecordProperties.MaximumConcurrency, Value = new FhirDecimal(maxConcurrency ?? _reindexJobConfig.DefaultMaximumThreadsPerReindexJob) });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.Scope, Value = new FhirString(scope) });
 
             return parametersResource;
         }
@@ -169,7 +169,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             parametersResource.Parameter = new List<Parameters.ParameterComponent>();
 
             parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = "foo", Value = new FhirDecimal(5) });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.Scope, Value = new FhirString("scope") });
 
             return parametersResource;
         }
@@ -180,7 +179,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
             parametersResource.Parameter = new List<Parameters.ParameterComponent>();
 
             parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.MaximumConcurrency, Value = new FhirDecimal(5) });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.Scope, Value = new FhirString("scope") });
             parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = "foo", Value = new FhirDecimal(5) });
 
             return parametersResource;

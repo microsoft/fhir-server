@@ -27,8 +27,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             string groupId = null,
             string storageAccountConnectionHash = null,
             string storageAccountUri = null,
+            string anonymizationConfigurationLocation = null,
+            string anonymizationConfigurationFileETag = null,
             uint maximumNumberOfResourcesPerQuery = 100,
-            uint numberOfPagesPerCommit = 10)
+            uint numberOfPagesPerCommit = 10,
+            string storageAccountContainerName = null)
         {
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
             EnsureArg.IsNotNullOrWhiteSpace(hash, nameof(hash));
@@ -45,12 +48,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             MaximumNumberOfResourcesPerQuery = maximumNumberOfResourcesPerQuery;
             NumberOfPagesPerCommit = numberOfPagesPerCommit;
 
+            AnonymizationConfigurationLocation = anonymizationConfigurationLocation;
+            AnonymizationConfigurationFileETag = anonymizationConfigurationFileETag;
+
             // Default values
             SchemaVersion = 1;
             Id = Guid.NewGuid().ToString();
             Status = OperationStatus.Queued;
 
             QueuedTime = Clock.UtcNow;
+
+            if (string.IsNullOrWhiteSpace(storageAccountContainerName))
+            {
+                StorageAccountContainerName = Id;
+            }
+            else
+            {
+                StorageAccountContainerName = storageAccountContainerName;
+            }
         }
 
         [JsonConstructor]
@@ -103,5 +118,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
         [JsonProperty(JobRecordProperties.NumberOfPagesPerCommit)]
         public uint NumberOfPagesPerCommit { get; private set; }
+
+        [JsonProperty(JobRecordProperties.StorageAccountContainerName)]
+        public string StorageAccountContainerName { get; private set; }
+
+        [JsonProperty(JobRecordProperties.AnonymizationConfigurationLocation)]
+        public string AnonymizationConfigurationLocation { get; private set; }
+
+        [JsonProperty(JobRecordProperties.AnonymizationConfigurationFileETag)]
+        public string AnonymizationConfigurationFileETag { get; private set; }
     }
 }

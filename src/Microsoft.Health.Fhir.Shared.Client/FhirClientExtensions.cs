@@ -4,7 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Task = System.Threading.Tasks.Task;
@@ -20,14 +20,10 @@ namespace Microsoft.Health.Fhir.Client
 
         public static async Task DeleteAllResources(this FhirClient client, ResourceType resourceType, string searchUrl)
         {
-            while (true)
+            Bundle bundle = null;
+            while (bundle == null || bundle.NextLink != null)
             {
-                Bundle bundle = await client.SearchAsync(resourceType, searchUrl, count: 100);
-
-                if (!bundle.Entry.Any())
-                {
-                    break;
-                }
+                bundle = bundle == null ? await client.SearchAsync(resourceType, searchUrl, count: 100) : await client.SearchAsync(bundle.NextLink.ToString());
 
                 foreach (Bundle.EntryComponent entry in bundle.Entry)
                 {
@@ -37,7 +33,7 @@ namespace Microsoft.Health.Fhir.Client
         }
 
         public static async Task<TResource[]> CreateResourcesAsync<TResource>(this FhirClient client, int count)
-           where TResource : Resource, new()
+            where TResource : Resource, new()
         {
             TResource[] resources = new TResource[count];
 
@@ -74,6 +70,19 @@ namespace Microsoft.Health.Fhir.Client
             }
 
             return resources;
+        }
+
+        /// <summary>
+        /// Performs a create by calling <see cref="FhirClient.UpdateAsync{T}(T,string,System.Threading.CancellationToken)"/>, by assigning a new GUID to the Id property.
+        /// This is sometimes desirable over calling <see cref="FhirClient.CreateAsync{T}(T,string,System.Threading.CancellationToken)"/> when you want to be sure that at most
+        /// one resource is created, even if the call has to be issued multiple times.
+        /// </summary>
+        public static Task<FhirResponse<T>> CreateByUpdateAsync<T>(this FhirClient client, T resource, CancellationToken cancellationToken = default)
+            where T : Resource
+        {
+            resource.Id = Guid.NewGuid().ToString();
+
+            return client.UpdateAsync(resource, cancellationToken: cancellationToken);
         }
     }
 }

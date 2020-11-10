@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Routing
@@ -27,7 +28,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Routing
         /// <param name="resource">The resource whose URL should be resolved for.</param>
         /// <param name="includeVersion">Includes the version in the URL.</param>
         /// <returns>The URL for the given <paramref name="resource"/>.</returns>
-        Uri ResolveResourceUrl(ResourceElement resource, bool includeVersion = false);
+        Uri ResolveResourceUrl(IResourceElement resource, bool includeVersion = false);
+
+        /// <summary>
+        /// Resolves the URL for the given <paramref name="resource"/>.
+        /// </summary>
+        /// <param name="resource">The resource whose URL should be resolved for.</param>
+        /// <param name="includeVersion">Includes the version in the URL.</param>
+        /// <returns>The URL for the given <paramref name="resource"/>.</returns>
+        Uri ResolveResourceWrapperUrl(ResourceWrapper resource, bool includeVersion = false);
 
         /// <summary>
         /// Resolves the URL for the specified route

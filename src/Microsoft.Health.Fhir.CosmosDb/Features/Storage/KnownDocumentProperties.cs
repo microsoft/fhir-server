@@ -7,6 +7,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
     public static class KnownDocumentProperties
     {
+        public const string ActivePeriodEndDateTime = "activePeriodEndDateTime";
+
         public const string ETag = "_etag";
 
         public const string Id = "id";

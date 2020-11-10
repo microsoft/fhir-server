@@ -4,7 +4,9 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using EnsureThat;
 using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json;
@@ -16,8 +18,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
     /// </summary>
     public class ReindexJobRecord : JobRecord
     {
-        public ReindexJobRecord(string searchParametersHash, ushort maxiumumConcurrency, string scope)
+        public ReindexJobRecord(
+            IReadOnlyDictionary<string, string> searchParametersHash,
+            ushort maxiumumConcurrency = 1,
+            uint maxResourcesPerQuery = 100)
         {
+            EnsureArg.IsNotNull(searchParametersHash, nameof(searchParametersHash));
+
             // Default values
             SchemaVersion = 1;
             Id = Guid.NewGuid().ToString();
@@ -26,18 +33,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
             QueuedTime = Clock.UtcNow;
             LastModified = Clock.UtcNow;
 
-            Hash = searchParametersHash;
+            ResourceTypeSearchParameterHashMap = searchParametersHash;
             MaximumConcurrency = maxiumumConcurrency;
-            Scope = scope;
+            MaximumNumberOfResourcesPerQuery = maxResourcesPerQuery;
         }
 
         [JsonConstructor]
         protected ReindexJobRecord()
         {
         }
-
-        [JsonProperty(JobRecordProperties.Scope)]
-        public string Scope { get; private set; }
 
         [JsonProperty(JobRecordProperties.MaximumConcurrency)]
         public ushort MaximumConcurrency { get; private set; }
@@ -46,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         public IList<OperationOutcomeIssue> Error { get; private set; } = new List<OperationOutcomeIssue>();
 
         [JsonProperty(JobRecordProperties.QueryList)]
-        public IList<ReindexJobQueryStatus> QueryList { get; private set; } = new List<ReindexJobQueryStatus>();
+        public ConcurrentBag<ReindexJobQueryStatus> QueryList { get; private set; } = new ConcurrentBag<ReindexJobQueryStatus>();
 
         [JsonProperty(JobRecordProperties.Count)]
         public int Count { get; set; }
@@ -54,8 +58,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
         [JsonProperty(JobRecordProperties.Progress)]
         public int Progress { get; set; }
 
-        [JsonProperty(JobRecordProperties.Hash)]
-        public string Hash { get; private set; }
+        [JsonProperty(JobRecordProperties.ResourceTypeSearchParameterHashMap)]
+        public IReadOnlyDictionary<string, string> ResourceTypeSearchParameterHashMap { get; private set; }
 
         [JsonProperty(JobRecordProperties.LastModified)]
         public DateTimeOffset LastModified { get; set; }
@@ -68,6 +72,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models
 
         [JsonProperty(JobRecordProperties.SearchParams)]
         public List<string> SearchParams { get; private set; } = new List<string>();
+
+        [JsonProperty(JobRecordProperties.MaximumNumberOfResourcesPerQuery)]
+        public uint MaximumNumberOfResourcesPerQuery { get; private set; }
 
         [JsonIgnore]
         public int PercentComplete

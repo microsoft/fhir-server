@@ -7,15 +7,17 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
 using EnsureThat;
-using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Fhir.Core.Data;
 using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
-    public class CodeSystemResolver : ICodeSystemResolver, IStartable
+    public class CodeSystemResolver : ICodeSystemResolver, IHostedService
     {
         private readonly IModelInfoProvider _modelInfoProvider;
         private Dictionary<string, string> _dictionary;
@@ -44,11 +46,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             return null;
         }
 
-        public void Start()
+        public Task StartAsync(CancellationToken cancellationToken)
         {
             using Stream file = _modelInfoProvider.OpenVersionedFileStream("resourcepath-codesystem-mappings.json");
             using var reader = new StreamReader(file);
             _dictionary = JsonConvert.DeserializeObject<Dictionary<string, string>>(reader.ReadToEnd());
+
+            return Task.CompletedTask;
+        }
+
+        Task IHostedService.StopAsync(CancellationToken cancellationToken)
+        {
+            return Task.CompletedTask;
         }
 
         private string NormalizePath(string path)

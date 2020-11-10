@@ -23,13 +23,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
         public int ExportedDataFileCount => _exportedData.Keys.Count;
 
+        public string ConnectedContainer { get; private set; }
+
         public async Task ConnectAsync(CancellationToken cancellationToken, string containerId = null)
         {
+            ConnectedContainer = containerId;
             await Task.CompletedTask;
         }
 
         public async Task ConnectAsync(ExportJobConfiguration exportJobConfiguration, CancellationToken cancellationToken, string containerId = null)
         {
+            ConnectedContainer = containerId;
             await Task.CompletedTask;
         }
 

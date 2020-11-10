@@ -137,7 +137,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                     "Patient",
                     new RawResource(
                         "data",
-                        FhirResourceFormat.Unknown),
+                        FhirResourceFormat.Unknown,
+                        isMetaSet: false),
                     new ResourceRequest("POST"),
                     DateTimeOffset.UtcNow,
                     false,

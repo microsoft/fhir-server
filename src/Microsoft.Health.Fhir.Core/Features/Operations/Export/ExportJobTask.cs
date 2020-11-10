@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Net;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -27,12 +28,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
     public class ExportJobTask : IExportJobTask
     {
+        private static readonly Regex Base64FormatRegex = new Regex("^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$", RegexOptions.Compiled | RegexOptions.Singleline);
+
         private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
+        private readonly IScoped<IAnonymizerFactory> _anonymizerFactory;
         private readonly ExportJobConfiguration _exportJobConfiguration;
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
         private readonly IGroupMemberExtractor _groupMemberExtractor;
         private readonly IResourceToByteArraySerializer _resourceToByteArraySerializer;
         private readonly IExportDestinationClient _exportDestinationClient;
+        private readonly IResourceDeserializer _resourceDeserializer;
         private readonly ILogger _logger;
 
         // Currently we will have only one file per resource type. In the future we will add the ability to split
@@ -50,6 +55,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             IGroupMemberExtractor groupMemberExtractor,
             IResourceToByteArraySerializer resourceToByteArraySerializer,
             IExportDestinationClient exportDestinationClient,
+            IResourceDeserializer resourceDeserializer,
+            IScoped<IAnonymizerFactory> anonymizerFactory,
             ILogger<ExportJobTask> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
@@ -58,6 +65,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             EnsureArg.IsNotNull(groupMemberExtractor, nameof(groupMemberExtractor));
             EnsureArg.IsNotNull(resourceToByteArraySerializer, nameof(resourceToByteArraySerializer));
             EnsureArg.IsNotNull(exportDestinationClient, nameof(exportDestinationClient));
+            EnsureArg.IsNotNull(resourceDeserializer, nameof(resourceDeserializer));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
@@ -65,7 +73,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _searchServiceFactory = searchServiceFactory;
             _groupMemberExtractor = groupMemberExtractor;
             _resourceToByteArraySerializer = resourceToByteArraySerializer;
+            _resourceDeserializer = resourceDeserializer;
             _exportDestinationClient = exportDestinationClient;
+            _anonymizerFactory = anonymizerFactory;
             _logger = logger;
         }
 
@@ -100,7 +110,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 }
 
                 // Connect to export destination using appropriate client.
-                await _exportDestinationClient.ConnectAsync(exportJobConfiguration, cancellationToken, _exportJobRecord.Id);
+                await _exportDestinationClient.ConnectAsync(exportJobConfiguration, cancellationToken, _exportJobRecord.StorageAccountContainerName);
 
                 // If we are resuming a job, we can detect that by checking the progress info from the job record.
                 // If it is null, then we know we are processing a new job.
@@ -150,6 +160,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 _exportJobRecord.FailureDetails = new JobFailureDetails(rnfe.Message, HttpStatusCode.BadRequest);
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
+            catch (FailedToParseAnonymizationConfigurationException ex)
+            {
+                _logger.LogError(ex, "Failed to parse anonymization configuration. The job will be marked as failed.");
+
+                _exportJobRecord.FailureDetails = new JobFailureDetails(ex.Message, HttpStatusCode.BadRequest);
+                await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
+            }
+            catch (AnonymizationConfigurationNotFoundException ex)
+            {
+                _logger.LogError(ex, "Cannot found anonymization configuration. The job will be marked as failed.");
+
+                _exportJobRecord.FailureDetails = new JobFailureDetails(ex.Message, HttpStatusCode.BadRequest);
+                await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
+            }
+            catch (AnonymizationConfigurationFetchException ex)
+            {
+                _logger.LogError(ex, "Failed to fetch anonymization configuration file. The job will be marked as failed.");
+
+                _exportJobRecord.FailureDetails = new JobFailureDetails(ex.Message, HttpStatusCode.BadRequest);
+                await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
+            }
             catch (Exception ex)
             {
                 // The job has encountered an error it cannot recover from.
@@ -167,6 +198,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _exportJobRecord.EndTime = Clock.UtcNow;
 
             await UpdateJobRecordAsync(cancellationToken);
+            _logger.LogInformation($"Export job completed. Id: {_exportJobRecord.Id}, Queued Time: {_exportJobRecord.QueuedTime}, End Time: {_exportJobRecord.EndTime}, IsAnonymizedExport: {IsAnonymizedExportJob()}");
         }
 
         private async Task UpdateJobRecordAsync(CancellationToken cancellationToken)
@@ -196,7 +228,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             List<Tuple<string, string>> queryParametersList = new List<Tuple<string, string>>(sharedQueryParametersList);
             if (progress.ContinuationToken != null)
             {
-                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, progress.ContinuationToken));
+                var continuationToken = progress.ContinuationToken;
+                if (!Base64FormatRegex.IsMatch(continuationToken))
+                {
+                    continuationToken = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(continuationToken));
+                }
+
+                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, continuationToken));
             }
 
             if (_exportJobRecord.ExportType == ExportJobType.Patient)
@@ -207,6 +245,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type, _exportJobRecord.ResourceType));
             }
+
+            IAnonymizer anonymizer = IsAnonymizedExportJob() ? await CreateAnonymizerAsync(cancellationToken) : null;
 
             // Process the export if:
             // 1. There is continuation token, which means there is more resource to be exported.
@@ -263,7 +303,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     }
                 }
 
-                await ProcessSearchResultsAsync(searchResult.Results, currentBatchId, cancellationToken);
+                // Skips processing top level search results if the job only requested resources from the compartments of patients, but didn't want the patients.
+                if (_exportJobRecord.ExportType == ExportJobType.All
+                    || string.IsNullOrWhiteSpace(_exportJobRecord.ResourceType)
+                    || _exportJobRecord.ResourceType.Contains(KnownResourceTypes.Patient, StringComparison.OrdinalIgnoreCase))
+                {
+                    await ProcessSearchResultsAsync(searchResult.Results, currentBatchId, anonymizer, cancellationToken);
+                }
 
                 if (searchResult.ContinuationToken == null)
                 {
@@ -285,6 +331,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             await _exportDestinationClient.CommitAsync(exportJobConfiguration, cancellationToken);
         }
 
+        private async Task<IAnonymizer> CreateAnonymizerAsync(CancellationToken cancellationToken)
+        {
+            string configurationWithEtag = $"{_exportJobRecord.AnonymizationConfigurationLocation}:{_exportJobRecord.AnonymizationConfigurationFileETag}";
+
+            return await _anonymizerFactory.Value.CreateAnonymizerAsync(configurationWithEtag, cancellationToken);
+        }
+
         private async Task RunExportCompartmentSearch(
             ExportJobConfiguration exportJobConfiguration,
             ExportJobProgress progress,
@@ -302,7 +355,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             List<Tuple<string, string>> queryParametersList = new List<Tuple<string, string>>(sharedQueryParametersList);
             if (progress.ContinuationToken != null)
             {
-                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, progress.ContinuationToken));
+                var continuationToken = progress.ContinuationToken;
+                if (!Base64FormatRegex.IsMatch(continuationToken))
+                {
+                    continuationToken = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(continuationToken));
+                }
+
+                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, continuationToken));
             }
 
             if (!string.IsNullOrEmpty(_exportJobRecord.ResourceType))
@@ -328,7 +387,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         cancellationToken);
                 }
 
-                await ProcessSearchResultsAsync(searchResult.Results, currentBatchId, cancellationToken);
+                await ProcessSearchResultsAsync(searchResult.Results, currentBatchId, null, cancellationToken);
 
                 if (searchResult.ContinuationToken == null)
                 {
@@ -345,7 +404,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             await UpdateJobRecordAsync(cancellationToken);
         }
 
-        private async Task ProcessSearchResultsAsync(IEnumerable<SearchResultEntry> searchResults, string partId, CancellationToken cancellationToken)
+        private async Task ProcessSearchResultsAsync(IEnumerable<SearchResultEntry> searchResults, string partId, IAnonymizer anonymizer, CancellationToken cancellationToken)
         {
             foreach (SearchResultEntry result in searchResults)
             {
@@ -365,7 +424,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     else
                     {
                         // File does not exist. Create it.
-                        string fileName = resourceType + ".ndjson";
+                        string fileName;
+                        if (_exportJobRecord.StorageAccountContainerName.Equals(_exportJobRecord.Id, StringComparison.OrdinalIgnoreCase))
+                        {
+                            fileName = $"{resourceType}.ndjson";
+                        }
+                        else
+                        {
+                            string dateTime = _exportJobRecord.QueuedTime.UtcDateTime.ToString("s")
+                                .Replace("-", string.Empty, StringComparison.OrdinalIgnoreCase)
+                                .Replace(":", string.Empty, StringComparison.OrdinalIgnoreCase);
+                            fileName = $"{dateTime}-{_exportJobRecord.Id}/{resourceType}.ndjson";
+                        }
+
                         Uri fileUri = await _exportDestinationClient.CreateFileAsync(fileName, cancellationToken);
 
                         exportFileInfo = new ExportFileInfo(resourceType, fileUri, sequence: 0);
@@ -377,8 +448,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     _resourceTypeToFileInfoMapping.Add(resourceType, exportFileInfo);
                 }
 
+                ResourceElement element = _resourceDeserializer.Deserialize(resourceWrapper);
+
+                if (anonymizer != null)
+                {
+                    element = anonymizer.Anonymize(element);
+                }
+
                 // Serialize into NDJson and write to the file.
-                byte[] bytesToWrite = _resourceToByteArraySerializer.Serialize(resourceWrapper);
+                byte[] bytesToWrite = _resourceToByteArraySerializer.Serialize(element);
 
                 await _exportDestinationClient.WriteFilePartAsync(exportFileInfo.FileUri, partId, bytesToWrite, cancellationToken);
 
@@ -397,7 +475,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         {
             // Update the continuation token in local cache and queryParams.
             // We will add or udpate the continuation token in the query parameters list.
-            progress.UpdateContinuationToken(continuationToken);
+            progress.UpdateContinuationToken(Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(continuationToken)));
 
             bool replacedContinuationToken = false;
             for (int index = 0; index < queryParametersList.Count; index++)
@@ -422,6 +500,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 // Update the job record.
                 await UpdateJobRecordAsync(cancellationToken);
             }
+        }
+
+        private bool IsAnonymizedExportJob()
+        {
+            return !string.IsNullOrEmpty(_exportJobRecord.AnonymizationConfigurationLocation);
         }
 
         private async Task<SearchResult> GetGroupPatients(string groupId, List<Tuple<string, string>> queryParametersList, DateTimeOffset groupMembershipTime, CancellationToken cancellationToken)

@@ -22,17 +22,34 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
     [AttributeUsage(AttributeTargets.Method)]
     internal class ValidateExportRequestFilterAttribute : ActionFilterAttribute
     {
+        private static readonly HashSet<string> SupportedOutputFormats = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "application/fhir+ndjson",
+            "application/ndjson",
+            "ndjson",
+        };
+
         private const string PreferHeaderName = "Prefer";
         private const string PreferHeaderExpectedValue = "respond-async";
+        private const string DefaultExportRequestPath = "/$export";
 
         private readonly HashSet<string> _supportedQueryParams;
+        private readonly HashSet<string> _supportedQueryParamsForAnonymizedExport;
 
         public ValidateExportRequestFilterAttribute()
         {
             _supportedQueryParams = new HashSet<string>(StringComparer.Ordinal)
             {
+                KnownQueryParameterNames.OutputFormat,
                 KnownQueryParameterNames.Since,
                 KnownQueryParameterNames.Type,
+                KnownQueryParameterNames.Container,
+            };
+
+            _supportedQueryParamsForAnonymizedExport = new HashSet<string>(StringComparer.Ordinal)
+            {
+                KnownQueryParameterNames.AnonymizationConfigurationLocation,
+                KnownQueryParameterNames.AnonymizationConfigurationFileEtag,
             };
         }
 
@@ -58,11 +75,39 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             IQueryCollection queryCollection = context.HttpContext.Request.Query;
             foreach (string paramName in queryCollection?.Keys)
             {
-                if (!_supportedQueryParams.Contains(paramName))
+                if (IsValidBasicExportRequestParam(paramName) || IsValidAnonymizedExportRequestParam(context.HttpContext.Request, paramName))
                 {
-                    throw new RequestNotValidException(string.Format(Resources.UnsupportedParameter, paramName));
+                    continue;
+                }
+
+                throw new RequestNotValidException(string.Format(Resources.UnsupportedParameter, paramName));
+            }
+
+            if (queryCollection.TryGetValue(KnownQueryParameterNames.OutputFormat, out var outputFormats))
+            {
+                foreach (var outputFormat in outputFormats)
+                {
+                    if (!(outputFormat == null || SupportedOutputFormats.Contains(outputFormat)))
+                    {
+                        throw new RequestNotValidException(string.Format(Resources.InvalidOutputFormat, outputFormat));
+                    }
                 }
             }
+        }
+
+        private bool IsValidBasicExportRequestParam(string paramName)
+        {
+            return _supportedQueryParams.Contains(paramName);
+        }
+
+        private bool IsValidAnonymizedExportRequestParam(HttpRequest request, string paramName)
+        {
+            if (request.Path.StartsWithSegments(DefaultExportRequestPath, StringComparison.InvariantCultureIgnoreCase))
+            {
+                return _supportedQueryParamsForAnonymizedExport.Contains(paramName);
+            }
+
+            return false;
         }
     }
 }

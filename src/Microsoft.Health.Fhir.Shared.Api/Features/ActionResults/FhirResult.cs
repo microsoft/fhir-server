@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Net;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -13,7 +14,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
     /// <summary>
     /// Handles the output of a FHIR MVC Action Method
     /// </summary>
-    public class FhirResult : ResourceActionResult<ResourceElement>
+    public class FhirResult : ResourceActionResult<IResourceElement>
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="FhirResult" /> class.
@@ -26,7 +27,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
         /// Initializes a new instance of the <see cref="FhirResult" /> class.
         /// </summary>
         /// <param name="resource">The resource.</param>
-        public FhirResult(ResourceElement resource)
+        public FhirResult(IResourceElement resource)
             : base(resource)
         {
         }
@@ -36,7 +37,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
         /// </summary>
         /// <param name="resource">The resource.</param>
         /// <param name="statusCode">The status code.</param>
-        public static FhirResult Create(ResourceElement resource, HttpStatusCode statusCode = HttpStatusCode.OK)
+        public static FhirResult Create(IResourceElement resource, HttpStatusCode statusCode = HttpStatusCode.OK)
         {
             EnsureArg.IsNotNull(resource, nameof(resource));
 
@@ -81,7 +82,18 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionResults
 
         protected override object GetResultToSerialize()
         {
-            return Result?.ToPoco();
+            if (Result is ResourceElement)
+            {
+                return (Result as ResourceElement)?.ToPoco();
+            }
+            else if (Result is RawResourceElement)
+            {
+                return Result;
+            }
+            else
+            {
+                throw new NotImplementedException();
+            }
         }
 
         public override string GetResultTypeName()
