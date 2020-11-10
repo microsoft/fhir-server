@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.DataConvert
         private readonly ITemplateProviderFactory _templateProviderFactory;
         private readonly ILogger<DataConvertEngine> _logger;
 
-        private readonly Dictionary<string, IFhirConverter> _dataConverterMap = new Dictionary<string, IFhirConverter>();
+        private readonly Dictionary<DataConvertInputDataType, IFhirConverter> _dataConverterMap = new Dictionary<DataConvertInputDataType, IFhirConverter>();
         private const char ImageRegistryDelimiter = '/';
         private const string DefaultTemplateReference = "microsofthealth/fhirconverter:default";
 
@@ -44,13 +44,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.DataConvert
             _templateProviderFactory = templateProviderFactory;
             _logger = logger;
 
-            _dataConverterMap.Add(DataConvertInputDataType.Hl7v2.ToString(), new Hl7v2Processor());
+            _dataConverterMap.Add(DataConvertInputDataType.Hl7v2, new Hl7v2Processor());
         }
 
         public async Task<DataConvertResponse> Process(DataConvertRequest convertRequest, CancellationToken cancellationToken)
         {
             // We have embedded a default template set in the templatemanagement package.
-            // If the template set is the default refence, we don't need to retrieve token.
+            // If the template set is the default reference, we don't need to retrieve token.
             var accessToken = string.Empty;
             if (!IsDefaultTemplateReference(convertRequest.TemplateSetReference))
             {
@@ -95,7 +95,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.DataConvert
                 throw new GetTemplateSetFailedException(string.Format(Resources.GetTemplateSetFailed, ex.Message), ex);
             }
 
-            var dataConverter = _dataConverterMap.GetValueOrDefault(convertRequest.InputDataType.ToString());
+            var dataConverter = _dataConverterMap.GetValueOrDefault(convertRequest.InputDataType);
             if (dataConverter == null)
             {
                 // This case should never happen.
