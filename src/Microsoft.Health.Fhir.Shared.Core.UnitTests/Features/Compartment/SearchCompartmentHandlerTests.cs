@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Compartment
         {
             var request = new SearchCompartmentRequest("Patient", "123", "Observation", new Tuple<string, string>[0]);
 
-            var searchResult = new SearchResult(Enumerable.Empty<SearchResultEntry>(), new Tuple<string, string>[0], Array.Empty<(string parameterName, string reason)>(), null);
+            var searchResult = new SearchResult(Enumerable.Empty<SearchResultEntry>(), null, null, new Tuple<string, string>[0]);
 
             _searchService.SearchCompartmentAsync(
                 request.CompartmentType,

@@ -88,13 +88,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         public IReadOnlyList<Tuple<string, string>> UnsupportedSearchParams { get; internal set; }
 
         /// <summary>
-        /// Gets the list of unsupported sorting search parameters that were ignored in the search.
-        /// </summary>
-        public IReadOnlyList<(string parameterName, string reason)> UnsupportedSortingParams { get; internal set; }
-
-        /// <summary>
         /// Gets the list of sorting parameters.
         /// </summary>
         public IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> Sort { get; internal set; }
+
+        /// <summary>
+        /// Performs a shallow clone of this instance
+        /// </summary>
+        public SearchOptions Clone() => (SearchOptions)MemberwiseClone();
     }
 }
