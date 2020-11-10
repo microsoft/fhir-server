@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Text;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
@@ -12,14 +13,15 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 {
     public class QueryBuilder : IQueryBuilder
     {
-        public QueryDefinition BuildSqlQuerySpec(SearchOptions searchOptions)
+        public QueryDefinition BuildSqlQuerySpec(SearchOptions searchOptions, IReadOnlyList<IncludeExpression> includes)
         {
-            return new QueryBuilderHelper().BuildSqlQuerySpec(searchOptions);
+            return new QueryBuilderHelper().BuildSqlQuerySpec(searchOptions, includes);
         }
 
         public QueryDefinition GenerateHistorySql(SearchOptions searchOptions)
@@ -45,7 +47,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                 _queryHelper = new QueryHelper(_queryBuilder, _queryParameterManager, SearchValueConstants.RootAliasName);
             }
 
-            public QueryDefinition BuildSqlQuerySpec(SearchOptions searchOptions)
+            public QueryDefinition BuildSqlQuerySpec(SearchOptions searchOptions, IReadOnlyList<IncludeExpression> includes)
             {
                 EnsureArg.IsNotNull(searchOptions, nameof(searchOptions));
 
@@ -55,7 +57,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                 }
                 else
                 {
-                    AppendSelectFromRoot();
+                    AppendSelectFromRoot(includes: includes);
                 }
 
                 AppendSystemDataFilter();
@@ -174,9 +176,65 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                 return query;
             }
 
-            private void AppendSelectFromRoot(string selectList = SearchValueConstants.SelectedFields)
+            private void AppendSelectFromRoot(string selectList = SearchValueConstants.SelectedFields, IReadOnlyList<IncludeExpression> includes = null)
             {
-                _queryHelper.AppendSelectFromRoot(selectList);
+                _queryHelper.AppendSelect(selectList);
+
+                if (includes?.Count > 0)
+                {
+                    // add to the projection an array of {r1
+                    _queryBuilder.AppendLine(",");
+
+                    _queryBuilder
+                        .Append("ARRAY(SELECT p.")
+                        .Append(SearchValueConstants.ReferenceResourceTypeName)
+                        .Append(", p.")
+                        .Append(SearchValueConstants.ReferenceResourceIdName)
+                        .Append(" FROM p in r.")
+                        .Append(KnownResourceWrapperProperties.SearchIndices).Append(" WHERE ");
+
+                    for (var i = 0; i < includes.Count; i++)
+                    {
+                        IncludeExpression includeExpression = includes[i];
+
+                        if (i != 0)
+                        {
+                            _queryBuilder.Append(" OR ");
+                        }
+
+                        _queryBuilder.Append("(");
+
+                        if (includeExpression.WildCard)
+                        {
+                            _queryBuilder.Append("IS_DEFINED(p.").Append(SearchValueConstants.ReferenceResourceIdName).Append(")");
+                        }
+                        else
+                        {
+                            _queryBuilder
+                                .Append("p.")
+                                .Append(SearchValueConstants.ParamName)
+                                .Append(" = '")
+                                .Append(includeExpression.ReferenceSearchParameter.Name)
+                                .Append("'");
+                        }
+
+                        if (!string.IsNullOrEmpty(includeExpression.TargetResourceType))
+                        {
+                            _queryBuilder
+                                .Append(" AND p.")
+                                .Append(SearchValueConstants.ReferenceResourceTypeName)
+                                .Append(" = '")
+                                .Append(includeExpression.TargetResourceType)
+                                .Append("'");
+                        }
+
+                        _queryBuilder.Append(")");
+                    }
+
+                    _queryBuilder.Append(") AS ").Append(KnownDocumentProperties.ReferencesToInclude);
+                }
+
+                _queryHelper.AppendFromRoot();
             }
 
             private void AppendFilterCondition(string logicalOperator, bool equal, params (string, object)[] conditions)
