@@ -34,7 +34,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.DataCo
             var dataConvertEngine = GetDataConvertEngine();
             var response = await dataConvertEngine.Process(request, CancellationToken.None);
 
-            var parser = new FhirJsonParser();
+            var setting = new ParserSettings()
+            {
+                AcceptUnknownMembers = true,
+                PermissiveParsing = true,
+            };
+            var parser = new FhirJsonParser(setting);
             var bundleResource = parser.Parse<Bundle>(response.Resource);
             Assert.Equal("urn:uuid:b06a26a8-9cb6-ef2c-b4a7-3781a6f7f71a", bundleResource.Entry.First().FullUrl);
             Assert.Equal(2, bundleResource.Entry.Count);

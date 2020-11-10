@@ -67,7 +67,12 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
             var bundleContent = await response.Content.ReadAsStringAsync();
-            var parser = new FhirJsonParser();
+            var setting = new ParserSettings()
+            {
+                AcceptUnknownMembers = true,
+                PermissiveParsing = true,
+            };
+            var parser = new FhirJsonParser(setting);
             var bundleResource = parser.Parse<Bundle>(bundleContent);
             Assert.Equal("urn:uuid:b06a26a8-9cb6-ef2c-b4a7-3781a6f7f71a", bundleResource.Entry.First().FullUrl);
         }
@@ -162,7 +167,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         [Fact]
         public async Task GivenAValidRequestWithCustomizedTemplateSet_WhenDataConvert_CorrectResponseShouldReturn()
         {
-            if (_isUsingInProcTestServer && !IsContainerRegistryConfigured())
+            if (_isUsingInProcTestServer || !IsContainerRegistryConfigured())
             {
                 return;
             }
@@ -188,7 +193,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         [InlineData("template@sha256:592535ef52d742f81e35f4d87b43d9b535ed56cf58c90a14fc5fd7ea0fbb8695")]
         public async Task GivenAValidRequest_ButTemplateSetIsNotFound_WhenDataConvert_ShouldReturnBadRequest(string imageReference)
         {
-            if (_isUsingInProcTestServer && !IsContainerRegistryConfigured())
+            if (_isUsingInProcTestServer || !IsContainerRegistryConfigured())
             {
                 return;
             }
