@@ -323,4 +323,7 @@
   <data name="ContainerIsRequiredForAnonymizedExport" xml:space="preserve">
     <value>Missing '_container' for anonymized export</value>
   </data>
+  <data name="ContentTypeFormUrlEncodedExpected" xml:space="preserve">
+    <value>The "content-type" header must be 'application/x-www-form-urlencoded'.</value>
+  </data>
 </root>
