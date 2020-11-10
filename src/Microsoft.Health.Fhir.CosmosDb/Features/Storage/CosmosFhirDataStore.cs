@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -22,6 +21,7 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.HardDelete;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Replace;
@@ -162,7 +162,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     new QueryRequestOptions { PartitionKey = new PartitionKey(key.ToPartitionKey()) },
                     cancellationToken: cancellationToken);
 
-                return result.FirstOrDefault();
+                return result.results.Count == 0 ? null : result.results[0];
             }
 
             try
@@ -271,17 +271,38 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
-        internal async Task<FeedResponse<T>> ExecuteDocumentQueryAsync<T>(QueryDefinition sqlQuerySpec, QueryRequestOptions feedOptions, string continuationToken = null, CancellationToken cancellationToken = default)
+        internal async Task<(IReadOnlyList<T> results, string continuationToken)> ExecuteDocumentQueryAsync<T>(QueryDefinition sqlQuerySpec, QueryRequestOptions feedOptions, string continuationToken = null, CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNull(sqlQuerySpec, nameof(sqlQuerySpec));
 
             var context = new CosmosQueryContext(sqlQuerySpec, feedOptions, continuationToken);
 
-            var documentQuery = _cosmosQueryFactory.Create<T>(_containerScope.Value, context);
+            var cosmosQuery = _cosmosQueryFactory.Create<T>(_containerScope.Value, context);
 
             try
             {
-                return await documentQuery.ExecuteNextAsync(cancellationToken);
+                FeedResponse<T> page = await cosmosQuery.ExecuteNextAsync(cancellationToken);
+
+                var timeoutTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutTokenSource.Token);
+
+                while (page.Count == 0 && cosmosQuery.HasMoreResults)
+                {
+                    try
+                    {
+                        page = await cosmosQuery.ExecuteNextAsync(linkedTokenSource.Token);
+                    }
+                    catch (CosmosException e) when (e.StatusCode == (HttpStatusCode)429)
+                    {
+                        break;
+                    }
+                    catch (OperationCanceledException e) when (timeoutTokenSource.IsCancellationRequested)
+                    {
+                        break;
+                    }
+                }
+
+                return (new List<T>(page), page.ContinuationToken);
             }
             catch (CosmosException e) when (e.StatusCode == HttpStatusCode.BadRequest && continuationToken != null && e.ResponseBody.StartsWith("Malformed continuation token", StringComparison.OrdinalIgnoreCase))
             {
