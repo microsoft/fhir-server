@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var resultList = new List<SearchResultEntry>();
             resultList.Add(entry1);
             resultList.Add(entry2);
-            var result = new SearchResult(resultList, new List<Tuple<string, string>>(), new List<(string, string)>(), "token");
+            var result = new SearchResult(resultList, "token", null, new List<Tuple<string, string>>());
 
             await _reindexUtilities.ProcessSearchResultsAsync(result, _searchParameterHashMap, CancellationToken.None);
 
