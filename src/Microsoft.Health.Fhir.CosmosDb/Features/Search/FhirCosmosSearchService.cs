@@ -173,7 +173,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 MaxItemCount = searchOptions.MaxItemCount,
             };
 
-            return await _fhirDataStore.ExecuteDocumentQueryAsync<T>(sqlQuerySpec, feedOptions, continuationToken, cancellationToken);
+            return await _fhirDataStore.ExecuteDocumentQueryAsync<T>(sqlQuerySpec, feedOptions, continuationToken, searchOptions.MaxItemCountSpecifiedByClient, cancellationToken);
         }
 
         private async Task<int> ExecuteCountSearchAsync(
@@ -185,7 +185,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 MaxConcurrency = -1, // execute counts across all partitions
             };
 
-            return (await _fhirDataStore.ExecuteDocumentQueryAsync<int>(sqlQuerySpec, feedOptions, null, cancellationToken)).results.Single();
+            return (await _fhirDataStore.ExecuteDocumentQueryAsync<int>(sqlQuerySpec, feedOptions, continuationToken: null, cancellationToken: cancellationToken)).results.Single();
         }
 
         private SearchResult CreateSearchResult(SearchOptions searchOptions, IEnumerable<SearchResultEntry> results, string continuationToken, bool includesTruncated = false)

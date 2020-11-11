@@ -4,10 +4,13 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
+using Microsoft.Health.Abstractions.Exceptions;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
@@ -23,7 +26,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
         private readonly ICosmosQueryLogger _logger;
 
         private string _continuationToken;
-        private bool _hasLoggedQuery = true;
+        private bool _hasLoggedQuery;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="CosmosQuery{T}"/> class.
@@ -86,6 +89,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
             }
             catch (CosmosException ex)
             {
+                // The SDK wraps exceptions we throw in handlers with a CosmosException.
+                Exception fhirException = ex.InnerException as FhirException ?? ex.InnerException as MicrosoftHealthException;
+
                 _logger.LogQueryExecutionResult(
                     queryId,
                     ex.ActivityId,
@@ -93,7 +99,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
                     null,
                     null,
                     0,
-                    ex);
+                    fhirException ?? ex);
+
+                if (fhirException != null)
+                {
+                    // rethrow the original exception
+                    ExceptionDispatchInfo.Throw(fhirException);
+                }
 
                 throw;
             }

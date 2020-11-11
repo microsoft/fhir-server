@@ -151,6 +151,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             // Check the item count.
             if (searchParams.Count != null)
             {
+                searchOptions.MaxItemCountSpecifiedByClient = true;
+
                 if (searchParams.Count > _featureConfiguration.MaxItemCountPerSearch)
                 {
                     searchOptions.MaxItemCount = _featureConfiguration.MaxItemCountPerSearch;

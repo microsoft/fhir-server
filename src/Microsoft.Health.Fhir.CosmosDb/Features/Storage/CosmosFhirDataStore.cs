@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Net;
+using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -14,6 +15,7 @@ using Microsoft.Azure.Cosmos.Scripts;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
+using Microsoft.Health.Core;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
@@ -33,6 +35,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
     public sealed class CosmosFhirDataStore : IFhirDataStore, IProvideCapability
     {
         private readonly IScoped<Container> _containerScope;
+        private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
         private readonly ICosmosQueryFactory _cosmosQueryFactory;
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
         private readonly ILogger<CosmosFhirDataStore> _logger;
@@ -77,6 +80,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(coreFeatures, nameof(coreFeatures));
 
             _containerScope = containerScope;
+            _cosmosDataStoreConfiguration = cosmosDataStoreConfiguration;
             _cosmosQueryFactory = cosmosQueryFactory;
             _retryExceptionPolicyFactory = retryExceptionPolicyFactory;
             _logger = logger;
@@ -270,7 +274,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
-        internal async Task<(IReadOnlyList<T> results, string continuationToken)> ExecuteDocumentQueryAsync<T>(QueryDefinition sqlQuerySpec, QueryRequestOptions feedOptions, string continuationToken = null, CancellationToken cancellationToken = default)
+        internal async Task<(IReadOnlyList<T> results, string continuationToken)> ExecuteDocumentQueryAsync<T>(QueryDefinition sqlQuerySpec, QueryRequestOptions feedOptions, string continuationToken = null, bool mustNotExceedMaxItemCount = true, CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNull(sqlQuerySpec, nameof(sqlQuerySpec));
 
@@ -278,30 +282,72 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             var cosmosQuery = _cosmosQueryFactory.Create<T>(_containerScope.Value, context);
 
+            var startTime = Clock.UtcNow;
+
             try
             {
                 FeedResponse<T> page = await cosmosQuery.ExecuteNextAsync(cancellationToken);
 
-                var timeoutTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                if (!cosmosQuery.HasMoreResults || !feedOptions.MaxItemCount.HasValue)
+                {
+                    if (page.Count == 0)
+                    {
+                        return (Array.Empty<T>(), page.ContinuationToken);
+                    }
+
+                    var singlePageResults = new List<T>(page.Count);
+                    singlePageResults.AddRange(page);
+                    return (singlePageResults, page.ContinuationToken);
+                }
+
+                int totalDesiredCount = feedOptions.MaxItemCount.Value;
+
+                // try to obtain at least half of the requested results
+
+                var timeoutTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(_cosmosDataStoreConfiguration.SearchEnumerationTimeoutInSeconds) - (Clock.UtcNow - startTime));
                 var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutTokenSource.Token);
 
-                while (page.Count == 0 && cosmosQuery.HasMoreResults)
+                var results = new List<T>(totalDesiredCount);
+                results.AddRange(page);
+
+                while (cosmosQuery.HasMoreResults && results.Count < totalDesiredCount / 2)
                 {
+                    // The FHIR spec says we cannot return more items in a bundle than the _count parameter, if specified.
+                    // If not specified, mustNotExceedMaxItemCount will be false, and we can allow ourselves to go over the limit.
+                    // The advantage is that we don't need to construct a new query with a new page size.
+
+                    int currentDesiredCount = totalDesiredCount - results.Count;
+                    if (mustNotExceedMaxItemCount && currentDesiredCount != feedOptions.MaxItemCount)
+                    {
+                        // Construct a new query with a smaller page size.
+                        // We do this to ensure that we will not exceed the original max page size and that
+                        // we never have to throw a page of data away because it won't fit in the response.
+                        feedOptions.MaxItemCount = currentDesiredCount;
+                        context = new CosmosQueryContext(sqlQuerySpec, feedOptions, page.ContinuationToken);
+                        cosmosQuery = _cosmosQueryFactory.Create<T>(_containerScope.Value, context);
+                    }
+
                     try
                     {
                         page = await cosmosQuery.ExecuteNextAsync(linkedTokenSource.Token);
+                        if (page.Count > 0)
+                        {
+                            results.AddRange(page);
+                        }
                     }
-                    catch (CosmosException e) when (e.StatusCode == (HttpStatusCode)429)
+                    catch (RequestRateExceededException)
                     {
+                        // return whatever we have when we get a 429
                         break;
                     }
                     catch (OperationCanceledException) when (timeoutTokenSource.IsCancellationRequested)
                     {
+                        // This took too long. Give up.
                         break;
                     }
                 }
 
-                return (new List<T>(page), page.ContinuationToken);
+                return (results, page.ContinuationToken);
             }
             catch (CosmosException e) when (e.StatusCode == HttpStatusCode.BadRequest && continuationToken != null && e.ResponseBody.StartsWith("Malformed continuation token", StringComparison.OrdinalIgnoreCase))
             {
