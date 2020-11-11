@@ -284,6 +284,7 @@ __pycache__/
 
 # IdentityServer workspace
 tempkey.rsa
+tempkey.jwk
 
 # Azure Service Operator install dir
 install-aso/

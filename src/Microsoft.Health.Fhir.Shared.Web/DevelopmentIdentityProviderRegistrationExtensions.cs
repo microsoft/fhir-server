@@ -47,14 +47,21 @@ namespace Microsoft.Health.Fhir.Web
             {
                 services.AddIdentityServer()
                     .AddDeveloperSigningCredential()
+                    .AddInMemoryApiScopes(new[] { new ApiScope(DevelopmentIdentityProviderConfiguration.Audience), new ApiScope(WrongAudienceClient),  })
                     .AddInMemoryApiResources(new[]
                     {
                         new ApiResource(
                             DevelopmentIdentityProviderConfiguration.Audience,
-                            userClaims: new List<string>() { authorizationConfiguration.RolesClaim }),
+                            userClaims: new[] { authorizationConfiguration.RolesClaim })
+                        {
+                            Scopes = { DevelopmentIdentityProviderConfiguration.Audience },
+                        },
                         new ApiResource(
                             WrongAudienceClient,
-                            userClaims: new List<string>() { authorizationConfiguration.RolesClaim }),
+                            userClaims: new[] { authorizationConfiguration.RolesClaim })
+                        {
+                            Scopes = { WrongAudienceClient },
+                        },
                     })
                     .AddTestUsers(developmentIdentityProviderConfiguration.Users?.Select(user =>
                         new TestUser
@@ -82,7 +89,7 @@ namespace Microsoft.Health.Fhir.Web
                                     AllowedScopes = { DevelopmentIdentityProviderConfiguration.Audience, WrongAudienceClient },
 
                                     // app roles that the client app may have
-                                    Claims = (ICollection<ClientClaim>)applicationConfiguration.Roles.Select(r => new Claim(authorizationConfiguration.RolesClaim, r)).Concat(new[] { new Claim("appid", applicationConfiguration.Id) }).ToList(),
+                                    Claims = applicationConfiguration.Roles.Select(r => new ClientClaim(authorizationConfiguration.RolesClaim, r)).Concat(new[] { new ClientClaim("appid", applicationConfiguration.Id), }).ToList(),
 
                                     ClientClaimsPrefix = string.Empty,
                                 }));
