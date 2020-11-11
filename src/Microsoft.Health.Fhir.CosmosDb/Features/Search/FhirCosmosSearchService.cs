@@ -81,24 +81,23 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             {
                 int count = await ExecuteCountSearchAsync(
                     _queryBuilder.BuildSqlQuerySpec(searchOptions, includes: Array.Empty<IncludeExpression>()),
-                    searchOptions,
                     cancellationToken);
 
                 return new SearchResult(count, searchOptions.UnsupportedSearchParams);
             }
 
-            FeedResponse<FhirCosmosResourceWrapper> matches = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
+            (IReadOnlyList<FhirCosmosResourceWrapper> results, string continuationToken) = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
                 _queryBuilder.BuildSqlQuerySpec(searchOptions, includeExpressions),
                 searchOptions,
                 searchOptions.CountOnly ? null : searchOptions.ContinuationToken,
                 cancellationToken);
 
-            (IList<FhirCosmosResourceWrapper> includes, bool includesTruncated) = await PerformIncludeQueries(matches, includeExpressions, revIncludeExpressions, searchOptions.IncludeCount, cancellationToken);
+            (IList<FhirCosmosResourceWrapper> includes, bool includesTruncated) = await PerformIncludeQueries(results, includeExpressions, revIncludeExpressions, searchOptions.IncludeCount, cancellationToken);
 
             SearchResult searchResult = CreateSearchResult(
                 searchOptions,
-                matches.Select(m => new SearchResultEntry(m, SearchEntryMode.Match)).Concat(includes.Select(i => new SearchResultEntry(i, SearchEntryMode.Include))),
-                matches.ContinuationToken,
+                results.Select(m => new SearchResultEntry(m, SearchEntryMode.Match)).Concat(includes.Select(i => new SearchResultEntry(i, SearchEntryMode.Include))),
+                continuationToken,
                 includesTruncated);
 
             if (searchOptions.IncludeTotal == TotalType.Accurate)
@@ -108,10 +107,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 searchOptions = searchOptions.Clone();
 
                 // If this is the first page and there aren't any more pages
-                if (searchOptions.ContinuationToken == null && matches.ContinuationToken == null)
+                if (searchOptions.ContinuationToken == null && continuationToken == null)
                 {
                     // Count the results on the page.
-                    searchResult.TotalCount = matches.Count;
+                    searchResult.TotalCount = results.Count;
                 }
                 else
                 {
@@ -121,7 +120,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     // And perform a second read.
                     searchResult.TotalCount = await ExecuteCountSearchAsync(
                         _queryBuilder.BuildSqlQuerySpec(searchOptions, includes: Array.Empty<IncludeExpression>()),
-                        searchOptions,
                         cancellationToken);
                 }
             }
@@ -133,13 +131,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             SearchOptions searchOptions,
             CancellationToken cancellationToken)
         {
-            FeedResponse<FhirCosmosResourceWrapper> results = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
+            (IReadOnlyList<FhirCosmosResourceWrapper> results, string continuationToken) = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
                 _queryBuilder.GenerateHistorySql(searchOptions),
                 searchOptions,
                 searchOptions.CountOnly ? null : searchOptions.ContinuationToken,
                 cancellationToken);
 
-            return CreateSearchResult(searchOptions, results.Select(r => new SearchResultEntry(r)), results.ContinuationToken);
+            return CreateSearchResult(searchOptions, results.Select(r => new SearchResultEntry(r)), continuationToken);
         }
 
         protected override async Task<SearchResult> SearchForReindexInternalAsync(
@@ -151,20 +149,20 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
             if (searchOptions.CountOnly)
             {
-                int count = await ExecuteCountSearchAsync(queryDefinition, searchOptions, cancellationToken);
+                int count = await ExecuteCountSearchAsync(queryDefinition, cancellationToken);
                 return new SearchResult(count, searchOptions.UnsupportedSearchParams);
             }
 
-            FeedResponse<FhirCosmosResourceWrapper> results = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
+            (IReadOnlyList<FhirCosmosResourceWrapper> results, string continuationToken) = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
                 queryDefinition,
                 searchOptions,
                 searchOptions.CountOnly ? null : searchOptions.ContinuationToken,
                 cancellationToken);
 
-            return CreateSearchResult(searchOptions, results.Select(r => new SearchResultEntry(r)), results.ContinuationToken);
+            return CreateSearchResult(searchOptions, results.Select(r => new SearchResultEntry(r)), continuationToken);
         }
 
-        private async Task<FeedResponse<T>> ExecuteSearchAsync<T>(
+        private async Task<(IReadOnlyList<T> results, string continuationToken)> ExecuteSearchAsync<T>(
             QueryDefinition sqlQuerySpec,
             SearchOptions searchOptions,
             string continuationToken,
@@ -175,20 +173,19 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 MaxItemCount = searchOptions.MaxItemCount,
             };
 
-            return await _fhirDataStore.ExecuteDocumentQueryAsync<T>(sqlQuerySpec, feedOptions, continuationToken, cancellationToken);
+            return await _fhirDataStore.ExecuteDocumentQueryAsync<T>(sqlQuerySpec, feedOptions, continuationToken, searchOptions.MaxItemCountSpecifiedByClient, cancellationToken);
         }
 
         private async Task<int> ExecuteCountSearchAsync(
             QueryDefinition sqlQuerySpec,
-            SearchOptions searchOptions,
             CancellationToken cancellationToken)
         {
             var feedOptions = new QueryRequestOptions
             {
-                MaxItemCount = searchOptions.MaxItemCount,
+                MaxConcurrency = -1, // execute counts across all partitions
             };
 
-            return (await _fhirDataStore.ExecuteDocumentQueryAsync<int>(sqlQuerySpec, feedOptions, null, cancellationToken)).Single();
+            return (await _fhirDataStore.ExecuteDocumentQueryAsync<int>(sqlQuerySpec, feedOptions, continuationToken: null, cancellationToken: cancellationToken)).results.Single();
         }
 
         private SearchResult CreateSearchResult(SearchOptions searchOptions, IEnumerable<SearchResultEntry> results, string continuationToken, bool includesTruncated = false)
@@ -210,7 +207,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
         }
 
         private async Task<(IList<FhirCosmosResourceWrapper> includes, bool includesTruncated)> PerformIncludeQueries(
-            FeedResponse<FhirCosmosResourceWrapper> matches,
+            IReadOnlyList<FhirCosmosResourceWrapper> matches,
             IReadOnlyCollection<IncludeExpression> includeExpressions,
             IReadOnlyCollection<IncludeExpression> revIncludeExpressions,
             int maxIncludeCount,
@@ -251,7 +248,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
                     QueryDefinition includeQuery = _queryBuilder.BuildSqlQuerySpec(includeSearchOptions, Array.Empty<IncludeExpression>());
 
-                    FeedResponse<FhirCosmosResourceWrapper> includeResponse = null;
+                    (IReadOnlyList<FhirCosmosResourceWrapper> results, string continuationToken) includeResponse = default;
                     do
                     {
                         if (includes.Count >= maxIncludeCount)
@@ -263,11 +260,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                         includeResponse = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
                             includeQuery,
                             includeSearchOptions,
-                            includeResponse?.ContinuationToken,
+                            includeResponse.continuationToken,
                             cancellationToken);
-                        includes.AddRange(includeResponse);
+                        includes.AddRange(includeResponse.results);
                     }
-                    while (!string.IsNullOrEmpty(includeResponse.ContinuationToken));
+                    while (!string.IsNullOrEmpty(includeResponse.continuationToken));
 
                     if (includes.Count >= maxIncludeCount)
                     {
@@ -306,7 +303,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
                     QueryDefinition revIncludeQuery = _queryBuilder.BuildSqlQuerySpec(revIncludeSearchOptions, Array.Empty<IncludeExpression>());
 
-                    FeedResponse<FhirCosmosResourceWrapper> includeResponse = null;
+                    (IReadOnlyList<FhirCosmosResourceWrapper> results, string continuationToken) includeResponse = default;
                     do
                     {
                         if (includes.Count >= maxIncludeCount)
@@ -318,11 +315,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                         includeResponse = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
                             revIncludeQuery,
                             revIncludeSearchOptions,
-                            includeResponse?.ContinuationToken,
+                            includeResponse.continuationToken,
                             cancellationToken);
-                        includes.AddRange(includeResponse);
+                        includes.AddRange(includeResponse.results);
                     }
-                    while (!string.IsNullOrEmpty(includeResponse.ContinuationToken));
+                    while (!string.IsNullOrEmpty(includeResponse.continuationToken));
                 }
             }
 
