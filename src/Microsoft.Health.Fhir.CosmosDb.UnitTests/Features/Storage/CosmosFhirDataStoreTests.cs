@@ -134,8 +134,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
                 null,
                 CreateFeedResponse(0, 0, "1"),
                 CreateFeedResponse(0, 1, "2"),
-                CreateFeedResponse(0, 0, "3"),
-                CreateFeedResponse(1, 1, null));
+                CreateFeedResponse(10, 10, "3")); // if this shows up in the results, it means we did not issue a new query after the previous page yielded a result
 
             CreateResponses(
                 9,
