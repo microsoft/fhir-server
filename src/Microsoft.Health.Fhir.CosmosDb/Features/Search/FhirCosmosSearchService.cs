@@ -86,18 +86,18 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 return new SearchResult(count, searchOptions.UnsupportedSearchParams);
             }
 
-            (IReadOnlyList<FhirCosmosResourceWrapper> results, string continuationToken) matches = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
+            (IReadOnlyList<FhirCosmosResourceWrapper> results, string continuationToken) = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
                 _queryBuilder.BuildSqlQuerySpec(searchOptions, includeExpressions),
                 searchOptions,
                 searchOptions.CountOnly ? null : searchOptions.ContinuationToken,
                 cancellationToken);
 
-            (IList<FhirCosmosResourceWrapper> includes, bool includesTruncated) = await PerformIncludeQueries(matches.results, includeExpressions, revIncludeExpressions, searchOptions.IncludeCount, cancellationToken);
+            (IList<FhirCosmosResourceWrapper> includes, bool includesTruncated) = await PerformIncludeQueries(results, includeExpressions, revIncludeExpressions, searchOptions.IncludeCount, cancellationToken);
 
             SearchResult searchResult = CreateSearchResult(
                 searchOptions,
-                matches.results.Select(m => new SearchResultEntry(m, SearchEntryMode.Match)).Concat(includes.Select(i => new SearchResultEntry(i, SearchEntryMode.Include))),
-                matches.continuationToken,
+                results.Select(m => new SearchResultEntry(m, SearchEntryMode.Match)).Concat(includes.Select(i => new SearchResultEntry(i, SearchEntryMode.Include))),
+                continuationToken,
                 includesTruncated);
 
             if (searchOptions.IncludeTotal == TotalType.Accurate)
@@ -107,10 +107,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 searchOptions = searchOptions.Clone();
 
                 // If this is the first page and there aren't any more pages
-                if (searchOptions.ContinuationToken == null && matches.continuationToken == null)
+                if (searchOptions.ContinuationToken == null && continuationToken == null)
                 {
                     // Count the results on the page.
-                    searchResult.TotalCount = matches.results.Count;
+                    searchResult.TotalCount = results.Count;
                 }
                 else
                 {
@@ -131,13 +131,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             SearchOptions searchOptions,
             CancellationToken cancellationToken)
         {
-            (IReadOnlyList<FhirCosmosResourceWrapper> results, string continuationToken) results = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
+            (IReadOnlyList<FhirCosmosResourceWrapper> results, string continuationToken) = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
                 _queryBuilder.GenerateHistorySql(searchOptions),
                 searchOptions,
                 searchOptions.CountOnly ? null : searchOptions.ContinuationToken,
                 cancellationToken);
 
-            return CreateSearchResult(searchOptions, results.results.Select(r => new SearchResultEntry(r)), results.continuationToken);
+            return CreateSearchResult(searchOptions, results.Select(r => new SearchResultEntry(r)), continuationToken);
         }
 
         protected override async Task<SearchResult> SearchForReindexInternalAsync(
@@ -153,13 +153,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 return new SearchResult(count, searchOptions.UnsupportedSearchParams);
             }
 
-            (IReadOnlyList<FhirCosmosResourceWrapper> results, string continuationToken) results = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
+            (IReadOnlyList<FhirCosmosResourceWrapper> results, string continuationToken) = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
                 queryDefinition,
                 searchOptions,
                 searchOptions.CountOnly ? null : searchOptions.ContinuationToken,
                 cancellationToken);
 
-            return CreateSearchResult(searchOptions, results.results.Select(r => new SearchResultEntry(r)), results.continuationToken);
+            return CreateSearchResult(searchOptions, results.Select(r => new SearchResultEntry(r)), continuationToken);
         }
 
         private async Task<(IReadOnlyList<T> results, string continuationToken)> ExecuteSearchAsync<T>(

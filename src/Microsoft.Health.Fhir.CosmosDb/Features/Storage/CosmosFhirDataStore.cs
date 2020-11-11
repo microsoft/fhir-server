@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Generic;
 using System.Net;
-using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -21,7 +20,6 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.HardDelete;
@@ -39,7 +37,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private readonly ICosmosQueryFactory _cosmosQueryFactory;
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
         private readonly ILogger<CosmosFhirDataStore> _logger;
-        private readonly IModelInfoProvider _modelInfoProvider;
 
         private static readonly UpsertWithHistory _upsertWithHistoryProc = new UpsertWithHistory();
         private static readonly HardDelete _hardDelete = new HardDelete();
@@ -58,7 +55,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <param name="cosmosQueryFactory">The factory used to create the document query.</param>
         /// <param name="retryExceptionPolicyFactory">The retry exception policy factory.</param>
         /// <param name="logger">The logger instance.</param>
-        /// <param name="modelInfoProvider">The model provider</param>
         /// <param name="coreFeatures">The core feature configuration</param>
         public CosmosFhirDataStore(
             IScoped<Container> containerScope,
@@ -67,7 +63,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             ICosmosQueryFactory cosmosQueryFactory,
             RetryExceptionPolicyFactory retryExceptionPolicyFactory,
             ILogger<CosmosFhirDataStore> logger,
-            IModelInfoProvider modelInfoProvider,
             IOptions<CoreFeatureConfiguration> coreFeatures)
         {
             EnsureArg.IsNotNull(containerScope, nameof(containerScope));
@@ -76,7 +71,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(cosmosQueryFactory, nameof(cosmosQueryFactory));
             EnsureArg.IsNotNull(retryExceptionPolicyFactory, nameof(retryExceptionPolicyFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
-            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
             EnsureArg.IsNotNull(coreFeatures, nameof(coreFeatures));
 
             _containerScope = containerScope;
@@ -84,7 +78,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _cosmosQueryFactory = cosmosQueryFactory;
             _retryExceptionPolicyFactory = retryExceptionPolicyFactory;
             _logger = logger;
-            _modelInfoProvider = modelInfoProvider;
             _coreFeatures = coreFeatures.Value;
         }
 
@@ -160,12 +153,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     .WithParameter("@resourceId", key.Id)
                     .WithParameter("@version", key.VersionId);
 
-                var result = await ExecuteDocumentQueryAsync<FhirCosmosResourceWrapper>(
+                (IReadOnlyList<FhirCosmosResourceWrapper> results, _) = await ExecuteDocumentQueryAsync<FhirCosmosResourceWrapper>(
                     sqlQuerySpec,
                     new QueryRequestOptions { PartitionKey = new PartitionKey(key.ToPartitionKey()) },
                     cancellationToken: cancellationToken);
 
-                return result.results.Count == 0 ? null : result.results[0];
+                return results.Count == 0 ? null : results[0];
             }
 
             try
@@ -274,6 +267,18 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
         }
 
+        /// <summary>
+        /// Executes a query. If <see cref="FeedOptions.MaxItemCount"/> is set, iterates through the pages returned by Cosmos DB until the result set
+        /// has at least half that many results. Paging though subsequent pages times out after <see cref="CosmosDataStoreConfiguration.SearchEnumerationTimeoutInSeconds"/>
+        /// or after a 429 response from the DB.
+        /// </summary>
+        /// <typeparam name="T">The result entry type.</typeparam>
+        /// <param name="sqlQuerySpec">The query specification.</param>
+        /// <param name="feedOptions">The feed options.</param>
+        /// <param name="continuationToken">The continuation token from a previous query.</param>
+        /// <param name="mustNotExceedMaxItemCount">If set to true, no more than <see cref="FeedOptions.MaxItemCount"/> entries will be returned. Otherwise, up to 2 * MaxItemCount - 1 items could be returned</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>The results and possible continuation token</returns>
         internal async Task<(IReadOnlyList<T> results, string continuationToken)> ExecuteDocumentQueryAsync<T>(QueryDefinition sqlQuerySpec, QueryRequestOptions feedOptions, string continuationToken = null, bool mustNotExceedMaxItemCount = true, CancellationToken cancellationToken = default)
         {
             EnsureArg.IsNotNull(sqlQuerySpec, nameof(sqlQuerySpec));
@@ -288,7 +293,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 FeedResponse<T> page = await cosmosQuery.ExecuteNextAsync(cancellationToken);
 
-                if (!cosmosQuery.HasMoreResults || !feedOptions.MaxItemCount.HasValue)
+                if (!cosmosQuery.HasMoreResults || !feedOptions.MaxItemCount.HasValue || page.Count == feedOptions.MaxItemCount)
                 {
                     if (page.Count == 0)
                     {
@@ -304,8 +309,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                 // try to obtain at least half of the requested results
 
-                var timeoutTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(_cosmosDataStoreConfiguration.SearchEnumerationTimeoutInSeconds) - (Clock.UtcNow - startTime));
-                var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutTokenSource.Token);
+                using var timeoutTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(_cosmosDataStoreConfiguration.SearchEnumerationTimeoutInSeconds) - (Clock.UtcNow - startTime));
+                using var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutTokenSource.Token);
 
                 var results = new List<T>(totalDesiredCount);
                 results.AddRange(page);
