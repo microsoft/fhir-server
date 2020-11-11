@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         private readonly ISearchIndexer _searchIndexer = Substitute.For<ISearchIndexer>();
         private ISupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager;
         private SearchableSearchParameterDefinitionManager _searchableSearchParameterDefinitionManager;
-        private readonly ISearchParameterRegistry _searchParameterRegistry = Substitute.For<ISearchParameterRegistry>();
+        private readonly ISearchParameterStatusDataStore _searchParameterStatusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
         private readonly IOptions<CoreFeatureConfiguration> coreOptions = Substitute.For<IOptions<CoreFeatureConfiguration>>();
 
         private ReindexJobWorker _reindexJobWorker;
@@ -91,7 +91,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 _searchIndexer,
                 Deserializers.ResourceDeserializer,
                 _supportedSearchParameterDefinitionManager,
-                _searchParameterRegistry);
+                _searchParameterStatusDataStore);
 
             coreOptions.Value.Returns(new CoreFeatureConfiguration());
 

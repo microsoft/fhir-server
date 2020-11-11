@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         private readonly ISearchIndexer _searchIndexer = Substitute.For<ISearchIndexer>();
         private readonly ResourceDeserializer _resourceDeserializer = Deserializers.ResourceDeserializer;
         private readonly ISupportedSearchParameterDefinitionManager _searchParameterDefinitionManager = Substitute.For<ISupportedSearchParameterDefinitionManager>();
-        private readonly ISearchParameterRegistry _searchParameterRegistry = Substitute.For<ISearchParameterRegistry>();
+        private readonly ISearchParameterStatusDataStore _searchParameterStatusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
         private readonly ITestOutputHelper _output;
         private IReadOnlyDictionary<string, string> _searchParameterHashMap;
         private readonly ReindexUtilities _reindexUtilities;
@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _output = output;
             _searchParameterHashMap = new Dictionary<string, string>() { { "Patient", "hash1" } };
             Func<Health.Extensions.DependencyInjection.IScoped<IFhirDataStore>> fhirDataStoreScope = () => _fhirDataStore.CreateMockScope();
-            _reindexUtilities = new ReindexUtilities(fhirDataStoreScope, _searchIndexer, _resourceDeserializer, _searchParameterDefinitionManager, _searchParameterRegistry);
+            _reindexUtilities = new ReindexUtilities(fhirDataStoreScope, _searchIndexer, _resourceDeserializer, _searchParameterDefinitionManager, _searchParameterStatusDataStore);
         }
 
         [Fact]

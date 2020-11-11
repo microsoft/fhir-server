@@ -25,7 +25,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         private readonly IModelInfoProvider _modelInfoProvider;
 
         private IDictionary<string, IDictionary<string, SearchParameterInfo>> _typeLookup;
-        private bool _started;
         private ConcurrentDictionary<string, string> _resourceTypeSearchParameterHashMap;
 
         public SearchParameterDefinitionManager(IModelInfoProvider modelInfoProvider)
@@ -49,22 +48,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public Task StartAsync(CancellationToken cancellationToken)
         {
-            // This method is idempotent because dependent Start methods are not guaranteed to be executed in order.
-            if (!_started)
-            {
-                var builder = new SearchParameterDefinitionBuilder(
-                    _modelInfoProvider,
-                    "search-parameters.json");
+            var builder = new SearchParameterDefinitionBuilder(
+                _modelInfoProvider,
+                "search-parameters.json");
 
-                builder.Build();
+            builder.Build();
 
-                _typeLookup = builder.ResourceTypeDictionary;
-                UrlLookup = builder.UriDictionary;
-
-                List<string> list = UrlLookup.Values.Where(p => p.Type == ValueSets.SearchParamType.Composite).Select(p => string.Join("|", p.Component.Select(c => UrlLookup[c.DefinitionUrl].Type))).Distinct().ToList();
-
-                _started = true;
-            }
+            _typeLookup = builder.ResourceTypeDictionary;
+            UrlLookup = builder.UriDictionary;
 
             return Task.CompletedTask;
         }
