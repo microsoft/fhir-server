@@ -69,10 +69,14 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\ResourceReferenceToReferenceSearchValueTypeConverter.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\SimpleQuantityToQuantitySearchValueTypeConverter.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\UnsignedIntToNumberSearchValueTypeConverter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Parameters\ISearchParameterEditor.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Parameters\ISearchParameterValidator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Parameters\PropertyMappingExtensions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Parameters\SearchParameterEditor.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Parameters\SearchParameterSupportResolver.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Parameters\SearchParameterToTypeResolver.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Parameters\SearchParameterTypeResult.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Parameters\SearchParameterValidator.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Core\Features\Search\RawBundleEntryComponent.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchIndexer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchOptionsFactory.cs" />

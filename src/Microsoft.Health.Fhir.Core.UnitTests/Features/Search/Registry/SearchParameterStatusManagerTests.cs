@@ -11,7 +11,6 @@ using System.Threading.Tasks;
 using MediatR;
 using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Features.Definition;
-using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Messages.Search;
@@ -164,40 +163,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
             await _searchParameterStatusDataStore
                 .DidNotReceive()
                 .UpsertStatuses(Arg.Any<List<ResourceSearchParameterStatus>>());
-        }
-
-        [Fact]
-        public async Task GivenASPStatusManager_WhenInitializing_ThenSearchParametersHashUpdatedNotificationHasExpectedValues()
-        {
-            SearchParametersHashUpdated capturedMessage = null;
-            await _mediator.Publish(Arg.Do<SearchParametersHashUpdated>(x => capturedMessage = x));
-
-            await _manager.EnsureInitialized();
-
-            await _mediator
-                .Received()
-                .Publish(
-                    Arg.Any<SearchParametersHashUpdated>(),
-                    Arg.Any<CancellationToken>());
-
-            Assert.NotNull(capturedMessage);
-            Assert.NotNull(capturedMessage.UpdatedHashMap["Patient"]);
-            Assert.NotNull(capturedMessage.UpdatedHashMap["Resource"]);
-
-            // Calculate expected hashes for Patient and Resource
-            List<ResourceSearchParameterStatus> parametersForHash = new List<ResourceSearchParameterStatus>()
-            {
-                _resourceSearchParameterStatuses[0],
-                _resourceSearchParameterStatuses[1],
-                _resourceSearchParameterStatuses[3],
-            };
-
-            string patientHash = SearchHelperUtilities.CalculateSearchParameterHash(parametersForHash);
-            parametersForHash.RemoveAt(2);
-            string resourceHash = SearchHelperUtilities.CalculateSearchParameterHash(parametersForHash);
-
-            Assert.Equal(patientHash, capturedMessage.UpdatedHashMap["Patient"]);
-            Assert.Equal(resourceHash, capturedMessage.UpdatedHashMap["Resource"]);
         }
     }
 }

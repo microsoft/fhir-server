@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.Model;
@@ -21,24 +22,23 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
     {
         private readonly FhirJsonParser _jsonParser = new FhirJsonParser();
 
-        private readonly SearchParameterDefinitionBuilder _builderWithInvalidEntries;
-        private readonly SearchParameterDefinitionBuilder _builderWithInvalidDefinitions;
-        private readonly SearchParameterDefinitionBuilder _builderWithValidEntries;
+        private readonly string _invalidEntriesFile = "SearchParametersWithInvalidEntries.json";
+        private readonly string _invalidDefinitionsFile = "SearchParametersWithInvalidDefinitions.json";
+        private readonly string _validEntriesFile = "SearchParameters.json";
+        private readonly Dictionary<Uri, SearchParameterInfo> _uriDictionary;
+        private readonly Dictionary<string, IDictionary<string, SearchParameterInfo>> _resourceTypeDictionary;
 
         public SearchParameterDefinitionBuilderTests()
         {
-            _builderWithInvalidEntries = CreateBuilder("SearchParametersWithInvalidEntries");
-            _builderWithInvalidDefinitions = CreateBuilder("SearchParametersWithInvalidDefinitions");
-            _builderWithValidEntries = CreateBuilder("SearchParameters");
+            _uriDictionary = new Dictionary<Uri, SearchParameterInfo>();
+            _resourceTypeDictionary = new Dictionary<string, IDictionary<string, SearchParameterInfo>>();
         }
 
         [Theory]
-        [InlineData("SearchParametersWithInvalidBase", "bundle.entry[http://hl7.org/fhir/SearchParameter/DomainResource-text].resource.base is not defined.")]
+        [InlineData("SearchParametersWithInvalidBase.json", "bundle.entry[http://hl7.org/fhir/SearchParameter/DomainResource-text].resource.base is not defined.")]
         public void GivenAnInvalidSearchParameterDefinitionFile_WhenBuilt_ThenInvalidDefinitionExceptionShouldBeThrown(string fileName, string expectedIssue)
         {
-            var builder = CreateBuilder(fileName);
-
-            BuildAndVerify(builder, expectedIssue);
+            BuildAndVerify(fileName, expectedIssue);
         }
 
         [Theory]
@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         [InlineData("A search parameter with the same definition URL 'http://hl7.org/fhir/SearchParameter/Resource-content' already exists.")]
         public void GivenASearchParameterDefinitionFileWithInvalidEntries_WhenBuilt_ThenInvalidDefinitionExceptionShouldBeThrown(string expectedIssue)
         {
-            BuildAndVerify(_builderWithInvalidEntries, expectedIssue);
+            BuildAndVerify(_invalidEntriesFile, expectedIssue);
         }
 
         [Theory]
@@ -59,39 +59,57 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         [InlineData("bundle.entry[http://hl7.org/fhir/SearchParameter/Observation-related].resource.expression is null or empty.")]
         public void GivenASearchParameterDefinitionFileWithInvalidDefinitions_WhenBuilt_ThenInvalidDefinitionExceptionShouldBeThrown(string expectedIssue)
         {
-            BuildAndVerify(_builderWithInvalidDefinitions, expectedIssue);
+            BuildAndVerify(_invalidDefinitionsFile, expectedIssue);
         }
 
         [Fact]
         public void GivenAValidSearchParameterDefinitionFile_WhenBuilt_ThenUriDictionaryShouldContainAllSearchParameters()
         {
-            _builderWithValidEntries.Build();
+            var bundle = SearchParameterDefinitionBuilder.ReadEmbeddedSearchParameters(
+                _validEntriesFile,
+                ModelInfoProvider.Instance,
+                $"{typeof(Definitions).Namespace}.DefinitionFiles",
+                typeof(EmbeddedResourceManager).Assembly);
 
-            Assert.Equal(6, _builderWithValidEntries.UriDictionary.Count);
+            SearchParameterDefinitionBuilder.Build(bundle, _uriDictionary, _resourceTypeDictionary, ModelInfoProvider.Instance);
 
-            Bundle bundle = Definitions.GetDefinition("SearchParameters");
+            Assert.Equal(6, _uriDictionary.Count);
+
+            Bundle staticBundle = Definitions.GetDefinition("SearchParameters");
 
             Assert.Equal(
-                bundle.Entry.Select(entry => entry.FullUrl),
-                _builderWithValidEntries.UriDictionary.Values.Select(value => value.Url.ToString()));
+                staticBundle.Entry.Select(entry => entry.FullUrl),
+                _uriDictionary.Values.Select(value => value.Url.ToString()));
         }
 
         [Fact]
         public void GivenAValidSearchParameterDefinitionFile_WhenBuilt_ThenAllResourceTypesShouldBeIncluded()
         {
-            _builderWithValidEntries.Build();
+            var bundle = SearchParameterDefinitionBuilder.ReadEmbeddedSearchParameters(
+                _validEntriesFile,
+                ModelInfoProvider.Instance,
+                $"{typeof(Definitions).Namespace}.DefinitionFiles",
+                typeof(EmbeddedResourceManager).Assembly);
+
+            SearchParameterDefinitionBuilder.Build(bundle, _uriDictionary, _resourceTypeDictionary, ModelInfoProvider.Instance);
 
             Assert.Equal(
                 ModelInfoProvider.GetResourceTypeNames().Concat(new[] { "Resource", "DomainResource" }).OrderBy(x => x).ToArray(),
-                _builderWithValidEntries.ResourceTypeDictionary.Select(x => x.Key).OrderBy(x => x).ToArray());
+                _resourceTypeDictionary.Select(x => x.Key).OrderBy(x => x).ToArray());
         }
 
         [Fact]
         public void GivenAValidSearchParameterDefinitionFile_WhenBuilt_ThenCorrectListOfSearchParametersIsBuiltForEntriesWithSingleBase()
         {
-            _builderWithValidEntries.Build();
+            var bundle = SearchParameterDefinitionBuilder.ReadEmbeddedSearchParameters(
+                _validEntriesFile,
+                ModelInfoProvider.Instance,
+                $"{typeof(Definitions).Namespace}.DefinitionFiles",
+                typeof(EmbeddedResourceManager).Assembly);
 
-            IDictionary<string, SearchParameterInfo> searchParametersDictionary = _builderWithValidEntries.ResourceTypeDictionary[ResourceType.Account.ToString()];
+            SearchParameterDefinitionBuilder.Build(bundle, _uriDictionary, _resourceTypeDictionary, ModelInfoProvider.Instance);
+
+            IDictionary<string, SearchParameterInfo> searchParametersDictionary = _resourceTypeDictionary[ResourceType.Account.ToString()];
 
             ValidateSearchParameters(
                 searchParametersDictionary,
@@ -108,9 +126,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         [InlineData(ResourceType.MedicationDispense)]
         public void GivenAValidSearchParameterDefinitionFile_WhenBuilt_ThenCorrectListOfSearchParametersIsBuiltForEntriesWithMultipleBase(ResourceType resourceType)
         {
-            _builderWithValidEntries.Build();
+            var bundle = SearchParameterDefinitionBuilder.ReadEmbeddedSearchParameters(
+                _validEntriesFile,
+                ModelInfoProvider.Instance,
+                $"{typeof(Definitions).Namespace}.DefinitionFiles",
+                typeof(EmbeddedResourceManager).Assembly);
 
-            IDictionary<string, SearchParameterInfo> searchParametersDictionary = _builderWithValidEntries.ResourceTypeDictionary[resourceType.ToString()];
+            SearchParameterDefinitionBuilder.Build(bundle, _uriDictionary, _resourceTypeDictionary, ModelInfoProvider.Instance);
+
+            IDictionary<string, SearchParameterInfo> searchParametersDictionary = _resourceTypeDictionary[resourceType.ToString()];
 
             ValidateSearchParameters(
                 searchParametersDictionary,
@@ -119,18 +143,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
                 ("identifier", SearchParamType.Token, "MedicationRequest.identifier | MedicationAdministration.identifier | Medication.identifier | MedicationDispense.identifier"));
         }
 
-        private SearchParameterDefinitionBuilder CreateBuilder(string fileName)
+        private void BuildAndVerify(string filename, string expectedIssue)
         {
-            return new SearchParameterDefinitionBuilder(
+            var bundle = SearchParameterDefinitionBuilder.ReadEmbeddedSearchParameters(
+                filename,
                 ModelInfoProvider.Instance,
-                $"{fileName}.json",
                 $"{typeof(Definitions).Namespace}.DefinitionFiles",
                 typeof(EmbeddedResourceManager).Assembly);
-        }
 
-        private void BuildAndVerify(SearchParameterDefinitionBuilder builder, string expectedIssue)
-        {
-            InvalidDefinitionException ex = Assert.Throws<InvalidDefinitionException>(() => builder.Build());
+            InvalidDefinitionException ex = Assert.Throws<InvalidDefinitionException>(
+                () => SearchParameterDefinitionBuilder.Build(bundle, _uriDictionary, _resourceTypeDictionary, ModelInfoProvider.Instance));
 
             Assert.Contains(ex.Issues, issue =>
                 issue.Severity == IssueSeverity.Fatal.ToString() &&

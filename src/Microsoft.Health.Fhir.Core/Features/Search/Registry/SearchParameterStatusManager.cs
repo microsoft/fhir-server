@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -44,7 +45,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         public async Task EnsureInitialized()
         {
             var updated = new List<SearchParameterInfo>();
-            var resourceTypeSearchParamStatusMap = new Dictionary<string, List<ResourceSearchParameterStatus>>();
 
             var parameters = (await _searchParameterStatusDataStore.GetSearchParameterStatuses())
                 .ToDictionary(x => x.Uri);
@@ -88,63 +88,43 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
 
                     updated.Add(p);
                 }
-
-                // We need to keep track of supported or partially supported parameters.
-                // These parameters will be used to calculate the search parameter hash below.
-                if (p.IsPartiallySupported || p.IsSupported)
-                {
-                    if (result == null)
-                    {
-                        result = new ResourceSearchParameterStatus()
-                        {
-                            Uri = p.Url,
-                            Status = SearchParameterStatus.Supported,
-                            LastUpdated = Clock.UtcNow,
-                        };
-                    }
-
-                    if (p.TargetResourceTypes != null)
-                    {
-                        foreach (string resourceType in p.TargetResourceTypes)
-                        {
-                            if (resourceTypeSearchParamStatusMap.ContainsKey(resourceType))
-                            {
-                                resourceTypeSearchParamStatusMap[resourceType].Add(result);
-                            }
-                            else
-                            {
-                                resourceTypeSearchParamStatusMap.Add(resourceType, new List<ResourceSearchParameterStatus>() { result });
-                            }
-                        }
-                    }
-
-                    if (p.BaseResourceTypes != null)
-                    {
-                        foreach (string resourceType in p.BaseResourceTypes)
-                        {
-                            if (resourceTypeSearchParamStatusMap.ContainsKey(resourceType))
-                            {
-                                resourceTypeSearchParamStatusMap[resourceType].Add(result);
-                            }
-                            else
-                            {
-                                resourceTypeSearchParamStatusMap.Add(resourceType, new List<ResourceSearchParameterStatus>() { result });
-                            }
-                        }
-                    }
-                }
             }
-
-            var resourceHashMap = new Dictionary<string, string>();
-            foreach (KeyValuePair<string, List<ResourceSearchParameterStatus>> kvp in resourceTypeSearchParamStatusMap)
-            {
-                string searchParamHash = SearchHelperUtilities.CalculateSearchParameterHash(kvp.Value);
-                resourceHashMap.Add(kvp.Key, searchParamHash);
-            }
-
-            await _mediator.Publish(new SearchParametersHashUpdated(resourceHashMap));
 
             await _mediator.Publish(new SearchParametersUpdated(updated));
+        }
+
+        public async Task UpdateSearchParameterStatus(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status)
+        {
+            var searchParameterStatusList = new List<ResourceSearchParameterStatus>();
+            var updated = new List<SearchParameterInfo>();
+
+            foreach (string uri in searchParameterUris)
+            {
+                var searchParamUri = new Uri(uri);
+
+                var paramInfo = _searchParameterDefinitionManager.GetSearchParameter(searchParamUri);
+                updated.Add(paramInfo);
+                paramInfo.IsSearchable = status == SearchParameterStatus.Enabled;
+                paramInfo.IsSupported = status != SearchParameterStatus.Disabled;
+
+                searchParameterStatusList.Add(new ResourceSearchParameterStatus()
+                {
+                    LastUpdated = Clock.UtcNow,
+                    Status = status,
+                    Uri = searchParamUri,
+                });
+            }
+
+            await _searchParameterRegistry.UpdateStatuses(searchParameterStatusList);
+
+            await _mediator.Publish(new SearchParametersUpdated(updated));
+        }
+
+        public async Task AddSearchParameterStatus(string searchParamUri)
+        {
+            // new search parameters are added as supported, until reindexing occurs, when
+            // they will be fully enabled
+            await UpdateSearchParameterStatus(new List<string>() { searchParamUri }, SearchParameterStatus.Supported);
         }
     }
 }

@@ -8,30 +8,45 @@ using System.Linq;
 using System.Text;
 using EnsureThat;
 using Microsoft.Health.Core.Extensions;
-using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
 {
     public static class SearchHelperUtilities
     {
         /// <summary>
-        /// Given a list of <see cref="ResourceSearchParameterStatus"/> calculates a hash using the
-        /// <see cref="ResourceSearchParameterStatus.Uri"/> and <see cref="ResourceSearchParameterStatus.LastUpdated"/>
-        /// values of each component. The same collection of search parameter status (irrespective of their order in the input)
+        /// Given a list of <see cref="SearchParameterInfo"/> calculates a hash using the
+        /// <see cref="SearchParameterInfo.Url"/>, <see cref="SearchParameterInfo.Type"/>,
+        /// <see cref="SearchParameterInfo.Expression"/>, <see cref="SearchParameterInfo.TargetResourceTypes"/>, and
+        /// <see cref="SearchParameterInfo.BaseResourceTypes"/>,
+        /// values of each component. The same collection of search parameter infos (irrespective of their order in the input)
         /// will return the same hash.
         /// </summary>
-        /// <param name="resourceSearchParameterStatus">A list of <see cref="ResourceSearchParameterStatus" /></param>
+        /// <param name="searchParamaterInfos">A list of <see cref="SearchParameterInfo" /></param>
         /// <returns>A hash based on the search parameter uri and last updated value.</returns>
-        public static string CalculateSearchParameterHash(IEnumerable<ResourceSearchParameterStatus> resourceSearchParameterStatus)
+        public static string CalculateSearchParameterHash(IEnumerable<SearchParameterInfo> searchParamaterInfos)
         {
-            EnsureArg.IsNotNull(resourceSearchParameterStatus, nameof(resourceSearchParameterStatus));
-            EnsureArg.IsGt(resourceSearchParameterStatus.Count(), 0, nameof(resourceSearchParameterStatus));
+            EnsureArg.IsNotNull(searchParamaterInfos, nameof(searchParamaterInfos));
+            EnsureArg.IsGt(searchParamaterInfos.Count(), 0, nameof(searchParamaterInfos));
 
             StringBuilder sb = new StringBuilder();
-            foreach (ResourceSearchParameterStatus searchParameterStatus in resourceSearchParameterStatus.OrderBy(x => x.Uri.ToString()))
+            foreach (SearchParameterInfo searchParamInfo in searchParamaterInfos.OrderBy(x => x.Url.ToString()))
             {
-                sb.Append(searchParameterStatus.Uri.ToString());
-                sb.Append(searchParameterStatus.LastUpdated.ToString());
+                sb.Append(searchParamInfo.Url.ToString());
+                sb.Append(searchParamInfo.Type.ToString());
+                sb.Append(searchParamInfo.Expression);
+
+                if (searchParamInfo.TargetResourceTypes != null &&
+                    searchParamInfo.TargetResourceTypes.Any())
+                {
+                    sb.Append(string.Join(null, searchParamInfo.TargetResourceTypes.OrderBy(s => s)));
+                }
+
+                if (searchParamInfo.BaseResourceTypes != null &&
+                    searchParamInfo.BaseResourceTypes.Any())
+                {
+                    sb.Append(string.Join(null, searchParamInfo.BaseResourceTypes.OrderBy(s => s)));
+                }
             }
 
             string hash = sb.ToString().ComputeHash();
