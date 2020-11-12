@@ -52,8 +52,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             {
                 Name = "test",
                 Format = ExportFormatTags.ResourceName,
-                ContainerDefault = true,
-                NoContainerDefault = true,
             });
 
             IOptions<ExportJobConfiguration> optionsExportConfig = Substitute.For<IOptions<ExportJobConfiguration>>();
@@ -183,10 +181,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
         }
 
         [Theory]
-        [InlineData("test1", false, ExportFormatTags.ResourceName)]
-        [InlineData(null, false, ExportFormatTags.Timestamp)]
-        [InlineData(null, true, ExportFormatTags.Id)]
-        public async Task GivenARequestWithDifferentFormatNames_WhenConverted_ThenTheProperFormatStringIsReturned(string formatName, bool containerSpecified, string expectedFormat)
+        [InlineData("test1", ExportFormatTags.ResourceName)]
+        [InlineData(null, ExportFormatTags.Timestamp)]
+        public async Task GivenARequestWithDifferentFormatNames_WhenConverted_ThenTheProperFormatStringIsReturned(string formatName, string expectedFormat)
         {
             _exportJobConfiguration.ExportJobFormats.Clear();
             _exportJobConfiguration.ExportJobFormats.Add(new ExportJobFormatConfiguration()
@@ -198,13 +195,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             {
                 Name = "test2",
                 Format = ExportFormatTags.Id,
-                ContainerDefault = true,
+                Default = true,
             });
             _exportJobConfiguration.ExportJobFormats.Add(new ExportJobFormatConfiguration()
             {
                 Name = "test3",
                 Format = ExportFormatTags.Timestamp,
-                NoContainerDefault = true,
             });
 
             ExportJobRecord actualRecord = null;
@@ -214,42 +210,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                 actualRecord = record;
             }), Arg.Any<CancellationToken>());
 
-            var request = new CreateExportRequest(RequestUrl, ExportJobType.All, containerName: containerSpecified ? "test" : null, formatName: formatName);
+            var request = new CreateExportRequest(RequestUrl, ExportJobType.All, null, formatName: formatName);
             CreateExportResponse response = await _createExportRequestHandler.Handle(request, _cancellationToken);
 
             Assert.Equal(expectedFormat, actualRecord.ExportFormat);
         }
 
-        [Fact]
-        public async Task GivenARequest_WhenNoDefaultFormatsAreSet_ThenTheFirstFormatIsReturned()
-        {
-            _exportJobConfiguration.ExportJobFormats.Clear();
-            _exportJobConfiguration.ExportJobFormats.Add(new ExportJobFormatConfiguration()
-            {
-                Name = "test1",
-                Format = ExportFormatTags.Id,
-            });
-            _exportJobConfiguration.ExportJobFormats.Add(new ExportJobFormatConfiguration()
-            {
-                Name = "test2",
-                Format = ExportFormatTags.Timestamp,
-            });
-
-            ExportJobRecord actualRecord = null;
-            await _fhirOperationDataStore.CreateExportJobAsync(
-                Arg.Do<ExportJobRecord>(record =>
-                {
-                    actualRecord = record;
-                }), Arg.Any<CancellationToken>());
-
-            var request = new CreateExportRequest(RequestUrl, ExportJobType.All);
-            CreateExportResponse response = await _createExportRequestHandler.Handle(request, _cancellationToken);
-
-            Assert.Equal(ExportFormatTags.Id, actualRecord.ExportFormat);
-        }
-
-        [Fact]
-        public async Task GivenARequest_WhenNoFormatsAreSet_ThenHardcodedDefaultIsReturned()
+        [Theory]
+        [InlineData(false, ExportFormatTags.ResourceName)]
+        [InlineData(true, ExportFormatTags.Timestamp + "-" + ExportFormatTags.Id + "/" + ExportFormatTags.ResourceName)]
+        public async Task GivenARequest_WhenNoFormatsAreSet_ThenHardcodedDefaultIsReturned(bool containerSpecified, string expectedFormat)
         {
             _exportJobConfiguration.ExportJobFormats.Clear();
 
@@ -260,10 +230,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                     actualRecord = record;
                 }), Arg.Any<CancellationToken>());
 
-            var request = new CreateExportRequest(RequestUrl, ExportJobType.All);
+            var request = new CreateExportRequest(RequestUrl, ExportJobType.All, containerName: containerSpecified ? "test" : null);
             CreateExportResponse response = await _createExportRequestHandler.Handle(request, _cancellationToken);
 
-            Assert.Equal(ExportFormatTags.ResourceName, actualRecord.ExportFormat);
+            Assert.Equal(expectedFormat, actualRecord.ExportFormat);
         }
 
         [Fact]

@@ -91,13 +91,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
 
             formatConfiguration ??= _exportJobConfiguration.ExportJobFormats.FirstOrDefault(
-                (ExportJobFormatConfiguration formatConfig) => request.ContainerName != null ? formatConfig.ContainerDefault : formatConfig.NoContainerDefault);
-
-            formatConfiguration ??= _exportJobConfiguration.ExportJobFormats.FirstOrDefault();
+                (ExportJobFormatConfiguration formatConfig) => formatConfig.Default);
 
             formatConfiguration ??= new ExportJobFormatConfiguration()
             {
-                Format = ExportFormatTags.ResourceName,
+                Format = request.ContainerName == null ? ExportFormatTags.ResourceName : $"{ExportFormatTags.Timestamp}-{ExportFormatTags.Id}/{ExportFormatTags.ResourceName}",
             };
 
             if (outcome == null)

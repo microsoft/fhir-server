@@ -23,13 +23,8 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public string Format { get; set; }
 
         /// <summary>
-        /// Whether the format is the default format for when no container is specified by the user.
+        /// Whether the format is the default format for when no format is specified by the user.
         /// </summary>
-        public bool NoContainerDefault { get; set; } = false;
-
-        /// <summary>
-        /// Whether the format is the default format for when a container is specified by the user.
-        /// </summary>
-        public bool ContainerDefault { get; set; } = false;
+        public bool Default { get; set; }
     }
 }
