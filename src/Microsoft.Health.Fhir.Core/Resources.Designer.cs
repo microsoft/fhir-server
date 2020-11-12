@@ -278,6 +278,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The format &apos;{0}&apos; could not be found..
+        /// </summary>
+        internal static string ExportFormatNotFound {
+            get {
+                return ResourceManager.GetString("ExportFormatNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Authorization failed..
         /// </summary>
         internal static string Forbidden {

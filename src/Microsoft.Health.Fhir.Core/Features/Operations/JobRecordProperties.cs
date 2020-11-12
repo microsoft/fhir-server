@@ -100,5 +100,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public const string StorageAccountContainerName = "storageAccountContainerName";
 
         public const string ResourceTypeSearchParameterHashMap = "resourceTypeSearchParameterHashMap";
+
+        public const string ExportFormat = "exportFormat";
     }
 }
