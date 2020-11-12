@@ -234,7 +234,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                         break;
                     }
-                    catch (RequestRateExceededException)
+                    catch (CosmosException ex) when (ex.InnerException is RequestRateExceededException)
                     {
                         await Task.Delay(TimeSpan.FromSeconds(1));
                     }

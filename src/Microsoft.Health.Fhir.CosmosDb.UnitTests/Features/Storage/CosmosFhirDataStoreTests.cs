@@ -6,6 +6,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -68,7 +70,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
 
             FeedResponse<int> response = CreateFeedResponse(0, 2, "token");
 
-            cosmosQuery.ExecuteNextAsync().ReturnsForAnyArgs(ci => response, ci => throw new RequestRateExceededException(null));
+            cosmosQuery.ExecuteNextAsync().ReturnsForAnyArgs(ci => response, ci => throw CreateCosmosException(new RequestRateExceededException(null)));
             cosmosQuery.HasMoreResults.Returns(true);
 
             (IReadOnlyList<int> results, string continuationToken) = await _dataStore.ExecuteDocumentQueryAsync<int>(
@@ -198,6 +200,23 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             feedResponse.GetEnumerator().Returns(Enumerable.Range(start, count).GetEnumerator());
             feedResponse.ContinuationToken.Returns(continuationToken);
             return feedResponse;
+        }
+
+        private CosmosException CreateCosmosException(Exception innerException)
+        {
+            var cosmosException = (CosmosException)RuntimeHelpers.GetUninitializedObject(typeof(CosmosException));
+
+            var sampleException = new Exception(null, innerException);
+            foreach (FieldInfo fieldInfo in typeof(Exception).GetFields(BindingFlags.Instance | BindingFlags.NonPublic))
+            {
+                if (typeof(Exception).IsAssignableFrom(fieldInfo.FieldType) &&
+                    fieldInfo.GetValue(sampleException) == innerException)
+                {
+                    fieldInfo.SetValue(cosmosException, innerException);
+                }
+            }
+
+            return cosmosException;
         }
     }
 }

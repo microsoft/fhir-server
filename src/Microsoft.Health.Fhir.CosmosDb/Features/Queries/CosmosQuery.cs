@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -100,12 +99,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
                     null,
                     0,
                     fhirException ?? ex);
-
-                if (fhirException != null)
-                {
-                    // rethrow the original exception
-                    ExceptionDispatchInfo.Throw(fhirException);
-                }
 
                 throw;
             }

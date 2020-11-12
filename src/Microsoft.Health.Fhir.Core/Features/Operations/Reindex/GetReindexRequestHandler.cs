@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 throw;
             }
-            catch (RequestRateExceededException)
+            catch (Exception ex) when (ex.InnerException is RequestRateExceededException)
             {
                 throw;
             }

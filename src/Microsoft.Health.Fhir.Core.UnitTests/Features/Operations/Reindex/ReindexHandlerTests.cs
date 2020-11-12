@@ -87,11 +87,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             var jobRecord = new ReindexJobRecord(_resourceTypeSearchParameterHashMap, 1);
             var jobWrapper = new ReindexJobWrapper(jobRecord, WeakETag.FromVersionId("id"));
-            _fhirOperationDataStore.GetReindexJobByIdAsync("id", CancellationToken.None).Throws(new RequestRateExceededException(TimeSpan.FromMilliseconds(100)));
+            _fhirOperationDataStore.GetReindexJobByIdAsync("id", CancellationToken.None).Throws(new Exception(null, new RequestRateExceededException(TimeSpan.FromMilliseconds(100))));
 
             var handler = new GetReindexRequestHandler(_fhirOperationDataStore, DisabledFhirAuthorizationService.Instance);
 
-            await Assert.ThrowsAsync<RequestRateExceededException>(() => handler.Handle(request, CancellationToken.None));
+            Exception thrownException = await Assert.ThrowsAsync<Exception>(() => handler.Handle(request, CancellationToken.None));
+            Assert.IsType<RequestRateExceededException>(thrownException.InnerException);
         }
 
         [Fact]

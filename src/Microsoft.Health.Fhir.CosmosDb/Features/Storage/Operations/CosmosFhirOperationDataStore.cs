@@ -16,6 +16,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
@@ -101,9 +102,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             }
             catch (CosmosException dce)
             {
-                if (dce.StatusCode == HttpStatusCode.TooManyRequests)
+                if (dce.InnerException is RequestRateExceededException)
                 {
-                    throw new RequestRateExceededException(dce.RetryAfter);
+                    throw;
                 }
 
                 _logger.LogError(dce, "Failed to create an export job.");
@@ -128,11 +129,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             }
             catch (CosmosException dce)
             {
-                if (dce.StatusCode == HttpStatusCode.TooManyRequests)
+                if (dce.InnerException is RequestRateExceededException)
                 {
-                    throw new RequestRateExceededException(dce.RetryAfter);
+                    throw;
                 }
-                else if (dce.StatusCode == HttpStatusCode.NotFound)
+
+                if (dce.StatusCode == HttpStatusCode.NotFound)
                 {
                     throw new JobNotFoundException(string.Format(Core.Resources.JobNotFound, id));
                 }
@@ -169,9 +171,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             }
             catch (CosmosException dce)
             {
-                if (dce.StatusCode == HttpStatusCode.TooManyRequests)
+                if (dce.InnerException is RequestRateExceededException)
                 {
-                    throw new RequestRateExceededException(dce.RetryAfter);
+                    throw;
                 }
 
                 _logger.LogError(dce, "Failed to get an export job by hash.");
@@ -207,9 +209,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             }
             catch (CosmosException dce)
             {
-                if (dce.StatusCode == HttpStatusCode.TooManyRequests)
+                if (dce.InnerException is RequestRateExceededException)
                 {
-                    throw new RequestRateExceededException(dce.RetryAfter);
+                    throw;
                 }
                 else if (dce.StatusCode == HttpStatusCode.PreconditionFailed)
                 {
@@ -244,9 +246,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             }
             catch (CosmosException dce)
             {
-                if (dce.GetSubStatusCode() == HttpStatusCode.RequestEntityTooLarge)
+                if (dce.InnerException is RequestEntityTooLargeException)
                 {
-                    throw new RequestRateExceededException(null);
+                    throw;
                 }
 
                 _logger.LogError(dce, "Failed to acquire export jobs.");
@@ -271,9 +273,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             }
             catch (CosmosException dce)
             {
-                if (dce.StatusCode == HttpStatusCode.TooManyRequests)
+                if (dce.InnerException is RequestRateExceededException)
                 {
-                    throw new RequestRateExceededException(dce.RetryAfter);
+                    throw;
                 }
 
                 _logger.LogError(dce, "Failed to create a reindex job.");
@@ -297,9 +299,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             }
             catch (CosmosException dce)
             {
-                if (dce.GetSubStatusCode() == HttpStatusCode.RequestEntityTooLarge)
+                if (dce.InnerException is RequestEntityTooLargeException)
                 {
-                    throw new RequestRateExceededException(null);
+                    throw;
                 }
 
                 _logger.LogError(dce, "Failed to acquire reindex jobs.");
@@ -328,9 +330,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             }
             catch (CosmosException dce)
             {
-                if (dce.StatusCode == HttpStatusCode.TooManyRequests)
+                if (dce.InnerException is RequestRateExceededException)
                 {
-                    throw new RequestRateExceededException(dce.RetryAfter);
+                    throw;
                 }
 
                 _logger.LogError(dce, "Failed to check if any reindex jobs are active.");
@@ -357,9 +359,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             }
             catch (CosmosException dce)
             {
-                if (dce.StatusCode == HttpStatusCode.TooManyRequests)
+                if (dce.InnerException is RequestRateExceededException)
                 {
-                    throw new RequestRateExceededException(dce.RetryAfter);
+                    throw;
                 }
                 else if (dce.StatusCode == HttpStatusCode.NotFound)
                 {
@@ -399,9 +401,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             }
             catch (CosmosException dce)
             {
-                if (dce.StatusCode == HttpStatusCode.TooManyRequests)
+                if (dce.InnerException is RequestRateExceededException)
                 {
-                    throw new RequestRateExceededException(dce.RetryAfter);
+                    throw;
                 }
                 else if (dce.StatusCode == HttpStatusCode.PreconditionFailed)
                 {

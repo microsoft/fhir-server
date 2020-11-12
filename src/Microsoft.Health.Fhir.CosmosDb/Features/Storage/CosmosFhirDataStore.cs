@@ -191,9 +191,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (CosmosException exception)
             {
-                if (exception.GetSubStatusCode() == HttpStatusCode.RequestEntityTooLarge)
+                if (exception.InnerException is RequestEntityTooLargeException)
                 {
-                    throw new RequestRateExceededException(exception.RetryAfter);
+                    throw;
                 }
 
                 _logger.LogError(exception, "Unhandled Document Client Exception");
@@ -340,7 +340,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                             results.AddRange(page);
                         }
                     }
-                    catch (RequestRateExceededException)
+                    catch (CosmosException e) when (e.InnerException is RequestRateExceededException)
                     {
                         // return whatever we have when we get a 429
                         break;
