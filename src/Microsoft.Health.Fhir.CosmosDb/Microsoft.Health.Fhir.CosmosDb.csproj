@@ -12,7 +12,7 @@
   <ItemGroup>
     <PackageReference Include="MediatR.Extensions.Microsoft.DependencyInjection" Version="8.1.0" />
     <PackageReference Include="Microsoft.Azure.Cosmos" Version="3.12.0" />
-    <PackageReference Include="Microsoft.Azure.Cosmos.Direct" Version="3.4.1.0" /> <!-- Workaround for https://github.com/dotnet/roslyn/issues/47304 when building in VS-->
+    <PackageReference Include="Microsoft.Azure.Cosmos.Direct" Version="3.14.2" /> <!-- Workaround for https://github.com/dotnet/roslyn/issues/47304 when building in VS-->
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="3.1.9" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="3.1.9" />
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="3.1.9" />
