@@ -115,7 +115,7 @@ function upsertWithHistory(doc, matchVersionId, allowCreate, keepHistory) {
 
                 if (keepHistory) {
                     // Convert the current primary record to a 'history' record
-                    let historyDocument = convertToHistoryRecord(document);
+                    let historyDocument = convertToHistoryRecord(document, doc.lastModified);
 
                     // Insert the history object
                     let isHistoryAccepted = collection.createDocument(collectionLink, historyDocument, { disableAutomaticIdGeneration: true },
@@ -159,7 +159,7 @@ function upsertWithHistory(doc, matchVersionId, allowCreate, keepHistory) {
         }
     }
 
-    function convertToHistoryRecord(theDoc) {
+    function convertToHistoryRecord(theDoc, docLastUpdated) {
         // Converts to specified document to a history record
 
         if (!theDoc.version) {
@@ -168,6 +168,7 @@ function upsertWithHistory(doc, matchVersionId, allowCreate, keepHistory) {
 
         theDoc.isHistory = true;
         theDoc.id = `${theDoc.resourceId}_${theDoc.version}`;
+        theDoc.activePeriodEndDateTime = docLastUpdated;
 
         return theDoc;
     }

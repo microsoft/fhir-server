@@ -79,43 +79,38 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             // Create the bundle from the result.
             var bundle = new Bundle();
 
-            if (result != null)
+            if (_fhirRequestContextAccessor.FhirRequestContext.BundleIssues.Any())
             {
-                IEnumerable<Bundle.EntryComponent> entries = result.Results.Select(selectionFunction);
-
-                bundle.Entry.AddRange(entries);
-
-                if (result.ContinuationToken != null)
+                var operationOutcome = new OperationOutcome
                 {
-                    bundle.NextLink = _urlResolver.ResolveRouteUrl(
-                        result.UnsupportedSearchParameters,
-                        result.UnsupportedSortingParameters,
-                        Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(result.ContinuationToken)),
-                        true);
-                }
+                    Issue = new List<OperationOutcome.IssueComponent>(_fhirRequestContextAccessor.FhirRequestContext.BundleIssues.Select(x => x.ToPoco())),
+                };
 
-                if (result.Partial)
+                bundle.Entry.Add(new Bundle.EntryComponent
                 {
-                    // if the query resulted in a partial indication, add appropriate outcome
-                    // as an entry
-                    var resource = new OperationOutcome();
-                    resource.Issue = new List<OperationOutcome.IssueComponent>();
-                    resource.Issue.Add(new OperationOutcome.IssueComponent
+                    Resource = operationOutcome,
+                    Search = new Bundle.SearchComponent
                     {
-                        Severity = OperationOutcome.IssueSeverity.Warning,
-                        Code = OperationOutcome.IssueType.Incomplete,
-                        Diagnostics = Core.Resources.TruncatedIncludeMessage,
-                    });
+                        Mode = Bundle.SearchEntryMode.Outcome,
+                    },
+                });
+            }
 
-                    bundle.Entry.Add(new Bundle.EntryComponent()
-                    {
-                        Resource = resource,
-                    });
-                }
+            IEnumerable<Bundle.EntryComponent> entries = result.Results.Select(selectionFunction);
+
+            bundle.Entry.AddRange(entries);
+
+            if (result.ContinuationToken != null)
+            {
+                bundle.NextLink = _urlResolver.ResolveRouteUrl(
+                    result.UnsupportedSearchParameters,
+                    result.SortOrder,
+                    Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(result.ContinuationToken)),
+                    true);
             }
 
             // Add the self link to indicate which search parameters were used.
-            bundle.SelfLink = _urlResolver.ResolveRouteUrl(result.UnsupportedSearchParameters, result.UnsupportedSortingParameters);
+            bundle.SelfLink = _urlResolver.ResolveRouteUrl(result.UnsupportedSearchParameters, result.SortOrder);
 
             bundle.Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId;
             bundle.Type = type;

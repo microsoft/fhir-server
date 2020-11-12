@@ -18,6 +18,7 @@ using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
 {
@@ -69,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
 
             resource.VersionId = result.Wrapper.Version;
 
-            return new UpsertResourceResponse(new SaveOutcome(resource.ToResourceElement(), SaveOutcomeType.Created));
+            return new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(result.Wrapper), SaveOutcomeType.Created));
         }
     }
 }

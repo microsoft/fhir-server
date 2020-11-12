@@ -141,6 +141,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Metric
                     result.Headers.TryGetValues(CosmosDbHeaders.RequestCharge, out IEnumerable<string> values);
 
                     Assert.NotNull(values);
+
                     Assert.Equal(expectedNotification.count, values.Count());
 
                     foreach (var notification in _metricHandler.NotificationMapping[expectedNotification.type])

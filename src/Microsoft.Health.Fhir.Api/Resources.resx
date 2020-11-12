@@ -287,7 +287,7 @@
     <comment>{0} is the number of entries allowed.</comment>
   </data>
   <data name="ParsingError" xml:space="preserve">
-    <value>Error occurred when parsing model.</value>
+    <value>Error occurred when parsing model: '{0}'.</value>
   </data>
   <data name="ValidationForUpdateAndDeleteNotSupported" xml:space="preserve">
     <value>Resources can not be validated for update or delete at the default endpoint. An id must be provided in the URL.</value>
@@ -322,5 +322,8 @@
   </data>
   <data name="ContainerIsRequiredForAnonymizedExport" xml:space="preserve">
     <value>Missing '_container' for anonymized export</value>
+  </data>
+  <data name="ContentTypeFormUrlEncodedExpected" xml:space="preserve">
+    <value>The "content-type" header must be 'application/x-www-form-urlencoded'.</value>
   </data>
 </root>

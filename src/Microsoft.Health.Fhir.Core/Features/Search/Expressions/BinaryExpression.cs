@@ -64,6 +64,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                         return $"'{Value}'";
                     case DateTime dt:
                         return dt.ToString("O");
+                    case DateTimeOffset dto:
+                        return dto.ToString("O");
                     case IFormattable f:
                         return f.ToString(null, CultureInfo.InvariantCulture);
                     default:

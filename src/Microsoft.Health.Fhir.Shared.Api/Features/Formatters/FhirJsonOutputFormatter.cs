@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                 var bundle = context.Object as Hl7.Fhir.Model.Bundle;
                 resource = bundle;
 
-                if (elementsSearchParameter != null && elementsSearchParameter.Any())
+                if (elementsSearchParameter?.Any() == true || !bundle.Entry.All(x => x is RawBundleEntryComponent))
                 {
                     // _elements is not supported for a raw resource, revert to using FhirJsonSerializer
                     foreach (var rawBundleEntryComponent in bundle.Entry)
@@ -96,7 +96,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
                         }
                     }
                 }
-                else if (bundle.Entry.All(x => x is RawBundleEntryComponent))
+                else
                 {
                     await _bundleSerializer.Serialize(context.Object as Hl7.Fhir.Model.Bundle, context.HttpContext.Response.Body);
                     return;

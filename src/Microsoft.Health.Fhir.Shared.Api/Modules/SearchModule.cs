@@ -5,6 +5,7 @@
 
 using EnsureThat;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.Routing;
@@ -48,7 +49,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .Singleton()
                 .AsSelf()
                 .AsService<ISearchParameterDefinitionManager>()
-                .AsService<IStartable>();
+                .AsService<IHostedService>();
 
             services.Add<SearchableSearchParameterDefinitionManager>()
                 .Singleton()
@@ -65,11 +66,11 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            services.Add<FilebasedSearchParameterRegistry>()
+            services.Add<FilebasedSearchParameterStatusDataStore>()
                 .Transient()
                 .AsSelf()
-                .AsService<ISearchParameterRegistry>()
-                .AsDelegate<FilebasedSearchParameterRegistry.Resolver>();
+                .AsService<ISearchParameterStatusDataStore>()
+                .AsDelegate<FilebasedSearchParameterStatusDataStore.Resolver>();
 
             services.Add<SearchParameterSupportResolver>()
                 .Singleton()
@@ -121,7 +122,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.Add<CompartmentDefinitionManager>()
                 .Singleton()
                 .AsSelf()
-                .AsService<IStartable>()
+                .AsService<IHostedService>()
                 .AsService<ICompartmentDefinitionManager>();
 
             services.Add<CompartmentIndexer>()

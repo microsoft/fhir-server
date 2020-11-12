@@ -147,7 +147,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.Create)]
         public async Task<IActionResult> Create([FromBody] Resource resource)
         {
-            ResourceElement response = await _mediator.CreateResourceAsync(resource.ToResourceElement(), HttpContext.RequestAborted);
+            RawResourceElement response = await _mediator.CreateResourceAsync(resource.ToResourceElement(), HttpContext.RequestAborted);
 
             return FhirResult.Create(response, HttpStatusCode.Created)
                 .SetETagHeader()
@@ -177,7 +177,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 return Ok();
             }
 
-            ResourceElement response = createResponse.Outcome.Resource;
+            RawResourceElement response = createResponse.Outcome.RawResourceElement;
 
             return FhirResult.Create(response, HttpStatusCode.Created)
                 .SetETagHeader()
@@ -226,17 +226,17 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             switch (saveOutcome.Outcome)
             {
                 case SaveOutcomeType.Created:
-                    return FhirResult.Create(saveOutcome.Resource, HttpStatusCode.Created)
+                    return FhirResult.Create(saveOutcome.RawResourceElement, HttpStatusCode.Created)
                         .SetETagHeader()
                         .SetLastModifiedHeader()
                         .SetLocationHeader(_urlResolver);
                 case SaveOutcomeType.Updated:
-                    return FhirResult.Create(saveOutcome.Resource, HttpStatusCode.OK)
+                    return FhirResult.Create(saveOutcome.RawResourceElement, HttpStatusCode.OK)
                         .SetETagHeader()
                         .SetLastModifiedHeader();
             }
 
-            return FhirResult.Create(saveOutcome.Resource, HttpStatusCode.BadRequest);
+            return FhirResult.Create(saveOutcome.RawResourceElement, HttpStatusCode.BadRequest);
         }
 
         /// <summary>
@@ -394,17 +394,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// <summary>
         /// Searches for resources.
         /// </summary>
-        [HttpPost]
-        [Route(KnownRoutes.Search, Name = RouteNames.SearchAllResourcesPost)]
-        [AuditEventType(AuditEventSubType.SearchSystem)]
-        public async Task<IActionResult> SearchPost()
-        {
-            return await SearchByResourceTypePost(typeParameter: null);
-        }
-
-        /// <summary>
-        /// Searches for resources.
-        /// </summary>
         /// <param name="typeParameter">The resource type.</param>
         [HttpGet]
         [Route(KnownRoutes.ResourceType, Name = RouteNames.SearchResources)]
@@ -425,37 +414,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }
 
             return queries;
-        }
-
-        /// <summary>
-        /// Searches for resources.
-        /// </summary>
-        /// <param name="typeParameter">The resource type.</param>
-        [HttpPost]
-        [Route(KnownRoutes.ResourceTypeSearch, Name = RouteNames.SearchResourcesPost)]
-        [AuditEventType(AuditEventSubType.SearchType)]
-        public async Task<IActionResult> SearchByResourceTypePost(string typeParameter)
-        {
-            var queries = new List<Tuple<string, string>>();
-
-            AddItemsIfNotNull(Request.Query);
-
-            if (Request.HasFormContentType)
-            {
-                AddItemsIfNotNull(Request.Form);
-            }
-
-            // TODO: In the case of POST, the server cannot use SelfLink to let client know which search parameter is not supported.
-            // Therefore, it should throw an exception if an unsupported search parameter is encountered.
-            return await PerformSearch(typeParameter, queries);
-
-            void AddItemsIfNotNull(IEnumerable<KeyValuePair<string, StringValues>> source)
-            {
-                if (source != null)
-                {
-                    queries.AddRange(source.SelectMany(query => query.Value, (query, value) => Tuple.Create(query.Key, value)));
-                }
-            }
         }
 
         /// <summary>

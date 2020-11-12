@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
+using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Security;
@@ -62,6 +63,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 ReindexJobWrapper reindexJob = await _fhirOperationDataStore.GetReindexJobByIdAsync(jobId, cancellationToken);
                 return new GetReindexResponse(HttpStatusCode.OK, reindexJob);
+            }
+            catch (JobNotFoundException)
+            {
+                throw;
+            }
+            catch (RequestRateExceededException)
+            {
+                throw;
             }
             catch (Exception ex)
             {

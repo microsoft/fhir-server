@@ -9,6 +9,7 @@ using System.Linq;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -70,7 +71,7 @@ namespace Microsoft.Extensions.DependencyInjection
             services.Add<CosmosContainerProvider>()
                 .Singleton()
                 .AsSelf()
-                .AsService<IStartable>() // so that it starts initializing ASAP
+                .AsService<IHostedService>() // so that it starts initializing ASAP
                 .AsService<IRequireInitializationOnFirstRequest>(); // so that web requests block on its initialization.
 
             services.Add<CosmosClientReadWriteTestProvider>()
@@ -160,7 +161,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Transient()
                 .AsService<ICollectionUpdater>();
 
-            services.Add<CosmosDbStatusRegistryInitializer>()
+            services.Add<CosmosDbSearchParameterStatusInitializer>()
                 .Transient()
                 .AsService<ICollectionUpdater>();
 
@@ -184,10 +185,10 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            services.Add<CosmosDbStatusRegistry>()
+            services.Add<CosmosDbSearchParameterStatusDataStore>()
                 .Singleton()
                 .AsSelf()
-                .ReplaceService<ISearchParameterRegistry>();
+                .ReplaceService<ISearchParameterStatusDataStore>();
 
             // Each CosmosClient needs new instances of a RequestHandler
             services.TypesInSameAssemblyAs<FhirCosmosClientInitializer>()
@@ -209,6 +210,10 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsImplementedInterfaces();
 
             fhirServerBuilder.Services.AddSingleton<IQueryBuilder, QueryBuilder>();
+
+            fhirServerBuilder.Services.Add<CosmosDbSortingValidator>()
+                .Singleton()
+                .AsImplementedInterfaces();
 
             return fhirServerBuilder;
         }

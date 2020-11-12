@@ -5,6 +5,7 @@
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Prometheus.SystemMetrics;
@@ -25,7 +26,7 @@ namespace Microsoft.Health.Fhir.Web
             {
                 services.Add<PrometheusMetricsServer>()
                     .Singleton()
-                    .AsService<IStartable>();
+                    .AsService<IHostedService>();
 
                 if (prometheusConfig.SystemMetrics)
                 {

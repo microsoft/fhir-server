@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
         public CrucibleDataSource(DataStore dataStore)
         {
             _dataStore = dataStore;
-            TestRun = new Lazy<ServerTestRun>(() => GetTestRunAsync().GetAwaiter().GetResult());
+            TestRun = new Lazy<Task>(TestRunAsync);
         }
 
         public static string CrucibleEnvironmentUrl => Environment.GetEnvironmentVariable("CrucibleEnvironmentUrl");
@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
 
         public static string TestEnvironmentName => _dataStore.Equals(DataStore.SqlServer) ? Environment.GetEnvironmentVariable("TestEnvironmentName") + Constants.TestEnvironmentVariableVersionSqlSuffix : Environment.GetEnvironmentVariable("TestEnvironmentName") + Constants.TestEnvironmentVariableVersionSuffix;
 
-        public Lazy<ServerTestRun> TestRun { get; }
+        public Lazy<Task> TestRun { get; }
 
         public static CrucibleClient CreateClient()
         {
@@ -49,10 +49,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
         {
             await client.RefreshConformanceStatementAsync();
 
-            using (var testFhirServerFactory = new TestFhirServerFactory())
+            await using (var testFhirServerFactory = new TestFhirServerFactory())
             {
-                var testFhirServer = testFhirServerFactory
-                    .GetTestFhirServer(_dataStore, null);
+                var testFhirServer = await testFhirServerFactory
+                    .GetTestFhirServerAsync(_dataStore, null);
 
                 // Obtaining a client is required for configuring the security options.
                 testFhirServer.GetTestFhirClient(ResourceFormat.Json, reusable: false);
@@ -70,27 +70,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             }
         }
 
-        private async Task<ServerTestRun> GetTestRunAsync()
+        private async Task TestRunAsync()
         {
             var crucible = CreateClient();
 
             if (crucible == null)
             {
-                return null;
+                return;
             }
 
             var pastRuns = await crucible.PastTestRunsAsync();
             if (pastRuns != null && pastRuns.TestRun.Any() && pastRuns.TestRun.First().LastUpdated.GetValueOrDefault() >
                 DateTimeOffset.Now.AddMinutes(-PastResultsValidInMinutes))
             {
-                var lastRun = await crucible.GetTestRunStatusAsync(pastRuns.TestRun.First().Id);
-                return new ServerTestRun(crucible.ServerBase, lastRun);
+                return;
             }
 
             var ids = await GetSupportedIdsAsync(crucible);
-            var result = await crucible.RunTestsAndWaitAsync(ids, true);
-
-            return new ServerTestRun(crucible.ServerBase, result);
+            await crucible.BeginTestRunAsync(ids, true);
         }
 
         public static DataStore GetDataStore()

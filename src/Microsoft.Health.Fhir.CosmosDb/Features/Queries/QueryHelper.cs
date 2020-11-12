@@ -5,6 +5,7 @@
 
 using System.Text;
 using EnsureThat;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
 {
@@ -25,12 +26,18 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
             _rootAliasName = rootAliasName;
         }
 
-        public void AppendSelectFromRoot(string selectList)
+        public void AppendSelect(string selectList)
         {
             _queryBuilder
                 .Append("SELECT ")
-                .Append(selectList)
-                .Append(" FROM root ")
+                .Append(selectList);
+        }
+
+        public void AppendFromRoot()
+        {
+            _queryBuilder
+                .AppendLine()
+                .Append("FROM root ")
                 .AppendLine(_rootAliasName);
         }
 
@@ -60,10 +67,27 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
         public void AppendSystemDataFilter(bool systemDataValue = false)
         {
             _queryBuilder
-                .Append(" WHERE ")
+                .Append("WHERE ")
                 .Append(_rootAliasName).Append(".isSystem")
                 .Append(" = ")
                 .AppendLine(_queryParameterManager.AddOrGetParameterMapping(systemDataValue));
+        }
+
+        public void AppendSearchParameterHashFliter(string hashValue)
+        {
+            _queryBuilder
+                .Append("AND")
+                .Append(" (")
+                .Append(_rootAliasName).Append(".")
+                .Append(KnownResourceWrapperProperties.SearchParameterHash)
+                .Append(" != ")
+                .Append(_queryParameterManager.AddOrGetParameterMapping(hashValue))
+                .Append(" OR IS_DEFINED(")
+                .Append(_rootAliasName).Append(".")
+                .Append(KnownResourceWrapperProperties.SearchParameterHash)
+                .Append(") = ")
+                .Append(_queryParameterManager.AddOrGetParameterMapping(false))
+                .Append(")");
         }
     }
 }

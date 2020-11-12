@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Security.Claims;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Context
 {
@@ -30,6 +31,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Context
         public IDictionary<string, StringValues> RequestHeaders { get; set; }
 
         public IDictionary<string, StringValues> ResponseHeaders { get; set; }
+
+        public IList<OperationOutcomeIssue> BundleIssues { get; set; } = new List<OperationOutcomeIssue>();
 
         public string ResourceType { get; set; }
 

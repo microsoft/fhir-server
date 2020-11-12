@@ -97,11 +97,11 @@ namespace Microsoft.Health.Fhir.CosmosDb {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Include expression is not supported..
+        ///   Looks up a localized string similar to _include:iterate and _revinclude:iterate are not supported..
         /// </summary>
-        internal static string IncludeExpressionNotSupported {
+        internal static string IncludeIterateNotSupported {
             get {
-                return ResourceManager.GetString("IncludeExpressionNotSupported", resourceCulture);
+                return ResourceManager.GetString("IncludeIterateNotSupported", resourceCulture);
             }
         }
         
