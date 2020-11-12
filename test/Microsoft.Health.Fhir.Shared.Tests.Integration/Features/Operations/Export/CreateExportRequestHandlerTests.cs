@@ -182,7 +182,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 
         [Theory]
         [InlineData("test1", ExportFormatTags.ResourceName)]
-        [InlineData(null, ExportFormatTags.Timestamp)]
+        [InlineData(null, ExportFormatTags.Id)]
         public async Task GivenARequestWithDifferentFormatNames_WhenConverted_ThenTheProperFormatStringIsReturned(string formatName, string expectedFormat)
         {
             _exportJobConfiguration.Formats.Clear();
@@ -237,7 +237,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
         }
 
         [Fact]
-        public async Task GivenARequestWithAnNonexistantFormatName_WhenConverted_ThenABadRequestIsReturned()
+        public async Task GivenARequestWithANonexistantFormatName_WhenConverted_ThenABadRequestIsReturned()
         {
             var request = new CreateExportRequest(RequestUrl, ExportJobType.All, formatName: "invalid");
             await Assert.ThrowsAsync<BadRequestException>(() => _createExportRequestHandler.Handle(request, _cancellationToken));
