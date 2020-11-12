@@ -47,8 +47,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             _fhirStorageTestHelper = fixture.TestHelper;
 
             _exportJobConfiguration = new ExportJobConfiguration();
-            _exportJobConfiguration.ExportJobFormats = new List<ExportJobFormatConfiguration>();
-            _exportJobConfiguration.ExportJobFormats.Add(new ExportJobFormatConfiguration()
+            _exportJobConfiguration.Formats = new List<ExportJobFormatConfiguration>();
+            _exportJobConfiguration.Formats.Add(new ExportJobFormatConfiguration()
             {
                 Name = "test",
                 Format = ExportFormatTags.ResourceName,
@@ -185,19 +185,19 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
         [InlineData(null, ExportFormatTags.Timestamp)]
         public async Task GivenARequestWithDifferentFormatNames_WhenConverted_ThenTheProperFormatStringIsReturned(string formatName, string expectedFormat)
         {
-            _exportJobConfiguration.ExportJobFormats.Clear();
-            _exportJobConfiguration.ExportJobFormats.Add(new ExportJobFormatConfiguration()
+            _exportJobConfiguration.Formats.Clear();
+            _exportJobConfiguration.Formats.Add(new ExportJobFormatConfiguration()
             {
                 Name = "test1",
                 Format = ExportFormatTags.ResourceName,
             });
-            _exportJobConfiguration.ExportJobFormats.Add(new ExportJobFormatConfiguration()
+            _exportJobConfiguration.Formats.Add(new ExportJobFormatConfiguration()
             {
                 Name = "test2",
                 Format = ExportFormatTags.Id,
                 Default = true,
             });
-            _exportJobConfiguration.ExportJobFormats.Add(new ExportJobFormatConfiguration()
+            _exportJobConfiguration.Formats.Add(new ExportJobFormatConfiguration()
             {
                 Name = "test3",
                 Format = ExportFormatTags.Timestamp,
@@ -221,7 +221,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
         [InlineData(true, ExportFormatTags.Timestamp + "-" + ExportFormatTags.Id + "/" + ExportFormatTags.ResourceName)]
         public async Task GivenARequest_WhenNoFormatsAreSet_ThenHardcodedDefaultIsReturned(bool containerSpecified, string expectedFormat)
         {
-            _exportJobConfiguration.ExportJobFormats.Clear();
+            _exportJobConfiguration.Formats.Clear();
 
             ExportJobRecord actualRecord = null;
             await _fhirOperationDataStore.CreateExportJobAsync(
@@ -243,6 +243,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             await Assert.ThrowsAsync<BadRequestException>(() => _createExportRequestHandler.Handle(request, _cancellationToken));
         }
 
+        /// <summary>
+        /// Adds a listener to an object so that it can be spied on.
+        /// This allows objects passed in through the fixture to have method calls tracked and arguments recorded.
+        /// All the calls go through the spy to the underlying object.
+        /// </summary>
+        /// <typeparam name="T">The type of object passed</typeparam>
+        /// <param name="baseObject">The object to add a listener to</param>
+        /// <returns>The object wrapped in a spy</returns>
         private T AddListener<T>(T baseObject)
         {
             Type type = typeof(T);

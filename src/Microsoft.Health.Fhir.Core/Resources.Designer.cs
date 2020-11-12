@@ -280,9 +280,9 @@ namespace Microsoft.Health.Fhir.Core {
         /// <summary>
         ///   Looks up a localized string similar to The format &apos;{0}&apos; could not be found..
         /// </summary>
-        internal static string ExportFormatInvalid {
+        internal static string ExportFormatNotFound {
             get {
-                return ResourceManager.GetString("ExportFormatInvalid", resourceCulture);
+                return ResourceManager.GetString("ExportFormatNotFound", resourceCulture);
             }
         }
         

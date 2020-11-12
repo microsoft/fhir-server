@@ -453,7 +453,7 @@
     <value>Reindex job id {0} is in state {1} and cannot be cancelled.</value>
     <comment>{0} is the id of the reindex which is a a GUID.  {1} is the state, an enumerated set of state values.</comment>
   </data>
-  <data name="ExportFormatInvalid" xml:space="preserve">
+  <data name="ExportFormatNotFound" xml:space="preserve">
     <value>The format '{0}' could not be found.</value>
     <comment>{0}: The provided format name</comment>
   </data>

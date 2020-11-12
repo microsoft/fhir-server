@@ -81,16 +81,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             if (request.FormatName != null)
             {
-                formatConfiguration = _exportJobConfiguration.ExportJobFormats.FirstOrDefault(
+                formatConfiguration = _exportJobConfiguration.Formats.FirstOrDefault(
                 (ExportJobFormatConfiguration formatConfig) => formatConfig.Name.Equals(request.FormatName, StringComparison.OrdinalIgnoreCase));
 
                 if (formatConfiguration == null)
                 {
-                    throw new BadRequestException(Resources.ExportFormatInvalid);
+                    throw new BadRequestException(Resources.ExportFormatNotFound);
                 }
             }
 
-            formatConfiguration ??= _exportJobConfiguration.ExportJobFormats.FirstOrDefault(
+            formatConfiguration ??= _exportJobConfiguration.Formats.FirstOrDefault(
                 (ExportJobFormatConfiguration formatConfig) => formatConfig.Default);
 
             formatConfiguration ??= new ExportJobFormatConfiguration()
