@@ -1664,7 +1664,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 resourceWrappers = Array.Empty<SearchResultEntry>();
             }
 
-            return new SearchResult(resourceWrappers, new Tuple<string, string>[0], Array.Empty<(string parameterName, string reason)>(), continuationToken);
+            return new SearchResult(resourceWrappers, continuationToken, null, new Tuple<string, string>[0]);
         }
 
         private SearchResultEntry CreateSearchResultEntry(string id, string type)

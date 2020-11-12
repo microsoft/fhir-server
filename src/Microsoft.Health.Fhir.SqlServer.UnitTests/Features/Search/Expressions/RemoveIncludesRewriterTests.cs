@@ -15,7 +15,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         [Fact]
         public void GivenAnExpressionWithIncludes_WhenVisitedByRemoveIncludesRewriter_IncludesAreRemoved()
         {
-            IncludeExpression includeExpression = Expression.Include("a", new SearchParameterInfo("p", "Token"), "Observation", "Patient", false, false);
+            IncludeExpression includeExpression = Expression.Include("a", new SearchParameterInfo("p", "Token"), "Observation", "Patient", null, false, false, false);
+
             BinaryExpression fieldExpression = Expression.Equals(FieldName.Number, null, 1);
 
             Assert.Null(includeExpression.AcceptVisitor(RemoveIncludesRewriter.Instance));

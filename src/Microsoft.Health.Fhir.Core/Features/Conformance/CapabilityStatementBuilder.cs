@@ -172,6 +172,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Conformance
                     component.Versioning.Add(ResourceVersionPolicy.Versioned);
                     component.Versioning.Add(ResourceVersionPolicy.VersionedUpdate);
 
+                    // Create is added for every resource above.
+                    component.ConditionalCreate = true;
+
+                    // AuditEvent don't allow update, so no conditional update as well.
+                    if (!string.Equals(resource, KnownResourceTypes.AuditEvent, StringComparison.Ordinal))
+                    {
+                        component.ConditionalUpdate = true;
+                    }
+
                     component.ReadHistory = true;
                     component.UpdateCreate = true;
                 });

@@ -5,22 +5,14 @@
 replicaCount: 1
 
 image:
-  repository: healthplatformregistry.azurecr.io/r4_fhir-server
+  registry: healthplatformregistry.azurecr.io
+  repository: r4_fhir-server
   tag: master
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
-
-serviceAccount:
-  # Specifies whether a service account should be created
-  create: true
-  # Annotations to add to the service account
-  annotations: {}
-  # The name of the service account to use.
-  # If not set and create is true, a name is generated using the fullname template
-  name:
 
 podIdentity:
   enabled: false
@@ -74,7 +66,8 @@ database:
     acceptEula: "n"
     edition: "Developer"
     image:
-      repository: mcr.microsoft.com/mssql/server
+      registry: mcr.microsoft.com
+      repository: mssql/server
       tag: 2019-latest
       pullPolicy: IfNotPresent
     replicaCount: 1
@@ -87,7 +80,8 @@ database:
       size: 8Gi
       annotations: {}
         # "helm.sh/resource-policy": keep
-    securityContext:
+    securityContext: {}
+    podSecurityContext:
       # mssql container has user mssql defined with id 10001
       runAsUser: 10001
       runAsGroup: 10001
@@ -106,7 +100,7 @@ serviceMonitor:
   dotnetRuntimeMetrics: true
   httpMetrics: true
   systemMetrics: true
-  
+
 security:
   enabled: false
   enableAadSmartOnFhirProxy: false
@@ -120,7 +114,8 @@ ingress:
     # kubernetes.io/tls-acme: "true"
   hosts:
     - host: chart-example.local
-      paths: []
+      paths: ["/"]
+      pathType: ImplementationSpecific
   tls: []
   #  - secretName: chart-example-tls
   #    hosts:

@@ -24,15 +24,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     [Trait(Traits.Category, Categories.Transaction)]
     [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.All)]
-    public class TransactionTests : IClassFixture<HttpIntegrationTestFixture>
+    public class TransactionTests : IClassFixture<HttpIntegrationTestFixture>, IAsyncLifetime
     {
         private readonly TestFhirClient _client;
 
         public TransactionTests(HttpIntegrationTestFixture fixture)
         {
             _client = fixture.TestFhirClient;
-            _client.DeleteAllResources(ResourceType.Patient).Wait();
         }
+
+        public async Task InitializeAsync()
+        {
+            await _client.DeleteAllResources(ResourceType.Patient);
+        }
+
+        public Task DisposeAsync() => Task.CompletedTask;
 
         [Fact]
         [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.CosmosDb)]

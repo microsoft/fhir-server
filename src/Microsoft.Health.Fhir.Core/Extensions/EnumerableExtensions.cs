@@ -9,11 +9,21 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 {
     internal static class EnumerableExtensions
     {
-        public static IEnumerable<IEnumerable<T>> TakeBatch<T>(this IEnumerable<T> collection, int batchSize)
+        public static IEnumerable<IEnumerable<T>> TakeBatch<T>(this IEnumerable<T> input, int batchSize)
         {
+            if (input is ICollection<T> inputCollection && inputCollection.Count <= batchSize)
+            {
+                if (inputCollection.Count > 0)
+                {
+                    yield return input;
+                }
+
+                yield break;
+            }
+
             var batch = new List<T>(batchSize);
 
-            foreach (T item in collection)
+            foreach (T item in input)
             {
                 batch.Add(item);
                 if (batch.Count >= batchSize)

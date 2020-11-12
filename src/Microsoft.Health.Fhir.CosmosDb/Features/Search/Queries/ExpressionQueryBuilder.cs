@@ -85,23 +85,42 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
         public object VisitSearchParameter(SearchParameterExpression expression, Context context)
         {
-            if (expression.Parameter.Name == SearchParameterNames.ResourceType)
+            switch (expression.Parameter.Name)
             {
-                // We do not currently support specifying the system for the _type parameter value.
-                // We would need to add it to the document, but for now it seems pretty unlikely that it will
-                // be specified when searching.
-                expression.Expression.AcceptVisitor(this, context.WithFieldNameOverride(SearchValueConstants.RootResourceTypeName));
-            }
-            else if (expression.Parameter.Name == SearchParameterNames.LastUpdated)
-            {
-                // For LastUpdate queries, the LastModified property on the root is
-                // more performant than the searchIndices _lastUpdated.st and _lastUpdate.et
-                // we will override the mapping for that
-                expression.Expression.AcceptVisitor(this, context.WithFieldNameOverride(SearchValueConstants.LastModified));
-            }
-            else
-            {
-                AppendSubquery(expression.Parameter.Name, expression.Expression, context);
+                case SearchParameterNames.ResourceType:
+                    // We do not currently support specifying the system for the _type parameter value.
+                    // We would need to add it to the document, but for now it seems pretty unlikely that it will
+                    // be specified when searching.
+                    expression.Expression.AcceptVisitor(this, context.WithFieldNameOverride((n, i) => SearchValueConstants.RootResourceTypeName));
+                    break;
+                case SearchParameterNames.LastUpdated:
+                    // For LastUpdate queries, the LastModified property on the root is
+                    // more performant than the searchIndices _lastUpdated.st and _lastUpdate.et
+                    // we will override the mapping for that
+                    expression.Expression.AcceptVisitor(this, context.WithFieldNameOverride((n, i) => SearchValueConstants.LastModified));
+                    break;
+                case SearchValueConstants.TypeIdCompositeSearchParameterName:
+                    // This is an internal composite search parameter with components _type and _id, used when performing a query for includes.
+                    // We use the SearchValueConstants.RootResourceTypeName and SearchValueConstants.ResourceId fields respectively.
+                    expression.Expression.AcceptVisitor(
+                        this,
+                        context.WithFieldNameOverride(
+                            (fieldName, componentIndex) =>
+                                componentIndex switch
+                                {
+                                    0 => SearchValueConstants.RootResourceTypeName,
+                                    1 => KnownResourceWrapperProperties.ResourceId,
+                                    _ => throw new InvalidOperationException("unexpected component index")
+                                }));
+                    break;
+                case SearchValueConstants.WildcardReferenceSearchParameterName:
+                    // This is an internal search parameter that that matches any reference search parameter.
+                    // It is used for wildcard revinclude queries
+                    AppendSubquery(parameterName: null, expression.Expression, context);
+                    break;
+                default:
+                    AppendSubquery(expression.Parameter.Name, expression.Expression, context);
+                    break;
             }
 
             _queryBuilder.AppendLine();
@@ -145,11 +164,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
             context = context.WithInstanceVariableName(SearchValueConstants.SearchIndexAliasName);
 
-            VisitBinary(GetMappedValue(FieldNameMapping, FieldName.ParamName), BinaryOperator.Equal, parameterName, context);
+            if (parameterName != null)
+            {
+                VisitBinary(GetMappedValue(FieldNameMapping, FieldName.ParamName), BinaryOperator.Equal, parameterName, context);
+            }
 
             if (expression != null)
             {
-                _queryBuilder.Append(" AND ");
+                if (parameterName != null)
+                {
+                    _queryBuilder.Append(" AND ");
+                }
 
                 expression.AcceptVisitor(this, context);
             }
@@ -283,8 +308,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
         public object VisitInclude(IncludeExpression expression, Context context)
         {
-            // TODO: This will be removed once it's implemented.
-            throw new SearchOperationNotSupportedException(Resources.IncludeExpressionNotSupported);
+            throw new InvalidOperationException($"Include expression should have been removed before reaching {nameof(ExpressionQueryBuilder)}.");
         }
 
         private static string GetCompartmentIndicesParamName(string compartmentType)
@@ -307,9 +331,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
         private string GetFieldName(IFieldExpression fieldExpression, Context state)
         {
-            if (state.FieldNameOverride != null)
+            string overrideValue = state.FieldNameOverride?.Invoke(fieldExpression.FieldName, fieldExpression.ComponentIndex);
+            if (overrideValue != null)
             {
-                return state.FieldNameOverride;
+                return overrideValue;
             }
 
             string fieldNameInString = GetMappedValue(FieldNameMapping, fieldExpression.FieldName);
@@ -370,7 +395,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
         /// </summary>
         internal struct Context
         {
-            public Context(string instanceVariableName, string fieldNameOverride)
+            public Context(string instanceVariableName, Func<FieldName, int?, string> fieldNameOverride)
             {
                 InstanceVariableName = instanceVariableName;
                 FieldNameOverride = fieldNameOverride;
@@ -378,14 +403,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
             public string InstanceVariableName { get; }
 
-            public string FieldNameOverride { get; }
+            public Func<FieldName, int?, string> FieldNameOverride { get; }
 
             public Context WithInstanceVariableName(string instanceVariableName)
             {
                 return new Context(instanceVariableName: instanceVariableName, fieldNameOverride: FieldNameOverride);
             }
 
-            public Context WithFieldNameOverride(string fieldNameOverride)
+            public Context WithFieldNameOverride(Func<FieldName, int?, string> fieldNameOverride)
             {
                 return new Context(instanceVariableName: InstanceVariableName, fieldNameOverride: fieldNameOverride);
             }

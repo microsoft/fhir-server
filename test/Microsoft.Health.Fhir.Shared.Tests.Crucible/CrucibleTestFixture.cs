@@ -3,16 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Rest;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
 {
@@ -26,7 +22,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible
             _dataSource = dataSource;
         }
 
-        [Fact]
+        [Fact(Skip = "These run in background and interfere with other tests. https://github.com/microsoft/fhir-server/issues/1410")]
         [Trait(Traits.Category, Categories.Crucible)]
         public async Task Run()
         {

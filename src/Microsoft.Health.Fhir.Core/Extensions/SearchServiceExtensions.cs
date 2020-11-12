@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             SearchResult results = await searchService.SearchAsync(instanceType, filteredParameters, cancellationToken);
 
             // Check if all parameters passed in were unused, this would result in no search parameters being applied to search results
-            int? totalUnusedParameters = results?.UnsupportedSearchParameters.Count + results?.UnsupportedSortingParameters.Count;
+            int? totalUnusedParameters = results?.UnsupportedSearchParameters.Count;
             if (totalUnusedParameters == filteredParameters.Count)
             {
                 throw new PreconditionFailedException(Core.Resources.ConditionalOperationNotSelectiveEnough);

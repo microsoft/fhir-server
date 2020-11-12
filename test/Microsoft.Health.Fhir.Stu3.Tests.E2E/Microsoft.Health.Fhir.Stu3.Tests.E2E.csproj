@@ -17,11 +17,11 @@
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Tests.E2E\Rest\AnonymizedExportTests.cs" Link="Rest\AnonymizedExportTests.cs" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="3.1.8" />
-    <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection" Version="1.0.0-master-20201008-2" />
-    <PackageReference Include="Microsoft.Health.Test.Utilities" Version="1.0.0-master-20201008-2" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.7.0" />
-    <PackageReference Include="selenium.chrome.webdriver" Version="83.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="3.1.9" />
+    <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection" Version="1.0.0-master-20201102-1" />
+    <PackageReference Include="Microsoft.Health.Test.Utilities" Version="1.0.0-master-20201102-1" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.7.1" />
+    <PackageReference Include="selenium.chrome.webdriver" Version="85.0.0" />
     <PackageReference Include="selenium.webdriver" Version="3.141.0" />
     <PackageReference Include="xunit" Version="2.4.1" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.4.3" />

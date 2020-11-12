@@ -227,6 +227,10 @@
     <value>The _include search cannot be used against the base route.</value>
     <comment>_include is a query parameter.</comment>
   </data>
+  <data name="IncludeIterateCircularReferenceExecutedOnce" xml:space="preserve">
+    <value>The parameter {0}={1} with circular reference is executed once (a single iteration).</value>
+    <comment>_include:iterate or _revinclude:iterate is a query parameter.</comment>
+  </data>
   <data name="IncludeMissingType" xml:space="preserve">
     <value>The _include search is missing the type to search.</value>
     <comment>_include is a query parameter.</comment>
@@ -234,6 +238,10 @@
   <data name="RevIncludeMissingType" xml:space="preserve">
     <value>The _revinclude search is missing the type to search.</value>
     <comment>_revinclude is a query parameter.</comment>
+  </data>
+  <data name="RevIncludeIterateTargetTypeNotSpecified" xml:space="preserve">
+    <value>The '_revinclude:iterate={0}' search parameter has multiple target types. Please specify a target type.</value>
+    <comment>_revinclude:iterate is a query parameter.</comment>
   </data>
   <data name="InvalidBooleanConfigSetting" xml:space="preserve">
     <value>Field '{0}' with value '{1}' is not supported.</value>
@@ -388,8 +396,7 @@
     <value>Multiple sort parameters are currently not supported. Only a single sort parameter is supported.</value>
   </data>
   <data name="SearchSortParameterNotSupported" xml:space="preserve">
-    <value>The search sort parameter '{0}' is not supported.</value>
-    <comment>{0}: the unsupported sort parameter</comment>
+    <value>Sorting by the '{0}' parameter is not supported.</value>
   </data>
   <data name="ServerName" xml:space="preserve">
     <value>Microsoft FHIR Server</value>

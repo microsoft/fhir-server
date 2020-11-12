@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -20,7 +21,7 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 {
-    public class SearchParameterDefinitionManagerTests
+    public class SearchParameterDefinitionManagerTests : IAsyncLifetime
     {
         private static readonly string ResourceId = "http://hl7.org/fhir/SearchParameter/Resource-id";
         private static readonly string ResourceLastUpdated = "http://hl7.org/fhir/SearchParameter/Resource-lastUpdated";
@@ -30,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private static readonly string ResourceTest = "http://hl7.org/fhir/SearchParameter/Resource-test";
 
         private readonly SearchParameterStatusManager _manager;
-        private readonly ISearchParameterRegistry _searchParameterRegistry;
+        private readonly ISearchParameterStatusDataStore _searchParameterStatusDataStore;
         private readonly SearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly IMediator _mediator;
         private readonly SearchParameterInfo[] _searchParameterInfos;
@@ -44,18 +45,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             _searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
             _mediator = Substitute.For<IMediator>();
-            _searchParameterRegistry = Substitute.For<ISearchParameterRegistry>();
+            _searchParameterStatusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
             _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance);
             _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
             _fhirRequestContextAccessor.FhirRequestContext.Returns(_fhirRequestContext);
 
             _manager = new SearchParameterStatusManager(
-                _searchParameterRegistry,
+                _searchParameterStatusDataStore,
                 _searchParameterDefinitionManager,
                 _searchParameterSupportResolver,
                 _mediator);
 
-            _searchParameterRegistry.GetSearchParameterStatuses()
+            _searchParameterStatusDataStore.GetSearchParameterStatuses()
                 .Returns(new[]
                 {
                     new ResourceSearchParameterStatus
@@ -100,9 +101,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _searchParameterSupportResolver
                 .IsSearchParameterSupported(Arg.Is(_searchParameterInfos[4]))
                 .Returns((true, false));
-
-            _searchParameterDefinitionManager.Start();
         }
+
+        public async Task InitializeAsync()
+        {
+            await _searchParameterDefinitionManager.StartAsync(CancellationToken.None);
+        }
+
+        public Task DisposeAsync() => Task.CompletedTask;
 
         [Fact]
         public async Task GivenSupportedParams_WhenGettingSupported_ThenSupportedParamsReturned()

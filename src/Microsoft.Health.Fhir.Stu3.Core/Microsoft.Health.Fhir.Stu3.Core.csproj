@@ -22,9 +22,9 @@
     <PackageReference Include="Ensure.That" Version="9.2.0" />
     <PackageReference Include="FluentValidation" Version="8.6.1" />
     <PackageReference Include="MediatR" Version="8.1.0" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="3.1.8" />
-    <PackageReference Include="Microsoft.Extensions.Http" Version="3.1.8" />
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="3.1.8" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="3.1.9" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="3.1.9" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="3.1.9" />
     <PackageReference Include="Hl7.Fhir.STU3" Version="1.9.0" />
     <PackageReference Include="Microsoft.Health.Fhir.Anonymizer.Stu3.Core" Version="2.1.0-20200813.1" />
     <PackageReference Include="System.Collections.Immutable" Version="1.7.1" />
