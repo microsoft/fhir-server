@@ -5,73 +5,124 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
-using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Context;
+using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 {
     public class FhirCosmosSearchService : SearchService
     {
+        private static readonly SearchParameterInfo _typeIdCompositeSearchParameter = new SearchParameterInfo(SearchValueConstants.TypeIdCompositeSearchParameterName);
+        private static readonly SearchParameterInfo _wildcardReferenceSearchParameter = new SearchParameterInfo(SearchValueConstants.WildcardReferenceSearchParameterName);
+
         private readonly CosmosFhirDataStore _fhirDataStore;
         private readonly IQueryBuilder _queryBuilder;
+        private readonly IFhirRequestContextAccessor _requestContextAccessor;
+        private readonly SearchParameterInfo _resourceTypeSearchParameter;
 
         public FhirCosmosSearchService(
             ISearchOptionsFactory searchOptionsFactory,
             CosmosFhirDataStore fhirDataStore,
-            IQueryBuilder queryBuilder)
+            IQueryBuilder queryBuilder,
+            ISearchParameterDefinitionManager searchParameterDefinitionManager,
+            IFhirRequestContextAccessor requestContextAccessor)
             : base(searchOptionsFactory, fhirDataStore)
         {
             EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
             EnsureArg.IsNotNull(queryBuilder, nameof(queryBuilder));
+            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
+            EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
 
             _fhirDataStore = fhirDataStore;
             _queryBuilder = queryBuilder;
+            _requestContextAccessor = requestContextAccessor;
+            _resourceTypeSearchParameter = searchParameterDefinitionManager.GetSearchParameter(KnownResourceTypes.Resource, SearchParameterNames.ResourceType);
         }
 
         protected override async Task<SearchResult> SearchInternalAsync(
             SearchOptions searchOptions,
             CancellationToken cancellationToken)
         {
-            SearchResult searchResult = await ExecuteSearchAsync(
-                _queryBuilder.BuildSqlQuerySpec(searchOptions),
+            // pull out the _include and _revinclude expressions.
+            bool hasIncludeOrRevIncludeExpressions = ExtractIncludeExpressions(
+                searchOptions.Expression,
+                out Expression expressionWithoutIncludes,
+                out IReadOnlyList<IncludeExpression> includeExpressions,
+                out IReadOnlyList<IncludeExpression> revIncludeExpressions);
+
+            if (hasIncludeOrRevIncludeExpressions)
+            {
+                // we're going to mutate searchOptions, so clone it first so the caller of this method does not see the changes.
+                searchOptions = searchOptions.Clone();
+                searchOptions.Expression = expressionWithoutIncludes;
+
+                if (includeExpressions.Any(e => e.Iterate) || revIncludeExpressions.Any(e => e.Iterate))
+                {
+                    // We haven't implemented this yet.
+                    throw new BadRequestException(Resources.IncludeIterateNotSupported);
+                }
+            }
+
+            if (searchOptions.CountOnly)
+            {
+                int count = await ExecuteCountSearchAsync(
+                    _queryBuilder.BuildSqlQuerySpec(searchOptions, includes: Array.Empty<IncludeExpression>()),
+                    searchOptions,
+                    cancellationToken);
+
+                return new SearchResult(count, searchOptions.UnsupportedSearchParams);
+            }
+
+            FeedResponse<FhirCosmosResourceWrapper> matches = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
+                _queryBuilder.BuildSqlQuerySpec(searchOptions, includeExpressions),
                 searchOptions,
+                searchOptions.CountOnly ? null : searchOptions.ContinuationToken,
                 cancellationToken);
 
-            if (searchOptions.IncludeTotal == TotalType.Accurate && !searchOptions.CountOnly)
+            (IList<FhirCosmosResourceWrapper> includes, bool includesTruncated) = await PerformIncludeQueries(matches, includeExpressions, revIncludeExpressions, searchOptions.IncludeCount, cancellationToken);
+
+            SearchResult searchResult = CreateSearchResult(
+                searchOptions,
+                matches.Select(m => new SearchResultEntry(m, SearchEntryMode.Match)).Concat(includes.Select(i => new SearchResultEntry(i, SearchEntryMode.Include))),
+                matches.ContinuationToken,
+                includesTruncated);
+
+            if (searchOptions.IncludeTotal == TotalType.Accurate)
             {
+                Debug.Assert(!searchOptions.CountOnly, "We should not be computing the total of a CountOnly search.");
+
+                searchOptions = searchOptions.Clone();
+
                 // If this is the first page and there aren't any more pages
-                if (searchOptions.ContinuationToken == null && searchResult.ContinuationToken == null)
+                if (searchOptions.ContinuationToken == null && matches.ContinuationToken == null)
                 {
                     // Count the results on the page.
-                    searchResult.TotalCount = searchResult.Results.Count();
+                    searchResult.TotalCount = matches.Count;
                 }
                 else
                 {
-                    try
-                    {
-                        // Otherwise, indicate that we'd like to get the count
-                        searchOptions.CountOnly = true;
+                    // Otherwise, indicate that we'd like to get the count
+                    searchOptions.CountOnly = true;
 
-                        // And perform a second read.
-                        var totalSearchResult = await ExecuteSearchAsync(
-                            _queryBuilder.BuildSqlQuerySpec(searchOptions),
-                            searchOptions,
-                            cancellationToken);
-
-                        searchResult.TotalCount = totalSearchResult.TotalCount;
-                    }
-                    finally
-                    {
-                        // Ensure search options is set to its original state.
-                        searchOptions.CountOnly = false;
-                    }
+                    // And perform a second read.
+                    searchResult.TotalCount = await ExecuteCountSearchAsync(
+                        _queryBuilder.BuildSqlQuerySpec(searchOptions, includes: Array.Empty<IncludeExpression>()),
+                        searchOptions,
+                        cancellationToken);
                 }
             }
 
@@ -82,10 +133,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             SearchOptions searchOptions,
             CancellationToken cancellationToken)
         {
-            return await ExecuteSearchAsync(
+            FeedResponse<FhirCosmosResourceWrapper> results = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
                 _queryBuilder.GenerateHistorySql(searchOptions),
                 searchOptions,
+                searchOptions.CountOnly ? null : searchOptions.ContinuationToken,
                 cancellationToken);
+
+            return CreateSearchResult(searchOptions, results.Select(r => new SearchResultEntry(r)), results.ContinuationToken);
         }
 
         protected override async Task<SearchResult> SearchForReindexInternalAsync(
@@ -93,13 +147,38 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             string searchParameterHash,
             CancellationToken cancellationToken)
         {
-            return await ExecuteSearchAsync(
-                _queryBuilder.GenerateReindexSql(searchOptions, searchParameterHash),
+            QueryDefinition queryDefinition = _queryBuilder.GenerateReindexSql(searchOptions, searchParameterHash);
+
+            if (searchOptions.CountOnly)
+            {
+                int count = await ExecuteCountSearchAsync(queryDefinition, searchOptions, cancellationToken);
+                return new SearchResult(count, searchOptions.UnsupportedSearchParams);
+            }
+
+            FeedResponse<FhirCosmosResourceWrapper> results = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
+                queryDefinition,
                 searchOptions,
+                searchOptions.CountOnly ? null : searchOptions.ContinuationToken,
                 cancellationToken);
+
+            return CreateSearchResult(searchOptions, results.Select(r => new SearchResultEntry(r)), results.ContinuationToken);
         }
 
-        private async Task<SearchResult> ExecuteSearchAsync(
+        private async Task<FeedResponse<T>> ExecuteSearchAsync<T>(
+            QueryDefinition sqlQuerySpec,
+            SearchOptions searchOptions,
+            string continuationToken,
+            CancellationToken cancellationToken)
+        {
+            var feedOptions = new QueryRequestOptions
+            {
+                MaxItemCount = searchOptions.MaxItemCount,
+            };
+
+            return await _fhirDataStore.ExecuteDocumentQueryAsync<T>(sqlQuerySpec, feedOptions, continuationToken, cancellationToken);
+        }
+
+        private async Task<int> ExecuteCountSearchAsync(
             QueryDefinition sqlQuerySpec,
             SearchOptions searchOptions,
             CancellationToken cancellationToken)
@@ -109,39 +188,177 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 MaxItemCount = searchOptions.MaxItemCount,
             };
 
-            string continuationToken = searchOptions.CountOnly ? null : searchOptions.ContinuationToken;
+            return (await _fhirDataStore.ExecuteDocumentQueryAsync<int>(sqlQuerySpec, feedOptions, null, cancellationToken)).Single();
+        }
 
-            if (searchOptions.CountOnly)
+        private SearchResult CreateSearchResult(SearchOptions searchOptions, IEnumerable<SearchResultEntry> results, string continuationToken, bool includesTruncated = false)
+        {
+            if (includesTruncated)
             {
-                return new SearchResult(
-                    (await _fhirDataStore.ExecuteDocumentQueryAsync<int>(sqlQuerySpec, feedOptions, continuationToken, cancellationToken)).Single(),
-                    searchOptions.UnsupportedSearchParams);
-            }
-
-            var fetchedResults = await _fhirDataStore.ExecuteDocumentQueryAsync<FhirCosmosResourceWrapper>(sqlQuerySpec, feedOptions, continuationToken, cancellationToken);
-
-            SearchResultEntry[] wrappers = fetchedResults
-                .Select(r => new SearchResultEntry(r)).ToArray();
-
-            IReadOnlyList<(string parameterName, string reason)> unsupportedSortingParameters;
-            if (searchOptions.Sort?.Count > 0)
-            {
-                unsupportedSortingParameters = searchOptions
-                    .UnsupportedSortingParams
-                    .Concat(searchOptions.Sort
-                        .Where(x => !string.Equals(x.searchParameterInfo.Name, KnownQueryParameterNames.LastUpdated, StringComparison.OrdinalIgnoreCase))
-                        .Select(s => (s.searchParameterInfo.Name, Core.Resources.SortNotSupported))).ToList();
-            }
-            else
-            {
-                unsupportedSortingParameters = searchOptions.UnsupportedSortingParams;
+                _requestContextAccessor.FhirRequestContext.BundleIssues.Add(
+                    new OperationOutcomeIssue(
+                        OperationOutcomeConstants.IssueSeverity.Warning,
+                        OperationOutcomeConstants.IssueType.Incomplete,
+                        Core.Resources.TruncatedIncludeMessage));
             }
 
             return new SearchResult(
-                wrappers,
-                searchOptions.UnsupportedSearchParams,
-                unsupportedSortingParameters,
-                fetchedResults.ContinuationToken);
+                results,
+                continuationToken,
+                searchOptions.Sort,
+                searchOptions.UnsupportedSearchParams);
+        }
+
+        private async Task<(IList<FhirCosmosResourceWrapper> includes, bool includesTruncated)> PerformIncludeQueries(
+            FeedResponse<FhirCosmosResourceWrapper> matches,
+            IReadOnlyCollection<IncludeExpression> includeExpressions,
+            IReadOnlyCollection<IncludeExpression> revIncludeExpressions,
+            int maxIncludeCount,
+            CancellationToken cancellationToken)
+        {
+            if (matches.Count == 0 || (includeExpressions.Count == 0 && revIncludeExpressions.Count == 0))
+            {
+                return (Array.Empty<FhirCosmosResourceWrapper>(), false);
+            }
+
+            var includes = new List<FhirCosmosResourceWrapper>();
+            bool includesTruncated = false;
+
+            if (includeExpressions.Count > 0)
+            {
+                // fetch in the resources to include from _include parameters.
+
+                var referencesToInclude = matches.SelectMany(m => m.ReferencesToInclude).Distinct().ToList();
+
+                // partition the references to avoid creating an excessively large query
+                foreach (IEnumerable<ResourceTypeAndId> batchOfReferencesToInclude in referencesToInclude.TakeBatch(100))
+                {
+                    // construct the expression typeAndId = <Include1Type, Include1Id> OR  typeAndId = <Include2Type, Include2Id> OR ...
+
+                    SearchParameterExpression expression = Expression.SearchParameter(
+                        _typeIdCompositeSearchParameter,
+                        Expression.Or(batchOfReferencesToInclude.Select(r =>
+                            Expression.And(
+                                Expression.Equals(FieldName.TokenCode, 0, r.ResourceTypeName),
+                                Expression.Equals(FieldName.TokenCode, 1, r.ResourceId))).ToList()));
+
+                    var includeSearchOptions = new SearchOptions
+                    {
+                        Expression = expression,
+                        MaxItemCount = maxIncludeCount,
+                        Sort = Array.Empty<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)>(),
+                    };
+
+                    QueryDefinition includeQuery = _queryBuilder.BuildSqlQuerySpec(includeSearchOptions, Array.Empty<IncludeExpression>());
+
+                    FeedResponse<FhirCosmosResourceWrapper> includeResponse = null;
+                    do
+                    {
+                        if (includes.Count >= maxIncludeCount)
+                        {
+                            includesTruncated = true;
+                            break;
+                        }
+
+                        includeResponse = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
+                            includeQuery,
+                            includeSearchOptions,
+                            includeResponse?.ContinuationToken,
+                            cancellationToken);
+                        includes.AddRange(includeResponse);
+                    }
+                    while (!string.IsNullOrEmpty(includeResponse.ContinuationToken));
+
+                    if (includes.Count >= maxIncludeCount)
+                    {
+                        includesTruncated = true;
+                        break;
+                    }
+                }
+            }
+
+            if (revIncludeExpressions.Count > 0 && !includesTruncated)
+            {
+                // fetch in the resources to include from _revinclude parameters.
+
+                foreach (IncludeExpression revIncludeExpression in revIncludeExpressions)
+                {
+                    // construct the expression resourceType = <SourceResourceType> AND (referenceSearchParameter = <MatchResourceType1, MatchResourceId1> OR referenceSearchParameter = <MatchResourceType2, MatchResourceId2> OR ...)
+
+                    SearchParameterExpression sourceTypeExpression = Expression.SearchParameter(_resourceTypeSearchParameter, Expression.Equals(FieldName.TokenCode, null, revIncludeExpression.SourceResourceType));
+                    SearchParameterInfo referenceSearchParameter = revIncludeExpression.WildCard ? _wildcardReferenceSearchParameter : revIncludeExpression.ReferenceSearchParameter;
+                    SearchParameterExpression referenceExpression = Expression.SearchParameter(
+                        referenceSearchParameter,
+                        Expression.Or(
+                            matches.Select(m =>
+                                Expression.And(
+                                    Expression.Equals(FieldName.ReferenceResourceType, null, m.ResourceTypeName),
+                                    Expression.Equals(FieldName.ReferenceResourceId, null, m.ResourceId))).ToList()));
+
+                    Expression expression = Expression.And(sourceTypeExpression, referenceExpression);
+
+                    var revIncludeSearchOptions = new SearchOptions
+                    {
+                        Expression = expression,
+                        MaxItemCount = maxIncludeCount - includes.Count,
+                        Sort = Array.Empty<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)>(),
+                    };
+
+                    QueryDefinition revIncludeQuery = _queryBuilder.BuildSqlQuerySpec(revIncludeSearchOptions, Array.Empty<IncludeExpression>());
+
+                    FeedResponse<FhirCosmosResourceWrapper> includeResponse = null;
+                    do
+                    {
+                        if (includes.Count >= maxIncludeCount)
+                        {
+                            includesTruncated = true;
+                            break;
+                        }
+
+                        includeResponse = await ExecuteSearchAsync<FhirCosmosResourceWrapper>(
+                            revIncludeQuery,
+                            revIncludeSearchOptions,
+                            includeResponse?.ContinuationToken,
+                            cancellationToken);
+                        includes.AddRange(includeResponse);
+                    }
+                    while (!string.IsNullOrEmpty(includeResponse.ContinuationToken));
+                }
+            }
+
+            return (includes, includesTruncated);
+        }
+
+        private static bool ExtractIncludeExpressions(Expression inputExpression, out Expression expressionWithoutIncludes, out IReadOnlyList<IncludeExpression> includeExpressions, out IReadOnlyList<IncludeExpression> revIncludeExpressions)
+        {
+            switch (inputExpression)
+            {
+                case IncludeExpression ie when ie.Reversed:
+                    expressionWithoutIncludes = null;
+                    includeExpressions = Array.Empty<IncludeExpression>();
+                    revIncludeExpressions = new[] { ie };
+                    return true;
+                case IncludeExpression ie:
+                    expressionWithoutIncludes = null;
+                    includeExpressions = new[] { ie };
+                    revIncludeExpressions = Array.Empty<IncludeExpression>();
+                    return true;
+                case MultiaryExpression me when me.Expressions.Any(e => e is IncludeExpression):
+                    includeExpressions = me.Expressions.OfType<IncludeExpression>().Where(ie => !ie.Reversed).ToList();
+                    revIncludeExpressions = me.Expressions.OfType<IncludeExpression>().Where(ie => ie.Reversed).ToList();
+                    expressionWithoutIncludes = (me.Expressions.Count - (includeExpressions.Count + revIncludeExpressions.Count)) switch
+                    {
+                        0 => null,
+                        1 => me.Expressions.Single(e => !(e is IncludeExpression)),
+                        _ => new MultiaryExpression(me.MultiaryOperation, me.Expressions.Where(e => !(e is IncludeExpression)).ToList()),
+                    };
+                    return true;
+                default:
+                    expressionWithoutIncludes = inputExpression;
+                    includeExpressions = Array.Empty<IncludeExpression>();
+                    revIncludeExpressions = Array.Empty<IncludeExpression>();
+                    return false;
+            }
         }
     }
 }

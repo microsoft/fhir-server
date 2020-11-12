@@ -20,5 +20,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         public const string SelfLink = "_self";
 
         public const string Timestamp = "_ts";
+
+        public const string ReferencesToInclude = "referencesToInclude";
     }
 }
