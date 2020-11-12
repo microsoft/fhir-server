@@ -61,6 +61,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         }
 
         /// <summary>
+        /// Indicates whether MaxItemCount was explicitly set by the client.
+        /// </summary>
+        public bool MaxItemCountSpecifiedByClient { get; internal set; }
+
+        /// <summary>
         /// Get the number of items to include in search results.
         /// </summary>
         public int IncludeCount

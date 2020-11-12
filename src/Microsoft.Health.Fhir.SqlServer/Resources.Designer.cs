@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.SqlServer {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "4.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     internal class Resources {
@@ -61,6 +61,15 @@ namespace Microsoft.Health.Fhir.SqlServer {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Cyclic include iterate queries are not supported..
+        /// </summary>
+        internal static string CyclicIncludeIterateNotSupported {
+            get {
+                return ResourceManager.GetString("CyclicIncludeIterateNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The provided continuation token is not valid..
         /// </summary>
         internal static string InvalidContinuationToken {
@@ -70,20 +79,38 @@ namespace Microsoft.Health.Fhir.SqlServer {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Cannot carry out the SQL datastore operation because the SQL schema needs to be upgraded..
+        /// </summary>
+        internal static string SchemaVersionNeedsToBeUpgraded {
+            get {
+                return ResourceManager.GetString("SchemaVersionNeedsToBeUpgraded", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The current schema version should not be null..
+        /// </summary>
+        internal static string SchemaVersionShouldNotBeNull {
+            get {
+                return ResourceManager.GetString("SchemaVersionShouldNotBeNull", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Search parameter status information should not be null..
+        /// </summary>
+        internal static string SearchParameterStatusShouldNotBeNull {
+            get {
+                return ResourceManager.GetString("SearchParameterStatusShouldNotBeNull", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to There was an internal server error while processing the transaction..
         /// </summary>
         internal static string TransactionProcessingException {
             get {
                 return ResourceManager.GetString("TransactionProcessingException", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Cyclic Include Iterate Not Supported..
-        /// </summary>
-        internal static string CyclicIncludeIterateNotSupported {
-            get {
-                return ResourceManager.GetString("CyclicIncludeIterateNotSupported", resourceCulture);
             }
         }
     }
