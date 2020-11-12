@@ -49,7 +49,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var so = new SearchOptions();
             so.UnsupportedSearchParams = new Tuple<string, string>[0];
-            so.UnsupportedSortingParams = Array.Empty<(string searchParameterName, string reason)>();
 
             _searchOptionsFactory = Substitute.For<ISearchOptionsFactory>();
             _searchOptionsFactory.Create(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>()).Returns(so);

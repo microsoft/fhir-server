@@ -10,8 +10,8 @@
 
 namespace Microsoft.Health.Fhir.Core {
     using System;
-
-
+    
+    
     /// <summary>
     ///   A strongly-typed resource class, for looking up localized strings, etc.
     /// </summary>
@@ -377,7 +377,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The include iterate circular reference executed once..
+        ///   Looks up a localized string similar to The parameter {0}={1} with circular reference is executed once (a single iteration)..
         /// </summary>
         internal static string IncludeIterateCircularReferenceExecutedOnce {
             get {
@@ -863,7 +863,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The search sort parameter &apos;{0}&apos; is not supported..
+        ///   Looks up a localized string similar to Sorting by the &apos;{0}&apos; parameter is not supported..
         /// </summary>
         internal static string SearchSortParameterNotSupported {
             get {
@@ -1007,4 +1007,3 @@ namespace Microsoft.Health.Fhir.Core {
         }
     }
 }
-

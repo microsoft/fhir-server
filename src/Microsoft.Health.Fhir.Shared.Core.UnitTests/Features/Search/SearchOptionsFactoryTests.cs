@@ -12,9 +12,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
-using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
@@ -41,6 +39,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private readonly SearchParameterInfo _lastUpdatedSearchParameterInfo;
         private readonly CoreFeatureConfiguration _coreFeatures;
         private DefaultFhirRequestContext _defaultFhirRequestContext;
+        private readonly ISortingValidator _sortingValidator;
 
         public SearchOptionsFactoryTests()
         {
@@ -53,11 +52,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _coreFeatures = new CoreFeatureConfiguration();
             _defaultFhirRequestContext = new DefaultFhirRequestContext();
 
+            _sortingValidator = Substitute.For<ISortingValidator>();
+
             _factory = new SearchOptionsFactory(
                 _expressionParser,
                 () => searchParameterDefinitionManager,
                 new OptionsWrapper<CoreFeatureConfiguration>(_coreFeatures),
                 _defaultFhirRequestContext.SetupAccessor(),
+                _sortingValidator,
                 NullLogger<SearchOptionsFactory>.Instance);
         }
 
@@ -244,9 +246,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
-        public void GivenSearchWithUnsupportedSortValue_WhenCreated_ThenSearchParamShouldNotBeAddedToSortList()
+        public void GivenSearchWithUnsupportedSortValue_WhenCreated_ThenSortingShouldBeEmptyAndOperationOutcomeIssueCreated()
         {
             const string paramName = SearchParameterNames.ResourceType;
+
+            const string errorMessage = "my error";
+
+            _sortingValidator.ValidateSorting(default, out Arg.Any<IReadOnlyList<string>>()).ReturnsForAnyArgs(x =>
+            {
+                x[1] = new[] { errorMessage };
+                return false;
+            });
 
             var queryParameters = new[]
             {
@@ -262,19 +272,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.NotNull(options.Sort);
             Assert.Empty(options.Sort);
 
-            Assert.Equal(2, options.UnsupportedSortingParams.Count);
-            Assert.Equal(paramName, options.UnsupportedSortingParams.First().parameterName);
+            Assert.Contains(_defaultFhirRequestContext.BundleIssues, issue => issue.Diagnostics == errorMessage);
         }
 
-        [Fact]
-        public void GivenSearchWithSupportedSortValue_WhenCreated_ThenSearchParamShouldBeAddedToSortList()
+        [Theory]
+        [InlineData(SearchParameterNames.LastUpdated, SortOrder.Ascending)]
+        [InlineData("-" + SearchParameterNames.LastUpdated, SortOrder.Descending)]
+        public void GivenSearchWithSupportedSortValue_WhenCreated_ThenSearchParamShouldBeAddedToSortList(string paramName, SortOrder sortOrder)
         {
-            const string paramName = SearchParameterNames.LastUpdated;
+            _sortingValidator.ValidateSorting(default, out var errors).ReturnsForAnyArgs(true);
 
             var queryParameters = new[]
             {
                 Tuple.Create(KnownQueryParameterNames.Sort, paramName),
-                Tuple.Create(KnownQueryParameterNames.Sort, "-" + paramName),
             };
 
             SearchOptions options = CreateSearchOptions(
@@ -283,13 +293,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             Assert.NotNull(options);
             Assert.NotNull(options.Sort);
-            Assert.Equal(2, options.Sort.Count());
-            Assert.Equal((_lastUpdatedSearchParameterInfo, Core.Features.Search.SortOrder.Ascending), options.Sort.First());
-            Assert.Equal((_lastUpdatedSearchParameterInfo, Core.Features.Search.SortOrder.Descending), options.Sort.Last());
+            Assert.Equal((_lastUpdatedSearchParameterInfo, sortOrder), Assert.Single(options.Sort));
         }
 
         [Fact]
-        public void GivenSearchWithAnInvalidSortValue_WhenCreated_ThenSearchParamShouldBeAddedToUnsupportedSortingList()
+        public void GivenSearchWithAnInvalidSortValue_WhenCreated_ThenAnOperationOutcomeIssueIsCreated()
         {
             const string paramName = "unknownParameter";
 
@@ -306,8 +314,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.NotNull(options.Sort);
             Assert.Empty(options.Sort);
 
-            Assert.Equal(1, options.UnsupportedSortingParams.Count);
-            Assert.Equal(paramName, options.UnsupportedSortingParams.First().parameterName);
+            Assert.Contains(_defaultFhirRequestContext.BundleIssues, issue => issue.Code == OperationOutcomeConstants.IssueType.NotSupported);
         }
 
         [Theory]

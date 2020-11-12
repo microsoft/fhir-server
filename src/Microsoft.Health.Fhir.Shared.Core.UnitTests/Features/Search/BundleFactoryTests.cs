@@ -38,7 +38,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private static readonly Uri _selfUrl = new Uri("http://self/");
         private static readonly Uri _nextUrl = new Uri("http://next/");
         private static readonly IReadOnlyList<Tuple<string, string>> _unsupportedSearchParameters = new Tuple<string, string>[0];
-        private static readonly IReadOnlyList<(string searchParameter, string reason)> _unsupportedSortingParameters = Array.Empty<(string parameterName, string reason)>();
 
         private static readonly DateTimeOffset _dateTime = new DateTimeOffset(2019, 1, 5, 15, 30, 23, TimeSpan.FromHours(8));
 
@@ -58,13 +57,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         [Fact]
         public void GivenAnEmptySearchResult_WhenCreateSearchBundle_ThenCorrectBundleShouldBeReturned()
         {
-            _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters, _unsupportedSortingParameters).Returns(_selfUrl);
+            _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters).Returns(_selfUrl);
 
             ResourceElement actual = null;
 
             using (Mock.Property(() => ClockResolver.UtcNowFunc, () => _dateTime))
             {
-                actual = _bundleFactory.CreateSearchBundle(new SearchResult(new SearchResultEntry[0], _unsupportedSearchParameters, _unsupportedSortingParameters, null));
+                actual = _bundleFactory.CreateSearchBundle(new SearchResult(new SearchResultEntry[0],  null, null, _unsupportedSearchParameters));
             }
 
             Assert.NotNull(actual);
@@ -78,7 +77,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public void GivenASearchResult_WhenCreateSearchBundle_ThenCorrectBundleShouldBeReturned()
         {
             _urlResolver.ResolveResourceWrapperUrl(Arg.Any<ResourceWrapper>()).Returns(x => new Uri(string.Format(_resourceUrlFormat, x.ArgAt<ResourceWrapper>(0).ResourceId)));
-            _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters, _unsupportedSortingParameters).Returns(_selfUrl);
+            _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters).Returns(_selfUrl);
 
             ResourceElement observation1 = Samples.GetDefaultObservation().UpdateId("123");
             ResourceElement observation2 = Samples.GetDefaultObservation().UpdateId("abc");
@@ -89,7 +88,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 new SearchResultEntry(CreateResourceWrapper(observation2)),
             };
 
-            var searchResult = new SearchResult(resourceWrappers, _unsupportedSearchParameters, _unsupportedSortingParameters, continuationToken: null);
+            var searchResult = new SearchResult(resourceWrappers,  continuationToken: null, sortOrder: null, unsupportedSearchParameters: _unsupportedSearchParameters);
 
             ResourceElement actual = null;
 
@@ -146,10 +145,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public void GivenASearchResultWithContinuationToken_WhenCreateSearchBundle_ThenCorrectBundleShouldBeReturned()
         {
             string encodedContinuationToken = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(_continuationToken));
-            _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters, _unsupportedSortingParameters, encodedContinuationToken, true).Returns(_nextUrl);
-            _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters, _unsupportedSortingParameters).Returns(_selfUrl);
+            _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters, null, encodedContinuationToken, true).Returns(_nextUrl);
+            _urlResolver.ResolveRouteUrl(_unsupportedSearchParameters).Returns(_selfUrl);
 
-            var searchResult = new SearchResult(new SearchResultEntry[0], _unsupportedSearchParameters, _unsupportedSortingParameters, _continuationToken);
+            var searchResult = new SearchResult(new SearchResultEntry[0],  _continuationToken, null, _unsupportedSearchParameters);
 
             ResourceElement actual = _bundleFactory.CreateSearchBundle(searchResult);
 
