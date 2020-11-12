@@ -25,6 +25,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// <summary>
         /// Whether the format is the default format for when no format is specified by the user.
         /// </summary>
-        public bool Default { get; set; }
+        public bool Default { get; set; } = false;
     }
 }
