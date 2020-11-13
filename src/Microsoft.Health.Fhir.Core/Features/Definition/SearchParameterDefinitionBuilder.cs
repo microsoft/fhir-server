@@ -60,12 +60,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             // and should be available to all resources that inherit Resource.
             foreach (string resourceType in modelInfoProvider.GetResourceTypeNames())
             {
-                if (resourceTypeDictionary.TryGetValue(resourceType, out IDictionary<string, SearchParameterInfo> _))
-                {
-                    // The list has already been built, move on.
-                    continue;
-                }
-
                 // Recursively build the search parameter definitions. For example,
                 // Appointment inherits from DomainResource, which inherits from Resource
                 // and therefore Appointment should include all search parameters DomainResource and Resource supports.
@@ -309,18 +303,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             return sp;
         }
 
-        private static IEnumerable<SearchParameterInfo> BuildSearchParameterDefinition(
+        private static HashSet<SearchParameterInfo> BuildSearchParameterDefinition(
             ILookup<string, SearchParameterInfo> searchParametersLookup,
             string resourceType,
             IDictionary<string, IDictionary<string, SearchParameterInfo>> resourceTypeDictionary,
             IModelInfoProvider modelInfoProvider)
         {
+            HashSet<SearchParameterInfo> results;
             if (resourceTypeDictionary.TryGetValue(resourceType, out IDictionary<string, SearchParameterInfo> cachedSearchParameters))
             {
-                return cachedSearchParameters.Values;
+                results = new HashSet<SearchParameterInfo>(cachedSearchParameters.Values);
             }
-
-            IEnumerable<SearchParameterInfo> results = Enumerable.Empty<SearchParameterInfo>();
+            else
+            {
+                results = new HashSet<SearchParameterInfo>();
+            }
 
             Type type = modelInfoProvider.GetTypeForFhirType(resourceType);
 
@@ -330,21 +327,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             if (baseType != null)
             {
-                results = BuildSearchParameterDefinition(searchParametersLookup, baseType, resourceTypeDictionary, modelInfoProvider);
+                var baseResults = BuildSearchParameterDefinition(searchParametersLookup, baseType, resourceTypeDictionary, modelInfoProvider);
+                results.UnionWith(baseResults);
             }
 
             Debug.Assert(results != null, "The results should not be null.");
 
-            results = results.Concat(searchParametersLookup[resourceType]);
+            results.UnionWith(searchParametersLookup[resourceType]);
 
             Dictionary<string, SearchParameterInfo> searchParameterDictionary = results.ToDictionary(
                 r => r.Name,
                 r => r,
                 StringComparer.Ordinal);
 
-            resourceTypeDictionary.Add(resourceType, searchParameterDictionary);
+            if (!resourceTypeDictionary.TryAdd(resourceType, searchParameterDictionary))
+            {
+                resourceTypeDictionary[resourceType] = searchParameterDictionary;
+            }
 
-            return searchParameterDictionary.Values;
+            return results;
         }
 
         private static string GetComponentDefinition(ITypedElement component)

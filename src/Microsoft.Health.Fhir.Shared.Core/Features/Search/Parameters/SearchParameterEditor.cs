@@ -7,7 +7,6 @@ using System.Threading;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
-using Microsoft.Health.Core;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
@@ -18,19 +17,15 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
     public class SearchParameterEditor : ISearchParameterEditor
     {
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
-        private readonly ISearchParameterRegistry _searchParameterRegistry;
         private readonly SearchParameterStatusManager _searchParameterStatusManager;
 
         public SearchParameterEditor(
-            ISearchParameterRegistry searchParameterRegistry,
             SearchParameterStatusManager searchParameterStatusManager,
             ISearchParameterDefinitionManager searchParameterDefinitionManager)
         {
-            EnsureArg.IsNotNull(searchParameterRegistry, nameof(searchParameterRegistry));
             EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
 
-            _searchParameterRegistry = searchParameterRegistry;
             _searchParameterStatusManager = searchParameterStatusManager;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
         }

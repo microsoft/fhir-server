@@ -32,6 +32,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidateExportRequestFilterAttributeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidateResourceIdFilterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidateResourceTypeFilterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\SearchParameterFilterAttributeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidationQueryFilterAndParameterParserAttributeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\FhirJsonInputFormatterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\FhirJsonOutputFormatterTests.cs" />

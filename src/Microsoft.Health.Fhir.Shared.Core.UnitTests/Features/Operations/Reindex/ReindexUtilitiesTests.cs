@@ -29,10 +29,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
     {
         private readonly IFhirDataStore _fhirDataStore = Substitute.For<IFhirDataStore>();
         private readonly ISearchIndexer _searchIndexer = Substitute.For<ISearchIndexer>();
+        private readonly ISearchParameterStatusDataStore _searchParameterStatusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
         private readonly ResourceDeserializer _resourceDeserializer = Deserializers.ResourceDeserializer;
         private readonly ISupportedSearchParameterDefinitionManager _searchParameterDefinitionManager = Substitute.For<ISupportedSearchParameterDefinitionManager>();
         private readonly SearchParameterStatusManager _searchParameterStatusManager;
-        private readonly ISearchParameterRegistry _searchParameterRegistry = Substitute.For<ISearchParameterRegistry>();
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
         private readonly IMediator _mediator = Substitute.For<IMediator>();
 
@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             _output = output;
             _searchParameterHashMap = new Dictionary<string, string>() { { "Patient", "hash1" } };
             Func<Health.Extensions.DependencyInjection.IScoped<IFhirDataStore>> fhirDataStoreScope = () => _fhirDataStore.CreateMockScope();
-            _searchParameterStatusManager = new SearchParameterStatusManager(_searchParameterRegistry, _searchParameterDefinitionManager, _searchParameterSupportResolver, _mediator);
+            _searchParameterStatusManager = new SearchParameterStatusManager(_searchParameterStatusDataStore, _searchParameterDefinitionManager, _searchParameterSupportResolver, _mediator);
             _reindexUtilities = new ReindexUtilities(fhirDataStoreScope, _searchIndexer, _resourceDeserializer, _searchParameterDefinitionManager, _searchParameterStatusManager);
         }
 
@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var resultList = new List<SearchResultEntry>();
             resultList.Add(entry1);
             resultList.Add(entry2);
-            var result = new SearchResult(resultList, new List<Tuple<string, string>>(), new List<(string, string)>(), "token");
+            var result = new SearchResult(resultList, "token", new List<(SearchParameterInfo, SortOrder)>(), new List<Tuple<string, string>>());
 
             await _reindexUtilities.ProcessSearchResultsAsync(result, _searchParameterHashMap, CancellationToken.None);
 

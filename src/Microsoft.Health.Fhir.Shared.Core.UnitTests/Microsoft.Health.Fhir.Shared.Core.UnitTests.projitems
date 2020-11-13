@@ -52,6 +52,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchConverterForAllSearchTypes.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterDefinitionManagerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterFixtureData.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterValidatorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterSupportResolverTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\SearchParameters\SearchParameterToTypeResolverTests.cs" />
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Core.UnitTests\Features\Conformance\ProfileReferenceConverterTests.cs" />

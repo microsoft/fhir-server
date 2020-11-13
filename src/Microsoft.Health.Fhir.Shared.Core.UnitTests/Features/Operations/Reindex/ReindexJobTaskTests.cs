@@ -30,6 +30,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         private readonly SearchParameterFixtureData _fixture;
         private const string PatientFileName = "Patient.ndjson";
         private const string ObservationFileName = "Observation.ndjson";
+        private const string Base64EncodedToken = "dG9rZW4=";
         private static readonly WeakETag _weakETag = WeakETag.FromVersionId("0");
 
         private readonly IFhirOperationDataStore _fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
@@ -149,7 +150,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             Assert.Equal("http://hl7.org/fhir/SearchParameter/Account-identifier", job.SearchParamList);
             Assert.Collection<ReindexJobQueryStatus>(
                 job.QueryList,
-                item => Assert.True(item.ContinuationToken == "token" && item.Status == OperationStatus.Completed),
+                item => Assert.True(item.ContinuationToken == Base64EncodedToken && item.Status == OperationStatus.Completed),
                 item2 => Assert.True(item2.ContinuationToken == null && item2.Status == OperationStatus.Completed));
 
             param.IsSearchable = true;
@@ -202,7 +203,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             await _searchService.Received().SearchForReindexAsync(
                 Arg.Is<IReadOnlyList<Tuple<string, string>>>(
                     l => l.Any(t => t.Item1 == "_type" && t.Item2 == "Appointment") &&
-                         l.Any(t => t.Item1 == KnownQueryParameterNames.ContinuationToken && t.Item2 == "token")),
+                         l.Any(t => t.Item1 == KnownQueryParameterNames.ContinuationToken && t.Item2 == Base64EncodedToken)),
                 Arg.Is<string>("appointmentHash"),
                 false,
                 Arg.Any<CancellationToken>());
@@ -210,7 +211,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             await _searchService.Received().SearchForReindexAsync(
                 Arg.Is<IReadOnlyList<Tuple<string, string>>>(
                     l => l.Any(t => t.Item1 == "_type" && t.Item2 == "AppointmentResponse") &&
-                         l.Any(t => t.Item1 == KnownQueryParameterNames.ContinuationToken && t.Item2 == "token")),
+                         l.Any(t => t.Item1 == KnownQueryParameterNames.ContinuationToken && t.Item2 == Base64EncodedToken)),
                 Arg.Is<string>("appointmentResponseHash"),
                 false,
                 Arg.Any<CancellationToken>());
@@ -224,8 +225,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             Assert.Equal("http://hl7.org/fhir/SearchParameter/AppointmentResponse-appointment", job.SearchParamList);
             Assert.Collection<ReindexJobQueryStatus>(
                 job.QueryList,
-                item => Assert.True(item.ContinuationToken == "token" && item.Status == OperationStatus.Completed && item.ResourceType == "AppointmentResponse"),
-                item2 => Assert.True(item2.ContinuationToken == "token" && item2.Status == OperationStatus.Completed && item2.ResourceType == "Appointment"),
+                item => Assert.True(item.ContinuationToken == Base64EncodedToken && item.Status == OperationStatus.Completed && item.ResourceType == "AppointmentResponse"),
+                item2 => Assert.True(item2.ContinuationToken == Base64EncodedToken && item2.Status == OperationStatus.Completed && item2.ResourceType == "Appointment"),
                 item3 => Assert.True(item3.ContinuationToken == null && item3.Status == OperationStatus.Completed && item3.ResourceType == "AppointmentResponse"),
                 item4 => Assert.True(item4.ContinuationToken == null && item4.Status == OperationStatus.Completed && item4.ResourceType == "Appointment"));
 

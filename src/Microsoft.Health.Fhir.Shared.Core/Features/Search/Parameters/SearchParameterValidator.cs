@@ -10,6 +10,7 @@ using System.Threading;
 using EnsureThat;
 using FluentValidation.Results;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -24,7 +25,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
 {
     public class SearchParameterValidator : ISearchParameterValidator
     {
-        private readonly IFhirOperationDataStore _fhirOperationDataStore;
+        private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
         private readonly IFhirAuthorizationService _authorizationService;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
 
@@ -33,35 +34,37 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
         private const string HttpDeleteName = "DELETE";
 
         public SearchParameterValidator(
-            IFhirOperationDataStore fhirOperationDataStore,
+            Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory,
             IFhirAuthorizationService authorizationService,
             ISearchParameterDefinitionManager searchParameterDefinitionManager)
         {
-            EnsureArg.IsNotNull(fhirOperationDataStore, nameof(fhirOperationDataStore));
+            EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
             EnsureArg.IsNotNull(authorizationService, nameof(authorizationService));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
 
-            _fhirOperationDataStore = fhirOperationDataStore;
+            _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
             _authorizationService = authorizationService;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
         }
 
         public async Task ValidateSearchParamterInput(SearchParameter searchParam, string method, CancellationToken cancellationToken)
         {
-            // check if reindex job is running
             if (await _authorizationService.CheckAccess(DataActions.Reindex) != DataActions.Reindex)
             {
                 throw new UnauthorizedFhirActionException();
             }
 
-            if (await _fhirOperationDataStore.CheckActiveReindexJobsAsync(cancellationToken))
+            // check if reindex job is running
+            using (IScoped<IFhirOperationDataStore> fhirOperationDataStore = _fhirOperationDataStoreFactory())
             {
-                throw new JobConflictException(Resources.ChangesToSearchParametersNotAllowedWhileReindexing);
+                if (await fhirOperationDataStore.Value.CheckActiveReindexJobsAsync(cancellationToken))
+                {
+                    throw new JobConflictException(Resources.ChangesToSearchParametersNotAllowedWhileReindexing);
+                }
             }
 
             var validationFailures = new List<ValidationFailure>();
 
-            // check if URL is not unique
             if (string.IsNullOrEmpty(searchParam.Url))
             {
                 validationFailures.Add(
@@ -81,7 +84,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                         // and this is a conflict
                         validationFailures.Add(
                             new ValidationFailure(
-                                nameof(Base.TypeName),
+                                nameof(searchParam.Url),
                                 string.Format(Resources.SearchParameterDefinitionDuplicatedEntry, searchParam.Url)));
                     }
                 }
@@ -96,7 +99,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                         // and this is a conflict
                         validationFailures.Add(
                             new ValidationFailure(
-                                nameof(Base.TypeName),
+                                nameof(searchParam.Url),
                                 string.Format(Resources.SearchParameterDefinitionNotFound, searchParam.Url)));
                     }
                 }

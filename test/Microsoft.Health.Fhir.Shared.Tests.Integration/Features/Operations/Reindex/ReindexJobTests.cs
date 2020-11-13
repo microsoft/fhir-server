@@ -45,6 +45,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         private IFhirOperationDataStore _fhirOperationDataStore;
         private IScoped<IFhirOperationDataStore> _scopedOperationDataStore;
         private IScoped<IFhirDataStore> _scopedDataStore;
+        private ISearchParameterStatusDataStore _searchParameterStatusDataStore;
         private IFhirStorageTestHelper _fhirStorageTestHelper;
         private SearchParameterDefinitionManager _searchParameterDefinitionManager;
 
@@ -54,11 +55,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         private readonly ISearchIndexer _searchIndexer = Substitute.For<ISearchIndexer>();
         private ISupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager;
         private SearchableSearchParameterDefinitionManager _searchableSearchParameterDefinitionManager;
-        private readonly ISearchParameterRegistry _searchParameterRegistry = Substitute.For<ISearchParameterRegistry>();
         private readonly IOptions<CoreFeatureConfiguration> coreOptions = Substitute.For<IOptions<CoreFeatureConfiguration>>();
-        private readonly SearchParameterStatusManager _searchParameterStatusManager;
+        private SearchParameterStatusManager _searchParameterStatusManager;
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
         private readonly IMediator _mediator = Substitute.For<IMediator>();
+        private readonly ISortingValidator _sortingValidator = new CosmosDbSortingValidator();
 
         private ReindexJobWorker _reindexJobWorker;
         private IScoped<ISearchService> _searchService;
@@ -67,11 +68,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         {
             _fixture = fixture;
             _searchParameterSupportResolver.IsSearchParameterSupported(Arg.Any<SearchParameterInfo>()).Returns((true, false));
-            _searchParameterStatusManager = new SearchParameterStatusManager(
-                _searchParameterRegistry,
-                _searchParameterDefinitionManager,
-                _searchParameterSupportResolver,
-                _mediator);
         }
 
         public async Task InitializeAsync()
@@ -80,6 +76,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             _fhirStorageTestHelper = _fixture.TestHelper;
             _scopedOperationDataStore = _fixture.OperationDataStore.CreateMockScope();
             _scopedDataStore = _fixture.DataStore.CreateMockScope();
+            _searchParameterStatusDataStore = _fixture.SearchParameterStatusDataStore;
 
             _jobConfiguration = new ReindexJobConfiguration();
             IOptions<ReindexJobConfiguration> optionsReindexConfig = Substitute.For<IOptions<ReindexJobConfiguration>>();
@@ -90,6 +87,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             _supportedSearchParameterDefinitionManager = new SupportedSearchParameterDefinitionManager(_searchParameterDefinitionManager);
             var fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
             _searchableSearchParameterDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, fhirRequestContextAccessor);
+
+            _searchParameterStatusManager = new SearchParameterStatusManager(
+                _searchParameterStatusDataStore,
+                _searchParameterDefinitionManager,
+                _searchParameterSupportResolver,
+                _mediator);
 
             _createReindexRequestHandler = new CreateReindexRequestHandler(
                                                 _fhirOperationDataStore,
@@ -107,8 +110,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             var searchParameterExpressionParser = new SearchParameterExpressionParser(new ReferenceSearchValueParser(fhirRequestContextAccessor));
             var expressionParser = new ExpressionParser(() => _searchableSearchParameterDefinitionManager, searchParameterExpressionParser);
-            var searchOptionsFactory = new SearchOptionsFactory(expressionParser, () => _searchableSearchParameterDefinitionManager, coreOptions, fhirRequestContextAccessor, NullLogger<SearchOptionsFactory>.Instance);
-            var cosmosSearchService = new FhirCosmosSearchService(searchOptionsFactory, _fixture.DataStore as CosmosFhirDataStore, new QueryBuilder()) as ISearchService;
+            var searchOptionsFactory = new SearchOptionsFactory(expressionParser, () => _searchableSearchParameterDefinitionManager, coreOptions, fhirRequestContextAccessor, _sortingValidator, NullLogger<SearchOptionsFactory>.Instance);
+            var cosmosSearchService = new FhirCosmosSearchService(searchOptionsFactory, _fixture.DataStore as CosmosFhirDataStore, new QueryBuilder(), _searchParameterDefinitionManager, fhirRequestContextAccessor) as ISearchService;
 
             _searchService = cosmosSearchService.CreateMockScope();
 

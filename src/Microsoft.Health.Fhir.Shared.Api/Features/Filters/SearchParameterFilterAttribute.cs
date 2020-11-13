@@ -15,12 +15,12 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Api.Features.Filters
 {
     [AttributeUsage(AttributeTargets.Method)]
-    internal class ValidateSearchParamFilterAttribute : ActionFilterAttribute
+    internal class SearchParameterFilterAttribute : ActionFilterAttribute
     {
         private ISearchParameterValidator _searchParameterValidator;
         private ISearchParameterEditor _searchParameterEditor;
 
-        public ValidateSearchParamFilterAttribute(ISearchParameterValidator searchParamValidator, ISearchParameterEditor searchParameterEditor)
+        public SearchParameterFilterAttribute(ISearchParameterValidator searchParamValidator, ISearchParameterEditor searchParameterEditor)
         {
             EnsureArg.IsNotNull(searchParamValidator, nameof(searchParamValidator));
             EnsureArg.IsNotNull(searchParameterEditor, nameof(searchParameterEditor));
@@ -42,17 +42,25 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         parsedModel as SearchParameter,
                         context.HttpContext.Request.Method,
                         context.HttpContext.RequestAborted);
+
+                    // wait for the Action to execute
+                    await next();
+
+                    if (HttpMethods.IsPost(context.HttpContext.Request.Method))
+                    {
+                        // Once the SearchParameter resource is committed to the data store, we can update the in
+                        // memory SearchParameterDefinitionManager, and persist the status to the data store
+                        await _searchParameterEditor.AddSearchParameterAsync(parsedModel as SearchParameter, context.HttpContext.RequestAborted);
+                    }
+                }
+                else
+                {
+                    await next();
                 }
             }
-
-            // wait for the Action to execute
-            await next();
-
-            if (HttpMethods.IsPost(context.HttpContext.Request.Method))
+            else
             {
-                // Once the SearchParameter resource is committed to the data store, we can update the in
-                // memory SearchParameterDefinitionManager, and persist the status to the data store
-                await _searchParameterEditor.AddSearchParameterAsync(parsedModel as SearchParameter, context.HttpContext.RequestAborted);
+                await next();
             }
         }
     }

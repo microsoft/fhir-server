@@ -6,13 +6,14 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using EnsureThat;
 using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Models
 {
     [DebuggerDisplay("{Name}, Type: {Type}")]
-    public class SearchParameterInfo
+    public class SearchParameterInfo : IEquatable<SearchParameterInfo>
     {
         public SearchParameterInfo(
             string name,
@@ -103,5 +104,44 @@ namespace Microsoft.Health.Fhir.Core.Models
         /// The resolved <see cref="SearchParameterInfo"/>s for each component if this is a composite search parameter (<see cref="Type"/> is <see cref="SearchParamType.Composite"/>)
         /// </summary>
         public IReadOnlyList<SearchParameterInfo> ResolvedComponents { get; set; } = Array.Empty<SearchParameterInfo>();
+
+        public bool Equals([AllowNull] SearchParameterInfo other)
+        {
+            if (other == null)
+            {
+                return false;
+            }
+
+            if (Url != other.Url)
+            {
+                return false;
+            }
+
+            if (Url == null)
+            {
+                if (!Name.Equals(other.Name, StringComparison.OrdinalIgnoreCase) ||
+                    Type != other.Type ||
+                    Expression != other.Expression)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return Equals(obj as SearchParameterInfo);
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(
+                Url?.GetHashCode(),
+                Name?.GetHashCode(StringComparison.OrdinalIgnoreCase),
+                Type.GetHashCode(),
+                Expression?.GetHashCode(StringComparison.OrdinalIgnoreCase));
+        }
     }
 }

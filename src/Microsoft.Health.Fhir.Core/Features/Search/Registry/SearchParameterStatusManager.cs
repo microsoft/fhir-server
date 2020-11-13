@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 });
             }
 
-            await _searchParameterRegistry.UpdateStatuses(searchParameterStatusList);
+            await _searchParameterStatusDataStore.UpsertStatuses(searchParameterStatusList);
 
             await _mediator.Publish(new SearchParametersUpdated(updated));
         }

@@ -282,7 +282,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     // if continuation token then update next query
                     if (!string.IsNullOrEmpty(results.ContinuationToken))
                     {
-                        var nextQuery = new ReindexJobQueryStatus(query.ResourceType, results.ContinuationToken)
+                        var encodedContinuationToken = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(results.ContinuationToken));
+                        var nextQuery = new ReindexJobQueryStatus(query.ResourceType, encodedContinuationToken)
                         {
                             LastModified = Clock.UtcNow,
                             Status = OperationStatus.Queued,
