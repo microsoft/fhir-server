@@ -37,6 +37,7 @@
     <None Remove="TestFiles\DeviceComponent-For-Device-d1.json" />
     <None Remove="TestFiles\Encounter-For-Patient-f001.json" />
     <None Remove="TestFiles\Normative\MoneyWithWrongDecimal.json" />
+    <None Remove="TestFiles\Normative\SearchParameter.json" />
     <None Remove="TestFiles\Observation-For-Patient-f001.json" />
     <None Remove="TestFiles\ObservationWith1MinuteApgarScore.json" />
     <None Remove="TestFiles\ObservationWith20MinuteApgarScore.json" />
@@ -234,6 +235,7 @@
     <EmbeddedResource Include="TestFiles\Normative\Patient.json" />
     <EmbeddedResource Include="TestFiles\Normative\MoneyWithWrongDecimal.json" />
     <EmbeddedResource Include="TestFiles\Normative\Patient.xml" />
+    <EmbeddedResource Include="TestFiles\Normative\SearchParameter.json" />
     <EmbeddedResource Include="TestFiles\Normative\Weight.json" />
     <EmbeddedResource Include="TestFiles\Normative\WeightInGrams.json" />
     <EmbeddedResource Include="TestFiles\R4\conversion_templates.tar.gz" />
