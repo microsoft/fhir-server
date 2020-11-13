@@ -18,23 +18,23 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Registry
 {
-    public class CosmosDbStatusRegistryInitializerTests
+    public class CosmosDbSearchParameterStatusInitializerTests
     {
-        private readonly CosmosDbStatusRegistryInitializer _initializer;
+        private readonly CosmosDbSearchParameterStatusInitializer _initializer;
         private readonly ICosmosQueryFactory _cosmosDocumentQueryFactory;
         private readonly Uri _testParameterUri;
 
-        public CosmosDbStatusRegistryInitializerTests()
+        public CosmosDbSearchParameterStatusInitializerTests()
         {
-            ISearchParameterRegistry searchParameterRegistry = Substitute.For<ISearchParameterRegistry>();
+            ISearchParameterStatusDataStore searchParameterStatusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
             _cosmosDocumentQueryFactory = Substitute.For<ICosmosQueryFactory>();
 
-            _initializer = new CosmosDbStatusRegistryInitializer(
-                () => searchParameterRegistry,
+            _initializer = new CosmosDbSearchParameterStatusInitializer(
+                () => searchParameterStatusDataStore,
                 _cosmosDocumentQueryFactory);
 
             _testParameterUri = new Uri("/test", UriKind.Relative);
-            searchParameterRegistry
+            searchParameterStatusDataStore
                 .GetSearchParameterStatuses()
                 .Returns(new[]
                 {

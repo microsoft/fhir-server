@@ -9,8 +9,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using MediatR;
-using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 throw;
             }
-            catch (RequestRateExceededException)
+            catch (Exception ex) when (ex.IsRequestRateExceeded())
             {
                 throw;
             }
