@@ -396,8 +396,7 @@
     <value>Multiple sort parameters are currently not supported. Only a single sort parameter is supported.</value>
   </data>
   <data name="SearchSortParameterNotSupported" xml:space="preserve">
-    <value>The search sort parameter '{0}' is not supported.</value>
-    <comment>{0}: the unsupported sort parameter</comment>
+    <value>Sorting by the '{0}' parameter is not supported.</value>
   </data>
   <data name="ServerName" xml:space="preserve">
     <value>Microsoft FHIR Server</value>
@@ -474,5 +473,9 @@
   </data>
   <data name="DataConvertOperationTimeout" xml:space="preserve">
     <value>Data convert operation has timed out.</value>
+  </data>
+  <data name="ExportFormatNotFound" xml:space="preserve">
+    <value>The format '{0}' could not be found.</value>
+    <comment>{0}: The provided format name</comment>
   </data>
 </root>

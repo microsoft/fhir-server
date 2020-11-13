@@ -217,6 +217,40 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             ValidateOperationOutcome(new TransactionFailedException(), HttpStatusCode.InternalServerError);
         }
 
+        [Fact]
+        public void GivenAnUnrecognizedException_WhenExecutingAnAction_ThenNoResponseShouldBeCreated()
+        {
+            var filter = new OperationOutcomeExceptionFilterAttribute(_fhirRequestContextAccessor);
+
+            _context.Exception = new Exception();
+
+            filter.OnActionExecuted(_context);
+
+            Assert.False(_context.ExceptionHandled);
+            Assert.Null(_context.Result);
+        }
+
+        [Fact]
+        public void GivenAnUnrecognizedExceptionAndInnerException_WhenExecutingAnAction_ThenNoResponseShouldBeCreated()
+        {
+            var filter = new OperationOutcomeExceptionFilterAttribute(_fhirRequestContextAccessor);
+
+            var exception = new Exception(null, new Exception());
+            _context.Exception = exception;
+
+            filter.OnActionExecuted(_context);
+
+            Assert.False(_context.ExceptionHandled);
+            Assert.Null(_context.Result);
+            Assert.Same(exception, _context.Exception); // ensure state is restored
+        }
+
+        [Fact]
+        public void GivenARequestRateExceededExceptionAsAnInnerException_WhenExecutingAnAction_ThenTheResponseShouldBeAnOperationOutcome()
+        {
+            ValidateOperationOutcome(new Exception(null, new RequestRateExceededException(null)), HttpStatusCode.TooManyRequests);
+        }
+
         private OperationOutcomeResult ValidateOperationOutcome(Exception exception, HttpStatusCode expectedStatusCode)
         {
             var filter = new OperationOutcomeExceptionFilterAttribute(_fhirRequestContextAccessor);

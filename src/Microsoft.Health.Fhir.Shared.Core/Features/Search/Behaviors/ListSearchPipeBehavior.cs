@@ -100,7 +100,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Behavior
             SearchOptions searchOptions = _searchOptionsFactory.Create(request.ResourceType, request.Queries);
 
             SearchResult emptySearchResult =
-                new SearchResult(new List<SearchResultEntry>(), searchOptions.UnsupportedSearchParams, searchOptions.UnsupportedSortingParams, null);
+                new SearchResult(new List<SearchResultEntry>(), null, null, searchOptions.UnsupportedSearchParams);
 
             ResourceElement bundle = _bundleFactory.CreateSearchBundle(emptySearchResult);
             return new SearchResourceResponse(bundle);

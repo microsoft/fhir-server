@@ -7,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Net;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -28,8 +27,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
     public class ExportJobTask : IExportJobTask
     {
-        private static readonly Regex Base64FormatRegex = new Regex("^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$", RegexOptions.Compiled | RegexOptions.Singleline);
-
         private readonly Func<IScoped<IFhirOperationDataStore>> _fhirOperationDataStoreFactory;
         private readonly IScoped<IAnonymizerFactory> _anonymizerFactory;
         private readonly ExportJobConfiguration _exportJobConfiguration;
@@ -228,13 +225,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             List<Tuple<string, string>> queryParametersList = new List<Tuple<string, string>>(sharedQueryParametersList);
             if (progress.ContinuationToken != null)
             {
-                var continuationToken = progress.ContinuationToken;
-                if (!Base64FormatRegex.IsMatch(continuationToken))
-                {
-                    continuationToken = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(continuationToken));
-                }
-
-                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, continuationToken));
+                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, progress.ContinuationToken));
             }
 
             if (_exportJobRecord.ExportType == ExportJobType.Patient)
@@ -355,13 +346,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             List<Tuple<string, string>> queryParametersList = new List<Tuple<string, string>>(sharedQueryParametersList);
             if (progress.ContinuationToken != null)
             {
-                var continuationToken = progress.ContinuationToken;
-                if (!Base64FormatRegex.IsMatch(continuationToken))
-                {
-                    continuationToken = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(continuationToken));
-                }
-
-                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, continuationToken));
+                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, progress.ContinuationToken));
             }
 
             if (!string.IsNullOrEmpty(_exportJobRecord.ResourceType))
@@ -424,18 +409,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     else
                     {
                         // File does not exist. Create it.
-                        string fileName;
-                        if (_exportJobRecord.StorageAccountContainerName.Equals(_exportJobRecord.Id, StringComparison.OrdinalIgnoreCase))
-                        {
-                            fileName = $"{resourceType}.ndjson";
-                        }
-                        else
-                        {
-                            string dateTime = _exportJobRecord.QueuedTime.UtcDateTime.ToString("s")
+                        string fileName = _exportJobRecord.ExportFormat + ".ndjson";
+
+                        string dateTime = _exportJobRecord.QueuedTime.UtcDateTime.ToString("s")
                                 .Replace("-", string.Empty, StringComparison.OrdinalIgnoreCase)
                                 .Replace(":", string.Empty, StringComparison.OrdinalIgnoreCase);
-                            fileName = $"{dateTime}-{_exportJobRecord.Id}/{resourceType}.ndjson";
-                        }
+
+                        fileName = fileName.Replace(ExportFormatTags.Timestamp, dateTime, StringComparison.OrdinalIgnoreCase);
+                        fileName = fileName.Replace(ExportFormatTags.Id, _exportJobRecord.Id, StringComparison.OrdinalIgnoreCase);
+                        fileName = fileName.Replace(ExportFormatTags.ResourceName, resourceType, StringComparison.OrdinalIgnoreCase);
 
                         Uri fileUri = await _exportDestinationClient.CreateFileAsync(fileName, cancellationToken);
 

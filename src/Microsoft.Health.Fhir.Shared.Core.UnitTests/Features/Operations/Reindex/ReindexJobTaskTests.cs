@@ -323,7 +323,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 resultList.Add(entry);
             }
 
-            return new SearchResult(resultList, new List<Tuple<string, string>>(), new List<(string, string)>(), continuationToken);
+            return new SearchResult(resultList, continuationToken, null, new List<Tuple<string, string>>());
         }
 
         private ReindexJobRecord CreateReindexJobRecord(uint maxResourcePerQuery = 100, IReadOnlyDictionary<string, string> paramHashMap = null)

@@ -324,6 +324,14 @@ namespace Microsoft.Health.Fhir.Core {
             }
         }
         
+        ///   Looks up a localized string similar to The format &apos;{0}&apos; could not be found..
+        /// </summary>
+        internal static string ExportFormatNotFound {
+            get {
+                return ResourceManager.GetString("ExportFormatNotFound", resourceCulture);
+            }
+        }
+        
         /// <summary>
         ///   Looks up a localized string similar to Authorization failed..
         /// </summary>
@@ -910,7 +918,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The search sort parameter &apos;{0}&apos; is not supported..
+        ///   Looks up a localized string similar to Sorting by the &apos;{0}&apos; parameter is not supported..
         /// </summary>
         internal static string SearchSortParameterNotSupported {
             get {

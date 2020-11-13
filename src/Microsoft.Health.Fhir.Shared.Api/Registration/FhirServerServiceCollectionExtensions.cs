@@ -168,6 +168,7 @@ namespace Microsoft.Extensions.DependencyInjection
 
                     app.UseFhirRequestContextAuthentication();
 
+                    app.UseMiddleware<SearchPostReroutingMiddleware>();
                     var throttlingConfig = app.ApplicationServices.GetService<IOptions<ThrottlingConfiguration>>();
 
                     if (throttlingConfig?.Value?.Enabled == true)

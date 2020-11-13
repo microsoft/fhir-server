@@ -338,4 +338,7 @@
     <value>The template collection reference '{0}' is invalid.</value>
     <comment>{0}: template collection reference</comment>
   </data>
+  <data name="ContentTypeFormUrlEncodedExpected" xml:space="preserve">
+    <value>The "content-type" header must be 'application/x-www-form-urlencoded'.</value>
+  </data>
 </root>

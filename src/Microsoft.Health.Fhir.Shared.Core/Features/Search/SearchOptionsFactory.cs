@@ -33,26 +33,30 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
         private readonly IExpressionParser _expressionParser;
         private readonly IFhirRequestContextAccessor _contextAccessor;
+        private readonly ISortingValidator _sortingValidator;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ILogger _logger;
         private readonly SearchParameterInfo _resourceTypeSearchParameter;
-        private CoreFeatureConfiguration _featureConfiguration;
+        private readonly CoreFeatureConfiguration _featureConfiguration;
 
         public SearchOptionsFactory(
             IExpressionParser expressionParser,
             ISearchParameterDefinitionManager.SearchableSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
             IOptions<CoreFeatureConfiguration> featureConfiguration,
             IFhirRequestContextAccessor contextAccessor,
+            ISortingValidator sortingValidator,
             ILogger<SearchOptionsFactory> logger)
         {
             EnsureArg.IsNotNull(expressionParser, nameof(expressionParser));
             EnsureArg.IsNotNull(searchParameterDefinitionManagerResolver, nameof(searchParameterDefinitionManagerResolver));
             EnsureArg.IsNotNull(featureConfiguration?.Value, nameof(featureConfiguration));
             EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
+            EnsureArg.IsNotNull(sortingValidator, nameof(sortingValidator));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _expressionParser = expressionParser;
             _contextAccessor = contextAccessor;
+            _sortingValidator = sortingValidator;
             _searchParameterDefinitionManager = searchParameterDefinitionManagerResolver();
             _logger = logger;
             _featureConfiguration = featureConfiguration.Value;
@@ -147,6 +151,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             // Check the item count.
             if (searchParams.Count != null)
             {
+                searchOptions.MaxItemCountSpecifiedByClient = true;
+
                 if (searchParams.Count > _featureConfiguration.MaxItemCountPerSearch)
                 {
                     searchOptions.MaxItemCount = _featureConfiguration.MaxItemCountPerSearch;
@@ -265,37 +271,56 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             if (searchParams.Sort?.Count > 0)
             {
-                var sortings = new List<(SearchParameterInfo, SortOrder)>();
-                List<(string parameterName, string reason)> unsupportedSortings = null;
+                var sortings = new List<(SearchParameterInfo, SortOrder)>(searchParams.Sort.Count);
+                bool sortingsValid = true;
 
                 foreach (Tuple<string, Hl7.Fhir.Rest.SortOrder> sorting in searchParams.Sort)
                 {
                     try
                     {
                         SearchParameterInfo searchParameterInfo = _searchParameterDefinitionManager.GetSearchParameter(parsedResourceType.ToString(), sorting.Item1);
-
-                        if (searchParameterInfo.IsSortSupported())
-                        {
-                            sortings.Add((searchParameterInfo, sorting.Item2.ToCoreSortOrder()));
-                        }
-                        else
-                        {
-                            throw new SearchParameterNotSupportedException(string.Format(Core.Resources.SearchSortParameterNotSupported, searchParameterInfo.Name));
-                        }
+                        sortings.Add((searchParameterInfo, sorting.Item2.ToCoreSortOrder()));
                     }
                     catch (SearchParameterNotSupportedException)
                     {
-                        (unsupportedSortings ??= new List<(string parameterName, string reason)>()).Add((sorting.Item1, string.Format(Core.Resources.SearchSortParameterNotSupported, sorting.Item1)));
+                        sortingsValid = false;
+                        _contextAccessor.FhirRequestContext.BundleIssues.Add(new OperationOutcomeIssue(
+                            OperationOutcomeConstants.IssueSeverity.Warning,
+                            OperationOutcomeConstants.IssueType.NotSupported,
+                            string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchParameterNotSupported, sorting.Item1, parsedResourceType.ToString())));
                     }
                 }
 
-                searchOptions.Sort = sortings;
-                searchOptions.UnsupportedSortingParams = (IReadOnlyList<(string parameterName, string reason)>)unsupportedSortings ?? Array.Empty<(string parameterName, string reason)>();
+                if (sortingsValid)
+                {
+                    if (!_sortingValidator.ValidateSorting(sortings, out IReadOnlyList<string> errorMessages))
+                    {
+                        if (errorMessages == null || errorMessages.Count == 0)
+                        {
+                            throw new InvalidOperationException($"Expected {_sortingValidator.GetType().Name} to return error messages when {nameof(_sortingValidator.ValidateSorting)} returns false");
+                        }
+
+                        sortingsValid = false;
+
+                        foreach (var errorMessage in errorMessages)
+                        {
+                            _contextAccessor.FhirRequestContext.BundleIssues.Add(new OperationOutcomeIssue(
+                                OperationOutcomeConstants.IssueSeverity.Warning,
+                                OperationOutcomeConstants.IssueType.NotSupported,
+                                errorMessage));
+                        }
+                    }
+                }
+
+                if (sortingsValid)
+                {
+                    searchOptions.Sort = sortings;
+                }
             }
-            else
+
+            if (searchOptions.Sort == null)
             {
                 searchOptions.Sort = Array.Empty<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)>();
-                searchOptions.UnsupportedSortingParams = Array.Empty<(string parameterName, string reason)>();
             }
 
             return searchOptions;
