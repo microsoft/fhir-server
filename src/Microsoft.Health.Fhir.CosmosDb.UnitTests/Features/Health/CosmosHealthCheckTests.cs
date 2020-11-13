@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
         public async Task GivenCosmosDbWithTooManyRequests_WhenHealthIsChecked_ThenHealthyStateShouldBeReturned()
         {
             _testProvider.PerformTest(default, default, _cosmosCollectionConfiguration)
-                .ThrowsForAnyArgs(new RequestRateExceededException(TimeSpan.Zero));
+                .ThrowsForAnyArgs(new Exception(null, new RequestRateExceededException(TimeSpan.Zero)));
 
             HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
 
