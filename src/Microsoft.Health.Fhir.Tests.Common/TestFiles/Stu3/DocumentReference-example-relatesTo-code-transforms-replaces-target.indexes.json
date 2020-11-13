@@ -17,6 +17,7 @@
       "baseUri": null,
       "resourceType": "Organization",
       "resourceId": "f001",
+      "resourceVersion": null,
       "isValidAsCompositeComponent": true
     }
   },
@@ -28,6 +29,7 @@
       "baseUri": null,
       "resourceType": "Practitioner",
       "resourceId": "xcda1",
+      "resourceVersion": null,
       "isValidAsCompositeComponent": true
     }
   },
@@ -58,6 +60,7 @@
       "baseUri": null,
       "resourceType": "Organization",
       "resourceId": "f001",
+      "resourceVersion": null,
       "isValidAsCompositeComponent": true
     }
   },
@@ -77,6 +80,7 @@
       "baseUri": null,
       "resourceType": "Encounter",
       "resourceId": "xcda",
+      "resourceVersion": null,
       "isValidAsCompositeComponent": true
     }
   },
@@ -165,6 +169,7 @@
       "baseUri": null,
       "resourceType": "Patient",
       "resourceId": "xcda",
+      "resourceVersion": null,
       "isValidAsCompositeComponent": true
     }
   },
@@ -195,6 +200,7 @@
       "baseUri": null,
       "resourceType": "Patient",
       "resourceId": "xcda",
+      "resourceVersion": null,
       "isValidAsCompositeComponent": true
     }
   },
@@ -206,6 +212,7 @@
       "baseUri": null,
       "resourceType": "DocumentReference",
       "resourceId": "example-transforms",
+      "resourceVersion": null,
       "isValidAsCompositeComponent": true
     }
   },
@@ -217,6 +224,7 @@
       "baseUri": null,
       "resourceType": "DocumentReference",
       "resourceId": "example-replaces",
+      "resourceVersion": null,
       "isValidAsCompositeComponent": true
     }
   },
@@ -251,6 +259,7 @@
             "baseUri": null,
             "resourceType": "DocumentReference",
             "resourceId": "example-transforms",
+            "resourceVersion": null,
             "isValidAsCompositeComponent": true
           }
         ],
@@ -277,6 +286,7 @@
             "baseUri": null,
             "resourceType": "DocumentReference",
             "resourceId": "example-replaces",
+            "resourceVersion": null,
             "isValidAsCompositeComponent": true
           }
         ],
@@ -330,6 +340,7 @@
       "baseUri": null,
       "resourceType": "Patient",
       "resourceId": "xcda",
+      "resourceVersion": null,
       "isValidAsCompositeComponent": true
     }
   },

@@ -57,13 +57,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
         }
 
         [Theory]
-        [InlineData("http://localhost/", ResourceType.Patient, "123", "http://localhost/Patient/123")]
-        [InlineData(null, ResourceType.Observation, "xyz", "Observation/xyz")]
-        [InlineData(null, null, "abc", "abc")]
+        [InlineData("http://localhost/", ResourceType.Patient, "123", null, "http://localhost/Patient/123")]
+        [InlineData("http://localhost/", ResourceType.Patient, "123", 4, "http://localhost/Patient/123/_history/4")]
+        [InlineData(null, ResourceType.Observation, "xyz", null, "Observation/xyz")]
+        [InlineData(null, ResourceType.Observation, "xyz", 5, "Observation/xyz/_history/5")]
+        [InlineData(null, null, "abc", null, "abc")]
         public void GivenASearchValue_WhenToStringIsCalled_ThenCorrectStringShouldBeReturned(
             string uriString,
             ResourceType? resourceType,
             string resourceId,
+            int? resourceVersion,
             string expected)
         {
             Uri uri = null;
@@ -73,7 +76,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
                 uri = new Uri(uriString);
             }
 
-            var value = new ReferenceSearchValue(ReferenceKind.InternalOrExternal, uri, resourceType.ToString(), resourceId);
+            var value = new ReferenceSearchValue(ReferenceKind.InternalOrExternal, uri, resourceType.ToString(), resourceId, resourceVersion);
 
             Assert.Equal(expected, value.ToString());
         }
@@ -86,6 +89,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
                 BaseUri = DefaultBaseUri;
                 ResourceType = DefaultResourceType;
                 ResourceId = DefaultResourceId;
+                ResourceVersion = null;
             }
 
             public ReferenceKind Kind { get; set; }
@@ -96,9 +100,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
 
             public string ResourceId { get; set; }
 
+            public int? ResourceVersion { get; set; }
+
             public ReferenceSearchValue ToReferenceSearchValue()
             {
-                return new ReferenceSearchValue(Kind, BaseUri, ResourceType.ToString(), ResourceId);
+                return new ReferenceSearchValue(Kind, BaseUri, ResourceType.ToString(), ResourceId, ResourceVersion);
             }
         }
     }

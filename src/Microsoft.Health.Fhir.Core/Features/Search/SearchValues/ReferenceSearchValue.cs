@@ -22,7 +22,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         /// <param name="baseUri">The base URI of the resource.</param>
         /// <param name="resourceType">The resource type.</param>
         /// <param name="resourceId">The resource id.</param>
-        public ReferenceSearchValue(ReferenceKind referenceKind, Uri baseUri, string resourceType, string resourceId)
+        /// <param name="resourceVersion">The resource version.</param>
+        public ReferenceSearchValue(ReferenceKind referenceKind, Uri baseUri, string resourceType, string resourceId, int? resourceVersion)
         {
             if (baseUri != null)
             {
@@ -36,6 +37,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
             BaseUri = baseUri;
             ResourceType = resourceType;
             ResourceId = resourceId;
+            ResourceVersion = resourceVersion;
         }
 
         /// <summary>
@@ -57,6 +59,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         /// Gets the resource id.
         /// </summary>
         public string ResourceId { get; }
+
+        /// <summary>
+        /// Gets the resource version.
+        /// </summary>
+        public int? ResourceVersion { get; }
 
         /// <inheritdoc />
         public bool IsValidAsCompositeComponent => true;
@@ -86,22 +93,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
             return Kind == referenceSearchValueOther.Kind &&
                    BaseUri == referenceSearchValueOther.BaseUri &&
                    ResourceType.Equals(referenceSearchValueOther.ResourceType, StringComparison.OrdinalIgnoreCase) &&
-                   ResourceId.Equals(referenceSearchValueOther.ResourceId, StringComparison.OrdinalIgnoreCase);
+                   ResourceId.Equals(referenceSearchValueOther.ResourceId, StringComparison.OrdinalIgnoreCase) &&
+                   ResourceVersion == referenceSearchValueOther.ResourceVersion;
         }
 
         /// <inheritdoc />
         public override string ToString()
         {
+            string versionSuffix = ResourceVersion == null ? string.Empty : $"/_history/{ResourceVersion}";
+
             if (BaseUri != null)
             {
-                return $"{BaseUri}{ResourceType}/{ResourceId}";
+                return $"{BaseUri}{ResourceType}/{ResourceId}{versionSuffix}";
             }
             else if (string.IsNullOrWhiteSpace(ResourceType))
             {
-                return ResourceId;
+                return $"{ResourceId}{versionSuffix}";
             }
 
-            return $"{ResourceType}/{ResourceId}";
+            return $"{ResourceType}/{ResourceId}{versionSuffix}";
         }
     }
 }

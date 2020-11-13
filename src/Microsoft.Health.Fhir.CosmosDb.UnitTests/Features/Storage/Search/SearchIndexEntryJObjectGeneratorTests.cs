@@ -257,7 +257,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
         {
             const string resourceId = "xyz";
 
-            var value = new ReferenceSearchValue(ReferenceKind.InternalOrExternal, null, ResourceType.Immunization.ToString(), resourceId);
+            var value = new ReferenceSearchValue(ReferenceKind.InternalOrExternal, null, ResourceType.Immunization.ToString(), resourceId, null);
 
             var expectedValues = new[]
             {
@@ -277,7 +277,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
             var baseUri = new Uri("https://localhost/stu3/");
             const string resourceId = "123";
 
-            var value = new ReferenceSearchValue(ReferenceKind.Internal, baseUri, ResourceType.Account.ToString(), resourceId);
+            var value = new ReferenceSearchValue(ReferenceKind.Internal, baseUri, ResourceType.Account.ToString(), resourceId, null);
 
             var expectedValues = new[]
             {

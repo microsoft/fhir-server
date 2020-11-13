@@ -559,7 +559,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
         {
             const string resourceId = "123";
 
-            _referenceSearchValueParser.Parse(resourceId).Returns(new ReferenceSearchValue(ReferenceKind.InternalOrExternal, null, null, resourceId));
+            _referenceSearchValueParser.Parse(resourceId).Returns(new ReferenceSearchValue(ReferenceKind.InternalOrExternal, null, null, resourceId, null));
 
             Validate(
                 CreateSearchParameter(SearchParamType.Reference),
@@ -575,7 +575,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             const string resourceId = "123";
             string reference = $"{resourceType}/{resourceId}";
 
-            _referenceSearchValueParser.Parse(reference).Returns(new ReferenceSearchValue(ReferenceKind.Internal, null, resourceType.ToString(), resourceId));
+            _referenceSearchValueParser.Parse(reference).Returns(new ReferenceSearchValue(ReferenceKind.Internal, null, resourceType.ToString(), resourceId, null));
 
             Validate(
                 CreateSearchParameter(SearchParamType.Reference),
@@ -598,7 +598,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             const string resourceId = "123";
             string reference = $"{resourceType}/{resourceId}";
 
-            _referenceSearchValueParser.Parse(reference).Returns(new ReferenceSearchValue(referenceLocations, null, resourceType.ToString(), resourceId));
+            _referenceSearchValueParser.Parse(reference).Returns(new ReferenceSearchValue(referenceLocations, null, resourceType.ToString(), resourceId, null));
 
             Validate(
                 CreateSearchParameter(SearchParamType.Reference),
@@ -620,7 +620,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
 
             string reference = $"{baseUrl}{resourceType}/{resourceId}";
 
-            _referenceSearchValueParser.Parse(reference).Returns(new ReferenceSearchValue(ReferenceKind.InternalOrExternal, new Uri(baseUrl), resourceType.ToString(), resourceId));
+            _referenceSearchValueParser.Parse(reference).Returns(new ReferenceSearchValue(ReferenceKind.InternalOrExternal, new Uri(baseUrl), resourceType.ToString(), resourceId, null));
 
             Validate(
                 CreateSearchParameter(SearchParamType.Reference),
@@ -638,7 +638,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
         [MemberData(nameof(GetAllModifiersExceptMissing))]
         public void GivenAReferenceWithInvalidModifier_WhenBuilding_ThenInvalidSearchOperationExceptionShouldBeThrown(SearchModifierCode modifier)
         {
-            _referenceSearchValueParser.Parse(Arg.Any<string>()).Returns(new ReferenceSearchValue(ReferenceKind.InternalOrExternal, null, null, "123"));
+            _referenceSearchValueParser.Parse(Arg.Any<string>()).Returns(new ReferenceSearchValue(ReferenceKind.InternalOrExternal, null, null, "123", null));
 
             Assert.Throws<InvalidSearchOperationException>(
                 () => _parser.Parse(CreateSearchParameter(SearchParamType.Reference), modifier, "Patient/test"));

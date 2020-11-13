@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 searchValue.BaseUri?.ToString(),
                 Model.GetResourceTypeId(searchValue.ResourceType.ToString()),
                 searchValue.ResourceId,
-                ReferenceResourceVersion: null);
+                ReferenceResourceVersion: searchValue.ResourceVersion);
 
             return true;
         }

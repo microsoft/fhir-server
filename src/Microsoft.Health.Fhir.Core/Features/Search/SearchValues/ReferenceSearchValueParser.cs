@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
 using EnsureThat;
@@ -19,9 +20,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
     {
         private const string ResourceTypeCapture = "resourceType";
         private const string ResourceIdCapture = "resourceId";
+        private const string ResourceVersionCapture = "resourceVersion";
         private static readonly string[] SupportedSchemes = new string[] { Uri.UriSchemeHttps, Uri.UriSchemeHttp };
         private static readonly string ResourceTypesPattern = string.Join('|', ModelInfoProvider.GetResourceTypeNames());
-        private static readonly string ReferenceCaptureRegexPattern = $@"(?<{ResourceTypeCapture}>{ResourceTypesPattern})\/(?<{ResourceIdCapture}>[A-Za-z0-9\-\.]{{1,64}})(\/_history\/[A-Za-z0-9\-\.]{{1,64}})?";
+        private static readonly string ReferenceCaptureRegexPattern = $@"(?<{ResourceTypeCapture}>{ResourceTypesPattern})\/(?<{ResourceIdCapture}>[A-Za-z0-9\-\.]{{1,64}})(\/_history\/(?<{ResourceVersionCapture}>[A-Za-z0-9\-\.]{{1,64}}))?";
 
         private static readonly Regex ReferenceRegex = new Regex(
             ReferenceCaptureRegexPattern,
@@ -51,6 +53,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
 
                 string resourceId = match.Groups[ResourceIdCapture].Value;
 
+                string resourceVersionString = match.Groups[ResourceVersionCapture].Value;
+                int? resourceVersion = int.TryParse(resourceVersionString, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsedVersion) ? (int?)parsedVersion : null;
+
                 int resourceTypeStartIndex = match.Groups[ResourceTypeCapture].Index;
 
                 if (resourceTypeStartIndex == 0)
@@ -60,7 +65,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                         ReferenceKind.InternalOrExternal,
                         null,
                         resourceTypeInString,
-                        resourceId);
+                        resourceId,
+                        resourceVersion);
                 }
 
                 Uri baseUri = null;
@@ -76,7 +82,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                             ReferenceKind.Internal,
                             null,
                             resourceTypeInString,
-                            resourceId);
+                            resourceId,
+                            resourceVersion);
                     }
                     else if (baseUri.IsAbsoluteUri &&
                         SupportedSchemes.Contains(baseUri.Scheme, StringComparer.OrdinalIgnoreCase))
@@ -86,7 +93,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                             ReferenceKind.External,
                             baseUri,
                             resourceTypeInString,
-                            resourceId);
+                            resourceId,
+                            resourceVersion);
                     }
                 }
                 catch (UriFormatException)
@@ -99,7 +107,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                 ReferenceKind.InternalOrExternal,
                 baseUri: null,
                 resourceType: null,
-                resourceId: s);
+                resourceId: s,
+                resourceVersion: null);
         }
     }
 }

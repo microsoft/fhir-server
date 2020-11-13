@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Compartment
                 });
             var searchIndexEntries = new List<SearchIndexEntry>
             {
-                new SearchIndexEntry(_referenceSearchTestParam, new ReferenceSearchValue(referenceKind, _baseUri, CompartmentDefinitionManager.CompartmentTypeToResourceType(compartmentType.ToString()).ToString(), expectedResourceId)),
+                new SearchIndexEntry(_referenceSearchTestParam, new ReferenceSearchValue(referenceKind, _baseUri, CompartmentDefinitionManager.CompartmentTypeToResourceType(compartmentType.ToString()).ToString(), expectedResourceId, null)),
                 new SearchIndexEntry(_nonReferenceReferenceSearchTestParam, new StringSearchValue("aadsdas")),
             };
             CompartmentIndices compartmentIndices = _compartmentIndexer.Extract(resourceType.ToString(), searchIndexEntries);
@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Compartment
                 });
             var searchIndexEntries = new List<SearchIndexEntry>
             {
-                new SearchIndexEntry(_referenceSearchTestParam, new ReferenceSearchValue(referenceKind, null, null, expectedResourceId)),
+                new SearchIndexEntry(_referenceSearchTestParam, new ReferenceSearchValue(referenceKind, null, null, expectedResourceId, null)),
             };
             CompartmentIndices compartmentIndices = _compartmentIndexer.Extract(resourceType.ToString(), searchIndexEntries);
 
@@ -123,9 +123,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Compartment
             // Setup multiple reference search parameters with expected resource ids for the compartments.
             var searchIndexEntries = new List<SearchIndexEntry>
             {
-                new SearchIndexEntry(_referenceSearchTestParam, new ReferenceSearchValue(ReferenceKind.InternalOrExternal, _baseUri, CompartmentDefinitionManager.CompartmentTypeToResourceType(expectedCompartmentType1.ToString()).ToString(), ExpectedResourceIdR1)),
-                new SearchIndexEntry(_anotherReferenceSearchTestParam, new ReferenceSearchValue(ReferenceKind.Internal, _baseUri, CompartmentDefinitionManager.CompartmentTypeToResourceType(expectedCompartmentType2.ToString()).ToString(), ExpectedResourceIdR2)),
-                new SearchIndexEntry(_yetAnotherReferenceSearchTestParam, new ReferenceSearchValue(ReferenceKind.External, _baseUri, CompartmentDefinitionManager.CompartmentTypeToResourceType(expectedCompartmentType3.ToString()).ToString(), ExpectedResourceIdR3)),
+                new SearchIndexEntry(_referenceSearchTestParam, new ReferenceSearchValue(ReferenceKind.InternalOrExternal, _baseUri, CompartmentDefinitionManager.CompartmentTypeToResourceType(expectedCompartmentType1.ToString()).ToString(), ExpectedResourceIdR1, null)),
+                new SearchIndexEntry(_anotherReferenceSearchTestParam, new ReferenceSearchValue(ReferenceKind.Internal, _baseUri, CompartmentDefinitionManager.CompartmentTypeToResourceType(expectedCompartmentType2.ToString()).ToString(), ExpectedResourceIdR2, null)),
+                new SearchIndexEntry(_yetAnotherReferenceSearchTestParam, new ReferenceSearchValue(ReferenceKind.External, _baseUri, CompartmentDefinitionManager.CompartmentTypeToResourceType(expectedCompartmentType3.ToString()).ToString(), ExpectedResourceIdR3, null)),
             };
 
             CompartmentIndices compartmentIndices = _compartmentIndexer.Extract(expectedCareTeamResource, searchIndexEntries);

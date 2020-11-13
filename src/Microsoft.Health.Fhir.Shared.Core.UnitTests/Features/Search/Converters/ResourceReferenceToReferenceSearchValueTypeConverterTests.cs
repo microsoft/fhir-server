@@ -50,7 +50,26 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
         {
             const string reference = "Patient/123";
 
-            var expectedSearchValue = new ReferenceSearchValue(ReferenceKind.InternalOrExternal, null, null, "123");
+            var expectedSearchValue = new ReferenceSearchValue(ReferenceKind.InternalOrExternal, null, null, "123", null);
+
+            _referenceSearchValueParser.Parse(reference).Returns(expectedSearchValue);
+
+            _reference.Reference = reference;
+
+            IEnumerable<ISearchValue> results = _converter.ConvertTo(_reference);
+
+            Assert.NotNull(results);
+            Assert.Collection(
+                results,
+                e => Assert.Same(expectedSearchValue, e));
+        }
+
+        [Fact]
+        public void GivenAResourceReferenceWithVersionedReference_WhenConverted_ThenAVersionedReferenceSearchValueShouldBeCreated()
+        {
+            const string reference = "Patient/123/_history/4";
+
+            var expectedSearchValue = new ReferenceSearchValue(ReferenceKind.InternalOrExternal, null, null, "123", 4);
 
             _referenceSearchValueParser.Parse(reference).Returns(expectedSearchValue);
 
