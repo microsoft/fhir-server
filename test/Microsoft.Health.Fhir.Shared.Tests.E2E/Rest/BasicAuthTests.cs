@@ -216,11 +216,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAUserWithNoDataConvertPermissions_WhenDataConvert_TheServerShouldReturnForbidden()
         {
-            if (!_isUsingInProcTestServer)
-            {
-                return;
-            }
-
             TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
 
             var parameters = Samples.GetDefaultDataConvertParameter().ToPoco<Parameters>();
@@ -233,11 +228,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAUserWithDataConvertPermissions_WhenDataConvert_TheServerShouldReturnSuccess()
         {
-            if (!_isUsingInProcTestServer)
-            {
-                return;
-            }
-
             TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.DataConvertUser, TestApplications.NativeClient);
             var parameters = Samples.GetDefaultDataConvertParameter().ToPoco<Parameters>();
             var result = await tempClient.DataConvertAsync(parameters);
