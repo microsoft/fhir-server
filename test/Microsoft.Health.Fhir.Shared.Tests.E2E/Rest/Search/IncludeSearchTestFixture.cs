@@ -90,6 +90,12 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
 
         public Location Location { get; private set; }
 
+        public Practitioner PractitionerWithMultipleVersionsV1 { get; private set; }
+
+        public Practitioner PractitionerWithMultipleVersionsV2 { get; private set; }
+
+        public Observation ObservationWithVersionedReference { get; private set; }
+
         protected override async Task OnInitializedAsync()
         {
             Tag = Guid.NewGuid().ToString();
@@ -153,6 +159,20 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
                 ManagingOrganization = new ResourceReference($"Organization/{Organization.Id}"),
                 Meta = meta,
             })).Resource;
+
+            PractitionerWithMultipleVersionsV1 = (await TestFhirClient.CreateAsync(new Practitioner { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Mercia" } } })).Resource;
+            PractitionerWithMultipleVersionsV2 = (await TestFhirClient.UpdateAsync(PractitionerWithMultipleVersionsV1)).Resource;
+            ObservationWithVersionedReference = (await TestFhirClient.CreateAsync(
+                new Observation()
+                {
+                    Meta = meta,
+                    Status = ObservationStatus.Final,
+                    Code = loincCode,
+                    Performer = new List<ResourceReference>()
+                    {
+                        new ResourceReference($"Practitioner/{PractitionerWithMultipleVersionsV1.Id}/_history/{PractitionerWithMultipleVersionsV1.Meta.VersionId}"),
+                    },
+                })).Resource;
 
             var group = new Group
             {

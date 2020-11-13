@@ -288,10 +288,42 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.SmithSnomedObservation,
                 Fixture.TrumanLoincObservation,
                 Fixture.TrumanSnomedObservation,
+                Fixture.ObservationWithVersionedReference,
                 Fixture.Practitioner,
+                Fixture.PractitionerWithMultipleVersionsV1,
                 Fixture.Organization);
 
             ValidateSearchEntryMode(bundle, ResourceType.Observation);
+        }
+
+        [Fact]
+        public async Task GivenAnIncludeSearchExpressionWithVersionedReference_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        {
+            string query = $"_tag={Fixture.Tag}&_id={Fixture.ObservationWithVersionedReference.Id}&_include=Observation:performer";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.Observation, query);
+
+            ValidateBundle(
+                bundle,
+                Fixture.ObservationWithVersionedReference,
+                Fixture.PractitionerWithMultipleVersionsV1);
+
+            ValidateSearchEntryMode(bundle, ResourceType.Observation);
+        }
+
+        [Fact]
+        public async Task GivenARevIncludeSearchExpressionWithVersionedReference_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        {
+            string query = $"_tag={Fixture.Tag}&_id={Fixture.PractitionerWithMultipleVersionsV2.Id}&_revinclude=Observation:performer";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.Practitioner, query);
+
+            ValidateBundle(
+                bundle,
+                Fixture.ObservationWithVersionedReference,
+                Fixture.PractitionerWithMultipleVersionsV2);
+
+            ValidateSearchEntryMode(bundle, ResourceType.Practitioner);
         }
 
         // RevInclude
@@ -1005,7 +1037,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.AndersonPractitioner,
                 Fixture.SanchezPractitioner,
                 Fixture.TaylorPractitioner,
-                Fixture.Practitioner);
+                Fixture.Practitioner,
+                Fixture.PractitionerWithMultipleVersionsV2);
 
             ValidateSearchEntryMode(bundle, ResourceType.Practitioner);
         }
@@ -1025,6 +1058,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.AndersonPractitioner,
                 Fixture.SanchezPractitioner,
                 Fixture.TaylorPractitioner,
+                Fixture.PractitionerWithMultipleVersionsV2,
                 Fixture.Practitioner,
                 Fixture.Patient,
                 Fixture.AdamsPatient,
@@ -1138,6 +1172,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.AndersonPractitioner,
                 Fixture.SanchezPractitioner,
                 Fixture.TaylorPractitioner,
+                Fixture.PractitionerWithMultipleVersionsV2,
                 Fixture.Practitioner,
                 Fixture.Patient,
                 Fixture.AdamsPatient,
