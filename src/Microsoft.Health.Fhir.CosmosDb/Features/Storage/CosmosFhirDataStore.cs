@@ -18,6 +18,7 @@ using Microsoft.Health.Core;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
@@ -191,7 +192,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
             catch (CosmosException exception)
             {
-                if (exception.InnerException is RequestEntityTooLargeException)
+                if (exception.IsRequestEntityTooLarge())
                 {
                     throw;
                 }
@@ -340,7 +341,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                             results.AddRange(page);
                         }
                     }
-                    catch (CosmosException e) when (e.InnerException is RequestRateExceededException)
+                    catch (CosmosException e) when (e.IsRequestRateExceeded())
                     {
                         // return whatever we have when we get a 429
                         break;

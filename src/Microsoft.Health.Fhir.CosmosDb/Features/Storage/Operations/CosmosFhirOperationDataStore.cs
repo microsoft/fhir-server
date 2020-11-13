@@ -14,9 +14,8 @@ using Microsoft.Azure.Cosmos;
 using Microsoft.Azure.Cosmos.Scripts;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex.Models;
@@ -102,7 +101,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             }
             catch (CosmosException dce)
             {
-                if (dce.InnerException is RequestRateExceededException)
+                if (dce.IsRequestRateExceeded())
                 {
                     throw;
                 }
@@ -129,7 +128,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             }
             catch (CosmosException dce)
             {
-                if (dce.InnerException is RequestRateExceededException)
+                if (dce.IsRequestRateExceeded())
                 {
                     throw;
                 }
@@ -171,7 +170,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             }
             catch (CosmosException dce)
             {
-                if (dce.InnerException is RequestRateExceededException)
+                if (dce.IsRequestRateExceeded())
                 {
                     throw;
                 }
@@ -209,7 +208,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             }
             catch (CosmosException dce)
             {
-                if (dce.InnerException is RequestRateExceededException)
+                if (dce.IsRequestRateExceeded())
                 {
                     throw;
                 }
@@ -246,7 +245,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             }
             catch (CosmosException dce)
             {
-                if (dce.InnerException is RequestEntityTooLargeException)
+                if (dce.IsRequestEntityTooLarge())
                 {
                     throw;
                 }
@@ -273,7 +272,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             }
             catch (CosmosException dce)
             {
-                if (dce.InnerException is RequestRateExceededException)
+                if (dce.IsRequestRateExceeded())
                 {
                     throw;
                 }
@@ -299,7 +298,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             }
             catch (CosmosException dce)
             {
-                if (dce.InnerException is RequestEntityTooLargeException)
+                if (dce.IsRequestEntityTooLarge())
                 {
                     throw;
                 }
@@ -330,7 +329,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             }
             catch (CosmosException dce)
             {
-                if (dce.InnerException is RequestRateExceededException)
+                if (dce.IsRequestRateExceeded())
                 {
                     throw;
                 }
@@ -359,7 +358,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             }
             catch (CosmosException dce)
             {
-                if (dce.InnerException is RequestRateExceededException)
+                if (dce.IsRequestRateExceeded())
                 {
                     throw;
                 }
@@ -401,7 +400,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             }
             catch (CosmosException dce)
             {
-                if (dce.InnerException is RequestRateExceededException)
+                if (dce.IsRequestRateExceeded())
                 {
                     throw;
                 }
