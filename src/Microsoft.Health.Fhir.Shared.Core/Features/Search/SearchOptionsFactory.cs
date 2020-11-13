@@ -7,13 +7,13 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Text.RegularExpressions;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -25,27 +25,38 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 {
     public class SearchOptionsFactory : ISearchOptionsFactory
     {
-        private static readonly Regex Base64FormatRegex = new Regex("^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$", RegexOptions.Compiled | RegexOptions.Singleline);
         private static readonly string SupportedTotalTypes = $"'{TotalType.Accurate}', '{TotalType.None}'".ToLower(CultureInfo.CurrentCulture);
 
+        private static readonly List<string> IncludeIterateModifiers = new List<string> { "_include:iterate", "_include:recurse" };
+        private static readonly List<string> RevIncludeIterateModifiers = new List<string> { "_revinclude:iterate", "_revinclude:recurse" };
+        private static readonly List<string> AllIterateModifiers = IncludeIterateModifiers.Concat(RevIncludeIterateModifiers).ToList();
+
         private readonly IExpressionParser _expressionParser;
+        private readonly IFhirRequestContextAccessor _contextAccessor;
+        private readonly ISortingValidator _sortingValidator;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ILogger _logger;
         private readonly SearchParameterInfo _resourceTypeSearchParameter;
-        private CoreFeatureConfiguration _featureConfiguration;
+        private readonly CoreFeatureConfiguration _featureConfiguration;
 
         public SearchOptionsFactory(
             IExpressionParser expressionParser,
             ISearchParameterDefinitionManager.SearchableSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
             IOptions<CoreFeatureConfiguration> featureConfiguration,
+            IFhirRequestContextAccessor contextAccessor,
+            ISortingValidator sortingValidator,
             ILogger<SearchOptionsFactory> logger)
         {
             EnsureArg.IsNotNull(expressionParser, nameof(expressionParser));
             EnsureArg.IsNotNull(searchParameterDefinitionManagerResolver, nameof(searchParameterDefinitionManagerResolver));
             EnsureArg.IsNotNull(featureConfiguration?.Value, nameof(featureConfiguration));
+            EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
+            EnsureArg.IsNotNull(sortingValidator, nameof(sortingValidator));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _expressionParser = expressionParser;
+            _contextAccessor = contextAccessor;
+            _sortingValidator = sortingValidator;
             _searchParameterDefinitionManager = searchParameterDefinitionManagerResolver();
             _logger = logger;
             _featureConfiguration = featureConfiguration.Value;
@@ -80,14 +91,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                             string.Format(Core.Resources.MultipleQueryParametersNotAllowed, KnownQueryParameterNames.ContinuationToken));
                     }
 
-                    // Checks if the continuation token is base 64 bit encoded. Needed for systems that have cached continuation tokens from before they were encoded.
-                    if (Base64FormatRegex.IsMatch(query.Item2))
+                    try
                     {
                         continuationToken = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(query.Item2));
                     }
-                    else
+                    catch (FormatException)
                     {
-                        continuationToken = query.Item2;
+                        throw new BadRequestException(Core.Resources.InvalidContinuationToken);
                     }
 
                     setDefaultBundleTotal = false;
@@ -141,12 +151,22 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             // Check the item count.
             if (searchParams.Count != null)
             {
+                searchOptions.MaxItemCountSpecifiedByClient = true;
+
                 if (searchParams.Count > _featureConfiguration.MaxItemCountPerSearch)
                 {
-                    throw new BadRequestException(string.Format(Core.Resources.SearchParamaterCountExceedLimit, _featureConfiguration.MaxItemCountPerSearch, searchParams.Count));
-                }
+                    searchOptions.MaxItemCount = _featureConfiguration.MaxItemCountPerSearch;
 
-                searchOptions.MaxItemCount = searchParams.Count.Value;
+                    _contextAccessor.FhirRequestContext.BundleIssues.Add(
+                        new OperationOutcomeIssue(
+                            OperationOutcomeConstants.IssueSeverity.Information,
+                            OperationOutcomeConstants.IssueType.Informational,
+                            string.Format(Core.Resources.SearchParamaterCountExceedLimit, _featureConfiguration.MaxItemCountPerSearch, searchParams.Count)));
+                }
+                else
+                {
+                    searchOptions.MaxItemCount = searchParams.Count.Value;
+                }
             }
             else
             {
@@ -194,16 +214,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             if (searchParams.Include?.Count > 0)
             {
                 searchExpressions.AddRange(searchParams.Include.Select(
-                    q => _expressionParser.ParseInclude(parsedResourceType.ToString(), q, false /* not reversed */))
+                    q => _expressionParser.ParseInclude(parsedResourceType.ToString(), q, false /* not reversed */, false /* no iterate */))
                     .Where(item => item != null));
             }
 
             if (searchParams.RevInclude?.Count > 0)
             {
                 searchExpressions.AddRange(searchParams.RevInclude.Select(
-                    q => _expressionParser.ParseInclude(parsedResourceType.ToString(), q, true /* reversed */))
+                    q => _expressionParser.ParseInclude(parsedResourceType.ToString(), q, true /* reversed */, false /* no iterate */))
                     .Where(item => item != null));
             }
+
+            // Parse _include:iterate (_include:recurse) parameters.
+            // :iterate (:recurse) modifiers are not supported by Hl7.Fhir.Rest, hence not added to the Include collection and exist in the Parameters list.
+            // See https://github.com/FirelyTeam/fhir-net-api/issues/222
+            // _include:iterate (_include:recurse) expression may appear without a preceding _include parameter
+            // when applied on a circular reference
+            searchExpressions.AddRange(ParseIncludeIterateExpressions(searchParams));
+
+            // remove _include:iterate and _revinclude:iterate parameters from unsupportedSearchParameters
+            unsupportedSearchParameters.RemoveAll(p => AllIterateModifiers.Contains(p.Item1));
 
             if (!string.IsNullOrWhiteSpace(compartmentType))
             {
@@ -241,40 +271,95 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             if (searchParams.Sort?.Count > 0)
             {
-                var sortings = new List<(SearchParameterInfo, SortOrder)>();
-                List<(string parameterName, string reason)> unsupportedSortings = null;
+                var sortings = new List<(SearchParameterInfo, SortOrder)>(searchParams.Sort.Count);
+                bool sortingsValid = true;
 
                 foreach (Tuple<string, Hl7.Fhir.Rest.SortOrder> sorting in searchParams.Sort)
                 {
                     try
                     {
                         SearchParameterInfo searchParameterInfo = _searchParameterDefinitionManager.GetSearchParameter(parsedResourceType.ToString(), sorting.Item1);
-
-                        if (searchParameterInfo.IsSortSupported())
-                        {
-                            sortings.Add((searchParameterInfo, sorting.Item2.ToCoreSortOrder()));
-                        }
-                        else
-                        {
-                            throw new SearchParameterNotSupportedException(string.Format(Core.Resources.SearchSortParameterNotSupported, searchParameterInfo.Name));
-                        }
+                        sortings.Add((searchParameterInfo, sorting.Item2.ToCoreSortOrder()));
                     }
                     catch (SearchParameterNotSupportedException)
                     {
-                        (unsupportedSortings ??= new List<(string parameterName, string reason)>()).Add((sorting.Item1, string.Format(Core.Resources.SearchSortParameterNotSupported, sorting.Item1)));
+                        sortingsValid = false;
+                        _contextAccessor.FhirRequestContext.BundleIssues.Add(new OperationOutcomeIssue(
+                            OperationOutcomeConstants.IssueSeverity.Warning,
+                            OperationOutcomeConstants.IssueType.NotSupported,
+                            string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchParameterNotSupported, sorting.Item1, parsedResourceType.ToString())));
                     }
                 }
 
-                searchOptions.Sort = sortings;
-                searchOptions.UnsupportedSortingParams = (IReadOnlyList<(string parameterName, string reason)>)unsupportedSortings ?? Array.Empty<(string parameterName, string reason)>();
+                if (sortingsValid)
+                {
+                    if (!_sortingValidator.ValidateSorting(sortings, out IReadOnlyList<string> errorMessages))
+                    {
+                        if (errorMessages == null || errorMessages.Count == 0)
+                        {
+                            throw new InvalidOperationException($"Expected {_sortingValidator.GetType().Name} to return error messages when {nameof(_sortingValidator.ValidateSorting)} returns false");
+                        }
+
+                        sortingsValid = false;
+
+                        foreach (var errorMessage in errorMessages)
+                        {
+                            _contextAccessor.FhirRequestContext.BundleIssues.Add(new OperationOutcomeIssue(
+                                OperationOutcomeConstants.IssueSeverity.Warning,
+                                OperationOutcomeConstants.IssueType.NotSupported,
+                                errorMessage));
+                        }
+                    }
+                }
+
+                if (sortingsValid)
+                {
+                    searchOptions.Sort = sortings;
+                }
             }
-            else
+
+            if (searchOptions.Sort == null)
             {
                 searchOptions.Sort = Array.Empty<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)>();
-                searchOptions.UnsupportedSortingParams = Array.Empty<(string parameterName, string reason)>();
             }
 
             return searchOptions;
+
+            IEnumerable<IncludeExpression> ParseIncludeIterateExpressions(SearchParams searchParams)
+            {
+                return searchParams.Parameters
+                .Where(p => p != null && AllIterateModifiers.Where(m => string.Equals(p.Item1, m, StringComparison.OrdinalIgnoreCase)).Any())
+                .Select(p =>
+                {
+                    var includeResourceType = p.Item2?.Split(':')[0];
+                    if (!ModelInfoProvider.IsKnownResource(includeResourceType))
+                    {
+                        throw new ResourceNotSupportedException(includeResourceType);
+                    }
+
+                    var reversed = RevIncludeIterateModifiers.Contains(p.Item1);
+                    var expression = _expressionParser.ParseInclude(includeResourceType, p.Item2, reversed, true);
+
+                    // Reversed Iterate expressions (not wildcard) must specify target type if there is more than one possible target type
+                    if (expression.Reversed && expression.Iterate && expression.TargetResourceType == null && expression.ReferenceSearchParameter?.TargetResourceTypes?.Count > 1)
+                    {
+                        throw new BadRequestException(string.Format(Core.Resources.RevIncludeIterateTargetTypeNotSpecified, p.Item2));
+                    }
+
+                    // For circular include iterate expressions, add an informational issue indicating that a single iteration is supported.
+                    // See https://www.hl7.org/fhir/search.html#revinclude.
+                    if (expression.Iterate && expression.CircularReference)
+                    {
+                        _contextAccessor.FhirRequestContext.BundleIssues.Add(
+                        new OperationOutcomeIssue(
+                            OperationOutcomeConstants.IssueSeverity.Information,
+                            OperationOutcomeConstants.IssueType.Informational,
+                            string.Format(Core.Resources.IncludeIterateCircularReferenceExecutedOnce, p.Item1, p.Item2)));
+                    }
+
+                    return expression;
+                });
+            }
 
             void ValidateTotalType(TotalType totalType)
             {

@@ -106,6 +106,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The &quot;content-type&quot; header must be &apos;application/x-www-form-urlencoded&apos;..
+        /// </summary>
+        public static string ContentTypeFormUrlEncodedExpected {
+            get {
+                return ResourceManager.GetString("ContentTypeFormUrlEncodedExpected", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The &quot;content-type&quot; header is required..
         /// </summary>
         public static string ContentTypeHeaderRequired {
@@ -331,7 +340,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Error occurred when parsing model..
+        ///   Looks up a localized string similar to Error occurred when parsing model: &apos;{0}&apos;..
         /// </summary>
         public static string ParsingError {
             get {

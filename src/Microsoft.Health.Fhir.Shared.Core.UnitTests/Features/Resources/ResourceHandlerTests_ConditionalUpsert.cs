@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -33,8 +34,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             UpsertResourceResponse result = await _mediator.Send<UpsertResourceResponse>(message);
 
             Assert.Equal(SaveOutcomeType.Created, result.Outcome.Outcome);
-
-            await _fhirDataStore.Received().UpsertAsync(Arg.Is<ResourceWrapper>(x => x.ResourceId == result.Outcome.Resource.Id), null, true, true, Arg.Any<CancellationToken>());
+            var deserialized = result.Outcome.RawResourceElement.ToPoco<Observation>(Deserializers.ResourceDeserializer).ToResourceElement();
+            await _fhirDataStore.Received().UpsertAsync(Arg.Is<ResourceWrapper>(x => x.ResourceId == deserialized.Id), null, true, true, Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -139,7 +140,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             IReadOnlyList<Tuple<string, string>> list = new[] { Tuple.Create("_tag", Guid.NewGuid().ToString()) };
 
             _searchService.SearchAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<Tuple<string, string>>>(), CancellationToken.None)
-                .Returns(new SearchResult(searchResults, Enumerable.Empty<Tuple<string, string>>().ToArray(), Enumerable.Empty<(string, string)>().ToArray(), null));
+                .Returns(new SearchResult(searchResults, null, null, Enumerable.Empty<Tuple<string, string>>().ToArray()));
 
             _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), true, true, Arg.Any<CancellationToken>())
                 .Returns(x => new UpsertOutcome(x.ArgAt<ResourceWrapper>(0), outcomeType));

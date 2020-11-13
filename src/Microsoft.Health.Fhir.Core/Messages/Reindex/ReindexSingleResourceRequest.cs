@@ -10,14 +10,18 @@ namespace Microsoft.Health.Fhir.Core.Messages.Reindex
 {
     public class ReindexSingleResourceRequest : IRequest<ReindexSingleResourceResponse>
     {
-        public ReindexSingleResourceRequest(string resourceType, string resourceId)
+        public ReindexSingleResourceRequest(string httpMethod, string resourceType, string resourceId)
         {
+            EnsureArg.IsNotNullOrWhiteSpace(httpMethod, nameof(httpMethod));
             EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
             EnsureArg.IsNotNullOrWhiteSpace(resourceId, nameof(resourceId));
 
+            HttpMethod = httpMethod;
             ResourceType = resourceType;
             ResourceId = resourceId;
         }
+
+        public string HttpMethod { get; }
 
         public string ResourceType { get; }
 

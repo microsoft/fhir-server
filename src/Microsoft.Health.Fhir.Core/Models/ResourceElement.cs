@@ -16,7 +16,7 @@ namespace Microsoft.Health.Fhir.Core.Models
     /// <summary>
     /// Wraps an ITypedElement that contains generic FHIR data
     /// </summary>
-    public class ResourceElement
+    public class ResourceElement : IResourceElement
     {
         private readonly Lazy<EvaluationContext> _context;
         private readonly List<string> _nonDomainTypes = new List<string>

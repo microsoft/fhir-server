@@ -73,9 +73,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             ValidateParams(inputParams);
 
             ushort? maximumConcurrency = ReadNumericParameter(inputParams, JobRecordProperties.MaximumConcurrency);
-            string scope = ReadStringParameter(inputParams, JobRecordProperties.Scope);
 
-            ResourceElement response = await _mediator.CreateReindexJobAsync(maximumConcurrency, scope, HttpContext.RequestAborted);
+            ResourceElement response = await _mediator.CreateReindexJobAsync(maximumConcurrency, HttpContext.RequestAborted);
 
             var result = FhirResult.Create(response, HttpStatusCode.Created)
                 .SetETagHeader()
@@ -85,6 +84,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return result;
         }
 
+        [HttpPost]
         [HttpGet]
         [Route(KnownRoutes.ReindexSingleResource)]
         [AuditEventType(AuditEventSubType.Reindex)]
@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             CheckIfReindexIsEnabledAndRespond();
 
-            ReindexSingleResourceResponse response = await _mediator.SendReindexSingleResourceRequestAsync(typeParameter, idParameter, HttpContext.RequestAborted);
+            ReindexSingleResourceResponse response = await _mediator.SendReindexSingleResourceRequestAsync(Request.Method, typeParameter, idParameter, HttpContext.RequestAborted);
 
             var result = FhirResult.Create(response.ParameterResource, HttpStatusCode.OK);
 
@@ -212,7 +212,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             var postParams = new HashSet<string>()
             {
                 JobRecordProperties.MaximumConcurrency,
-                JobRecordProperties.Scope,
             };
 
             var patchParams = new HashSet<string>()

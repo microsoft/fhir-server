@@ -12,7 +12,6 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Resources;
-using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -79,7 +78,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             SearchResultEntry mockSearchEntry = GetMockSearchEntry("123", KnownResourceTypes.Patient);
 
-            var searchResult = new SearchResult(new[] { mockSearchEntry }, new Tuple<string, string>[0], Array.Empty<(string parameterName, string reason)>(), null);
+            var searchResult = new SearchResult(new[] { mockSearchEntry }, null, null, new Tuple<string, string>[0]);
             _searchService.SearchAsync("Patient", Arg.Any<IReadOnlyList<Tuple<string, string>>>(), CancellationToken.None).Returns(searchResult);
 
             var referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
@@ -110,7 +109,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             var expectedMessage = "Given conditional reference 'Patient?identifier=12345' does not resolve to a resource.";
 
-            var searchResult = new SearchResult(new[] { mockSearchEntry, mockSearchEntry1 }, new Tuple<string, string>[0], Array.Empty<(string parameterName, string reason)>(), null);
+            var searchResult = new SearchResult(new[] { mockSearchEntry, mockSearchEntry1 }, null, null, new Tuple<string, string>[0]);
             _searchService.SearchAsync("Patient", Arg.Any<IReadOnlyList<Tuple<string, string>>>(), CancellationToken.None).Returns(searchResult);
 
             var referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
@@ -146,7 +145,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
                    resourceId,
                    "1",
                    resourceType,
-                   new RawResource("data", FhirResourceFormat.Json),
+                   new RawResource("data", FhirResourceFormat.Json, isMetaSet: false),
                    null,
                    DateTimeOffset.MinValue,
                    false,

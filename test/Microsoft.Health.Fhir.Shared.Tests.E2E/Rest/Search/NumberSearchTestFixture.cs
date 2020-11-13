@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
@@ -15,15 +16,21 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public NumberSearchTestFixture(DataStore dataStore, Format format, TestFhirServerFactory testFhirServerFactory)
             : base(dataStore, format, testFhirServerFactory)
         {
-            // Prepare the resources used for number search tests.
-            TestFhirClient.DeleteAllResources(ResourceType.RiskAssessment).Wait();
+        }
 
-            RiskAssessments = TestFhirClient.CreateResourcesAsync<RiskAssessment>(
+        public IReadOnlyList<RiskAssessment> RiskAssessments { get; private set; }
+
+        protected override async Task OnInitializedAsync()
+        {
+            // Prepare the resources used for number search tests.
+            await TestFhirClient.DeleteAllResources(ResourceType.RiskAssessment);
+
+            RiskAssessments = await TestFhirClient.CreateResourcesAsync<RiskAssessment>(
                 i => SetRiskAssessment(i, 1),
                 i => SetRiskAssessment(i, 4),
                 i => SetRiskAssessment(i, 5),
                 i => SetRiskAssessment(i, 6),
-                i => SetRiskAssessment(i, 100)).Result;
+                i => SetRiskAssessment(i, 100));
 
             void SetRiskAssessment(RiskAssessment riskAssessment, int probability)
             {
@@ -35,7 +42,5 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 };
             }
         }
-
-        public IReadOnlyList<RiskAssessment> RiskAssessments { get; }
     }
 }

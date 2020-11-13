@@ -21,14 +21,14 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
     {{- end }}
-      serviceAccountName: {{ include "fhir-server.serviceAccountName" . }}
+      automountServiceAccountToken: false
       securityContext:
-        {{- toYaml .Values.database.sqlContainer.securityContext | nindent 8 }}
+        {{- toYaml .Values.database.sqlContainer.podSecurityContext | nindent 8 }}
       containers:
         - name: mssql
           securityContext:
-            {{- toYaml .Values.securityContext | nindent 12 }}
-          image: "{{ .Values.database.sqlContainer.image.repository }}:{{ .Values.database.sqlContainer.image.tag }}"
+            {{- toYaml .Values.database.sqlContainer.securityContext | nindent 12 }}
+          image: "{{ .Values.database.sqlContainer.image.registry }}/{{ .Values.database.sqlContainer.image.repository }}:{{ .Values.database.sqlContainer.image.tag }}"
           imagePullPolicy: {{ .Values.database.sqlContainer.image.pullPolicy }}
           env:
           - name: MSSQL_PID
@@ -51,7 +51,7 @@ spec:
       volumes:
       - name: mssqldb
         persistentVolumeClaim:
-          claimName: {{ $dbservicename }} 
+          claimName: {{ $dbservicename }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

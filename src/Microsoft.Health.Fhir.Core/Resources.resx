@@ -227,9 +227,21 @@
     <value>The _include search cannot be used against the base route.</value>
     <comment>_include is a query parameter.</comment>
   </data>
+  <data name="IncludeIterateCircularReferenceExecutedOnce" xml:space="preserve">
+    <value>The parameter {0}={1} with circular reference is executed once (a single iteration).</value>
+    <comment>_include:iterate or _revinclude:iterate is a query parameter.</comment>
+  </data>
   <data name="IncludeMissingType" xml:space="preserve">
     <value>The _include search is missing the type to search.</value>
     <comment>_include is a query parameter.</comment>
+  </data>
+  <data name="RevIncludeMissingType" xml:space="preserve">
+    <value>The _revinclude search is missing the type to search.</value>
+    <comment>_revinclude is a query parameter.</comment>
+  </data>
+  <data name="RevIncludeIterateTargetTypeNotSpecified" xml:space="preserve">
+    <value>The '_revinclude:iterate={0}' search parameter has multiple target types. Please specify a target type.</value>
+    <comment>_revinclude:iterate is a query parameter.</comment>
   </data>
   <data name="InvalidBooleanConfigSetting" xml:space="preserve">
     <value>Field '{0}' with value '{1}' is not supported.</value>
@@ -380,9 +392,11 @@
   <data name="SearchParameterNotSupported" xml:space="preserve">
     <value>The search parameter '{0}' is not supported for resource type '{1}'.</value>
   </data>
+  <data name="MultiSortParameterNotSupported" xml:space="preserve">
+    <value>Multiple sort parameters are currently not supported. Only a single sort parameter is supported.</value>
+  </data>
   <data name="SearchSortParameterNotSupported" xml:space="preserve">
-    <value>The search sort parameter '{0}' is not supported.</value>
-    <comment>{0}: the unsupported sort parameter</comment>
+    <value>Sorting by the '{0}' parameter is not supported.</value>
   </data>
   <data name="ServerName" xml:space="preserve">
     <value>Microsoft FHIR Server</value>
@@ -430,5 +444,17 @@
   </data>
   <data name="WeakETagFormatRequired" xml:space="preserve">
     <value>WeakETag must be in the weak ETag format.</value>
+  </data>
+  <data name="SearchParameterNoLongerSupported" xml:space="preserve">
+    <value>Search parameter {0} is no longer supported and cannot be marked enabled.</value>
+    <comment>{0}; the name of the search parameter which is no longer supported</comment>
+  </data>
+  <data name="ReindexJobInCompletedState" xml:space="preserve">
+    <value>Reindex job id {0} is in state {1} and cannot be cancelled.</value>
+    <comment>{0} is the id of the reindex which is a a GUID.  {1} is the state, an enumerated set of state values.</comment>
+  </data>
+  <data name="ExportFormatNotFound" xml:space="preserve">
+    <value>The format '{0}' could not be found.</value>
+    <comment>{0}: The provided format name</comment>
   </data>
 </root>

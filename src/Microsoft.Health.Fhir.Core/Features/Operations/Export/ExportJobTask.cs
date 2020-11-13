@@ -531,18 +531,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     else
                     {
                         // File does not exist. Create it.
-                        string fileName;
-                        if (_exportJobRecord.StorageAccountContainerName.Equals(_exportJobRecord.Id, StringComparison.OrdinalIgnoreCase))
-                        {
-                            fileName = $"{resourceType}.ndjson";
-                        }
-                        else
-                        {
-                            string dateTime = _exportJobRecord.QueuedTime.UtcDateTime.ToString("s")
+                        string fileName = _exportJobRecord.ExportFormat + ".ndjson";
+
+                        string dateTime = _exportJobRecord.QueuedTime.UtcDateTime.ToString("s")
                                 .Replace("-", string.Empty, StringComparison.OrdinalIgnoreCase)
                                 .Replace(":", string.Empty, StringComparison.OrdinalIgnoreCase);
-                            fileName = $"{dateTime}-{_exportJobRecord.Id}/{resourceType}.ndjson";
-                        }
+
+                        fileName = fileName.Replace(ExportFormatTags.Timestamp, dateTime, StringComparison.OrdinalIgnoreCase);
+                        fileName = fileName.Replace(ExportFormatTags.Id, _exportJobRecord.Id, StringComparison.OrdinalIgnoreCase);
+                        fileName = fileName.Replace(ExportFormatTags.ResourceName, resourceType, StringComparison.OrdinalIgnoreCase);
 
                         Uri fileUri = await _exportDestinationClient.CreateFileAsync(fileName, cancellationToken);
 
@@ -582,7 +579,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         {
             // Update the continuation token in local cache and queryParams.
             // We will add or udpate the continuation token in the query parameters list.
-            progress.UpdateContinuationToken(continuationToken);
+            progress.UpdateContinuationToken(Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(continuationToken)));
 
             bool replacedContinuationToken = false;
             for (int index = 0; index < queryParametersList.Count; index++)

@@ -150,7 +150,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
                     }
                 },
                 Options.Create(throttlingConfiguration),
-                Options.Create(new Core.Configs.SecurityConfiguration { Enabled = securityEnabled }),
+                Options.Create(new Microsoft.Health.Fhir.Core.Configs.SecurityConfiguration { Enabled = securityEnabled }),
                 NullLogger<ThrottlingMiddleware>.Instance);
 
             _executor = Substitute.For<IActionResultExecutor<ObjectResult>>();

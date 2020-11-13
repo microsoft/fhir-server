@@ -20,6 +20,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         public ExportJobRecord(
             Uri requestUri,
             ExportJobType exportType,
+            string exportFormat,
             string resourceType,
             IList<ExportJobFilter> filters,
             string elements,
@@ -37,10 +38,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         {
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
             EnsureArg.IsNotNullOrWhiteSpace(hash, nameof(hash));
+            EnsureArg.IsNotNullOrWhiteSpace(exportFormat, nameof(exportFormat));
 
             Hash = hash;
             RequestUri = requestUri;
             ExportType = exportType;
+            ExportFormat = exportFormat;
             ResourceType = resourceType;
             Filters = filters;
             Elements = elements;
@@ -82,6 +85,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
         [JsonProperty(JobRecordProperties.ExportType)]
         public ExportJobType ExportType { get; private set; }
+
+        [JsonProperty(JobRecordProperties.ExportFormat)]
+        public string ExportFormat { get; private set; }
 
         [JsonProperty(JobRecordProperties.ResourceType)]
         public string ResourceType { get; private set; }

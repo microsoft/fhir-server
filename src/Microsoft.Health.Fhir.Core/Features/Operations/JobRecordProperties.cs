@@ -69,8 +69,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string FailureCount = "failureCount";
 
-        public const string Scope = "scope";
-
         public const string StorageAccountConnectionHash = "storageAccountConnectionHash";
 
         public const string StorageAccountUri = "storageAccountUri";
@@ -108,5 +106,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public const string Filter = "filter";
 
         public const string FinishedFilters = "finishedFilters";
+
+        public const string ResourceTypeSearchParameterHashMap = "resourceTypeSearchParameterHashMap";
+
+        public const string ExportFormat = "exportFormat";
     }
 }

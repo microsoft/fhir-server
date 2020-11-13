@@ -22,6 +22,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
             string elements = null,
             string groupId = null,
             string containerName = null,
+            string formatName = null,
             string anonymizationConfigurationLocation = null,
             string anonymizationConfigurationFileETag = null)
         {
@@ -38,6 +39,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
             AnonymizationConfigurationFileETag = anonymizationConfigurationFileETag;
             GroupId = groupId;
             ContainerName = containerName;
+            FormatName = formatName;
         }
 
         public Uri RequestUri { get; }
@@ -59,5 +61,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.Export
         public string GroupId { get; }
 
         public string ContainerName { get; }
+
+        public string FormatName { get; }
     }
 }

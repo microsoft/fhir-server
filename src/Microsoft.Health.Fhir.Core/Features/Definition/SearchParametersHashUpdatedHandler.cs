@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 {
     public class SearchParametersHashUpdatedHandler : INotificationHandler<SearchParametersHashUpdated>
     {
-        private SearchParameterDefinitionManager _searchParameterDefinitionManager;
+        private readonly SearchParameterDefinitionManager _searchParameterDefinitionManager;
 
         public SearchParametersHashUpdatedHandler(SearchParameterDefinitionManager searchParameterDefinitionManager)
         {
@@ -23,7 +23,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public Task Handle(SearchParametersHashUpdated notification, CancellationToken cancellationToken)
         {
-            _searchParameterDefinitionManager.SearchParametersHash = notification.HashValue;
+            _searchParameterDefinitionManager.UpdateSearchParameterHashMap(notification.UpdatedHashMap);
+
             return Task.CompletedTask;
         }
     }

@@ -16,8 +16,8 @@ function upsertWithHistory(doc, matchVersionId, allowCreate, keepHistory) {
     const response = getContext().getResponse();
 
 
-
-    const initialVersion = "1";
+    const initialVersionInt = 1;
+    const initialVersion = initialVersionInt.toString();
 
     // Validate input
     if (!doc) {
@@ -97,11 +97,17 @@ function upsertWithHistory(doc, matchVersionId, allowCreate, keepHistory) {
                 // Increment the current version
                 let nextVersion = Number(documentVersion) + 1;
                 if (!isNaN(nextVersion)) {
+                    if (nextVersion !== initialVersionInt) {
+                        // We assume the version ID is 1 during upsert. If it's not, then set isMetaSet to false so the service will fill it in to the raw resource.
+                        doc.rawResource.isMetaSet = false
+                    }
+
                     doc.version = nextVersion.toString();
                 }
                 else {
                     // if version is non-numeric, use a guid
                     doc.version = generateGuid();
+                    doc.rawResource.isMetaSet = false
                 }
 
                 // If a document was found, copy the self link for replacing the primary record
@@ -109,7 +115,7 @@ function upsertWithHistory(doc, matchVersionId, allowCreate, keepHistory) {
 
                 if (keepHistory) {
                     // Convert the current primary record to a 'history' record
-                    let historyDocument = convertToHistoryRecord(document);
+                    let historyDocument = convertToHistoryRecord(document, doc.lastModified);
 
                     // Insert the history object
                     let isHistoryAccepted = collection.createDocument(collectionLink, historyDocument, { disableAutomaticIdGeneration: true },
@@ -153,7 +159,7 @@ function upsertWithHistory(doc, matchVersionId, allowCreate, keepHistory) {
         }
     }
 
-    function convertToHistoryRecord(theDoc) {
+    function convertToHistoryRecord(theDoc, docLastUpdated) {
         // Converts to specified document to a history record
 
         if (!theDoc.version) {
@@ -162,6 +168,7 @@ function upsertWithHistory(doc, matchVersionId, allowCreate, keepHistory) {
 
         theDoc.isHistory = true;
         theDoc.id = `${theDoc.resourceId}_${theDoc.version}`;
+        theDoc.activePeriodEndDateTime = docLastUpdated;
 
         return theDoc;
     }

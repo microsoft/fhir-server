@@ -7,17 +7,21 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
-using System.Data.SqlClient;
 using System.Linq;
+using System.Threading.Tasks;
 using EnsureThat;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
+using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
 using Microsoft.Health.SqlServer.Configs;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
@@ -32,11 +36,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     /// many many times in the database. For more compact storage, we use IDs instead of the strings when referencing these.
     /// Also, because the number of distinct values is small, we can maintain all values in memory and avoid joins when querying.
     /// </summary>
-    public sealed class SqlServerFhirModel : IStartable
+    public sealed class SqlServerFhirModel : IRequireInitializationOnFirstRequest
     {
         private readonly SqlServerDataStoreConfiguration _configuration;
-        private readonly SchemaInitializer _schemaInitializer;
+        private readonly SchemaInformation _schemaInformation;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
+        private readonly ISearchParameterStatusDataStore _filebasedSearchParameterStatusDataStore;
         private readonly SecurityConfiguration _securityConfiguration;
         private readonly ILogger<SqlServerFhirModel> _logger;
         private Dictionary<string, short> _resourceTypeToId;
@@ -46,73 +51,76 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private ConcurrentDictionary<string, int> _quantityCodeToId;
         private Dictionary<string, byte> _claimNameToId;
         private Dictionary<string, byte> _compartmentTypeToId;
-        private bool _started;
+        private int _highestInitializedVersion;
 
         public SqlServerFhirModel(
             SqlServerDataStoreConfiguration configuration,
-            SchemaInitializer schemaInitializer,
+            SchemaInformation schemaInformation,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
+            FilebasedSearchParameterStatusDataStore.Resolver filebasedRegistry,
             IOptions<SecurityConfiguration> securityConfiguration,
             ILogger<SqlServerFhirModel> logger)
         {
             EnsureArg.IsNotNull(configuration, nameof(configuration));
-            EnsureArg.IsNotNull(schemaInitializer, nameof(schemaInitializer));
+            EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
+            EnsureArg.IsNotNull(filebasedRegistry, nameof(filebasedRegistry));
             EnsureArg.IsNotNull(securityConfiguration?.Value, nameof(securityConfiguration));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _configuration = configuration;
-            _schemaInitializer = schemaInitializer;
+            _schemaInformation = schemaInformation;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
+            _filebasedSearchParameterStatusDataStore = filebasedRegistry.Invoke();
             _securityConfiguration = securityConfiguration.Value;
             _logger = logger;
         }
 
         public short GetResourceTypeId(string resourceTypeName)
         {
-            ThrowIfNotStarted();
+            ThrowIfNotInitialized();
             return _resourceTypeToId[resourceTypeName];
         }
 
         public bool TryGetResourceTypeId(string resourceTypeName, out short id)
         {
-            ThrowIfNotStarted();
+            ThrowIfNotInitialized();
             return _resourceTypeToId.TryGetValue(resourceTypeName, out id);
         }
 
         public string GetResourceTypeName(short resourceTypeId)
         {
-            ThrowIfNotStarted();
+            ThrowIfNotInitialized();
             return _resourceTypeIdToTypeName[resourceTypeId];
         }
 
         public byte GetClaimTypeId(string claimTypeName)
         {
-            ThrowIfNotStarted();
+            ThrowIfNotInitialized();
             return _claimNameToId[claimTypeName];
         }
 
         public short GetSearchParamId(Uri searchParamUri)
         {
-            ThrowIfNotStarted();
+            ThrowIfNotInitialized();
             return _searchParamUriToId[searchParamUri];
         }
 
         public byte GetCompartmentTypeId(string compartmentType)
         {
-            ThrowIfNotStarted();
+            ThrowIfNotInitialized();
             return _compartmentTypeToId[compartmentType];
         }
 
         public bool TryGetSystemId(string system, out int systemId)
         {
-            ThrowIfNotStarted();
+            ThrowIfNotInitialized();
             return _systemToId.TryGetValue(system, out systemId);
         }
 
         public int GetSystemId(string system)
         {
-            ThrowIfNotStarted();
+            ThrowIfNotInitialized();
 
             VLatest.SystemTable systemTable = VLatest.System;
             return GetStringId(_systemToId, system, systemTable, systemTable.SystemId, systemTable.Value);
@@ -120,7 +128,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public int GetQuantityCodeId(string code)
         {
-            ThrowIfNotStarted();
+            ThrowIfNotInitialized();
 
             VLatest.QuantityCodeTable quantityCodeTable = VLatest.QuantityCode;
             return GetStringId(_quantityCodeToId, code, quantityCodeTable, quantityCodeTable.QuantityCodeId, quantityCodeTable.Value);
@@ -128,23 +136,55 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public bool TryGetQuantityCodeId(string code, out int quantityCodeId)
         {
-            ThrowIfNotStarted();
+            ThrowIfNotInitialized();
             return _quantityCodeToId.TryGetValue(code, out quantityCodeId);
         }
 
-        public void Start()
+        public Task EnsureInitialized()
         {
-            _schemaInitializer.Start();
+            ThrowIfCurrentSchemaVersionIsNull();
 
-            if (_searchParameterDefinitionManager is IStartable startable)
+            // If the fhir-server is just starting up, synchronize the fhir-server dictionaries with the SQL database
+            Initialize((int)_schemaInformation.Current, true);
+
+            return Task.CompletedTask;
+        }
+
+        public void Initialize(int version, bool runAllInitialization)
+        {
+            if (_highestInitializedVersion == version)
             {
-                startable.Start();
+                return;
             }
 
             var connectionStringBuilder = new SqlConnectionStringBuilder(_configuration.ConnectionString);
+            _logger.LogInformation("Initializing {Server} {Database} to version {Version}", connectionStringBuilder.DataSource, connectionStringBuilder.InitialCatalog, version);
 
-            _logger.LogInformation("Initializing {Server} {Database}", connectionStringBuilder.DataSource, connectionStringBuilder.InitialCatalog);
+            // If we are applying a full snap shot schema file, or if the server is just starting up
+            if (runAllInitialization || _highestInitializedVersion == 0)
+            {
+                // Run the schema initialization required for all schema versions, from the minimum version to the current version.
+                InitializeBase();
 
+                if (version >= SchemaVersionConstants.SearchParameterStatusSchemaVersion)
+                {
+                    InitializeSearchParameterStatuses();
+                }
+            }
+            else
+            {
+                // Only run the schema initialization required for the current version
+                if (version == SchemaVersionConstants.SearchParameterStatusSchemaVersion)
+                {
+                    InitializeSearchParameterStatuses();
+                }
+            }
+
+            _highestInitializedVersion = version;
+        }
+
+        private void InitializeBase()
+        {
             using (var connection = new SqlConnection(_configuration.ConnectionString))
             {
                 connection.Open();
@@ -157,31 +197,31 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         SET XACT_ABORT ON
                         BEGIN TRANSACTION
 
-                        INSERT INTO dbo.ResourceType (Name) 
+                        INSERT INTO dbo.ResourceType (Name)
                         SELECT value FROM string_split(@resourceTypes, ',')
-                        EXCEPT SELECT Name FROM dbo.ResourceType WITH (TABLOCKX); 
+                        EXCEPT SELECT Name FROM dbo.ResourceType WITH (TABLOCKX);
 
                         -- result set 1
                         SELECT ResourceTypeId, Name FROM dbo.ResourceType;
 
                         INSERT INTO dbo.SearchParam (Uri)
-                        SELECT * FROM  OPENJSON (@searchParams) 
+                        SELECT * FROM  OPENJSON (@searchParams)
                         WITH (Uri varchar(128) '$.Uri')
                         EXCEPT SELECT Uri FROM dbo.SearchParam;
 
                         -- result set 2
                         SELECT Uri, SearchParamId FROM dbo.SearchParam;
 
-                        INSERT INTO dbo.ClaimType (Name) 
+                        INSERT INTO dbo.ClaimType (Name)
                         SELECT value FROM string_split(@claimTypes, ',')
-                        EXCEPT SELECT Name FROM dbo.ClaimType; 
+                        EXCEPT SELECT Name FROM dbo.ClaimType;
 
                         -- result set 3
                         SELECT ClaimTypeId, Name FROM dbo.ClaimType;
 
-                        INSERT INTO dbo.CompartmentType (Name) 
+                        INSERT INTO dbo.CompartmentType (Name)
                         SELECT value FROM string_split(@compartmentTypes, ',')
-                        EXCEPT SELECT Name FROM dbo.CompartmentType; 
+                        EXCEPT SELECT Name FROM dbo.CompartmentType;
 
                         -- result set 4
                         SELECT CompartmentTypeId, Name FROM dbo.CompartmentType;
@@ -194,13 +234,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         -- result set 6
                         SELECT Value, QuantityCodeId FROM dbo.QuantityCode";
 
+                    string searchParametersJson = JsonConvert.SerializeObject(_searchParameterDefinitionManager.AllSearchParameters.Select(p => new { Uri = p.Url }));
                     string commaSeparatedResourceTypes = string.Join(",", ModelInfoProvider.GetResourceTypeNames());
-                    string searchParametersJson = JsonConvert.SerializeObject(_searchParameterDefinitionManager.AllSearchParameters.Select(p => new { Name = p.Name, Uri = p.Url }));
                     string commaSeparatedClaimTypes = string.Join(',', _securityConfiguration.PrincipalClaims);
                     string commaSeparatedCompartmentTypes = string.Join(',', ModelInfoProvider.GetCompartmentTypeNames());
 
-                    sqlCommand.Parameters.AddWithValue("@resourceTypes", commaSeparatedResourceTypes);
                     sqlCommand.Parameters.AddWithValue("@searchParams", searchParametersJson);
+                    sqlCommand.Parameters.AddWithValue("@resourceTypes", commaSeparatedResourceTypes);
                     sqlCommand.Parameters.AddWithValue("@claimTypes", commaSeparatedClaimTypes);
                     sqlCommand.Parameters.AddWithValue("@compartmentTypes", commaSeparatedCompartmentTypes);
 
@@ -275,9 +315,47 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         _quantityCodeToId = quantityCodeToId;
                         _claimNameToId = claimNameToId;
                         _compartmentTypeToId = compartmentTypeToId;
-
-                        _started = true;
                     }
+                }
+            }
+        }
+
+        private void InitializeSearchParameterStatuses()
+        {
+            using (var connection = new SqlConnection(_configuration.ConnectionString))
+            {
+                connection.Open();
+
+                using (SqlCommand sqlCommand = connection.CreateCommand())
+                {
+                    sqlCommand.CommandText = @"
+                        SET XACT_ABORT ON
+                        BEGIN TRANSACTION
+                        DECLARE @lastUpdated datetimeoffset(7) = SYSDATETIMEOFFSET()
+    
+                        UPDATE dbo.SearchParam
+                        SET Status = sps.Status, LastUpdated = @lastUpdated, IsPartiallySupported = sps.IsPartiallySupported
+                        FROM dbo.SearchParam INNER JOIN @searchParamStatuses as sps
+                        ON dbo.SearchParam.Uri = sps.Uri
+                        COMMIT TRANSACTION";
+
+                    IEnumerable<ResourceSearchParameterStatus> statuses = _filebasedSearchParameterStatusDataStore
+                        .GetSearchParameterStatuses().GetAwaiter().GetResult();
+
+                    var collection = new SearchParameterStatusCollection();
+                    collection.AddRange(statuses);
+
+                    var tableValuedParameter = new SqlParameter
+                    {
+                        ParameterName = "searchParamStatuses",
+                        SqlDbType = SqlDbType.Structured,
+                        Value = collection,
+                        Direction = ParameterDirection.Input,
+                        TypeName = "dbo.SearchParamTableType_1",
+                    };
+
+                    sqlCommand.Parameters.Add(tableValuedParameter);
+                    sqlCommand.ExecuteNonQuery();
                 }
             }
         }
@@ -325,12 +403,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        private void ThrowIfNotStarted()
+        private void ThrowIfNotInitialized()
         {
-            if (!_started)
+            ThrowIfCurrentSchemaVersionIsNull();
+
+            if (_highestInitializedVersion < _schemaInformation.Current)
             {
-                _logger.LogError($"The {nameof(SqlServerFhirModel)} instance has not been initialized.");
+                _logger.LogError($"The {nameof(SqlServerFhirModel)} instance has not run the initialization required for the current schema version");
                 throw new ServiceUnavailableException();
+            }
+        }
+
+        private void ThrowIfCurrentSchemaVersionIsNull()
+        {
+            if (_schemaInformation.Current == null)
+            {
+                throw new InvalidOperationException(Resources.SchemaVersionShouldNotBeNull);
             }
         }
     }

@@ -14,25 +14,20 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Get;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
 {
     public class GetResourceHandler : BaseResourceHandler, IRequestHandler<GetResourceRequest, GetResourceResponse>
     {
-        private readonly ResourceDeserializer _deserializer;
-
         public GetResourceHandler(
             IFhirDataStore fhirDataStore,
             Lazy<IConformanceProvider> conformanceProvider,
             IResourceWrapperFactory resourceWrapperFactory,
-            ResourceDeserializer deserializer,
             ResourceIdProvider resourceIdProvider,
             IFhirAuthorizationService authorizationService)
             : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
-            EnsureArg.IsNotNull(deserializer, nameof(deserializer));
-
-            _deserializer = deserializer;
         }
 
         public async Task<GetResourceResponse> Handle(GetResourceRequest message, CancellationToken cancellationToken)
@@ -74,7 +69,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Get
                 throw new ResourceGoneException(new ResourceKey(currentDoc.ResourceTypeName, currentDoc.ResourceId, currentDoc.Version));
             }
 
-            return new GetResourceResponse(_deserializer.Deserialize(currentDoc));
+            return new GetResourceResponse(new RawResourceElement(currentDoc));
         }
     }
 }

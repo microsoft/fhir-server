@@ -15,6 +15,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
             Wrapper = wrapper;
             OutcomeType = outcomeType;
+
+            if (outcomeType == SaveOutcomeType.Updated)
+            {
+                wrapper.RawResource.IsMetaSet = false;
+            }
         }
 
         public ResourceWrapper Wrapper { get; }

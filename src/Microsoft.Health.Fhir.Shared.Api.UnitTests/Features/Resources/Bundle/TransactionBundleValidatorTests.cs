@@ -137,7 +137,8 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
                     "Patient",
                     new RawResource(
                         "data",
-                        FhirResourceFormat.Unknown),
+                        FhirResourceFormat.Unknown,
+                        isMetaSet: false),
                     new ResourceRequest("POST"),
                     DateTimeOffset.UtcNow,
                     false,
@@ -147,9 +148,9 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
 
             var searchResult = new SearchResult(
                 Enumerable.Repeat(result, resultCount),
-                Array.Empty<Tuple<string, string>>(),
-                Array.Empty<(string, string)>(),
-                null);
+                null,
+                null,
+                Array.Empty<Tuple<string, string>>());
             return searchResult;
         }
     }

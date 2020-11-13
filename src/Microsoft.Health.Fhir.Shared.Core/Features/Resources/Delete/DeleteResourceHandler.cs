@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
                 var emptyInstance = (Resource)Activator.CreateInstance(ModelInfo.GetTypeForFhirType(message.ResourceKey.ResourceType));
                 emptyInstance.Id = message.ResourceKey.Id;
 
-                ResourceWrapper deletedWrapper = CreateResourceWrapper(emptyInstance, deleted: true);
+                ResourceWrapper deletedWrapper = CreateResourceWrapper(emptyInstance, deleted: true, keepMeta: false);
 
                 bool keepHistory = await ConformanceProvider.Value.CanKeepHistory(key.ResourceType, cancellationToken);
 

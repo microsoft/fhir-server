@@ -55,6 +55,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         IncludeUnionAll,
 
         /// <summary>
+        /// Represents a table expression that is used to sort result of the base search query.
+        /// </summary>
+        Sort,
+
+        /// <summary>
         /// Represents a table expression that is used to limit the number of included items.
         /// </summary>
         IncludeLimit,

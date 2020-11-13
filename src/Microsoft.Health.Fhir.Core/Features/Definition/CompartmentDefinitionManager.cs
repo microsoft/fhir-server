@@ -8,12 +8,14 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Serialization;
 using Hl7.Fhir.Utility;
 using Hl7.FhirPath;
-using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Fhir.Core.Data;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -27,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
     /// <summary>
     /// Manager to access compartment definitions.
     /// </summary>
-    public class CompartmentDefinitionManager : IStartable, ICompartmentDefinitionManager
+    public class CompartmentDefinitionManager : IHostedService, ICompartmentDefinitionManager
     {
         private readonly IModelInfoProvider _modelInfoProvider;
 
@@ -50,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             { KnownResourceTypes.RelatedPerson, CompartmentType.RelatedPerson },
         };
 
-        public void Start()
+        public Task StartAsync(CancellationToken cancellationToken)
         {
             // The json file is a bundle compiled from the compartment definitions currently defined by HL7.
             // The definitions are available at https://www.hl7.org/fhir/compartmentdefinition.html.
@@ -59,7 +61,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             using JsonReader jsonReader = new JsonTextReader(reader);
             var bundle = new BundleWrapper(FhirJsonNode.Read(jsonReader).ToTypedElement(_modelInfoProvider.StructureDefinitionSummaryProvider));
             Build(bundle);
+
+            return Task.CompletedTask;
         }
+
+        public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
         public bool TryGetSearchParams(string resourceType, CompartmentType compartmentType, out HashSet<string> searchParams)
         {

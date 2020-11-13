@@ -9,6 +9,7 @@ using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Extensions
@@ -43,6 +44,13 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             return resource.ToTypedElement().ToResourceElement();
         }
 
+        public static ResourceElement ToResourceElement(this RawResourceElement resource, ResourceDeserializer deserializer)
+        {
+            EnsureArg.IsNotNull(resource, nameof(resource));
+
+            return resource.ToPoco(deserializer).ToResourceElement();
+        }
+
         public static T ToPoco<T>(this ResourceElement resource)
             where T : Resource
         {
@@ -54,6 +62,24 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         public static Resource ToPoco(this ResourceElement resource)
         {
             return ToPoco<Resource>(resource);
+        }
+
+        public static T ToPoco<T>(this RawResourceElement resource, ResourceDeserializer deserializer)
+            where T : Resource
+        {
+            EnsureArg.IsNotNull(resource, nameof(resource));
+            EnsureArg.IsNotNull(deserializer, nameof(deserializer));
+
+            var deserialized = deserializer.DeserializeRawResourceElement(resource);
+            return deserialized.ToPoco<T>();
+        }
+
+        public static Resource ToPoco(this RawResourceElement resource, ResourceDeserializer deserializer)
+        {
+            EnsureArg.IsNotNull(resource, nameof(resource));
+            EnsureArg.IsNotNull(deserializer, nameof(deserializer));
+
+            return resource.ToPoco<Resource>(deserializer);
         }
 
         public static ResourceElement UpdateId(this ResourceElement resource, string newId)

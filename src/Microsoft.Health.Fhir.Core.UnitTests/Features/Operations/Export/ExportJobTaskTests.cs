@@ -155,7 +155,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // Second search returns a search result without continuation token.
             _searchService.SearchAsync(
                 null,
-                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(continuationToken, KnownResourceTypes.Patient)),
+                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(Convert.ToBase64String(Encoding.UTF8.GetBytes(continuationToken)), KnownResourceTypes.Patient)),
                 _cancellationToken)
                 .Returns(x =>
                 {
@@ -192,7 +192,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // Second search returns a search result without continuation token.
             _searchService.SearchAsync(
                 null,
-                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(continuationToken, _exportJobRecord.Since, KnownResourceTypes.Patient)),
+                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(Convert.ToBase64String(Encoding.UTF8.GetBytes(continuationToken)), _exportJobRecord.Since, KnownResourceTypes.Patient)),
                 _cancellationToken)
                 .Returns(x =>
                 {
@@ -230,7 +230,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // Second search returns a search result with continuation token.
             _searchService.SearchAsync(
                 null,
-                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(continuationToken, KnownResourceTypes.Patient)),
+                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(Convert.ToBase64String(Encoding.UTF8.GetBytes(continuationToken)), KnownResourceTypes.Patient)),
                 _cancellationToken)
                 .Returns(x =>
                 {
@@ -244,7 +244,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // Third search returns a search result without continuation token.
             _searchService.SearchAsync(
                 null,
-                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(newContinuationToken, KnownResourceTypes.Patient)),
+                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(Convert.ToBase64String(Encoding.UTF8.GetBytes(newContinuationToken)), KnownResourceTypes.Patient)),
                 _cancellationToken)
                 .Returns(x =>
                 {
@@ -283,7 +283,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // Second search returns a search result with continuation token.
             _searchService.SearchAsync(
                 null,
-                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(continuationToken, _exportJobRecord.Since, KnownResourceTypes.Patient)),
+                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(Convert.ToBase64String(Encoding.UTF8.GetBytes(continuationToken)), _exportJobRecord.Since, KnownResourceTypes.Patient)),
                 _cancellationToken)
                 .Returns(x =>
                 {
@@ -297,7 +297,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // Third search returns a search result without continuation token.
             _searchService.SearchAsync(
                 null,
-                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(newContinuationToken, _exportJobRecord.Since, KnownResourceTypes.Patient)),
+                Arg.Is(CreateQueryParametersExpressionWithContinuationToken(Convert.ToBase64String(Encoding.UTF8.GetBytes(newContinuationToken)), _exportJobRecord.Since, KnownResourceTypes.Patient)),
                 _cancellationToken)
                 .Returns(x =>
                 {
@@ -1315,7 +1315,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     {
                         // The ids aren't in the query parameters because of the reset
                         ids = new string[] { "1", "2", "3" };
-                        continuationTokenIndex = int.Parse(x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[2].Item2.Substring(2));
+                        continuationTokenIndex = int.Parse(Encoding.UTF8.GetString(Convert.FromBase64String(x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[2].Item2)).Substring(2));
                     }
 
                     return CreateSearchResult(
@@ -1599,9 +1599,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         public async Task GivenAnExportJobWithACustomContainer_WhenExecuted_ThenAllResourcesAreExportedToThatContainer()
         {
             string containerName = "test_container";
-            var exportJobRecordWithCommitPages = CreateExportJobRecord(
+            var exportJobRecordWithContainer = CreateExportJobRecord(
                  containerName: containerName);
-            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithCommitPages);
+            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithContainer);
 
             SearchResult searchResultWithContinuationToken = CreateSearchResult(continuationToken: "ct");
 
@@ -1620,15 +1620,54 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
-            string actualIds = _inMemoryDestinationClient.GetExportedData(new Uri(ContainerFilePath(PatientFileName), UriKind.Relative));
+            string actualIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
 
             Assert.Equal("1", actualIds);
             Assert.Equal(containerName, _inMemoryDestinationClient.ConnectedContainer);
         }
 
+        [Fact]
+        public async Task GivenAnExportJobWithAFormat_WhenExecuted_ThenAllResourcesAreExportedToTheProperLocation()
+        {
+            var exportJobRecordWithFormat = CreateExportJobRecord(
+                 format: ExportFormatTags.ResourceName + "/" + ExportFormatTags.Timestamp + "_" + ExportFormatTags.Id);
+            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithFormat);
+
+            SearchResult searchResultWithContinuationToken = CreateSearchResult(continuationToken: "ct");
+
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    return CreateSearchResult(
+                        new[]
+                        {
+                            CreateSearchResultEntry("1", KnownResourceTypes.Patient),
+                            CreateSearchResultEntry("2", KnownResourceTypes.Observation),
+                        });
+                });
+
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            string dateTime = _exportJobRecord.QueuedTime.UtcDateTime.ToString("s")
+                .Replace("-", string.Empty, StringComparison.OrdinalIgnoreCase)
+                .Replace(":", string.Empty, StringComparison.OrdinalIgnoreCase);
+            string uriSuffix = "/" + dateTime + "_" + _exportJobRecord.Id + ".ndjson";
+
+            string patientIds = _inMemoryDestinationClient.GetExportedData(new Uri(KnownResourceTypes.Patient + uriSuffix, UriKind.Relative));
+            string observationIds = _inMemoryDestinationClient.GetExportedData(new Uri(KnownResourceTypes.Observation + uriSuffix, UriKind.Relative));
+
+            Assert.Equal("1", patientIds);
+            Assert.Equal("2", observationIds);
+            Assert.Equal(2, _inMemoryDestinationClient.ExportedDataFileCount);
+        }
+
         private ExportJobRecord CreateExportJobRecord(
             string requestEndpoint = "https://localhost/ExportJob/",
             ExportJobType exportJobType = ExportJobType.All,
+            string format = ExportFormatTags.ResourceName,
             string resourceType = null,
             string hash = "hash",
             PartialDateTime since = null,
@@ -1644,6 +1683,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             return new ExportJobRecord(
                 new Uri(requestEndpoint),
                 exportJobType,
+                format,
                 resourceType,
                 null,
                 null,
@@ -1666,7 +1706,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 resourceWrappers = Array.Empty<SearchResultEntry>();
             }
 
-            return new SearchResult(resourceWrappers, new Tuple<string, string>[0], Array.Empty<(string parameterName, string reason)>(), continuationToken);
+            return new SearchResult(resourceWrappers, continuationToken, null, new Tuple<string, string>[0]);
         }
 
         private SearchResultEntry CreateSearchResultEntry(string id, string type)
@@ -1676,7 +1716,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                                 id,
                                 "1",
                                 type,
-                                new RawResource("data", Core.Models.FhirResourceFormat.Json),
+                                new RawResource("data", Core.Models.FhirResourceFormat.Json, isMetaSet: false),
                                 null,
                                 DateTimeOffset.MinValue,
                                 false,
@@ -1690,6 +1730,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             _exportJobRecord = exportJobRecord ?? new ExportJobRecord(
                 new Uri("https://localhost/ExportJob/"),
                 ExportJobType.Patient,
+                ExportFormatTags.ResourceName,
                 null,
                 null,
                 null,
@@ -1705,14 +1746,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
                 return _lastExportJobOutcome;
             });
-        }
-
-        private string ContainerFilePath(string fileName)
-        {
-            string dateTime = _exportJobRecord.QueuedTime.UtcDateTime.ToString("s")
-                            .Replace("-", string.Empty, StringComparison.OrdinalIgnoreCase)
-                            .Replace(":", string.Empty, StringComparison.OrdinalIgnoreCase);
-            return dateTime + "-" + _exportJobRecord.Id + "/" + fileName;
         }
     }
 }

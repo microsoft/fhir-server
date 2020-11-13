@@ -5,6 +5,8 @@
 
 using System;
 using System.Collections.Generic;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Routing
@@ -27,17 +29,25 @@ namespace Microsoft.Health.Fhir.Core.Features.Routing
         /// <param name="resource">The resource whose URL should be resolved for.</param>
         /// <param name="includeVersion">Includes the version in the URL.</param>
         /// <returns>The URL for the given <paramref name="resource"/>.</returns>
-        Uri ResolveResourceUrl(ResourceElement resource, bool includeVersion = false);
+        Uri ResolveResourceUrl(IResourceElement resource, bool includeVersion = false);
+
+        /// <summary>
+        /// Resolves the URL for the given <paramref name="resource"/>.
+        /// </summary>
+        /// <param name="resource">The resource whose URL should be resolved for.</param>
+        /// <param name="includeVersion">Includes the version in the URL.</param>
+        /// <returns>The URL for the given <paramref name="resource"/>.</returns>
+        Uri ResolveResourceWrapperUrl(ResourceWrapper resource, bool includeVersion = false);
 
         /// <summary>
         /// Resolves the URL for the specified route
         /// </summary>
         /// <param name="unsupportedSearchParams">A list of unsupported search parameters.</param>
-        /// <param name="unsupportedSortingParameters">A list of unsupported sorting parameters</param>
+        /// <param name="resultSortOrder">The order the results are sorted in</param>
         /// <param name="continuationToken">The continuation token.</param>
         /// <param name="removeTotalParameter">True if the _total parameter should be removed from the url, false otherwise.</param>
         /// <returns>The URL.</returns>
-        Uri ResolveRouteUrl(IEnumerable<Tuple<string, string>> unsupportedSearchParams = null, IReadOnlyList<(string parameterName, string reason)> unsupportedSortingParameters = null, string continuationToken = null, bool removeTotalParameter = false);
+        Uri ResolveRouteUrl(IEnumerable<Tuple<string, string>> unsupportedSearchParams = null, IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> resultSortOrder = null, string continuationToken = null, bool removeTotalParameter = false);
 
         /// <summary>
         /// Resolves the URL for the specified routeName.
