@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// <summary>
         /// Configuration for templates.
         /// </summary>
-        public TemplateContainerConfig TemplateConfig { get; set; } = new TemplateContainerConfig();
+        public TemplateLayerConfiguration TemplateConfig { get; set; } = new TemplateLayerConfiguration();
 
         /// <summary>
         /// Determines the expiration duration of the container registry token.

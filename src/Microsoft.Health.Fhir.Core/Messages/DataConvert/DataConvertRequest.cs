@@ -11,23 +11,28 @@ namespace Microsoft.Health.Fhir.Core.Messages.DataConvert
 {
     public class DataConvertRequest : IRequest<DataConvertResponse>
     {
-        public DataConvertRequest(string inputData, DataConvertInputDataType inputDataType, string templateSetReference, string entryPointTemplate)
+        public DataConvertRequest(string inputData, DataConvertInputDataType inputDataType, string registryServer, string templateCollectionReference, string entryPointTemplate)
         {
-            EnsureArg.IsNotNullOrEmpty(inputData);
-            EnsureArg.IsNotNull(templateSetReference);
-            EnsureArg.IsNotNullOrEmpty(entryPointTemplate);
+            EnsureArg.IsNotNullOrEmpty(inputData, nameof(inputData));
+            EnsureArg.IsNotNull<DataConvertInputDataType>(inputDataType, nameof(inputDataType));
+            EnsureArg.IsNotNull(registryServer, nameof(registryServer));
+            EnsureArg.IsNotNull(templateCollectionReference, nameof(templateCollectionReference));
+            EnsureArg.IsNotNullOrEmpty(entryPointTemplate, nameof(entryPointTemplate));
 
             InputData = inputData;
             InputDataType = inputDataType;
-            TemplateSetReference = templateSetReference;
+            RegistryServer = registryServer;
+            TemplateCollectionReference = templateCollectionReference;
             EntryPointTemplate = entryPointTemplate;
         }
 
-        public string InputData { get; set; }
+        public string InputData { get; }
 
         public DataConvertInputDataType InputDataType { get; }
 
-        public string TemplateSetReference { get; }
+        public string RegistryServer { get; }
+
+        public string TemplateCollectionReference { get; }
 
         public string EntryPointTemplate { get; }
     }

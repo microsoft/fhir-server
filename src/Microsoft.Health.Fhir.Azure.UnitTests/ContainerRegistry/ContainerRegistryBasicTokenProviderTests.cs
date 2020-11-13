@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ContainerRegistry
                     ContainerRegistryPassword = "test",
                 });
 
-            await Assert.ThrowsAsync<ContainerRegistryNotRegisteredException>(() => _tokenProvider.GetTokenAsync(registryServer, default));
+            await Assert.ThrowsAsync<ContainerRegistryNotConfiguredException>(() => _tokenProvider.GetTokenAsync(registryServer, default));
         }
 
         [Fact]

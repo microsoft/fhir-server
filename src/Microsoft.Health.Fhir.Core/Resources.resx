@@ -458,15 +458,21 @@
     <value>Failed to convert the input data. Reason: {0}</value>
     <comment>{0} is the failure reason.</comment>
   </data>
-  <data name="GetTemplateSetFailed" xml:space="preserve">
-    <value>Failed to get template set. Reason: {0}</value>
+  <data name="FetchTemplateCollectionFailed" xml:space="preserve">
+    <value>Failed to fetch the template collection. Reason: {0}</value>
     <comment>{0} is the failure reason</comment>
   </data>
-  <data name="ConvertEngineInitializeFailed" xml:space="preserve">
-    <value>Unable to initialize the convert engine with the provided templates.</value>
+  <data name="DataConvertEngineInitializeFailed" xml:space="preserve">
+    <value>Unable to initialize the data convert engine with the provided templates.</value>
   </data>
   <data name="InputDataParseError" xml:space="preserve">
     <value>Unable to parse the inputData to {0} type.</value>
     <comment>{0}:input data type</comment>
+  </data>
+  <data name="ContainerRegistryNotAuthorized" xml:space="preserve">
+    <value>Fail to access the container registry '{0}', please check the registry configuration.</value>
+  </data>
+  <data name="DataConvertOperationTimeout" xml:space="preserve">
+    <value>Data convert operation has timed out.</value>
   </data>
 </root>

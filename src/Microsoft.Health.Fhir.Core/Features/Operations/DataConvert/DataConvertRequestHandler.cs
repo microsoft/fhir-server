@@ -11,7 +11,6 @@ using MediatR;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Features.Operations.DataConvert.Models;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.DataConvert;
@@ -47,40 +46,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.DataConvert
                 throw new UnauthorizedFhirActionException();
             }
 
-            return await ExecuteWithTimeoutAync(cancellationToken => _dataConvertEngine.Process(request, cancellationToken), _dataConvertConfiguration.ProcessTimeoutThreshold, cancellationToken);
-        }
-
-        /// <summary>
-        /// This task can either be cancelled due to external cancellation or timeout.
-        /// </summary>
-        /// <typeparam name="TResult">Type of return value</typeparam>
-        /// <param name="runTaskFactory">Task factory to get task</param>
-        /// <param name="timeout">Time out span</param>
-        /// <param name="cancellationToken">External cancellation token</param>
-        /// <returns>The result of run task</returns>
-        private async Task<TResult> ExecuteWithTimeoutAync<TResult>(
-            Func<CancellationToken, Task<TResult>> runTaskFactory,
-            TimeSpan timeout,
-            CancellationToken cancellationToken)
-        {
-            using (var timeoutCancellation = new CancellationTokenSource())
-            using (var combinedCancellation = CancellationTokenSource
-                .CreateLinkedTokenSource(cancellationToken, timeoutCancellation.Token))
-            {
-                var runTask = runTaskFactory(combinedCancellation.Token);
-                var completedTask = await Task.WhenAny(runTask, Task.Delay(timeout, timeoutCancellation.Token));
-
-                // Cancel the task which is still running.
-                timeoutCancellation.Cancel();
-                if (completedTask == runTask)
-                {
-                    return await runTask;
-                }
-                else
-                {
-                    throw new DataConvertTimeoutException("The data convert operation has timed out.");
-                }
-            }
+            return await _dataConvertEngine.Process(request, cancellationToken);
         }
     }
 }

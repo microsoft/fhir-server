@@ -60,6 +60,18 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Controllers
         }
 
         [Theory]
+        [InlineData("abc.azurecr.io")]
+        [InlineData("abc.azurecr.io/:tag")]
+        [InlineData("testimage:tag")]
+        public async Task GivenADataConvertRequest_WithInvalidReference_WhenInvalidBodySent_ThenRequestNotValidThrown(string templateCollectionReference)
+        {
+            var body = GetDataConvertParamsWithCustomTemplateReference(templateCollectionReference);
+
+            _dataConverteEnabledController.ControllerContext.HttpContext.Request.Method = HttpMethods.Post;
+            await Assert.ThrowsAsync<RequestNotValidException>(() => _dataConverteEnabledController.DataConvert(body));
+        }
+
+        [Theory]
         [MemberData(nameof(ValidBody), MemberType = typeof(DataConvertControllerTests))]
         public async Task GivenADataConvertRequest_WithValidBody_ThenDataConvertCalledWithCorrectParams(Parameters body)
         {
@@ -68,10 +80,10 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Controllers
             await _dataConverteEnabledController.DataConvert(body);
             await _mediator.Received().Send(
                 Arg.Is<DataConvertRequest>(
-                    r => r.InputData.ToString().Equals(body.Parameter.Find(p => p.Name.Equals(OperationParameterProperties.InputData)).Value.ToString())
-                && r.InputDataType.ToString() == body.Parameter.Find(p => p.Name.Equals(OperationParameterProperties.InputDataType)).Value.ToString()
-                && r.TemplateSetReference == body.Parameter.Find(p => p.Name.Equals(OperationParameterProperties.TemplateSetReference)).Value.ToString()
-                && r.EntryPointTemplate == body.Parameter.Find(p => p.Name.Equals(OperationParameterProperties.EntryPointTemplate)).Value.ToString()),
+                    r => r.InputData.ToString().Equals(body.Parameter.Find(p => p.Name.Equals(DataConvertProperties.InputData)).Value.ToString())
+                && r.InputDataType.ToString() == body.Parameter.Find(p => p.Name.Equals(DataConvertProperties.InputDataType)).Value.ToString()
+                && r.TemplateCollectionReference == body.Parameter.Find(p => p.Name.Equals(DataConvertProperties.TemplateCollectionReference)).Value.ToString()
+                && r.EntryPointTemplate == body.Parameter.Find(p => p.Name.Equals(DataConvertProperties.EntryPointTemplate)).Value.ToString()),
                 Arg.Any<CancellationToken>());
             _mediator.ClearReceivedCalls();
         }
@@ -103,7 +115,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Controllers
             parametersResource.Parameter = new List<Parameters.ParameterComponent>();
 
             parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = "foo", Value = new FhirDecimal(5) });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = OperationParameterProperties.InputData, Value = new FhirString(GetSampleHl7v2Message()) });
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = DataConvertProperties.InputData, Value = new FhirString(GetSampleHl7v2Message()) });
 
             return parametersResource;
         }
@@ -113,9 +125,9 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Controllers
             var parametersResource = new Parameters();
             parametersResource.Parameter = new List<Parameters.ParameterComponent>();
 
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = OperationParameterProperties.InputData, Value = new FhirString(GetSampleHl7v2Message()) });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = OperationParameterProperties.InputDataType, Value = new FhirString("Hl7v2") });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = OperationParameterProperties.TemplateSetReference, Value = new FhirString("test.azurecr.io/testimage:latest") });
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = DataConvertProperties.InputData, Value = new FhirString(GetSampleHl7v2Message()) });
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = DataConvertProperties.InputDataType, Value = new FhirString("Hl7v2") });
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = DataConvertProperties.TemplateCollectionReference, Value = new FhirString("test.azurecr.io/testimage:latest") });
 
             return parametersResource;
         }
@@ -125,10 +137,10 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Controllers
             var parametersResource = new Parameters();
             parametersResource.Parameter = new List<Parameters.ParameterComponent>();
 
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = OperationParameterProperties.InputData, Value = new FhirString(GetSampleHl7v2Message()) });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = OperationParameterProperties.InputDataType, Value = new FhirString("Hl7v2") });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = OperationParameterProperties.TemplateSetReference, Value = new FhirString("test.azurecr.io/testimage:latest") });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = OperationParameterProperties.EntryPointTemplate, Value = new FhirString("ADT_A01") });
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = DataConvertProperties.InputData, Value = new FhirString(GetSampleHl7v2Message()) });
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = DataConvertProperties.InputDataType, Value = new FhirString("Hl7v2") });
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = DataConvertProperties.TemplateCollectionReference, Value = new FhirString("test.azurecr.io/testimage:latest") });
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = DataConvertProperties.EntryPointTemplate, Value = new FhirString("ADT_A01") });
             parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = "foo", Value = new FhirDecimal(5) });
 
             return parametersResource;
@@ -139,10 +151,23 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Controllers
             var parametersResource = new Parameters();
             parametersResource.Parameter = new List<Parameters.ParameterComponent>();
 
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = OperationParameterProperties.InputData, Value = new FhirString(GetSampleHl7v2Message()) });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = OperationParameterProperties.InputDataType, Value = new FhirString("Hl7v2") });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = OperationParameterProperties.TemplateSetReference, Value = new FhirString("test.azurecr.io/testimage:latest") });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = OperationParameterProperties.EntryPointTemplate, Value = new FhirString("ADT_A01") });
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = DataConvertProperties.InputData, Value = new FhirString(GetSampleHl7v2Message()) });
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = DataConvertProperties.InputDataType, Value = new FhirString("Hl7v2") });
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = DataConvertProperties.TemplateCollectionReference, Value = new FhirString("test.azurecr.io/testimage:latest") });
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = DataConvertProperties.EntryPointTemplate, Value = new FhirString("ADT_A01") });
+
+            return parametersResource;
+        }
+
+        private static Parameters GetDataConvertParamsWithCustomTemplateReference(string templateCollectionReference)
+        {
+            var parametersResource = new Parameters();
+            parametersResource.Parameter = new List<Parameters.ParameterComponent>();
+
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = DataConvertProperties.InputData, Value = new FhirString(GetSampleHl7v2Message()) });
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = DataConvertProperties.InputDataType, Value = new FhirString("Hl7v2") });
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = DataConvertProperties.TemplateCollectionReference, Value = new FhirString(templateCollectionReference) });
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = DataConvertProperties.EntryPointTemplate, Value = new FhirString("ADT_A01") });
 
             return parametersResource;
         }

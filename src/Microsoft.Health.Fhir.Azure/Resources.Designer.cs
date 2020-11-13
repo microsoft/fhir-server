@@ -103,6 +103,14 @@ namespace Microsoft.Health.Fhir.Azure {
             }
         }
 
+        internal static string ContainerRegistryNotConfigured
+        {
+            get
+            {
+                return ResourceManager.GetString("ContainerRegistryNotConfigured", resourceCulture);
+            }
+        }
+
         internal static string ContainerRegistryNotRegistered
         {
             get

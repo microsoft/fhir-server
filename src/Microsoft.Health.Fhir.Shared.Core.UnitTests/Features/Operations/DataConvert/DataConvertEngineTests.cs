@@ -8,9 +8,9 @@ using System.Linq;
 using System.Threading;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Fhir.Azure.ContainerRegistry;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.DataConvert;
 using Microsoft.Health.Fhir.Core.Features.Operations.DataConvert.Models;
@@ -25,14 +25,44 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.DataCo
 {
     public class DataConvertEngineTests
     {
-        private const string DefaultTemplateReference = "microsofthealth/fhirconverter:default";
+        private IDataConvertEngine _dataConvertEngine;
+
+        public DataConvertEngineTests()
+        {
+            var dataConvertConfig = new DataConvertConfiguration
+            {
+                Enabled = true,
+                ProcessTimeoutThreshold = TimeSpan.FromMilliseconds(50),
+            };
+
+            var registry = new ContainerRegistryInfo
+            {
+                ContainerRegistryServer = "test.azurecr.io",
+            };
+            dataConvertConfig.ContainerRegistries.Add(registry);
+
+            IOptions<DataConvertConfiguration> dataConvertConfiguration = Options.Create(dataConvertConfig);
+
+            IContainerRegistryTokenProvider tokenProvider = Substitute.For<IContainerRegistryTokenProvider>();
+            tokenProvider.GetTokenAsync(Arg.Any<string>(), default).ReturnsForAnyArgs(x => GetToken(x[0].ToString(), dataConvertConfig));
+
+            IOptions<TemplateLayerConfiguration> templateConfig = Options.Create(new TemplateLayerConfiguration());
+            MemoryCache cache = new MemoryCache(new MemoryCacheOptions());
+            ITemplateSetProviderFactory templateProviderFactory = new TemplateSetProviderFactory(cache, templateConfig);
+
+            ContainerRegistryTemplateProvider templateProvider = new ContainerRegistryTemplateProvider(tokenProvider, templateProviderFactory, new NullLogger<ContainerRegistryTemplateProvider>());
+
+            _dataConvertEngine = new DataConvertEngine(
+                templateProvider,
+                dataConvertConfiguration,
+                new NullLogger<DataConvertEngine>());
+        }
 
         [Fact]
         public async Task GivenDataConvertRequest_WithDefaultTemplates_CorrectResultShouldReturn()
         {
             var request = GetHl7V2RequestWithDefaultTemplates();
-            var dataConvertEngine = GetDataConvertEngine();
-            var response = await dataConvertEngine.Process(request, CancellationToken.None);
+            var response = await _dataConvertEngine.Process(request, CancellationToken.None);
 
             var setting = new ParserSettings()
             {
@@ -49,33 +79,16 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.DataCo
             Assert.Equal("1987-06-24", patient.BirthDate);
         }
 
-        /// <summary>
-        /// For unit tests, we only check the reference format.
-        /// We will do real data check (registry/image/tag/digest not found) in E2E tests.
-        /// </summary>
-        [Theory]
-        [InlineData("           ")]
-        [InlineData("test.azurecr.io")]
-        [InlineData("template:default")]
-        [InlineData("/template:default")]
-        public async Task GivenDataConvertRequest_WithWrongTemplateReference_TemplateReferenceInvalidExceptionShouldBeThrown(string templateReference)
-        {
-            var request = GetHl7V2RequestWithTemplateReference(templateReference);
-            var dataConvertEngine = GetDataConvertEngine();
-            await Assert.ThrowsAsync<TemplateReferenceInvalidException>(() => dataConvertEngine.Process(request, CancellationToken.None));
-        }
-
         [Theory]
         [InlineData("fakeacr.azurecr.io/template:default")]
         [InlineData("test.azurecr-test.io/template:default")]
         [InlineData("test.azurecr.com/template@sha256:592535ef52d742f81e35f4d87b43d9b535ed56cf58c90a14fc5fd7ea0fbb8696")]
         [InlineData("*****####.com/template:default")]
         [InlineData("¶Š™œãý£¾.com/template:default")]
-        public async Task GivenDataConvertRequest_WithUnregisteredRegistry_ContainerRegistryNotRegisteredExceptionShouldBeThrown(string templateReference)
+        public async Task GivenDataConvertRequest_WithUnregisteredRegistry_ContainerRegistryNotConfiguredExceptionShouldBeThrown(string templateReference)
         {
             var request = GetHl7V2RequestWithTemplateReference(templateReference);
-            var dataConvertEngine = GetDataConvertEngine();
-            await Assert.ThrowsAsync<ContainerRegistryNotRegisteredException>(() => dataConvertEngine.Process(request, CancellationToken.None));
+            await Assert.ThrowsAsync<ContainerRegistryNotConfiguredException>(() => _dataConvertEngine.Process(request, CancellationToken.None));
         }
 
         [Theory]
@@ -86,8 +99,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.DataCo
         public async Task GivenDataConvertRequest_WithWrongInputData_DataConvertFailedExceptionShouldBeThrown(string inputData)
         {
             var request = GetHl7V2RequestWithInputData(inputData);
-            var dataConvertEngine = GetDataConvertEngine();
-            await Assert.ThrowsAsync<InputDataParseErrorException>(() => dataConvertEngine.Process(request, CancellationToken.None));
+            await Assert.ThrowsAsync<InputDataParseErrorException>(() => _dataConvertEngine.Process(request, CancellationToken.None));
         }
 
         [Theory]
@@ -97,75 +109,43 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.DataCo
         public async Task GivenDataConvertRequest_WithWrongEntryPointTemplate_DataConvertFailedExceptionShouldBeThrown(string entryPointTemplateName)
         {
             var request = GetHl7V2RequestWithEntryPointTemplate(entryPointTemplateName);
-            var dataConvertEngine = GetDataConvertEngine();
-            await Assert.ThrowsAsync<DataConvertFailedException>(() => dataConvertEngine.Process(request, CancellationToken.None));
-        }
-
-        private DataConvertEngine GetDataConvertEngine()
-        {
-            var dataConvertConfig = new DataConvertConfiguration
-            {
-                Enabled = true,
-                ProcessTimeoutThreshold = TimeSpan.FromSeconds(1),
-            };
-
-            var registry = new ContainerRegistryInfo
-            {
-                ContainerRegistryServer = "test.azurecr.io",
-            };
-
-            dataConvertConfig.ContainerRegistries.Add(registry);
-
-            IOptions<DataConvertConfiguration> dataConvertConfiguration = Substitute.For<IOptions<DataConvertConfiguration>>();
-            dataConvertConfiguration.Value.Returns(dataConvertConfig);
-
-            var tokenProvider = new ContainerRegistryBasicTokenProvider(dataConvertConfiguration);
-            IOptionsMonitor<TemplateContainerConfig> templateConfig = Substitute.For<IOptionsMonitor<TemplateContainerConfig>>();
-            templateConfig.CurrentValue.Returns(new TemplateContainerConfig());
-
-            ITemplateProviderFactory templateProviderFactory = new TemplateProviderFactory(templateConfig, new NullLogger<TemplateProviderFactory>());
-
-            return new DataConvertEngine(
-                tokenProvider,
-                templateProviderFactory,
-                new NullLogger<DataConvertEngine>());
+            await Assert.ThrowsAsync<DataConvertFailedException>(() => _dataConvertEngine.Process(request, CancellationToken.None));
         }
 
         private static DataConvertRequest GetHl7V2RequestWithDefaultTemplates()
         {
-            return new DataConvertRequest(GetSampleHl7v2Message(), DataConvertInputDataType.Hl7v2, DefaultTemplateReference, "ADT_A01");
+            return new DataConvertRequest(GetSampleHl7v2Message(), DataConvertInputDataType.Hl7v2, "microsofthealth", ImageInfo.DefaultTemplateImageReference, "ADT_A01");
         }
 
         private static DataConvertRequest GetHl7V2RequestWithTemplateReference(string imageReference)
         {
-            return new DataConvertRequest(GetSampleHl7v2Message(), DataConvertInputDataType.Hl7v2, imageReference, "ADT_A01");
+            return new DataConvertRequest(GetSampleHl7v2Message(), DataConvertInputDataType.Hl7v2, imageReference.Split('/')[0], imageReference, "ADT_A01");
         }
 
         private static DataConvertRequest GetHl7V2RequestWithInputData(string inputData)
         {
-            return new DataConvertRequest(inputData, DataConvertInputDataType.Hl7v2, DefaultTemplateReference, "ADT_A01");
+            return new DataConvertRequest(inputData, DataConvertInputDataType.Hl7v2, "microsofthealth", ImageInfo.DefaultTemplateImageReference, "ADT_A01");
         }
 
         private static DataConvertRequest GetHl7V2RequestWithEntryPointTemplate(string entryPointTemplate)
         {
-            return new DataConvertRequest(GetSampleHl7v2Message(), DataConvertInputDataType.Hl7v2, DefaultTemplateReference, entryPointTemplate);
-        }
-
-        private static ImageInfo GetDefaultImageInfo()
-        {
-            return new ImageInfo("MicrosoftHealth", "FhirConverter", "default");
-        }
-
-        private static bool IsDefaultTemplate(ImageInfo imageInfo)
-        {
-            return string.Equals("MicrosoftHealth", imageInfo.Registry, StringComparison.OrdinalIgnoreCase)
-                && string.Equals("FhirConverter", imageInfo.ImageName, StringComparison.OrdinalIgnoreCase)
-                && string.Equals("default", imageInfo.Tag, StringComparison.OrdinalIgnoreCase);
+            return new DataConvertRequest(GetSampleHl7v2Message(), DataConvertInputDataType.Hl7v2, "microsofthealth", ImageInfo.DefaultTemplateImageReference, entryPointTemplate);
         }
 
         private static string GetSampleHl7v2Message()
         {
             return "MSH|^~\\&|SIMHOSP|SFAC|RAPP|RFAC|20200508131015||ADT^A01|517|T|2.3|||AL||44|ASCII\nEVN|A01|20200508131015|||C005^Whittingham^Sylvia^^^Dr^^^DRNBR^PRSNL^^^ORGDR|\nPID|1|3735064194^^^SIMULATOR MRN^MRN|3735064194^^^SIMULATOR MRN^MRN~2021051528^^^NHSNBR^NHSNMBR||Kinmonth^Joanna^Chelsea^^Ms^^CURRENT||19870624000000|F|||89 Transaction House^Handmaiden Street^Wembley^^FV75 4GJ^GBR^HOME||020 3614 5541^HOME|||||||||C^White - Other^^^||||||||\nPD1|||FAMILY PRACTICE^^12345|\nPV1|1|I|OtherWard^MainRoom^Bed 183^Simulated Hospital^^BED^Main Building^4|28b|||C005^Whittingham^Sylvia^^^Dr^^^DRNBR^PRSNL^^^ORGDR|||CAR|||||||||16094728916771313876^^^^visitid||||||||||||||||||||||ARRIVED|||20200508131015||";
+        }
+
+        // For unit tests, we only use the built-in templates and here returns an empty token.
+        private string GetToken(string registry, DataConvertConfiguration config)
+        {
+            if (!config.ContainerRegistries.Any(registryInfo => string.Equals(registryInfo.ContainerRegistryServer, registry, StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new ContainerRegistryNotConfiguredException("Container registry not configured.");
+            }
+
+            return string.Empty;
         }
     }
 }

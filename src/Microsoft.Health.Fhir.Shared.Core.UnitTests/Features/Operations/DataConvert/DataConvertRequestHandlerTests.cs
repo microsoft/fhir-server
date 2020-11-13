@@ -4,7 +4,11 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Threading.Tasks;
+using System.Linq;
+using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.DataConvert;
@@ -12,15 +16,16 @@ using Microsoft.Health.Fhir.Core.Features.Operations.DataConvert.Models;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.DataConvert;
+using Microsoft.Health.Fhir.TemplateManagement;
+using Microsoft.Health.Fhir.TemplateManagement.Models;
 using NSubstitute;
 using Xunit;
+using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.DataConvert
 {
     public class DataConvertRequestHandlerTests
     {
-        private readonly IDataConvertEngine _dataConvertEngine = Substitute.For<IDataConvertEngine>();
-        private readonly IFhirAuthorizationService _authorizationService = Substitute.For<IFhirAuthorizationService>();
         private readonly DataConvertRequestHandler _dataConvertRequestHandler;
 
         public DataConvertRequestHandlerTests()
@@ -29,21 +34,23 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.DataCo
         }
 
         [Fact]
-        public async Task GivenAConvertTask_WhichRunsLongTime_TimeoutExceptionShouldBeThrown()
+        public async Task GivenAConvertRequest_WhenDataConvert_CorrectResponseShouldReturn()
         {
-            Task<DataConvertResponse> delayedResult = Task.Delay(2000).ContinueWith(_ => new DataConvertResponse("test"));
-            _dataConvertEngine.Process(default, default).ReturnsForAnyArgs(delayedResult);
+            var response = await _dataConvertRequestHandler.Handle(GetSampleHl7v2Request(), default);
 
-            await Assert.ThrowsAsync<DataConvertTimeoutException>(() => _dataConvertRequestHandler.Handle(GetSampleHl7v2Request(), default));
-        }
+            var setting = new ParserSettings()
+            {
+                AcceptUnknownMembers = true,
+                PermissiveParsing = true,
+            };
+            var parser = new FhirJsonParser(setting);
+            var bundleResource = parser.Parse<Bundle>(response.Resource);
+            Assert.Equal("urn:uuid:b06a26a8-9cb6-ef2c-b4a7-3781a6f7f71a", bundleResource.Entry.First().FullUrl);
+            Assert.Equal(2, bundleResource.Entry.Count);
 
-        [Fact]
-        public async Task GivenAConvertTask_WhichRunsFast_TimeoutExceptionShouldNotBeThrown()
-        {
-            Task<DataConvertResponse> delayedResult = Task.Delay(500).ContinueWith(_ => new DataConvertResponse("test"));
-            _dataConvertEngine.Process(default, default).ReturnsForAnyArgs(delayedResult);
-
-            await _dataConvertRequestHandler.Handle(GetSampleHl7v2Request(), default);
+            var patient = bundleResource.Entry.First().Resource as Patient;
+            Assert.Equal("Kinmonth", patient.Name.First().Family);
+            Assert.Equal("1987-06-24", patient.BirthDate);
         }
 
         private DataConvertRequestHandler GetRequestHandler()
@@ -51,21 +58,43 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.DataCo
             var dataConvertConfig = new DataConvertConfiguration
             {
                 Enabled = true,
-                ProcessTimeoutThreshold = TimeSpan.FromSeconds(1),
+                ProcessTimeoutThreshold = TimeSpan.FromSeconds(30),
             };
 
-            IOptions<DataConvertConfiguration> dataConvertConfiguration = Substitute.For<IOptions<DataConvertConfiguration>>();
-            dataConvertConfiguration.Value.Returns(dataConvertConfig);
-            _authorizationService.CheckAccess(default).ReturnsForAnyArgs(DataActions.DataConvert);
+            var registry = new ContainerRegistryInfo
+            {
+                ContainerRegistryServer = "test.azurecr.io",
+            };
+            dataConvertConfig.ContainerRegistries.Add(registry);
+
+            IOptions<DataConvertConfiguration> dataConvertConfiguration = Options.Create(dataConvertConfig);
+
+            IContainerRegistryTokenProvider tokenProvider = Substitute.For<IContainerRegistryTokenProvider>();
+            tokenProvider.GetTokenAsync(Arg.Any<string>(), default).ReturnsForAnyArgs(string.Empty);
+
+            IOptions<TemplateLayerConfiguration> templateConfig = Options.Create(new TemplateLayerConfiguration());
+            MemoryCache cache = new MemoryCache(new MemoryCacheOptions());
+            ITemplateSetProviderFactory templateProviderFactory = new TemplateSetProviderFactory(cache, templateConfig);
+
+            ContainerRegistryTemplateProvider templateProvider = new ContainerRegistryTemplateProvider(tokenProvider, templateProviderFactory, new NullLogger<ContainerRegistryTemplateProvider>());
+
+            var dataConvertEngine = new DataConvertEngine(
+                templateProvider,
+                dataConvertConfiguration,
+                new NullLogger<DataConvertEngine>());
+
+            IFhirAuthorizationService authorizationService = Substitute.For<IFhirAuthorizationService>();
+            authorizationService.CheckAccess(default).ReturnsForAnyArgs(DataActions.DataConvert);
+
             return new DataConvertRequestHandler(
-                _authorizationService,
-                _dataConvertEngine,
+                authorizationService,
+                dataConvertEngine,
                 dataConvertConfiguration);
         }
 
         private static DataConvertRequest GetSampleHl7v2Request()
         {
-            return new DataConvertRequest(GetSampleHl7v2Message(), DataConvertInputDataType.Hl7v2, "microsofthealth/fhirconverter:default", "ADT_A01");
+            return new DataConvertRequest(GetSampleHl7v2Message(), DataConvertInputDataType.Hl7v2, "microsofthealth", "microsofthealth/fhirconverter:default", "ADT_A01");
         }
 
         private static string GetSampleHl7v2Message()

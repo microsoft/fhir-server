@@ -5,96 +5,56 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations.DataConvert.Models;
 using Microsoft.Health.Fhir.Core.Messages.DataConvert;
 using Microsoft.Health.Fhir.Liquid.Converter;
 using Microsoft.Health.Fhir.Liquid.Converter.Exceptions;
 using Microsoft.Health.Fhir.Liquid.Converter.Hl7v2;
-using Microsoft.Health.Fhir.TemplateManagement;
-using Microsoft.Health.Fhir.TemplateManager.Exceptions;
+using Microsoft.Health.Fhir.Liquid.Converter.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.DataConvert
 {
     public class DataConvertEngine : IDataConvertEngine
     {
-        private readonly IContainerRegistryTokenProvider _containerRegistryTokenProvider;
-        private readonly ITemplateProviderFactory _templateProviderFactory;
+        private readonly IDataConvertTemplateProvider _dataConvertTemplateProvider;
+        private readonly DataConvertConfiguration _dataConvertConfiguration;
         private readonly ILogger<DataConvertEngine> _logger;
 
         private readonly Dictionary<DataConvertInputDataType, IFhirConverter> _dataConverterMap = new Dictionary<DataConvertInputDataType, IFhirConverter>();
-        private const char ImageRegistryDelimiter = '/';
-        private const string DefaultTemplateReference = "microsofthealth/fhirconverter:default";
 
         public DataConvertEngine(
-            IContainerRegistryTokenProvider containerRegistryTokenProvider,
-            ITemplateProviderFactory templateProviderFactory,
+            IDataConvertTemplateProvider dataConvertTemplateProvider,
+            IOptions<DataConvertConfiguration> dataConvertConfiguration,
             ILogger<DataConvertEngine> logger)
         {
-            EnsureArg.IsNotNull(containerRegistryTokenProvider, nameof(containerRegistryTokenProvider));
-            EnsureArg.IsNotNull(templateProviderFactory, nameof(templateProviderFactory));
+            EnsureArg.IsNotNull(dataConvertTemplateProvider, nameof(dataConvertTemplateProvider));
+            EnsureArg.IsNotNull(dataConvertConfiguration, nameof(dataConvertConfiguration));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _containerRegistryTokenProvider = containerRegistryTokenProvider;
-            _templateProviderFactory = templateProviderFactory;
+            _dataConvertTemplateProvider = dataConvertTemplateProvider;
+            _dataConvertConfiguration = dataConvertConfiguration.Value;
             _logger = logger;
 
-            _dataConverterMap.Add(DataConvertInputDataType.Hl7v2, new Hl7v2Processor());
+            InitializeConvertProcessors();
         }
 
         public async Task<DataConvertResponse> Process(DataConvertRequest convertRequest, CancellationToken cancellationToken)
         {
-            // We have embedded a default template set in the templatemanagement package.
-            // If the template set is the default reference, we don't need to retrieve token.
-            var accessToken = string.Empty;
-            if (!IsDefaultTemplateReference(convertRequest.TemplateSetReference))
-            {
-                _logger.LogInformation("Using a custom template set for data conversion.");
-                var registryServer = ExtractRegistryServer(convertRequest.TemplateSetReference);
-                accessToken = await _containerRegistryTokenProvider.GetTokenAsync(registryServer, cancellationToken);
-            }
-            else
-            {
-                _logger.LogInformation("Using the default template set for data conversion.");
-            }
+            var templateCollection = await _dataConvertTemplateProvider.GetTemplateCollectionAsync(convertRequest.TemplateCollectionReference, cancellationToken);
+            var result = GetDataConvertResult(convertRequest, new Hl7v2TemplateProvider(templateCollection));
 
-            // Fetch templates
-            ITemplateProvider templateProvider;
-            try
-            {
-                templateProvider = await _templateProviderFactory.CreateAsync(convertRequest.TemplateSetReference, accessToken, cancellationToken);
-            }
-            catch (ContainerRegistryAuthException authEx)
-            {
-                _logger.LogError(authEx, "Failed to access container registry: unauthorized.");
-                throw new GetTemplateSetFailedException(string.Format(Resources.GetTemplateSetFailed, authEx.Message), authEx);
-            }
-            catch (DefaultTemplatesInitializeException initEx)
-            {
-                _logger.LogError(initEx, "Failed to initialize default templates.");
-                throw new GetTemplateSetFailedException(string.Format(Resources.GetTemplateSetFailed, initEx.Message), initEx);
-            }
-            catch (ImageFetchException fetchException)
-            {
-                _logger.LogError(fetchException, "Failed to fetch the templates from remote.");
-                throw new GetTemplateSetFailedException(string.Format(Resources.GetTemplateSetFailed, fetchException.Message), fetchException);
-            }
-            catch (ImageValidationException validationException)
-            {
-                _logger.LogError(validationException, "Failed to validate the downloaded image.");
-                throw new GetTemplateSetFailedException(string.Format(Resources.GetTemplateSetFailed, validationException.Message), validationException);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Unhandled exception: failed to get template set.");
-                throw new GetTemplateSetFailedException(string.Format(Resources.GetTemplateSetFailed, ex.Message), ex);
-            }
+            return new DataConvertResponse(result);
+        }
 
+        private string GetDataConvertResult(DataConvertRequest convertRequest, ITemplateProvider templateProvider)
+        {
             var dataConverter = _dataConverterMap.GetValueOrDefault(convertRequest.InputDataType);
             if (dataConverter == null)
             {
@@ -105,21 +65,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.DataConvert
 
             try
             {
-                string bundleResult = dataConverter.Convert(convertRequest.InputData, convertRequest.EntryPointTemplate, templateProvider);
-                return new DataConvertResponse(bundleResult);
+                return dataConverter.Convert(convertRequest.InputData, convertRequest.EntryPointTemplate, templateProvider);
             }
             catch (DataParseException dpe)
             {
                 _logger.LogError(dpe, "Unable to parse the input data.");
                 throw new InputDataParseErrorException(string.Format(Resources.InputDataParseError, convertRequest.InputDataType.ToString()), dpe);
             }
-            catch (InitializeException ie)
+            catch (ConverterInitializeException ie)
             {
                 _logger.LogError(ie, "Fail to initialize the convert engine.");
-                throw new ConvertEngineInitializeException(Resources.ConvertEngineInitializeFailed, ie);
+                throw new ConvertEngineInitializeException(Resources.DataConvertEngineInitializeFailed, ie);
             }
             catch (FhirConverterException fce)
             {
+                if (fce.InnerException is TimeoutException)
+                {
+                    _logger.LogError(fce, "Data convert operation timed out.");
+                    throw new DataConvertTimeoutException(Resources.DataConvertOperationTimeout, fce.InnerException);
+                }
+
                 _logger.LogError(fce, "Data convert process failed.");
                 throw new DataConvertFailedException(string.Format(Resources.DataConvertFailed, fce.Message), fce);
             }
@@ -130,21 +95,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.DataConvert
             }
         }
 
-        private string ExtractRegistryServer(string templateSetReference)
+        /// <summary>
+        /// In order to terminate long running templates, we add timeout setting to DotLiquid rendering context,
+        /// which throws a Timeout Exception when render process elapsed longer than timeout threshold.
+        /// Reference: https://github.com/dotliquid/dotliquid/blob/master/src/DotLiquid/Context.cs
+        /// </summary>
+        private void InitializeConvertProcessors()
         {
-            var referenceComponents = templateSetReference.Split(ImageRegistryDelimiter);
-            if (referenceComponents.Length <= 1 || string.IsNullOrWhiteSpace(referenceComponents.First()))
+            var processorSetting = new ProcessorSettings
             {
-                _logger.LogError("Templates set reference is invalid: cannot extract registry server.");
-                throw new TemplateReferenceInvalidException("Template reference is invalid.");
-            }
+                TimeOut = (int)_dataConvertConfiguration.ProcessTimeoutThreshold.TotalMilliseconds,
+            };
 
-            return referenceComponents[0];
-        }
-
-        private bool IsDefaultTemplateReference(string templateReference)
-        {
-            return string.Equals(DefaultTemplateReference, templateReference, StringComparison.OrdinalIgnoreCase);
+            _dataConverterMap.Add(DataConvertInputDataType.Hl7v2, new Hl7v2Processor(processorSetting));
         }
     }
 }

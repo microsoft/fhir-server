@@ -21,6 +21,7 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.DataConvert.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Validation;
@@ -133,6 +134,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         break;
                     case FhirTransactionFailedException fhirTransactionFailedException:
                         operationOutcomeResult.StatusCode = fhirTransactionFailedException.ResponseStatusCode;
+                        break;
+                    case FetchTemplateCollectionFailedException _:
+                    case ConvertEngineInitializeException _:
+                    case DataConvertTimeoutException _:
+                    case DataConvertFailedException _:
+                        operationOutcomeResult.StatusCode = HttpStatusCode.InternalServerError;
                         break;
                 }
 

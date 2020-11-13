@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
     /// Tests using customized template set will not run without extra container registry info
     /// since there is no acr emulator.
     /// </summary>
-    [Trait(Traits.Category, Categories.DataConvert)]
+    [Trait(Traits.Category, Categories.CustomDataConvert)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class CustomDataConvertTests : IClassFixture<HttpIntegrationTestFixture>
     {
@@ -74,7 +74,12 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
             var bundleContent = await response.Content.ReadAsStringAsync();
-            var parser = new FhirJsonParser();
+            var setting = new ParserSettings()
+            {
+                AcceptUnknownMembers = true,
+                PermissiveParsing = true,
+            };
+            var parser = new FhirJsonParser(setting);
             var bundleResource = parser.Parse<Bundle>(bundleContent);
             Assert.Equal("urn:uuid:b06a26a8-9cb6-ef2c-b4a7-3781a6f7f71a", bundleResource.Entry.First().FullUrl);
         }
@@ -83,7 +88,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         [InlineData("template:1234567890")]
         [InlineData("wrongtemplate:default")]
         [InlineData("template@sha256:592535ef52d742f81e35f4d87b43d9b535ed56cf58c90a14fc5fd7ea0fbb8695")]
-        public async Task GivenAValidRequest_ButTemplateSetIsNotFound_WhenDataConvert_ShouldReturnBadRequest(string imageReference)
+        public async Task GivenAValidRequest_ButTemplateSetIsNotFound_WhenDataConvert_ShouldReturnError(string imageReference)
         {
             var registry = GetTestContainerRegistryInfo();
             if (registry == null)
@@ -99,8 +104,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             HttpResponseMessage response = await _testFhirClient.HttpClient.SendAsync(requestMessage);
             var responseContent = await response.Content.ReadAsStringAsync();
 
-            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-            Assert.Contains($"Failed to get template set.", responseContent);
+            Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+            Assert.Contains($"Failed to fetch the template collection.", responseContent);
         }
 
         private ContainerRegistryInfo GetTestContainerRegistryInfo()
@@ -204,10 +209,10 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             var parametersResource = new Parameters();
             parametersResource.Parameter = new List<Parameters.ParameterComponent>();
 
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = OperationParameterProperties.InputData, Value = new FhirString(inputData) });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = OperationParameterProperties.InputDataType, Value = new FhirString(inputDataType) });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = OperationParameterProperties.TemplateSetReference, Value = new FhirString(templateSetReference) });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = OperationParameterProperties.EntryPointTemplate, Value = new FhirString(entryPointTemplate) });
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = DataConvertProperties.InputData, Value = new FhirString(inputData) });
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = DataConvertProperties.InputDataType, Value = new FhirString(inputDataType) });
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = DataConvertProperties.TemplateCollectionReference, Value = new FhirString(templateSetReference) });
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = DataConvertProperties.EntryPointTemplate, Value = new FhirString(entryPointTemplate) });
 
             return parametersResource;
         }

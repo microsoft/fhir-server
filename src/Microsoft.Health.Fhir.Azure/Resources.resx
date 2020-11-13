@@ -133,11 +133,11 @@
     <value>Unable to get an authorized client to export destination.</value>
   </data>
   <data name="ContainerRegistryNotAuthorized" xml:space="preserve">
-    <value>Failed to access container registry {0}.</value>
+    <value>Failed to access container registry '{0}', please check your configuration.</value>
     <comment>{0}: the container registry login server</comment>
   </data>
-  <data name="ContainerRegistryNotRegistered" xml:space="preserve">
-    <value>The container registry {0} is not registered.</value>
+  <data name="ContainerRegistryNotConfigured" xml:space="preserve">
+    <value>The container registry '{0}' is not configured.</value>
     <comment>{0}: the container registry login server</comment>
   </data>
   <data name="DestinationClientNotConnected" xml:space="preserve">

@@ -334,4 +334,8 @@
   <data name="DataConvertParametersNotValid" xml:space="preserve">
     <value>Data convert operation parameters must be specified as a FHIR Parameters resource.  Provided body in this request is not valid.</value>
   </data>
+  <data name="InvalidTemplateCollectionReference" xml:space="preserve">
+    <value>The template collection reference '{0}' is invalid.</value>
+    <comment>{0}: template collection reference</comment>
+  </data>
 </root>

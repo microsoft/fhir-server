@@ -126,7 +126,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             var responseContent = await response.Content.ReadAsStringAsync();
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-            Assert.Contains("Template reference is invalid", responseContent);
+            Assert.Contains($"The template collection reference '{templateReference}' is invalid", responseContent);
         }
 
         [Theory]
@@ -135,7 +135,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         [InlineData("test.azurecr.com/template@sha256:592535ef52d742f81e35f4d87b43d9b535ed56cf58c90a14fc5fd7ea0fbb8696")]
         [InlineData("*****####.com/template:default")]
         [InlineData("¶Š™œãý£¾.com/template:default")]
-        public async Task GivenAValidRequest_ButTemplateRegistryIsNotRegistered_WhenDataConvert_ShouldReturnBadRequest(string templateReference)
+        public async Task GivenAValidRequest_ButTemplateRegistryIsNotConfigured_WhenDataConvert_ShouldReturnBadRequest(string templateReference)
         {
             if (!_isUsingInProcTestServer)
             {
@@ -151,7 +151,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
 
             var registryName = templateReference.Split('/')[0];
-            Assert.Contains($"The container registry {registryName} is not registered.", responseContent);
+            Assert.Contains($"The container registry '{registryName}' is not configured.", responseContent);
         }
 
         [Theory]
@@ -198,10 +198,10 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             var parametersResource = new Parameters();
             parametersResource.Parameter = new List<Parameters.ParameterComponent>();
 
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = OperationParameterProperties.InputData, Value = new FhirString(inputData) });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = OperationParameterProperties.InputDataType, Value = new FhirString(inputDataType) });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = OperationParameterProperties.TemplateSetReference, Value = new FhirString(templateSetReference) });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = OperationParameterProperties.EntryPointTemplate, Value = new FhirString(entryPointTemplate) });
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = DataConvertProperties.InputData, Value = new FhirString(inputData) });
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = DataConvertProperties.InputDataType, Value = new FhirString(inputDataType) });
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = DataConvertProperties.TemplateCollectionReference, Value = new FhirString(templateSetReference) });
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = DataConvertProperties.EntryPointTemplate, Value = new FhirString(entryPointTemplate) });
 
             return parametersResource;
         }

@@ -27,6 +27,7 @@ namespace Microsoft.Health.Fhir.Web
         public virtual void ConfigureServices(IServiceCollection services)
         {
             services.AddDevelopmentIdentityProvider(Configuration);
+            services.AddMemoryCache();
 
             Core.Registration.IFhirServerBuilder fhirServerBuilder = services.AddFhirServer(Configuration)
                 .AddAzureExportDestinationClient()

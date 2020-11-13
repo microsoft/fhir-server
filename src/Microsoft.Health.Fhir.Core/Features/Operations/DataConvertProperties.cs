@@ -9,13 +9,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
     /// Class for keeping track of the property names of the in/out parameter for each operation.
     /// Some of these will be common across different operations and others might be specific.
     /// </summary>
-    public static class OperationParameterProperties
+    public static class DataConvertProperties
     {
         public const string InputData = "inputData";
 
         public const string InputDataType = "inputDataType";
 
-        public const string TemplateSetReference = "templateSetReference";
+        public const string TemplateCollectionReference = "templateCollectionReference";
 
         public const string EntryPointTemplate = "entryPointTemplate";
     }

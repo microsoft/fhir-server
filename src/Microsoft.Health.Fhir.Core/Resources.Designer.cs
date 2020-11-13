@@ -31,7 +31,9 @@ namespace Microsoft.Health.Fhir.Core {
         [global::System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("Microsoft.Performance", "CA1811:AvoidUncalledPrivateCode")]
         internal Resources() {
         }
-        
+
+        public static IFormatProvider InvalidTemplateCollectionReference { get; internal set; }
+
         /// <summary>
         ///   Returns the cached ResourceManager instance used by this class.
         /// </summary>
@@ -223,11 +225,11 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Unable to initialize the convert engine with the provided templates..
+        ///   Looks up a localized string similar to Fail to access the container registry &apos;{0}&apos;, please check the registry configuration..
         /// </summary>
-        internal static string ConvertEngineInitializeFailed {
+        internal static string ContainerRegistryNotAuthorized {
             get {
-                return ResourceManager.GetString("ConvertEngineInitializeFailed", resourceCulture);
+                return ResourceManager.GetString("ContainerRegistryNotAuthorized", resourceCulture);
             }
         }
         
@@ -241,11 +243,29 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Unable to initialize the data convert engine with the provided templates..
+        /// </summary>
+        internal static string DataConvertEngineInitializeFailed {
+            get {
+                return ResourceManager.GetString("DataConvertEngineInitializeFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Failed to convert the input data. Reason: {0}.
         /// </summary>
         internal static string DataConvertFailed {
             get {
                 return ResourceManager.GetString("DataConvertFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Data convert operation has timed out..
+        /// </summary>
+        internal static string DataConvertOperationTimeout {
+            get {
+                return ResourceManager.GetString("DataConvertOperationTimeout", resourceCulture);
             }
         }
         
@@ -296,20 +316,20 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Failed to fetch the template collection. Reason: {0}.
+        /// </summary>
+        internal static string FetchTemplateCollectionFailed {
+            get {
+                return ResourceManager.GetString("FetchTemplateCollectionFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Authorization failed..
         /// </summary>
         internal static string Forbidden {
             get {
                 return ResourceManager.GetString("Forbidden", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Failed to get template set. Reason: {0}.
-        /// </summary>
-        internal static string GetTemplateSetFailed {
-            get {
-                return ResourceManager.GetString("GetTemplateSetFailed", resourceCulture);
             }
         }
         
@@ -395,7 +415,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The include iterate circular reference executed once..
+        ///   Looks up a localized string similar to The parameter {0}={1} with circular reference is executed once (a single iteration)..
         /// </summary>
         internal static string IncludeIterateCircularReferenceExecutedOnce {
             get {
@@ -1034,4 +1054,3 @@ namespace Microsoft.Health.Fhir.Core {
         }
     }
 }
-

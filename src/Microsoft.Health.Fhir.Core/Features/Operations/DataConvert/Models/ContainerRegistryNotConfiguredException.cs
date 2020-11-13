@@ -9,9 +9,9 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.DataConvert.Models
 {
-    public class ContainerRegistryNotRegisteredException : FhirException
+    public class ContainerRegistryNotConfiguredException : FhirException
     {
-        public ContainerRegistryNotRegisteredException(string message)
+        public ContainerRegistryNotConfiguredException(string message)
             : base(message)
         {
             EnsureArg.IsNotNullOrWhiteSpace(message, nameof(message));

@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
@@ -21,6 +22,7 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.DataConvert.Models;
 using Microsoft.Health.Fhir.Core.Messages.DataConvert;
+using Microsoft.Health.Fhir.TemplateManagement.Models;
 using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Api.Controllers
@@ -36,6 +38,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly ILogger _logger;
         private readonly DataConvertConfiguration _config;
         private static Dictionary<string, HashSet<string>> _supportedParams = InitSupportedParams();
+
+        private const char ImageRegistryDelimiter = '/';
 
         public DataConvertController(
             IMediator mediator,
@@ -60,12 +64,19 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             ValidateParams(inputParams);
 
-            string inputData = ReadStringParameter(inputParams, OperationParameterProperties.InputData);
-            string templateSetReference = ReadStringParameter(inputParams, OperationParameterProperties.TemplateSetReference);
-            string entryPointTemplate = ReadStringParameter(inputParams, OperationParameterProperties.EntryPointTemplate);
-            DataConvertInputDataType inputDataType = ReadEnumParameter<DataConvertInputDataType>(inputParams, OperationParameterProperties.InputDataType);
+            string inputData = ReadStringParameter(inputParams, DataConvertProperties.InputData);
+            string templateCollectionReference = ReadStringParameter(inputParams, DataConvertProperties.TemplateCollectionReference);
+            string entryPointTemplate = ReadStringParameter(inputParams, DataConvertProperties.EntryPointTemplate);
+            DataConvertInputDataType inputDataType = ReadEnumParameter<DataConvertInputDataType>(inputParams, DataConvertProperties.InputDataType);
 
-            var dataConvertRequest = new DataConvertRequest(inputData, inputDataType, templateSetReference, entryPointTemplate);
+            if (!ImageInfo.IsValidImageReference(templateCollectionReference))
+            {
+                _logger.LogInformation("Templates collection reference format is invalid.");
+                throw new RequestNotValidException(string.Format(Resources.InvalidTemplateCollectionReference, templateCollectionReference));
+            }
+
+            string registryServer = ExtractRegistryServer(templateCollectionReference);
+            var dataConvertRequest = new DataConvertRequest(inputData, inputDataType, registryServer, templateCollectionReference, entryPointTemplate);
             DataConvertResponse response = await _mediator.Send(dataConvertRequest, cancellationToken: default);
 
             return new ContentResult
@@ -73,6 +84,24 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 Content = response.Resource,
                 ContentType = "application/json",
             };
+        }
+
+        /// <summary>
+        /// Extract the first component from the image reference in the format of "dockerregistry.io/fedora/httpd:version1.0"
+        /// Reference format: https://docs.docker.com/engine/reference/commandline/tag/#extended-description
+        /// </summary>
+        /// <param name="templateCollectionReference">A string of image reference </param>
+        /// <returns>registry server</returns>
+        private string ExtractRegistryServer(string templateCollectionReference)
+        {
+            var referenceComponents = templateCollectionReference.Split(ImageRegistryDelimiter);
+            if (referenceComponents.Length <= 1 || string.IsNullOrWhiteSpace(referenceComponents.First()))
+            {
+                _logger.LogInformation("Templates collection reference is invalid: registry server missing.");
+                throw new RequestNotValidException(string.Format(Resources.InvalidTemplateCollectionReference, templateCollectionReference));
+            }
+
+            return referenceComponents[0];
         }
 
         private void ValidateParams(Parameters inputParams)
@@ -127,10 +156,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             var postParams = new HashSet<string>()
             {
-                OperationParameterProperties.InputData,
-                OperationParameterProperties.InputDataType,
-                OperationParameterProperties.TemplateSetReference,
-                OperationParameterProperties.EntryPointTemplate,
+                DataConvertProperties.InputData,
+                DataConvertProperties.InputDataType,
+                DataConvertProperties.TemplateCollectionReference,
+                DataConvertProperties.EntryPointTemplate,
             };
 
             var supportedParams = new Dictionary<string, HashSet<string>>();

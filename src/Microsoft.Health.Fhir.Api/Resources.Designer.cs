@@ -124,7 +124,15 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("InvalidRedirectUri", resourceCulture);
             }
         }
-        
+
+        public static string InvalidTemplateCollectionReference
+        {
+            get
+            {
+                return ResourceManager.GetString("InvalidTemplateCollectionReference", resourceCulture);
+            }
+        }
+
         public static string MenuAPI {
             get {
                 return ResourceManager.GetString("MenuAPI", resourceCulture);

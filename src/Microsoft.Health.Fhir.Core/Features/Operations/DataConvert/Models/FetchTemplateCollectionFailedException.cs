@@ -9,9 +9,9 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.DataConvert.Models
 {
-    public class GetTemplateSetFailedException : FhirException
+    public class FetchTemplateCollectionFailedException : FhirException
     {
-        public GetTemplateSetFailedException(string message)
+        public FetchTemplateCollectionFailedException(string message)
             : base(message)
         {
             EnsureArg.IsNotNullOrWhiteSpace(message, nameof(message));
@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.DataConvert.Models
                 message));
         }
 
-        public GetTemplateSetFailedException(string message, System.Exception innerException)
+        public FetchTemplateCollectionFailedException(string message, System.Exception innerException)
             : base(message, innerException)
         {
             EnsureArg.IsNotNullOrWhiteSpace(message, nameof(message));
