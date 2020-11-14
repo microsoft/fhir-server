@@ -129,7 +129,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     formatConfiguration.Format,
                     request.ResourceType,
                     filters,
-                    request.Elements,
                     hash,
                     requestorClaims,
                     request.Since,

@@ -38,7 +38,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             await Assert.ThrowsAsync<RequestNotValidException>(() => exportController.Export(
                 typeFilter: null,
-                elements: null,
                 since: null,
                 resourceType: null,
                 containerName: null,
@@ -54,7 +53,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             await Assert.ThrowsAsync<RequestNotValidException>(() => exportController.ExportResourceType(
                 typeFilter: null,
-                elements: null,
                 since: null,
                 resourceType: null,
                 containerName: null,
@@ -69,7 +67,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
 
             await Assert.ThrowsAsync<RequestNotValidException>(() => exportController.ExportResourceTypeById(
                 typeFilter: null,
-                elements: null,
                 since: null,
                 resourceType: null,
                 containerName: null,
@@ -81,13 +78,13 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
         [Fact]
         public async Task GivenAnExportByResourceTypeRequest_WhenResourceTypeIsNotPatient_ThenRequestNotValidExceptionShouldBeThrown()
         {
-            await Assert.ThrowsAsync<RequestNotValidException>(() => _exportEnabledController.ExportResourceType(null, null, null, null, null, null, ResourceType.Observation.ToString()));
+            await Assert.ThrowsAsync<RequestNotValidException>(() => _exportEnabledController.ExportResourceType(null, null, null, null, null, ResourceType.Observation.ToString()));
         }
 
         [Fact]
         public async Task GivenAnExportResourceTypeIdRequest_WhenResourceTypeIsNotGroup_ThenRequestNotValidExceptionShouldBeThrown()
         {
-            await Assert.ThrowsAsync<RequestNotValidException>(() => _exportEnabledController.ExportResourceTypeById(null, null, null, null, null, null, ResourceType.Patient.ToString(), "id"));
+            await Assert.ThrowsAsync<RequestNotValidException>(() => _exportEnabledController.ExportResourceTypeById(null, null, null, null, null, ResourceType.Patient.ToString(), "id"));
         }
 
         private ExportController GetController(ExportJobConfiguration exportConfig)

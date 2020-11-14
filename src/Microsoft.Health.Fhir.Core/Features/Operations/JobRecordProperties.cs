@@ -101,8 +101,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string Filters = "filters";
 
-        public const string Elements = "elements";
-
         public const string Filter = "filter";
 
         public const string FinishedFilters = "finishedFilters";

@@ -1158,7 +1158,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     });
 
             _searchService.SearchAsync(
-                null,
+                KnownResourceTypes.Patient,
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
                 _cancellationToken)
                 .Returns(x =>
@@ -1224,7 +1224,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             int countOfSearches = 0;
             _searchService.SearchAsync(
-                null,
+                KnownResourceTypes.Patient,
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
                 _cancellationToken)
                 .Returns(x =>
@@ -1293,7 +1293,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             int countOfSearches = 0;
             _searchService.SearchAsync(
-                null,
+                KnownResourceTypes.Patient,
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
                 _cancellationToken)
                 .Returns(x =>
@@ -1400,7 +1400,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     });
 
             _searchService.SearchAsync(
-                null,
+                KnownResourceTypes.Patient,
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
                 _cancellationToken)
                 .Returns(x =>
@@ -1686,7 +1686,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 format,
                 resourceType,
                 null,
-                null,
                 hash,
                 since: since,
                 groupId: groupId,
@@ -1731,7 +1730,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 new Uri("https://localhost/ExportJob/"),
                 ExportJobType.Patient,
                 ExportFormatTags.ResourceName,
-                null,
                 null,
                 null,
                 "hash",

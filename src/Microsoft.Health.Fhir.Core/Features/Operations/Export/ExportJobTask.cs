@@ -219,11 +219,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             EnsureArg.IsNotNull(progress, nameof(progress));
             EnsureArg.IsNotNull(sharedQueryParametersList, nameof(sharedQueryParametersList));
 
-            if (!string.IsNullOrWhiteSpace(_exportJobRecord.Elements))
-            {
-                sharedQueryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Elements, _exportJobRecord.Elements));
-            }
-
             List<Tuple<string, string>> queryParametersList = new List<Tuple<string, string>>(sharedQueryParametersList);
             if (progress.ContinuationToken != null)
             {
@@ -253,26 +248,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             if (!progress.FinishedFilters)
             {
                 var index = -1;
-                foreach (var filter in _exportJobRecord.Filters)
+                if (_exportJobRecord.Filters != null)
                 {
-                    index++;
-
-                    if (progress.Filter != null && filter != progress.Filter)
+                    foreach (var filter in _exportJobRecord.Filters)
                     {
-                        continue;
-                    }
+                        index++;
 
-                    if (_exportJobRecord.ExportType == ExportJobType.All || filter.Type.Equals(KnownResourceTypes.Patient, StringComparison.Ordinal))
-                    {
-                        progress.SetFilter(filter);
-
-                        List<Tuple<string, string>> filterQueryParametersList = new List<Tuple<string, string>>(queryParametersList);
-                        foreach (var param in filter.Parameters)
+                        if (progress.Filter != null && filter != progress.Filter)
                         {
-                            filterQueryParametersList.Add(param);
+                            continue;
                         }
 
-                        await SearchWithFilter(exportJobConfiguration, progress, filter.Type, filterQueryParametersList, sharedQueryParametersList, anonymizer, "filter" + index + "-", cancellationToken);
+                        if (_exportJobRecord.ExportType == ExportJobType.All || filter.Type.Equals(KnownResourceTypes.Patient, StringComparison.Ordinal))
+                        {
+                            progress.SetFilter(filter);
+
+                            List<Tuple<string, string>> filterQueryParametersList = new List<Tuple<string, string>>(queryParametersList);
+                            foreach (var param in filter.Parameters)
+                            {
+                                filterQueryParametersList.Add(param);
+                            }
+
+                            await SearchWithFilter(exportJobConfiguration, progress, filter.Type, filterQueryParametersList, sharedQueryParametersList, anonymizer, "filter" + index + "-", cancellationToken);
+                        }
                     }
                 }
 
@@ -428,26 +426,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             if (!progress.FinishedFilters)
             {
                 var index = -1;
-                foreach (var filter in _exportJobRecord.Filters)
+                if (_exportJobRecord.Filters != null)
                 {
-                    index++;
-                    if (progress.Filter != null && filter != progress.Filter)
+                    foreach (var filter in _exportJobRecord.Filters)
                     {
-                        continue;
-                    }
-
-                    if (_exportJobRecord.ExportType == ExportJobType.All || filter.Type.Equals(KnownResourceTypes.Patient, StringComparison.Ordinal))
-                    {
-                        progress.SetFilter(filter);
-
-                        List<Tuple<string, string>> filterQueryParametersList = new List<Tuple<string, string>>(queryParametersList);
-                        filterQueryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type, filter.Type));
-                        foreach (var param in filter.Parameters)
+                        index++;
+                        if (progress.Filter != null && filter != progress.Filter)
                         {
-                            filterQueryParametersList.Add(param);
+                            continue;
                         }
 
-                        await SearchCompartmentWithFilter(exportJobConfiguration, progress, filterQueryParametersList, batchIdPrefix + "-filter" + index, cancellationToken);
+                        if (_exportJobRecord.ExportType == ExportJobType.All || filter.Type.Equals(KnownResourceTypes.Patient, StringComparison.Ordinal))
+                        {
+                            progress.SetFilter(filter);
+
+                            List<Tuple<string, string>> filterQueryParametersList = new List<Tuple<string, string>>(queryParametersList);
+                            filterQueryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type, filter.Type));
+                            foreach (var param in filter.Parameters)
+                            {
+                                filterQueryParametersList.Add(param);
+                            }
+
+                            await SearchCompartmentWithFilter(exportJobConfiguration, progress, filterQueryParametersList, batchIdPrefix + "-filter" + index, cancellationToken);
+                        }
                     }
                 }
 
