@@ -319,8 +319,10 @@ namespace Microsoft.Health.Fhir.Client
         public async Task<string> DataConvertAsync(Parameters parameters, CancellationToken cancellationToken = default)
         {
             string requestPath = "$data-convert";
-            using var message = new HttpRequestMessage(HttpMethod.Post, requestPath);
-            message.Content = new StringContent(parameters.ToJson(), Encoding.UTF8, "application/json");
+            var message = new HttpRequestMessage(HttpMethod.Post, requestPath)
+            {
+                Content = CreateStringContent(parameters),
+            };
 
             HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
