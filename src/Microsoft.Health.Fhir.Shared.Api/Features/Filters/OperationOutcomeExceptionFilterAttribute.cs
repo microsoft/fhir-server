@@ -137,9 +137,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         break;
                     case FetchTemplateCollectionFailedException _:
                     case ConvertEngineInitializeException _:
-                    case DataConvertTimeoutException _:
                     case DataConvertFailedException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.InternalServerError;
+                        break;
+                    case DataConvertTimeoutException _:
+                        operationOutcomeResult.StatusCode = HttpStatusCode.GatewayTimeout;
                         break;
                 }
 

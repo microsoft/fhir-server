@@ -12,6 +12,7 @@ using DotLiquid;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Core.Features.Operations.DataConvert.Models;
+using Microsoft.Health.Fhir.Core.Messages.DataConvert;
 using Microsoft.Health.Fhir.TemplateManagement;
 using Microsoft.Health.Fhir.TemplateManagement.Exceptions;
 using Microsoft.Health.Fhir.TemplateManagement.Models;
@@ -41,19 +42,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.DataConvert
         /// <summary>
         /// Fetch template collection from container registry or built-in archive
         /// </summary>
-        /// <param name="templateCollectionReference">Should be in "<registryServer>/<imageName>:<imageTag>" or "<registryServer>/<imageName>@<imageDigest>"  format</param>
+        /// <param name="request">The data convert request which contains template reference.</param>
         /// <param name="cancellationToken">Cancellation token to cancel the fetch operation.</param>
         /// <returns>Template collection.</returns>
-        public async Task<List<Dictionary<string, Template>>> GetTemplateCollectionAsync(string templateCollectionReference, CancellationToken cancellationToken)
+        public async Task<List<Dictionary<string, Template>>> GetTemplateCollectionAsync(DataConvertRequest request, CancellationToken cancellationToken)
         {
             // We have embedded a default template set in the templatemanagement package.
             // If the template set is the default reference, we don't need to retrieve token.
-            var registryServer = ExtractRegistryServer(templateCollectionReference);
             var accessToken = string.Empty;
-            if (!IsDefaultTemplateReference(templateCollectionReference))
+            if (!IsDefaultTemplateReference(request.TemplateCollectionReference))
             {
                 _logger.LogInformation("Using a custom template set for data conversion.");
-                accessToken = await _containerRegistryTokenProvider.GetTokenAsync(registryServer, cancellationToken);
+                accessToken = await _containerRegistryTokenProvider.GetTokenAsync(request.RegistryServer, cancellationToken);
             }
             else
             {
@@ -62,13 +62,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.DataConvert
 
             try
             {
-                var provider = _templateSetProviderFactory.CreateTemplateSetProvider(templateCollectionReference, accessToken);
+                var provider = _templateSetProviderFactory.CreateTemplateSetProvider(request.TemplateCollectionReference, accessToken);
                 return await provider.GetTemplateSetAsync(cancellationToken);
             }
             catch (ContainerRegistryAuthenticationException authEx)
             {
                 _logger.LogError(authEx, "Failed to access container registry.");
-                throw new ContainerRegistryNotAuthorizedException(string.Format(Resources.ContainerRegistryNotAuthorized, registryServer), authEx);
+                throw new ContainerRegistryNotAuthorizedException(string.Format(Resources.ContainerRegistryNotAuthorized, request.RegistryServer), authEx);
             }
             catch (ImageFetchException fetchException)
             {

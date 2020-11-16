@@ -76,7 +76,23 @@ namespace Microsoft.Health.Fhir.Azure {
                 return ResourceManager.GetString("CannotGetAuthorizedClient", resourceCulture);
             }
         }
-        
+
+        internal static string ContainerRegistryNotAuthorized
+        {
+            get
+            {
+                return ResourceManager.GetString("ContainerRegistryNotAuthorized", resourceCulture);
+            }
+        }
+
+        internal static string ContainerRegistryNotConfigured
+        {
+            get
+            {
+                return ResourceManager.GetString("ContainerRegistryNotConfigured", resourceCulture);
+            }
+        }
+
         internal static string DestinationClientNotConnected {
             get {
                 return ResourceManager.GetString("DestinationClientNotConnected", resourceCulture);
@@ -95,28 +111,5 @@ namespace Microsoft.Health.Fhir.Azure {
             }
         }
 
-        internal static string ContainerRegistryNotAuthorized
-        {
-            get
-            {
-                return ResourceManager.GetString("ContainerRegistryNotAuthorized", resourceCulture);
-            }
-        }
-
-        internal static string ContainerRegistryNotConfigured
-        {
-            get
-            {
-                return ResourceManager.GetString("ContainerRegistryNotConfigured", resourceCulture);
-            }
-        }
-
-        internal static string ContainerRegistryNotRegistered
-        {
-            get
-            {
-                return ResourceManager.GetString("ContainerRegistryNotRegistered", resourceCulture);
-            }
-        }
     }
 }

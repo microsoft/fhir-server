@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.DataConvert
 
         public async Task<DataConvertResponse> Process(DataConvertRequest convertRequest, CancellationToken cancellationToken)
         {
-            var templateCollection = await _dataConvertTemplateProvider.GetTemplateCollectionAsync(convertRequest.TemplateCollectionReference, cancellationToken);
+            var templateCollection = await _dataConvertTemplateProvider.GetTemplateCollectionAsync(convertRequest, cancellationToken);
             var result = GetDataConvertResult(convertRequest, new Hl7v2TemplateProvider(templateCollection));
 
             return new DataConvertResponse(result);
