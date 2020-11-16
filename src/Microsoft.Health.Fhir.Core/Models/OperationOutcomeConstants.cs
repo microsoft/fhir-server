@@ -12,7 +12,6 @@ namespace Microsoft.Health.Fhir.Core.Models
             public const string Error = "Error";
             public const string Warning = "Warning";
             public const string Fatal = "Fatal";
-            public const string Warning = "Warning";
             public const string Information = "Information";
         }
 
