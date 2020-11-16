@@ -32,5 +32,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Configs
         public CosmosDataStoreRetryOptions RetryOptions { get; } = new CosmosDataStoreRetryOptions();
 
         public int? ContinuationTokenSizeLimitInKb { get; set; }
+
+        /// <summary>
+        /// The maximum number of seconds to spend fetching search result pages when the first page comes up with fewer results than requested.
+        /// This time includes the time to fetch the first page.
+        /// </summary>
+        public int SearchEnumerationTimeoutInSeconds { get; set; } = 30;
     }
 }

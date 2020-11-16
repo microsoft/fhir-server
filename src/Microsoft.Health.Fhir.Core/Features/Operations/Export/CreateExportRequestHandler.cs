@@ -16,6 +16,7 @@ using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Export;
@@ -76,11 +77,33 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             // Otherwise, we will create a new export job. This will be a best effort since the likelihood of this happen should be small.
             ExportJobOutcome outcome = await _fhirOperationDataStore.GetExportJobByHashAsync(hash, cancellationToken);
 
+            ExportJobFormatConfiguration formatConfiguration = null;
+
+            if (request.FormatName != null)
+            {
+                formatConfiguration = _exportJobConfiguration.Formats?.FirstOrDefault(
+                (ExportJobFormatConfiguration formatConfig) => formatConfig.Name.Equals(request.FormatName, StringComparison.OrdinalIgnoreCase));
+
+                if (formatConfiguration == null)
+                {
+                    throw new BadRequestException(Resources.ExportFormatNotFound);
+                }
+            }
+
+            formatConfiguration ??= _exportJobConfiguration.Formats?.FirstOrDefault(
+                (ExportJobFormatConfiguration formatConfig) => formatConfig.Default);
+
+            formatConfiguration ??= new ExportJobFormatConfiguration()
+            {
+                Format = request.ContainerName == null ? ExportFormatTags.ResourceName : $"{ExportFormatTags.Timestamp}-{ExportFormatTags.Id}/{ExportFormatTags.ResourceName}",
+            };
+
             if (outcome == null)
             {
                 var jobRecord = new ExportJobRecord(
                     request.RequestUri,
                     request.RequestType,
+                    formatConfiguration.Format,
                     request.ResourceType,
                     hash,
                     requestorClaims,

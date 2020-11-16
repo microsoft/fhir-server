@@ -11,8 +11,8 @@ using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 
@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
 
                 return HealthCheckResult.Healthy("Successfully connected to the data store.");
             }
-            catch (RequestRateExceededException)
+            catch (Exception ex) when (ex.IsRequestRateExceeded())
             {
                 return HealthCheckResult.Healthy("Connection to the data store was successful, however, the rate limit has been exceeded.");
             }

@@ -161,7 +161,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Transient()
                 .AsService<ICollectionUpdater>();
 
-            services.Add<CosmosDbStatusRegistryInitializer>()
+            services.Add<CosmosDbSearchParameterStatusInitializer>()
                 .Transient()
                 .AsService<ICollectionUpdater>();
 
@@ -185,10 +185,10 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsSelf()
                 .AsImplementedInterfaces();
 
-            services.Add<CosmosDbStatusRegistry>()
+            services.Add<CosmosDbSearchParameterStatusDataStore>()
                 .Singleton()
                 .AsSelf()
-                .ReplaceService<ISearchParameterRegistry>();
+                .ReplaceService<ISearchParameterStatusDataStore>();
 
             // Each CosmosClient needs new instances of a RequestHandler
             services.TypesInSameAssemblyAs<FhirCosmosClientInitializer>()
@@ -210,6 +210,10 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AsImplementedInterfaces();
 
             fhirServerBuilder.Services.AddSingleton<IQueryBuilder, QueryBuilder>();
+
+            fhirServerBuilder.Services.Add<CosmosDbSortingValidator>()
+                .Singleton()
+                .AsImplementedInterfaces();
 
             return fhirServerBuilder;
         }

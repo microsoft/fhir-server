@@ -1,9 +1,11 @@
 {{- if .Values.ingress.enabled -}}
 {{- $fullName := include "fhir-server.fullname" . -}}
 {{- $svcPort := .Values.service.port -}}
-{{- if semverCompare ">=1.14-0" .Capabilities.KubeVersion.GitVersion -}}
+{{- if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion }}
+apiVersion: networking.k8s.io/v1
+{{- else if semverCompare ">=1.14-0" .Capabilities.KubeVersion.GitVersion }}
 apiVersion: networking.k8s.io/v1beta1
-{{- else -}}
+{{ else }}
 apiVersion: extensions/v1beta1
 {{- end }}
 kind: Ingress
@@ -28,14 +30,25 @@ spec:
 {{- end }}
   rules:
   {{- range .Values.ingress.hosts }}
+    {{- $pathType := .pathType }}
     - host: {{ .host | quote }}
       http:
         paths:
         {{- range .paths }}
           - path: {{ . }}
+            {{- if semverCompare ">=1.19-0" $.Capabilities.KubeVersion.GitVersion }}
+            pathType: {{ $pathType | default "ImplementationSpecific" }}
+            {{- end }}
             backend:
+              {{- if semverCompare ">=1.19-0" $.Capabilities.KubeVersion.GitVersion }}
+              service:
+                name: {{ $fullName }}
+                port:
+                  number: {{ $svcPort }}
+              {{ else }}
               serviceName: {{ $fullName }}
               servicePort: {{ $svcPort }}
+              {{- end }}
         {{- end }}
   {{- end }}
 {{- end }}

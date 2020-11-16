@@ -17,12 +17,12 @@ using Microsoft.Health.Fhir.CosmosDb.Configs;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
 {
-    public class CosmosDbStatusRegistry : ISearchParameterRegistry
+    public class CosmosDbSearchParameterStatusDataStore : ISearchParameterStatusDataStore
     {
         private readonly Func<IScoped<Container>> _containerScopeFactory;
         private readonly ICosmosQueryFactory _queryFactory;
 
-        public CosmosDbStatusRegistry(
+        public CosmosDbSearchParameterStatusDataStore(
             Func<IScoped<Container>> containerScopeFactory,
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
             ICosmosQueryFactory queryFactory)
@@ -34,8 +34,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
             _containerScopeFactory = containerScopeFactory;
             _queryFactory = queryFactory;
         }
-
-        public Uri CollectionUri { get; set; }
 
         public async Task<IReadOnlyCollection<ResourceSearchParameterStatus>> GetSearchParameterStatuses()
         {
@@ -72,9 +70,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
             return parameterStatus;
         }
 
-        public async Task UpdateStatuses(IEnumerable<ResourceSearchParameterStatus> statuses)
+        public async Task UpsertStatuses(List<ResourceSearchParameterStatus> statuses)
         {
             EnsureArg.IsNotNull(statuses, nameof(statuses));
+
+            if (statuses.Count == 0)
+            {
+                return;
+            }
 
             using var clientScope = _containerScopeFactory.Invoke();
             var batch = clientScope.Value.CreateTransactionalBatch(new PartitionKey(SearchParameterStatusWrapper.SearchParameterStatusPartitionKey));
