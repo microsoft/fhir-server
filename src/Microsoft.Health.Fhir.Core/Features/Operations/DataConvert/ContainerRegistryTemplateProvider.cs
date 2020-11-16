@@ -87,16 +87,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.DataConvert
             }
         }
 
-        /// <summary>
-        /// Extract registry server from image reference (has been validated in the controller).
-        /// </summary>
-        /// <param name="imageReferece">image reference</param>
-        /// <returns>container registry server</returns>
-        private string ExtractRegistryServer(string imageReferece)
-        {
-            return imageReferece.Split('/').First();
-        }
-
         private bool IsDefaultTemplateReference(string templateReference)
         {
             return string.Equals(ImageInfo.DefaultTemplateImageReference, templateReference, StringComparison.OrdinalIgnoreCase);

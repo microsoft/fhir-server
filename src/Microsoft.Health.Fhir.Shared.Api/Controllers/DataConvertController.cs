@@ -10,7 +10,6 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
 using MediatR;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -37,7 +36,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private readonly IMediator _mediator;
         private readonly ILogger _logger;
         private readonly DataConvertConfiguration _config;
-        private static Dictionary<string, HashSet<string>> _supportedParams = InitSupportedParams();
+        private static HashSet<string> _supportedParams = GetSupportedParams();
 
         private const char ImageRegistryDelimiter = '/';
 
@@ -112,12 +111,10 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new RequestNotValidException(Resources.DataConvertParametersNotValid);
             }
 
-            var supportedParams = _supportedParams[Request.Method];
-
             foreach (var param in inputParams.Parameter)
             {
                 var paramName = param.Name;
-                if (!supportedParams.Contains(paramName))
+                if (!_supportedParams.Contains(paramName))
                 {
                     throw new RequestNotValidException(string.Format(Resources.DataConvertParameterNotValid, paramName));
                 }
@@ -152,18 +149,15 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return (T)enumValue;
         }
 
-        private static Dictionary<string, HashSet<string>> InitSupportedParams()
+        private static HashSet<string> GetSupportedParams()
         {
-            var postParams = new HashSet<string>()
+            var supportedParams = new HashSet<string>()
             {
                 DataConvertProperties.InputData,
                 DataConvertProperties.InputDataType,
                 DataConvertProperties.TemplateCollectionReference,
                 DataConvertProperties.EntryPointTemplate,
             };
-
-            var supportedParams = new Dictionary<string, HashSet<string>>();
-            supportedParams.Add(HttpMethods.Post, postParams);
 
             return supportedParams;
         }
