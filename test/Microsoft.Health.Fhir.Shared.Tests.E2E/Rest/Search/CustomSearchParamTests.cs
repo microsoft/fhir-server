@@ -6,7 +6,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.Model;
-using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Xunit;
@@ -15,20 +14,12 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
     [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json)]
-    public class CustomSearchParamTests : SearchTestsBase<HttpIntegrationTestFixture>, IAsyncLifetime
+    public class CustomSearchParamTests : SearchTestsBase<HttpIntegrationTestFixture>
     {
         public CustomSearchParamTests(HttpIntegrationTestFixture fixture)
             : base(fixture)
         {
         }
-
-        public async Task InitializeAsync()
-        {
-            // Delete all patients before starting the test.
-            await Client.DeleteAllResources(ResourceType.Patient);
-        }
-
-        public Task DisposeAsync() => Task.CompletedTask;
 
         [Fact]
         public async Task GivenANewSearchParam_WhenReindexingComplete_ThenResourcesSearchedWithNewParamReturned()
@@ -39,6 +30,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             // POST a new patient
             var expectedPatient = await Client.CreateAsync<Patient>(patient);
+
+            // POST a second patient to show it is filtered and not retuend when using the new search parameter
+            await Client.CreateAsync<Patient>(Samples.GetJsonSample<Patient>("Patient"));
 
             // POST a new Search parameter
             await Client.CreateAsync<SearchParameter>(searchParam);
