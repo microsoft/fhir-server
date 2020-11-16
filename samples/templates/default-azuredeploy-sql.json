@@ -145,7 +145,7 @@
             }
         },
         "enableDataConvert": {
-            "defaultValue": false,
+            "defaultValue": true,
             "type": "Bool",
             "metadata": {
                 "description": "Determines whether data convert will be enabled for this fhir instance. If true, an Azure container registry will be created as part of the deployment. You will need owner or user-administrator permissions for this."
