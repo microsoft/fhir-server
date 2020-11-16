@@ -106,7 +106,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 {
                     // TODO: We need to handle format parameter.
                 }
-                else if (query.Item1 == KnownQueryParameterNames.Type)
+                else if (string.Equals(query.Item1, KnownQueryParameterNames.Type, StringComparison.OrdinalIgnoreCase))
                 {
                     var types = query.Item2.SplitByOrSeparator();
                     var badTypes = types.Where(type => !ModelInfoProvider.IsKnownResource(type)).ToHashSet();
@@ -117,18 +117,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                             new OperationOutcomeIssue(
                                 OperationOutcomeConstants.IssueSeverity.Warning,
                                 OperationOutcomeConstants.IssueType.NotSupported,
-                                string.Format(Core.Resources.InvalidTypeParameter, badTypes.Select(type => $"'{type}'").JoinByOrSeparator())));
+                                string.Format(Core.Resources.InvalidTypeParameter, badTypes.OrderBy(x => x).Select(type => $"'{type}'").JoinByOrSeparator())));
                         if (badTypes.Count != types.Count)
                         {
                             searchParams.Add(KnownQueryParameterNames.Type, types.Except(badTypes).JoinByOrSeparator());
-                            foreach (var badType in badTypes)
-                            {
-                                unsupportedSearchParameters.Add(new Tuple<string, string>(KnownQueryParameterNames.Type, badType));
-                            }
                         }
                         else
                         {
-                            unsupportedSearchParameters.Add(query);
+                            searchParams.Add(KnownQueryParameterNames.Type, query.Item2);
                         }
                     }
                     else

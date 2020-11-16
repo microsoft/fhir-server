@@ -190,21 +190,31 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenInvalidTypeOfResources_WhenSearchingAcrossAllResourceTypes_ThenSearchHasProperOutcome()
+        public async Task GivenAllInvalidTypeOfResources_WhenSearching_ThenEmptyBundleAndOperationOutcomeIssue()
         {
-            string[] expectedDiagnostics = { string.Format(Core.Resources.InvalidTypeParameter, "'Patient1'") };
+            string[] expectedDiagnosticsOneWrongType = { string.Format(Core.Resources.InvalidTypeParameter, "'Patient1'") };
+            string[] expectedDiagnosticsMultipleWrongTypes = { string.Format(Core.Resources.InvalidTypeParameter, string.Join(',', "'Patient1'", "'Patient2'")) };
             OperationOutcome.IssueType[] expectedCodeTypes = { OperationOutcome.IssueType.NotSupported };
             OperationOutcome.IssueSeverity[] expectedIssueSeverities = { OperationOutcome.IssueSeverity.Warning };
 
             Bundle bundle = await Client.SearchAsync("?_type=Patient1");
-            Assert.DoesNotContain(bundle.Link[0].Url, "Patient1");
+            Assert.Contains("_type=Patient1", bundle.Link[0].Url);
             OperationOutcome outcome = GetOutcome(bundle);
-            ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, outcome);
+            ValidateOperationOutcome(expectedDiagnosticsOneWrongType, expectedIssueSeverities, expectedCodeTypes, outcome);
+
+            bundle = await Client.SearchAsync("?_type=Patient1,Patient2");
+            Assert.Contains("_type=Patient1,Patient2", bundle.Link[0].Url);
+            outcome = GetOutcome(bundle);
+            ValidateOperationOutcome(expectedDiagnosticsMultipleWrongTypes, expectedIssueSeverities, expectedCodeTypes, outcome);
 
             bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient1"));
-            Assert.DoesNotContain(bundle.Link[0].Url, "Patient1");
+            Assert.Contains("_type=Patient1", bundle.Link[0].Url);
             outcome = GetOutcome(bundle);
-            ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, outcome);
+            ValidateOperationOutcome(expectedDiagnosticsOneWrongType, expectedIssueSeverities, expectedCodeTypes, outcome);
+            bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient1,Patient2"));
+            Assert.Contains("_type=Patient1,Patient2", bundle.Link[0].Url);
+            outcome = GetOutcome(bundle);
+            ValidateOperationOutcome(expectedDiagnosticsMultipleWrongTypes, expectedIssueSeverities, expectedCodeTypes, outcome);
 
             static OperationOutcome GetOutcome(Bundle bundle)
             {
@@ -226,13 +236,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             OperationOutcome.IssueSeverity[] expectedIssueSeverities = { OperationOutcome.IssueSeverity.Warning };
 
             Bundle bundle = await Client.SearchAsync("?_type=Patient,Patient1");
-            Assert.DoesNotContain(bundle.Link[0].Url, "Patient1");
+            Assert.Contains("_type=Patient,Patient1", bundle.Link[0].Url);
             OperationOutcome outcome = GetOutcome(bundle);
             ValidateBundle(bundle, patients.AsEnumerable<Resource>().Append(outcome).ToArray());
             ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, outcome);
 
             bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient1,Patient"));
-            Assert.DoesNotContain(bundle.Link[0].Url, "Patient1");
+            Assert.Contains("_type=Patient1,Patient", bundle.Link[0].Url);
             outcome = GetOutcome(bundle);
             ValidateBundle(bundle, patients.AsEnumerable<Resource>().Append(outcome).ToArray());
             ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, outcome);
