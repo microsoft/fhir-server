@@ -42,10 +42,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.DataCo
             };
             dataConvertConfig.ContainerRegistries.Add(registry);
 
-            var config = Options.Create(new TemplateLayerConfiguration());
+            var config = Options.Create(new TemplateCollectionConfiguration());
             _cache = new MemoryCache(new MemoryCacheOptions());
 
-            ITemplateSetProviderFactory factory = new TemplateSetProviderFactory(_cache, config);
+            ITemplateCollectionProviderFactory factory = new TemplateCollectionProviderFactory(_cache, config);
             _containerRegistryTemplateProvider = new ContainerRegistryTemplateProvider(tokenProvider, factory, new NullLogger<ContainerRegistryTemplateProvider>());
         }
 

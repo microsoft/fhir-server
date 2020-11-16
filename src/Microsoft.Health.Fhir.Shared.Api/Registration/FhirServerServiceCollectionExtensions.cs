@@ -70,7 +70,7 @@ namespace Microsoft.Extensions.DependencyInjection
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations.Export));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations.Reindex));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations.DataConvert));
-            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations.DataConvert.TemplateConfig));
+            services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Operations.DataConvert.TemplateCollectionOptions));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Audit));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Bundle));
             services.AddSingleton(Options.Options.Create(fhirServerConfiguration.Throttling));

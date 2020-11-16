@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DotLiquid;
@@ -22,20 +21,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.DataConvert
     public class ContainerRegistryTemplateProvider : IDataConvertTemplateProvider
     {
         private readonly IContainerRegistryTokenProvider _containerRegistryTokenProvider;
-        private readonly ITemplateSetProviderFactory _templateSetProviderFactory;
+        private readonly ITemplateCollectionProviderFactory _templateCollectionProviderFactory;
         private readonly ILogger<ContainerRegistryTemplateProvider> _logger;
 
         public ContainerRegistryTemplateProvider(
             IContainerRegistryTokenProvider containerRegistryTokenProvider,
-            ITemplateSetProviderFactory templateSetProviderFactory,
+            ITemplateCollectionProviderFactory templateCollectionProviderFactory,
             ILogger<ContainerRegistryTemplateProvider> logger)
         {
             EnsureArg.IsNotNull(containerRegistryTokenProvider, nameof(containerRegistryTokenProvider));
-            EnsureArg.IsNotNull(templateSetProviderFactory, nameof(templateSetProviderFactory));
+            EnsureArg.IsNotNull(templateCollectionProviderFactory, nameof(templateCollectionProviderFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _containerRegistryTokenProvider = containerRegistryTokenProvider;
-            _templateSetProviderFactory = templateSetProviderFactory;
+            _templateCollectionProviderFactory = templateCollectionProviderFactory;
             _logger = logger;
         }
 
@@ -47,23 +46,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.DataConvert
         /// <returns>Template collection.</returns>
         public async Task<List<Dictionary<string, Template>>> GetTemplateCollectionAsync(DataConvertRequest request, CancellationToken cancellationToken)
         {
-            // We have embedded a default template set in the templatemanagement package.
-            // If the template set is the default reference, we don't need to retrieve token.
+            // We have embedded a default template collection in the templatemanagement package.
+            // If the template collection is the default reference, we don't need to retrieve token.
             var accessToken = string.Empty;
             if (!IsDefaultTemplateReference(request.TemplateCollectionReference))
             {
-                _logger.LogInformation("Using a custom template set for data conversion.");
+                _logger.LogInformation("Using a custom template collection for data conversion.");
                 accessToken = await _containerRegistryTokenProvider.GetTokenAsync(request.RegistryServer, cancellationToken);
             }
             else
             {
-                _logger.LogInformation("Using the default template set for data conversion.");
+                _logger.LogInformation("Using the default template collection for data conversion.");
             }
 
             try
             {
-                var provider = _templateSetProviderFactory.CreateTemplateSetProvider(request.TemplateCollectionReference, accessToken);
-                return await provider.GetTemplateSetAsync(cancellationToken);
+                var provider = _templateCollectionProviderFactory.CreateTemplateCollectionProvider(request.TemplateCollectionReference, accessToken);
+                return await provider.GetTemplateCollectionAsync(cancellationToken);
             }
             catch (ContainerRegistryAuthenticationException authEx)
             {
@@ -82,7 +81,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.DataConvert
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Unhandled exception: failed to get template set.");
+                _logger.LogError(ex, "Unhandled exception: failed to get template collection.");
                 throw new FetchTemplateCollectionFailedException(string.Format(Resources.FetchTemplateCollectionFailed, ex.Message), ex);
             }
         }
