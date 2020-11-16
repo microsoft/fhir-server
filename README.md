@@ -37,7 +37,7 @@ To see what is releasing in the FHIR Server, please refer to the [releases](http
 - [Azure Active Directory Application Registrations](docs/PortalAppRegistration.md): Describes how to configure Azure Active Directory (AAD) for use with FHIR Server for Azure.
 - [Authentication](docs/Authentication.md): Describes the authentication settings for the FHIR server and how to make use of it in development and test scenarios.
 - [Roles](docs/Roles.md): Describes how the FHIR Server for Azure role-based access control (RBAC) system works.
-- [Search](docs/Search.md): Describes how search is implemented for the FHIR Server for Azure.
+- [Search](docs/SearchArchitecture.md): Describes how search is implemented for the FHIR Server for Azure.
 - [Debugging](docs/HowToDebug.md): Describes how to debug FHIR Server for Azure using Visual Studio.
 - [Sql Schema Migration Guide](docs/SchemaMigrationGuide.md): Describes how to upgrade Schema for Sql Server.
 
