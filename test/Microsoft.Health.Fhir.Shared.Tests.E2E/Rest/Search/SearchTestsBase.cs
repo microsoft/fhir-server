@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
@@ -136,7 +137,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         protected void ValidateBundleUrl(Uri expectedBaseAddress, ResourceType expectedResourceType, string expectedQuery, string bundleUrl)
         {
             var uriBuilder = new UriBuilder(expectedBaseAddress);
-            uriBuilder.Path = expectedResourceType.ToString();
+            uriBuilder.Path = Path.Combine(uriBuilder.Path, expectedResourceType.ToString());
             uriBuilder.Query = expectedQuery;
 
             Assert.Equal(HttpUtility.UrlDecode(uriBuilder.Uri.ToString()), HttpUtility.UrlDecode(bundleUrl));

@@ -8,6 +8,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
+using Microsoft.Health.Abstractions.Exceptions;
+using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
@@ -20,32 +22,28 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
     {
         private readonly ICosmosQueryContext _queryContext;
         private readonly FeedIterator<T> _feedIterator;
-        private readonly ICosmosResponseProcessor _cosmosResponseProcessor;
         private readonly ICosmosQueryLogger _logger;
 
         private string _continuationToken;
+        private bool _hasLoggedQuery;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="CosmosQuery{T}"/> class.
         /// </summary>
         /// <param name="queryContext">The query context.</param>
         /// <param name="feedIterator">The feed iterator to enumerate.</param>
-        /// <param name="cosmosResponseProcessor">The cosmos response processor.</param>
         /// <param name="logger">The logger.</param>
         public CosmosQuery(
             ICosmosQueryContext queryContext,
             FeedIterator<T> feedIterator,
-            ICosmosResponseProcessor cosmosResponseProcessor,
             ICosmosQueryLogger logger)
         {
             EnsureArg.IsNotNull(queryContext, nameof(queryContext));
             EnsureArg.IsNotNull(feedIterator, nameof(feedIterator));
-            EnsureArg.IsNotNull(cosmosResponseProcessor, nameof(cosmosResponseProcessor));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _queryContext = queryContext;
             _feedIterator = feedIterator;
-            _cosmosResponseProcessor = cosmosResponseProcessor;
             _logger = logger;
 
             _continuationToken = _queryContext.ContinuationToken;
@@ -61,12 +59,16 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
         {
             Guid queryId = Guid.NewGuid();
 
-            _logger.LogQueryExecution(
-                queryId,
-                _queryContext.SqlQuerySpec,
-                _queryContext.FeedOptions?.PartitionKey?.ToString(),
-                _continuationToken,
-                _queryContext.FeedOptions?.MaxItemCount);
+            if (!_hasLoggedQuery)
+            {
+                _logger.LogQueryExecution(
+                    queryId,
+                    _queryContext.SqlQuerySpec,
+                    _queryContext.FeedOptions?.PartitionKey?.ToString(),
+                    _continuationToken,
+                    _queryContext.FeedOptions?.MaxItemCount);
+                _hasLoggedQuery = true;
+            }
 
             try
             {
@@ -86,6 +88,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
             }
             catch (CosmosException ex)
             {
+                // The SDK wraps exceptions we throw in handlers with a CosmosException.
+                Exception fhirException = ex.InnerException as FhirException ?? ex.InnerException as MicrosoftHealthException;
+
                 _logger.LogQueryExecutionResult(
                     queryId,
                     ex.ActivityId,
@@ -93,7 +98,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
                     null,
                     null,
                     0,
-                    ex);
+                    fhirException ?? ex);
 
                 throw;
             }

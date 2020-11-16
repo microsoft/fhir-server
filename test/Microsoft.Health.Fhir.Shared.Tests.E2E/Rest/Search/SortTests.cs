@@ -13,7 +13,6 @@ using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Test.Utilities;
 using Xunit;
-using Xunit.Sdk;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
@@ -24,33 +23,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         public SortTests(HttpIntegrationTestFixture fixture)
             : base(fixture)
         {
-        }
-
-        [Fact]
-        public async Task GivenPatients_WhenSearchedWithUnsupportedSortParams_ThenSortIsDroppedFromUrl()
-        {
-            var tag = Guid.NewGuid().ToString();
-            var patients = await CreatePatients(tag);
-
-            await Assert.ThrowsAsync<EqualException>(async () => await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=name", false, patients.Cast<Resource>().ToArray()));
-        }
-
-        [Fact]
-        public async Task GivenPatients_WhenSearchedWithUnsupportedSortParamsCode_ThenSortIsDroppedFromUrl()
-        {
-            var tag = Guid.NewGuid().ToString();
-            var patients = await CreatePatients(tag);
-
-            await Assert.ThrowsAsync<EqualException>(async () => await ExecuteAndValidateBundle($"Patient?_tag={tag}&_sort=code", false, patients.Cast<Resource>().ToArray()));
-        }
-
-        [Fact]
-        public async Task GivenObservations_WhenSearchedWithUnsupportedSortParamsCode_ThenSortIsDroppedFromUrl()
-        {
-            var tag = Guid.NewGuid().ToString();
-            var observations = await CreateObservations(tag);
-
-            await Assert.ThrowsAsync<EqualException>(async () => await ExecuteAndValidateBundle($"Observation?_tag={tag}&_sort=code", false, observations.Cast<Resource>().ToArray()));
         }
 
         [Fact]

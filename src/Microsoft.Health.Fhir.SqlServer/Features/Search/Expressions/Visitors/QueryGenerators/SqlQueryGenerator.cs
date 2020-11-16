@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
 
             string resourceTableAlias = "r";
-            var (searchParamInfo, sortOrder) = searchOptions.GetFirstSupportedSortParam();
+            var (searchParamInfo, sortOrder) = searchOptions.Sort.Count == 0 ? default : searchOptions.Sort[0];
 
             if (searchOptions.CountOnly)
             {
@@ -280,7 +280,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     break;
 
                 case TableExpressionKind.Top:
-                    var (paramInfo, sortOrder) = context.GetFirstSupportedSortParam();
+                    var (paramInfo, sortOrder) = context.Sort.Count == 0 ? default : context.Sort[0];
                     var tableExpressionName = TableExpressionName(_tableExpressionCounter - 1);
                     var sortExpression = (paramInfo == null || paramInfo.Name == KnownQueryParameterNames.LastUpdated) ? null : $"{tableExpressionName}.SortValue";
 
@@ -606,7 +606,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     break;
                 case TableExpressionKind.IncludeUnionAll:
                     StringBuilder.Append("SELECT Sid1, IsMatch, IsPartial ");
-                    bool supportedSortParamExists = context.SupportedSortParamExists();
+                    var (supportedSortParam, _) = context.Sort.Count == 0 ? default : context.Sort[0];
+
+                    // In union, any valid sort param is ok, except _lastUpdated, which gets a special treatment.
+                    bool supportedSortParamExists = supportedSortParam != null && supportedSortParam.Name != KnownQueryParameterNames.LastUpdated;
                     if (supportedSortParamExists)
                     {
                         StringBuilder.AppendLine(", SortValue");
@@ -641,7 +644,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         throw new InvalidOperationException("Multiple chain level is not possible.");
                     }
 
-                    var (searchParamInfo, searchSort) = context.GetFirstSupportedSortParam();
+                    var (searchParamInfo, searchSort) = context.Sort.Count == 0 ? default : context.Sort[0];
                     var continuationToken = ContinuationToken.FromString(context.ContinuationToken);
                     object sortValue = null;
                     Health.SqlServer.Features.Schema.Model.Column sortColumnName = default(Health.SqlServer.Features.Schema.Model.Column);

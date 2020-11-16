@@ -18,7 +18,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
-    [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
+    [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class IncludeSearchTests : SearchTestsBase<IncludeSearchTestFixture>
     {
         public IncludeSearchTests(IncludeSearchTestFixture fixture)
@@ -90,6 +90,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.Location);
 
             ValidateSearchEntryMode(bundle, ResourceType.Location);
+        }
+
+        [Fact]
+        public async Task GivenAnIncludeSearchExpressionWithOnlyDenormalizedPredicates_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        {
+            string lastUpdatedString = Uri.EscapeDataString(Fixture.PatientGroup.Meta.LastUpdated.Value.ToString("o"));
+
+            FhirResponse<Bundle> results = await Client.SearchAsync(ResourceType.Group, $"_lastUpdated={lastUpdatedString}&_include=Group:member:Patient");
+            Assert.Contains(results.Resource.Entry, e => e.Search.Mode == Bundle.SearchEntryMode.Match && e.Resource.Id == Fixture.PatientGroup.Id);
+            Assert.Contains(results.Resource.Entry, e => e.Search.Mode == Bundle.SearchEntryMode.Include && e.Resource.Id == Fixture.AdamsPatient.Id);
         }
 
         [Fact]
@@ -490,6 +500,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         // Include Iterate
 
         [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenAnIncludeIterateSearchExpressionWithSingleIteration_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
             // Non-recursive iteration- Single iteration (_include:iterate)
@@ -521,6 +532,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenAnIncludeRecurseSearchExpressionWithSingleIteration_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
             // Non-recursive iteration- Single iteration (_include:recurse)
@@ -544,6 +556,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenAnIncludeIterateSearchExpressionWithAdditionalParameters_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
             // Non-recursive iteration - Single iteration (_include:iterate)
@@ -563,6 +576,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenAnIncludeIterateSearchExpressionWithMultipleIterations_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
             // Non-recursive iteration - Multiple iterations
@@ -589,6 +603,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenAnIncludeIterateSearchExpressionWithIncludeIterateParametersBeforeIncludeParameters_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
             // Non-recursive iteration - Iteration order doesn't matter
@@ -615,6 +630,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenAnIncludeIterateSearchExpressionWithMultitypeReference_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
             // Non-recursive iteration - Single reference to multiple target types: MedicationRequest:subject could be Patient or Group
@@ -638,6 +654,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenAnIncludeIterateSearchExpressionWithMultitypeArrayReference_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
             // Non-recursive iteration - Reference array of multiple target types: CareTeam:participant of type Patient, Practitioner, Organization, etc.
@@ -659,6 +676,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenAnIncludeIterateSearchExpressionWithSpecificTargetType_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
             // Non-recursive iteration - Specific target type: CareTeam:participant:Patient
@@ -680,6 +698,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenAnIncludeIterateSearchExpressionWithMultitypeTargetReferenceWithOverlap_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
             // Non-recursive iteration - Multi-type target reference type already included: MedicationDispense:patient and MedicationRequest:subject
@@ -705,6 +724,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenAnIncludeIterateSearchExpressionWithMultipleResultsSets_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
             // Non-recursive iteration - Multiple result sets: MedicationDispense:patient and MedicationRequest:patient
@@ -730,6 +750,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenAnIncludeSearchExpressionWithWildcardAndIncludeIterate_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"_tag={Fixture.Tag}&_include=MedicationRequest:*&_include:iterate=Patient:general-practitioner";
@@ -752,6 +773,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenAnIncludeSearchExpressionWithIncludeWildcardAndIncludeIterateWildcard_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"_tag={Fixture.Tag}&_include=MedicationRequest:*&_include:iterate=Patient:*";
@@ -775,6 +797,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenAnIncludeSearchExpressionWithIncludeIterateWildcard_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"_tag={Fixture.Tag}&_include=MedicationRequest:patient&_include:iterate=Patient:*";
@@ -795,6 +818,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenAnIncludeMedication_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
             string query = $"_include=MedicationDispense:medication&_tag={Fixture.Tag}";
@@ -816,6 +840,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         // RecInclude Iterate
         [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenARevIncludeIterateSearchExpressionWithSingleIteration_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
             // Non-recursive iteration - Single iteration (_revinclude:iterate)
@@ -880,6 +905,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenARevIncludeRecurseSearchExpressionWithSingleIteration_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
             // Non-recursive iteration - Single iteration (_revinclude:recurse)
@@ -904,6 +930,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenARevIncludeIterateSearchExpressionWithAdditionalParameters_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
             // Non-recursive iteration - Single iteration (_revinclude:iterate)
@@ -925,6 +952,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 #if Stu3
         // The following tests are enabled only on Stu3 version due to this issue: https://github.com/microsoft/fhir-server/issues/1308
         [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenARevIncludeIterateSearchExpressionWithMultipleIterations_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
             // Non-recursive iteration - Multiple iterations
@@ -956,6 +984,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenARevIncludeIterateSearchExpressionWithRevIncludeIterateParametersBeforeRevIncludeParameters_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
             // Non-recursive iteration - Iteration order doesn't matter
@@ -988,6 +1017,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 #endif
 
         [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenARevIncludeIterateSearchExpressionWithMultiTypeReferenceSpecifiedTarget_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
             // Non-recursive iteration - Single reference to multiple target types: MedicationRequest:subject could be Patient or Group
@@ -1014,9 +1044,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenARevIncludeIterateSearchExpressionWithMultitypeArrayReference_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
             // Non-recursive iteration - Reference array of multiple target types: CareTeam:participant of type Patient, Practitioner, Organization, etc.
+            // CareTeam:participant is a circular reference, however CareTeam:participant:Patient isn't, so we're not expecting an informational Issue
             string query = $"_revinclude:iterate=CareTeam:participant:Patient&_revinclude=Patient:general-practitioner&_tag={Fixture.Tag}";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.Practitioner, query);
@@ -1037,6 +1069,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenARevIncludeIterateSearchExpressionWithMultipleResultsSets_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
             // Non-recursive iteration - Multiple result sets: MedicationDispense:performer:Practitioner and MedicationRequest:requester:Practitioner
@@ -1062,6 +1095,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenARevIncludeIterateSearchExpressionWithMultipleResultsSetsWithoutSpecificRevIncludeIterateTargetType_WhenSearched_ShouldThrowBadRequestExceptionWithIssue()
         {
             // Non-recursive iteration - Multiple result sets: MedicationDispense:performer;Practitioner and MedicationRequest:requester:Practitioner
@@ -1076,6 +1110,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenARevIncludeMedication_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
             string query = $"_revinclude=MedicationDispense:medication&_tag={Fixture.Tag}";
@@ -1099,6 +1134,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 #if Stu3
         // This test is enabled only on Stu3 version due to this issue: https://github.com/microsoft/fhir-server/issues/1308
         [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenARevIncludeIterateSearchExpressionWithRevIncludeWildCard_WhenSearched_TheIterativeResultsShouldBeAddedToTheBundle()
         {
             string query = $"_revinclude=Patient:*&_revinclude:iterate=MedicationRequest:patient&_tag={Fixture.Tag}";
@@ -1123,6 +1159,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 #endif
 
         [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenARevIncludeIterateSearchExpressionWithRevIncludeIterateWildCard_WhenSearched_TheIterateWildcardShouldBeIgnored()
         {
             string query = $"_revinclude:iterate=MedicationRequest:*&_revinclude=Patient:general-practitioner&_tag={Fixture.Tag}";
@@ -1144,6 +1181,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
         public async Task GivenARevIncludeIterateSearchExpressionWithRevIncludeWildcardAndRevIncludeIterateWildcard_WhenSearched_TheIterateWildcardShouldBeIgnored()
         {
             string query = $"_revinclude:iterate=MedicationDispense:*&_revinclude=MedicationRequest:*&_tag={Fixture.Tag}";
@@ -1162,17 +1200,34 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             ValidateSearchEntryMode(bundle, ResourceType.Patient);
         }
 
+        // Circular Reference - Iteration executed once
+
         [Fact]
-        public async Task GivenAnIncludeIterateSearchExpressionWithCircularReference_WhenSearched_IncludedOneIterationResults()
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenAnIncludeIterateSearchExpressionWithCircularReference_WhenSearched_SingleIterationIsExecutedAndInformationalIssueIsAdded()
         {
             // Recursive queries (circular references) are not supported (see https://github.com/microsoft/fhir-server/issues/1310)
-            // Here we expect one iteration of included results
+            // Here we expect a single iteration of included results
             string query = $"_include:iterate=Organization:partof&_id={Fixture.LabAOrganization.Id}&_tag={Fixture.Tag}";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.Organization, query);
 
+            // Create OperationOutcome with Informational Issue
+            var issue = new IssueComponent
+            {
+                Code = IssueType.Informational,
+                Diagnostics = string.Format(Core.Resources.IncludeIterateCircularReferenceExecutedOnce, "_include:iterate", "Organization:partof"),
+                Severity = IssueSeverity.Information,
+            };
+
+            var operationOutcome = new OperationOutcome
+                {
+                    Issue = new List<OperationOutcome.IssueComponent> { issue },
+                };
+
             ValidateBundle(
                 bundle,
+                operationOutcome,
                 Fixture.LabAOrganization,
                 Fixture.LabBOrganization);
 
@@ -1184,16 +1239,31 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
-        public async Task GivenARevIncludeIterateSearchExpressionWithCircularReference_WhenSearched_IncludedOneIterationResults()
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer)]
+        public async Task GivenARevIncludeIterateSearchExpressionWithCircularReference_WhenSearched_SingleIterationIsExecutedAndInformationalIssueIsAdded()
         {
-            // Recursive queries (circular references) are not supported (see https://github.com/microsoft/fhir-server/issues/1310)
-            // Here we expect one iteration of included results
+            // Recursive include iterate queries (circular references) are not supported (see https://github.com/microsoft/fhir-server/issues/1310)
+            // Here we expect a single iteration of included results
             string query = $"_revinclude:iterate=Organization:partof&_id={Fixture.LabBOrganization.Id}&_tag={Fixture.Tag}";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.Organization, query);
 
+            // Create OperationOutcome with Informational Issue
+            var issue = new IssueComponent
+            {
+                Code = IssueType.Informational,
+                Diagnostics = string.Format(Core.Resources.IncludeIterateCircularReferenceExecutedOnce, "_revinclude:iterate", "Organization:partof"),
+                Severity = IssueSeverity.Information,
+            };
+
+            var operationOutcome = new OperationOutcome
+            {
+                Issue = new List<OperationOutcome.IssueComponent> { issue },
+            };
+
             ValidateBundle(
                 bundle,
+                operationOutcome,
                 Fixture.LabAOrganization,
                 Fixture.LabBOrganization);
 
