@@ -32,8 +32,6 @@ namespace Microsoft.Health.Fhir.Core {
         internal Resources() {
         }
 
-        public static IFormatProvider InvalidTemplateCollectionReference { get; internal set; }
-
         /// <summary>
         ///   Returns the cached ResourceManager instance used by this class.
         /// </summary>

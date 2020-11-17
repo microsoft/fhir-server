@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.DataConvert
         public string InputData { get; }
 
         /// <summary>
-        /// Data type of input data, currently accepts Hl7v2.
+        /// Data type of input data, currently accepts Hl7v. <see cref="DataConvertInputDataType.Hl7v2"/>
         /// </summary>
         public DataConvertInputDataType InputDataType { get; }
 

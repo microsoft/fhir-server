@@ -24,30 +24,23 @@ using Task = System.Threading.Tasks.Task;
 namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 {
     /// <summary>
-    /// End to end tests using default template set only (no container registry configurations needed).
+    /// End to end tests using default template collection only (no container registry configurations needed).
     /// </summary>
     [Trait(Traits.Category, Categories.DataConvert)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class DataConvertTests : IClassFixture<HttpIntegrationTestFixture>
     {
         private const string DefaultTemplateSetReference = "microsofthealth/fhirconverter:default";
-        private bool _isUsingInProcTestServer = false;
         private readonly TestFhirClient _testFhirClient;
 
         public DataConvertTests(HttpIntegrationTestFixture fixture)
         {
-            _isUsingInProcTestServer = fixture.IsUsingInProcTestServer;
             _testFhirClient = fixture.TestFhirClient;
         }
 
         [Fact]
         public async Task GivenAValidRequestWithDefaultTemplateSet_WhenDataConvert_CorrectResponseShouldReturn()
         {
-            if (!_isUsingInProcTestServer)
-            {
-                return;
-            }
-
             var parameters = GetDataConvertParams(GetSampleHl7v2Message(), "hl7v2", DefaultTemplateSetReference, "ADT_A01");
             var requestMessage = GenerateDataConvertRequest(parameters);
             HttpResponseMessage response = await _testFhirClient.HttpClient.SendAsync(requestMessage);
@@ -72,11 +65,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         [InlineData("jpeg")]
         public async Task GivenAValidRequestWithInvalidInputDataType_WhenDataConvert_ShouldReturnBadRequest(string inputDataType)
         {
-            if (!_isUsingInProcTestServer)
-            {
-                return;
-            }
-
             var parameters = GetDataConvertParams(GetSampleHl7v2Message(), inputDataType, DefaultTemplateSetReference, "ADT_A01");
 
             var requestMessage = GenerateDataConvertRequest(parameters);
@@ -92,11 +80,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         [InlineData("*&^%")]
         public async Task GivenAInvalidRequestWithUnsupportedParameter_WhenDataConvert_ShouldReturnBadRequest(string unsupportedParameter)
         {
-            if (!_isUsingInProcTestServer)
-            {
-                return;
-            }
-
             var parameters = GetDataConvertParams(GetSampleHl7v2Message(), "hl7v2", DefaultTemplateSetReference, "ADT_A01");
             parameters.Parameter.Add(new Parameters.ParameterComponent { Name = unsupportedParameter, Value = new FhirString("test") });
 
@@ -114,11 +97,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         [InlineData("/template:default")]
         public async Task GivenAValidRequest_ButTemplateReferenceIsInvalid_WhenDataConvert_ShouldReturnBadRequest(string templateReference)
         {
-            if (!_isUsingInProcTestServer)
-            {
-                return;
-            }
-
             var parameters = GetDataConvertParams(GetSampleHl7v2Message(), "hl7v2", templateReference, "ADT_A01");
 
             var requestMessage = GenerateDataConvertRequest(parameters);
@@ -137,11 +115,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         [InlineData("¶Š™œãý£¾.com/template:default")]
         public async Task GivenAValidRequest_ButTemplateRegistryIsNotConfigured_WhenDataConvert_ShouldReturnBadRequest(string templateReference)
         {
-            if (!_isUsingInProcTestServer)
-            {
-                return;
-            }
-
             var parameters = GetDataConvertParams(GetSampleHl7v2Message(), "hl7v2", templateReference, "ADT_A01");
 
             var requestMessage = GenerateDataConvertRequest(parameters);
@@ -160,11 +133,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         [InlineData("MSH|SIMHOSP|SFAC|RAPP|RFAC|20200508131015||ADT^A01|517|T|2.3|||AL||44|ASCII\nEVN|A01|20200508131015|||C005^Whittingham^Sylvia^^^Dr^^^DRNBR^PRSNL^^^ORGDR|\nPID|1|3735064194^^^SIMULATOR MRN^MRN|3735064194^^^SIMULATOR MRN^MRN~2021051528^^^NHSNBR^NHSNMBR||Kinmonth^Joanna^Chelsea^^Ms^^CURRENT||19870624000000|F|||89 Transaction House^Handmaiden Street^Wembley^^FV75 4GJ^GBR^HOME||020 3614 5541^HOME|||||||||C^White - Other^^^||||||||\nPD1|||FAMILY PRACTICE^^12345|\nPV1|1|I|OtherWard^MainRoom^Bed 183^Simulated Hospital^^BED^Main Building^4|28b|||C005^Whittingham^Sylvia^^^Dr^^^DRNBR^PRSNL^^^ORGDR|||CAR|||||||||16094728916771313876^^^^visitid||||||||||||||||||||||ARRIVED|||20200508131015||")]
         public async Task GivenAValidRequest_ButInputDataIsNotValidHl7V2Message_WhenDataConvert_ShouldReturnBadRequest(string inputData)
         {
-            if (!_isUsingInProcTestServer)
-            {
-                return;
-            }
-
             var parameters = GetDataConvertParams(inputData, "hl7v2", DefaultTemplateSetReference, "ADT_A01");
 
             var requestMessage = GenerateDataConvertRequest(parameters);

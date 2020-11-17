@@ -72,11 +72,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.DataCo
             IContainerRegistryTokenProvider tokenProvider = Substitute.For<IContainerRegistryTokenProvider>();
             tokenProvider.GetTokenAsync(Arg.Any<string>(), default).ReturnsForAnyArgs(string.Empty);
 
-            IOptions<TemplateCollectionConfiguration> templateConfig = Options.Create(new TemplateCollectionConfiguration());
             MemoryCache cache = new MemoryCache(new MemoryCacheOptions());
-            ITemplateCollectionProviderFactory templateProviderFactory = new TemplateCollectionProviderFactory(cache, templateConfig);
 
-            ContainerRegistryTemplateProvider templateProvider = new ContainerRegistryTemplateProvider(tokenProvider, templateProviderFactory, new NullLogger<ContainerRegistryTemplateProvider>());
+            ContainerRegistryTemplateProvider templateProvider = new ContainerRegistryTemplateProvider(tokenProvider, cache, dataConvertConfiguration, new NullLogger<ContainerRegistryTemplateProvider>());
 
             var dataConvertEngine = new DataConvertEngine(
                 templateProvider,

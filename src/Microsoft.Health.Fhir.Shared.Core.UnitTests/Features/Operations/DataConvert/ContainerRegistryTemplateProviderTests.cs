@@ -13,7 +13,6 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.DataConvert;
 using Microsoft.Health.Fhir.Core.Features.Operations.DataConvert.Models;
 using Microsoft.Health.Fhir.Core.Messages.DataConvert;
-using Microsoft.Health.Fhir.TemplateManagement;
 using Microsoft.Health.Fhir.TemplateManagement.Models;
 using NSubstitute;
 using Xunit;
@@ -27,6 +26,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.DataCo
 
         public ContainerRegistryTemplateProviderTests()
         {
+            _cache = new MemoryCache(new MemoryCacheOptions());
+
             IContainerRegistryTokenProvider tokenProvider = Substitute.For<IContainerRegistryTokenProvider>();
             tokenProvider.GetTokenAsync(default, default).ReturnsForAnyArgs("Bearer faketoken");
 
@@ -34,6 +35,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.DataCo
             {
                 Enabled = true,
                 ProcessTimeoutThreshold = TimeSpan.FromMilliseconds(50),
+                ContainerRegistryTokenExpiration = TimeSpan.FromSeconds(1),
             };
 
             var registry = new ContainerRegistryInfo
@@ -42,11 +44,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.DataCo
             };
             dataConvertConfig.ContainerRegistries.Add(registry);
 
-            var config = Options.Create(new TemplateCollectionConfiguration());
-            _cache = new MemoryCache(new MemoryCacheOptions());
-
-            ITemplateCollectionProviderFactory factory = new TemplateCollectionProviderFactory(_cache, config);
-            _containerRegistryTemplateProvider = new ContainerRegistryTemplateProvider(tokenProvider, factory, new NullLogger<ContainerRegistryTemplateProvider>());
+            var config = Options.Create(dataConvertConfig);
+            _containerRegistryTemplateProvider = new ContainerRegistryTemplateProvider(tokenProvider, _cache, config, new NullLogger<ContainerRegistryTemplateProvider>());
         }
 
         [Fact]
@@ -55,6 +54,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.DataCo
             var templateReference = ImageInfo.DefaultTemplateImageReference;
             var templateCollection = await _containerRegistryTemplateProvider.GetTemplateCollectionAsync(GetRequestWithTemplateReference(templateReference), CancellationToken.None);
 
+            // Only default template collection loaded
+            Assert.True(_cache.Count == 2);
             Assert.NotEmpty(templateCollection);
         }
 

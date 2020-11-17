@@ -45,13 +45,11 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         private const string TestRepositoryName = "templatetest";
         private const string TestRepositoryTag = "v0.1";
 
-        private bool _isUsingInProcTestServer = false;
         private readonly TestFhirClient _testFhirClient;
         private readonly DataConvertConfiguration _dataConvertConfiguration;
 
         public CustomDataConvertTests(HttpIntegrationTestFixture fixture)
         {
-            _isUsingInProcTestServer = fixture.IsUsingInProcTestServer;
             _testFhirClient = fixture.TestFhirClient;
             _dataConvertConfiguration = ((IOptions<DataConvertConfiguration>)(fixture.TestFhirServer as InProcTestFhirServer)?.Server?.Services?.GetService(typeof(IOptions<DataConvertConfiguration>)))?.Value;
         }

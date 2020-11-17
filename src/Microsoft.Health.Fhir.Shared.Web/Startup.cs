@@ -27,12 +27,12 @@ namespace Microsoft.Health.Fhir.Web
         public virtual void ConfigureServices(IServiceCollection services)
         {
             services.AddDevelopmentIdentityProvider(Configuration);
-            services.AddMemoryCache();
 
             Core.Registration.IFhirServerBuilder fhirServerBuilder = services.AddFhirServer(Configuration)
                 .AddAzureExportDestinationClient()
                 .AddAzureExportClientInitializer(Configuration)
-                .AddContainerRegistryTokenProvider();
+                .AddContainerRegistryTokenProvider()
+                .AddDataConvert();
 
             string dataStore = Configuration["DataStore"];
             if (dataStore.Equals(KnownDataStores.CosmosDb, StringComparison.InvariantCultureIgnoreCase))
