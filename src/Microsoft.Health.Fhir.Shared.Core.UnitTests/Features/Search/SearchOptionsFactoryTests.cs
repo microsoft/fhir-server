@@ -463,37 +463,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(_coreFeatures.DefaultIncludeCountPerSearch, options.IncludeCount);
         }
 
-        [Fact]
-        public void GivenValidTypeParameterForGlobalSearch_WhenCreated_ThenSearchOptionsCreated()
-        {
-            var options = CreateSearchOptions(queryParameters: new[] { Tuple.Create<string, string>("_type", ModelInfoProvider.GetResourceTypeNames().First()) });
-            Assert.Empty(options.UnsupportedSearchParams);
-        }
-
-        [Fact]
-        public void GivenValidTypesParameterForGlobalSearch_WhenCreated_ThenSearchOptionsCreated()
-        {
-            var types = string.Join(',', ModelInfoProvider.GetResourceTypeNames().Take(3));
-            var options = CreateSearchOptions(queryParameters: new[] { Tuple.Create<string, string>("_type", types) });
-            Assert.Empty(options.UnsupportedSearchParams);
-        }
-
-        [Fact]
-        public void GivenInvalidTypeParameterForGlobalSearch_WhenCreated_ThenItAppearInUnsupportedParameters()
-        {
-            var options = CreateSearchOptions(queryParameters: new[] { Tuple.Create<string, string>("_type", "ham_spam") });
-            Assert.Single(options.UnsupportedSearchParams, x => x.Item1 == "_type" && x.Item2 == "ham_spam");
-        }
-
-        [Fact]
-        public void GivenSomeInvalidTypesParameterForGlobalSearch_WhenCreated_ThenTheyAppearInUnsupportedParameters()
-        {
-            var types = string.Join(',', ModelInfoProvider.GetResourceTypeNames().Take(2).Append("ham").Append("spam"));
-            var options = CreateSearchOptions(queryParameters: new[] { Tuple.Create<string, string>("_type", types) });
-            Assert.Single(options.UnsupportedSearchParams, x => x.Item1 == "_type" && x.Item2 == "ham");
-            Assert.Single(options.UnsupportedSearchParams, x => x.Item1 == "_type" && x.Item2 == "spam");
-        }
-
         private SearchOptions CreateSearchOptions(
             string resourceType = DefaultResourceType,
             IReadOnlyList<Tuple<string, string>> queryParameters = null,
