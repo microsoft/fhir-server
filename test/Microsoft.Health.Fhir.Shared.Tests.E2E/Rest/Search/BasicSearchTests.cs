@@ -211,6 +211,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Contains("_type=Patient1", bundle.Link[0].Url);
             outcome = GetOutcome(bundle);
             ValidateOperationOutcome(expectedDiagnosticsOneWrongType, expectedIssueSeverities, expectedCodeTypes, outcome);
+
             bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient1,Patient2"));
             Assert.Contains("_type=Patient1,Patient2", bundle.Link[0].Url);
             outcome = GetOutcome(bundle);

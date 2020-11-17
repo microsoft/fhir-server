@@ -120,10 +120,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                                 string.Format(Core.Resources.InvalidTypeParameter, badTypes.OrderBy(x => x).Select(type => $"'{type}'").JoinByOrSeparator())));
                         if (badTypes.Count != types.Count)
                         {
+                            // In case of we have acceptable types, we filter invalid types from search.
                             searchParams.Add(KnownQueryParameterNames.Type, types.Except(badTypes).JoinByOrSeparator());
                         }
                         else
                         {
+                            // If all types are invalid, we add them to search params. If we remove them, we wouldn't filter by type, and return all types,
+                            // which is incorrect behaviour. Optimally we should indicate in search options what it would yield nothing, and skip search,
+                            // but there is no option for that right now.
                             searchParams.Add(KnownQueryParameterNames.Type, query.Item2);
                         }
                     }
