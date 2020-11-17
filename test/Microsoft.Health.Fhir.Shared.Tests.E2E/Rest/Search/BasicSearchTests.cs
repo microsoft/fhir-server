@@ -199,32 +199,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             Bundle bundle = await Client.SearchAsync("?_type=Patient1");
             Assert.Contains("_type=Patient1", bundle.Link[0].Url);
-            OperationOutcome outcome = GetOutcome(bundle);
+            OperationOutcome outcome = GetAndValidateOperationOutcome(bundle);
             ValidateOperationOutcome(expectedDiagnosticsOneWrongType, expectedIssueSeverities, expectedCodeTypes, outcome);
 
             bundle = await Client.SearchAsync("?_type=Patient1,Patient2");
             Assert.Contains("_type=Patient1,Patient2", bundle.Link[0].Url);
-            outcome = GetOutcome(bundle);
+            outcome = GetAndValidateOperationOutcome(bundle);
             ValidateOperationOutcome(expectedDiagnosticsMultipleWrongTypes, expectedIssueSeverities, expectedCodeTypes, outcome);
 
             bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient1"));
             Assert.Contains("_type=Patient1", bundle.Link[0].Url);
-            outcome = GetOutcome(bundle);
+            outcome = GetAndValidateOperationOutcome(bundle);
             ValidateOperationOutcome(expectedDiagnosticsOneWrongType, expectedIssueSeverities, expectedCodeTypes, outcome);
 
             bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient1,Patient2"));
             Assert.Contains("_type=Patient1,Patient2", bundle.Link[0].Url);
-            outcome = GetOutcome(bundle);
+            outcome = GetAndValidateOperationOutcome(bundle);
             ValidateOperationOutcome(expectedDiagnosticsMultipleWrongTypes, expectedIssueSeverities, expectedCodeTypes, outcome);
-
-            static OperationOutcome GetOutcome(Bundle bundle)
-            {
-                var outcomeEnity = bundle.Entry.Where(x => x.Resource.ResourceType == ResourceType.OperationOutcome).FirstOrDefault();
-                Assert.NotNull(outcomeEnity);
-                var outcome = outcomeEnity.Resource as OperationOutcome;
-                Assert.NotNull(outcome);
-                return outcome;
-            }
         }
 
         [Fact]

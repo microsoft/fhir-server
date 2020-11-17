@@ -118,6 +118,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 expectedResources.Select(er => new Action<Resource>(r => Assert.True(er.IsExactly(r)))).ToArray());
         }
 
+        protected OperationOutcome GetAndValidateOperationOutcome(Bundle bundle)
+        {
+            var outcomeEnity = bundle.Entry.Where(x => x.Resource.ResourceType == ResourceType.OperationOutcome).FirstOrDefault();
+            Assert.NotNull(outcomeEnity);
+            var outcome = outcomeEnity.Resource as OperationOutcome;
+            Assert.NotNull(outcome);
+            return outcome;
+        }
+
         protected void ValidateOperationOutcome(string[] expectedDiagnostics, IssueSeverity[] expectedIsseSeverity, IssueType[] expectedCodeTypes, OperationOutcome operationOutcome)
         {
             Assert.NotNull(operationOutcome?.Id);
