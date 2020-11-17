@@ -1227,6 +1227,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             var operationOutcome = new OperationOutcome
             {
+                Id = bundle.Id,
                 Issue = new List<OperationOutcome.IssueComponent> { issue },
             };
 
