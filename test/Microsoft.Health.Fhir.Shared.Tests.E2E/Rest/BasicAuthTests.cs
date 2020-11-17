@@ -175,7 +175,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAUserWithReadPermissions_WhenGettingAResource_TheServerShouldReturnSuccess()
         {
-            TestFhirClient tempClient = _client.CreateClientForClientApplication(TestApplications.GlobalAdminServicePrincipal);
+            TestFhirClient tempClient = _client.CreateClientForClientApplication(TestApplications.FhirAdminServicePrincipal);
             Observation createdResource = await tempClient.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
             tempClient = _client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);

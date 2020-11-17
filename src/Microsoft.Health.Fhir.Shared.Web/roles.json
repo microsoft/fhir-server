@@ -2,7 +2,7 @@
     "$schema": "../Microsoft.Health.Fhir.Core/Features/Security/roles.schema.json",
     "roles": [
         {
-            "name": "globalReader",
+            "name": "fhirReader",
             "dataActions": [
                 "read",
                 "resourceValidate"
@@ -13,7 +13,7 @@
             ]
         },
         {
-            "name": "globalExporter",
+            "name": "fhirExporter",
             "dataActions": [
                 "read",
                 "export"
@@ -24,7 +24,7 @@
             ]
         },
         {
-            "name": "globalWriter",
+            "name": "fhirWriter",
             "dataActions": [
                 "*"
             ],
@@ -36,7 +36,7 @@
             ]
         },
         {
-            "name": "globalAdmin",
+            "name": "fhirAdmin",
             "dataActions": [
                 "*"
             ],

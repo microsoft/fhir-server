@@ -1,35 +1,35 @@
 {
     "users": [
         {
-            "id": "globalReaderUser",
+            "id": "fhirReaderUser",
             "roles": [
-                "globalReader"
+                "fhirReader"
             ]
         },
         {
-            "id": "globalWriterUser",
+            "id": "fhirWriterUser",
             "roles": [
-                "globalWriter"
+                "fhirWriter"
             ]
         },
         {
-            "id": "globalExporterUser",
+            "id": "fhirExporterUser",
             "roles": [
-                "globalExporter"
+                "fhirExporter"
             ]
         },
         {
-            "id": "globalAdminUser",
+            "id": "fhirAdminUser",
             "roles": [
-                "globalAdmin"
+                "fhirAdmin"
             ]
         }
     ],
     "clientApplications": [
         {
-            "id": "globalAdminServicePrincipal",
+            "id": "fhirAdminServicePrincipal",
             "roles": [
-                "globalAdmin"
+                "fhirAdmin"
             ]
         },
         {

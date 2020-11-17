@@ -65,8 +65,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Crucible.Client
                 Content = new FormUrlEncodedContent(new[]
                 {
                     new KeyValuePair<string, string>("oauth_type", "client_credentials"),
-                    new KeyValuePair<string, string>("client_id", TestApplications.GlobalAdminServicePrincipal.ClientId),
-                    new KeyValuePair<string, string>("client_secret", TestApplications.GlobalAdminServicePrincipal.ClientSecret),
+                    new KeyValuePair<string, string>("client_id", TestApplications.FhirAdminServicePrincipal.ClientId),
+                    new KeyValuePair<string, string>("client_secret", TestApplications.FhirAdminServicePrincipal.ClientSecret),
                     new KeyValuePair<string, string>("authorize_url", authorizeUri.ToString()),
                     new KeyValuePair<string, string>("token_url", tokenUri.ToString()),
                     new KeyValuePair<string, string>("endpoint_params", $"resource={AuthenticationSettings.Resource}&scope={AuthenticationSettings.Scope}"),

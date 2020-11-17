@@ -6,9 +6,9 @@ function New-FhirServerApiApplicationRegistration {
     Create a new AAD Application registration for a FHIR server instance. 
     A FhirServiceName or FhirServiceAudience must be supplied.
     .EXAMPLE
-    New-FhirServerApiApplicationRegistration -FhirServiceName "myfhiservice" -AppRoles globalReader,globalExporter
+    New-FhirServerApiApplicationRegistration -FhirServiceName "myfhiservice" -AppRoles fhirReader,fhirExporter
     .EXAMPLE
-    New-FhirServerApiApplicationRegistration -FhirServiceAudience "https://myfhirservice.azurewebsites.net" -AppRoles globalReader,globalExporter
+    New-FhirServerApiApplicationRegistration -FhirServiceAudience "https://myfhirservice.azurewebsites.net" -AppRoles fhirReader,fhirExporter
     .PARAMETER FhirServiceName
     Name of the FHIR service instance. 
     .PARAMETER FhirServiceAudience

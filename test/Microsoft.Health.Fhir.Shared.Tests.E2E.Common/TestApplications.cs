@@ -7,7 +7,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 {
     public static class TestApplications
     {
-        public static TestApplication GlobalAdminServicePrincipal { get; } = new TestApplication("globalAdminServicePrincipal");
+        public static TestApplication FhirAdminServicePrincipal { get; } = new TestApplication("fhirAdminServicePrincipal");
 
         public static TestApplication NativeClient { get; } = new TestApplication("nativeClient");
 

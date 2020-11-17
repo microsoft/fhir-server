@@ -42,7 +42,7 @@ POST /connect/token HTTP/1.1
 Host: https://localhost:44348
 Content-Type: application/x-www-form-urlencoded
 
-client_id=globalAdminServicePrincipal&client_secret=globalAdminServicePrincipal&grant_type=client_credentials&scope=fhir-api
+client_id=fhirAdminServicePrincipal&client_secret=fhirAdminServicePrincipal&grant_type=client_credentials&scope=fhir-api
 ```
 
 To authenticate with the FHIR API take the `access_token` from the previous command and attach it as an `Authorization` header with the sytax: `Bearer {access_token}`.

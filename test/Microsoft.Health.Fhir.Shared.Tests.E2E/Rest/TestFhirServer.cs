@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         public TestFhirClient GetTestFhirClient(ResourceFormat format, bool reusable = true, AuthenticationHttpMessageHandler authenticationHandler = null)
         {
-            return GetTestFhirClient(format, TestApplications.GlobalAdminServicePrincipal, null, reusable, authenticationHandler);
+            return GetTestFhirClient(format, TestApplications.FhirAdminServicePrincipal, null, reusable, authenticationHandler);
         }
 
         public TestFhirClient GetTestFhirClient(ResourceFormat format, TestApplication clientApplication, TestUser user, bool reusable = true, AuthenticationHttpMessageHandler authenticationHandler = null)

@@ -21,7 +21,7 @@ Roles are defined in the [roles.json](../src/Microsoft.Health.Fhir.Shared.Web/ro
 
 ``` json
 {
-    "name": "globalWriter",
+    "name": "fhirWriter",
     "dataActions": [
         "*"
     ],

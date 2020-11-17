@@ -5,7 +5,7 @@ function Set-FhirServerClientAppRoleAssignments {
     .DESCRIPTION
     Set AppRoles for a given client application. Requires Azure AD admin privileges.
     .EXAMPLE
-    Set-FhirServerClientAppRoleAssignments -AppId <Client App Id> -ApiAppId <Resource Api Id> -AppRoles globalReader,globalExporter
+    Set-FhirServerClientAppRoleAssignments -AppId <Client App Id> -ApiAppId <Resource Api Id> -AppRoles fhirReader,fhirExporter
     .PARAMETER AppId
     The AppId of the of the client application
     .PARAMETER ApiAppId

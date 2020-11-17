@@ -27,7 +27,7 @@ Register an AAD Application for the FHIR server API:
 
 ```PowerShell
 $fhirServiceName = "myfhirservice"
-$apiAppReg = New-FhirServerApiApplicationRegistration -FhirServiceName $fhirServiceName -AppRoles globalAdmin
+$apiAppReg = New-FhirServerApiApplicationRegistration -FhirServiceName $fhirServiceName -AppRoles fhirAdmin
 ```
 
 The `-AppRoles` defines a set of roles that can be granted to users or service principals (service accounts) interacting with the FHIR server API. Configuration settings for the FHIR server will determine which privileges (Read, Write, etc.) that are assosiated with each role. The allowed roles are enumerated in [roles.json](../src/Microsoft.Health.Fhir.Shared.Web/roles.json).
@@ -41,13 +41,13 @@ $clientAppReg = New-FhirServerClientApplicationRegistration -ApiAppId $apiAppReg
 If you would like a client application to be able to act as a service account, you can assign roles to the client application:
 
 ```PowerShell
-Set-FhirServerClientAppRoleAssignments -AppId $clientAppReg.AppId -ApiAppId $apiAppReg.AppId -AppRoles globalAdmin
+Set-FhirServerClientAppRoleAssignments -AppId $clientAppReg.AppId -ApiAppId $apiAppReg.AppId -AppRoles fhirAdmin
 ```
 
 To assign roles to a specific user in Azure Active Directory:
 
 ```PowerShell
-Set-FhirServerUserAppRoleAssignments -UserPrincipalName myuser@mydomain.com -ApiAppId $apiAppReg.AppId -AppRoles globalAdmin
+Set-FhirServerUserAppRoleAssignments -UserPrincipalName myuser@mydomain.com -ApiAppId $apiAppReg.AppId -AppRoles fhirAdmin
 ```
 
 ## Deploying the FHIR Server Template

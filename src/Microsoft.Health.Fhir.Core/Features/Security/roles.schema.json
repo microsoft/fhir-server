@@ -34,7 +34,7 @@
                     "name": {
                         "type": "string",
                         "examples": [
-                            "globalReader"
+                            "fhirReader"
                         ],
                         "pattern": "^([a-zA-Z-_]+)$"
                     },

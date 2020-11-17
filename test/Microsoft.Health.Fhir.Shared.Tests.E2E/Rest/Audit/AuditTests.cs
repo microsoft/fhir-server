@@ -180,7 +180,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 
             var expectedUri = new Uri($"http://localhost/Patient/{result.Resource.Id}");
 
-            string expectedAppId = TestApplications.GlobalAdminServicePrincipal.ClientId;
+            string expectedAppId = TestApplications.FhirAdminServicePrincipal.ClientId;
 
             Assert.Collection(
                 _auditLogger.GetAuditEntriesByCorrelationId(correlationId),
@@ -421,7 +421,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                    return _client.PostBundleAsync(batch);
                },
                expectedList,
-               TestApplications.GlobalAdminServicePrincipal.ClientId);
+               TestApplications.FhirAdminServicePrincipal.ClientId);
         }
 
         [HttpIntegrationFixtureArgumentSets(DataStore.All)]
@@ -536,7 +536,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
             await ExecuteAndValidateBundle(
                () => _client.PostBundleAsync(requestBundle.ToPoco<Hl7.Fhir.Model.Bundle>()),
                expectedList,
-               TestApplications.GlobalAdminServicePrincipal.ClientId);
+               TestApplications.FhirAdminServicePrincipal.ClientId);
         }
 
         [Fact]
@@ -562,7 +562,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
                   return fhirException.Response;
               },
               expectedList,
-              TestApplications.GlobalAdminServicePrincipal.ClientId);
+              TestApplications.FhirAdminServicePrincipal.ClientId);
         }
 
         private async Task ExecuteAndValidate<T>(Func<Task<FhirResponse<T>>> action, string expectedAction, ResourceType? expectedResourceType, Func<T, string> expectedPathGenerator, HttpStatusCode expectedStatusCode)
@@ -582,7 +582,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Audit
 
             var expectedUri = new Uri($"http://localhost/{expectedPathGenerator(response.Resource)}");
 
-            string expectedAppId = TestApplications.GlobalAdminServicePrincipal.ClientId;
+            string expectedAppId = TestApplications.FhirAdminServicePrincipal.ClientId;
 
             Assert.Collection(
                 _auditLogger.GetAuditEntriesByCorrelationId(correlationId),
