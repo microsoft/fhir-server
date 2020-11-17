@@ -106,6 +106,36 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 {
                     // TODO: We need to handle format parameter.
                 }
+                else if (string.Equals(query.Item1, KnownQueryParameterNames.Type, StringComparison.OrdinalIgnoreCase))
+                {
+                    var types = query.Item2.SplitByOrSeparator();
+                    var badTypes = types.Where(type => !ModelInfoProvider.IsKnownResource(type)).ToHashSet();
+
+                    if (badTypes.Count != 0)
+                    {
+                        _contextAccessor.FhirRequestContext.BundleIssues.Add(
+                            new OperationOutcomeIssue(
+                                OperationOutcomeConstants.IssueSeverity.Warning,
+                                OperationOutcomeConstants.IssueType.NotSupported,
+                                string.Format(Core.Resources.InvalidTypeParameter, badTypes.OrderBy(x => x).Select(type => $"'{type}'").JoinByOrSeparator())));
+                        if (badTypes.Count != types.Count)
+                        {
+                            // In case of we have acceptable types, we filter invalid types from search.
+                            searchParams.Add(KnownQueryParameterNames.Type, types.Except(badTypes).JoinByOrSeparator());
+                        }
+                        else
+                        {
+                            // If all types are invalid, we add them to search params. If we remove them, we wouldn't filter by type, and return all types,
+                            // which is incorrect behaviour. Optimally we should indicate in search options what it would yield nothing, and skip search,
+                            // but there is no option for that right now.
+                            searchParams.Add(KnownQueryParameterNames.Type, query.Item2);
+                        }
+                    }
+                    else
+                    {
+                        searchParams.Add(KnownQueryParameterNames.Type, query.Item2);
+                    }
+                }
                 else if (string.IsNullOrWhiteSpace(query.Item1) || string.IsNullOrWhiteSpace(query.Item2))
                 {
                     // Query parameter with empty value is not supported.
