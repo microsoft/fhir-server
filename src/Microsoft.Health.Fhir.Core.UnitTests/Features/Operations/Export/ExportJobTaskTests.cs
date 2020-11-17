@@ -1664,11 +1664,89 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(2, _inMemoryDestinationClient.ExportedDataFileCount);
         }
 
+        [Fact]
+        public async Task GivenAnExportJobWithFilters_WhenExecuted_ThenAllResourcesAreExportedToTheProperLocation()
+        {
+            var filters = new List<ExportJobFilter>()
+                 {
+                     new ExportJobFilter(
+                         KnownResourceTypes.Observation,
+                         new List<Tuple<string, string>>()
+                         {
+                             new Tuple<string, string>("status", "final"),
+                             new Tuple<string, string>("subject", "Patient/1"),
+                         }),
+                     new ExportJobFilter(
+                         KnownResourceTypes.Patient,
+                         new List<Tuple<string, string>>()
+                         {
+                             new Tuple<string, string>("address", "Seattle"),
+                         }),
+                 };
+            var exportJobRecordWithFormat = CreateExportJobRecord(filters: filters);
+            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithFormat);
+
+            SearchResult searchResultWithContinuationToken = CreateSearchResult(continuationToken: "ct");
+
+            var checkedObservation = false;
+            var checkedPatient = false;
+            var checkedOther = false;
+
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    var type = x[0] as string;
+                    var queryParams = x[1] as IReadOnlyList<Tuple<string, string>>;
+
+                    if (type == KnownResourceTypes.Observation)
+                    {
+                        Assert.Contains(queryParams, (param) => param == filters[0].Parameters[0]);
+                        Assert.Contains(queryParams, (param) => param == filters[0].Parameters[1]);
+                        checkedObservation = true;
+                    }
+                    else if (type == KnownResourceTypes.Patient)
+                    {
+                        Assert.Contains(queryParams, (param) => param == filters[1].Parameters[0]);
+                        checkedPatient = true;
+                    }
+                    else
+                    {
+                        type = KnownResourceTypes.Encounter;
+                        checkedOther = true;
+                    }
+
+                    return CreateSearchResult(
+                        new[]
+                        {
+                            CreateSearchResultEntry("1", type),
+                        });
+                });
+
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            string patientIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
+            string observationIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
+            string encounterIds = _inMemoryDestinationClient.GetExportedData(new Uri(EncounterFileName, UriKind.Relative));
+
+            Assert.True(checkedObservation);
+            Assert.True(checkedPatient);
+            Assert.True(checkedOther);
+
+            Assert.Equal("1", patientIds);
+            Assert.Equal("1", observationIds);
+            Assert.Equal("1", encounterIds);
+            Assert.Equal(3, _inMemoryDestinationClient.ExportedDataFileCount);
+        }
+
         private ExportJobRecord CreateExportJobRecord(
             string requestEndpoint = "https://localhost/ExportJob/",
             ExportJobType exportJobType = ExportJobType.All,
             string format = ExportFormatTags.ResourceName,
             string resourceType = null,
+            IList<ExportJobFilter> filters = null,
             string hash = "hash",
             PartialDateTime since = null,
             string groupId = null,
@@ -1685,7 +1763,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 exportJobType,
                 format,
                 resourceType,
-                null,
+                filters,
                 hash,
                 since: since,
                 groupId: groupId,

@@ -270,6 +270,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                             }
 
                             await SearchWithFilter(exportJobConfiguration, progress, filter.Type, filterQueryParametersList, sharedQueryParametersList, anonymizer, "filter" + index + "-", cancellationToken);
+
+                            progress.SetFilter(null);
                         }
                     }
                 }
