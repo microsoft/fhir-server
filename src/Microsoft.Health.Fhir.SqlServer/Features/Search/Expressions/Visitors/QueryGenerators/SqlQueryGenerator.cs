@@ -131,12 +131,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 StringBuilder.AppendLine();
             }
 
-            StringBuilder.Append("FROM ").Append(VLatest.Resource).Append(" ").AppendLine(resourceTableAlias);
+            StringBuilder.Append("FROM ").Append(VLatest.Resource).Append(" ").Append(resourceTableAlias);
 
             if (expression.TableExpressions.Count > 0)
             {
-                StringBuilder.Append("INNER JOIN ").AppendLine(TableExpressionName(_tableExpressionCounter));
+                StringBuilder.AppendLine().Append("INNER JOIN ").AppendLine(TableExpressionName(_tableExpressionCounter));
                 StringBuilder.Append("ON ").Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).Append(" = ").Append(TableExpressionName(_tableExpressionCounter)).AppendLine(".Sid1");
+            }
+            else if (!_isHistorySearch)
+            {
+                // If not joining with any other CTEs and this is not a history search, make sure the optimizer does not decide to do a scan on the clustered index
+                StringBuilder.AppendLine(" WITH(INDEX(IX_Resource_ResourceTypeId_ResourceSurrgateId))");
+            }
+            else
+            {
+                // History search will likely resort to a table scan until we add ResourceTypeId as the leading column to the clustered index Resource table.
+                StringBuilder.AppendLine();
             }
 
             using (var delimitedClause = StringBuilder.BeginDelimitedWhereClause())
