@@ -174,13 +174,19 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                             routeValues.Add(searchParam.Key, new StringValues(resultSortOrder.Select(s => $"{(s.sortOrder == SortOrder.Ascending ? string.Empty : "-")}{s.searchParameterInfo.Name}").ToArray()));
                         }
                     }
+                    else if (string.Equals(searchParam.Key, KnownQueryParameterNames.Type, StringComparison.OrdinalIgnoreCase))
+                    {
+                        routeValues.Add(searchParam.Key, searchParam.Value);
+                    }
                     else
                     {
                         // 3. The exclude unsupported parameters
                         IEnumerable<string> removedValues = searchParamsToRemove[searchParam.Key];
-
                         StringValues usedValues = removedValues.Any()
-                            ? new StringValues(searchParam.Value.Except(removedValues).ToArray())
+                            ? new StringValues(
+                                searchParam.Value.Select(x => x.SplitByOrSeparator().Except(removedValues).JoinByOrSeparator())
+                                .Where(x => !string.IsNullOrEmpty(x))
+                                .ToArray())
                             : searchParam.Value;
 
                         if (usedValues.Any())

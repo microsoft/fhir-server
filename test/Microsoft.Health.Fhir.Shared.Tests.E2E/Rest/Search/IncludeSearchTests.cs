@@ -790,9 +790,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             ValidateBundle(
                 bundle,
-    #if R5
+#if R5
                 Fixture.PercocetMedication,
-    #endif
+#endif
                 Fixture.AdamsMedicationRequest,
                 Fixture.SmithMedicationRequest,
                 Fixture.AdamsPatient,
@@ -813,9 +813,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             ValidateBundle(
                 bundle,
-    #if R5
+#if R5
                 Fixture.PercocetMedication,
-    #endif
+#endif
                 Fixture.AdamsMedicationRequest,
                 Fixture.SmithMedicationRequest,
                 Fixture.AdamsPatient,
@@ -1106,8 +1106,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Equal(HttpStatusCode.BadRequest, fhirException.StatusCode);
 
             string[] expectedDiagnostics = { string.Format(Core.Resources.RevIncludeIterateTargetTypeNotSpecified, "Patient:general-practitioner") };
+            IssueSeverity[] expectedIssueSeverities = { IssueSeverity.Error };
             IssueType[] expectedCodeTypes = { IssueType.Invalid };
-            ValidateOperationOutcome(expectedDiagnostics, expectedCodeTypes, fhirException.OperationOutcome);
+            ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, fhirException.OperationOutcome);
         }
 
         [Fact]
@@ -1223,9 +1224,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             };
 
             var operationOutcome = new OperationOutcome
-                {
-                    Issue = new List<OperationOutcome.IssueComponent> { issue },
-                };
+            {
+                Id = bundle.Id,
+                Issue = new List<OperationOutcome.IssueComponent> { issue },
+            };
 
             ValidateBundle(
                 bundle,
@@ -1260,6 +1262,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             var operationOutcome = new OperationOutcome
             {
+                Id = bundle.Id,
                 Issue = new List<OperationOutcome.IssueComponent> { issue },
             };
 
