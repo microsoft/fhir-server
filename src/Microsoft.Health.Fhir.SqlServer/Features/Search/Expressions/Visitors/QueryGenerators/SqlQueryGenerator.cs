@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
 using EnsureThat;
@@ -436,10 +435,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         // Limit the join by reference version
                         if (!includeExpression.Reversed)
                         {
-                            using (var mainClause = delimited.BeginDelimitedElement().BeginDelimitedClause("OR "))
+                            using (var mainClause = delimited.BeginDelimitedElement().BeginOredDelimitedScope())
                             {
                                 // if it is a versioned reference select a matching version
-                                using (var clause = mainClause.BeginDelimitedElement().BeginDelimitedClause("AND "))
+                                using (var clause = mainClause.BeginDelimitedElement().BeginAndedDelimitedScope())
                                 {
                                     clause.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ReferenceResourceVersion, referenceSourceTableAlias).Append(" IS NOT NULL");
                                     clause.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ReferenceResourceVersion, referenceSourceTableAlias).Append(" = ")
@@ -447,7 +446,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                                 }
 
                                 // or for unversioned reference select the latest version
-                                using (var clause = mainClause.BeginDelimitedElement().BeginDelimitedClause("AND "))
+                                using (var clause = mainClause.BeginDelimitedElement().BeginAndedDelimitedScope())
                                 {
                                     clause.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ReferenceResourceVersion, referenceSourceTableAlias).Append(" IS NULL");
                                     AppendHistoryClause(clause, referenceTargetResourceTableAlias);
@@ -836,43 +835,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
 
             public override bool VisitSearchParameter(SearchParameterExpression expression, object context) => expression.Parameter.Name == SearchParameterNames.Id;
-        }
-    }
-
-    // TODO: move to healthcare-shared-components
-    [SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1402:File may only contain a single type", Justification = "To be moved to healthcare-shared-components")]
-    internal static class IndentedStringBuilderExtensions
-    {
-        /// <summary>
-        /// Helps with building a nested clause with 0 to many predicates joined (ANDed or ORed) together.
-        /// Call <see cref="IndentedStringBuilder.DelimitedScope.BeginDelimitedElement"/> before appending
-        /// a predicate and be sure to dispose the the <see cref="IndentedStringBuilder.DelimitedScope"/>
-        /// at the end.
-        /// </summary>
-        /// <param name="indentedStringBuilder">The string builder</param>
-        /// <param name="delimiter">Delimiter to use for joining. Typically: "AND " or "OR "</param>
-        /// <returns>The scope</returns>
-        public static IndentedStringBuilder.DelimitedScope BeginDelimitedClause(this IndentedStringBuilder indentedStringBuilder, string delimiter)
-        {
-            IndentedStringBuilder.IndentedScope? sharedScope = null;
-            return indentedStringBuilder.BeginDelimitedScope(
-                sb =>
-                {
-                    sb.AppendLine();
-                    sb.AppendLine("(");
-                    sharedScope = sb.Indent();
-                },
-                sb =>
-                {
-                    sb.AppendLine();
-                    sb.Append(delimiter);
-                },
-                sb =>
-                {
-                    sb.AppendLine();
-                    sharedScope?.Dispose();
-                    sb.Append(")");
-                });
         }
     }
 }
