@@ -5,14 +5,14 @@
 
 using System.Collections.Generic;
 using Hl7.Fhir.ElementModel;
-using Hl7.Fhir.Model.Primitives;
 using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
 {
     /// <summary>
-    /// A converter used to convert from <see cref="Quantity"/> to a list of <see cref="QuantitySearchValue"/>.
+    /// A converter used to convert from <see cref="Money"/> to a list of <see cref="QuantitySearchValue"/>.
     /// </summary>
     public class MoneyNodeToQuantitySearchValueTypeConverter : FhirNodeToSearchValueTypeConverter<QuantitySearchValue>
     {
@@ -21,26 +21,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
         {
         }
 
+        // TODO: What behaviour should be expected for Stu3?
         protected override IEnumerable<ISearchValue> Convert(ITypedElement value)
         {
             var decimalValue = (decimal?)value.Scalar("value");
+            var currency = value.Scalar("currency")?.ToString();
 
-            if (decimalValue == null)
-            {
-                yield break;
-            }
-
-            var code = value.Scalar("currency")?.ToString(); // TODO: Do we need to check that this is a legit currency?
-
-            // TODO: This cannot be null, right?
-            if (code == null)
+            if (decimalValue == null || currency == null)
             {
                 yield break;
             }
 
             yield return new QuantitySearchValue(
-                null,
-                code,
+                CurrencyValues.System,
+                currency,
                 decimalValue.GetValueOrDefault());
         }
     }
