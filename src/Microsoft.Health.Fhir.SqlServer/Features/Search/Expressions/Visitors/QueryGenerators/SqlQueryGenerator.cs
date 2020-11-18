@@ -141,7 +141,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             else if (!_isHistorySearch)
             {
                 // If not joining with any other CTEs and this is not a history search, make sure the optimizer does not decide to do a scan on the clustered index
-                StringBuilder.AppendLine(" WITH(INDEX(IX_Resource_ResourceTypeId_ResourceSurrgateId))");
+                StringBuilder.Append(" WITH(INDEX(").Append(VLatest.Resource.IX_Resource_ResourceTypeId_ResourceSurrgateId).AppendLine("))");
             }
             else
             {
