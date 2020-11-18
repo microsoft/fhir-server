@@ -104,7 +104,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.DataConvert
         {
             var processorSetting = new ProcessorSettings
             {
-                TimeOut = (int)_dataConvertConfiguration.ProcessTimeoutThreshold.TotalMilliseconds,
+                TimeOut = (int)_dataConvertConfiguration.OperationTimeout.TotalMilliseconds,
             };
 
             _dataConverterMap.Add(DataConvertInputDataType.Hl7v2, new Hl7v2Processor(processorSetting));

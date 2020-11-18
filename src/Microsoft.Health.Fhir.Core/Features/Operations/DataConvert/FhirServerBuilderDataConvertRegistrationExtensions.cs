@@ -24,8 +24,6 @@ namespace Microsoft.Extensions.DependencyInjection
 
         private static IFhirServerBuilder AddDataConvertEngine(this IFhirServerBuilder fhirServerBuilder)
         {
-            EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
-
             fhirServerBuilder.Services.AddSingleton<IDataConvertEngine, DataConvertEngine>();
 
             return fhirServerBuilder;
@@ -33,8 +31,6 @@ namespace Microsoft.Extensions.DependencyInjection
 
         private static IFhirServerBuilder AddDataConvertTemplateProvider(this IFhirServerBuilder fhirServerBuilder)
         {
-            EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
-
             // Add memory cache to store template object and ACR access tokens
             // ToDo: add size limit
             fhirServerBuilder.Services.AddMemoryCache();

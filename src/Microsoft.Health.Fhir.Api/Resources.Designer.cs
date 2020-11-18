@@ -133,6 +133,33 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Data convert does not support the following parameter {0} for a POST operation..
+        /// </summary>
+        public static string DataConvertParameterNotValid {
+            get {
+                return ResourceManager.GetString("DataConvertParameterNotValid", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Data convert operation parameters must be specified as a FHIR Parameters resource.  The body provided in this request is not valid..
+        /// </summary>
+        public static string DataConvertParametersNotValid {
+            get {
+                return ResourceManager.GetString("DataConvertParametersNotValid", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Value of the following parameter {0} is invalid..
+        /// </summary>
+        public static string DataConvertParameterValueNotValid {
+            get {
+                return ResourceManager.GetString("DataConvertParameterValueNotValid", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Failed while running health check..
         /// </summary>
         public static string FailedHealthCheckMessage {
@@ -248,15 +275,19 @@ namespace Microsoft.Health.Fhir.Api {
                 return ResourceManager.GetString("InvalidRedirectUri", resourceCulture);
             }
         }
-
-        public static string InvalidTemplateCollectionReference
-        {
-            get
-            {
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The template collection reference &apos;{0}&apos; is invalid..
+        /// </summary>
+        public static string InvalidTemplateCollectionReference {
+            get {
                 return ResourceManager.GetString("InvalidTemplateCollectionReference", resourceCulture);
             }
         }
-
+        
+        /// <summary>
+        ///   Looks up a localized string similar to API.
+        /// </summary>
         public static string MenuAPI {
             get {
                 return ResourceManager.GetString("MenuAPI", resourceCulture);
@@ -602,30 +633,6 @@ namespace Microsoft.Health.Fhir.Api {
         public static string WelcomeTitle {
             get {
                 return ResourceManager.GetString("WelcomeTitle", resourceCulture);
-            }
-        }
-
-        public static string DataConvertParameterNotValid
-        {
-            get
-            {
-                return ResourceManager.GetString("DataConvertParameterNotValid", resourceCulture);
-            }
-        }
-
-        public static string DataConvertParameterValueNotValid
-        {
-            get
-            {
-                return ResourceManager.GetString("DataConvertParameterValueNotValid", resourceCulture);
-            }
-        }
-
-        public static string DataConvertParametersNotValid
-        {
-            get
-            {
-                return ResourceManager.GetString("DataConvertParametersNotValid", resourceCulture);
             }
         }
     }

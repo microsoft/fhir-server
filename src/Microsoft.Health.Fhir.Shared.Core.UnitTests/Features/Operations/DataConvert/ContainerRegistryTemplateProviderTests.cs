@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.DataCo
             var dataConvertConfig = new DataConvertConfiguration
             {
                 Enabled = true,
-                ProcessTimeoutThreshold = TimeSpan.FromMilliseconds(50),
+                OperationTimeout = TimeSpan.FromMilliseconds(50),
                 ContainerRegistryTokenExpiration = TimeSpan.FromSeconds(1),
             };
 

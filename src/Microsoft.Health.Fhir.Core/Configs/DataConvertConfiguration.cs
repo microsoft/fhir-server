@@ -35,6 +35,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// <summary>
         /// Determines timeout for convert execution to terminate long running templates.
         /// </summary>
-        public TimeSpan ProcessTimeoutThreshold { get; set; } = TimeSpan.FromSeconds(30);
+        public TimeSpan OperationTimeout { get; set; } = TimeSpan.FromSeconds(30);
     }
 }

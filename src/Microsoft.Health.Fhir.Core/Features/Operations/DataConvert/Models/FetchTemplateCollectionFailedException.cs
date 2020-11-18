@@ -3,7 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using EnsureThat;
+using System.Diagnostics;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -14,7 +14,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.DataConvert.Models
         public FetchTemplateCollectionFailedException(string message)
             : base(message)
         {
-            EnsureArg.IsNotNullOrWhiteSpace(message, nameof(message));
+            Debug.Assert(!string.IsNullOrEmpty(message), "Exception message should not be empty.");
 
             Issues.Add(new OperationOutcomeIssue(
                 OperationOutcomeConstants.IssueSeverity.Error,
@@ -25,7 +25,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.DataConvert.Models
         public FetchTemplateCollectionFailedException(string message, System.Exception innerException)
             : base(message, innerException)
         {
-            EnsureArg.IsNotNullOrWhiteSpace(message, nameof(message));
+            Debug.Assert(!string.IsNullOrEmpty(message), "Exception message should not be empty.");
+            Debug.Assert(innerException != null, "Inner exception should not be null.");
 
             Issues.Add(new OperationOutcomeIssue(
                 OperationOutcomeConstants.IssueSeverity.Error,

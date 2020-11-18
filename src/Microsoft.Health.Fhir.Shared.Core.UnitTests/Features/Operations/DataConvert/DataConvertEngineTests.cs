@@ -15,7 +15,6 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.DataConvert;
 using Microsoft.Health.Fhir.Core.Features.Operations.DataConvert.Models;
 using Microsoft.Health.Fhir.Core.Messages.DataConvert;
-using Microsoft.Health.Fhir.TemplateManagement;
 using Microsoft.Health.Fhir.TemplateManagement.Models;
 using NSubstitute;
 using Xunit;
@@ -32,7 +31,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.DataCo
             var dataConvertConfig = new DataConvertConfiguration
             {
                 Enabled = true,
-                ProcessTimeoutThreshold = TimeSpan.FromMilliseconds(50),
+                OperationTimeout = TimeSpan.FromMilliseconds(50),
             };
 
             var registry = new ContainerRegistryInfo
