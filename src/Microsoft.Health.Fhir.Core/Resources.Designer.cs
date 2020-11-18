@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core {
         [global::System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("Microsoft.Performance", "CA1811:AvoidUncalledPrivateCode")]
         internal Resources() {
         }
-
+        
         /// <summary>
         ///   Returns the cached ResourceManager instance used by this class.
         /// </summary>
@@ -314,19 +314,20 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Failed to fetch the template collection. Reason: {0}.
-        /// </summary>
-        internal static string FetchTemplateCollectionFailed {
-            get {
-                return ResourceManager.GetString("FetchTemplateCollectionFailed", resourceCulture);
-            }
-        }
-        
         ///   Looks up a localized string similar to The format &apos;{0}&apos; could not be found..
         /// </summary>
         internal static string ExportFormatNotFound {
             get {
                 return ResourceManager.GetString("ExportFormatNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Failed to fetch the template collection. Reason: {0}.
+        /// </summary>
+        internal static string FetchTemplateCollectionFailed {
+            get {
+                return ResourceManager.GetString("FetchTemplateCollectionFailed", resourceCulture);
             }
         }
         
@@ -939,6 +940,24 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string SortNotSupported {
             get {
                 return ResourceManager.GetString("SortNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The specified template collection image &apos;{0}&apos; is not found..
+        /// </summary>
+        internal static string TemplateImageNotFound {
+            get {
+                return ResourceManager.GetString("TemplateImageNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The specified template collection image size exceeds the limit configured for server. Current limit is &quot;{0}&quot; .
+        /// </summary>
+        internal static string TemplateImageTooLarge {
+            get {
+                return ResourceManager.GetString("TemplateImageTooLarge", resourceCulture);
             }
         }
         

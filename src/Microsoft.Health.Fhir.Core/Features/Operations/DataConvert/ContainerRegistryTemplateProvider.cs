@@ -87,15 +87,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.DataConvert
                 _logger.LogError(authEx, "Failed to access container registry.");
                 throw new ContainerRegistryNotAuthorizedException(string.Format(Resources.ContainerRegistryNotAuthorized, request.RegistryServer), authEx);
             }
-            catch (ImageFetchException fetchException)
+            catch (ImageTooLargeException tooLargeException)
             {
-                _logger.LogError(fetchException, "Failed to fetch the templates from remote.");
-                throw new FetchTemplateCollectionFailedException(string.Format(Resources.FetchTemplateCollectionFailed, fetchException.Message), fetchException);
+                _logger.LogError(tooLargeException, "The template image is too large.");
+                throw new TemplateCollectionTooLargeException(string.Format(Resources.TemplateImageTooLarge, _dataConvertConfig.TemplateCollectionOptions.TemplateCollectionSizeLimitMegabytes), tooLargeException);
             }
-            catch (ImageValidationException validationException)
+            catch (ImageNotFoundException notFoundException)
             {
-                _logger.LogError(validationException, "Failed to validate the downloaded image.");
-                throw new FetchTemplateCollectionFailedException(string.Format(Resources.FetchTemplateCollectionFailed, validationException.Message), validationException);
+                _logger.LogError(notFoundException, "The template image is not found.");
+                throw new TemplateCollectionNotFoundException(string.Format(Resources.TemplateImageNotFound, request.TemplateCollectionReference), notFoundException);
             }
             catch (Exception ex)
             {

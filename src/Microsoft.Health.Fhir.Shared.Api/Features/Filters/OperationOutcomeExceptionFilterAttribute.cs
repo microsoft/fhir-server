@@ -136,7 +136,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         operationOutcomeResult.StatusCode = fhirTransactionFailedException.ResponseStatusCode;
                         break;
                     case FetchTemplateCollectionFailedException _:
-                    case ConvertEngineInitializeException _:
                     case DataConvertFailedException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.InternalServerError;
                         break;

@@ -478,4 +478,12 @@
     <value>The format '{0}' could not be found.</value>
     <comment>{0}: The provided format name</comment>
   </data>
+  <data name="TemplateImageNotFound" xml:space="preserve">
+    <value>The specified template collection image '{0}' is not found.</value>
+    <comment>{0}: the template collection reference</comment>
+  </data>
+  <data name="TemplateImageTooLarge" xml:space="preserve">
+    <value>The specified template collection image size exceeds the limit configured for server. Current limit is "{0}" </value>
+    <comment>{0}: the template collection size limit</comment>
+  </data>
 </root>
