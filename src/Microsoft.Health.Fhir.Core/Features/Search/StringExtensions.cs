@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <param name="s">The string to be parsed.</param>
         /// <returns>An <see cref="IList{T}"/> that contains strings split by using token separator.</returns>
         /// <remarks>Since the token separator character has special rule defined, if the character appears in the actual value,
-        /// it needs to be escaped. More detail can be found here: http://hl7.org/fhir/STU3/search.html#escaping</remarks>
+        /// it needs to be escaped. More detail can be found here: http://hl7.org/fhir/search.html#escaping </remarks>
         public static IReadOnlyList<string> SplitByTokenSeparator(this string s)
         {
             EnsureArg.IsNotNull(s, nameof(s));
@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <param name="s">The string to be parsed.</param>
         /// <returns>An <see cref="IList{T}"/> that contains strings split by using composite separator.</returns>
         /// <remarks>Since the composite separator character has special rule defined, if the character appears in the actual value,
-        /// it needs to be escaped. More detail can be found here: http://hl7.org/fhir/STU3/search.html#escaping</remarks>
+        /// it needs to be escaped. More detail can be found here: http://hl7.org/fhir/search.html#escaping </remarks>
         public static IReadOnlyList<string> SplitByCompositeSeparator(this string s)
         {
             EnsureArg.IsNotNull(s, nameof(s));
@@ -88,12 +88,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <param name="s">The string to be parsed.</param>
         /// <returns>An <see cref="IList{T}"/> that contains strings split by using or separator.</returns>
         /// <remarks>Since the or separator character has special rule defined, if the character appears in the actual value,
-        /// it needs to be escaped. More detail can be found here: http://hl7.org/fhir/STU3/search.html#escaping</remarks>
+        /// it needs to be escaped. More detail can be found here: http://hl7.org/fhir/search.html#escaping </remarks>
         public static IReadOnlyList<string> SplitByOrSeparator(this string s)
         {
             EnsureArg.IsNotNull(s, nameof(s));
 
             return Split(s, OrSeparator);
+        }
+
+        /// <summary>
+        /// Joins the <paramref name="strings"/>> using or separator.
+        /// </summary>
+        /// <param name="strings">String to be joined.</param>
+        /// <returns>Single string of concatenated <paramref name="strings"/> by using or separator. </returns>
+        public static string JoinByOrSeparator(this IEnumerable<string> strings)
+        {
+            EnsureArg.IsNotNull(strings, nameof(strings));
+            return string.Join(OrSeparator, strings);
         }
 
         /// <summary>

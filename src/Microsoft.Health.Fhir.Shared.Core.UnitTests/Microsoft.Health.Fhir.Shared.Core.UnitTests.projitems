@@ -19,6 +19,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexUtilitiesTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Reindex\ReindexJobTaskTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\Export\GroupMemberExtractorTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\FhirStringToTokenSearchValueTypeConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\AddressNodeToStringSearchValueTypeConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\BooleanNodeToBooleanSearchValueTypeConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\CodeableConceptNodeToTokenSearchValueTypeConverterTests.cs" />
@@ -30,6 +31,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\DecimalNodeToDecimalSearchValueTypeConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\DateTimeNodeToDateTimeSearchValueTypeConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\FhirNodeInstanceToSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\StringNodeToTokenSearchValueTypeConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\UriNodeToUriSearchValueTypeConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\HumanNameNodeToStringSearchValueTypeConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\IdentifierNodeToTokenSearchValueTypeConverterTests.cs" />

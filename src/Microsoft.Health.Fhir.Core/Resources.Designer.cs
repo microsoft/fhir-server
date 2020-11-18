@@ -512,6 +512,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The &apos;_type&apos; parameter contains unknown resource(s): {0}.
+        /// </summary>
+        internal static string InvalidTypeParameter {
+            get {
+                return ResourceManager.GetString("InvalidTypeParameter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Invalid value for :missing modifier. Valid values are: true, false..
         /// </summary>
         internal static string InvalidValueTypeForMissingModifier {

@@ -486,4 +486,8 @@
     <value>The specified template collection image size exceeds the limit configured for server. Current limit is "{0}" </value>
     <comment>{0}: the template collection size limit</comment>
   </data>
+  <data name="InvalidTypeParameter" xml:space="preserve">
+    <value>The '_type' parameter contains unknown resource(s): {0}</value>
+    <comment>{0}: Single or list of unknown resources.</comment>
+  </data>
 </root>
