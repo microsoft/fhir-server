@@ -245,7 +245,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             IAnonymizer anonymizer = IsAnonymizedExportJob() ? await CreateAnonymizerAsync(cancellationToken) : null;
 
-            if (!progress.FinishedFilters)
+            if (!progress.RunFilteredSearches)
             {
                 var index = -1;
                 if (_exportJobRecord.Filters != null)
@@ -254,7 +254,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     {
                         index++;
 
-                        if (progress.Filter != null && filter != progress.Filter)
+                        if (progress.CurrentFilter != null && filter != progress.CurrentFilter)
                         {
                             continue;
                         }
@@ -425,7 +425,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 }
             }
 
-            if (!progress.FinishedFilters)
+            if (!progress.RunFilteredSearches)
             {
                 var index = -1;
                 if (_exportJobRecord.Filters != null)
@@ -433,7 +433,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     foreach (var filter in _exportJobRecord.Filters)
                     {
                         index++;
-                        if (progress.Filter != null && filter != progress.Filter)
+                        if (progress.CurrentFilter != null && filter != progress.CurrentFilter)
                         {
                             continue;
                         }

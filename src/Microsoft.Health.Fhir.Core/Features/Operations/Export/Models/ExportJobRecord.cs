@@ -90,6 +90,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         [JsonProperty(JobRecordProperties.ResourceType)]
         public string ResourceType { get; private set; }
 
+        /// <summary>
+        /// All the filters for specific types included in the job. Set by the _typeFilter parameter.
+        /// </summary>
         [JsonProperty(JobRecordProperties.Filters)]
         public IList<ExportJobFilter> Filters { get; private set; }
 

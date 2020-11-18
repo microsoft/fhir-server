@@ -16,9 +16,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             Page = page;
             TriggeringResourceId = resourceId;
             SubSearch = subSearch;
-            Filter = filter;
+            CurrentFilter = filter;
 
-            FinishedFilters = false;
+            RunFilteredSearches = false;
         }
 
         [JsonConstructor]
@@ -32,11 +32,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         [JsonProperty(JobRecordProperties.Page)]
         public uint Page { get; private set; }
 
-        [JsonProperty(JobRecordProperties.Filter)]
-        public ExportJobFilter Filter { get; private set; }
+        /// <summary>
+        /// The filter currently being evaluated.
+        /// </summary>
+        [JsonProperty(JobRecordProperties.CurrentFilter)]
+        public ExportJobFilter CurrentFilter { get; private set; }
 
-        [JsonProperty(JobRecordProperties.FinishedFilters)]
-        public bool FinishedFilters { get; private set; }
+        /// <summary>
+        /// Indicates if all the filters for the job have been evaluated.
+        /// </summary>
+        [JsonProperty(JobRecordProperties.RunFilteredSearches)]
+        public bool RunFilteredSearches { get; private set; }
 
         [JsonProperty(JobRecordProperties.TriggeringResourceId)]
         public string TriggeringResourceId { get; private set; }
@@ -54,14 +60,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
         public void SetFilter(ExportJobFilter filter)
         {
-            Filter = filter;
+            CurrentFilter = filter;
             Page = 0;
             ContinuationToken = null;
         }
 
         public void MarkFiltersFinished()
         {
-            FinishedFilters = true;
+            RunFilteredSearches = true;
             Page = 0;
             ContinuationToken = null;
         }
