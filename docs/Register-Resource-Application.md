@@ -8,7 +8,7 @@ In this article, you'll learn how to register a resource (or API) application in
 
 2. In the **Azure Active Directory** blade click **App registrations**:
 
-    ![Azure portal. New App Registration.](media/how-to-aad/portal-aad-new-app-registration.png)
+    ![Azure portal. New App Registration.](images/resource-application/portal-aad-new-app-registration.png)
 
 3. Click the **New registration**.
 
@@ -16,7 +16,7 @@ In this article, you'll learn how to register a resource (or API) application in
 
 Fill in the details for the new application. There are no specific requirements for the display name, but setting it to the URI of the FHIR server makes it easy to find:
 
-![New application registration](media/how-to-aad/portal-aad-register-new-app-registration-NAME.png)
+![New application registration](images/resource-application/portal-aad-register-new-app-registration-NAME.png)
 
 ### Set identifier URI and define scopes
 
@@ -30,7 +30,7 @@ A resource application has an identifier URI (Application ID URI), which clients
 
 4. Click **Add a scope** and add any scopes that you would like to define for your API. You are required to add at least one scope in order to grant permissions to your resource application in the future. If you don't have any specific scopes you want to add, you can add user_impersonation as a scope.
 
-![Audience and scope](media/how-to-aad/portal-aad-register-new-app-registration-AUD-SCOPE.png)
+![Audience and scope](images/resource-application/portal-aad-register-new-app-registration-AUD-SCOPE.png)
 
 ### Define application roles
 
@@ -38,7 +38,7 @@ The Azure API for FHIR and the OSS FHIR Server for Azure use [Azure Active Direc
 
 1. Click **Manifest**:
 
-    ![Application Roles](media/how-to-aad/portal-aad-register-new-app-registration-APP-ROLES.png)
+    ![Application Roles](images/resource-application/portal-aad-register-new-app-registration-APP-ROLES.png)
 
 2. In the `appRoles` property, add the [roles](https://github.com/microsoft/fhir-server/blob/master/src/Microsoft.Health.Fhir.Shared.Web/roles.json):
 
