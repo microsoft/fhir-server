@@ -6,7 +6,6 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -22,12 +21,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.DataCo
     public class ContainerRegistryTemplateProviderTests
     {
         private ContainerRegistryTemplateProvider _containerRegistryTemplateProvider;
-        private MemoryCache _cache;
 
         public ContainerRegistryTemplateProviderTests()
         {
-            _cache = new MemoryCache(new MemoryCacheOptions());
-
             IContainerRegistryTokenProvider tokenProvider = Substitute.For<IContainerRegistryTokenProvider>();
             tokenProvider.GetTokenAsync(default, default).ReturnsForAnyArgs("Bearer faketoken");
 
@@ -45,7 +41,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.DataCo
             dataConvertConfig.ContainerRegistries.Add(registry);
 
             var config = Options.Create(dataConvertConfig);
-            _containerRegistryTemplateProvider = new ContainerRegistryTemplateProvider(tokenProvider, _cache, config, new NullLogger<ContainerRegistryTemplateProvider>());
+            _containerRegistryTemplateProvider = new ContainerRegistryTemplateProvider(tokenProvider, config, new NullLogger<ContainerRegistryTemplateProvider>());
         }
 
         [Fact]
@@ -54,8 +50,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.DataCo
             var templateReference = ImageInfo.DefaultTemplateImageReference;
             var templateCollection = await _containerRegistryTemplateProvider.GetTemplateCollectionAsync(GetRequestWithTemplateReference(templateReference), CancellationToken.None);
 
-            // Only default template collection loaded
-            Assert.True(_cache.Count == 2);
             Assert.NotEmpty(templateCollection);
         }
 

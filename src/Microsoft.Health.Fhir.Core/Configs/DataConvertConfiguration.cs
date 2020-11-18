@@ -28,6 +28,12 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public TemplateCollectionConfiguration TemplateCollectionOptions { get; set; } = new TemplateCollectionConfiguration();
 
         /// <summary>
+        /// Cache size limit for data convert, cache entries includes registry tokens, image manifests, image layer blobs.
+        /// Size of each cache entry are calculated by byte counts, i.e. length of a token, number of bytes of a manifest or a blob.
+        /// </summary>
+        public long CacheSizeLimit { get; set; } = 100_000_000;
+
+        /// <summary>
         /// Determines the expiration duration of the container registry token.
         /// </summary>
         public TimeSpan ContainerRegistryTokenExpiration { get; set; } = TimeSpan.FromMinutes(30);

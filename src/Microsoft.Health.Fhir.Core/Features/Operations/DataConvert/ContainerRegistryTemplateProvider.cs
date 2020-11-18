@@ -21,31 +21,33 @@ using Microsoft.Health.Fhir.TemplateManagement.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.DataConvert
 {
-    public class ContainerRegistryTemplateProvider : IDataConvertTemplateProvider
+    public class ContainerRegistryTemplateProvider : IDataConvertTemplateProvider, IDisposable
     {
+        private bool _disposed = false;
         private readonly IContainerRegistryTokenProvider _containerRegistryTokenProvider;
         private readonly ITemplateCollectionProviderFactory _templateCollectionProviderFactory;
         private readonly DataConvertConfiguration _dataConvertConfig;
-        private readonly IMemoryCache _cache;
+        private readonly MemoryCache _cache;
         private readonly ILogger<ContainerRegistryTemplateProvider> _logger;
 
         public ContainerRegistryTemplateProvider(
             IContainerRegistryTokenProvider containerRegistryTokenProvider,
-            IMemoryCache cache,
             IOptions<DataConvertConfiguration> dataConvertConfig,
             ILogger<ContainerRegistryTemplateProvider> logger)
         {
             EnsureArg.IsNotNull(containerRegistryTokenProvider, nameof(containerRegistryTokenProvider));
-            EnsureArg.IsNotNull(cache, nameof(cache));
             EnsureArg.IsNotNull(dataConvertConfig, nameof(dataConvertConfig));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _containerRegistryTokenProvider = containerRegistryTokenProvider;
-            _cache = cache;
             _dataConvertConfig = dataConvertConfig.Value;
             _logger = logger;
 
-            // Initialize template collection provider factory
+            // Initialize cache and template collection provider factory
+            _cache = new MemoryCache(new MemoryCacheOptions
+            {
+                SizeLimit = _dataConvertConfig.CacheSizeLimit,
+            });
             _templateCollectionProviderFactory = new TemplateCollectionProviderFactory(_cache, Options.Create(_dataConvertConfig.TemplateCollectionOptions));
         }
 
@@ -63,11 +65,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.DataConvert
             if (!IsDefaultTemplateReference(request.TemplateCollectionReference))
             {
                 _logger.LogInformation("Using a custom template collection for data conversion.");
-                accessToken = await _cache.GetOrCreateAsync(GetCacheKey(request.RegistryServer), entry =>
+
+                async Task<string> TokenEntryFactory(ICacheEntry entry)
                 {
+                    var token = await _containerRegistryTokenProvider.GetTokenAsync(request.RegistryServer, cancellationToken);
+                    entry.Size = token.Length;
                     entry.AbsoluteExpirationRelativeToNow = _dataConvertConfig.ContainerRegistryTokenExpiration;
-                    return _containerRegistryTokenProvider.GetTokenAsync(request.RegistryServer, cancellationToken);
-                });
+                    return token;
+                }
+
+                accessToken = await _cache.GetOrCreateAsync(GetCacheKey(request.RegistryServer), TokenEntryFactory);
             }
             else
             {
@@ -112,6 +119,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.DataConvert
         private static string GetCacheKey(string registryServer)
         {
             return string.Format("registry_{0}", registryServer);
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            if (disposing)
+            {
+                _cache?.Dispose();
+            }
+
+            _disposed = true;
         }
     }
 }

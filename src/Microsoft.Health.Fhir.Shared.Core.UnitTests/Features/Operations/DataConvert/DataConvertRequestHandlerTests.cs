@@ -7,7 +7,6 @@ using System;
 using System.Linq;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -70,9 +69,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.DataCo
             IContainerRegistryTokenProvider tokenProvider = Substitute.For<IContainerRegistryTokenProvider>();
             tokenProvider.GetTokenAsync(Arg.Any<string>(), default).ReturnsForAnyArgs(string.Empty);
 
-            MemoryCache cache = new MemoryCache(new MemoryCacheOptions());
-
-            ContainerRegistryTemplateProvider templateProvider = new ContainerRegistryTemplateProvider(tokenProvider, cache, dataConvertConfiguration, new NullLogger<ContainerRegistryTemplateProvider>());
+            ContainerRegistryTemplateProvider templateProvider = new ContainerRegistryTemplateProvider(tokenProvider, dataConvertConfiguration, new NullLogger<ContainerRegistryTemplateProvider>());
 
             var dataConvertEngine = new DataConvertEngine(
                 templateProvider,
