@@ -1,0 +1,55 @@
+# DESCRIPTION: 	
+# Removes old docker images.
+
+trigger: none
+pr: none
+
+variables:
+- template: build-variables.yml
+
+jobs:
+- job: deleteImage
+  displayName: 'Delete Images'
+  pool:
+    vmImage: $(WindowsVmImage)
+  steps:
+  - task: AzureCLI@2
+    displayName: 'Delete Images'
+    imputs:
+      azureSubscription: $(ConnectedServiceName)
+      scriptType: ps
+      scriptLocation: InlineScript
+      inlineScript: |
+        $versions = "stu3","r4","r5"
+        $tagList = az acr repository show-tags --name $(azureContainerRegistryName) --repository r4_fhir-server
+
+        foreach ($tag in $tagList) {
+          $tagParts = $tag.Split('-')
+          if ($tagParts.Count -gt 1) {
+            try {
+              $imageDate = [datetime]($tagParts[1].Substring(4) + '/' + $tagParts[1].Substring(4,2) + '/' + $tagParts[1].Substring(6,2))
+              $currentDate = Get-Date
+              $difference = New-TimeSpan -Start $imageDate -End $currentDate
+
+              if (($difference.days -gt 30) -or (($difference.days -gt 7) -and ($tagParts[0].StartsWith("pr")))) {
+                foreach ($version in $versions) {
+                  try {
+                    az acr repository delete --name $(azureContainerRegistryName) --image '${version}_fhir-server:${tag}'
+                  }
+                  catch {
+                    Write-Host "No image with tag ${tag} in ${version} repository"
+                  }
+                }
+              }
+            }
+            catch {
+              Write-Host "Error deleting tag ${tag}"
+            }
+          }
+        }
+
+        foreach ($version in $versions) {
+          $repository = '${version}_fhir-server'
+          az acr repository show-manifests --name $(azureContainerRegistryName) --repository $repository --query "[?tags[0]==null].digest" -o tsv `
+          | %{ az acr repository delete --name $(azureContainerRegistryName) --image $repository@$_ --yes }
+        }
