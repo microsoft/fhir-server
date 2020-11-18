@@ -71,7 +71,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             string searchUrl = $"Patient/{Fixture.Patient.Id}/*?_type=foo";
 
             Bundle bundle = await Client.SearchAsync(searchUrl);
-            ValidateBundle(bundle, searchUrl);
+
+            string[] expectedDiagnostics = { string.Format(Core.Resources.InvalidTypeParameter, "'foo'") };
+            OperationOutcome.IssueType[] expectedCodeTypes = { OperationOutcome.IssueType.NotSupported };
+            OperationOutcome.IssueSeverity[] expectedIssueSeverities = { OperationOutcome.IssueSeverity.Warning };
+            var outcome = GetAndValidateOperationOutcome(bundle);
+            ValidateOperationOutcome(expectedDiagnostics, expectedIssueSeverities, expectedCodeTypes, outcome);
         }
 
         [Fact]
