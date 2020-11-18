@@ -102,8 +102,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             HttpResponseMessage response = await _testFhirClient.HttpClient.SendAsync(requestMessage);
             var responseContent = await response.Content.ReadAsStringAsync();
 
-            Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
-            Assert.Contains($"Failed to fetch the template collection.", responseContent);
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Contains($"The specified template collection image '{registry.ContainerRegistryServer}/{imageReference}' is not found.", responseContent);
         }
 
         private ContainerRegistryInfo GetTestContainerRegistryInfo()
