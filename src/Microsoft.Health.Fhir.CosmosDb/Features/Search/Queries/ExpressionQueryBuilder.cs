@@ -119,7 +119,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                     AppendSubquery(parameterName: null, expression.Expression, context);
                     break;
                 default:
-                    AppendSubquery(expression.Parameter.Name, expression.Expression, context);
+                    if (expression.Expression is NotExpression notExpression)
+                    {
+                        AppendSubquery(expression.Parameter.Name, notExpression.NegatedExpression, context, true);
+                    }
+                    else
+                    {
+                        AppendSubquery(expression.Parameter.Name, expression.Expression, context);
+                    }
+
                     break;
             }
 

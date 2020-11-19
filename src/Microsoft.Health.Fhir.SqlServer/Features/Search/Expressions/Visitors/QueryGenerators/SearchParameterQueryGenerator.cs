@@ -26,13 +26,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             short searchParamId = context.Model.GetSearchParamId(expression.Parameter.Url);
             SmallIntColumn searchParamIdColumn = VLatest.SearchParam.SearchParamId;
 
-            context.StringBuilder
-                .Append(searchParamIdColumn, context.TableAlias)
-                .Append(" = ")
-                .AppendLine(context.Parameters.AddParameter(searchParamIdColumn, searchParamId).ParameterName)
-                .Append("AND ");
+            if (expression.Expression is NotExpression notExpression)
+            {
+                context.StringBuilder
+                    .AppendLine("NOT EXISTS")
+                    .AppendLine("(")
+                    .AppendLine("SELECT *")
+                    .AppendLine("FROM TokenSearchParam r2")
+                    .AppendLine("WHERE IsHistory = 0")
+                    .AppendLine("AND ")
+                    .Append(" = ")
+                    .AppendLine(context.Parameters.AddParameter(searchParamIdColumn, searchParamId).ParameterName)
+                    .Append("AND ");
+            }
+            else
+            {
+                context.StringBuilder
+                    .Append(searchParamIdColumn, context.TableAlias)
+                    .Append(" = ")
+                    .AppendLine(context.Parameters.AddParameter(searchParamIdColumn, searchParamId).ParameterName)
+                    .Append("AND ");
 
-            return expression.Expression.AcceptVisitor(this, context);
+                return expression.Expression.AcceptVisitor(this, context);
+            }
         }
 
         public override SearchParameterQueryGeneratorContext VisitSortParameter(SortExpression expression, SearchParameterQueryGeneratorContext context)
