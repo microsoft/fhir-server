@@ -23,6 +23,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.DataCo
 {
     public class DataConvertRequestHandlerTests
     {
+        private readonly object balanceLock = new object();
+
         [Fact]
         public async Task GivenAConvertRequest_WhenDataConvert_CorrectResponseShouldReturn()
         {
@@ -42,13 +44,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.DataCo
             var patient = bundleResource.Entry.First().Resource as Patient;
             Assert.Equal("Kinmonth", patient.Name.First().Family);
             Assert.Equal("1987-06-24", patient.BirthDate);
-        }
-
-        [Fact]
-        public async Task GivenAConvertRequest_WhenDataConvertTimeout_ExceptionShouldBeThrown()
-        {
-            var timeOutRequestHandler = GetRequestHandler(1);
-            await Assert.ThrowsAsync<DataConvertTimeoutException>(() => timeOutRequestHandler.Handle(GetSampleHl7v2Request(), default));
         }
 
         private DataConvertRequestHandler GetRequestHandler(int milliseconds = 5000)

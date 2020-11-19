@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -31,7 +30,8 @@ namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
     /// </summary>
     public class AzureContainerRegistryAccessTokenProvider : IContainerRegistryTokenProvider
     {
-        private const string AadResourceUrl = "https://management.azure.com/";
+        private const string ARMResourceUrl = "https://management.azure.com/";
+        private const string ClassicalARMResourceUrl = "https://management.core.windows.net/";
         private const string ExchangeAcrRefreshTokenUrl = "oauth2/exchange";
         private const string GetAcrAccessTokenUrl = "oauth2/token";
 
@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
 
             CheckIfRegistryIsConfigured(registryServer);
 
-            var aadResourceUri = new Uri(AadResourceUrl);
+            var aadResourceUri = GetArmResourceUri(registryServer);
 
             string aadToken;
             try
@@ -169,6 +169,18 @@ namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
                   _logger.LogWarning(exception, $"Get ACR token failed. Retry {retryCount}");
               })
               .ExecuteAsync(() => httpClient.SendAsync(request, cancellationToken));
+        }
+
+        private Uri GetArmResourceUri(string registryServer)
+        {
+            // Determine which ARM resource uri to use for this registry. https://docs.microsoft.com/en-us/rest/api/azure/#request-uri
+            // Note ARMResourceUri will be chosen mostly except that registry is from dogfooding environment which end with 'azurecr-test'.
+            if (registryServer.EndsWith(".azurecr.io", StringComparison.OrdinalIgnoreCase))
+            {
+                return new Uri(ARMResourceUrl);
+            }
+
+            return new Uri(ClassicalARMResourceUrl);
         }
 
         private void CheckIfRegistryIsConfigured(string registryServer)
