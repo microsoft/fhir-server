@@ -24,11 +24,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
         protected override IEnumerable<ISearchValue> Convert(ITypedElement value)
         {
             var decimalValue = (decimal?)value.Scalar("value");
-            var currency = value.Scalar("currency")?.ToString();
 
-            if (decimalValue == null || currency == null)
+            if (decimalValue == null)
             {
                 yield break;
+            }
+
+            var currency = value.Scalar("currency")?.ToString();
+
+            // Currency information is specified differently if we are running STU3.
+            if (currency == null)
+            {
+                var code = value.Scalar("code")?.ToString();
+                var system = value.Scalar("system")?.ToString();
+
+                if (system == null || code == null)
+                {
+                    yield break;
+                }
+
+                yield return new QuantitySearchValue(
+                    system,
+                    code,
+                    decimalValue.GetValueOrDefault());
             }
 
             yield return new QuantitySearchValue(
