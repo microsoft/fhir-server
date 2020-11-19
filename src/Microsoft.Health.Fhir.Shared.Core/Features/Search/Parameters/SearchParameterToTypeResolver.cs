@@ -164,6 +164,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 }
 
                 if (expression.FunctionName == "where" ||
+                    expression.FunctionName == "first" ||
                     expression.FunctionName == "builtin.children" ||
                     expression.FunctionName == "builtin.item")
                 {
