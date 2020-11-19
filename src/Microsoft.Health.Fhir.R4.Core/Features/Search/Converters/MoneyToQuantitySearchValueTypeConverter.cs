@@ -26,12 +26,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
 
             if (systemAndCode == null || string.IsNullOrEmpty(systemAndCode.System) || string.IsNullOrEmpty(systemAndCode.Code))
             {
-                yield return null;
+                yield break;
             }
-            else
-            {
-                yield return new QuantitySearchValue(systemAndCode.System, systemAndCode.Code, value.Value.Value);
-            }
+
+            yield return new QuantitySearchValue(systemAndCode.System, systemAndCode.Code, value.Value.Value);
         }
     }
 }
