@@ -24,19 +24,16 @@ namespace Microsoft.Health.Fhir.R5.Core.UnitTests.Features.Search.Converters
         public void GivenMoneyWithValueAndCurrency_WhenConverted_ThenAQuantityValueShouldBeCreated()
         {
             const decimal value = 480;
-
-            const string expectedSystem = CurrencyValues.System;
-            string expectedUnit = Money.Currencies.USD.ToString();
-            decimal expectedValue = value;
+            var currency = Money.Currencies.USD;
 
             Test(
                 m =>
                 {
                     m.Value = value;
-                    m.Currency = Money.Currencies.USD;
+                    m.Currency = currency;
                 },
                 ValidateQuantity,
-                new Quantity(expectedValue, expectedUnit, expectedSystem));
+                new Quantity(value, currency.ToString(), CurrencyValues.System));
         }
 
         [Fact]
