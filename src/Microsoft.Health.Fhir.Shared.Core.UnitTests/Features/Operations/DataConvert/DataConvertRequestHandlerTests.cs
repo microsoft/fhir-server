@@ -23,8 +23,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.DataCo
 {
     public class DataConvertRequestHandlerTests
     {
-        private readonly object balanceLock = new object();
-
         [Fact]
         public async Task GivenAConvertRequest_WhenDataConvert_CorrectResponseShouldReturn()
         {
@@ -46,12 +44,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.DataCo
             Assert.Equal("1987-06-24", patient.BirthDate);
         }
 
-        private DataConvertRequestHandler GetRequestHandler(int milliseconds = 5000)
+        private DataConvertRequestHandler GetRequestHandler()
         {
             var dataConvertConfig = new DataConvertConfiguration
             {
                 Enabled = true,
-                OperationTimeout = TimeSpan.FromMilliseconds(milliseconds),
+                OperationTimeout = TimeSpan.FromMilliseconds(50),
             };
             dataConvertConfig.ContainerRegistryServers.Add("test.azurecr.io");
 
