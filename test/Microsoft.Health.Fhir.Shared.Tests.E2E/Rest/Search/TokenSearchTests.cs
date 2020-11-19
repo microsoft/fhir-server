@@ -50,5 +50,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             ValidateBundle(bundle, expected);
         }
+
+        [Theory]
+        [InlineData("a", 0, 1, 2, 3, 4, 5, 6, 7)]
+        [InlineData("code1", 1, 2, 3, 4, 7)]
+        [InlineData("code3", 0, 1, 2, 3, 5)]
+        [InlineData("a|b", 0, 1, 2, 3, 4, 5, 6, 7)]
+        [InlineData("system2|code2", 0, 2, 3, 4, 5, 6, 7)]
+        [InlineData("|code2", 0, 1, 2, 3, 4, 5, 6, 7)]
+        [InlineData("|code3", 0, 1, 2, 3, 4, 5, 6)]
+        [InlineData("a|", 0, 1, 2, 3, 4, 5, 6, 7)]
+        [InlineData("system3|", 0, 1, 2, 3, 7)]
+        public async Task GivenATokenSearchParameterWithNotModifier_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue, params int[] expectedIndices)
+        {
+            Bundle bundle = await Client.SearchAsync(ResourceType.Observation, $"value-concept:not={queryValue}");
+
+            Observation[] expected = expectedIndices.Select(i => Fixture.Observations[i]).ToArray();
+
+            ValidateBundle(bundle, expected);
+        }
     }
 }

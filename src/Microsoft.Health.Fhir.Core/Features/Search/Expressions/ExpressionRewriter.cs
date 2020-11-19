@@ -126,5 +126,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 }
             }
         }
+
+        public Expression VisitNotExpression(NotExpression expression, TContext context)
+        {
+            return expression;
+        }
     }
 }

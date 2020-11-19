@@ -243,9 +243,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
             EnsureOnlyEqualComparatorIsSupported();
 
-            if (_modifier == null)
+            if (_modifier == null || _modifier == SearchModifierCode.Not)
             {
-                // Based on spec http://hl7.org/fhir/STU3/search.html#token,
+                // Based on spec http://hl7.org/fhir/search.html#token,
                 // we need to make sure to test if system is missing or not based on how it is supplied.
                 if (token.System == null)
                 {
@@ -269,6 +269,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                     _outputExpression = Expression.And(
                         Expression.StringEquals(FieldName.TokenSystem, _componentIndex, token.System, false),
                         Expression.StringEquals(FieldName.TokenCode, _componentIndex, token.Code, false));
+                }
+
+                if (_modifier == SearchModifierCode.Not)
+                {
+                    _outputExpression = Expression.Not(_outputExpression);
                 }
             }
             else if (_modifier == SearchModifierCode.Above ||
