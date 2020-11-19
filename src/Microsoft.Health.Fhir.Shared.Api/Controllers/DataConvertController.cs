@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return new ContentResult
             {
                 Content = response.Resource,
-                ContentType = "application/json",
+                ContentType = "text/plain",
             };
         }
 
