@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Features.Search.Converters
         public void GivenMoneyWithValueAndCurrency_WhenConverted_ThenAQuantityValueShouldBeCreated()
         {
             const decimal value = 480;
-            var currency = Money.Currencies.USD;
+            const Money.Currencies currency = Money.Currencies.USD;
 
             Test(
                 m =>
