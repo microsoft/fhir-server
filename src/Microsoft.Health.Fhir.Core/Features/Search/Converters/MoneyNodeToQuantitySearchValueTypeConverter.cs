@@ -21,7 +21,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
         {
         }
 
-        // TODO: What behaviour should be expected for Stu3?
         protected override IEnumerable<ISearchValue> Convert(ITypedElement value)
         {
             var decimalValue = (decimal?)value.Scalar("value");
