@@ -32,15 +32,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.DataCo
                 Enabled = true,
                 OperationTimeout = TimeSpan.FromMilliseconds(50),
             };
-
-            var registry = new ContainerRegistryInfo
-            {
-                ContainerRegistryServer = "test.azurecr.io",
-            };
-            dataConvertConfig.ContainerRegistries.Add(registry);
+            dataConvertConfig.ContainerRegistryServers.Add("test.azurecr.io");
 
             IOptions<DataConvertConfiguration> dataConvertConfiguration = Options.Create(dataConvertConfig);
-
             IContainerRegistryTokenProvider tokenProvider = Substitute.For<IContainerRegistryTokenProvider>();
             tokenProvider.GetTokenAsync(Arg.Any<string>(), default).ReturnsForAnyArgs(x => GetToken(x[0].ToString(), dataConvertConfig));
 
@@ -79,7 +73,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.DataCo
         [InlineData("test.azurecr.com/template@sha256:592535ef52d742f81e35f4d87b43d9b535ed56cf58c90a14fc5fd7ea0fbb8696")]
         [InlineData("*****####.com/template:default")]
         [InlineData("¶Š™œãý£¾.com/template:default")]
-        public async Task GivenDataConvertRequest_WithUnregisteredRegistry_ContainerRegistryNotConfiguredExceptionShouldBeThrown(string templateReference)
+        public async Task GivenDataConvertRequest_WithUnconfiguredRegistry_ContainerRegistryNotConfiguredExceptionShouldBeThrown(string templateReference)
         {
             var request = GetHl7V2RequestWithTemplateReference(templateReference);
             await Assert.ThrowsAsync<ContainerRegistryNotConfiguredException>(() => _dataConvertEngine.Process(request, CancellationToken.None));
@@ -134,7 +128,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.DataCo
         // For unit tests, we only use the built-in templates and here returns an empty token.
         private string GetToken(string registry, DataConvertConfiguration config)
         {
-            if (!config.ContainerRegistries.Any(registryInfo => string.Equals(registryInfo.ContainerRegistryServer, registry, StringComparison.OrdinalIgnoreCase)))
+            if (!config.ContainerRegistryServers.Any(server => string.Equals(server, registry, StringComparison.OrdinalIgnoreCase)))
             {
                 throw new ContainerRegistryNotConfiguredException("Container registry not configured.");
             }

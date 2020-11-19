@@ -33,12 +33,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.DataCo
                 OperationTimeout = TimeSpan.FromMilliseconds(50),
                 ContainerRegistryTokenExpiration = TimeSpan.FromSeconds(1),
             };
-
-            var registry = new ContainerRegistryInfo
-            {
-                ContainerRegistryServer = "test.azurecr.io",
-            };
-            dataConvertConfig.ContainerRegistries.Add(registry);
+            dataConvertConfig.ContainerRegistryServers.Add("test.azurecr.io");
 
             var config = Options.Create(dataConvertConfig);
             _containerRegistryTemplateProvider = new ContainerRegistryTemplateProvider(tokenProvider, config, new NullLogger<ContainerRegistryTemplateProvider>());

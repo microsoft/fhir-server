@@ -21,7 +21,6 @@ using Microsoft.Azure.ContainerRegistry.Models;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations;
-using Microsoft.Health.Fhir.Core.Features.Operations.DataConvert.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -65,7 +64,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
             await PushTemplateSet(registry, TestRepositoryName, TestRepositoryTag);
 
-            var parameters = GetDataConvertParams(GetSampleHl7v2Message(), "hl7v2", $"{registry.ContainerRegistryServer}/{TestRepositoryName}:{TestRepositoryTag}", "ADT_A01");
+            var parameters = GetDataConvertParams(GetSampleHl7v2Message(), "hl7v2", $"{registry.Server}/{TestRepositoryName}:{TestRepositoryTag}", "ADT_A01");
             var requestMessage = GenerateDataConvertRequest(parameters);
             HttpResponseMessage response = await _testFhirClient.HttpClient.SendAsync(requestMessage);
 
@@ -96,30 +95,26 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
             await PushTemplateSet(registry, TestRepositoryName, TestRepositoryTag);
 
-            var parameters = GetDataConvertParams(GetSampleHl7v2Message(), "hl7v2", $"{registry.ContainerRegistryServer}/{imageReference}", "ADT_A01");
+            var parameters = GetDataConvertParams(GetSampleHl7v2Message(), "hl7v2", $"{registry.Server}/{imageReference}", "ADT_A01");
 
             var requestMessage = GenerateDataConvertRequest(parameters);
             HttpResponseMessage response = await _testFhirClient.HttpClient.SendAsync(requestMessage);
             var responseContent = await response.Content.ReadAsStringAsync();
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-            Assert.Contains($"The specified template collection image '{registry.ContainerRegistryServer}/{imageReference}' is not found.", responseContent);
+            Assert.Contains($"The specified template collection image '{registry.Server}/{imageReference}' is not found.", responseContent);
         }
 
         private ContainerRegistryInfo GetTestContainerRegistryInfo()
         {
-            ContainerRegistryInfo containerRegistry = _dataConvertConfiguration?.ContainerRegistries?.FirstOrDefault();
-            if (containerRegistry == null || string.IsNullOrWhiteSpace(containerRegistry.ContainerRegistryServer))
+            var containerRegistry = new ContainerRegistryInfo
             {
-                containerRegistry = new ContainerRegistryInfo
-                {
-                    ContainerRegistryServer = Environment.GetEnvironmentVariable("TestContainerRegistryServer"),
-                    ContainerRegistryUsername = Environment.GetEnvironmentVariable("TestContainerRegistryServer")?.Split('.')[0],
-                    ContainerRegistryPassword = Environment.GetEnvironmentVariable("TestContainerRegistryPassword"),
-                };
-            }
+                Server = Environment.GetEnvironmentVariable("TestContainerRegistryServer"),
+                Username = Environment.GetEnvironmentVariable("TestContainerRegistryServer")?.Split('.')[0],
+                Password = Environment.GetEnvironmentVariable("TestContainerRegistryPassword"),
+            };
 
-            if (containerRegistry == null || string.IsNullOrEmpty(containerRegistry.ContainerRegistryServer))
+            if (string.IsNullOrEmpty(containerRegistry.Server) || string.IsNullOrEmpty(containerRegistry.Password))
             {
                 return null;
             }
@@ -129,7 +124,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
         private async Task PushTemplateSet(ContainerRegistryInfo registry, string repository, string tag)
         {
-            AzureContainerRegistryClient acrClient = new AzureContainerRegistryClient(registry.ContainerRegistryServer, new AcrBasicToken(registry));
+            AzureContainerRegistryClient acrClient = new AzureContainerRegistryClient(registry.Server, new AcrBasicToken(registry));
 
             int schemaV2 = 2;
             string mediatypeV2Manifest = "application/vnd.docker.distribution.manifest.v2+json";
@@ -220,6 +215,15 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             return "MSH|^~\\&|SIMHOSP|SFAC|RAPP|RFAC|20200508131015||ADT^A01|517|T|2.3|||AL||44|ASCII\nEVN|A01|20200508131015|||C005^Whittingham^Sylvia^^^Dr^^^DRNBR^PRSNL^^^ORGDR|\nPID|1|3735064194^^^SIMULATOR MRN^MRN|3735064194^^^SIMULATOR MRN^MRN~2021051528^^^NHSNBR^NHSNMBR||Kinmonth^Joanna^Chelsea^^Ms^^CURRENT||19870624000000|F|||89 Transaction House^Handmaiden Street^Wembley^^FV75 4GJ^GBR^HOME||020 3614 5541^HOME|||||||||C^White - Other^^^||||||||\nPD1|||FAMILY PRACTICE^^12345|\nPV1|1|I|OtherWard^MainRoom^Bed 183^Simulated Hospital^^BED^Main Building^4|28b|||C005^Whittingham^Sylvia^^^Dr^^^DRNBR^PRSNL^^^ORGDR|||CAR|||||||||16094728916771313876^^^^visitid||||||||||||||||||||||ARRIVED|||20200508131015||";
         }
 
+        internal class ContainerRegistryInfo
+        {
+            public string Server { get; set; }
+
+            public string Username { get; set; }
+
+            public string Password { get; set; }
+        }
+
         internal class AcrBasicToken : ServiceClientCredentials
         {
             private ContainerRegistryInfo _registry;
@@ -236,7 +240,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
             public override Task ProcessHttpRequestAsync(HttpRequestMessage request, CancellationToken cancellationToken)
             {
-                var basicToken = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{_registry.ContainerRegistryUsername}:{_registry.ContainerRegistryPassword}"));
+                var basicToken = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{_registry.Username}:{_registry.Password}"));
                 request.Headers.Authorization = new AuthenticationHeaderValue("Basic", basicToken);
                 return base.ProcessHttpRequestAsync(request, cancellationToken);
             }

@@ -23,17 +23,11 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.DataCo
 {
     public class DataConvertRequestHandlerTests
     {
-        private readonly DataConvertRequestHandler _dataConvertRequestHandler;
-
-        public DataConvertRequestHandlerTests()
-        {
-            _dataConvertRequestHandler = GetRequestHandler();
-        }
-
         [Fact]
         public async Task GivenAConvertRequest_WhenDataConvert_CorrectResponseShouldReturn()
         {
-            var response = await _dataConvertRequestHandler.Handle(GetSampleHl7v2Request(), default);
+            var dataConvertRequestHandler = GetRequestHandler();
+            var response = await dataConvertRequestHandler.Handle(GetSampleHl7v2Request(), default);
 
             var setting = new ParserSettings()
             {
@@ -50,19 +44,21 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.DataCo
             Assert.Equal("1987-06-24", patient.BirthDate);
         }
 
-        private DataConvertRequestHandler GetRequestHandler()
+        [Fact]
+        public async Task GivenAConvertRequest_WhenDataConvertTimeout_ExceptionShouldBeThrown()
+        {
+            var timeOutRequestHandler = GetRequestHandler(1);
+            await Assert.ThrowsAsync<DataConvertTimeoutException>(() => timeOutRequestHandler.Handle(GetSampleHl7v2Request(), default));
+        }
+
+        private DataConvertRequestHandler GetRequestHandler(int milliseconds = 5000)
         {
             var dataConvertConfig = new DataConvertConfiguration
             {
                 Enabled = true,
-                OperationTimeout = TimeSpan.FromSeconds(30),
+                OperationTimeout = TimeSpan.FromMilliseconds(milliseconds),
             };
-
-            var registry = new ContainerRegistryInfo
-            {
-                ContainerRegistryServer = "test.azurecr.io",
-            };
-            dataConvertConfig.ContainerRegistries.Add(registry);
+            dataConvertConfig.ContainerRegistryServers.Add("test.azurecr.io");
 
             IOptions<DataConvertConfiguration> dataConvertConfiguration = Options.Create(dataConvertConfig);
 
