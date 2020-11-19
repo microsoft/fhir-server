@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             var entries = new List<SearchIndexEntry>();
 
-            var context = new FhirEvaluationContext(poco)
+            var context = new FhirEvaluationContext(resource.Instance)
             {
                 // Allows the indexer to parse the 'resolve' function i.e. CarePlan.subject.where(resolve() is Patient)
                 ElementResolver = _referenceToElementResolver.Resolve,

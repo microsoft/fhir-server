@@ -113,21 +113,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             IModelInfoProvider modelInfoProvider)
         {
             var issues = new List<OperationOutcomeIssue>();
-            var searchParameters = searchParamCollection.ToList();
+            var searchParameters = searchParamCollection.Select((x, entryIndex) =>
+            {
+                try
+                {
+                    return new SearchParameterWrapper(x);
+                }
+                catch (ArgumentException)
+                {
+                    AddIssue(Core.Resources.SearchParameterDefinitionInvalidResource, entryIndex);
+                    return null;
+                }
+            }).ToList();
 
             // Do the first pass to make sure all resources are SearchParameter.
             for (int entryIndex = 0; entryIndex < searchParameters.Count; entryIndex++)
             {
-                var searchParameterElement = searchParameters[entryIndex];
+                SearchParameterWrapper searchParameter = searchParameters[entryIndex];
 
-                // Make sure resources are not null and they are SearchParameter.
-                if (searchParameterElement == null || !string.Equals(searchParameterElement.InstanceType, KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase))
+                if (searchParameter == null)
                 {
-                    AddIssue(Core.Resources.SearchParameterDefinitionInvalidResource, entryIndex);
                     continue;
                 }
-
-                var searchParameter = new SearchParameterWrapper(searchParameterElement);
 
                 try
                 {
@@ -155,9 +162,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             };
 
             // Do the second pass to make sure the definition is valid.
-            foreach (var searchParameterElement in searchParameters)
+            foreach (var searchParameter in searchParameters)
             {
-                var searchParameter = new SearchParameterWrapper(searchParameterElement);
+                if (searchParameter == null)
+                {
+                    continue;
+                }
 
                 // If this is a composite search parameter, then make sure components are defined.
                 if (string.Equals(searchParameter.Type, SearchParamType.Composite.GetLiteral(), StringComparison.OrdinalIgnoreCase))
@@ -209,7 +219,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 }
 
                 // Make sure the base is defined.
-                var bases = searchParameter.Base;
+                IReadOnlyList<string> bases = searchParameter.Base;
                 if (bases.Count == 0)
                 {
                     AddIssue(Core.Resources.SearchParameterDefinitionBaseNotDefined, searchParameter.Url);
@@ -287,9 +297,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             string baseType = modelInfoProvider.GetFhirTypeNameForType(type.BaseType);
 
-            if (baseType != null)
+            if (baseType != null && !string.Equals(KnownResourceTypes.Base, baseType, StringComparison.OrdinalIgnoreCase))
             {
-                var baseResults = BuildSearchParameterDefinition(searchParametersLookup, baseType, resourceTypeDictionary, modelInfoProvider);
+                HashSet<SearchParameterInfo> baseResults = BuildSearchParameterDefinition(searchParametersLookup, baseType, resourceTypeDictionary, modelInfoProvider);
                 results.UnionWith(baseResults);
             }
 

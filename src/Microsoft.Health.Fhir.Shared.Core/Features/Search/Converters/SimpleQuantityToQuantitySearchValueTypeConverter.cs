@@ -12,9 +12,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     /// <summary>
     /// A converter used to convert from <see cref="SimpleQuantity"/> to a list of <see cref="QuantitySearchValue"/>.
     /// </summary>
-    public class SimpleQuantityToQuantitySearchValueTypeConverter : FhirElementToSearchValueTypeConverter<SimpleQuantity, QuantitySearchValue>
+    public class SimpleQuantityToQuantitySearchValueTypeConverter : FhirElementToSearchValueTypeConverter<Quantity, QuantitySearchValue>
     {
-        protected override IEnumerable<QuantitySearchValue> ConvertTo(SimpleQuantity value)
+        protected override IEnumerable<QuantitySearchValue> ConvertTo(Quantity value)
         {
             if (value.Value == null)
             {

@@ -10,7 +10,7 @@ using static Microsoft.Health.Fhir.Tests.Common.Search.SearchValueValidationHelp
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Converters
 {
-    public class SimpleQuantityToQuantitySearchValueTypeConverterTests : FhirElementToSearchValueTypeConverterTests<SimpleQuantityToQuantitySearchValueTypeConverter, SimpleQuantity>
+    public class SimpleQuantityToQuantitySearchValueTypeConverterTests : FhirElementToSearchValueTypeConverterTests<SimpleQuantityToQuantitySearchValueTypeConverter, Quantity>
     {
         [Fact]
         public void GivenASimpleQuantityWithNoValue_WhenConverted_ThenNoSearchValueShouldBeCreated()

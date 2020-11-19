@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                         issue.Code.ToString(),
                         diagnostics: issue.Diagnostics,
                         detailsText: issue.Details?.Text,
-                        detailsCodes: issue.Details?.Coding != null ? new CodableConceptInfo(issue.Details.Coding.Select(x => new Hl7.Fhir.Model.Primitives.Coding(x.System, x.Code, x.Display))) : null,
+                        detailsCodes: issue.Details?.Coding != null ? new CodableConceptInfo(issue.Details.Coding.Select(x => new Coding(x.System, x.Code, x.Display))) : null,
                         location: issue.Location.ToArray()))
                 .ToArray();
 

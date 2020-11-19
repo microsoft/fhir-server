@@ -7,9 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-#if Stu3
 using System.Reflection;
-#endif
 using System.Text;
 using Hl7.Fhir.Introspection;
 using Hl7.Fhir.Model;
@@ -224,7 +222,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                     PropertyMapping prop = mapping.PropertyMappings.FirstOrDefault(x => x.Name == item.Item1);
                     if (prop != null)
                     {
-                        if (prop.GetElementType() == typeof(Element))
+                        if (prop.GetElementType() == typeof(Element) || prop.GetElementType() == typeof(DataType) || prop.Choice == ChoiceType.DatatypeChoice)
                         {
                             string path = pathBuilder.ToString();
                             foreach (Type fhirType in prop.FhirType)
@@ -303,7 +301,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
         private static ClassMapping GetMapping(Type type)
         {
-            ClassMapping returnValue = ModelInspector.FindClassMappingByType(type);
+            ClassMapping returnValue = ModelInspector.FindClassMapping(type);
 
             if (returnValue == null)
             {
@@ -315,19 +313,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
         private static ModelInspector GetModelInspector()
         {
-#if Stu3
-            // This method was internal in STU3
-            PropertyInfo inspector = typeof(BaseFhirParser).GetProperty("Inspector", BindingFlags.Static | BindingFlags.NonPublic);
+            string methodName = "GetStructureDefinitionSummaryProvider";
+            MethodInfo modelInspectorMethod = typeof(ModelInfo).GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static);
 
-            if (inspector != null)
+            if (modelInspectorMethod == null)
             {
-                return (ModelInspector)inspector.GetValue(null);
+                throw new MissingMethodException(nameof(ModelInfo), methodName);
             }
 
-            throw new MissingMemberException($"{nameof(BaseFhirParser)}.Inspector property was not able to be accessed.");
-#else
-            return BaseFhirParser.Inspector;
-#endif
+            return (ModelInspector)modelInspectorMethod.Invoke(null, null);
         }
 
         private class Context

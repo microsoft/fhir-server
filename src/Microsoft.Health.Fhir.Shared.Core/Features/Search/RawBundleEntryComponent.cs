@@ -12,7 +12,7 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Shared.Core.Features.Search
 {
-    [FhirType(IsResource = true)]
+    [FhirType("EntryComponent")]
     public class RawBundleEntryComponent : Bundle.EntryComponent
     {
         public RawBundleEntryComponent(ResourceWrapper resourceWrapper)

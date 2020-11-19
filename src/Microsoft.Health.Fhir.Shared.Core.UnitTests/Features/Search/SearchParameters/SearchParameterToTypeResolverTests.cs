@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private static readonly FhirPathCompiler _compiler = new FhirPathCompiler();
 
         [Fact]
-        public void GivenAFhirPathExpressionWithFirstFunction_WhenResolvingTypes_ThenTheyAreRetunedCorrectly()
+        public void GivenAFhirPathExpressionWithFirstFunction_WhenResolvingTypes_ThenTheyAreReturnedCorrectly()
         {
             var expression = _compiler.Parse("Patient.extension.where(url = 'http://hl7.org/fhir/us/core/StructureDefinition/us-core-race').first().extension.where(url = 'ombCategory').value");
             SearchParameterTypeResult[] results = SearchParameterToTypeResolver.Resolve(
@@ -26,14 +26,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 (SearchParamType.Token, expression, new Uri("http://hl7.org/fhir/SearchParameter/Patient-race")),
                 null).ToArray();
 
-            if (ModelInfoProvider.Version == FhirSpecification.Stu3)
-            {
-                Assert.Equal(38, results?.Length);
-            }
-            else
-            {
-                Assert.Equal(49, results?.Length);
-            }
+            Assert.Equal("DataType", results.Single().FhirNodeType);
+        }
+
+        [Fact]
+        public void GivenAFhirPathExpressionWithAsFunction_WhenResolvingTypes_ThenTheyAreReturnedCorrectly()
+        {
+            var expression = _compiler.Parse("Patient.extension.where(url = 'http://hl7.org/fhir/us/core/StructureDefinition/us-core-race').first().extension.where(url = 'ombCategory').value.as(string)");
+            SearchParameterTypeResult[] results = SearchParameterToTypeResolver.Resolve(
+                KnownResourceTypes.Patient,
+                (SearchParamType.Token, expression, new Uri("http://hl7.org/fhir/SearchParameter/Patient-race")),
+                null).ToArray();
+
+            Assert.Equal("string", results.Single().FhirNodeType);
         }
     }
 }
