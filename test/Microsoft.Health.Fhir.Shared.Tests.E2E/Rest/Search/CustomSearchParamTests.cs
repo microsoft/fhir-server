@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             reindexJobResult = await Client.CheckReindexAsync(reindexJobUri);
             var param = reindexJobResult.Resource.Parameter.Where(p => p.Name == "searchParams").FirstOrDefault();
 
-            Assert.Equal("http://hl7.org/fhir/SearchParameter/Patient-foo", param.Value.ToString());
+            Assert.Contains("http://hl7.org/fhir/SearchParameter/Patient-foo", param.Value.ToString());
 
             await WaitForReindexStatus(reindexJobUri, "Completed");
 
