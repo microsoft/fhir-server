@@ -108,10 +108,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         }
 
         /// <summary>
-        /// Parses the _typeFilter parameter from a string into a list of ExportJobFilter objects.
+        /// Parses the _typeFilter parameter from a string into a list of <see cref="ExportJobFilter"/> objects.
         /// </summary>
-        /// <param name="filterString"></param>
-        /// <returns></returns>
+        /// <param name="filterString">The _typeFilter parameter input.</param>
+        /// <returns>A list of <see cref="ExportJobFilter"/></returns>
         private IList<ExportJobFilter> ParseFilter(string filterString)
         {
             var filters = new List<ExportJobFilter>();
@@ -143,7 +143,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
             catch
             {
-                throw new BadRequestException(Resources.InvalidTypeFilter);
+                // TODO: Replace message
+                throw new BadRequestException(Resources.ExportFormatNotFound);
             }
         }
 

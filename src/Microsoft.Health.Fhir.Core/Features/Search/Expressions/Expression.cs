@@ -251,6 +251,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return new CompartmentSearchExpression(compartmentType, compartmentId);
         }
 
+        /// <summary>
+        /// Creates a <see cref="NotExpression"/> that represents a negated expression.
+        /// </summary>
+        /// <param name="expression">The expression to negate.</param>
+        /// <returns>A <see cref="NotExpression"/> that represents a negated expression.</returns>
+        public static NotExpression Not(Expression expression)
+        {
+            return new NotExpression(expression);
+        }
+
         public abstract TOutput AcceptVisitor<TContext, TOutput>(IExpressionVisitor<TContext, TOutput> visitor, TContext context);
 
         /// <inheritdoc />

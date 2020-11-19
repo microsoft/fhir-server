@@ -243,7 +243,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
             EnsureOnlyEqualComparatorIsSupported();
 
-            if (_modifier == null)
+            if (_modifier == null ||
+                _modifier == SearchModifierCode.Not)
             {
                 // Based on spec http://hl7.org/fhir/search.html#token,
                 // we need to make sure to test if system is missing or not based on how it is supplied.
@@ -270,33 +271,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                         Expression.StringEquals(FieldName.TokenSystem, _componentIndex, token.System, false),
                         Expression.StringEquals(FieldName.TokenCode, _componentIndex, token.Code, false));
                 }
-            }
-            else if (_modifier == SearchModifierCode.Not)
-            {
-                // Based on spec http://hl7.org/fhir/search.html#token,
-                // we need to make sure to test if system is missing or not based on how it is supplied.
-                if (token.System == null)
+
+                if (_modifier == SearchModifierCode.Not)
                 {
-                    // If the system is not supplied, then the token code is matched irrespective of the value of system.
-                    _outputExpression = Expression.NotContains(FieldName.TokenCode, _componentIndex, token.Code, false);
-                }
-                else if (token.System.Length == 0)
-                {
-                    // If the system is empty, then the token is matched if there is no system property.
-                    _outputExpression = Expression.And(
-                        Expression.Missing(FieldName.TokenSystem, _componentIndex),
-                        Expression.NotContains(FieldName.TokenCode, _componentIndex, token.Code, false));
-                }
-                else if (string.IsNullOrWhiteSpace(token.Code))
-                {
-                    // If the code is empty, then the token is matched if system is matched.
-                    _outputExpression = Expression.NotContains(FieldName.TokenSystem, _componentIndex, token.System, false);
-                }
-                else
-                {
-                    _outputExpression = Expression.Or(
-                        Expression.NotContains(FieldName.TokenSystem, _componentIndex, token.System, false),
-                        Expression.NotContains(FieldName.TokenCode, _componentIndex, token.Code, false));
+                    _outputExpression = Expression.Not(_outputExpression);
                 }
             }
             else if (_modifier == SearchModifierCode.Above ||

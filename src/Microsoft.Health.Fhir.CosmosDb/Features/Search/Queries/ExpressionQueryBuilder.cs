@@ -226,17 +226,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                     break;
 
                 default:
-                {
-                    string message = string.Format(
-                        CultureInfo.InvariantCulture,
-                        Resources.UnhandledEnumValue,
-                        nameof(MultiaryOperator),
-                        op);
+                    {
+                        string message = string.Format(
+                            CultureInfo.InvariantCulture,
+                            Resources.UnhandledEnumValue,
+                            nameof(MultiaryOperator),
+                            op);
 
-                    Debug.Fail(message);
+                        Debug.Fail(message);
 
-                    throw new InvalidOperationException(message);
-                }
+                        throw new InvalidOperationException(message);
+                    }
             }
 
             if (op == MultiaryOperator.Or)
@@ -309,6 +309,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
         public object VisitInclude(IncludeExpression expression, Context context)
         {
             throw new InvalidOperationException($"Include expression should have been removed before reaching {nameof(ExpressionQueryBuilder)}.");
+        }
+
+        public object VisitNot(NotExpression expression, Context context)
+        {
+            _queryBuilder.Append("NOT (");
+            expression.NegatedExpression.AcceptVisitor(this, context);
+            _queryBuilder.Append(")");
+
+            return null;
         }
 
         private static string GetCompartmentIndicesParamName(string compartmentType)

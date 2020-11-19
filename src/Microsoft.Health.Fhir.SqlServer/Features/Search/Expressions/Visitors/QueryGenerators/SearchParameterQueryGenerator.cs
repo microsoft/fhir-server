@@ -85,6 +85,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             return context;
         }
 
+        public override SearchParameterQueryGeneratorContext VisitNot(NotExpression expression, SearchParameterQueryGeneratorContext context)
+        {
+            context.StringBuilder.Append("NOT (");
+            expression.NegatedExpression.AcceptVisitor(this, context);
+            context.StringBuilder.Append(")");
+
+            return context;
+        }
+
         private static bool TryEscapeValueForLike(ref string value)
         {
             var escapedValue = LikeEscapingRegex.Replace(value, "!$0");
