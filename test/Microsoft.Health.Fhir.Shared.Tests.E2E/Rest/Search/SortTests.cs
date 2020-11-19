@@ -343,6 +343,61 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await ExecuteAndValidateBundle($"Observation?_tag={tag}&_sort=-date&_include=Observation:subject", false, resources.ToArray());
         }
 
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenQueryWithObservation_WhenSearchedForItemsWithSubjectAndSort_ThenResourcesAreReturnedInAscendingOrder()
+        {
+            var tag = Guid.NewGuid().ToString();
+
+            var expected_resources = new List<Resource>();
+
+            // create the resources which will have an timestamp bigger than the 'now' var
+            var patients = await CreatePatients(tag);
+
+            var dates = new string[] { "1990-01-01", "1991-01-01", "1992-01-01", "1993-01-01" };
+            var observations = new List<Observation>();
+            for (int i = 0; i < patients.Length; i++)
+            {
+                var obs = await AddObservationToPatient(patients[i], dates[i], tag);
+                observations.Add(obs.First());
+            }
+
+            // Add observation with no patient-> no subject, but we don't keep it in the expected result set.
+            // observations.Add(AddObservationToPatient(null, dates[0], tag).Result.First());
+            await AddObservationToPatient(null, dates[0], tag);
+
+            expected_resources.AddRange(observations);
+
+            // Get observations
+            await ExecuteAndValidateBundle($"Observation?_tag={tag}&_sort=date&subject:missing=false", false, expected_resources.ToArray());
+        }
+
+        [Fact]
+        [HttpIntegrationFixtureArgumentSets(dataStores: DataStore.SqlServer)]
+        public async Task GivenQueryWithObservation_WhenSearchedForItemsWithNoSubjectAndSort_ThenResourcesAreReturnedInAscendingOrder()
+        {
+            var tag = Guid.NewGuid().ToString();
+
+            var expected_resources = new List<Resource>();
+
+            // create the resources which will have an timestamp bigger than the 'now' var
+            var patients = await CreatePatients(tag);
+
+            var dates = new string[] { "1990-01-01", "1991-01-01", "1992-01-01", "1993-01-01" };
+            var observations = new List<Observation>();
+            for (int i = 0; i < patients.Length; i++)
+            {
+                var obs = await AddObservationToPatient(patients[i], dates[i], tag);
+                observations.Add(obs.First());
+            }
+
+            // Add observation with no patient-> no subject, and we keep it alone in the expected result set.
+            expected_resources.Add(AddObservationToPatient(null, dates[0], tag).Result.First());
+
+            // Get observations
+            await ExecuteAndValidateBundle($"Observation?_tag={tag}&_sort=date&subject:missing=true", false, expected_resources.ToArray());
+        }
+
         private async Task<Patient[]> CreatePatients(string tag)
         {
             // Create various resources.

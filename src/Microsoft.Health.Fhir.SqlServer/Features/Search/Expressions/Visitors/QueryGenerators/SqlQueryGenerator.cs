@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private int _tableExpressionCounter = -1;
         private SqlRootExpression _rootExpression;
         private readonly SchemaInformation _schemaInfo;
-
+        private bool _sortVisited = false;
         private HashSet<int> _cteToLimit = new HashSet<int>();
 
         public SqlQueryGenerator(IndentedStringBuilder sb, SqlQueryParameterManager parameters, SqlServerFhirModel model, bool isHistorySearch, SchemaInformation schemaInfo)
@@ -179,6 +179,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private static string TableExpressionName(int id) => "cte" + id;
 
+        private bool IsInSortMode(SearchOptions context) => context.Sort != null && context.Sort.Count > 0 && _sortVisited;
+
         public object VisitTable(TableExpression tableExpression, SearchOptions context)
         {
             const string referenceSourceTableAlias = "refSource";
@@ -190,8 +192,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                     if (tableExpression.ChainLevel == 0)
                     {
-                        StringBuilder.Append("SELECT ").Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid1")
-                            .Append("FROM ").AppendLine(tableExpression.SearchParameterQueryGenerator.Table);
+                        int predecessorIndex = FindRestrictingPredecessorTableExpressionIndex();
+
+                        // if this is not sort mode or if it is the first cte
+                        if (!IsInSortMode(context) || predecessorIndex < 0)
+                        {
+                            StringBuilder.Append("SELECT ").Append(VLatest.Resource.ResourceSurrogateId, null).AppendLine(" AS Sid1")
+                                .Append("FROM ").AppendLine(tableExpression.SearchParameterQueryGenerator.Table);
+                        }
+                        else
+                        {
+                            // we are in sort mode and we need to join with previous cte to propagate the SortValue
+                            var cte = TableExpressionName(predecessorIndex);
+                            StringBuilder.Append("SELECT ").Append(VLatest.Resource.ResourceSurrogateId, null).Append(" AS Sid1, ")
+                                .Append(cte).AppendLine(".SortValue")
+                                .Append("FROM ").AppendLine(tableExpression.SearchParameterQueryGenerator.Table)
+                            .Append("INNER JOIN ").AppendLine(cte);
+
+                            using (var delimited = StringBuilder.BeginDelimitedOnClause())
+                            {
+                                delimited.BeginDelimitedElement().Append(VLatest.Resource.ResourceSurrogateId, null).Append(" = ").Append(cte).Append(".Sid1");
+                            }
+                        }
                     }
                     else
                     {
@@ -209,9 +231,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     {
                         AppendHistoryClause(delimited);
 
-                        if (tableExpression.ChainLevel == 0)
+                        if (tableExpression.ChainLevel == 0 && !IsInSortMode(context))
                         {
-                            // if chainLevel > 0, the intersection is already handled in the JOIN
+                            // if chainLevel > 0 or if in sort mode, the intersection is already handled in the JOIN
                             AppendIntersectionWithPredecessor(delimited, tableExpression);
                         }
 
@@ -254,7 +276,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     break;
 
                 case TableExpressionKind.NotExists:
-                    StringBuilder.Append("SELECT Sid1 FROM ").AppendLine(TableExpressionName(_tableExpressionCounter - 1));
+                    StringBuilder.Append("SELECT Sid1");
+                    StringBuilder.AppendLine(context.Sort?.Count > 0 ? ", SortValue" : string.Empty);
+                    StringBuilder.Append("FROM ").AppendLine(TableExpressionName(_tableExpressionCounter - 1));
                     StringBuilder.AppendLine("WHERE Sid1 NOT IN").AppendLine("(");
 
                     using (StringBuilder.Indent())
@@ -699,6 +723,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                             AppendIntersectionWithPredecessor(delimited, tableExpression);
                         }
                     }
+
+                    _sortVisited = true;
 
                     break;
                 default:
