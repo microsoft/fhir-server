@@ -57,7 +57,10 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         public async Task GivenAValidRequestWithCustomizedTemplateSet_WhenDataConvert_CorrectResponseShouldReturn()
         {
             var registry = GetTestContainerRegistryInfo();
-            if (registry == null)
+
+            // Here we skip local E2E test since we need Managed Identity for container registry token.
+            // We also skip the case when environmental variable is not provided (not able to upload templates)
+            if (_dataConvertConfiguration != null || registry == null)
             {
                 return;
             }
@@ -88,7 +91,10 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         public async Task GivenAValidRequest_ButTemplateSetIsNotFound_WhenDataConvert_ShouldReturnError(string imageReference)
         {
             var registry = GetTestContainerRegistryInfo();
-            if (registry == null)
+
+            // Here we skip local E2E test since we need Managed Identity for container registry token.
+            // We also skip the case when environmental variable is not provided (not able to upload templates)
+            if (_dataConvertConfiguration != null || registry == null)
             {
                 return;
             }
