@@ -457,4 +457,8 @@
     <value>The format '{0}' could not be found.</value>
     <comment>{0}: The provided format name</comment>
   </data>
+  <data name="InvalidTypeParameter" xml:space="preserve">
+    <value>The '_type' parameter contains unknown resource(s): {0}</value>
+    <comment>{0}: Single or list of unknown resources.</comment>
+  </data>
 </root>

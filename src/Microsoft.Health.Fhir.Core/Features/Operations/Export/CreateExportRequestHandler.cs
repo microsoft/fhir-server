@@ -154,7 +154,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             if (formatName != null)
             {
-                formatConfiguration = _exportJobConfiguration.Formats.FirstOrDefault(
+                formatConfiguration = _exportJobConfiguration.Formats?.FirstOrDefault(
                 (ExportJobFormatConfiguration formatConfig) => formatConfig.Name.Equals(formatName, StringComparison.OrdinalIgnoreCase));
 
                 if (formatConfiguration == null)
@@ -163,7 +163,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 }
             }
 
-            formatConfiguration ??= _exportJobConfiguration.Formats.FirstOrDefault(
+            formatConfiguration ??= _exportJobConfiguration.Formats?.FirstOrDefault(
                 (ExportJobFormatConfiguration formatConfig) => formatConfig.Default);
 
             formatConfiguration ??= new ExportJobFormatConfiguration()

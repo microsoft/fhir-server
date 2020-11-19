@@ -270,7 +270,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
         [InlineData(true, ExportFormatTags.Timestamp + "-" + ExportFormatTags.Id + "/" + ExportFormatTags.ResourceName)]
         public async Task GivenARequest_WhenNoFormatsAreSet_ThenHardcodedDefaultIsReturned(bool containerSpecified, string expectedFormat)
         {
-            _exportJobConfiguration.Formats.Clear();
+            _exportJobConfiguration.Formats = null;
 
             ExportJobRecord actualRecord = null;
             await _fhirOperationDataStore.CreateExportJobAsync(
