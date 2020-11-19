@@ -91,5 +91,5 @@ The Azure API for FHIR and the OSS FHIR Server for Azure use [Azure Active Direc
             ]
         }
     ]
-}
-    ```
+    }
+
