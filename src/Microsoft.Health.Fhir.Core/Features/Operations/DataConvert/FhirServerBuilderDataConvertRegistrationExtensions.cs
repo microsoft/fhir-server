@@ -33,7 +33,6 @@ namespace Microsoft.Extensions.DependencyInjection
         {
             // Add memory cache to store template object and ACR access tokens
             // ToDo: add size limit
-            fhirServerBuilder.Services.AddMemoryCache();
             fhirServerBuilder.Services.AddSingleton<IDataConvertTemplateProvider, ContainerRegistryTemplateProvider>();
 
             return fhirServerBuilder;

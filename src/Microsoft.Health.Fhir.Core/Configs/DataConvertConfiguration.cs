@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using Microsoft.Health.Fhir.Core.Features.Operations.DataConvert.Models;
 using Microsoft.Health.Fhir.TemplateManagement.Models;
 
 namespace Microsoft.Health.Fhir.Core.Configs
@@ -20,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// <summary>
         /// Determines the registered container registry list.
         /// </summary>
-        public List<ContainerRegistryInfo> ContainerRegistries { get; } = new List<ContainerRegistryInfo>();
+        public List<string> ContainerRegistryServers { get; } = new List<string>();
 
         /// <summary>
         /// Configuration for templates.

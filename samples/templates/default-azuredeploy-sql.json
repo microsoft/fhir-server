@@ -165,6 +165,7 @@
         "deployAppInsights": "[parameters('deployApplicationInsights')]",
         "appInsightsName": "[concat('AppInsights-', variables('serviceName'))]",
         "storageBlobDataContributerRoleId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]",
+        "acrPullRoleId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', '7f951dda-4ed3-4680-a7ca-43fe172d538d')]",
         "blobStorageUri": "[if(variables('isMAG'), '.blob.core.usgovcloudapi.net', '.blob.core.windows.net')]",
         "staticFhirServerConfigProperties": {
             "APPINSIGHTS_PORTALINFO": "ASP.NETCORE",
@@ -183,7 +184,7 @@
             "FhirServer:Operations:Export:Enabled": "[parameters('enableExport')]",
             "FhirServer:Operations:Export:StorageAccountUri": "[if(parameters('enableExport'), concat('https://', variables('storageAccountName'), variables('blobStorageUri')), 'null')]",
             "FhirServer:Operations:DataConvert:Enabled": "[parameters('enableDataConvert')]",
-            "FhirServer:Operations:DataConvert:ContainerRegistries:0:ContainerRegistryServer": "[if(parameters('enableDataConvert'), concat(variables('azureContainerRegistryName'), variables('azureContainerRegistryUri')), 'null')]"
+            "FhirServer:Operations:DataConvert:ContainerRegistryServers:0": "[if(parameters('enableDataConvert'), concat(variables('azureContainerRegistryName'), variables('azureContainerRegistryUri')), 'null')]"
         },
         "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'))]",
         "computedSqlServerReference": "[concat('Microsoft.Sql/servers/', variables('serviceName'))]",
@@ -261,9 +262,7 @@
                     "dependsOn": [
                         "[variables('appServiceResourceId')]",
                         "[if(variables('deployAppInsights'),concat('Microsoft.Insights/components/', variables('appInsightsName')),resourceId('Microsoft.KeyVault/vaults', variables('serviceName')))]",
-                        "[resourceId('Microsoft.KeyVault/vaults/secrets', variables('serviceName'), 'SqlServer--ConnectionString')]",
-                        "[resourceId('Microsoft.KeyVault/vaults/secrets', variables('serviceName'), 'FhirServer--Operations--DataConvert--ContainerRegistries--0--ContainerRegistryUsername')]",
-                        "[resourceId('Microsoft.KeyVault/vaults/secrets', variables('serviceName'), 'FhirServer--Operations--DataConvert--ContainerRegistries--0--ContainerRegistryPassword')]"
+                        "[resourceId('Microsoft.KeyVault/vaults/secrets', variables('serviceName'), 'SqlServer--ConnectionString')]"
                     ]
                 }
             ]
@@ -431,32 +430,19 @@
             }
         },
         {
-            "type": "Microsoft.KeyVault/vaults/secrets",
-            "name": "[concat(variables('serviceName'), '/FhirServer--Operations--DataConvert--ContainerRegistries--0--ContainerRegistryUsername')]",
-            "apiVersion": "2015-06-01",
-            "properties": {
-                "contentType": "text/plain",
-                "value": "[variables('azureContainerRegistryName')]"
-            },
+            "type": "Microsoft.ContainerRegistry/registries/providers/roleAssignments",
+            "apiVersion": "2018-09-01-preview",
+            "name": "[concat(variables('azureContainerRegistryName'), '/Microsoft.Authorization/', guid(uniqueString(variables('azureContainerRegistryName'), 'Acr', parameters('fhirVersion'), variables('serviceName'))))]",
             "condition": "[parameters('enableDataConvert')]",
             "dependsOn": [
-                "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]",
-                "[variables('azureContainerRegistryName')]"
-            ]
-        },
-        {
-            "type": "Microsoft.KeyVault/vaults/secrets",
-            "name": "[concat(variables('serviceName'), '/FhirServer--Operations--DataConvert--ContainerRegistries--0--ContainerRegistryPassword')]",
-            "apiVersion": "2015-06-01",
-            "condition": "[parameters('enableDataConvert')]",
+                "[variables('azureContainerRegistryName')]",
+                "[variables('serviceName')]"
+            ],
             "properties": {
-                "contentType": "text/plain",
-                "value": "[if(parameters('enableDataConvert'), listCredentials(resourceId('Microsoft.ContainerRegistry/registries', variables('azureContainerRegistryName')), '2017-10-01').passwords[0].value, '')]"
-            },
-            "dependsOn": [
-                "[resourceId('Microsoft.KeyVault/vaults', variables('serviceName'))]",
-                "[variables('azureContainerRegistryName')]"
-            ]
+                "roleDefinitionId": "[variables('acrPullRoleId')]",
+                "principalId": "[reference(concat('Microsoft.Web/sites/', variables('serviceName')), '2018-11-01', 'full').identity.principalId]",
+                "principalType": "ServicePrincipal"
+            }
         }
     ]
 }

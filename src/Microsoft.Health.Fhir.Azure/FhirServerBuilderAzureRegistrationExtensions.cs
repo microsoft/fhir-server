@@ -68,7 +68,10 @@ namespace Microsoft.Health.Fhir.Azure
         {
             EnsureArg.IsNotNull(fhirServerBuilder, nameof(fhirServerBuilder));
 
-            fhirServerBuilder.Services.Add<ContainerRegistryBasicTokenProvider>()
+            fhirServerBuilder.Services.Add<AzureAccessTokenProvider>()
+                .Transient()
+                .AsService<IAccessTokenProvider>();
+            fhirServerBuilder.Services.Add<AzureContainerRegistryAccessTokenProvider>()
                 .Singleton()
                 .AsService<IContainerRegistryTokenProvider>();
 
