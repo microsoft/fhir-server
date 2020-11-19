@@ -32,6 +32,7 @@ namespace Microsoft.Health.Fhir.Stu3.Core.UnitTests.Features.Search.Converters.N
                 {
                     m.Value = value;
                     m.Code = code;
+                    m.System = CurrencyValues.System;
                 },
                 ValidateQuantity,
                 new Quantity(value, code, CurrencyValues.System));

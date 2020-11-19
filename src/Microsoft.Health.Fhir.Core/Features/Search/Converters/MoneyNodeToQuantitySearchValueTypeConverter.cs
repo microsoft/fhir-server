@@ -48,11 +48,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
                     code,
                     decimalValue.GetValueOrDefault());
             }
-
-            yield return new QuantitySearchValue(
-                CurrencyValues.System,
-                currency,
-                decimalValue.GetValueOrDefault());
+            else
+            {
+                yield return new QuantitySearchValue(
+                    CurrencyValues.System,
+                    currency,
+                    decimalValue.GetValueOrDefault());
+            }
         }
     }
 }
