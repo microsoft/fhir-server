@@ -62,7 +62,7 @@ jobs:
   steps:
   - task: AzureCLI@2
     displayName: 'Delete Image'
-    imputs:
+    inputs:
       azureSubscription: $(ConnectedServiceName)
       scriptType: ps
       scriptLocation: InlineScript
