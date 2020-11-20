@@ -1,9 +1,6 @@
 # DESCRIPTION: 	
 # Removes old docker images.
 
-trigger: none
-pr: none
-
 variables:
 - template: build-variables.yml
 
