@@ -31,6 +31,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Controllers
 
         public DataConvertControllerTests()
         {
+            _dataConvertJobConfig.ContainerRegistryServers.Add("test.azurecr.io");
             _dataConverteEnabledController = GetController(_dataConvertJobConfig);
             var controllerContext = new ControllerContext() { HttpContext = _httpContext };
             _dataConverteEnabledController.ControllerContext = controllerContext;

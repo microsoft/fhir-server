@@ -15,6 +15,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.DataConvert.Models;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.DataConvert;
+using Microsoft.Health.Fhir.TemplateManagement.Models;
 using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
@@ -49,7 +50,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.DataCo
             var dataConvertConfig = new DataConvertConfiguration
             {
                 Enabled = true,
-                OperationTimeout = TimeSpan.FromMilliseconds(50),
+                OperationTimeout = TimeSpan.FromMilliseconds(100),
             };
             dataConvertConfig.ContainerRegistryServers.Add("test.azurecr.io");
 
@@ -76,7 +77,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.DataCo
 
         private static DataConvertRequest GetSampleHl7v2Request()
         {
-            return new DataConvertRequest(GetSampleHl7v2Message(), DataConvertInputDataType.Hl7v2, "microsofthealth", "microsofthealth/fhirconverter:default", "ADT_A01");
+            return new DataConvertRequest(GetSampleHl7v2Message(), DataConvertInputDataType.Hl7v2, "microsofthealth", true, ImageInfo.DefaultTemplateImageReference, "ADT_A01");
         }
 
         private static string GetSampleHl7v2Message()

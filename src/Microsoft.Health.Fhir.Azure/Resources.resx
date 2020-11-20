@@ -139,10 +139,6 @@
     <value>Failed to access container registry '{0}', please check your configuration.</value>
     <comment>{0}: the container registry login server</comment>
   </data>
-  <data name="ContainerRegistryNotConfigured" xml:space="preserve">
-    <value>The container registry '{0}' is not configured.</value>
-    <comment>{0}: the container registry login server</comment>
-  </data>
   <data name="DestinationClientNotConnected" xml:space="preserve">
     <value>The destination client is not connected to the destination end point.</value>
   </data>

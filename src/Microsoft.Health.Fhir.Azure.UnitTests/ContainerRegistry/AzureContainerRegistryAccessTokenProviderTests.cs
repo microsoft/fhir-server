@@ -31,19 +31,8 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ContainerRegistry
             _tokenProvider = new AzureContainerRegistryAccessTokenProvider(tokenProvider, httpClientFactory, Options.Create(_dataConvertConfiguration), new NullLogger<AzureContainerRegistryAccessTokenProvider>());
         }
 
-        [Theory]
-        [InlineData("   ")]
-        [InlineData("123")]
-        [InlineData("test*&^")]
-        public async Task GivenAnUnknowRegistry_WhenGetToken_NotConfiguredException_ShouldBeThrown(string registryServer)
-        {
-            _dataConvertConfiguration.ContainerRegistryServers.Add("test.azurecr.io");
-
-            await Assert.ThrowsAsync<ContainerRegistryNotConfiguredException>(() => _tokenProvider.GetTokenAsync(registryServer, default));
-        }
-
         [Fact]
-        public async Task GivenARegisteredRegistry_WithoutCredentials_WhenGetToken_TokenException_ShouldBeThrown()
+        public async Task GivenARegistry_WithoutCredentials_WhenGetToken_TokenException_ShouldBeThrown()
         {
             string registryServer = "test.azurecr.io";
             _dataConvertConfiguration.ContainerRegistryServers.Add(registryServer);

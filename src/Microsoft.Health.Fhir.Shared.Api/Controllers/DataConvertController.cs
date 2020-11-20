@@ -68,14 +68,22 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             string entryPointTemplate = ReadStringParameter(inputParams, DataConvertProperties.EntryPointTemplate);
             DataConvertInputDataType inputDataType = ReadEnumParameter<DataConvertInputDataType>(inputParams, DataConvertProperties.InputDataType);
 
+            // Validate template reference format.
             if (!ImageInfo.IsValidImageReference(templateCollectionReference))
             {
                 _logger.LogInformation("Templates collection reference format is invalid.");
                 throw new RequestNotValidException(string.Format(Resources.InvalidTemplateCollectionReference, templateCollectionReference));
             }
 
+            // Validate template registry has been configured.
+            bool isDefaultTemplateReference = IsDefaultTemplateReference(templateCollectionReference);
             string registryServer = ExtractRegistryServer(templateCollectionReference);
-            var dataConvertRequest = new DataConvertRequest(inputData, inputDataType, registryServer, templateCollectionReference, entryPointTemplate);
+            if (!isDefaultTemplateReference)
+            {
+                CheckIfRegistryIsConfigured(registryServer);
+            }
+
+            var dataConvertRequest = new DataConvertRequest(inputData, inputDataType, registryServer, isDefaultTemplateReference, templateCollectionReference, entryPointTemplate);
             DataConvertResponse response = await _mediator.Send(dataConvertRequest, cancellationToken: default);
 
             return new ContentResult
@@ -160,6 +168,21 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             };
 
             return supportedParams;
+        }
+
+        private static bool IsDefaultTemplateReference(string templateReference)
+        {
+            return string.Equals(ImageInfo.DefaultTemplateImageReference, templateReference, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private void CheckIfRegistryIsConfigured(string registryServer)
+        {
+            if (!_config.ContainerRegistryServers.Any(server =>
+                string.Equals(server, registryServer, StringComparison.OrdinalIgnoreCase)))
+            {
+                _logger.LogError("The requested ACR server is not configured.");
+                throw new ContainerRegistryNotConfiguredException(string.Format(Resources.ContainerRegistryNotConfigured, registryServer));
+            }
         }
 
         private void CheckIfDataConvertIsEnabled()

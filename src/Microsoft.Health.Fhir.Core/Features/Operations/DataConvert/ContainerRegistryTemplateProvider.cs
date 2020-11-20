@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.DataConvert
             // We have embedded a default template collection in the templatemanagement package.
             // If the template collection is the default reference, we don't need to retrieve token.
             var accessToken = string.Empty;
-            if (!IsDefaultTemplateReference(request.TemplateCollectionReference))
+            if (!request.IsDefaultTemplateReference)
             {
                 _logger.LogInformation("Using a custom template collection for data conversion.");
 
@@ -109,11 +109,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.DataConvert
                 _logger.LogError(ex, "Unhandled exception: failed to get template collection.");
                 throw new FetchTemplateCollectionFailedException(string.Format(Resources.FetchTemplateCollectionFailed, ex.Message), ex);
             }
-        }
-
-        private static bool IsDefaultTemplateReference(string templateReference)
-        {
-            return string.Equals(ImageInfo.DefaultTemplateImageReference, templateReference, StringComparison.OrdinalIgnoreCase);
         }
 
         private static string GetCacheKey(string registryServer)

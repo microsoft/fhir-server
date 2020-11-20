@@ -14,7 +14,13 @@ namespace Microsoft.Health.Fhir.Core.Messages.DataConvert
     /// </summary>
     public class DataConvertRequest : IRequest<DataConvertResponse>
     {
-        public DataConvertRequest(string inputData, DataConvertInputDataType inputDataType, string registryServer, string templateCollectionReference, string entryPointTemplate)
+        public DataConvertRequest(
+            string inputData,
+            DataConvertInputDataType inputDataType,
+            string registryServer,
+            bool isDefaultTemplateReference,
+            string templateCollectionReference,
+            string entryPointTemplate)
         {
             EnsureArg.IsNotNullOrEmpty(inputData, nameof(inputData));
             EnsureArg.IsNotNull<DataConvertInputDataType>(inputDataType, nameof(inputDataType));
@@ -25,6 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.DataConvert
             InputData = inputData;
             InputDataType = inputDataType;
             RegistryServer = registryServer;
+            IsDefaultTemplateReference = isDefaultTemplateReference;
             TemplateCollectionReference = templateCollectionReference;
             EntryPointTemplate = entryPointTemplate;
         }
@@ -43,6 +50,11 @@ namespace Microsoft.Health.Fhir.Core.Messages.DataConvert
         /// Container Registry Server extracted from template reference.
         /// </summary>
         public string RegistryServer { get; }
+
+        /// <summary>
+        /// Indicate whether we are using the ddefault template or a custom template.
+        /// </summary>
+        public bool IsDefaultTemplateReference { get; }
 
         /// <summary>
         /// Reference for template collection.

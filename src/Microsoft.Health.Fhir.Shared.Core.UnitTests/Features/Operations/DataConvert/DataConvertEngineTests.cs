@@ -102,22 +102,22 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.DataCo
 
         private static DataConvertRequest GetHl7V2RequestWithDefaultTemplates()
         {
-            return new DataConvertRequest(GetSampleHl7v2Message(), DataConvertInputDataType.Hl7v2, "microsofthealth", ImageInfo.DefaultTemplateImageReference, "ADT_A01");
+            return new DataConvertRequest(GetSampleHl7v2Message(), DataConvertInputDataType.Hl7v2, "microsofthealth", true, ImageInfo.DefaultTemplateImageReference, "ADT_A01");
         }
 
         private static DataConvertRequest GetHl7V2RequestWithTemplateReference(string imageReference)
         {
-            return new DataConvertRequest(GetSampleHl7v2Message(), DataConvertInputDataType.Hl7v2, imageReference.Split('/')[0], imageReference, "ADT_A01");
+            return new DataConvertRequest(GetSampleHl7v2Message(), DataConvertInputDataType.Hl7v2, imageReference.Split('/')[0], false, imageReference, "ADT_A01");
         }
 
         private static DataConvertRequest GetHl7V2RequestWithInputData(string inputData)
         {
-            return new DataConvertRequest(inputData, DataConvertInputDataType.Hl7v2, "microsofthealth", ImageInfo.DefaultTemplateImageReference, "ADT_A01");
+            return new DataConvertRequest(inputData, DataConvertInputDataType.Hl7v2, "microsofthealth", true, ImageInfo.DefaultTemplateImageReference, "ADT_A01");
         }
 
         private static DataConvertRequest GetHl7V2RequestWithEntryPointTemplate(string entryPointTemplate)
         {
-            return new DataConvertRequest(GetSampleHl7v2Message(), DataConvertInputDataType.Hl7v2, "microsofthealth", ImageInfo.DefaultTemplateImageReference, entryPointTemplate);
+            return new DataConvertRequest(GetSampleHl7v2Message(), DataConvertInputDataType.Hl7v2, "microsofthealth", true, ImageInfo.DefaultTemplateImageReference, entryPointTemplate);
         }
 
         private static string GetSampleHl7v2Message()

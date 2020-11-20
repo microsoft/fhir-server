@@ -52,12 +52,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.DataCo
         public async Task GivenAnInvalidToken_WhenFetchingCustomTemplates_ExceptionShouldBeThrown()
         {
             var templateReference = "test.azurecr.io/templates:latest";
-            await Assert.ThrowsAsync<FetchTemplateCollectionFailedException>(() => _containerRegistryTemplateProvider.GetTemplateCollectionAsync(GetRequestWithTemplateReference(templateReference), CancellationToken.None));
+            await Assert.ThrowsAsync<ContainerRegistryNotAuthorizedException>(() => _containerRegistryTemplateProvider.GetTemplateCollectionAsync(GetRequestWithTemplateReference(templateReference), CancellationToken.None));
         }
 
         private DataConvertRequest GetRequestWithTemplateReference(string templateReference)
         {
-            return new DataConvertRequest(GetSampleHl7v2Message(), DataConvertInputDataType.Hl7v2, templateReference.Split('/')[0], templateReference, "ADT_A01");
+            return new DataConvertRequest(GetSampleHl7v2Message(), DataConvertInputDataType.Hl7v2, templateReference.Split('/')[0], true, templateReference, "ADT_A01");
         }
 
         private static string GetSampleHl7v2Message()

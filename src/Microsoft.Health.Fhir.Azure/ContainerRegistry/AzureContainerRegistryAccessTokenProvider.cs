@@ -61,8 +61,6 @@ namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
         {
             EnsureArg.IsNotNullOrEmpty(registryServer, nameof(registryServer));
 
-            CheckIfRegistryIsConfigured(registryServer);
-
             var aadResourceUri = GetArmResourceUri(registryServer);
 
             string aadToken;
@@ -181,16 +179,6 @@ namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
             }
 
             return new Uri(ClassicalARMResourceUrl);
-        }
-
-        private void CheckIfRegistryIsConfigured(string registryServer)
-        {
-            if (!_dataConvertConfiguration.ContainerRegistryServers.Any(server =>
-                string.Equals(server, registryServer, StringComparison.OrdinalIgnoreCase)))
-            {
-                _logger.LogError("The requested ACR server is not configured.");
-                throw new ContainerRegistryNotConfiguredException(string.Format(Resources.ContainerRegistryNotConfigured, registryServer));
-            }
         }
     }
 }
