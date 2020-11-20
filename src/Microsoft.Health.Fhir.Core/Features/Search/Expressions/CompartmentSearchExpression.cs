@@ -11,6 +11,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     /// <summary>
     /// Represents an expression for search performed for a compartment.
     /// </summary>
+    /// <remarks>
+    /// Compartment is predefined set of resources to extract for specific object.
+    /// For example (not part of standard) we can have compartment for Patient in which would include:
+    /// Claim (patient or payee) and Observation (subject only).
+    /// By searching compartment for patient we need to return all Claims where Claim.patient or Clain.payee is that patient
+    /// and all Observations where Observation.subject is same patient.
+    /// </remarks>
     public class CompartmentSearchExpression : Expression
     {
         /// <summary>

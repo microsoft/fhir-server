@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// Initializes a new instance of the <see cref="IncludeExpression"/> class.
         /// </summary>
         /// <param name="resourceType">The resource that supports the reference.</param>
-        /// <param name="referenceSearchParameter">THe search parameter that establishes the reference relationship.</param>
+        /// <param name="referenceSearchParameter">The search parameter that establishes the reference relationship.</param>
         /// <param name="sourceResourceType">The source type of the reference.</param>
         /// <param name="targetResourceType">The target type of the reference.</param>
         /// <param name="referencedTypes">All the resource types referenced by resourceType</param>

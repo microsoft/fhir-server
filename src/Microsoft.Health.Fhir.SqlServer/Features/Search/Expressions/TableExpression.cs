@@ -16,7 +16,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
     internal class TableExpression : Expression
     {
         /// <summary>
-        /// Creates a new instance of the <see cref="TableExpression"/> class.
+        /// Initializes a new instance of the <see cref="TableExpression"/> class.
         /// </summary>
         /// <param name="searchParameterQueryGenerator">The search parameter query generator</param>
         /// <param name="normalizedPredicate">The search expression over a columns belonging exclusively to a search parameter table.
