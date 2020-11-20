@@ -26,12 +26,18 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
             _rootAliasName = rootAliasName;
         }
 
-        public void AppendSelectFromRoot(string selectList)
+        public void AppendSelect(string selectList)
         {
             _queryBuilder
                 .Append("SELECT ")
-                .Append(selectList)
-                .Append(" FROM root ")
+                .Append(selectList);
+        }
+
+        public void AppendFromRoot()
+        {
+            _queryBuilder
+                .AppendLine()
+                .Append("FROM root ")
                 .AppendLine(_rootAliasName);
         }
 
@@ -61,7 +67,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
         public void AppendSystemDataFilter(bool systemDataValue = false)
         {
             _queryBuilder
-                .Append(" WHERE ")
+                .Append("WHERE ")
                 .Append(_rootAliasName).Append(".isSystem")
                 .Append(" = ")
                 .AppendLine(_queryParameterManager.AddOrGetParameterMapping(systemDataValue));

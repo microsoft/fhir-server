@@ -34,7 +34,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
         private readonly IReadOnlyList<Tuple<string, string>> _queryParameters = new Tuple<string, string>[0];
         private readonly IReadOnlyList<Tuple<string, string>> _unsupportedQueryParameters = new Tuple<string, string>[0];
-        private readonly IReadOnlyList<(string searchParameterName, string reason)> _unsupportedSortingParameters = Array.Empty<(string searchParameterName, string reason)>();
 
         public SearchServiceTests()
         {
@@ -54,7 +53,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             _searchOptionsFactory.Create(resourceType, _queryParameters).Returns(expectedSearchOptions);
 
-            var expectedSearchResult = new SearchResult(new SearchResultEntry[0], _unsupportedQueryParameters, _unsupportedSortingParameters, null);
+            var expectedSearchResult = new SearchResult(new SearchResultEntry[0], null, null, _unsupportedQueryParameters);
 
             _searchService.SearchImplementation = options =>
             {
@@ -79,7 +78,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             _searchOptionsFactory.Create(compartmentType, compartmentId, resourceType, _queryParameters).Returns(expectedSearchOptions);
 
-            var expectedSearchResult = new SearchResult(new SearchResultEntry[0], _unsupportedQueryParameters, _unsupportedSortingParameters, null);
+            var expectedSearchResult = new SearchResult(new SearchResultEntry[0], null, null, _unsupportedQueryParameters);
 
             _searchService.SearchImplementation = options =>
             {
@@ -99,7 +98,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             const string resourceType = "Observation";
             const string resourceId = "abc";
 
-            _searchService.SearchImplementation = options => new SearchResult(new SearchResultEntry[0], _unsupportedQueryParameters, _unsupportedSortingParameters, null);
+            _searchService.SearchImplementation = options => new SearchResult(new SearchResultEntry[0], null, null, _unsupportedQueryParameters);
 
             await Assert.ThrowsAsync<ResourceNotFoundException>(() => _searchService.SearchHistoryAsync(resourceType, resourceId, null, null, null, null, null, CancellationToken.None));
         }
@@ -114,7 +113,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var resourceWrapper =
                 new ResourceWrapper(observation, _rawResourceFactory.Create(observation, keepMeta: true), _resourceRequest, false, null, null, null);
-            _searchService.SearchImplementation = options => new SearchResult(new SearchResultEntry[0], _unsupportedQueryParameters, _unsupportedSortingParameters, null);
+            _searchService.SearchImplementation = options => new SearchResult(new SearchResultEntry[0], null, null, _unsupportedQueryParameters);
 
             _fhirDataStore.GetAsync(Arg.Any<ResourceKey>(), Arg.Any<CancellationToken>()).Returns(resourceWrapper);
 
@@ -141,7 +140,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _searchService.SearchImplementation = options =>
             {
                 testOptions = options;
-                return new SearchResult(new SearchResultEntry[0], _unsupportedQueryParameters, _unsupportedSortingParameters, null);
+                return new SearchResult(new SearchResultEntry[0], null, null, _unsupportedQueryParameters);
             };
 
             SearchResult searchResult = await _searchService.SearchForReindexAsync(new List<Tuple<string, string>>() { new Tuple<string, string>("_type", resourceType) }, hashValue, countOnly, CancellationToken.None);

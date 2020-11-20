@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
         private static readonly string ResourceQuery = "http://hl7.org/fhir/SearchParameter/Resource-query";
 
         private readonly SearchParameterStatusManager _manager;
-        private readonly ISearchParameterRegistry _searchParameterRegistry;
+        private readonly ISearchParameterStatusDataStore _searchParameterStatusDataStore;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly IMediator _mediator;
         private readonly SearchParameterInfo[] _searchParameterInfos;
@@ -41,13 +41,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
 
         public SearchParameterStatusManagerTests()
         {
-            _searchParameterRegistry = Substitute.For<ISearchParameterRegistry>();
+            _searchParameterStatusDataStore = Substitute.For<ISearchParameterStatusDataStore>();
             _searchParameterDefinitionManager = Substitute.For<ISearchParameterDefinitionManager>();
             _searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
             _mediator = Substitute.For<IMediator>();
 
             _manager = new SearchParameterStatusManager(
-                _searchParameterRegistry,
+                _searchParameterStatusDataStore,
                 _searchParameterDefinitionManager,
                 _searchParameterSupportResolver,
                 _mediator);
@@ -81,7 +81,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
                     },
                 };
 
-            _searchParameterRegistry.GetSearchParameterStatuses().Returns(_resourceSearchParameterStatuses);
+            _searchParameterStatusDataStore.GetSearchParameterStatuses().Returns(_resourceSearchParameterStatuses);
 
             List<string> baseResourceTypes = new List<string>() { "Resource" };
             List<string> targetResourceTypes = new List<string>() { "Patient" };
@@ -161,9 +161,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
         {
             await _manager.EnsureInitialized();
 
-            await _searchParameterRegistry
+            await _searchParameterStatusDataStore
                 .DidNotReceive()
-                .UpdateStatuses(Arg.Any<IEnumerable<ResourceSearchParameterStatus>>());
+                .UpsertStatuses(Arg.Any<List<ResourceSearchParameterStatus>>());
         }
 
         [Fact]

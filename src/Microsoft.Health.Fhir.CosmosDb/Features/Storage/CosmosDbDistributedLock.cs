@@ -10,8 +10,8 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
-using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Extensions.DependencyInjection;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
@@ -234,7 +234,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
                         break;
                     }
-                    catch (RequestRateExceededException)
+                    catch (CosmosException ex) when (ex.IsRequestRateExceeded())
                     {
                         await Task.Delay(TimeSpan.FromSeconds(1));
                     }

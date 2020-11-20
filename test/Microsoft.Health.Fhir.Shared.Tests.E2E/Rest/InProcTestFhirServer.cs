@@ -39,6 +39,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var configuration = launchSettings["profiles"][dataStore.ToString()]["environmentVariables"].Cast<JProperty>().ToDictionary(p => p.Name, p => p.Value.ToString());
 
             configuration["TestAuthEnvironment:FilePath"] = "testauthenvironment.json";
+            configuration["FhirServer:Security:Enabled"] = "true";
             configuration["FhirServer:Security:Authentication:Authority"] = "https://inprochost";
 
             // For local development we will use the Azure Storage Emulator for export.
