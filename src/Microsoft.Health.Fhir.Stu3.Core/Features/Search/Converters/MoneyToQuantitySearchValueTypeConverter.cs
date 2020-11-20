@@ -16,7 +16,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
     {
         protected override IEnumerable<QuantitySearchValue> ConvertTo(Money value)
         {
-            if (value.Value == null || string.IsNullOrEmpty(value.System) || string.IsNullOrEmpty(value.Code))
+            if (value.Value == null || string.IsNullOrEmpty(value.Code))
             {
                 yield break;
             }

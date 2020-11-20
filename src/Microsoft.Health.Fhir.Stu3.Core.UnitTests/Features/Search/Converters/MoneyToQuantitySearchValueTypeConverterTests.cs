@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Stu3.Core.UnitTests.Features.Search.Converters
         }
 
         [Fact]
-        public void GivenMoneyWithValueAndCurrency_WhenConverted_ThenAQuantityValueShouldBeCreated()
+        public void GivenMoneyWithValueCodeAndSystem_WhenConverted_ThenAQuantityValueShouldBeCreated()
         {
             const decimal value = 480;
             const string code = "USD";
@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.Stu3.Core.UnitTests.Features.Search.Converters
         }
 
         [Fact]
-        public void GivenMoneyWithNoCurrency_WhenConverted_ThenNoSearchValueShouldBeCreated()
+        public void GivenMoneyWithNoCode_WhenConverted_ThenNoSearchValueShouldBeCreated()
         {
             const decimal value = 0.125m;
 
@@ -46,7 +46,25 @@ namespace Microsoft.Health.Fhir.Stu3.Core.UnitTests.Features.Search.Converters
             {
                 m.Value = value;
                 m.Code = null;
+                m.System = CurrencyValues.System;
             });
+        }
+
+        [Fact]
+        public void GivenMoneyWithNoSystem_WhenConverted_ThenAQuantityValueShouldBeCreated()
+        {
+            const decimal value = 0.125m;
+            const string code = "USD";
+
+            Test(
+                m =>
+                {
+                    m.Value = value;
+                    m.Code = code;
+                    m.System = null;
+                },
+                ValidateQuantity,
+                new Quantity(value, code, null));
         }
     }
 }

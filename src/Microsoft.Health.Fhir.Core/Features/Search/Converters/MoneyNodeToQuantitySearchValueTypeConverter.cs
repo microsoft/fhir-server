@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
@@ -38,7 +39,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
                 var code = value.Scalar("code")?.ToString();
                 var system = value.Scalar("system")?.ToString();
 
-                if (system == null || code == null)
+                if (code == null)
                 {
                     yield break;
                 }
