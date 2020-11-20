@@ -27,14 +27,14 @@ jobs:
           $tagParts = $tag.Split('-')
           if ($tagParts.Count -gt 1) {
             try {
-              $imageDate = [datetime]($tagParts[1].Substring(4) + '/' + $tagParts[1].Substring(4,2) + '/' + $tagParts[1].Substring(6,2))
+              $imageDate = [datetime]($tagParts[1].Substring(0,4) + '/' + $tagParts[1].Substring(4,2) + '/' + $tagParts[1].Substring(6,2))
               $currentDate = Get-Date
               $difference = New-TimeSpan -Start $imageDate -End $currentDate
 
-              if (($difference.days -gt 30) -or (($difference.days -gt 7) -and ($tagParts[0].StartsWith("pr")))) {
+              if (($tagParts[0] -notlike "*build*") -and (($difference.days -gt 60) -or (($difference.days -gt 7) -and ($tagParts[0] -like "*pr*")))) {
                 foreach ($version in $versions) {
                   try {
-                    az acr repository delete --name $(azureContainerRegistryName) --image '${version}_fhir-server:${tag}'
+                    az acr repository untag --name $(azureContainerRegistryName) --image '${version}_fhir-server:${tag}'
                   }
                   catch {
                     Write-Host "No image with tag ${tag} in ${version} repository"
@@ -49,7 +49,7 @@ jobs:
         }
 
         foreach ($version in $versions) {
-          $repository = '${version}_fhir-server'
+          $repository = "${version}_fhir-server"
           az acr repository show-manifests --name $(azureContainerRegistryName) --repository $repository --query "[?tags[0]==null].digest" -o tsv `
           | %{ az acr repository delete --name $(azureContainerRegistryName) --image $repository@$_ --yes }
         }
