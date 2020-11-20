@@ -17,6 +17,7 @@ using Microsoft.Azure.Storage.Auth;
 using Microsoft.Azure.Storage.Blob;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Shared.Tests.E2E.Rest;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -31,13 +32,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     [Trait(Traits.Category, Categories.ExportDataValidation)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
-    public class ExportDataValidationTests : IClassFixture<HttpIntegrationTestFixture>
+    public class ExportDataValidationTests : IClassFixture<ExportTestFixture>
     {
         private readonly TestFhirClient _testFhirClient;
         private readonly ITestOutputHelper _outputHelper;
         private readonly FhirJsonParser _fhirJsonParser;
 
-        public ExportDataValidationTests(HttpIntegrationTestFixture fixture, ITestOutputHelper testOutputHelper)
+        public ExportDataValidationTests(ExportTestFixture fixture, ITestOutputHelper testOutputHelper)
         {
             _testFhirClient = fixture.TestFhirClient;
             _outputHelper = testOutputHelper;
