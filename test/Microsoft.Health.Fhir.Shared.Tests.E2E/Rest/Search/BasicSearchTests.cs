@@ -430,7 +430,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             string[] elements = { "gender", "birthDate" };
             var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
 
-            Patient[] patients = await CreateTestPatientElements(tag, elements);
+            Patient[] patients = await CreatePatientsWithSpecifiedElements(tag, elements);
 
             Bundle bundle = await Client.SearchAsync($"Patient?_tag={tag.Code}&_elements={string.Join(',', elements)}");
 
@@ -469,7 +469,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             string[] elements = { "gender", "birthDate" };
             var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
 
-            Patient[] patients = await CreateTestPatientElements(tag, elements);
+            Patient[] patients = await CreatePatientsWithSpecifiedElements(tag, elements);
 
             Bundle bundle = await Client.SearchAsync($"Patient?_tag={tag.Code}&_elements=invalidProperty,{string.Join(',', elements)}");
 
@@ -482,7 +482,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [InlineData("id,active", "text")]
         [Theory]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenListOfResources_WhenSearchedWithElementsAndSummaryNotFalse_ThenExceptionShouldBeThrown(string elementsValues, string summaryValue)
+        public async Task GivenListOfResources_WhenSearchedWithElementsAndSummaryNotSetToFalse_ThenExceptionShouldBeThrown(string elementsValues, string summaryValue)
         {
             using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync($"Patient?_elements={elementsValues}&_summary={summaryValue}"));
 
@@ -496,12 +496,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenListOfResources_WhenSearchedWithElementsAndFalseSummary_ThenOnlySpecifiedPropertiesShouldBeReturned()
+        public async Task GivenListOfResources_WhenSearchedWithElementsAndSummarySetToFalse_ThenOnlySpecifiedPropertiesShouldBeReturned()
         {
             string[] elements = { "gender", "birthDate" };
             var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
 
-            Patient[] patients = await CreateTestPatientElements(tag, elements);
+            Patient[] patients = await CreatePatientsWithSpecifiedElements(tag, elements);
 
             Bundle bundle = await Client.SearchAsync($"Patient?_tag={tag.Code}&_elements={string.Join(',', elements)}&_summary=false");
 
@@ -699,7 +699,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Equal(HttpStatusCode.BadRequest, httpResponseMessage.StatusCode);
         }
 
-        private async Task<Patient[]> CreateTestPatientElements(Coding tag, string[] elements)
+        private async Task<Patient[]> CreatePatientsWithSpecifiedElements(Coding tag, string[] elements)
         {
             const int numberOfResources = 3;
 
