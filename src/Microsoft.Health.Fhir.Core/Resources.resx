@@ -461,4 +461,7 @@
     <value>The '_type' parameter contains unknown resource(s): {0}</value>
     <comment>{0}: Single or list of unknown resources.</comment>
   </data>
+  <data name="IncompatibleSearchParameters" xml:space="preserve">
+    <value>The parameters '{0}' and '{1}' are not compatible.</value>
+  </data>
 </root>

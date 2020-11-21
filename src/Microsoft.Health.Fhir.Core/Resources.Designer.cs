@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "4.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     internal class Resources {
@@ -391,6 +391,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string IncludeMissingType {
             get {
                 return ResourceManager.GetString("IncludeMissingType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The parameters &apos;{0}&apos; and &apos;{1}&apos; are not compatible..
+        /// </summary>
+        internal static string IncompatibleSearchParameters {
+            get {
+                return ResourceManager.GetString("IncompatibleSearchParameters", resourceCulture);
             }
         }
         
