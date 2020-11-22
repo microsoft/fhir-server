@@ -125,7 +125,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
                 var handler = new JwtSecurityTokenHandler();
                 var jwtToken = handler.ReadToken(jwtTokenText) as JwtSecurityToken;
 
-                return new DateTimeOffset(jwtToken.ValidTo);
+                // Add 5 minutes buffer in case of last minute expirations.
+                return new DateTimeOffset(jwtToken.ValidTo).AddMinutes(-5);
             }
 
             return defaultExpiration;

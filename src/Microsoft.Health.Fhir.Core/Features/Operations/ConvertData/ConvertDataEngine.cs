@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
         private readonly ConvertDataConfiguration _convertDataConfiguration;
         private readonly ILogger<ConvertDataEngine> _logger;
 
-        private readonly Dictionary<ConversionInputDataType, IFhirConverter> _convertDataerMap = new Dictionary<ConversionInputDataType, IFhirConverter>();
+        private readonly Dictionary<ConversionInputDataType, IFhirConverter> _converterMap = new Dictionary<ConversionInputDataType, IFhirConverter>();
 
         public ConvertDataEngine(
             IConvertDataTemplateProvider convertDataTemplateProvider,
@@ -48,15 +48,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
         public async Task<ConvertDataResponse> Process(ConvertDataRequest convertRequest, CancellationToken cancellationToken)
         {
             var templateCollection = await _convertDataTemplateProvider.GetTemplateCollectionAsync(convertRequest, cancellationToken);
-            var result = GetConvertDataResult(convertRequest, new Hl7v2TemplateProvider(templateCollection));
+            var result = GetConvertDataResult(convertRequest, new Hl7v2TemplateProvider(templateCollection), cancellationToken);
 
             return new ConvertDataResponse(result);
         }
 
-        private string GetConvertDataResult(ConvertDataRequest convertRequest, ITemplateProvider templateProvider)
+        private string GetConvertDataResult(ConvertDataRequest convertRequest, ITemplateProvider templateProvider, CancellationToken cancellationToken)
         {
-            var convertDataer = _convertDataerMap.GetValueOrDefault(convertRequest.InputDataType);
-            if (convertDataer == null)
+            var converter = _converterMap.GetValueOrDefault(convertRequest.InputDataType);
+            if (converter == null)
             {
                 // This case should never happen.
                 _logger.LogError("Invalid input data type for conversion.");
@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
 
             try
             {
-                return convertDataer.Convert(convertRequest.InputData, convertRequest.EntryPointTemplate, templateProvider);
+                return converter.Convert(convertRequest.InputData, convertRequest.EntryPointTemplate, templateProvider, cancellationToken);
             }
             catch (DataParseException dpe)
             {
@@ -107,7 +107,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
                 TimeOut = (int)_convertDataConfiguration.OperationTimeout.TotalMilliseconds,
             };
 
-            _convertDataerMap.Add(ConversionInputDataType.Hl7v2, new Hl7v2Processor(processorSetting));
+            _converterMap.Add(ConversionInputDataType.Hl7v2, new Hl7v2Processor(processorSetting));
         }
     }
 }
