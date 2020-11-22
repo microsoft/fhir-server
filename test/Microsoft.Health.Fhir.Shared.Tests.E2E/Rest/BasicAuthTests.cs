@@ -37,15 +37,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         private const string ForbiddenMessage = "Forbidden: Authorization failed.";
         private const string UnauthorizedMessage = "Unauthorized: Authentication failed.";
         private const string InvalidToken = "eyJhbGciOiJSUzI1NiIsImtpZCI6ImNmNWRmMGExNzY5ZWIzZTFkOGRiNWIxMGZiOWY3ZTk0IiwidHlwIjoiSldUIn0.eyJuYmYiOjE1NDQ2ODQ1NzEsImV4cCI6MTU0NDY4ODE3MSwiaXNzIjoiaHR0cHM6Ly9sb2NhbGhvc3Q6NDQzNDgiLCJhdWQiOlsiaHR0cHM6Ly9sb2NhbGhvc3Q6NDQzNDgvcmVzb3VyY2VzIiwiZmhpci1haSJdLCJjbGllbnRfaWQiOiJzZXJ2aWNlY2xpZW50Iiwicm9sZXMiOiJhZG1pbiIsImFwcGlkIjoic2VydmljZWNsaWVudCIsInNjb3BlIjpbImZoaXItYWkiXX0.SKSvy6Jxzwsv1ZSi0PO4Pdq6QDZ6mBJIRxUPgoPlz2JpiB6GMXu5u0n1IpS6zOXihGkGhegjtcqj-6TKE6Ou5uhQ0VTnmf-NxcYKFl48aDihcGem--qa2V8GC7na549Ctj1PLXoYUbovV4LB27Kj3X83sZVnWdHqg_G0AKo4xm7hr23VUvJ1D73lEcYaGd5K9GXHNgUrJO5v288y0uCXZ5ByNDJ-K6Xi7_68dLdshlIiHaeIBuC3rhchSf2hdglkQgOyo4g4gT_HfKjwdrrpGzepNXOPQEwtUs_o2uriXAd7FfbL_Q4ORiDWPXkmwBXqo7uUfg-2SnT3DApc3PuA0";
-        private readonly bool _dataConvertEnabled = false;
+        private readonly bool _convertDataEnabled = false;
 
         private readonly TestFhirClient _client;
 
         public BasicAuthTests(HttpIntegrationTestFixture fixture)
         {
             _client = fixture.TestFhirClient;
-            var dataConvertConfiguration = ((IOptions<DataConvertConfiguration>)(fixture.TestFhirServer as InProcTestFhirServer)?.Server?.Services?.GetService(typeof(IOptions<DataConvertConfiguration>)))?.Value;
-            _dataConvertEnabled = dataConvertConfiguration?.Enabled ?? false;
+            var convertDataConfiguration = ((IOptions<ConvertDataConfiguration>)(fixture.TestFhirServer as InProcTestFhirServer)?.Server?.Services?.GetService(typeof(IOptions<ConvertDataConfiguration>)))?.Value;
+            _convertDataEnabled = convertDataConfiguration?.Enabled ?? false;
         }
 
         [Fact]
@@ -217,33 +217,33 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenAUserWithNoDataConvertPermissions_WhenDataConvert_TheServerShouldReturnForbidden()
+        public async Task GivenAUserWithNoConvertDataPermissions_WhenConvertData_TheServerShouldReturnForbidden()
         {
-            if (!_dataConvertEnabled)
+            if (!_convertDataEnabled)
             {
                 return;
             }
 
             TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
 
-            var parameters = Samples.GetDefaultDataConvertParameter().ToPoco<Parameters>();
-            FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await tempClient.DataConvertAsync(parameters));
+            var parameters = Samples.GetDefaultConvertDataParameter().ToPoco<Parameters>();
+            FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await tempClient.ConvertDataAsync(parameters));
             Assert.Equal(ForbiddenMessage, fhirException.Message);
             Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
         }
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
-        public async Task GivenAUserWithDataConvertPermissions_WhenDataConvert_TheServerShouldReturnSuccess()
+        public async Task GivenAUserWithConvertDataPermissions_WhenConvertData_TheServerShouldReturnSuccess()
         {
-            if (!_dataConvertEnabled)
+            if (!_convertDataEnabled)
             {
                 return;
             }
 
-            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.DataConvertUser, TestApplications.NativeClient);
-            var parameters = Samples.GetDefaultDataConvertParameter().ToPoco<Parameters>();
-            var result = await tempClient.DataConvertAsync(parameters);
+            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ConvertDataUser, TestApplications.NativeClient);
+            var parameters = Samples.GetDefaultConvertDataParameter().ToPoco<Parameters>();
+            var result = await tempClient.ConvertDataAsync(parameters);
 
             var setting = new ParserSettings()
             {

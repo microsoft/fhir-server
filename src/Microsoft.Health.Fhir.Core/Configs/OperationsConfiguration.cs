@@ -11,6 +11,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
 
         public ReindexJobConfiguration Reindex { get; set; } = new ReindexJobConfiguration();
 
-        public DataConvertConfiguration DataConvert { get; set; } = new DataConvertConfiguration();
+        public ConvertDataConfiguration ConvertData { get; set; } = new ConvertDataConfiguration();
     }
 }

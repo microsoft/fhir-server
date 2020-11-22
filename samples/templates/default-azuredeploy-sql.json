@@ -144,11 +144,11 @@
                 "description": "Determine whether the sql schema should be automatically upgraded on server startup. If false, sql schema will not be initialized or upgraded on the server startup. The schema migration tool will be required to perform initialize or upgrade. If true, sql schema will be upgraded to the maximum supported version."
             }
         },
-        "enableDataConvert": {
+        "enableConvertData": {
             "defaultValue": false,
             "type": "bool",
             "metadata": {
-                "description": "Determines whether the $data-convert operation will be enabled for this fhir instance. If true, an Azure container registry will be created as part of the deployment. You will need owner or user-administrator permissions for this."
+                "description": "Determines whether the $convert-data operation will be enabled for this fhir instance. If true, an Azure container registry will be created as part of the deployment. You will need owner or user-administrator permissions for this."
             }
         }
     },
@@ -183,8 +183,8 @@
             "DataStore": "SqlServer",
             "FhirServer:Operations:Export:Enabled": "[parameters('enableExport')]",
             "FhirServer:Operations:Export:StorageAccountUri": "[if(parameters('enableExport'), concat('https://', variables('storageAccountName'), variables('blobStorageUri')), 'null')]",
-            "FhirServer:Operations:DataConvert:Enabled": "[parameters('enableDataConvert')]",
-            "FhirServer:Operations:DataConvert:ContainerRegistryServers:0": "[if(parameters('enableDataConvert'), concat(variables('azureContainerRegistryName'), variables('azureContainerRegistryUri')), 'null')]"
+            "FhirServer:Operations:ConvertData:Enabled": "[parameters('enableConvertData')]",
+            "FhirServer:Operations:ConvertData:ContainerRegistryServers:0": "[if(parameters('enableConvertData'), concat(variables('azureContainerRegistryName'), variables('azureContainerRegistryUri')), 'null')]"
         },
         "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'))]",
         "computedSqlServerReference": "[concat('Microsoft.Sql/servers/', variables('serviceName'))]",
@@ -414,7 +414,7 @@
             "type": "Microsoft.ContainerRegistry/registries",
             "apiVersion": "2019-12-01-preview",
             "name": "[variables('azureContainerRegistryName')]",
-            "condition": "[parameters('enableDataConvert')]",
+            "condition": "[parameters('enableConvertData')]",
             "comments": "Container registry for storing templates images",
             "location": "[resourceGroup().location]",
             "tags": {
@@ -433,7 +433,7 @@
             "type": "Microsoft.ContainerRegistry/registries/providers/roleAssignments",
             "apiVersion": "2018-09-01-preview",
             "name": "[concat(variables('azureContainerRegistryName'), '/Microsoft.Authorization/', guid(uniqueString(variables('azureContainerRegistryName'), 'Acr', parameters('fhirVersion'), variables('serviceName'))))]",
-            "condition": "[parameters('enableDataConvert')]",
+            "condition": "[parameters('enableConvertData')]",
             "dependsOn": [
                 "[variables('azureContainerRegistryName')]",
                 "[variables('serviceName')]"

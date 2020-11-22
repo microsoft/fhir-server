@@ -144,27 +144,27 @@ namespace Microsoft.Health.Fhir.Api {
         /// <summary>
         ///   Looks up a localized string similar to Data convert does not support the following parameter {0} for a POST operation..
         /// </summary>
-        public static string DataConvertParameterNotValid {
+        public static string ConvertDataParameterNotValid {
             get {
-                return ResourceManager.GetString("DataConvertParameterNotValid", resourceCulture);
+                return ResourceManager.GetString("ConvertDataParameterNotValid", resourceCulture);
             }
         }
         
         /// <summary>
         ///   Looks up a localized string similar to Data convert operation parameters must be specified as a FHIR Parameters resource.  The body provided in this request is not valid..
         /// </summary>
-        public static string DataConvertParametersNotValid {
+        public static string ConvertDataParametersNotValid {
             get {
-                return ResourceManager.GetString("DataConvertParametersNotValid", resourceCulture);
+                return ResourceManager.GetString("ConvertDataParametersNotValid", resourceCulture);
             }
         }
         
         /// <summary>
         ///   Looks up a localized string similar to Value of the following parameter {0} is invalid..
         /// </summary>
-        public static string DataConvertParameterValueNotValid {
+        public static string ConvertDataParameterValueNotValid {
             get {
-                return ResourceManager.GetString("DataConvertParameterValueNotValid", resourceCulture);
+                return ResourceManager.GetString("ConvertDataParameterValueNotValid", resourceCulture);
             }
         }
         

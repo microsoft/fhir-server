@@ -24,10 +24,10 @@
             ]
         },
         {
-            "name": "globalDataConverter",
+            "name": "globalConverter",
             "dataActions": [
                 "read",
-                "dataConvert"
+                "convertData"
             ],
             "notDataActions": [],
             "scopes": [

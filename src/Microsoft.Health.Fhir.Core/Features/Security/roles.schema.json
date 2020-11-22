@@ -12,7 +12,7 @@
                 "export",
                 "resourceValidate",
                 "reindex",
-                "dataConvert"
+                "convertData"
             ]
         }
     },

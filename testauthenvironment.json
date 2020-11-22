@@ -19,9 +19,9 @@
             ]
         },
         {
-            "id": "globalDataConverterUser",
+            "id": "globalConverterUser",
             "roles": [
-                "globalDataConverter"
+                "globalConverter"
             ]
         },
         {

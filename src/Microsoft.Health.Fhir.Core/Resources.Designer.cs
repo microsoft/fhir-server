@@ -243,27 +243,27 @@ namespace Microsoft.Health.Fhir.Core {
         /// <summary>
         ///   Looks up a localized string similar to Unable to initialize the data convert engine with the provided templates..
         /// </summary>
-        internal static string DataConvertEngineInitializeFailed {
+        internal static string ConvertDataEngineInitializeFailed {
             get {
-                return ResourceManager.GetString("DataConvertEngineInitializeFailed", resourceCulture);
+                return ResourceManager.GetString("ConvertDataEngineInitializeFailed", resourceCulture);
             }
         }
         
         /// <summary>
         ///   Looks up a localized string similar to Failed to convert the input data. Reason: {0}.
         /// </summary>
-        internal static string DataConvertFailed {
+        internal static string ConvertDataFailed {
             get {
-                return ResourceManager.GetString("DataConvertFailed", resourceCulture);
+                return ResourceManager.GetString("ConvertDataFailed", resourceCulture);
             }
         }
         
         /// <summary>
         ///   Looks up a localized string similar to Data convert operation has timed out..
         /// </summary>
-        internal static string DataConvertOperationTimeout {
+        internal static string ConvertDataOperationTimeout {
             get {
-                return ResourceManager.GetString("DataConvertOperationTimeout", resourceCulture);
+                return ResourceManager.GetString("ConvertDataOperationTimeout", resourceCulture);
             }
         }
         

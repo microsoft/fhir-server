@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -13,8 +12,8 @@ using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Features.Operations.DataConvert;
-using Microsoft.Health.Fhir.Core.Features.Operations.DataConvert.Models;
+using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData;
+using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData.Models;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 using Newtonsoft.Json;
 using Polly;
@@ -37,23 +36,23 @@ namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
 
         private readonly IAccessTokenProvider _aadTokenProvider;
         private readonly IHttpClientFactory _httpClientFactory;
-        private readonly DataConvertConfiguration _dataConvertConfiguration;
+        private readonly ConvertDataConfiguration _convertDataConfiguration;
         private readonly ILogger<AzureContainerRegistryAccessTokenProvider> _logger;
 
         public AzureContainerRegistryAccessTokenProvider(
             IAccessTokenProvider aadTokenProvider,
             IHttpClientFactory httpClientFactory,
-            IOptions<DataConvertConfiguration> dataConvertConfiguration,
+            IOptions<ConvertDataConfiguration> convertDataConfiguration,
             ILogger<AzureContainerRegistryAccessTokenProvider> logger)
         {
             EnsureArg.IsNotNull(aadTokenProvider, nameof(aadTokenProvider));
             EnsureArg.IsNotNull(httpClientFactory, nameof(httpClientFactory));
-            EnsureArg.IsNotNull(dataConvertConfiguration, nameof(dataConvertConfiguration));
+            EnsureArg.IsNotNull(convertDataConfiguration, nameof(convertDataConfiguration));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _aadTokenProvider = aadTokenProvider;
             _httpClientFactory = httpClientFactory;
-            _dataConvertConfiguration = dataConvertConfiguration.Value;
+            _convertDataConfiguration = convertDataConfiguration.Value;
             _logger = logger;
         }
 

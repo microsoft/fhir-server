@@ -453,7 +453,7 @@
     <value>Reindex job id {0} is in state {1} and cannot be cancelled.</value>
     <comment>{0} is the id of the reindex which is a a GUID.  {1} is the state, an enumerated set of state values.</comment>
   </data>
-  <data name="DataConvertFailed" xml:space="preserve">
+  <data name="ConvertDataFailed" xml:space="preserve">
     <value>Failed to convert the input data. Reason: {0}</value>
     <comment>{0} is the failure reason.</comment>
   </data>
@@ -461,7 +461,7 @@
     <value>Failed to fetch the template collection. Reason: {0}</value>
     <comment>{0} is the failure reason</comment>
   </data>
-  <data name="DataConvertEngineInitializeFailed" xml:space="preserve">
+  <data name="ConvertDataEngineInitializeFailed" xml:space="preserve">
     <value>Unable to initialize the data convert engine with the provided templates.</value>
   </data>
   <data name="InputDataParseError" xml:space="preserve">
@@ -471,7 +471,7 @@
   <data name="ContainerRegistryNotAuthorized" xml:space="preserve">
     <value>Fail to access the container registry '{0}', please check the registry configuration.</value>
   </data>
-  <data name="DataConvertOperationTimeout" xml:space="preserve">
+  <data name="ConvertDataOperationTimeout" xml:space="preserve">
     <value>Data convert operation has timed out.</value>
   </data>
   <data name="ExportFormatNotFound" xml:space="preserve">

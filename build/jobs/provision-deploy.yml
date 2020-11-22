@@ -64,7 +64,7 @@ jobs:
             additionalFhirServerConfigProperties = $additionalProperties 
             enableAadSmartOnFhirProxy = $true
             enableExport = $true
-            enableDataConvert = $true
+            enableConvertData = $true
             imageTag = '${{ parameters.imageTag }}'
         }
      

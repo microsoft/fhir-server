@@ -41,7 +41,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         public const string ReindexSingleResource = ResourceTypeById + "/" + Reindex;
         public const string ReindexJobLocation = OperationsConstants.Operations + "/" + OperationsConstants.Reindex + "/" + IdRouteSegment;
 
-        public const string DataConvert = "$data-convert";
+        public const string ConvertData = "$convert-data";
 
         public const string CompartmentTypeByResourceType = CompartmentTypeRouteSegment + "/" + IdRouteSegment + "/" + CompartmentResourceTypeRouteSegment;
 

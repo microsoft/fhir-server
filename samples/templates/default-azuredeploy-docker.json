@@ -141,11 +141,11 @@
                 "description": "Determines whether export will be enabled for this fhir instance. If true, a storage account will be created as part of the deployment. You will need owner or user-administrator permissions for this."
             }
         },
-        "enableDataConvert": {
+        "enableConvertData": {
             "type": "bool",
             "defaultValue": false,
             "metadata": {
-                "description": "Determines whether the $data-convert operation will be enabled for this fhir instance. If true, an Azure container registry will be created as part of the deployment. You will need owner or user-administrator permissions for this."
+                "description": "Determines whether the $convert-data operation will be enabled for this fhir instance. If true, an Azure container registry will be created as part of the deployment. You will need owner or user-administrator permissions for this."
             }
         }
     },
@@ -176,8 +176,8 @@
             "DataStore": "CosmosDb",
             "FhirServer__Operations__Export__Enabled": "[parameters('enableExport')]",
             "FhirServer__Operations__Export__StorageAccountUri": "[if(parameters('enableExport'), concat('https://', variables('storageAccountName'), variables('blobStorageUri')), 'null')]",
-            "FhirServer__Operations__DataConvert__Enabled": "[parameters('enableDataConvert')]",
-            "FhirServer__Operations__DataConvert__ContainerRegistryServers__0": "[if(parameters('enableDataConvert'), concat(variables('azureContainerRegistryName'), variables('azureContainerRegistryUri')), 'null')]"
+            "FhirServer__Operations__ConvertData__Enabled": "[parameters('enableConvertData')]",
+            "FhirServer__Operations__ConvertData__ContainerRegistryServers__0": "[if(parameters('enableConvertData'), concat(variables('azureContainerRegistryName'), variables('azureContainerRegistryUri')), 'null')]"
         },
         "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'))]",
         "storageAccountName": "[concat(substring(replace(variables('serviceName'), '-', ''), 0, min(11, length(replace(variables('serviceName'), '-', '')))), uniquestring(resourceGroup().id, variables('serviceName')))]",
@@ -405,7 +405,7 @@
             "apiVersion": "2019-12-01-preview",
             "location": "[resourceGroup().location]",
             "comments": "Container registry for storing templates images",
-            "condition": "[parameters('enableDataConvert')]",
+            "condition": "[parameters('enableConvertData')]",
             "tags": {
               "displayName": "Container Registry",
               "container.registry": "[variables('azureContainerRegistryName')]"
@@ -422,7 +422,7 @@
             "type": "Microsoft.ContainerRegistry/registries/providers/roleAssignments",
             "apiVersion": "2018-09-01-preview",
             "name": "[concat(variables('azureContainerRegistryName'), '/Microsoft.Authorization/', guid(uniqueString(variables('azureContainerRegistryName'), 'Acr', parameters('fhirVersion'), variables('serviceName'))))]",
-            "condition": "[parameters('enableDataConvert')]",
+            "condition": "[parameters('enableConvertData')]",
             "dependsOn": [
                 "[variables('azureContainerRegistryName')]",
                 "[variables('serviceName')]"

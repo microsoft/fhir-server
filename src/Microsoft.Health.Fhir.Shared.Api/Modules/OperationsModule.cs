@@ -6,10 +6,8 @@
 using EnsureThat;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
-using Microsoft.Health.Fhir.Core.Features.Operations.DataConvert;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
-using Microsoft.Health.Fhir.TemplateManagement;
 
 namespace Microsoft.Health.Fhir.Api.Modules
 {
