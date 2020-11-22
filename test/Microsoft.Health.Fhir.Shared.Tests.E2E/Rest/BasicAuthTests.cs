@@ -253,7 +253,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var parser = new FhirJsonParser(setting);
             var bundleResource = parser.Parse<Bundle>(result);
             Assert.Equal("urn:uuid:b06a26a8-9cb6-ef2c-b4a7-3781a6f7f71a", bundleResource.Entry.First().FullUrl);
-            Assert.Equal(2, bundleResource.Entry.Count);
+            Assert.Equal(3, bundleResource.Entry.Count);
 
             var patient = bundleResource.Entry.First().Resource as Patient;
             Assert.Equal("Kinmonth", patient.Name.First().Family);

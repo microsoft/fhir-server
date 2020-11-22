@@ -31,7 +31,6 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             {
                 Enabled = true,
                 OperationTimeout = TimeSpan.FromMilliseconds(50),
-                ContainerRegistryTokenExpiration = TimeSpan.FromSeconds(1),
             };
             convertDataConfig.ContainerRegistryServers.Add("test.azurecr.io");
 
