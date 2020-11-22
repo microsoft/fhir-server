@@ -402,7 +402,7 @@
         {
             "name": "[variables('azureContainerRegistryName')]",
             "type": "Microsoft.ContainerRegistry/registries",
-            "apiVersion": "2019-12-01-preview",
+            "apiVersion": "2019-05-01",
             "location": "[resourceGroup().location]",
             "comments": "Container registry for storing templates images",
             "condition": "[parameters('enableConvertData')]",

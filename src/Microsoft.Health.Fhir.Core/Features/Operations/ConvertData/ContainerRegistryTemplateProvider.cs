@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IdentityModel.Tokens.Jwt;
 using System.Threading;
 using System.Threading.Tasks;
 using DotLiquid;
@@ -69,7 +70,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
                 {
                     var token = await _containerRegistryTokenProvider.GetTokenAsync(request.RegistryServer, cancellationToken);
                     entry.Size = token.Length;
-                    entry.AbsoluteExpirationRelativeToNow = _convertDataConfig.ContainerRegistryTokenExpiration;
+                    entry.AbsoluteExpiration = GetTokenAbsoluteExpiration(token);
                     return token;
                 }
 
@@ -108,6 +109,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
                 _logger.LogError(ex, "Unhandled exception: failed to get template collection.");
                 throw new FetchTemplateCollectionFailedException(string.Format(Resources.FetchTemplateCollectionFailed, ex.Message), ex);
             }
+        }
+
+        /// <summary>
+        /// Try to parse exp claim from the acr JWT token. Return 30 minutes as default expiration.
+        /// </summary>
+        /// <param name="accessToken">JWT token with "Bearer" prefix.</param>
+        /// <returns>Expiration DateTimeOffset.</returns>
+        private static DateTimeOffset GetTokenAbsoluteExpiration(string accessToken)
+        {
+            var defaultExpiration = DateTimeOffset.Now.AddMinutes(30);
+            if (accessToken.StartsWith("bearer ", StringComparison.OrdinalIgnoreCase))
+            {
+                var jwtTokenText = accessToken.Substring(7);
+                var handler = new JwtSecurityTokenHandler();
+                var jwtToken = handler.ReadToken(jwtTokenText) as JwtSecurityToken;
+
+                return new DateTimeOffset(jwtToken.ValidTo);
+            }
+
+            return defaultExpiration;
         }
 
         private static string GetCacheKey(string registryServer)

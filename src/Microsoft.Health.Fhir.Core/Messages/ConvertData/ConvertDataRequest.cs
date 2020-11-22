@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.Messages.ConvertData
         public string RegistryServer { get; }
 
         /// <summary>
-        /// Indicate whether we are using the ddefault template or a custom template.
+        /// Indicate whether we are using the default template or a custom template.
         /// </summary>
         public bool IsDefaultTemplateReference { get; }
 
