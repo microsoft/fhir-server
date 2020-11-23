@@ -40,56 +40,54 @@ The Azure API for FHIR and the OSS FHIR Server for Azure use [Azure Active Direc
 
     ![Application Roles](images/resource-application/portal-aad-register-new-app-registration-APP-ROLES.png)
 
-2. In the `appRoles` property, add the [roles](https://github.com/microsoft/fhir-server/blob/master/src/Microsoft.Health.Fhir.Shared.Web/roles.json):
+2. In the `appRoles` property, add the [roles](https://github.com/microsoft/fhir-server/blob/master/src/Microsoft.Health.Fhir.Shared.Web/roles.json). Make sure that the role values are exactly matched to those defined, and assign a unique GUID value of your choice to each of the roles.
 
     ```json
-    {
-    "$schema": "../Microsoft.Health.Fhir.Core/Features/Security/roles.schema.json",
-    "roles": [
-        {
-            "name": "globalReader",
-            "dataActions": [
-                "read",
-                "resourceValidate"
-            ],
-            "notDataActions": [],
-            "scopes": [
-                "/"
-            ]
-        },
-        {
-            "name": "globalExporter",
-            "dataActions": [
-                "read",
-                "export"
-            ],
-            "notDataActions": [],
-            "scopes": [
-                "/"
-            ]
-        },
-        {
-            "name": "globalWriter",
-            "dataActions": [
-                "*"
-            ],
-            "notDataActions": [
-                "hardDelete"
-            ],
-            "scopes": [
-                "/"
-            ]
-        },
-        {
-            "name": "globalAdmin",
-            "dataActions": [
-                "*"
-            ],
-            "notDataActions": [],
-            "scopes": [
-                "/"
-            ]
-        }
-    ]
-}
-    ```
+    "appRoles": [
+		{
+			"allowedMemberTypes": [
+				"User",
+				"Application"
+			],
+			"description": "fhir oss admin",
+			"displayName": "globalAdmin",
+			"id": "ba852bf0-43e3-46f4-88ec-5ce70f5fb6dd",
+			"isEnabled": true,
+			"value": "globalAdmin"
+		},
+		{
+			"allowedMemberTypes": [
+				"User",
+				"Application"
+			],
+			"description": "fhir oss writer",
+			"displayName": "globalWriter",
+			"id": "07fed378-c437-418a-97ca-8a7962abd6d6",
+			"isEnabled": true,
+			"value": "globalWriter"
+		},
+        		{
+			"allowedMemberTypes": [
+				"User",
+				"Application"
+			],
+			"description": "fhir oss reader",
+			"displayName": "globalReader",
+			"id": "ed289d3c-3588-4469-914e-79c6cdb0f6e2",
+			"isEnabled": true,
+			"value": "globalReader"
+		},
+		{
+			"allowedMemberTypes": [
+				"User",
+				"Application"
+			],
+			"description": "fhir oss exporter",
+			"displayName": "globalWriter",
+			"id": "fbf16161-ddf3-42a7-8607-758a3660afe1",
+			"isEnabled": true,
+			"value": "globalExporter"
+		}
+	],
+    
+When "User" is specified for the allowedMemberTypes property, the defined roles are available to assign to users and groups. When  "Application" is specified for the allowedMemberTypes property, the roles are available to assign to service principals.
