@@ -14,8 +14,8 @@
       ],
     "base": "/",
     "system": false,
-    "type": true,
-    "instance": false,
+    "type": false,
+    "instance": true,
     "parameter": [
         {
             "name": "_outputFormat",
