@@ -483,7 +483,7 @@
     <comment>{0}: the template collection reference</comment>
   </data>
   <data name="TemplateImageTooLarge" xml:space="preserve">
-    <value>The specified template collection image size exceeds the limit configured for server. Current limit is "{0}" </value>
+    <value>The specified template collection image size exceeds the limit configured for server. Current limit is {0} MB.</value>
     <comment>{0}: the template collection size limit</comment>
   </data>
   <data name="InvalidTypeParameter" xml:space="preserve">
