@@ -38,6 +38,7 @@
                 "SqlServer:AllowDatabaseCreation": "true",
                 "SqlServer:ConnectionString": "server=(local);Initial Catalog=FHIR_R4;Integrated Security=true",
                 "SqlServer:Initialize": "true",
+                "SqlServer:SchemaOptions:AutomaticUpdatesEnabled": "true",
                 "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
             },
             "sourceFileMap": {
@@ -77,6 +78,7 @@
                 "DataStore": "SqlServer",
                 "SqlServer:AllowDatabaseCreation": "true",
                 "SqlServer:ConnectionString": "server=(local);Initial Catalog=FHIR_STU3;Integrated Security=true",
+                "SqlServer:SchemaOptions:AutomaticUpdatesEnabled": "true",
                 "SqlServer:Initialize": "true",
                 "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
             },
