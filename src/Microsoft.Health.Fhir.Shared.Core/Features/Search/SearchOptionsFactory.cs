@@ -208,7 +208,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             if (searchParams.Elements?.Any() == true && searchParams.Summary != null && searchParams.Summary != SummaryType.False)
             {
                 // The search parameters _elements and _summarize cannot be specified for the same request.
-                throw new BadRequestException(string.Format(Core.Resources.IncompatibleSearchParameters, KnownQueryParameterNames.Summary, KnownQueryParameterNames.Elements));
+                throw new BadRequestException(string.Format(Core.Resources.ElementsAndSummaryParametersAreIncompatible, KnownQueryParameterNames.Summary, KnownQueryParameterNames.Elements));
             }
 
             // Check to see if only the count should be returned

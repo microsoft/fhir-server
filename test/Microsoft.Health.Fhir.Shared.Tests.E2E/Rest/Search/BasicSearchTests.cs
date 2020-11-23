@@ -489,7 +489,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             const HttpStatusCode expectedStatusCode = HttpStatusCode.BadRequest;
             Assert.Equal(expectedStatusCode, ex.StatusCode);
 
-            var expectedErrorMessage = $"{expectedStatusCode}: " + string.Format(Core.Resources.IncompatibleSearchParameters, KnownQueryParameterNames.Summary, KnownQueryParameterNames.Elements);
+            var expectedErrorMessage = $"{expectedStatusCode}: " + string.Format(Core.Resources.ElementsAndSummaryParametersAreIncompatible, KnownQueryParameterNames.Summary, KnownQueryParameterNames.Elements);
 
             Assert.Equal(expectedErrorMessage, ex.Message);
         }

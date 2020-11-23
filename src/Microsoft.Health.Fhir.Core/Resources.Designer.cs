@@ -268,6 +268,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The &apos;_elements&apos; parameter is supported only when &apos;_summary&apos; is SummaryType.False or &apos;_summary&apos; is not specified at all..
+        /// </summary>
+        internal static string ElementsAndSummaryParametersAreIncompatible {
+            get {
+                return ResourceManager.GetString("ElementsAndSummaryParametersAreIncompatible", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Error validating roles:
         ///{0}.
         /// </summary>
@@ -391,15 +400,6 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string IncludeMissingType {
             get {
                 return ResourceManager.GetString("IncludeMissingType", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to The parameters &apos;{0}&apos; and &apos;{1}&apos; are not compatible..
-        /// </summary>
-        internal static string IncompatibleSearchParameters {
-            get {
-                return ResourceManager.GetString("IncompatibleSearchParameters", resourceCulture);
             }
         }
         
