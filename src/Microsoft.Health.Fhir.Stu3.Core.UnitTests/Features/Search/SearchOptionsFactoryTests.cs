@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             Expression expression = Substitute.For<Expression>();
 
-            _expressionParser.Parse(resourceType.ToString(), paramName, value).Returns(expression);
+            _expressionParser.Parse(Arg.Is<string[]>(x => x.Length == 1 && x[0] == resourceType.ToString()), paramName, value).Returns(expression);
 
             SearchOptions options = CreateSearchOptions(
                 resourceType: resourceType.ToString(),
@@ -55,8 +55,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Expression expression1 = Substitute.For<Expression>();
             Expression expression2 = Substitute.For<Expression>();
 
-            _expressionParser.Parse(resourceType.ToString(), paramName1, value1).Returns(expression1);
-            _expressionParser.Parse(resourceType.ToString(), paramName2, value2).Returns(expression2);
+            _expressionParser.Parse(Arg.Is<string[]>(x => x.Length == 1 && x[0] == resourceType.ToString()), paramName1, value1).Returns(expression1);
+            _expressionParser.Parse(Arg.Is<string[]>(x => x.Length == 1 && x[0] == resourceType.ToString()), paramName2, value2).Returns(expression2);
 
             var queryParameters = new[]
             {
@@ -93,10 +93,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Expression expression1 = Substitute.For<Expression>();
             Expression expression3 = Substitute.For<Expression>();
 
-            _expressionParser.Parse(resourceType.ToString(), paramName1, value1).Returns(expression1);
-            _expressionParser.Parse(resourceType.ToString(), paramName2, value2)
-                .Returns(x => throw new SearchParameterNotSupportedException(x.ArgAt<string>(0), x.ArgAt<string>(1)));
-            _expressionParser.Parse(resourceType.ToString(), paramName3, value3).Returns(expression3);
+            _expressionParser.Parse(Arg.Is<string[]>(x => x.Length == 1 && x[0] == resourceType.ToString()), paramName1, value1).Returns(expression1);
+            _expressionParser.Parse(Arg.Is<string[]>(x => x.Length == 1 && x[0] == resourceType.ToString()), paramName2, value2)
+                .Returns(x => throw new SearchParameterNotSupportedException(x.ArgAt<string[]>(0)[0], x.ArgAt<string>(1)));
+            _expressionParser.Parse(Arg.Is<string[]>(x => x.Length == 1 && x[0] == resourceType.ToString()), paramName3, value3).Returns(expression3);
 
             var queryParameters = new[]
             {
@@ -137,8 +137,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Expression expression1 = Substitute.For<Expression>();
             Expression expression2 = Substitute.For<Expression>();
 
-            _expressionParser.Parse(resourceType.ToString(), paramName1, value1).Returns(expression1);
-            _expressionParser.Parse(resourceType.ToString(), paramName2, value2).Returns(expression2);
+            _expressionParser.Parse(Arg.Is<string[]>(x => x.Length == 1 && x[0] == resourceType.ToString()), paramName1, value1).Returns(expression1);
+            _expressionParser.Parse(Arg.Is<string[]>(x => x.Length == 1 && x[0] == resourceType.ToString()), paramName2, value2).Returns(expression2);
 
             var queryParameters = new[]
             {

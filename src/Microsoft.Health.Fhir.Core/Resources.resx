@@ -503,4 +503,8 @@
   <data name="CustomSearchCreateError" xml:space="preserve">
     <value>An error occurred creating the custom search parameter.  The issue must be resolved and the parameter resubmitted to become functional.</value>
   </data>
+  <data name="SearchParameterMustBeCommon" xml:space="preserve">
+    <value>Search parameter '{0}' is not common for '{1}' and '{2}'.</value>
+    <comment>{0}: the invalid search parameter. {1}: first resource type. {2} other resource type.</comment>
+  </data>
 </root>

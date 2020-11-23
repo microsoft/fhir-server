@@ -7,8 +7,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 {
     public interface IExpressionParser
     {
-        Expression Parse(string resourceType, string key, string value);
+        Expression Parse(string[] resourceTypes, string key, string value);
 
-        IncludeExpression ParseInclude(string resourceType, string value, bool isReversed, bool iterate);
+        IncludeExpression ParseInclude(string[] resourceTypes, string value, bool isReversed, bool iterate);
     }
 }
