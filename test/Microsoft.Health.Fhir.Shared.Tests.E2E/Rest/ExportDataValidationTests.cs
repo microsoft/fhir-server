@@ -15,9 +15,11 @@ using Hl7.Fhir.Serialization;
 using Microsoft.Azure.Storage;
 using Microsoft.Azure.Storage.Auth;
 using Microsoft.Azure.Storage.Blob;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Shared.Tests.E2E.Rest;
+using Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Metric;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -37,12 +39,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         private readonly TestFhirClient _testFhirClient;
         private readonly ITestOutputHelper _outputHelper;
         private readonly FhirJsonParser _fhirJsonParser;
+        private readonly MetricHandler _metricHandler;
 
         public ExportDataValidationTests(ExportTestFixture fixture, ITestOutputHelper testOutputHelper)
         {
             _testFhirClient = fixture.TestFhirClient;
             _outputHelper = testOutputHelper;
             _fhirJsonParser = new FhirJsonParser();
+            _metricHandler = fixture.MetricHandler;
         }
 
         [Fact(Skip = "Failing CI build")]
@@ -153,6 +157,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             // NOTE: Azure Storage Emulator is required to run these tests locally.
 
+            // Clean notification before tests
+            _metricHandler.ResetCount();
+
             // Add data for test
             var (dataInFhirServer, groupId) = await CreateGroupWithPatient(true);
 
@@ -165,12 +172,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             // Assert both sets of data are equal
             Assert.True(ValidateDataFromBothSources(dataInFhirServer, dataFromExport));
+
+            // Assert at least one notification handled.
+            Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
         }
 
         [Fact]
         public async Task GivenFhirServer_WhenGroupObervationDataIsExported_ThenExportedDataIsSameAsDataInFhirServer()
         {
             // NOTE: Azure Storage Emulator is required to run these tests locally.
+
+            // Clean notification before tests
+            _metricHandler.ResetCount();
 
             // Add data for test
             var (dataInFhirServer, groupId) = await CreateGroupWithPatient(false);
@@ -184,6 +197,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             // Assert both sets of data are equal
             Assert.True(ValidateDataFromBothSources(dataInFhirServer, dataFromExport));
+
+            // Assert at least one notification handled.
+            Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
         }
 
         [Fact(Skip = "Failing CI build")]
