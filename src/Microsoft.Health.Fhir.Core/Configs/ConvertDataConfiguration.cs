@@ -22,6 +22,13 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public List<string> ContainerRegistryServers { get; } = new List<string>();
 
         /// <summary>
+        /// Azure Reource Endpoint to aquire AAD token for ACR access token.
+        /// The value is "https://management.azure.com/" for AzureCloud and DogFood.
+        /// Could be changed to "https://management.usgovcloudapi.net/" for Azure Government and "https://management.chinacloudapi.cn/ " for Azure China.
+        /// </summary>
+        public string AzureResourceManagerEndpoint { get; } = "https://management.azure.com/";
+
+        /// <summary>
         /// Configuration for templates.
         /// </summary>
         public TemplateCollectionConfiguration TemplateCollectionOptions { get; set; } = new TemplateCollectionConfiguration();

@@ -93,6 +93,14 @@ namespace Microsoft.Health.Fhir.Azure {
             }
         }
 
+        internal static string ContainerRegistryNotFound
+        {
+            get
+            {
+                return ResourceManager.GetString("ContainerRegistryNotFound", resourceCulture);
+            }
+        }
+
         internal static string DestinationClientNotConnected {
             get {
                 return ResourceManager.GetString("DestinationClientNotConnected", resourceCulture);

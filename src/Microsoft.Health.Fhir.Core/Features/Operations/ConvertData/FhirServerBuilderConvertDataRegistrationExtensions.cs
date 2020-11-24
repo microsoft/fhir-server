@@ -31,8 +31,6 @@ namespace Microsoft.Extensions.DependencyInjection
 
         private static IFhirServerBuilder AddConvertDataTemplateProvider(this IFhirServerBuilder fhirServerBuilder)
         {
-            // Add memory cache to store template object and ACR access tokens
-            // ToDo: add size limit
             fhirServerBuilder.Services.AddSingleton<IConvertDataTemplateProvider, ContainerRegistryTemplateProvider>();
 
             return fhirServerBuilder;

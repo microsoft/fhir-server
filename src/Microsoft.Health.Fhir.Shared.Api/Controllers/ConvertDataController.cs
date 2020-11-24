@@ -97,8 +97,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// Extract the first component from the image reference in the format of "dockerregistry.io/fedora/httpd:version1.0"
         /// Reference format: https://docs.docker.com/engine/reference/commandline/tag/#extended-description
         /// </summary>
-        /// <param name="templateCollectionReference">A string of image reference </param>
-        /// <returns>registry server</returns>
+        /// <param name="templateCollectionReference">A string of image reference.</param>
+        /// <returns>Registry server.</returns>
         private string ExtractRegistryServer(string templateCollectionReference)
         {
             var referenceComponents = templateCollectionReference.Split(ImageRegistryDelimiter);

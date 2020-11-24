@@ -234,7 +234,6 @@
                     "type": "config",
                     "dependsOn": [
                         "[variables('appServiceResourceId')]",
-                        "[variables('azureContainerRegistryName')]",
                         "[concat(variables('appServiceResourceId'), '/Extensions/MSDeploy')]",
                         "[if(variables('deployAppInsights'),concat('Microsoft.Insights/components/', variables('appInsightsName')),resourceId('Microsoft.KeyVault/vaults', variables('serviceName')))]"
                     ],

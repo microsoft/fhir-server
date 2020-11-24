@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,7 +22,7 @@ using Polly;
 namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
 {
     /// <summary>
-    /// Retrieve ACR accessTOkens with AAD token provider.
+    /// Retrieve ACR access token with AAD token provider.
     /// We need to exchange ACR refresh token with AAD token, and get ACR access token from refresh token.
     /// References:
     /// https://github.com/Azure/acr/blob/main/docs/AAD-OAuth.md#calling-post-oauth2exchange-to-get-an-acr-refresh-token
@@ -29,8 +30,6 @@ namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
     /// </summary>
     public class AzureContainerRegistryAccessTokenProvider : IContainerRegistryTokenProvider
     {
-        private const string ARMResourceUrl = "https://management.azure.com/";
-        private const string ClassicalARMResourceUrl = "https://management.core.windows.net/";
         private const string ExchangeAcrRefreshTokenUrl = "oauth2/exchange";
         private const string GetAcrAccessTokenUrl = "oauth2/token";
 
@@ -60,8 +59,7 @@ namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
         {
             EnsureArg.IsNotNullOrEmpty(registryServer, nameof(registryServer));
 
-            var aadResourceUri = GetArmResourceUri(registryServer);
-
+            var aadResourceUri = new Uri(_convertDataConfiguration.AzureResourceManagerEndpoint);
             string aadToken;
             try
             {
@@ -73,40 +71,44 @@ namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
                 throw new AzureContainerRegistryTokenException(Resources.CannotGetAcrAccessToken, ex);
             }
 
-            var registryUri = new Uri($"https://{registryServer}");
-            var exchangeRefereshTokenUrl = new Uri(registryUri, ExchangeAcrRefreshTokenUrl);
-            string acrRefreshToken = await ExchangeAcrRefreshToken(exchangeRefereshTokenUrl, aadToken, cancellationToken);
-
-            var acrAccessTokenUri = new Uri(registryUri, GetAcrAccessTokenUrl);
-            return await GetAcrAccessToken(acrAccessTokenUri, acrRefreshToken, cancellationToken);
+            string acrRefreshToken = await ExchangeAcrRefreshToken(registryServer, aadToken, cancellationToken);
+            return await GetAcrAccessToken(registryServer, acrRefreshToken, cancellationToken);
         }
 
-        private async Task<string> ExchangeAcrRefreshToken(Uri exchangeUri, string aadToken, CancellationToken cancellationToken)
+        private async Task<string> ExchangeAcrRefreshToken(string registryServer, string aadToken, CancellationToken cancellationToken)
         {
+            var registryUri = new Uri($"https://{registryServer}");
+            var exchangeUri = new Uri(registryUri, ExchangeAcrRefreshTokenUrl);
+
             var parameters = new List<KeyValuePair<string, string>>();
             parameters.Add(new KeyValuePair<string, string>("grant_type", "access_token"));
-            parameters.Add(new KeyValuePair<string, string>("service", exchangeUri.Host));
+            parameters.Add(new KeyValuePair<string, string>("service", registryServer));
             parameters.Add(new KeyValuePair<string, string>("access_token", aadToken));
             var request = new HttpRequestMessage(HttpMethod.Post, exchangeUri)
             {
                 Content = new FormUrlEncodedContent(parameters),
             };
 
-            string refreshToken;
-            try
+            var refreshTokenResponse = await SendRequestAsync(request, cancellationToken);
+            if (refreshTokenResponse.StatusCode == HttpStatusCode.Unauthorized)
             {
-                var refreshTokenResponse = await SendRequestAsync(request, cancellationToken);
-                refreshTokenResponse.EnsureSuccessStatusCode();
-                var refreshTokenText = await refreshTokenResponse.Content.ReadAsStringAsync();
-                dynamic refreshTokenJson = JsonConvert.DeserializeObject(refreshTokenText);
-                refreshToken = (string)refreshTokenJson.refresh_token;
+                _logger.LogError("Failed to exchange ACR refresh token: ACR server is unauthorized.");
+                throw new ContainerRegistryNotAuthorizedException(Resources.ContainerRegistryNotAuthorized);
             }
-            catch (Exception ex)
+            else if (refreshTokenResponse.StatusCode == HttpStatusCode.NotFound)
             {
-                _logger.LogError(ex, "Failed to exchange ACR refresh token with aad access token.");
-                throw new AzureContainerRegistryTokenException(Resources.CannotGetAcrAccessToken, ex);
+                _logger.LogError("Failed to exchange ACR refresh token: ACR server is not found.");
+                throw new ContainerRegistryNotFoundException(Resources.ContainerRegistryNotFound);
+            }
+            else if (!refreshTokenResponse.IsSuccessStatusCode)
+            {
+                _logger.LogError($"Failed to exchange ACR refresh token with AAD access token. Status code: {refreshTokenResponse.StatusCode}");
+                throw new AzureContainerRegistryTokenException(Resources.CannotGetAcrAccessToken);
             }
 
+            var refreshTokenText = await refreshTokenResponse.Content.ReadAsStringAsync();
+            dynamic refreshTokenJson = JsonConvert.DeserializeObject(refreshTokenText);
+            string refreshToken = (string)refreshTokenJson.refresh_token;
             if (string.IsNullOrEmpty(refreshToken))
             {
                 _logger.LogError("ACR refresh token is empty.");
@@ -117,11 +119,14 @@ namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
             return refreshToken;
         }
 
-        private async Task<string> GetAcrAccessToken(Uri accessTokenUri, string refreshToken, CancellationToken cancellationToken)
+        private async Task<string> GetAcrAccessToken(string registryServer, string refreshToken, CancellationToken cancellationToken)
         {
+            var registryUri = new Uri($"https://{registryServer}");
+            var accessTokenUri = new Uri(registryUri, GetAcrAccessTokenUrl);
+
             var parameters = new List<KeyValuePair<string, string>>();
             parameters.Add(new KeyValuePair<string, string>("grant_type", "refresh_token"));
-            parameters.Add(new KeyValuePair<string, string>("service", accessTokenUri.Host));
+            parameters.Add(new KeyValuePair<string, string>("service", registryServer));
             parameters.Add(new KeyValuePair<string, string>("refresh_token", refreshToken));
 
             // Add scope for AcrPull role (granted at registry level).
@@ -131,21 +136,26 @@ namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
                 Content = new FormUrlEncodedContent(parameters),
             };
 
-            string accessToken;
-            try
+            var accessTokenResponse = await SendRequestAsync(request, cancellationToken);
+            if (accessTokenResponse.StatusCode == HttpStatusCode.Unauthorized)
             {
-                var accessTokenResponse = await SendRequestAsync(request, cancellationToken);
-                accessTokenResponse.EnsureSuccessStatusCode();
-                var accessTokenText = await accessTokenResponse.Content.ReadAsStringAsync();
-                dynamic accessTokenJson = JsonConvert.DeserializeObject(accessTokenText);
-                accessToken = accessTokenJson.access_token;
+                _logger.LogError("Failed to get ACR access token: ACR server is unauthorized.");
+                throw new ContainerRegistryNotAuthorizedException(Resources.ContainerRegistryNotAuthorized);
             }
-            catch (Exception ex)
+            else if (accessTokenResponse.StatusCode == HttpStatusCode.NotFound)
             {
-                _logger.LogError(ex, "Failed to get ACR access token with ACR refresh token.");
-                throw new AzureContainerRegistryTokenException(Resources.CannotGetAcrAccessToken, ex);
+                _logger.LogError("Failed to get ACR access token: ACR server is not found.");
+                throw new ContainerRegistryNotFoundException(Resources.ContainerRegistryNotFound);
+            }
+            else if (!accessTokenResponse.IsSuccessStatusCode)
+            {
+                _logger.LogError($"Failed to get ACR access token with ACR refresh token. Status code: {accessTokenResponse.StatusCode}");
+                throw new AzureContainerRegistryTokenException(Resources.CannotGetAcrAccessToken);
             }
 
+            var accessTokenText = await accessTokenResponse.Content.ReadAsStringAsync();
+            dynamic accessTokenJson = JsonConvert.DeserializeObject(accessTokenText);
+            string accessToken = accessTokenJson.access_token;
             if (string.IsNullOrEmpty(accessToken))
             {
                 _logger.LogError("ACR access token is empty.");
@@ -166,18 +176,6 @@ namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
                   _logger.LogWarning(exception, $"Get ACR token failed. Retry {retryCount}");
               })
               .ExecuteAsync(() => httpClient.SendAsync(request, cancellationToken));
-        }
-
-        private Uri GetArmResourceUri(string registryServer)
-        {
-            // Determine which ARM resource uri to use for this registry. https://docs.microsoft.com/en-us/rest/api/azure/#request-uri
-            // Note ARMResourceUri will be chosen mostly except that registry is from dogfooding environment which end with 'azurecr-test'.
-            if (registryServer.EndsWith(".azurecr.io", StringComparison.OrdinalIgnoreCase))
-            {
-                return new Uri(ARMResourceUrl);
-            }
-
-            return new Uri(ClassicalARMResourceUrl);
         }
     }
 }
