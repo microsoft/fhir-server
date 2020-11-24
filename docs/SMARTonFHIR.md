@@ -10,8 +10,6 @@ The first step is to make updates/validate settings for your app service. Naviga
 
 ![App Service Settings](images/SMARTonFHIR/app-service-settings.png)
 
-The OSS FHIR Server security is handled through the server (or app) using four custom defined [roles](https://github.com/microsoft/fhir-server/blob/master/src/Microsoft.Health.Fhir.Shared.Web/roles.json), globalAdmin, globalWriter, globalReader and globalExporter. It is not done through the portal, and therefore you can leave the App Service Automation in the default setting, "Off".
-
 # Enable CORS
 
 1. Under API select **CORS**
