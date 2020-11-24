@@ -9,14 +9,8 @@ You can register a confidential client application following most of the steps i
 1. Select **My APIs** to add permissions to the client app. 
 1. Select appropriate role(s) for the application.
 
-
+![Add Roles](images/client-application/requestapipermission.png)
 
 # Register a public client application
 
-You can register a public client application as outlined in the document. The only differences are that 
-- you grant permissions by using the defined app roles, as described above.
-- you specify Redirect URIs for SPA apps, Postman and SMART on FHIR apps using "Mobile and desktop applications", instead of using the "single-page application" platform.
-
-![image.png](/docs/images/AppRegOSS/image-7238b1aa-112b-48da-b6fd-a5e852dca1bf.png)
-
-![image.png](/docs/images/AppRegOSS/image-2c6535a6-9675-4397-a52a-21fce0d844a2.png)
+You can register a public client application as outlined in the [managed service documentation](https://docs.microsoft.com/azure/healthcare-apis/register-public-azure-ad-client-app). The only difference is granting permissions by using the defined app roles, as described above.
