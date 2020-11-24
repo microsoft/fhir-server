@@ -4,10 +4,11 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using EnsureThat;
+
 using Hl7.Fhir.ElementModel;
 using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
@@ -31,14 +32,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
                 yield break;
             }
 
-            var currency = value.Scalar("currency")?.ToString();
-
-            // Currency information is specified differently if we are running STU3.
-            if (currency == null)
+            if (ModelInfoProvider.Version == FhirSpecification.Stu3)
             {
                 var code = value.Scalar("code")?.ToString();
                 var system = value.Scalar("system")?.ToString();
 
+                // The spec specifies that only the code value must be provided.
                 if (code == null)
                 {
                     yield break;
@@ -51,6 +50,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
             }
             else
             {
+                var currency = value.Scalar("currency")?.ToString();
+
+                if (currency == null)
+                {
+                    yield break;
+                }
+
                 yield return new QuantitySearchValue(
                     CurrencyValueSet.CodeSystemUri, // TODO: Use ICodeSystemResolver to pull this from resourcepath-codesystem-mappings.json once it's added.
                     currency,
