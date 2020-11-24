@@ -43,8 +43,7 @@ The Azure API for FHIR and the OSS FHIR Server for Azure use [Azure Active Direc
 ![Add App Roles](images/resource-application/approles.png)
 
 If you want to update the manifest, see the details below:
-
-    ```json
+```json
     "appRoles": [
 		{
 			"allowedMemberTypes": [
@@ -91,5 +90,6 @@ If you want to update the manifest, see the details below:
 			"value": "globalExporter"
 		}
 	],
-    
+```
+
 When "User" is specified for the allowedMemberTypes property, the defined roles are available to assign to users and groups. When  "Application" is specified for the allowedMemberTypes property, the roles are available to assign to service principals.
