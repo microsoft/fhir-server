@@ -1,7 +1,8 @@
 [SMART on FHIR](https://docs.smarthealthit.org/) is a set of open specifications to integrate partner applications with FHIR servers and electronic medical records systems that have FHIR interfaces. 
 
-There is a tutorial on the managed service documentation that describes how to use the proxy to enable SMART on FHIR applications with the Azure API for FHIR. You can follow the [steps](https://docs.microsoft.com/azure/healthcare-apis/use-smart-on-fhir-proxy) for the open-source FHIR Server as well with a few changes that are highlighed below.
+There is a tutorial on the managed service documentation that describes how to use the proxy to enable SMART on FHIR applications with the Azure API for FHIR. You can follow the [steps](https://docs.microsoft.com/azure/healthcare-apis/use-smart-on-fhir-proxy) for the open-source FHIR Server as well but need to configure a few settings in a different way first. 
 
+# Initial open-source steps
 The first step is to make updates/validate settings for your app service. Navigate to the App Service that was greated as part of the deployment,
 
 # Enable the SMART on FHIR proxy
@@ -10,25 +11,17 @@ The first step is to make updates/validate settings for your app service. Naviga
 
 ![App Service Settings](images/SMARTonFHIR/app-service-settings.png)
 
-# Enable CORS
+## Enable CORS
 
 1. Under API select **CORS**
 1. Select "Enable Access-Control-Allow-Credentials" 
-1. Add your application url. You can use the wildcard "*" instead of a specific url, but it is not recommended for security reasons.
+1. Add your application url.
 
 ![CORS](images/SMARTonFHIR/CORS.png)
 
-# Application Registrations
+# Tutorial
 
-For more details on registering applications, visit the [resource application](Register-Resource-Application.md) and [client application](Register-Client-Application.md) tutorials.
-
-Update the appsettings.json file and run the app
-
-{
-    "FhirServerUrl": "https://xxx.azurehealthcareapis.com",
-    "ClientId": "{guid value here}",
-    "DefaultSmartAppUrl": "/sampleapp/launch.html"
-}
+Now that you have ensured that you have right settings, you can follow the steps for the managed service tutorial starting at the [**Configure the reply URL**](https://docs.microsoft.com/azure/healthcare-apis/use-smart-on-fhir-proxy#configure-the-reply-url) step.
 
 # Troubleshoot the App
 
