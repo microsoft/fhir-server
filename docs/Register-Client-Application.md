@@ -2,17 +2,14 @@ Client applications are registrations of the clients that will be requesting tok
 
 # Register a confidential client application
 
-You can register a confidential client application following most of the steps in the [managed service tutorial](https://docs.microsoft.com/azure/healthcare-apis/register-confidential-azure-ad-client-app). The only difference is that you grant permissions by using the defined app roles that you created when you registers your [resource application](https://github.com/microsoft/fhir-server/blob/master/docs/Register-Resource-Application.md).
+You can register a confidential client application following most of the steps in the [managed service tutorial](https://docs.microsoft.com/azure/healthcare-apis/register-confidential-azure-ad-client-app). The only difference is that you grant permissions by using the defined app roles that you created when you registered your [resource application](https://github.com/microsoft/fhir-server/blob/master/docs/Register-Resource-Application.md).
 
-1. Select API Permissions from the portal
-1. Select My APIs to add permissions to the client app. 
+1. Select **API permissions** from the portal
+1. Select **Add a permission**
+1. Select **My APIs** to add permissions to the client app. 
 1. Select appropriate role(s) for the application.
 
-![image.png](/docs/images/AppRegOSS/image-4a7f3341-6075-4cd9-935d-96923ad88ecf.png)
 
-1. Similarly, you can assign users and groups to the role(s) using Enterprise Applications from the portal.
-
-![image.png](/docs/images/AppRegOSS/image-8f6232e0-1f75-41b8-aba3-8a392cd52460.png)
 
 # Register a public client application
 
