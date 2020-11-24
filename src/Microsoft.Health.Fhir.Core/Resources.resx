@@ -490,4 +490,7 @@
     <value>The '_type' parameter contains unknown resource(s): {0}</value>
     <comment>{0}: Single or list of unknown resources.</comment>
   </data>
+  <data name="ElementsAndSummaryParametersAreIncompatible" xml:space="preserve">
+    <value>The '_elements' parameter is supported only when '_summary' is SummaryType.False or '_summary' is not specified at all.</value>
+  </data>
 </root>

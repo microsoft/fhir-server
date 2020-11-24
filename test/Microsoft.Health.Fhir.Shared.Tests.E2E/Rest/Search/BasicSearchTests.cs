@@ -8,11 +8,13 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Net;
+using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.Common;
@@ -425,22 +427,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenListOfResources_WhenSearchedWithElements_ThenOnlySpecifiedPropertiesShouldBeReturned()
         {
-            const int numberOfResources = 3;
-            string[] elements = new[] { "gender", "birthDate" };
-
+            string[] elements = { "gender", "birthDate" };
             var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
 
-            Patient patient = Samples.GetDefaultPatient().ToPoco<Patient>();
-            var patients = new Patient[numberOfResources];
-
-            for (int i = 0; i < numberOfResources; i++)
-            {
-                patient.Meta = new Meta();
-                patient.Meta.Tag.Add(tag);
-
-                FhirResponse<Patient> createdPatient = await Client.CreateAsync(patient);
-                patients[i] = MaskingNode.ForElements(new ScopedNode(createdPatient.Resource.ToTypedElement()), elements).ToPoco<Patient>();
-            }
+            Patient[] patients = await CreatePatientsWithSpecifiedElements(tag, elements);
 
             Bundle bundle = await Client.SearchAsync($"Patient?_tag={tag.Code}&_elements={string.Join(',', elements)}");
 
@@ -476,24 +466,44 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenListOfResources_WhenSearchedWithInvalidElements_ThenOnlyValidSpecifiedPropertiesShouldBeReturned()
         {
-            const int numberOfResources = 3;
-            string[] elements = new[] { "gender", "birthDate" };
-
+            string[] elements = { "gender", "birthDate" };
             var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
 
-            Patient patient = Samples.GetDefaultPatient().ToPoco<Patient>();
-            var patients = new Patient[numberOfResources];
-
-            for (int i = 0; i < numberOfResources; i++)
-            {
-                patient.Meta = new Meta();
-                patient.Meta.Tag.Add(tag);
-
-                FhirResponse<Patient> createdPatient = await Client.CreateAsync(patient);
-                patients[i] = MaskingNode.ForElements(new ScopedNode(createdPatient.Resource.ToTypedElement()), elements).ToPoco<Patient>();
-            }
+            Patient[] patients = await CreatePatientsWithSpecifiedElements(tag, elements);
 
             Bundle bundle = await Client.SearchAsync($"Patient?_tag={tag.Code}&_elements=invalidProperty,{string.Join(',', elements)}");
+
+            ValidateBundle(bundle, patients);
+        }
+
+        [InlineData("id", "count")]
+        [InlineData("id,active", "true")]
+        [InlineData("id,active", "data")]
+        [InlineData("id,active", "text")]
+        [Theory]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenListOfResources_WhenSearchedWithElementsAndSummaryNotSetToFalse_ThenExceptionShouldBeThrown(string elementsValues, string summaryValue)
+        {
+            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync($"Patient?_elements={elementsValues}&_summary={summaryValue}"));
+
+            const HttpStatusCode expectedStatusCode = HttpStatusCode.BadRequest;
+            Assert.Equal(expectedStatusCode, ex.StatusCode);
+
+            var expectedErrorMessage = $"{expectedStatusCode}: " + string.Format(Core.Resources.ElementsAndSummaryParametersAreIncompatible, KnownQueryParameterNames.Summary, KnownQueryParameterNames.Elements);
+
+            Assert.Equal(expectedErrorMessage, ex.Message);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenListOfResources_WhenSearchedWithElementsAndSummarySetToFalse_ThenOnlySpecifiedPropertiesShouldBeReturned()
+        {
+            string[] elements = { "gender", "birthDate" };
+            var tag = new Coding(string.Empty, Guid.NewGuid().ToString());
+
+            Patient[] patients = await CreatePatientsWithSpecifiedElements(tag, elements);
+
+            Bundle bundle = await Client.SearchAsync($"Patient?_tag={tag.Code}&_elements={string.Join(',', elements)}&_summary=false");
 
             ValidateBundle(bundle, patients);
         }
@@ -687,6 +697,26 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
             System.Net.Http.HttpResponseMessage httpResponseMessage = await Client.HttpClient.GetAsync(uri);
             Assert.Equal(HttpStatusCode.BadRequest, httpResponseMessage.StatusCode);
+        }
+
+        private async Task<Patient[]> CreatePatientsWithSpecifiedElements(Coding tag, string[] elements)
+        {
+            const int numberOfResources = 3;
+
+            Patient patient = Samples.GetDefaultPatient().ToPoco<Patient>();
+            var patients = new Patient[numberOfResources];
+
+            for (int i = 0; i < numberOfResources; i++)
+            {
+                patient.Meta = new Meta();
+                patient.Meta.Tag.Add(tag);
+
+                FhirResponse<Patient> createdPatient = await Client.CreateAsync(patient);
+                patients[i] = MaskingNode.ForElements(new ScopedNode(createdPatient.Resource.ToTypedElement()), elements)
+                    .ToPoco<Patient>();
+            }
+
+            return patients;
         }
     }
 }
