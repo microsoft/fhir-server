@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
             else
             {
                 yield return new QuantitySearchValue(
-                    CurrencyValues.System, // TODO: Use ICodeSystemResolver to pull this from resourcepath-codesystem-mappings.json once it's added.
+                    CurrencyValueSet.CodeSystemUri, // TODO: Use ICodeSystemResolver to pull this from resourcepath-codesystem-mappings.json once it's added.
                     currency,
                     decimalValue.GetValueOrDefault());
             }

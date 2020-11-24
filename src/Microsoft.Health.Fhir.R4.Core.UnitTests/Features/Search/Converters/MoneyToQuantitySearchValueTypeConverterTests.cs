@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.R4.Core.UnitTests.Features.Search.Converters
                     m.Currency = currency;
                 },
                 ValidateQuantity,
-                new Quantity(value, currency.ToString(), CurrencyValues.System));
+                new Quantity(value, currency.ToString(), CurrencyValueSet.CodeSystemUri));
         }
 
         [Fact]

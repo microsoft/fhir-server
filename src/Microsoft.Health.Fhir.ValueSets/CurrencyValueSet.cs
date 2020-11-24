@@ -5,8 +5,8 @@
 
 namespace Microsoft.Health.Fhir.ValueSets
 {
-    public static class CurrencyValues
+    public static class CurrencyValueSet
     {
-        public const string System = "urn:iso:std:iso:4217";
+        public const string CodeSystemUri = "urn:iso:std:iso:4217";
     }
 }

@@ -31,10 +31,10 @@ namespace Microsoft.Health.Fhir.Stu3.Core.UnitTests.Features.Search.Converters
                 {
                     m.Value = value;
                     m.Code = code;
-                    m.System = CurrencyValues.System;
+                    m.System = CurrencyValueSet.CodeSystemUri;
                 },
                 ValidateQuantity,
-                new Quantity(value, code, CurrencyValues.System));
+                new Quantity(value, code, CurrencyValueSet.CodeSystemUri));
         }
 
         [Fact]
@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Stu3.Core.UnitTests.Features.Search.Converters
             {
                 m.Value = value;
                 m.Code = null;
-                m.System = CurrencyValues.System;
+                m.System = CurrencyValueSet.CodeSystemUri;
             });
         }
 
