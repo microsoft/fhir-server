@@ -48,6 +48,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
         public Expression Parse(
             SearchParameterInfo searchParameter,
             SearchModifierCode? modifier,
+            string targetTypeModifier,
             string value)
         {
             EnsureArg.IsNotNull(searchParameter, nameof(searchParameter));
@@ -121,6 +122,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                             compositeExpressions[componentIndex] = Build(
                                 componentSearchParameter,
                                 modifier: null,
+                                targetTypeModifier: null,
                                 componentIndex: componentIndex,
                                 value: componentValue);
                         }
@@ -135,6 +137,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                     outputExpression = Build(
                         searchParameter,
                         modifier,
+                        targetTypeModifier,
                         componentIndex: null,
                         value: value);
                 }
@@ -146,6 +149,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
         private Expression Build(
             SearchParameterInfo searchParameter,
             SearchModifierCode? modifier,
+            string targetTypeModifier,
             int? componentIndex,
             string value)
         {
@@ -183,6 +187,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             {
                 // This is a single value expression.
                 ISearchValue searchValue = parser(valueSpan.ToString());
+                searchValue = ApplyTargetTypeModifier(searchValue);
 
                 return helper.Build(
                     searchParameter.Name,
@@ -202,6 +207,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 Expression[] expressions = parts.Select(part =>
                 {
                     ISearchValue searchValue = parser(part);
+                    searchValue = ApplyTargetTypeModifier(searchValue);
 
                     return helper.Build(
                         searchParameter.Name,
@@ -212,6 +218,40 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 }).ToArray();
 
                 return Expression.Or(expressions);
+            }
+
+            ISearchValue ApplyTargetTypeModifier(ISearchValue source)
+            {
+                var referenceSearchValue = source as ReferenceSearchValue;
+                if (referenceSearchValue == null || string.IsNullOrEmpty(targetTypeModifier))
+                {
+                    return source;
+                }
+
+                if (!string.IsNullOrEmpty(referenceSearchValue.ResourceType))
+                {
+                    if (string.Equals(referenceSearchValue.ResourceType, targetTypeModifier, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return source;
+                    }
+
+                    throw new InvalidSearchOperationException(
+                        string.Format(Core.Resources.ModifierNotSupported, targetTypeModifier, searchParameter.Name));
+                }
+
+                try
+                {
+                    return new ReferenceSearchValue(
+                        referenceSearchValue.Kind,
+                        referenceSearchValue.BaseUri,
+                        targetTypeModifier,
+                        referenceSearchValue.ResourceId);
+                }
+                catch (ArgumentException)
+                {
+                    throw new InvalidSearchOperationException(
+                        string.Format(Core.Resources.ModifierNotSupported, targetTypeModifier, searchParameter.Name));
+                }
             }
         }
 
