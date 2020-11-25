@@ -33,8 +33,9 @@ To see what is releasing in the FHIR Server, please refer to the [releases](http
 # Documentation
 
 - Quickstart guides to deploy open source using [portal](docs/QuickstartDeployPortal.md), [CLI](docs/QuickstartDeployCLI.md), and [PowerShell](docs/QuickstartDeployPowershell.md).
-- [FHIR Postman tutorial](https://docs.microsoft.com/en-us/azure/healthcare-apis/access-fhir-postman-tutorial): Describes how to access a FHIR API using Postman.
-- [Azure Active Directory Application Registrations](docs/PortalAppRegistration.md): Describes how to configure Azure Active Directory (AAD) for use with FHIR Server for Azure.
+- Register a [resource application](docs/Register-Resource-Application.md) and a [client application](docs/Register-Client-Application.md)
+- [SMART on FHIR Proxy tutorial)(docs/SMARTonFHIR.md): Describes how to use the proxy to enable SMART on FHIR applications with the FHIR Server.
+- [FHIR Postman tutorial](https://docs.microsoft.com/azure/healthcare-apis/access-fhir-postman-tutorial): Describes how to access a FHIR API using Postman.
 - [Authentication](docs/Authentication.md): Describes the authentication settings for the FHIR server and how to make use of it in development and test scenarios.
 - [Roles](docs/Roles.md): Describes how the FHIR Server for Azure role-based access control (RBAC) system works.
 - [Search](docs/SearchArchitecture.md): Describes how search is implemented for the FHIR Server for Azure.
