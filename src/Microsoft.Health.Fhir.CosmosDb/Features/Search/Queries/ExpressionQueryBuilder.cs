@@ -209,6 +209,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
             return null;
         }
 
+        public object VisitNotExpression(NotExpression expression, Context context)
+        {
+            // TODO: This will be removed once it's implemented.
+            throw new SearchOperationNotSupportedException("Modifier ':not' is not supported");
+        }
+
         public object VisitMultiary(MultiaryExpression expression, Context context)
         {
             MultiaryOperator op = expression.MultiaryOperation;

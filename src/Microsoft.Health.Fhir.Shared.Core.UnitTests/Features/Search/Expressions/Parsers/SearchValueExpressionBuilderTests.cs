@@ -706,6 +706,18 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 e => ValidateStringExpression(e, FieldName.TokenText, StringOperator.StartsWith, input, true));
         }
 
+        [Fact]
+        public void GivenATokenWithNotModifier_WhenBuilt_ThenCorrectExpressionShouldBeCreated()
+        {
+            const string input = "TestString123";
+
+            Validate(
+                CreateSearchParameter(SearchParamType.Token),
+                SearchModifierCode.Not,
+                input,
+                e => ValidateNotExpression(e, x => ValidateStringExpression(x, FieldName.TokenCode, StringOperator.Equals, input, false)));
+        }
+
         [Theory]
         [MemberData(nameof(GetNoneTokenSearchParamTypeAsMemberData))]
         public void GivenASearchParameterThatDoesNotSupportTextModifier_WhenBuilt_ThenCorrectExpressionShouldBeCreated(SearchParamType searchParameterType)
@@ -784,7 +796,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
         [Theory]
         [InlineData(SearchModifierCode.Exact)]
         [InlineData(SearchModifierCode.Contains)]
-        [InlineData(SearchModifierCode.Not)]
         [InlineData(SearchModifierCode.Type)]
         public void GivenATokenWithInvalidModifier_WhenBuilding_ThenInvalidSearchOperationExceptionShouldBeThrown(SearchModifierCode modifier)
         {

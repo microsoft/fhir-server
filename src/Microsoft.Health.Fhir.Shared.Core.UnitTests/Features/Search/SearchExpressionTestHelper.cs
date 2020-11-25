@@ -139,6 +139,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Equal(expectedFieldName, mfExpression.FieldName);
         }
 
+        public static void ValidateNotExpression(
+            Expression expression,
+            Action<Expression> subValidator)
+        {
+            NotExpression notExpression = Assert.IsType<NotExpression>(expression);
+            subValidator(notExpression.Expression);
+        }
+
         public static void ValidateCompartmentSearchExpression(
             Expression expression,
             string compartmentType,

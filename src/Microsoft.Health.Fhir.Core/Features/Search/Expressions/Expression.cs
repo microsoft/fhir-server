@@ -36,6 +36,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         }
 
         /// <summary>
+        /// Creates a <see cref="NotExpression"/> that represents logical NOT operation over <paramref name="expression"/>.
+        /// </summary>
+        /// <param name="expression">The expression.</param>
+        /// <returns>A <see cref="NotExpression"/> that has logical operator NOT over <paramref name="expression"/>.</returns>
+        public static NotExpression Not(Expression expression)
+        {
+            return new NotExpression(expression);
+        }
+
+        /// <summary>
         /// Creates a <see cref="MultiaryExpression"/> that represents logical AND operation over <paramref name="expressions"/>.
         /// </summary>
         /// <param name="expressions">The expressions.</param>

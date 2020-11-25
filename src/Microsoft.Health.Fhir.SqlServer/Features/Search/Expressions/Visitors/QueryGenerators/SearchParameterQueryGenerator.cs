@@ -63,6 +63,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             return context;
         }
 
+        public override SearchParameterQueryGeneratorContext VisitNotExpression(NotExpression expression, SearchParameterQueryGeneratorContext context)
+        {
+            Debug.Assert(false, "Not expressions should have been rewritten");
+
+            return base.VisitNotExpression(expression, context);
+        }
+
         public override SearchParameterQueryGeneratorContext VisitMultiary(MultiaryExpression expression, SearchParameterQueryGeneratorContext context)
         {
             if (expression.MultiaryOperation == MultiaryOperator.Or)

@@ -14,21 +14,26 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class TokenSearchTests : SearchTestsBase<TokenSearchTestFixture>
     {
+        public static readonly object[][] TokenSearchParameterData = new[]
+        {
+            new object[] { "a" },
+            new object[] { "code1", 0, 5, 6 },
+            new object[] { "code3", 4, 6, 7 },
+            new object[] { "a|b" },
+            new object[] { "system2|code2", 1 },
+            new object[] { "|code2" },
+            new object[] { "|code3", 7 },
+            new object[] { "a|" },
+            new object[] { "system3|", 4, 5, 6 },
+        };
+
         public TokenSearchTests(TokenSearchTestFixture fixture)
             : base(fixture)
         {
         }
 
         [Theory]
-        [InlineData("a")]
-        [InlineData("code1", 0, 5, 6)]
-        [InlineData("code3", 4, 6, 7)]
-        [InlineData("a|b")]
-        [InlineData("system2|code2", 1)]
-        [InlineData("|code2")]
-        [InlineData("|code3", 7)]
-        [InlineData("a|")]
-        [InlineData("system3|", 4, 5, 6)]
+        [MemberData(nameof(TokenSearchParameterData))]
         public async Task GivenATokenSearchParameter_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue, params int[] expectedIndices)
         {
             Bundle bundle = await Client.SearchAsync(ResourceType.Observation, $"value-concept={queryValue}");
@@ -47,6 +52,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Bundle bundle = await Client.SearchAsync(ResourceType.Observation, $"value-concept:text={queryValue}");
 
             Observation[] expected = expectedIndices.Select(i => Fixture.Observations[i]).ToArray();
+
+            ValidateBundle(bundle, expected);
+        }
+
+        [Theory]
+        [MemberData(nameof(TokenSearchParameterData))]
+        public async Task GivenATokenSearchParameterWithNotModifier_WhenSearched_ThenCorrectBundleShouldBeReturned(string queryValue, params int[] excludeIndices)
+        {
+            Bundle bundle = await Client.SearchAsync(ResourceType.Observation, $"value-concept:not={queryValue}");
+
+            Observation[] expected = Fixture.Observations.Where((_, i) => !excludeIndices.Contains(i)).ToArray();
 
             ValidateBundle(bundle, expected);
         }
