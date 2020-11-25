@@ -1,11 +1,12 @@
-[SMART on FHIR](https://docs.smarthealthit.org/) is a set of open specifications to integrate partner applications with FHIR servers and electronic medical records systems that have FHIR interfaces. 
+# Azure Active Directory SMART on FHIR proxy
 
-There is a tutorial on the managed service documentation that describes how to use the proxy to enable SMART on FHIR applications with the Azure API for FHIR. You can follow the [steps](https://docs.microsoft.com/azure/healthcare-apis/use-smart-on-fhir-proxy) for the open-source FHIR Server as well but need to configure a few settings in a different way first. 
+In this tutorial we will cover how to use the proxy to enable SMART on FHIR applications with the FHIR Server. [SMART on FHIR](https://docs.smarthealthit.org/) is a set of open specifications to integrate partner applications with FHIR servers and electronic medical records systems that have FHIR interfaces. 
 
-# Initial open-source steps
-The first step is to make updates/validate settings for your app service. Navigate to the App Service that was greated as part of the deployment,
+The majority of the tutorial is available [here](https://docs.microsoft.com/azure/healthcare-apis/use-smart-on-fhir-proxy) but the first two steps need to be completed differently. These steps ensure that your app service settings are configured correctly. 
 
-# Enable the SMART on FHIR proxy
+Navigate to the App Service that was greated as part of the deployment.
+
+## Enable the SMART on FHIR proxy setting
 1. Select **Configuration** under Settings
 1. Set FhirServer:Security:EnableAadSmartOnFhirProxy and FhirServer:Security:Enabled to **True**.
 
@@ -19,11 +20,10 @@ The first step is to make updates/validate settings for your app service. Naviga
 
 ![CORS](images/SMARTonFHIR/CORS.png)
 
-# Tutorial
-
+## Use the proxy to enable SMART on FHIR applications with the FHIR Server
 Now that you have ensured that you have right settings, you can follow the steps for the managed service tutorial starting at the [**Configure the reply URL**](https://docs.microsoft.com/azure/healthcare-apis/use-smart-on-fhir-proxy#configure-the-reply-url) step.
 
-# Troubleshoot the App
+## Troubleshoot the App
 
 If your SMART on FHIR sample does not return data as expected, you can check the following:
 * the permissions or roles have been granted to the public client app
