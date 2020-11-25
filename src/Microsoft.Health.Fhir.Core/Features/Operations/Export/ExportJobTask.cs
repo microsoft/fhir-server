@@ -499,11 +499,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         private string ExtractExportTaskLoggingMessage()
         {
-            string id = _exportJobRecord?.Id ?? string.Empty;
-            string status = _exportJobRecord?.Status.ToString();
-            string queuedTime = _exportJobRecord?.QueuedTime.ToString("u") ?? string.Empty;
-            string endTime = _exportJobRecord?.EndTime?.ToString("u") ?? string.Empty;
-            long dataSize = _exportJobRecord?.Output?.Values.Sum(job => job?.CommittedBytes ?? 0) ?? 0;
+            string id = _exportJobRecord.Id ?? string.Empty;
+            string status = _exportJobRecord.Status.ToString();
+            string queuedTime = _exportJobRecord.QueuedTime.ToString("u") ?? string.Empty;
+            string endTime = _exportJobRecord.EndTime?.ToString("u") ?? string.Empty;
+            long dataSize = _exportJobRecord.Output?.Values.Sum(job => job?.CommittedBytes ?? 0) ?? 0;
             bool isAnonymizedExport = IsAnonymizedExportJob();
 
             return $"Export job completed. Id: {id}, Status {status}, Queued Time: {queuedTime}, End Time: {endTime}, DataSize: {dataSize}, IsAnonymizedExport: {isAnonymizedExport}";
