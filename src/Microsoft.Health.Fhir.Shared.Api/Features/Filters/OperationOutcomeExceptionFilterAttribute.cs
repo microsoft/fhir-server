@@ -184,20 +184,21 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 context.Result = healthExceptionResult;
                 context.ExceptionHandled = true;
             }
-            else
+            else if (context.Exception.InnerException != null)
             {
-                switch (context.Exception)
+                Exception outerException = context.Exception;
+                context.Exception = outerException.InnerException;
+
+                try
                 {
-                    case FormatException ex:
-                        context.Result = CreateOperationOutcomeResult(ex.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Structure, HttpStatusCode.BadRequest);
-                        context.ExceptionHandled = true;
-
-                        break;
-                    case ArgumentException ex:
-                        context.Result = CreateOperationOutcomeResult(ex.Message, OperationOutcome.IssueSeverity.Error, OperationOutcome.IssueType.Invalid, HttpStatusCode.BadRequest);
-                        context.ExceptionHandled = true;
-
-                        break;
+                    OnActionExecuted(context);
+                }
+                finally
+                {
+                    if (!context.ExceptionHandled)
+                    {
+                        context.Exception = outerException;
+                    }
                 }
             }
         }

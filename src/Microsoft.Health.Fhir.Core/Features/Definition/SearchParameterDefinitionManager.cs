@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -24,15 +25,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         private readonly IModelInfoProvider _modelInfoProvider;
 
         private IDictionary<string, IDictionary<string, SearchParameterInfo>> _typeLookup;
-        private bool _started;
-        private Dictionary<string, string> _resourceTypeSearchParameterHashMap;
+        private ConcurrentDictionary<string, string> _resourceTypeSearchParameterHashMap;
 
         public SearchParameterDefinitionManager(IModelInfoProvider modelInfoProvider)
         {
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
 
             _modelInfoProvider = modelInfoProvider;
-            _resourceTypeSearchParameterHashMap = new Dictionary<string, string>();
+            _resourceTypeSearchParameterHashMap = new ConcurrentDictionary<string, string>();
         }
 
         internal IDictionary<Uri, SearchParameterInfo> UrlLookup { get; set; }
@@ -43,27 +43,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public IReadOnlyDictionary<string, string> SearchParameterHashMap
         {
-            get { return new ReadOnlyDictionary<string, string>(_resourceTypeSearchParameterHashMap); }
+            get { return new ReadOnlyDictionary<string, string>(_resourceTypeSearchParameterHashMap.ToDictionary(kvp => kvp.Key, kvp => kvp.Value)); }
         }
 
         public Task StartAsync(CancellationToken cancellationToken)
         {
-            // This method is idempotent because dependent Start methods are not guaranteed to be executed in order.
-            if (!_started)
-            {
-                var builder = new SearchParameterDefinitionBuilder(
-                    _modelInfoProvider,
-                    "search-parameters.json");
+            var builder = new SearchParameterDefinitionBuilder(
+                _modelInfoProvider,
+                "search-parameters.json");
 
-                builder.Build();
+            builder.Build();
 
-                _typeLookup = builder.ResourceTypeDictionary;
-                UrlLookup = builder.UriDictionary;
-
-                List<string> list = UrlLookup.Values.Where(p => p.Type == ValueSets.SearchParamType.Composite).Select(p => string.Join("|", p.Component.Select(c => UrlLookup[c.DefinitionUrl].Type))).Distinct().ToList();
-
-                _started = true;
-            }
+            _typeLookup = builder.ResourceTypeDictionary;
+            UrlLookup = builder.UriDictionary;
 
             return Task.CompletedTask;
         }
@@ -124,19 +116,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public void UpdateSearchParameterHashMap(Dictionary<string, string> updatedSearchParamHashMap)
         {
-            // TODO: Make this thread-safe.
             EnsureArg.IsNotNull(updatedSearchParamHashMap, nameof(updatedSearchParamHashMap));
 
             foreach (KeyValuePair<string, string> kvp in updatedSearchParamHashMap)
             {
-                if (_resourceTypeSearchParameterHashMap.ContainsKey(kvp.Key))
-                {
-                    _resourceTypeSearchParameterHashMap[kvp.Key] = kvp.Value;
-                }
-                else
-                {
-                    _resourceTypeSearchParameterHashMap.Add(kvp.Key, kvp.Value);
-                }
+                _resourceTypeSearchParameterHashMap.AddOrUpdate(
+                    kvp.Key,
+                    kvp.Value,
+                    (resourceType, existingValue) => kvp.Value);
             }
         }
 

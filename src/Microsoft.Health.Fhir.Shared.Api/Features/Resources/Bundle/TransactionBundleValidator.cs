@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Resources;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -121,7 +122,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
             // Search operations using _search and POST endpoint is not supported for bundle.
             // Conditional Delete operation is also not currently not supported.
-            if ((requestMethod == HTTPVerb.POST && requestUrl.Contains("_search", StringComparison.OrdinalIgnoreCase))
+            if ((requestMethod == HTTPVerb.POST && requestUrl.Contains(KnownRoutes.Search, StringComparison.OrdinalIgnoreCase))
                 || (requestMethod == HTTPVerb.DELETE && requestUrl.Contains("?", StringComparison.Ordinal)))
             {
                 throw new RequestNotValidException(string.Format(Api.Resources.InvalidBundleEntry, entry.Request.Url, requestMethod));

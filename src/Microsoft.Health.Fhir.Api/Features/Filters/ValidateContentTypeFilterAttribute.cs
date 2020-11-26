@@ -45,16 +45,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 {
                     if (!await _contentTypeService.IsFormatSupportedAsync(headerValue[0]))
                     {
-                        string routeName = context.ActionDescriptor?.AttributeRouteInfo?.Name;
-
-                        switch (routeName)
-                        {
-                            case RouteNames.SearchResourcesPost:
-                            case RouteNames.SearchAllResourcesPost:
-                                break;
-                            default:
-                                throw new UnsupportedMediaTypeException(string.Format(Resources.UnsupportedHeaderValue, HeaderNames.ContentType));
-                        }
+                        throw new UnsupportedMediaTypeException(string.Format(Resources.UnsupportedHeaderValue, HeaderNames.ContentType));
                     }
                 }
                 else

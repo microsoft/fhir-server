@@ -12,6 +12,8 @@ using Microsoft.Health.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Export;
 using Microsoft.Health.Fhir.Core.Models;
@@ -41,10 +43,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 
         public CreateExportRequestHandlerTests(FhirStorageTestsFixture fixture)
         {
-            _fhirOperationDataStore = fixture.OperationDataStore;
+            _fhirOperationDataStore = AddListener(fixture.OperationDataStore);
             _fhirStorageTestHelper = fixture.TestHelper;
 
             _exportJobConfiguration = new ExportJobConfiguration();
+            _exportJobConfiguration.Formats = new List<ExportJobFormatConfiguration>();
+            _exportJobConfiguration.Formats.Add(new ExportJobFormatConfiguration()
+            {
+                Name = "test",
+                Format = ExportFormatTags.ResourceName,
+            });
+
             IOptions<ExportJobConfiguration> optionsExportConfig = Substitute.For<IOptions<ExportJobConfiguration>>();
             optionsExportConfig.Value.Returns(_exportJobConfiguration);
 
@@ -169,6 +178,98 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
 
             Assert.NotNull(newResponse);
             Assert.Equal(response.JobId, newResponse.JobId);
+        }
+
+        [Theory]
+        [InlineData("test1", ExportFormatTags.ResourceName)]
+        [InlineData(null, ExportFormatTags.Id)]
+        public async Task GivenARequestWithDifferentFormatNames_WhenConverted_ThenTheProperFormatStringIsReturned(string formatName, string expectedFormat)
+        {
+            _exportJobConfiguration.Formats.Clear();
+            _exportJobConfiguration.Formats.Add(new ExportJobFormatConfiguration()
+            {
+                Name = "test1",
+                Format = ExportFormatTags.ResourceName,
+            });
+            _exportJobConfiguration.Formats.Add(new ExportJobFormatConfiguration()
+            {
+                Name = "test2",
+                Format = ExportFormatTags.Id,
+                Default = true,
+            });
+            _exportJobConfiguration.Formats.Add(new ExportJobFormatConfiguration()
+            {
+                Name = "test3",
+                Format = ExportFormatTags.Timestamp,
+            });
+
+            ExportJobRecord actualRecord = null;
+            await _fhirOperationDataStore.CreateExportJobAsync(
+                Arg.Do<ExportJobRecord>(record =>
+            {
+                actualRecord = record;
+            }), Arg.Any<CancellationToken>());
+
+            var request = new CreateExportRequest(RequestUrl, ExportJobType.All, null, formatName: formatName);
+            CreateExportResponse response = await _createExportRequestHandler.Handle(request, _cancellationToken);
+
+            Assert.Equal(expectedFormat, actualRecord.ExportFormat);
+        }
+
+        [Theory]
+        [InlineData(false, ExportFormatTags.ResourceName)]
+        [InlineData(true, ExportFormatTags.Timestamp + "-" + ExportFormatTags.Id + "/" + ExportFormatTags.ResourceName)]
+        public async Task GivenARequest_WhenNoFormatsAreSet_ThenHardcodedDefaultIsReturned(bool containerSpecified, string expectedFormat)
+        {
+            _exportJobConfiguration.Formats = null;
+
+            ExportJobRecord actualRecord = null;
+            await _fhirOperationDataStore.CreateExportJobAsync(
+                Arg.Do<ExportJobRecord>(record =>
+                {
+                    actualRecord = record;
+                }), Arg.Any<CancellationToken>());
+
+            var request = new CreateExportRequest(RequestUrl, ExportJobType.All, containerName: containerSpecified ? "test" : null);
+            CreateExportResponse response = await _createExportRequestHandler.Handle(request, _cancellationToken);
+
+            Assert.Equal(expectedFormat, actualRecord.ExportFormat);
+        }
+
+        [Fact]
+        public async Task GivenARequestWithANonexistantFormatName_WhenConverted_ThenABadRequestIsReturned()
+        {
+            var request = new CreateExportRequest(RequestUrl, ExportJobType.All, formatName: "invalid");
+            await Assert.ThrowsAsync<BadRequestException>(() => _createExportRequestHandler.Handle(request, _cancellationToken));
+        }
+
+        /// <summary>
+        /// Adds a listener to an object so that it can be spied on.
+        /// This allows objects passed in through the fixture to have method calls tracked and arguments recorded.
+        /// All the calls go through the spy to the underlying object.
+        /// </summary>
+        /// <typeparam name="T">The type of object passed</typeparam>
+        /// <param name="baseObject">The object to add a listener to</param>
+        /// <returns>The object wrapped in a spy</returns>
+        private T AddListener<T>(T baseObject)
+        {
+            Type type = typeof(T);
+            T spy = (T)Substitute.For(new[] { typeof(T) }, new object[0]);
+            foreach (var method in typeof(T).GetMethods())
+            {
+                object[] inputArgs = new object[method.GetParameters().Length];
+                for (int index = 0; index < inputArgs.Length; index++)
+                {
+                    inputArgs[index] = default;
+                }
+
+                type.InvokeMember(method.Name, System.Reflection.BindingFlags.InvokeMethod, null, spy, inputArgs).ReturnsForAnyArgs(args =>
+                {
+                    return type.InvokeMember(method.Name, System.Reflection.BindingFlags.InvokeMethod, null, baseObject, args.Args());
+                });
+            }
+
+            return spy;
         }
 
         private class MockClaimsExtractor : IClaimsExtractor

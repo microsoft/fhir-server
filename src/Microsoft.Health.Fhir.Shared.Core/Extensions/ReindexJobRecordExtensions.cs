@@ -40,7 +40,6 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.Progress, Value = new FhirDecimal(job.PercentComplete) });
             parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.Status, Value = new FhirString(job.Status.ToString()) });
             parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.MaximumConcurrency, Value = new FhirDecimal(job.MaximumConcurrency) });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.Scope, Value = new FhirString(job.Scope) });
             parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.Resources, Value = new FhirString(job.ResourceList) });
             parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = JobRecordProperties.SearchParams, Value = new FhirString(job.SearchParamList) });
 

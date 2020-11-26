@@ -22,26 +22,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private ISearchIndexer _searchIndexer;
         private ResourceDeserializer _deserializer;
         private readonly ISupportedSearchParameterDefinitionManager _searchParameterDefinitionManager;
-        private readonly ISearchParameterRegistry _searchParameterRegistry;
+        private readonly ISearchParameterStatusDataStore _searchParameterStatusDataStore;
 
         public ReindexUtilities(
             Func<IScoped<IFhirDataStore>> fhirDataStoreFactory,
             ISearchIndexer searchIndexer,
             ResourceDeserializer deserializer,
             ISupportedSearchParameterDefinitionManager searchParameterDefinitionManager,
-            ISearchParameterRegistry searchParameterRegistry)
+            ISearchParameterStatusDataStore searchParameterStatusDataStore)
         {
             EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));
             EnsureArg.IsNotNull(searchIndexer, nameof(searchIndexer));
             EnsureArg.IsNotNull(deserializer, nameof(deserializer));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
-            EnsureArg.IsNotNull(searchParameterRegistry, nameof(searchParameterRegistry));
+            EnsureArg.IsNotNull(searchParameterStatusDataStore, nameof(searchParameterStatusDataStore));
 
             _fhirDataStoreFactory = fhirDataStoreFactory;
             _searchIndexer = searchIndexer;
             _deserializer = deserializer;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
-            _searchParameterRegistry = searchParameterRegistry;
+            _searchParameterStatusDataStore = searchParameterStatusDataStore;
         }
 
         /// <summary>
@@ -114,7 +114,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 });
             }
 
-            await _searchParameterRegistry.UpdateStatuses(searchParameterStatusList);
+            await _searchParameterStatusDataStore.UpsertStatuses(searchParameterStatusList);
 
             return (true, null);
         }

@@ -51,6 +51,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             WildCard = wildCard;
             Reversed = reversed;
             Iterate = iterate;
+            CircularReference = TargetResourceType != null ? SourceResourceType == TargetResourceType
+                                                           : ReferenceSearchParameter?.TargetResourceTypes != null && ReferenceSearchParameter.TargetResourceTypes.Contains(sourceResourceType);
         }
 
         /// <summary>
@@ -89,7 +91,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         public IReadOnlyCollection<string> Produces => _produces ??= GetProducedResources();
 
         /// <summary>
-        /// Gets if the include is a wildcard include.
+        /// Gets if the expression is a wildcard include.
         /// </summary>
         public bool WildCard { get; }
 
@@ -99,9 +101,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         public bool Reversed { get; }
 
         /// <summary>
-        /// Gets if the include has :iterate (:recurse) modifier.
+        /// Gets if the expression has :iterate (:recurse) modifier.
         /// </summary>
         public bool Iterate { get; }
+
+        /// <summary>
+        /// Gets if the expression has a circular reference (source type = target type).
+        /// </summary>
+        public bool CircularReference { get; }
 
         public override TOutput AcceptVisitor<TContext, TOutput>(IExpressionVisitor<TContext, TOutput> visitor, TContext context)
         {

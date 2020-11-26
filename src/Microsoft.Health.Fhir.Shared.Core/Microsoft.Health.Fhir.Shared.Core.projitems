@@ -49,6 +49,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\FhirElementToSearchValueTypeConverter.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\FhirElementToSearchValueTypeConverterManager.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\FhirStringToStringSearchValueTypeConverter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\FhirStringToTokenSearchValueTypeConverter.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\FhirUriToUriSearchValueTypeConverter.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\HumanNameToStringSearchValueTypeConverter.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\IdentifierToTokenSearchValueTypeConverter.cs" />

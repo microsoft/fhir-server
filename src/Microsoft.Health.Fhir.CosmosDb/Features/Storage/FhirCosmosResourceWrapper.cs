@@ -91,6 +91,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         [JsonProperty(KnownDocumentProperties.PartitionKey)]
         public string PartitionKey => ToResourceKey().ToPartitionKey();
 
+        [JsonProperty(KnownDocumentProperties.ReferencesToInclude)]
+        public IReadOnlyList<ResourceTypeAndId> ReferencesToInclude { get; set; }
+
         internal string GetETagOrVersion()
         {
             // An ETag is used as the Version when the Version property is not specified
