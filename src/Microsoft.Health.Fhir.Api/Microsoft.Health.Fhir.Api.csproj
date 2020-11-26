@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <TargetFramework>net5.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
     <DocumentationFile>bin\$(Configuration)\$(TargetFramework)\Microsoft.Health.Fhir.Api.xml</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup>
