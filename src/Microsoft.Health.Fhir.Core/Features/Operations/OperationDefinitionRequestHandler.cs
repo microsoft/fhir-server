@@ -16,7 +16,7 @@ using Microsoft.Health.Fhir.Core.Messages.Operation;
 using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json;
 
-namespace Microsoft.Health.Fhir.Shared.Core.Features.Operations
+namespace Microsoft.Health.Fhir.Core.Features.Operations
 {
     public class OperationDefinitionRequestHandler : IRequestHandler<OperationDefinitionRequest, OperationDefinitionResponse>
     {
@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Operations
 
         public Task<OperationDefinitionResponse> Handle(OperationDefinitionRequest request, CancellationToken cancellationToken)
         {
-            using Stream stream = DataLoader.OpenOperationDefinitionFileStream($"{request.OperationName}.json");
+            using Stream stream = DataLoader.OpenVersionedOperationDefinitionFileStream(_modelInfoProvider, $"{request.OperationName}.json");
             using TextReader reader = new StreamReader(stream);
             using JsonReader jsonReader = new JsonTextReader(reader);
 

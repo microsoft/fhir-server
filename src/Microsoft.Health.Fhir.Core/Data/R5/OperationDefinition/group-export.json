@@ -1,21 +1,20 @@
 {
     "resourceType": "OperationDefinition",
-    "id": "patient-export",
-    "url": "[base]/OperationDefinition/patient-export",
+    "id": "group-export",
+    "url": "[base]/OperationDefinition/group-export",
     "version": "1.0.0",
-    "name": "Patient Export",
-    "title": "FHIR Bulk Data Export - Patient Export",
+    "name": "Group Export",
+    "title": "FHIR Bulk Data Export - Group Export",
     "status": "active",
     "kind": "operation",
-    "description": "Export all patient data, which includes the patient compartment. More details regarding bulk export can be found [here] [http://hl7.org/fhir/uv/bulkdata/export/index.html]. This operation is asynchronous as defined in the [FHIR Asynchronous Request Pattern](http://hl7.org/fhir/async.html)",
+    "description": "Export all patient compartment data that are part of the specified group. More details regarding bulk export can be found [here] [http://hl7.org/fhir/uv/bulkdata/export/index.html]. This operation is asynchronous as defined in the [FHIR Asynchronous Request Pattern](http://hl7.org/fhir/async.html)",
     "code": "export",
     "resource" : [
-        "Patient"
+        "Group"
       ],
-    "base": "/",
     "system": false,
-    "type": true,
-    "instance": false,
+    "type": false,
+    "instance": true,
     "parameter": [
         {
             "name": "_outputFormat",

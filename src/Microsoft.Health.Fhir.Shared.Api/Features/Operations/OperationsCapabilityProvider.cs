@@ -12,7 +12,6 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Conformance.Models;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Routing;
-using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Api.Features.Operations
 {
@@ -20,7 +19,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
     /// Class that handles adding details of the supported operations
     /// to the capability statement of the fhir-server.
     /// </summary>
-    public class OperationsCapabilityProvider : IProvideCapability
+    public partial class OperationsCapabilityProvider : IProvideCapability
     {
         private readonly OperationsConfiguration _operationConfiguration;
         private readonly FeatureConfiguration _featureConfiguration;
@@ -44,9 +43,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
         {
             if (_operationConfiguration.Export.Enabled)
             {
-                AddResourceSpecificExportDetails(builder, OperationsConstants.PatientExport, KnownResourceTypes.Patient);
-                AddResourceSpecificExportDetails(builder, OperationsConstants.GroupExport, KnownResourceTypes.Group);
-                builder.Update(AddExportDetails);
+                AddExportDetailsHelper(builder);
             }
 
             if (_operationConfiguration.Reindex.Enabled)
@@ -60,11 +57,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
             }
         }
 
-        public void AddExportDetails(ListedCapabilityStatement capabilityStatement)
-        {
-            GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.Export);
-        }
-
         public void AddAnonymizedExportDetails(ListedCapabilityStatement capabilityStatement)
         {
             GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.AnonymizedExport);
@@ -74,29 +66,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
         {
             GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.Reindex);
             GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.ResourceReindex);
-        }
-
-        private void AddResourceSpecificExportDetails(ICapabilityStatementBuilder builder, string operationType, string resourceType)
-        {
-            Uri operationDefinitionUri = _urlResolver.ResolveOperationDefinitionUrl(operationType);
-            builder.UpdateRestResourceComponent(resourceType, resourceComponent =>
-            {
-                resourceComponent.Operation.Add(new OperationComponent()
-                {
-                    Name = operationType,
-                    Definition = operationDefinitionUri.ToString(),
-                });
-            });
-        }
-
-        private void GetAndAddOperationDefinitionUriToCapabilityStatement(ListedCapabilityStatement capabilityStatement, string operationType)
-        {
-            Uri operationDefinitionUri = _urlResolver.ResolveOperationDefinitionUrl(operationType);
-            capabilityStatement.Rest.Server().Operation.Add(new OperationComponent()
-            {
-                Name = operationType,
-                Definition = operationDefinitionUri.ToString(),
-            });
         }
     }
 }

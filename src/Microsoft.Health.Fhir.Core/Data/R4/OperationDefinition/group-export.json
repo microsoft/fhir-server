@@ -12,7 +12,6 @@
     "resource" : [
         "Group"
       ],
-    "base": "/",
     "system": false,
     "type": false,
     "instance": true,
