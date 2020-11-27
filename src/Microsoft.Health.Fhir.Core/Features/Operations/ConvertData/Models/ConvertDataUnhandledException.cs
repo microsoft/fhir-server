@@ -9,9 +9,9 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData.Models
 {
-    public class ConvertEngineInitializeException : FhirException
+    public class ConvertDataUnhandledException : FhirException
     {
-        public ConvertEngineInitializeException(string message, System.Exception innerException)
+        public ConvertDataUnhandledException(string message, System.Exception innerException)
             : base(message, innerException)
         {
             Debug.Assert(!string.IsNullOrEmpty(message), "Exception message should not be empty.");

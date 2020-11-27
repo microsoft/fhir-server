@@ -4,8 +4,10 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using DotLiquid;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -14,6 +16,7 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData;
 using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData.Models;
 using Microsoft.Health.Fhir.Core.Messages.ConvertData;
+using Microsoft.Health.Fhir.Liquid.Converter.Exceptions;
 using Microsoft.Health.Fhir.TemplateManagement.Models;
 using NSubstitute;
 using Xunit;
@@ -23,34 +26,24 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
 {
     public class ConvertDataEngineTests
     {
-        private IConvertDataEngine _convertDataEngine;
+        private ConvertDataConfiguration _config;
 
         public ConvertDataEngineTests()
         {
-            var convertDataConfig = new ConvertDataConfiguration
+            _config = new ConvertDataConfiguration
             {
                 Enabled = true,
                 OperationTimeout = TimeSpan.FromMilliseconds(50),
             };
-            convertDataConfig.ContainerRegistryServers.Add("test.azurecr.io");
-
-            IOptions<ConvertDataConfiguration> convertDataConfiguration = Options.Create(convertDataConfig);
-            IContainerRegistryTokenProvider tokenProvider = Substitute.For<IContainerRegistryTokenProvider>();
-            tokenProvider.GetTokenAsync(Arg.Any<string>(), default).ReturnsForAnyArgs(x => GetToken(x[0].ToString(), convertDataConfig));
-
-            ContainerRegistryTemplateProvider templateProvider = new ContainerRegistryTemplateProvider(tokenProvider, convertDataConfiguration, new NullLogger<ContainerRegistryTemplateProvider>());
-
-            _convertDataEngine = new ConvertDataEngine(
-                templateProvider,
-                convertDataConfiguration,
-                new NullLogger<ConvertDataEngine>());
+            _config.ContainerRegistryServers.Add("test.azurecr.io");
         }
 
         [Fact]
         public async Task GivenConvertDataRequest_WithDefaultTemplates_CorrectResultShouldReturn()
         {
+            var convertDataEngine = GetDefaultEngine();
             var request = GetHl7V2RequestWithDefaultTemplates();
-            var response = await _convertDataEngine.Process(request, CancellationToken.None);
+            var response = await convertDataEngine.Process(request, CancellationToken.None);
 
             var setting = new ParserSettings()
             {
@@ -75,8 +68,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
         [InlineData("¶Š™œãý£¾.com/template:default")]
         public async Task GivenConvertDataRequest_WithUnconfiguredRegistry_ContainerRegistryNotConfiguredExceptionShouldBeThrown(string templateReference)
         {
+            var convertDataEngine = GetDefaultEngine();
             var request = GetHl7V2RequestWithTemplateReference(templateReference);
-            await Assert.ThrowsAsync<ContainerRegistryNotConfiguredException>(() => _convertDataEngine.Process(request, CancellationToken.None));
+            await Assert.ThrowsAsync<ContainerRegistryNotConfiguredException>(() => convertDataEngine.Process(request, CancellationToken.None));
         }
 
         [Theory]
@@ -86,8 +80,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
         [InlineData("MSH|")]
         public async Task GivenConvertDataRequest_WithWrongInputData_ConvertDataFailedExceptionShouldBeThrown(string inputData)
         {
+            var convertDataEngine = GetDefaultEngine();
             var request = GetHl7V2RequestWithInputData(inputData);
-            await Assert.ThrowsAsync<InputDataParseErrorException>(() => _convertDataEngine.Process(request, CancellationToken.None));
+            var exception = await Assert.ThrowsAsync<ConvertDataFailedException>(() => convertDataEngine.Process(request, CancellationToken.None));
+            Assert.True(exception.InnerException is DataParseException);
         }
 
         [Theory]
@@ -96,8 +92,26 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
         [InlineData("¶Š™œãý£¾")]
         public async Task GivenConvertDataRequest_WithWrongEntryPointTemplate_ConvertDataFailedExceptionShouldBeThrown(string entryPointTemplateName)
         {
+            var convertDataEngine = GetDefaultEngine();
             var request = GetHl7V2RequestWithEntryPointTemplate(entryPointTemplateName);
-            await Assert.ThrowsAsync<ConvertDataFailedException>(() => _convertDataEngine.Process(request, CancellationToken.None));
+            var exception = await Assert.ThrowsAsync<ConvertDataFailedException>(() => convertDataEngine.Process(request, CancellationToken.None));
+            Assert.Equal($"Template '{entryPointTemplateName}' not found", exception.InnerException.Message);
+        }
+
+        [Fact]
+        public async Task GivenTemplateNotInJsonFormat_WhenConvert_ExceptionShouldBeThrown()
+        {
+            var wrongTemplateCollection = new List<Dictionary<string, Template>>
+            {
+                new Dictionary<string, Template>
+                {
+                    { "ADT_A01", Template.Parse(@"""a"":""b""") },
+                },
+            };
+            var convertDataEngine = GetCustomEngineWithTemplates(wrongTemplateCollection);
+            var request = GetHl7V2RequestWithDefaultTemplates();
+            var exception = await Assert.ThrowsAsync<ConvertDataFailedException>(() => convertDataEngine.Process(request, CancellationToken.None));
+            Assert.True(exception.InnerException is PostprocessException);
         }
 
         private static ConvertDataRequest GetHl7V2RequestWithDefaultTemplates()
@@ -123,6 +137,27 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
         private static string GetSampleHl7v2Message()
         {
             return "MSH|^~\\&|SIMHOSP|SFAC|RAPP|RFAC|20200508131015||ADT^A01|517|T|2.3|||AL||44|ASCII\nEVN|A01|20200508131015|||C005^Whittingham^Sylvia^^^Dr^^^DRNBR^PRSNL^^^ORGDR|\nPID|1|3735064194^^^SIMULATOR MRN^MRN|3735064194^^^SIMULATOR MRN^MRN~2021051528^^^NHSNBR^NHSNMBR||Kinmonth^Joanna^Chelsea^^Ms^^CURRENT||19870624000000|F|||89 Transaction House^Handmaiden Street^Wembley^^FV75 4GJ^GBR^HOME||020 3614 5541^HOME|||||||||C^White - Other^^^||||||||\nPD1|||FAMILY PRACTICE^^12345|\nPV1|1|I|OtherWard^MainRoom^Bed 183^Simulated Hospital^^BED^Main Building^4|28b|||C005^Whittingham^Sylvia^^^Dr^^^DRNBR^PRSNL^^^ORGDR|||CAR|||||||||16094728916771313876^^^^visitid||||||||||||||||||||||ARRIVED|||20200508131015||";
+        }
+
+        private IConvertDataEngine GetDefaultEngine()
+        {
+            IOptions<ConvertDataConfiguration> convertDataConfiguration = Options.Create(_config);
+            IContainerRegistryTokenProvider tokenProvider = Substitute.For<IContainerRegistryTokenProvider>();
+            tokenProvider.GetTokenAsync(Arg.Any<string>(), default).ReturnsForAnyArgs(x => GetToken(x[0].ToString(), _config));
+
+            ContainerRegistryTemplateProvider templateProvider = new ContainerRegistryTemplateProvider(tokenProvider, convertDataConfiguration, new NullLogger<ContainerRegistryTemplateProvider>());
+
+            return new ConvertDataEngine(
+                templateProvider,
+                convertDataConfiguration,
+                new NullLogger<ConvertDataEngine>());
+        }
+
+        private IConvertDataEngine GetCustomEngineWithTemplates(List<Dictionary<string, Template>> templateCollection)
+        {
+            var templateProvider = Substitute.For<IConvertDataTemplateProvider>();
+            templateProvider.GetTemplateCollectionAsync(default, default).ReturnsForAnyArgs(templateCollection);
+            return new ConvertDataEngine(templateProvider, Options.Create(_config), new NullLogger<ConvertDataEngine>());
         }
 
         // For unit tests, we only use the built-in templates and here returns an empty token.

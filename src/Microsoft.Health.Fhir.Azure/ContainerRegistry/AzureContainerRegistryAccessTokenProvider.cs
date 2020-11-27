@@ -71,6 +71,25 @@ namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
                 throw new AzureContainerRegistryTokenException(Resources.CannotGetAcrAccessToken, ex);
             }
 
+            try
+            {
+                return await Policy
+                  .Handle<HttpRequestException>()
+                  .RetryAsync(3, onRetry: (exception, retryCount) =>
+                  {
+                      _logger.LogWarning(exception, $"Get ACR token failed. Retry {retryCount}.");
+                  })
+                  .ExecuteAsync(() => GetAcrAccessTokenWithAadToken(registryServer, aadToken, cancellationToken));
+            }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogError(ex, "Failed to get ACR access token with AAD access token.");
+                throw new AzureContainerRegistryTokenException(Resources.CannotGetAcrAccessToken, ex);
+            }
+        }
+
+        private async Task<string> GetAcrAccessTokenWithAadToken(string registryServer, string aadToken, CancellationToken cancellationToken)
+        {
             string acrRefreshToken = await ExchangeAcrRefreshToken(registryServer, aadToken, cancellationToken);
             return await GetAcrAccessToken(registryServer, acrRefreshToken, cancellationToken);
         }
@@ -102,7 +121,7 @@ namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
             }
             else if (!refreshTokenResponse.IsSuccessStatusCode)
             {
-                _logger.LogError($"Failed to exchange ACR refresh token with AAD access token. Status code: {refreshTokenResponse.StatusCode}");
+                _logger.LogError($"Failed to exchange ACR refresh token with AAD access token. Status code: {refreshTokenResponse.StatusCode}.");
                 throw new AzureContainerRegistryTokenException(Resources.CannotGetAcrAccessToken);
             }
 
@@ -149,7 +168,7 @@ namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
             }
             else if (!accessTokenResponse.IsSuccessStatusCode)
             {
-                _logger.LogError($"Failed to get ACR access token with ACR refresh token. Status code: {accessTokenResponse.StatusCode}");
+                _logger.LogError($"Failed to get ACR access token with ACR refresh token. Status code: {accessTokenResponse.StatusCode}.");
                 throw new AzureContainerRegistryTokenException(Resources.CannotGetAcrAccessToken);
             }
 
@@ -168,14 +187,8 @@ namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
 
         private async Task<HttpResponseMessage> SendRequestAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            using var httpClient = _httpClientFactory.CreateClient();
-            return await Policy
-              .Handle<HttpRequestException>()
-              .RetryAsync(3, onRetry: (exception, retryCount) =>
-              {
-                  _logger.LogWarning(exception, $"Get ACR token failed. Retry {retryCount}");
-              })
-              .ExecuteAsync(() => httpClient.SendAsync(request, cancellationToken));
+            HttpClient httpClient = _httpClientFactory.CreateClient();
+            return await httpClient.SendAsync(request, cancellationToken);
         }
     }
 }

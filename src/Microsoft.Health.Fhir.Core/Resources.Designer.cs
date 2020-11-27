@@ -232,24 +232,6 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The prefix used to identify custom audit headers cannot be empty..
-        /// </summary>
-        internal static string CustomHeaderPrefixCannotBeEmpty {
-            get {
-                return ResourceManager.GetString("CustomHeaderPrefixCannotBeEmpty", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Unable to initialize the data convert engine with the provided templates..
-        /// </summary>
-        internal static string ConvertDataEngineInitializeFailed {
-            get {
-                return ResourceManager.GetString("ConvertDataEngineInitializeFailed", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Failed to convert the input data. Reason: {0}.
         /// </summary>
         internal static string ConvertDataFailed {
@@ -264,6 +246,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string ConvertDataOperationTimeout {
             get {
                 return ResourceManager.GetString("ConvertDataOperationTimeout", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The prefix used to identify custom audit headers cannot be empty..
+        /// </summary>
+        internal static string CustomHeaderPrefixCannotBeEmpty {
+            get {
+                return ResourceManager.GetString("CustomHeaderPrefixCannotBeEmpty", resourceCulture);
             }
         }
         
@@ -445,15 +436,6 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string IncludeMissingType {
             get {
                 return ResourceManager.GetString("IncludeMissingType", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Unable to parse the inputData to {0} type..
-        /// </summary>
-        internal static string InputDataParseError {
-            get {
-                return ResourceManager.GetString("InputDataParseError", resourceCulture);
             }
         }
         
@@ -971,7 +953,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The specified template collection image size exceeds the limit configured for server. Current limit is &quot;{0}&quot; .
+        ///   Looks up a localized string similar to The specified template collection image size exceeds the limit configured for server. Current limit is {0} MB..
         /// </summary>
         internal static string TemplateImageTooLarge {
             get {

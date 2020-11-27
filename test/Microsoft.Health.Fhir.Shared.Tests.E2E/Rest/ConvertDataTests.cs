@@ -175,7 +175,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             var responseContent = await response.Content.ReadAsStringAsync();
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-            Assert.Contains($"Unable to parse the inputData to Hl7v2 type.", responseContent);
+            Assert.Contains($"The input data could not be parsed correctly", responseContent);
         }
 
         private HttpRequestMessage GenerateConvertDataRequest(

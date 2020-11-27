@@ -67,31 +67,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
             {
                 return converter.Convert(convertRequest.InputData, convertRequest.EntryPointTemplate, templateProvider, cancellationToken);
             }
-            catch (DataParseException dpe)
+            catch (FhirConverterException convertException)
             {
-                _logger.LogError(dpe, "Unable to parse the input data.");
-                throw new InputDataParseErrorException(string.Format(Resources.InputDataParseError, convertRequest.InputDataType.ToString()), dpe);
-            }
-            catch (ConverterInitializeException ie)
-            {
-                _logger.LogError(ie, "Fail to initialize the convert engine.");
-                throw new ConvertEngineInitializeException(Resources.ConvertDataEngineInitializeFailed, ie);
-            }
-            catch (FhirConverterException fce)
-            {
-                if (fce.InnerException is TimeoutException)
+                if (convertException.FhirConverterErrorCode == FhirConverterErrorCode.TimeoutError)
                 {
-                    _logger.LogError(fce, "Data convert operation timed out.");
-                    throw new ConvertDataTimeoutException(Resources.ConvertDataOperationTimeout, fce.InnerException);
+                    _logger.LogError(convertException.InnerException, "Convert data operation timed out.");
+                    throw new ConvertDataTimeoutException(Resources.ConvertDataOperationTimeout, convertException.InnerException);
                 }
 
-                _logger.LogError(fce, "Data convert process failed.");
-                throw new ConvertDataFailedException(string.Format(Resources.ConvertDataFailed, fce.Message), fce);
+                _logger.LogError(convertException, "Convert data failed.");
+                throw new ConvertDataFailedException(string.Format(Resources.ConvertDataFailed, convertException.Message), convertException);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Unhandled exception: data convert process failed.");
-                throw new ConvertDataFailedException(string.Format(Resources.ConvertDataFailed, ex.Message), ex);
+                throw new ConvertDataUnhandledException(string.Format(Resources.ConvertDataFailed, ex.Message), ex);
             }
         }
 

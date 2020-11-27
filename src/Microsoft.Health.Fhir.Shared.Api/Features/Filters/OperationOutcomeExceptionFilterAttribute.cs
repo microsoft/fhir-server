@@ -137,7 +137,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         break;
                     case AzureContainerRegistryTokenException _:
                     case FetchTemplateCollectionFailedException _:
-                    case ConvertDataFailedException _:
+                    case ConvertDataUnhandledException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.InternalServerError;
                         break;
                     case ConvertDataTimeoutException _:

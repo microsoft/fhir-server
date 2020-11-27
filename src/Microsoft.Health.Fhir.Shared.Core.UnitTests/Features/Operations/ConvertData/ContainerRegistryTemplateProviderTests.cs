@@ -20,9 +20,26 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
 {
     public class ContainerRegistryTemplateProviderTests
     {
-        private ContainerRegistryTemplateProvider _containerRegistryTemplateProvider;
+        [Fact]
+        public async Task GivenDefaultTemplateReference_WhenFetchingTemplates_DefaultTemplateCollectionShouldReturn()
+        {
+            var containerRegistryTemplateProvider = GetDefaultTemplateProvider();
+            var templateReference = ImageInfo.DefaultTemplateImageReference;
+            var templateCollection = await containerRegistryTemplateProvider.GetTemplateCollectionAsync(GetRequestWithTemplateReference(templateReference), CancellationToken.None);
 
-        public ContainerRegistryTemplateProviderTests()
+            Assert.NotEmpty(templateCollection);
+        }
+
+        [Fact]
+        public async Task GivenAnInvalidToken_WhenFetchingCustomTemplates_ExceptionShouldBeThrown()
+        {
+            var containerRegistryTemplateProvider = GetDefaultTemplateProvider();
+            var templateReference = "test.azurecr.io/templates:latest";
+
+            await Assert.ThrowsAsync<ContainerRegistryNotAuthorizedException>(() => containerRegistryTemplateProvider.GetTemplateCollectionAsync(GetRequestWithTemplateReference(templateReference), CancellationToken.None));
+        }
+
+        private IConvertDataTemplateProvider GetDefaultTemplateProvider()
         {
             IContainerRegistryTokenProvider tokenProvider = Substitute.For<IContainerRegistryTokenProvider>();
             tokenProvider.GetTokenAsync(default, default).ReturnsForAnyArgs("Bearer faketoken");
@@ -35,23 +52,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             convertDataConfig.ContainerRegistryServers.Add("test.azurecr.io");
 
             var config = Options.Create(convertDataConfig);
-            _containerRegistryTemplateProvider = new ContainerRegistryTemplateProvider(tokenProvider, config, new NullLogger<ContainerRegistryTemplateProvider>());
-        }
-
-        [Fact]
-        public async Task GivenDefaultTemplateReference_WhenFetchingTemplates_DefaultTemplateCollectionShouldReturn()
-        {
-            var templateReference = ImageInfo.DefaultTemplateImageReference;
-            var templateCollection = await _containerRegistryTemplateProvider.GetTemplateCollectionAsync(GetRequestWithTemplateReference(templateReference), CancellationToken.None);
-
-            Assert.NotEmpty(templateCollection);
-        }
-
-        [Fact]
-        public async Task GivenAnInvalidToken_WhenFetchingCustomTemplates_ExceptionShouldBeThrown()
-        {
-            var templateReference = "test.azurecr.io/templates:latest";
-            await Assert.ThrowsAsync<ContainerRegistryNotAuthorizedException>(() => _containerRegistryTemplateProvider.GetTemplateCollectionAsync(GetRequestWithTemplateReference(templateReference), CancellationToken.None));
+            return new ContainerRegistryTemplateProvider(tokenProvider, config, new NullLogger<ContainerRegistryTemplateProvider>());
         }
 
         private ConvertDataRequest GetRequestWithTemplateReference(string templateReference)
