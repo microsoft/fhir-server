@@ -46,6 +46,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
             return new CosmosQuery<T>(
                 context,
                 documentQuery,
+                _cosmosResponseProcessor,
                 _logger);
         }
     }

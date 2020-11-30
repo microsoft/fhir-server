@@ -51,34 +51,44 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             if (!response.IsSuccessStatusCode)
             {
-                if (response.StatusCode == HttpStatusCode.TooManyRequests)
-                {
-                    string retryHeader = response.Headers["Retry-After"];
-                    throw new RequestRateExceededException(TimeSpan.TryParse(retryHeader, out TimeSpan timeSpan) ? timeSpan : (TimeSpan?)null);
-                }
-                else if (response.ErrorMessage.Contains("Invalid Continuation Token", StringComparison.OrdinalIgnoreCase) || response.ErrorMessage.Contains("Malformed Continuation Token", StringComparison.OrdinalIgnoreCase))
-                {
-                    throw new Core.Exceptions.RequestNotValidException(Core.Resources.InvalidContinuationToken);
-                }
-                else if (response.StatusCode == HttpStatusCode.RequestEntityTooLarge
-                         || (response.StatusCode == HttpStatusCode.BadRequest && response.ErrorMessage.Contains("Request size is too large", StringComparison.OrdinalIgnoreCase)))
-                {
-                    // There are multiple known failures relating to RequestEntityTooLarge.
-                    // 1. When the document size is ~2mb (just under or at the limit) it can make it into the stored proc and fail on create
-                    // 2. Larger documents are rejected by CosmosDb with HttpStatusCode.RequestEntityTooLarge
-                    throw new Core.Exceptions.RequestEntityTooLargeException();
-                }
-                else if (response.StatusCode == HttpStatusCode.Forbidden)
-                {
-                    int? subStatusValue = response.Headers.GetSubStatusValue();
-                    if (subStatusValue.HasValue && Enum.IsDefined(typeof(KnownCosmosDbCmkSubStatusValue), subStatusValue))
-                    {
-                        throw new Core.Exceptions.CustomerManagedKeyException(GetCustomerManagedKeyErrorMessage(subStatusValue.Value));
-                    }
-                }
+                ProcessErrorResponse(response.StatusCode, response.Headers, response.ErrorMessage);
             }
 
             return Task.CompletedTask;
+        }
+
+        public void ProcessErrorResponse(HttpStatusCode statusCode, Headers headers, string errorMessage)
+        {
+            if (_fhirRequestContextAccessor.FhirRequestContext == null)
+            {
+                return;
+            }
+
+            if (statusCode == HttpStatusCode.TooManyRequests)
+            {
+                string retryHeader = headers["Retry-After"];
+                throw new RequestRateExceededException(TimeSpan.TryParse(retryHeader, out TimeSpan timeSpan) ? timeSpan : (TimeSpan?)null);
+            }
+            else if (errorMessage.Contains("Invalid Continuation Token", StringComparison.OrdinalIgnoreCase) || errorMessage.Contains("Malformed Continuation Token", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new Core.Exceptions.RequestNotValidException(Core.Resources.InvalidContinuationToken);
+            }
+            else if (statusCode == HttpStatusCode.RequestEntityTooLarge
+                     || (statusCode == HttpStatusCode.BadRequest && errorMessage.Contains("Request size is too large", StringComparison.OrdinalIgnoreCase)))
+            {
+                // There are multiple known failures relating to RequestEntityTooLarge.
+                // 1. When the document size is ~2mb (just under or at the limit) it can make it into the stored proc and fail on create
+                // 2. Larger documents are rejected by CosmosDb with HttpStatusCode.RequestEntityTooLarge
+                throw new Core.Exceptions.RequestEntityTooLargeException();
+            }
+            else if (statusCode == HttpStatusCode.Forbidden)
+            {
+                int? subStatusValue = headers.GetSubStatusValue();
+                if (subStatusValue.HasValue && Enum.IsDefined(typeof(KnownCosmosDbCmkSubStatusValue), subStatusValue))
+                {
+                    throw new Core.Exceptions.CustomerManagedKeyException(GetCustomerManagedKeyErrorMessage(subStatusValue.Value));
+                }
+            }
         }
 
         /// <summary>
