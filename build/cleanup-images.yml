@@ -12,36 +12,32 @@ jobs:
   steps:
   - task: AzureCLI@2
     displayName: 'Delete Images'
-    imputs:
+    inputs:
       azureSubscription: $(ConnectedServiceName)
       scriptType: ps
       scriptLocation: InlineScript
       inlineScript: |
         $versions = "stu3","r4","r5"
-        $tagList = az acr repository show-tags --name $(azureContainerRegistryName) --repository r4_fhir-server
+        
+        foreach ($version in $versions) {
+          $repository = "${version}_fhir-server"
+          $tagList = az acr repository show-tags --name $(azureContainerRegistryName) --repository $repository | ConvertFrom-Json
 
-        foreach ($tag in $tagList) {
-          $tagParts = $tag.Split('-')
-          if ($tagParts.Count -gt 1) {
-            try {
-              $imageDate = [datetime]($tagParts[1].Substring(0,4) + '/' + $tagParts[1].Substring(4,2) + '/' + $tagParts[1].Substring(6,2))
-              $currentDate = Get-Date
-              $difference = New-TimeSpan -Start $imageDate -End $currentDate
+          foreach ($tag in $tagList) {
+            $tagParts = $tag.Split('-')
+              try {
+                $imageName = "${repository}:${tag}"
+                $imageDate = az acr repository show --name $(azureContainerRegistryName) --image $imageName | ConvertFrom-Json
+                $currentDate = Get-Date
+                $difference = New-TimeSpan -Start $imageDate.lastUpdateTime -End $currentDate
 
-              if (($tagParts[0] -notlike "*build*") -and (($difference.days -gt 60) -or (($difference.days -gt 7) -and ($tagParts[0] -like "*pr*")))) {
-                foreach ($version in $versions) {
-                  try {
-                    az acr repository untag --name $(azureContainerRegistryName) --image '${version}_fhir-server:${tag}'
-                  }
-                  catch {
-                    Write-Host "No image with tag ${tag} in ${version} repository"
-                  }
+                if (($tagParts[0] -notlike "*build*") -and (($difference.totalDays -gt 60) -or (($difference.totalDays -gt 7) -and ($tagParts[0] -like "pr*")))) {
+                  az acr repository untag --name $(azureContai | nerRegistryName) --image '${version}_fhir-server:${tag}'
                 }
               }
-            }
-            catch {
-              Write-Host "Error deleting tag ${tag}"
-            }
+              catch {
+                Write-Host "Error deleting tag ${tag} in ${version} repository"
+              }
           }
         }
 
