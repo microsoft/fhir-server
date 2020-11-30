@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 Do(x => throw new SearchParameterNotSupportedException("message"));
             _searchParameterDefinitionManager.GetSearchParameter(new Uri("http://duplicate")).Returns(new SearchParameterInfo("duplicate"));
 
-            _fhirOperationDataStore.CheckActiveReindexJobsAsync(CancellationToken.None).Returns(false);
+            _fhirOperationDataStore.CheckActiveReindexJobsAsync(CancellationToken.None).Returns((false, string.Empty));
         }
 
         [Theory]
@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public async Task GivenARunningReinxedJob_WhenValidatingSearchParam_ThenExceptionThrown()
         {
             var fhirOperationDataStore = Substitute.For<IFhirOperationDataStore>();
-            fhirOperationDataStore.CheckActiveReindexJobsAsync(Arg.Any<CancellationToken>()).Returns(true);
+            fhirOperationDataStore.CheckActiveReindexJobsAsync(Arg.Any<CancellationToken>()).Returns((true, "id"));
 
             var validator = new SearchParameterValidator(() => fhirOperationDataStore.CreateMockScope(), _authorizationService, _searchParameterDefinitionManager);
 

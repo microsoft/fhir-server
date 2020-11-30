@@ -51,9 +51,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 throw new UnauthorizedFhirActionException();
             }
 
-            if (await _fhirOperationDataStore.CheckActiveReindexJobsAsync(cancellationToken))
+            (var activeReindexJobs, var reindexJobId) = await _fhirOperationDataStore.CheckActiveReindexJobsAsync(cancellationToken);
+            if (activeReindexJobs)
             {
-                throw new JobConflictException(Resources.OnlyOneResourceJobAllowed);
+                throw new JobConflictException(string.Format(Resources.OnlyOneResourceJobAllowed, reindexJobId));
             }
 
             var jobRecord = new ReindexJobRecord(

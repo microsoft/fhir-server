@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -95,9 +96,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             {
                 await _searchParameterStatusManager.UpdateSearchParameterStatus(searchParameterUris, SearchParameterStatus.Enabled);
             }
-            catch (SearchParameterNotSupportedException)
+            catch (SearchParameterNotSupportedException spx)
             {
-                return (false, string.Format(Core.Resources.SearchParameterNoLongerSupported));
+                var errorMessage = spx.Issues.FirstOrDefault()?.Diagnostics ?? Core.Resources.SearchParameterUnknownNotSupported;
+                return (false, string.Format(Core.Resources.SearchParameterNoLongerSupported, errorMessage));
             }
 
             return (true, null);

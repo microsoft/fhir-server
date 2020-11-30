@@ -23,15 +23,15 @@ namespace Microsoft.Health.Fhir.Core {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     internal class Resources {
-
+        
         private static global::System.Resources.ResourceManager resourceMan;
-
+        
         private static global::System.Globalization.CultureInfo resourceCulture;
-
+        
         [global::System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("Microsoft.Performance", "CA1811:AvoidUncalledPrivateCode")]
         internal Resources() {
         }
-
+        
         /// <summary>
         ///   Returns the cached ResourceManager instance used by this class.
         /// </summary>
@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core {
                 return resourceMan;
             }
         }
-
+        
         /// <summary>
         ///   Overrides the current thread's CurrentUICulture property for all
         ///   resource lookups using this strongly typed resource class.
@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.Core {
                 resourceCulture = value;
             }
         }
-
+        
         /// <summary>
         ///   Looks up a localized string similar to {0} and {1} cannot both be specified..
         /// </summary>
@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("AtCannotBeSpecifiedWithBeforeOrSince", resourceCulture);
             }
         }
-
+        
         /// <summary>
         ///   Looks up a localized string similar to Only a bundle can be submitted for batch or transaction processing..
         /// </summary>
@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("BundleRequiredForBatchOrTransaction", resourceCulture);
             }
         }
-
+        
         /// <summary>
         ///   Looks up a localized string similar to The chained parameter must be a reference search parameter type..
         /// </summary>
@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("ChainedParameterMustBeReferenceSearchParamType", resourceCulture);
             }
         }
-
+        
         /// <summary>
         ///   Looks up a localized string similar to The chained parameter is not supported..
         /// </summary>
@@ -95,7 +95,7 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("ChainedParameterNotSupported", resourceCulture);
             }
         }
-
+        
         /// <summary>
         ///   Looks up a localized string similar to The reference search parameter &apos;{0}&apos; refers to multiple possible resource types. Please specify a type in the search expression: {1}.
         /// </summary>
@@ -104,9 +104,9 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("ChainedParameterSpecifyType", resourceCulture);
             }
         }
-
+        
         /// <summary>
-        ///   Looks up a localized string similar to Changes to seach parameters is not allowed while a reindex job is ongoing.  Wait for the reindex job to finish, or cancel it..
+        ///   Looks up a localized string similar to Changes to seach parameters is not allowed while a reindex job is ongoing.  Wait for the reindex job with Id: {0} to finish, or cancel it..
         /// </summary>
         internal static string ChangesToSearchParametersNotAllowedWhileReindexing {
             get {
@@ -122,7 +122,7 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("ComparatorNotSupported", resourceCulture);
             }
         }
-
+        
         /// <summary>
         ///   Looks up a localized string similar to The compartment definition contains one or more invalid entries..
         /// </summary>
@@ -131,7 +131,7 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("CompartmentDefinitionContainsInvalidEntry", resourceCulture);
             }
         }
-
+        
         /// <summary>
         ///   Looks up a localized string similar to bundle.entry[{0}].resource has duplicate resources..
         /// </summary>
@@ -140,7 +140,7 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("CompartmentDefinitionDupeResource", resourceCulture);
             }
         }
-
+        
         /// <summary>
         ///   Looks up a localized string similar to bundle.entry[{0}] is null..
         /// </summary>
@@ -149,7 +149,7 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("CompartmentDefinitionInvalidBundle", resourceCulture);
             }
         }
-
+        
         /// <summary>
         ///   Looks up a localized string similar to bundle.entry[{0}].resource.code is null. Not a valid compartment type..
         /// </summary>
@@ -158,7 +158,7 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("CompartmentDefinitionInvalidCompartmentType", resourceCulture);
             }
         }
-
+        
         /// <summary>
         ///   Looks up a localized string similar to bundle.entry[{0}].resource is null or is not a CompartmentDefinition resource..
         /// </summary>
@@ -167,7 +167,7 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("CompartmentDefinitionInvalidResource", resourceCulture);
             }
         }
-
+        
         /// <summary>
         ///   Looks up a localized string similar to bundle.entry[{0}].resource.url is invalid..
         /// </summary>
@@ -176,7 +176,7 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("CompartmentDefinitionInvalidUrl", resourceCulture);
             }
         }
-
+        
         /// <summary>
         ///   Looks up a localized string similar to bundle.entry[{0}].resource has duplicate compartment definitions..
         /// </summary>
@@ -185,7 +185,7 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("CompartmentDefinitionIsDupe", resourceCulture);
             }
         }
-
+        
         /// <summary>
         ///   Looks up a localized string similar to Compartment id is null or empty..
         /// </summary>
@@ -194,7 +194,7 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("CompartmentIdIsInvalid", resourceCulture);
             }
         }
-
+        
         /// <summary>
         ///   Looks up a localized string similar to Compartment type {0} is invalid..
         /// </summary>
@@ -203,7 +203,7 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("CompartmentTypeIsInvalid", resourceCulture);
             }
         }
-
+        
         /// <summary>
         ///   Looks up a localized string similar to The composite separator cannot be found..
         /// </summary>
@@ -212,7 +212,7 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("CompositeSeparatorNotFound", resourceCulture);
             }
         }
-
+        
         /// <summary>
         ///   Looks up a localized string similar to Operation was not attempted because search criteria was not selective enough..
         /// </summary>
@@ -221,7 +221,7 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("ConditionalOperationNotSelectiveEnough", resourceCulture);
             }
         }
-
+        
         /// <summary>
         ///   Looks up a localized string similar to Found result with Id &apos;{0}&apos;, which did not match the provided Id &apos;{1}&apos;..
         /// </summary>
@@ -230,7 +230,7 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("ConditionalUpdateMismatchedIds", resourceCulture);
             }
         }
-
+        
         /// <summary>
         ///   Looks up a localized string similar to Fail to access the container registry &apos;{0}&apos;, please check the registry configuration..
         /// </summary>
@@ -266,7 +266,7 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("CustomHeaderPrefixCannotBeEmpty", resourceCulture);
             }
         }
-
+        
         /// <summary>
         ///   Looks up a localized string similar to The date time string &apos;{0}&apos; is not in a correct format..
         /// </summary>
@@ -275,7 +275,7 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("DateTimeStringIsIncorrectlyFormatted", resourceCulture);
             }
         }
-
+        
         /// <summary>
         ///   Looks up a localized string similar to At least one portion of the date time string &apos;{0}&apos; is out of range..
         /// </summary>
@@ -284,7 +284,7 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("DateTimeStringIsOutOfRange", resourceCulture);
             }
         }
-
+        
         /// <summary>
         ///   Looks up a localized string similar to Deleting a specific record version is not supported..
         /// </summary>
@@ -293,7 +293,7 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("DeleteVersionNotAllowed", resourceCulture);
             }
         }
-
+        
         /// <summary>
         ///   Looks up a localized string similar to There are {0} roles with the name &apos;{1}&apos;.
         /// </summary>
@@ -302,7 +302,7 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("DuplicateRoleNames", resourceCulture);
             }
         }
-
+        
         /// <summary>
         ///   Looks up a localized string similar to The &apos;_elements&apos; parameter is supported only when &apos;_summary&apos; is SummaryType.False or &apos;_summary&apos; is not specified at all..
         /// </summary>
@@ -321,7 +321,7 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("ErrorValidatingRoles", resourceCulture);
             }
         }
-
+        
         /// <summary>
         ///   Looks up a localized string similar to The format &apos;{0}&apos; could not be found..
         /// </summary>
@@ -348,7 +348,7 @@ namespace Microsoft.Health.Fhir.Core {
                 return ResourceManager.GetString("Forbidden", resourceCulture);
             }
         }
-
+        
         /// <summary>
         ///   Looks up a localized string similar to Parameter {0} cannot a be a value in the future..
         /// </summary>
@@ -448,24 +448,6 @@ namespace Microsoft.Health.Fhir.Core {
             }
         }
         
-        /// <summary>
-        ///   Looks up a localized string similar to The _revinclude search is missing the type to search..
-        /// </summary>
-        internal static string RevIncludeMissingType {
-            get {
-                return ResourceManager.GetString("RevIncludeMissingType", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to reversed include iterate target type not specified is not supported..
-        /// </summary>
-		internal static string RevIncludeIterateTargetTypeNotSpecified {
-            get {
-                return ResourceManager.GetString("RevIncludeIterateTargetTypeNotSpecified", resourceCulture);
-            }
-        }
-		
         /// <summary>
         ///   Looks up a localized string similar to Field &apos;{0}&apos; with value &apos;{1}&apos; is not supported..
         /// </summary>
@@ -647,7 +629,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Only one active or paused reindex job allowed.  Cancel any previous jobs before submitting a new job..
+        ///   Looks up a localized string similar to Only one active or paused reindex job allowed.  Cancel job with id: {0} before submitting a new job..
         /// </summary>
         internal static string OnlyOneResourceJobAllowed {
             get {
@@ -791,6 +773,24 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The &apos;_revinclude:iterate={0}&apos; search parameter has multiple target types. Please specify a target type..
+        /// </summary>
+        internal static string RevIncludeIterateTargetTypeNotSpecified {
+            get {
+                return ResourceManager.GetString("RevIncludeIterateTargetTypeNotSpecified", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The _revinclude search is missing the type to search..
+        /// </summary>
+        internal static string RevIncludeMissingType {
+            get {
+                return ResourceManager.GetString("RevIncludeMissingType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Comparator is not supported when multiple values are specified using OR search parameter..
         /// </summary>
         internal static string SearchComparatorNotSupported {
@@ -926,7 +926,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to One or more search parameters are no longer supported and cannot be marked enabled..
+        ///   Looks up a localized string similar to {0} So it cannot be marked enabled..
         /// </summary>
         internal static string SearchParameterNoLongerSupported {
             get {
@@ -940,6 +940,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string SearchParameterNotSupported {
             get {
                 return ResourceManager.GetString("SearchParameterNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to A search parameter is no longer supported..
+        /// </summary>
+        internal static string SearchParameterUnknownNotSupported {
+            get {
+                return ResourceManager.GetString("SearchParameterUnknownNotSupported", resourceCulture);
             }
         }
         

@@ -57,9 +57,10 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
             // check if reindex job is running
             using (IScoped<IFhirOperationDataStore> fhirOperationDataStore = _fhirOperationDataStoreFactory())
             {
-                if (await fhirOperationDataStore.Value.CheckActiveReindexJobsAsync(cancellationToken))
+                (var activeReindexJobs, var reindexJobId) = await fhirOperationDataStore.Value.CheckActiveReindexJobsAsync(cancellationToken);
+                if (activeReindexJobs)
                 {
-                    throw new JobConflictException(Resources.ChangesToSearchParametersNotAllowedWhileReindexing);
+                    throw new JobConflictException(string.Format(Resources.ChangesToSearchParametersNotAllowedWhileReindexing, reindexJobId));
                 }
             }
 

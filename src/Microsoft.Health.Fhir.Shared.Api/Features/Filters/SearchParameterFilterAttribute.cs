@@ -35,11 +35,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
             if (context.ActionArguments.TryGetValue(KnownActionParameterNames.Resource, out var parsedModel))
             {
-                if (parsedModel is SearchParameter)
+                if (parsedModel is SearchParameter searchParameter)
                 {
                     // wait for the validation checks to pass before allowing the FHIRController action to continue
                     await _searchParameterValidator.ValidateSearchParamterInput(
-                        parsedModel as SearchParameter,
+                        searchParameter,
                         context.HttpContext.Request.Method,
                         context.HttpContext.RequestAborted);
 

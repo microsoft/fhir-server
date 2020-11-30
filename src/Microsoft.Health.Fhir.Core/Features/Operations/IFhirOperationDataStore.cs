@@ -96,7 +96,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         /// Queries the datastore for any reindex job documents with a status of running, queued or paused
         /// </summary>
         /// <param name="cancellationToken">The cancellation token</param>
-        /// <returns>True if any found</returns>
-        Task<bool> CheckActiveReindexJobsAsync(CancellationToken cancellationToken);
+        /// <returns>True if any found, along with id of the job</returns>
+        Task<(bool, string)> CheckActiveReindexJobsAsync(CancellationToken cancellationToken);
     }
 }

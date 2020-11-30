@@ -302,7 +302,8 @@
     <value>Only one modifier separator can be specified.</value>
   </data>
   <data name="OnlyOneResourceJobAllowed" xml:space="preserve">
-    <value>Only one active or paused reindex job allowed.  Cancel any previous jobs before submitting a new job.</value>
+    <value>Only one active or paused reindex job allowed.  Cancel job with id: {0} before submitting a new job.</value>
+    <comment>{0} is Id of currently active reindex job</comment>
   </data>
   <data name="OpenIdConfiguration" xml:space="preserve">
     <value>Failed to retrieve the OpenId configuration from the authentication provider.</value>
@@ -446,7 +447,8 @@
     <value>WeakETag must be in the weak ETag format.</value>
   </data>
   <data name="SearchParameterNoLongerSupported" xml:space="preserve">
-    <value>One or more search parameters are no longer supported and cannot be marked enabled.</value>
+    <value>{0} So it cannot be marked enabled.</value>
+    <comment>{0} SearchParameterNotSupported string populated with search parameter info.</comment>
   </data>
   <data name="ReindexJobInCompletedState" xml:space="preserve">
     <value>Reindex job id {0} is in state {1} and cannot be cancelled.</value>
@@ -457,10 +459,10 @@
   </data>
   <data name="SearchParameterDefinitionNotFound" xml:space="preserve">
     <value>A search parameter with Uri '{0}' was not found.</value>
-    <comment>{0} uri of the search parameter</comment>
   </data>
   <data name="ChangesToSearchParametersNotAllowedWhileReindexing" xml:space="preserve">
-    <value>Changes to seach parameters is not allowed while a reindex job is ongoing.  Wait for the reindex job to finish, or cancel it.</value>
+    <value>Changes to seach parameters is not allowed while a reindex job is ongoing.  Wait for the reindex job with Id: {0} to finish, or cancel it.</value>
+    <comment>{0} Id of currently active Reindex job.</comment>
   </data>
 </root>
   <data name="ConvertDataFailed" xml:space="preserve">
@@ -487,6 +489,9 @@
   </data>
   <data name="ElementsAndSummaryParametersAreIncompatible" xml:space="preserve">
     <value>The '_elements' parameter is supported only when '_summary' is SummaryType.False or '_summary' is not specified at all.</value>
+  </data>
+  <data name="SearchParameterUnknownNotSupported" xml:space="preserve">
+    <value>A search parameter is no longer supported.</value>
   </data>
   <data name="TypeFilterWithoutTypeIsUnsupported" xml:space="preserve">
     <value>The _type parameter must be included when using the _typeFilter parameter. </value>

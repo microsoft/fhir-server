@@ -84,9 +84,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         public string GetSearchParameterHashForResourceType(string resourceType);
 
         /// <summary>
-        /// Allows addition of a new search parameters at runtime
+        /// Allows addition of a new search parameters at runtime.
         /// </summary>
-        /// <param name="searchParamBundle">A bundle containing SearchParameter resources</param>
+        /// <param name="searchParamBundle">A bundle containing SearchParameter resources.</param>
         public void AddNewSearchParameters(BundleWrapper searchParamBundle);
     }
 }
