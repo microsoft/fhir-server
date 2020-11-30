@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using EnsureThat;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Configs;
@@ -16,8 +15,10 @@ using Microsoft.Health.Fhir.Core.Features.Routing;
 namespace Microsoft.Health.Fhir.Api.Features.Operations
 {
     /// <summary>
-    /// Class that handles adding details of the supported operations
-    /// to the capability statement of the fhir-server.
+    /// Class that handles adding details of the supported operationsto the capability
+    /// statement of the fhir-server. This class is split across the different
+    /// FHIR versions since the OperationDefinition has a different format
+    /// for STU3 compared to R4 and R5.
     /// </summary>
     public partial class OperationsCapabilityProvider : IProvideCapability
     {

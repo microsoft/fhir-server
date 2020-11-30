@@ -29,6 +29,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
             GetAndAddOperationDefinitionUriToCapabilityStatement(capabilityStatement, OperationsConstants.Export);
         }
 
+        private void GetAndAddOperationDefinitionUriToCapabilityStatement(ListedCapabilityStatement capabilityStatement, string operationType)
+        {
+            Uri operationDefinitionUri = _urlResolver.ResolveOperationDefinitionUrl(operationType);
+            capabilityStatement.Rest.Server().Operation.Add(new OperationComponent()
+            {
+                Name = operationType,
+                Definition = operationDefinitionUri.ToString(),
+            });
+        }
+
         private void AddResourceSpecificExportDetails(ICapabilityStatementBuilder builder, string operationType, string resourceType)
         {
             Uri operationDefinitionUri = _urlResolver.ResolveOperationDefinitionUrl(operationType);
@@ -39,16 +49,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Operations
                     Name = operationType,
                     Definition = operationDefinitionUri.ToString(),
                 });
-            });
-        }
-
-        private void GetAndAddOperationDefinitionUriToCapabilityStatement(ListedCapabilityStatement capabilityStatement, string operationType)
-        {
-            Uri operationDefinitionUri = _urlResolver.ResolveOperationDefinitionUrl(operationType);
-            capabilityStatement.Rest.Server().Operation.Add(new OperationComponent()
-            {
-                Name = operationType,
-                Definition = operationDefinitionUri.ToString(),
             });
         }
     }
