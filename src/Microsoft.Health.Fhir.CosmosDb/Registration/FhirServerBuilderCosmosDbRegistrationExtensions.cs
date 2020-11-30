@@ -7,6 +7,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
+using MediatR;
+using MediatR.Pipeline;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
@@ -195,6 +197,9 @@ namespace Microsoft.Extensions.DependencyInjection
                 .AssignableTo<RequestHandler>()
                 .Transient()
                 .AsService<RequestHandler>();
+
+            // Adds open generic exception handler to handle any requests that throw an exception
+            services.AddTransient(typeof(IRequestExceptionAction<,>), typeof(CosmosRequestExceptionAction<,>));
 
             // FhirCosmosClientInitializer is Singleton, so provide a factory that can resolve new RequestHandlers
             services.AddFactory<IEnumerable<RequestHandler>>();

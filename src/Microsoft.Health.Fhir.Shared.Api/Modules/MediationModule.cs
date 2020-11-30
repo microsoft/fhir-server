@@ -7,6 +7,7 @@ using System;
 using System.Linq;
 using EnsureThat;
 using MediatR;
+using MediatR.Pipeline;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
@@ -24,6 +25,9 @@ namespace Microsoft.Health.Fhir.Api.Modules
             EnsureArg.IsNotNull(services, nameof(services));
 
             services.AddMediatR(KnownAssemblies.All);
+
+            services.AddTransient(typeof(IPipelineBehavior<,>), typeof(Microsoft.Health.Fhir.Api.Features.Mediator.RequestExceptionActionProcessorBehavior<,>));
+            services.AddTransient(typeof(IPipelineBehavior<,>), typeof(RequestExceptionProcessorBehavior<,>));
 
             Predicate<Type> isPipelineBehavior = y => y.IsGenericType && y.GetGenericTypeDefinition() == typeof(IPipelineBehavior<,>);
 
