@@ -1,5 +1,5 @@
 # Convert Data Operation
-This feature allows data conversion from legacy formats (currently supports **Hl7v2** only) to FHIR format.The feature is currently turned off by default. To enable the feature, update the `FhirServer:Operations:ConvertData:Enabled` setting to be true.
+The ```$convert-data``` operation allows data conversion from legacy formats (currently supports **Hl7v2** only) to FHIR format. This feature is currently turned off by default. To enable the feature, update the `FhirServer:Operations:ConvertData:Enabled` setting to be true.
 
 ## Conversion Template Collection
 The convert data operation is based on the [FHIR Converter Project](https://github.com/microsoft/FHIR-Converter/tree/dotliquid).
