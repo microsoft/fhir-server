@@ -40,9 +40,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
     public class CustomConvertDataTests : IClassFixture<HttpIntegrationTestFixture>
     {
-        private const string TemplateSetFile = "TestData/ConvertData/DefaultTemplates.tar.gz";
-        private const string TestRepositoryName = "templatetest";
-        private const string TestRepositoryTag = "v0.1";
+        private const string TestRepositoryName = "conversiontemplatestest";
+        private const string TestRepositoryTag = "test1.0";
 
         private readonly TestFhirClient _testFhirClient;
         private readonly ConvertDataConfiguration _convertDataConfiguration;
@@ -144,9 +143,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             await UploadBlob(acrClient, originalConfigStream, repository, originalConfigDigest);
 
             // Upload memory blob
-            using FileStream fileStream = File.OpenRead(TemplateSetFile);
-            using MemoryStream byteStream = new MemoryStream();
-            fileStream.CopyTo(byteStream);
+            Stream byteStream = Samples.GetDefaultConversionTemplates();
             var blobLength = byteStream.Length;
             string blobDigest = ComputeDigest(byteStream);
             await UploadBlob(acrClient, byteStream, repository, blobDigest);
