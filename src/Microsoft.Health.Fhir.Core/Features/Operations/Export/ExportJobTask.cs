@@ -450,6 +450,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         }
 
                         await SearchCompartmentWithFilter(exportJobConfiguration, progress, filter.ResourceType, filterQueryParametersList, batchIdPrefix + "-filter" + index, cancellationToken);
+
+                        progress.SetFilter(null);
                     }
                 }
 
