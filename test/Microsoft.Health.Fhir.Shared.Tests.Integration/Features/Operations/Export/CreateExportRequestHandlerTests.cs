@@ -310,7 +310,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                 actualRecord.Filters,
                 expectedFilters.Select((actFilter) => new Action<ExportJobFilter>((expFilter) =>
                 {
-                    Assert.Equal(expFilter.Type, actFilter.Type);
+                    Assert.Equal(expFilter.ResourceType, actFilter.ResourceType);
                     Assert.Equal(expFilter.Parameters, actFilter.Parameters);
                 })).ToArray());
         }

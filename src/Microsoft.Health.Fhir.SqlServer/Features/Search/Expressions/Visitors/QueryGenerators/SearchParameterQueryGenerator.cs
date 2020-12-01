@@ -46,9 +46,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     .Append(" = ")
                     .AppendLine(context.Parameters.AddParameter(searchParamIdColumn, searchParamId).ParameterName)
                     .Append("AND ");
-
-                return expression.Expression.AcceptVisitor(this, context);
             }
+
+            return expression.Expression.AcceptVisitor(this, context);
         }
 
         public override SearchParameterQueryGeneratorContext VisitSortParameter(SortExpression expression, SearchParameterQueryGeneratorContext context)

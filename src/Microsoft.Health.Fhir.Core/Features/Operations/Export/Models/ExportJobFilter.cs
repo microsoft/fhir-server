@@ -12,12 +12,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 {
     public class ExportJobFilter
     {
-        public ExportJobFilter(string type, IList<Tuple<string, string>> parameters)
+        public ExportJobFilter(string resourceType, IList<Tuple<string, string>> parameters)
         {
-            EnsureArg.IsNotNullOrWhiteSpace(type, nameof(type));
+            EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
             EnsureArg.IsNotNull(parameters, nameof(parameters));
 
-            Type = type;
+            ResourceType = resourceType;
             Parameters = parameters;
         }
 
@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         }
 
         [JsonProperty(JobRecordProperties.ResourceType)]
-        public string Type { get; private set; }
+        public string ResourceType { get; private set; }
 
         [JsonProperty(JobRecordProperties.SearchParams)]
         public IList<Tuple<string, string>> Parameters { get; private set; }

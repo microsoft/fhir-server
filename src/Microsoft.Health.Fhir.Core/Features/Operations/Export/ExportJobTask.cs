@@ -239,7 +239,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 foreach (var filter in _exportJobRecord.Filters)
                 {
-                    filteredResources.Add(filter.Type);
+                    filteredResources.Add(filter.ResourceType);
                 }
             }
 
@@ -259,7 +259,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                             continue;
                         }
 
-                        if (_exportJobRecord.ExportType == ExportJobType.All || filter.Type.Equals(KnownResourceTypes.Patient, StringComparison.Ordinal))
+                        if (_exportJobRecord.ExportType == ExportJobType.All || filter.ResourceType.Equals(KnownResourceTypes.Patient, StringComparison.Ordinal))
                         {
                             progress.SetFilter(filter);
 
@@ -269,7 +269,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                                 filterQueryParametersList.Add(param);
                             }
 
-                            await SearchWithFilter(exportJobConfiguration, progress, filter.Type, filterQueryParametersList, sharedQueryParametersList, anonymizer, "filter" + index + "-", cancellationToken);
+                            await SearchWithFilter(exportJobConfiguration, progress, filter.ResourceType, filterQueryParametersList, sharedQueryParametersList, anonymizer, "filter" + index + "-", cancellationToken);
 
                             progress.SetFilter(null);
                         }
@@ -280,6 +280,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 await UpdateJobRecordAsync(cancellationToken);
             }
 
+            // This runs if the filteredResources doesn't contain Patient so that when a Patient or Group export is run it will run a full search of Patients.
+            // If Patients was filtered the search would already have been run above.
             if (_exportJobRecord.ExportType == ExportJobType.All || !filteredResources.Contains(KnownResourceTypes.Patient))
             {
                 foreach (var resource in filteredResources)
@@ -421,7 +423,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 foreach (var filter in _exportJobRecord.Filters)
                 {
-                    filteredResources.Add(filter.Type);
+                    filteredResources.Add(filter.ResourceType);
                 }
             }
 
@@ -438,19 +440,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                             continue;
                         }
 
-                        if (_exportJobRecord.ExportType == ExportJobType.All || filter.Type.Equals(KnownResourceTypes.Patient, StringComparison.Ordinal))
+                        progress.SetFilter(filter);
+
+                        List<Tuple<string, string>> filterQueryParametersList = new List<Tuple<string, string>>(queryParametersList);
+                        filterQueryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type, filter.ResourceType));
+                        foreach (var param in filter.Parameters)
                         {
-                            progress.SetFilter(filter);
-
-                            List<Tuple<string, string>> filterQueryParametersList = new List<Tuple<string, string>>(queryParametersList);
-                            filterQueryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type, filter.Type));
-                            foreach (var param in filter.Parameters)
-                            {
-                                filterQueryParametersList.Add(param);
-                            }
-
-                            await SearchCompartmentWithFilter(exportJobConfiguration, progress, filterQueryParametersList, batchIdPrefix + "-filter" + index, cancellationToken);
+                            filterQueryParametersList.Add(param);
                         }
+
+                        await SearchCompartmentWithFilter(exportJobConfiguration, progress, filter.ResourceType, filterQueryParametersList, batchIdPrefix + "-filter" + index, cancellationToken);
                     }
                 }
 
@@ -458,20 +457,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 await UpdateJobRecordAsync(cancellationToken);
             }
 
-            if (_exportJobRecord.ExportType == ExportJobType.All || !filteredResources.Contains(KnownResourceTypes.Patient))
+            foreach (var resource in filteredResources)
             {
-                foreach (var resource in filteredResources)
-                {
-                    queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type + ":not", resource));
-                }
-
-                await SearchCompartmentWithFilter(exportJobConfiguration, progress, queryParametersList, batchIdPrefix, cancellationToken);
+                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type + ":not", resource));
             }
+
+            await SearchCompartmentWithFilter(exportJobConfiguration, progress, null, queryParametersList, batchIdPrefix, cancellationToken);
         }
 
         private async Task SearchCompartmentWithFilter(
             ExportJobConfiguration exportJobConfiguration,
             ExportJobProgress progress,
+            string resourceType,
             List<Tuple<string, string>> queryParametersList,
             string batchIdPrefix,
             CancellationToken cancellationToken)
@@ -492,7 +489,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     searchResult = await searchService.Value.SearchCompartmentAsync(
                         compartmentType: KnownResourceTypes.Patient,
                         compartmentId: progress.TriggeringResourceId,
-                        resourceType: null,
+                        resourceType: resourceType,
                         queryParametersList,
                         cancellationToken);
                 }
