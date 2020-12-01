@@ -94,20 +94,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
                 _logger.LogError(authEx, "Failed to access container registry.");
                 throw new ContainerRegistryNotAuthorizedException(string.Format(Resources.ContainerRegistryNotAuthorized, request.RegistryServer), authEx);
             }
-            catch (ImageTooLargeException tooLargeException)
+            catch (ImageFetchException fetchEx)
             {
-                _logger.LogError(tooLargeException, "The template image is too large.");
-                throw new TemplateCollectionTooLargeException(string.Format(Resources.TemplateImageTooLarge, _convertDataConfig.TemplateCollectionOptions.TemplateCollectionSizeLimitMegabytes), tooLargeException);
+                _logger.LogError(fetchEx, "Failed to fetch template image.");
+                throw new FetchTemplateCollectionFailedException(string.Format(Resources.FetchTemplateCollectionFailed, fetchEx.Message), fetchEx);
             }
-            catch (ImageNotFoundException notFoundException)
+            catch (TemplateManagementException templateEx)
             {
-                _logger.LogError(notFoundException, "The template image is not found.");
-                throw new TemplateCollectionNotFoundException(string.Format(Resources.TemplateImageNotFound, request.TemplateCollectionReference), notFoundException);
+                _logger.LogError(templateEx, "Template collection is invalid.");
+                throw new TemplateCollectionErrorException(string.Format(Resources.FetchTemplateCollectionFailed, templateEx.Message), templateEx);
             }
-            catch (Exception ex)
+            catch (Exception unhandledEx)
             {
-                _logger.LogError(ex, "Unhandled exception: failed to get template collection.");
-                throw new FetchTemplateCollectionFailedException(string.Format(Resources.FetchTemplateCollectionFailed, ex.Message), ex);
+                _logger.LogError(unhandledEx, "Unhandled exception: failed to get template collection.");
+                throw new FetchTemplateCollectionFailedException(string.Format(Resources.FetchTemplateCollectionFailed, unhandledEx.Message), unhandledEx);
             }
         }
 

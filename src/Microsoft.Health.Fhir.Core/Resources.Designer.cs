@@ -10,8 +10,8 @@
 
 namespace Microsoft.Health.Fhir.Core {
     using System;
-    
-    
+
+
     /// <summary>
     ///   A strongly-typed resource class, for looking up localized strings, etc.
     /// </summary>
@@ -940,24 +940,6 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string SortNotSupported {
             get {
                 return ResourceManager.GetString("SortNotSupported", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to The specified template collection image &apos;{0}&apos; is not found..
-        /// </summary>
-        internal static string TemplateImageNotFound {
-            get {
-                return ResourceManager.GetString("TemplateImageNotFound", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to The specified template collection image size exceeds the limit configured for server. Current limit is {0} MB..
-        /// </summary>
-        internal static string TemplateImageTooLarge {
-            get {
-                return ResourceManager.GetString("TemplateImageTooLarge", resourceCulture);
             }
         }
         

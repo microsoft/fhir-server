@@ -9,9 +9,9 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData.Models
 {
-    public class TemplateCollectionTooLargeException : FhirException
+    public class TemplateCollectionErrorException : FhirException
     {
-        public TemplateCollectionTooLargeException(string message, System.Exception innerException)
+        public TemplateCollectionErrorException(string message, System.Exception innerException)
             : base(message, innerException)
         {
             Debug.Assert(!string.IsNullOrEmpty(message), "Exception message should not be empty.");

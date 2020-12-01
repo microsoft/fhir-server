@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
 
             var parameters = new List<KeyValuePair<string, string>>();
             parameters.Add(new KeyValuePair<string, string>("grant_type", "access_token"));
-            parameters.Add(new KeyValuePair<string, string>("service", registryServer));
+            parameters.Add(new KeyValuePair<string, string>("service", registryUri.Host));
             parameters.Add(new KeyValuePair<string, string>("access_token", aadToken));
             var request = new HttpRequestMessage(HttpMethod.Post, exchangeUri)
             {
@@ -145,7 +145,7 @@ namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
 
             var parameters = new List<KeyValuePair<string, string>>();
             parameters.Add(new KeyValuePair<string, string>("grant_type", "refresh_token"));
-            parameters.Add(new KeyValuePair<string, string>("service", registryServer));
+            parameters.Add(new KeyValuePair<string, string>("service", registryUri.Host));
             parameters.Add(new KeyValuePair<string, string>("refresh_token", refreshToken));
 
             // Add scope for AcrPull role (granted at registry level).
