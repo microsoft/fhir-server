@@ -8,26 +8,26 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
-    internal class TokenNumberNumberCompositeSearchParameterRowGenerator : CompositeSearchParameterRowGenerator<(TokenSearchValue component1, NumberSearchValue component2, NumberSearchValue component3), VLatest.TokenNumberNumberCompositeSearchParamTableTypeRow>
+    internal class TokenNumberNumberCompositeSearchParameterV1RowGenerator : CompositeSearchParameterRowGenerator<(TokenSearchValue component1, NumberSearchValue component2, NumberSearchValue component3), TokenNumberNumberCompositeSearchParamTableTypeV1Row>
     {
-        private readonly TokenSearchParameterRowGenerator _tokenRowGenerator;
-        private readonly NumberSearchParameterRowGenerator _numberRowGenerator;
+        private readonly TokenSearchParameterV1RowGenerator _tokenRowGenerator;
+        private readonly NumberSearchParameterV1RowGenerator _numberV1RowGenerator;
 
-        public TokenNumberNumberCompositeSearchParameterRowGenerator(SqlServerFhirModel model, TokenSearchParameterRowGenerator tokenRowGenerator, NumberSearchParameterRowGenerator numberRowGenerator)
+        public TokenNumberNumberCompositeSearchParameterV1RowGenerator(SqlServerFhirModel model, TokenSearchParameterV1RowGenerator tokenRowGenerator, NumberSearchParameterV1RowGenerator numberV1RowGenerator)
             : base(model)
         {
             _tokenRowGenerator = tokenRowGenerator;
-            _numberRowGenerator = numberRowGenerator;
+            _numberV1RowGenerator = numberV1RowGenerator;
         }
 
-        internal override bool TryGenerateRow(short searchParamId, (TokenSearchValue component1, NumberSearchValue component2, NumberSearchValue component3) searchValue, out VLatest.TokenNumberNumberCompositeSearchParamTableTypeRow row)
+        internal override bool TryGenerateRow(short searchParamId, (TokenSearchValue component1, NumberSearchValue component2, NumberSearchValue component3) searchValue, out TokenNumberNumberCompositeSearchParamTableTypeV1Row row)
         {
             if (_tokenRowGenerator.TryGenerateRow(default, searchValue.component1, out var token1Row) &&
-                _numberRowGenerator.TryGenerateRow(default, searchValue.component2, out var token2Row) &&
-                _numberRowGenerator.TryGenerateRow(default, searchValue.component3, out var token3Row))
+                _numberV1RowGenerator.TryGenerateRow(default, searchValue.component2, out var token2Row) &&
+                _numberV1RowGenerator.TryGenerateRow(default, searchValue.component3, out var token3Row))
             {
                 bool hasRange = token2Row.SingleValue == null || token3Row.SingleValue == null;
-                row = new VLatest.TokenNumberNumberCompositeSearchParamTableTypeRow(
+                row = new TokenNumberNumberCompositeSearchParamTableTypeV1Row(
                     searchParamId,
                     token1Row.SystemId,
                     token1Row.Code,

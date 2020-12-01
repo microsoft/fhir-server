@@ -8,24 +8,24 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
-    internal class TokenDateTimeCompositeSearchParameterRowGenerator : CompositeSearchParameterRowGenerator<(TokenSearchValue component1, DateTimeSearchValue component2), VLatest.TokenDateTimeCompositeSearchParamTableTypeRow>
+    internal class TokenDateTimeCompositeSearchParameterV1RowGenerator : CompositeSearchParameterRowGenerator<(TokenSearchValue component1, DateTimeSearchValue component2), TokenDateTimeCompositeSearchParamTableTypeV1Row>
     {
-        private readonly TokenSearchParameterRowGenerator _tokenRowGenerator;
-        private readonly DateTimeSearchParameterRowGenerator _dateTimeRowGenerator;
+        private readonly TokenSearchParameterV1RowGenerator _tokenRowGenerator;
+        private readonly DateTimeSearchParameterV1RowGenerator _dateTimeV1RowGenerator;
 
-        public TokenDateTimeCompositeSearchParameterRowGenerator(SqlServerFhirModel model, TokenSearchParameterRowGenerator tokenRowGenerator, DateTimeSearchParameterRowGenerator dateTimeRowGenerator)
+        public TokenDateTimeCompositeSearchParameterV1RowGenerator(SqlServerFhirModel model, TokenSearchParameterV1RowGenerator tokenRowGenerator, DateTimeSearchParameterV1RowGenerator dateTimeV1RowGenerator)
             : base(model)
         {
             _tokenRowGenerator = tokenRowGenerator;
-            _dateTimeRowGenerator = dateTimeRowGenerator;
+            _dateTimeV1RowGenerator = dateTimeV1RowGenerator;
         }
 
-        internal override bool TryGenerateRow(short searchParamId, (TokenSearchValue component1, DateTimeSearchValue component2) searchValue, out VLatest.TokenDateTimeCompositeSearchParamTableTypeRow row)
+        internal override bool TryGenerateRow(short searchParamId, (TokenSearchValue component1, DateTimeSearchValue component2) searchValue, out TokenDateTimeCompositeSearchParamTableTypeV1Row row)
         {
             if (_tokenRowGenerator.TryGenerateRow(default, searchValue.component1, out var token1Row) &&
-                _dateTimeRowGenerator.TryGenerateRow(default, searchValue.component2, out var token2Row))
+                _dateTimeV1RowGenerator.TryGenerateRow(default, searchValue.component2, out var token2Row))
             {
-                row = new VLatest.TokenDateTimeCompositeSearchParamTableTypeRow(
+                row = new TokenDateTimeCompositeSearchParamTableTypeV1Row(
                     searchParamId,
                     token1Row.SystemId,
                     token1Row.Code,
