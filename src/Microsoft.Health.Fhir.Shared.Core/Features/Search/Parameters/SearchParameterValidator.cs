@@ -96,8 +96,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                     if (method.Equals(HttpPutName, StringComparison.OrdinalIgnoreCase) ||
                         method.Equals(HttpDeleteName, StringComparison.OrdinalIgnoreCase))
                     {
-                        // if no exception is thrown, then the search parameter with the same Uri was found
-                        // and this is a conflict
+                        // if an exception above was thrown, then the search parameter with the same Uri was not found
+                        // and DELETE or PUT can only run on existing parameter
                         validationFailures.Add(
                             new ValidationFailure(
                                 nameof(searchParam.Url),

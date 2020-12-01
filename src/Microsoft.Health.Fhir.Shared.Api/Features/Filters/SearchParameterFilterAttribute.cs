@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     {
                         // Once the SearchParameter resource is committed to the data store, we can update the in
                         // memory SearchParameterDefinitionManager, and persist the status to the data store
-                        await _searchParameterEditor.AddSearchParameterAsync(parsedModel as SearchParameter, context.HttpContext.RequestAborted);
+                        await _searchParameterEditor.AddSearchParameterAsync(searchParameter, context.HttpContext.RequestAborted);
                     }
                 }
                 else
