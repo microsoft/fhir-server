@@ -14,7 +14,7 @@ steps:
   displayName: 'dotnet build $(buildConfiguration)'
   inputs:
     command: build
-    arguments: '--configuration $(buildConfiguration) /p:AssemblyVersion="$(assemblySemVer)" /p:FileVersion="$(assemblySemFileVer)" /p:InformationalVersion="$(informationalVersion)" /p:Version="$(majorMinorPatch)" /warnaserror'
+    arguments: '--configuration $(buildConfiguration) /p:AssemblyVersion="$(assemblySemVer)" /p:FileVersion="$(assemblySemFileVer)" /p:InformationalVersion="$(informationalVersion)" /warnaserror'
 
 - task: DotNetCoreCLI@2
   displayName: 'dotnet test UnitTests'

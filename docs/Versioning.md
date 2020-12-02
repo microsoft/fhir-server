@@ -1,7 +1,7 @@
 # Semantic Versioning for FHIR Server
 
 This guide gives an overview of the Semantic versioning implementation in use with this project.
-To achieve semantic versioning consistently and relaiably the [GitVersion](https://github.com/GitTools/GitVersion) library is used.
+To achieve semantic versioning consistently and reliably the [GitVersion](https://github.com/GitTools/GitVersion) library is used.
 
 ## Git Version
 
