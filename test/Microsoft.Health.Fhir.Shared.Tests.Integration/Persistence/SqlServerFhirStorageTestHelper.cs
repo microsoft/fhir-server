@@ -11,6 +11,7 @@ using EnsureThat;
 using MediatR;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage;
 using Microsoft.Health.SqlServer;
@@ -29,15 +30,24 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     {
         private readonly string _masterDatabaseName;
         private readonly string _initialConnectionString;
+        private readonly SearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly SqlServerFhirModel _sqlServerFhirModel;
         private readonly ISqlConnectionFactory _sqlConnectionFactory;
 
-        public SqlServerFhirStorageTestHelper(string initialConnectionString, string masterDatabaseName, SqlServerFhirModel sqlServerFhirModel, ISqlConnectionFactory sqlConnectionFactory)
+        public SqlServerFhirStorageTestHelper(
+            string initialConnectionString,
+            string masterDatabaseName,
+            SearchParameterDefinitionManager searchParameterDefinitionManager,
+            SqlServerFhirModel sqlServerFhirModel,
+            ISqlConnectionFactory sqlConnectionFactory)
         {
+            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
+            EnsureArg.IsNotNull(sqlServerFhirModel, nameof(sqlServerFhirModel));
             EnsureArg.IsNotNull(sqlConnectionFactory, nameof(sqlConnectionFactory));
 
             _masterDatabaseName = masterDatabaseName;
             _initialConnectionString = initialConnectionString;
+            _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _sqlServerFhirModel = sqlServerFhirModel;
             _sqlConnectionFactory = sqlConnectionFactory;
         }
@@ -80,7 +90,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 });
 
             await schemaInitializer.InitializeAsync(forceIncrementalSchemaUpgrade, cancellationToken);
-            await _sqlServerFhirModel.StartAsync(cancellationToken);
+            await _searchParameterDefinitionManager.StartAsync(CancellationToken.None);
+            _sqlServerFhirModel.Initialize(SchemaVersionConstants.Max, true);
         }
 
         public async Task DeleteDatabase(string databaseName, CancellationToken cancellationToken = default)
@@ -131,6 +142,18 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
                 var parameter = new SqlParameter { ParameterName = "@id", Value = id };
                 command.Parameters.Add(parameter);
+
+                await command.Connection.OpenAsync(cancellationToken);
+                await command.ExecuteNonQueryAsync(cancellationToken);
+            }
+        }
+
+        public async Task DeleteSearchParameterStatusAsync(string uri, CancellationToken cancellationToken = default)
+        {
+            using (var connection = await _sqlConnectionFactory.GetSqlConnectionAsync())
+            {
+                var command = new SqlCommand("DELETE FROM dbo.SearchParam WHERE Uri = @uri", connection);
+                command.Parameters.AddWithValue("@uri", uri);
 
                 await command.Connection.OpenAsync(cancellationToken);
                 await command.ExecuteNonQueryAsync(cancellationToken);

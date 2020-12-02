@@ -184,6 +184,23 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 context.Result = healthExceptionResult;
                 context.ExceptionHandled = true;
             }
+            else if (context.Exception.InnerException != null)
+            {
+                Exception outerException = context.Exception;
+                context.Exception = outerException.InnerException;
+
+                try
+                {
+                    OnActionExecuted(context);
+                }
+                finally
+                {
+                    if (!context.ExceptionHandled)
+                    {
+                        context.Exception = outerException;
+                    }
+                }
+            }
         }
 
         private OperationOutcomeResult CreateOperationOutcomeResult(string message, OperationOutcome.IssueSeverity issueSeverity, OperationOutcome.IssueType issueType, HttpStatusCode httpStatusCode)

@@ -120,9 +120,6 @@
   <data name="ChainedExpressionNotSupported" xml:space="preserve">
     <value>Chained expression is not supported.</value>
   </data>
-  <data name="IncludeExpressionNotSupported" xml:space="preserve">
-    <value>Include expression is not supported.</value>
-  </data>
   <data name="InvalidConsistencyLevel" xml:space="preserve">
     <value>Consistency level '{0}' specified in the request is invalid when service is configured with consistency level '{1}'. Ensure the request consistency level is not stronger than the service consistency level.</value>
   </data>
@@ -164,5 +161,8 @@
   </data>
   <data name="CmkDefaultError" xml:space="preserve">
     <value>There was an error using the customer-managed key.</value>
+  </data>
+  <data name="IncludeIterateNotSupported" xml:space="preserve">
+    <value>_include:iterate and _revinclude:iterate are not supported.</value>
   </data>
 </root>

@@ -37,7 +37,7 @@ To see what is releasing in the FHIR Server, please refer to the [releases](http
 - [Azure Active Directory Application Registrations](docs/PortalAppRegistration.md): Describes how to configure Azure Active Directory (AAD) for use with FHIR Server for Azure.
 - [Authentication](docs/Authentication.md): Describes the authentication settings for the FHIR server and how to make use of it in development and test scenarios.
 - [Roles](docs/Roles.md): Describes how the FHIR Server for Azure role-based access control (RBAC) system works.
-- [Search](docs/Search.md): Describes how search is implemented for the FHIR Server for Azure.
+- [Search](docs/SearchArchitecture.md): Describes how search is implemented for the FHIR Server for Azure.
 - [Debugging](docs/HowToDebug.md): Describes how to debug FHIR Server for Azure using Visual Studio.
 - [Sql Schema Migration Guide](docs/SchemaMigrationGuide.md): Describes how to upgrade Schema for Sql Server.
 
@@ -45,7 +45,7 @@ To see what is releasing in the FHIR Server, please refer to the [releases](http
 
 * [Azure API for FHIR documentation](https://docs.microsoft.com/azure/healthcare-apis/)
 * [FHIR Server Samples Repo](https://github.com/Microsoft/fhir-server-samples): A demo sandbox using the Azure API for FHIR.
-* [Health Architectures](https://github.com/microsoft/health-architectures): A collection of reference architectures illustrating end-to-end best practices for using the Azure API for FHIR and related technologies.
+* [Health Architectures](https://aka.ms/healtharchitectures): A collection of reference architectures illustrating end-to-end best practices for using the Azure API for FHIR and related technologies.
 * [FHIR Proxy](https://github.com/microsoft/health-architectures/tree/master/FHIR/FHIRProxy): Secure FHIR Gateway and Proxy to FHIR Servers.
 * [Features](https://docs.microsoft.com/en-us/azure/healthcare-apis/fhir-features-supported): This document lists the main features of the FHIR Server for Azure and Azure API for FHIR.
 * Blog: [FHIR Server for Azure, an open source project for modern healthcare](https://cloudblogs.microsoft.com/industry-blog/industry/health/fhir-server-for-azure-an-open-source-project-for-cloud-based-health-solutions/).

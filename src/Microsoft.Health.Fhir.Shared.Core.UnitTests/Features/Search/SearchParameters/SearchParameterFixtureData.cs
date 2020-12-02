@@ -74,7 +74,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var definitionManager = new SearchParameterDefinitionManager(modelInfoProvider);
             await definitionManager.StartAsync(CancellationToken.None);
 
-            var statusRegistry = new FilebasedSearchParameterRegistry(
+            var statusRegistry = new FilebasedSearchParameterStatusDataStore(
                 definitionManager,
                 modelInfoProvider);
             var statusManager = new SearchParameterStatusManager(
