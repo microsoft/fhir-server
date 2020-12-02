@@ -5,11 +5,8 @@
 
 using System;
 using System.Collections.Generic;
-
-#if R5
 using System.Linq;
-#endif
-
+using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
@@ -45,11 +42,12 @@ namespace Microsoft.Health.Fhir.Core
 
         public IReadOnlyCollection<string> GetResourceTypeNames()
         {
-            var supportedResources = ModelInfo.SupportedResources;
+            List<string> supportedResources = ModelInfo.SupportedResources;
 
-#if R5
-            supportedResources = supportedResources.Where(x => x != "CanonicalResource" && x != "MetadataResource").ToList();
-#endif
+            if (Version == FhirSpecification.R5)
+            {
+                supportedResources = supportedResources.Where(x => x != "CanonicalResource" && x != "MetadataResource").ToList();
+            }
 
             return supportedResources;
         }
@@ -72,12 +70,11 @@ namespace Microsoft.Health.Fhir.Core
             };
         }
 
-        public IStructureDefinitionSummaryProvider StructureDefinitionSummaryProviderForSourceNode(ISourceNode sourceNode)
+        public ITypedElement ToTypedElement(ISourceNode sourceNode)
         {
-            // SourceNode is not required when we have access to the full generated StructureDefinitionSummaryProvider
-            // but it is required when looking at generic FHIR data.
+            EnsureArg.IsNotNull(sourceNode);
 
-            return StructureDefinitionSummaryProvider;
+            return sourceNode.ToTypedElement(StructureDefinitionSummaryProvider);
         }
     }
 }

@@ -33,6 +33,6 @@ namespace Microsoft.Health.Fhir.Core.Models
 
         EvaluationContext GetEvaluationContext(Func<string, ITypedElement> elementResolver = null);
 
-        IStructureDefinitionSummaryProvider StructureDefinitionSummaryProviderForSourceNode(ISourceNode sourceNode);
+        ITypedElement ToTypedElement(ISourceNode sourceNode);
     }
 }

@@ -48,8 +48,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
             provider.GetFhirTypeNameForType(Arg.Any<Type>()).Returns(p => p.ArgAt<Type>(0) == typeof(ResourceObj) ? "Resource" : null);
 
             // IStructureDefinitionSummaryProvider allows the execution of FHIRPath queries
-            provider.StructureDefinitionSummaryProviderForSourceNode(Arg.Any<ISourceNode>())
-                .Returns(p => new MockStructureDefinitionSummaryProvider(p.ArgAt<ISourceNode>(0), seenTypes));
+            provider.ToTypedElement(Arg.Any<ISourceNode>())
+                .Returns(p => p.ArgAt<ISourceNode>(0).ToTypedElement(new MockStructureDefinitionSummaryProvider(p.ArgAt<ISourceNode>(0), seenTypes)));
 
             return new MockModelInfoProviderBuilder(provider, seenTypes);
         }

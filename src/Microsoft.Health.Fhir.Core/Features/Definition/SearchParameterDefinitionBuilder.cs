@@ -142,7 +142,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                 try
                 {
                     ISourceNode sourceNode = FhirJsonNode.Read(jsonReader);
-                    bundle = new BundleWrapper(sourceNode.ToTypedElement(_modelInfoProvider.StructureDefinitionSummaryProviderForSourceNode(sourceNode)));
+                    bundle = new BundleWrapper(_modelInfoProvider.ToTypedElement(sourceNode));
                 }
                 catch (FormatException ex)
                 {
