@@ -15,8 +15,10 @@ using Hl7.Fhir.Serialization;
 using Microsoft.Azure.Storage;
 using Microsoft.Azure.Storage.Auth;
 using Microsoft.Azure.Storage.Blob;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Shared.Tests.E2E.Rest;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -31,17 +33,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     [Trait(Traits.Category, Categories.ExportDataValidation)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
-    public class ExportDataValidationTests : IClassFixture<HttpIntegrationTestFixture>
+    public class ExportDataValidationTests : IClassFixture<ExportTestFixture>
     {
         private readonly TestFhirClient _testFhirClient;
         private readonly ITestOutputHelper _outputHelper;
         private readonly FhirJsonParser _fhirJsonParser;
+        private readonly ExportTestFixture _fixture;
 
-        public ExportDataValidationTests(HttpIntegrationTestFixture fixture, ITestOutputHelper testOutputHelper)
+        public ExportDataValidationTests(ExportTestFixture fixture, ITestOutputHelper testOutputHelper)
         {
             _testFhirClient = fixture.TestFhirClient;
             _outputHelper = testOutputHelper;
             _fhirJsonParser = new FhirJsonParser();
+            _fixture = fixture;
         }
 
         [Fact(Skip = "Failing CI build")]
@@ -205,6 +209,31 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             // Assert both data are equal
             Assert.True(ValidateDataFromBothSources(dataFromFhirServer, dataFromExport));
             Assert.True(blobUris.All((url) => url.OriginalString.Contains(testContainer)));
+        }
+
+        [Fact]
+        public async Task GivenFhirServer_WhenDataIsExported_ThenExportTaskMetricsNotificationShouldBePosted()
+        {
+            // NOTE: Azure Storage Emulator is required to run these tests locally.
+
+            if (!_fixture.IsUsingInProcTestServer)
+            {
+                // This test only works with the in-proc server with a customized metric handler.
+                return;
+            }
+
+            // Clean notification before tests
+            _fixture.MetricHandler.ResetCount();
+
+            // Add data for test
+            var (_, groupId) = await CreateGroupWithPatient(true);
+
+            // Trigger export request and check for export status
+            Uri contentLocation = await _testFhirClient.ExportAsync($"Group/{groupId}/");
+            await CheckExportStatus(contentLocation);
+
+            // Assert at least one notification handled.
+            Assert.Single(_fixture.MetricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
         }
 
         private bool ValidateDataFromBothSources(Dictionary<(string resourceType, string resourceId), Resource> dataFromServer, Dictionary<(string resourceType, string resourceId), Resource> dataFromStorageAccount)

@@ -17,7 +17,9 @@ using Microsoft.Azure.Storage.Blob;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
+using Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Metric;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -31,11 +33,12 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 {
     [Trait(Traits.Category, Categories.Export)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
-    public class AnonymizedExportTests : IClassFixture<HttpIntegrationTestFixture<StartupForAnonymizedExportTestProvider>>
+    public class AnonymizedExportTests : IClassFixture<ExportTestFixture>
     {
         private bool _isUsingInProcTestServer = false;
         private readonly TestFhirClient _testFhirClient;
         private readonly ExportJobConfiguration _exportConfiguration;
+        private readonly MetricHandler _metricHandler;
         private const string RedactResourceIdAnonymizationConfiguration = @"
 {
     ""fhirPathRules"": [
@@ -44,10 +47,11 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
     ]
 }";
 
-        public AnonymizedExportTests(HttpIntegrationTestFixture<StartupForAnonymizedExportTestProvider> fixture)
+        public AnonymizedExportTests(ExportTestFixture fixture)
         {
             _isUsingInProcTestServer = fixture.IsUsingInProcTestServer;
             _testFhirClient = fixture.TestFhirClient;
+            _metricHandler = fixture.MetricHandler;
             _exportConfiguration = ((IOptions<ExportJobConfiguration>)(fixture.TestFhirServer as InProcTestFhirServer)?.Server?.Services?.GetService(typeof(IOptions<ExportJobConfiguration>)))?.Value;
         }
 
@@ -58,6 +62,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             {
                 return;
             }
+
+            _metricHandler.ResetCount();
 
             (string fileName, string etag) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
 
@@ -75,6 +81,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
                 Assert.Contains(result.Meta.Security, c => "REDACTED".Equals(c.Code));
             }
+
+            Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
         }
 
         [Fact]
@@ -84,6 +92,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             {
                 return;
             }
+
+            _metricHandler.ResetCount();
 
             (string fileName, string etag) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
             etag = etag.Substring(1, 17);
@@ -101,6 +111,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
                 Assert.Contains(result.Meta.Security, c => "REDACTED".Equals(c.Code));
             }
+
+            Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
         }
 
         [Fact]
@@ -110,6 +122,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             {
                 return;
             }
+
+            _metricHandler.ResetCount();
 
             (string fileName, string _) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
 
@@ -127,6 +141,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
                 Assert.Contains(result.Meta.Security, c => "REDACTED".Equals(c.Code));
             }
+
+            Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
         }
 
         [Fact]
@@ -137,6 +153,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
                 return;
             }
 
+            _metricHandler.ResetCount();
+
             (string fileName, string etag) = await UploadConfigurationAsync("Invalid Json.");
 
             string containerName = Guid.NewGuid().ToString("N");
@@ -146,6 +164,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
             Assert.Contains("Failed to parse configuration file", responseContent);
+
+            Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
         }
 
         [Fact]
@@ -156,6 +176,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
                 return;
             }
 
+            _metricHandler.ResetCount();
+
             (string fileName, string _) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
 
             string containerName = Guid.NewGuid().ToString("N");
@@ -165,6 +187,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
             Assert.Contains("The condition specified using HTTP conditional header(s) is not met.", responseContent);
+
+            Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
         }
 
         [Fact]
@@ -175,6 +199,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
                 return;
             }
 
+            _metricHandler.ResetCount();
+
             (string fileName, string _) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
 
             string containerName = Guid.NewGuid().ToString("N");
@@ -184,6 +210,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
             Assert.Contains("invalid-etag' is invalid.", responseContent);
+
+            Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
         }
 
         [Fact]
@@ -194,6 +222,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
                 return;
             }
 
+            _metricHandler.ResetCount();
+
             string containerName = Guid.NewGuid().ToString("N");
             Uri contentLocation = await _testFhirClient.AnonymizedExportAsync("not-exist.json", containerName);
             HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
@@ -201,6 +231,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
             Assert.Contains("Configuration not found on the destination storage.", responseContent);
+
+            Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
         }
 
         [Fact]
@@ -210,6 +242,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             {
                 return;
             }
+
+            _metricHandler.ResetCount();
 
             string largeConfig = new string('*', (1024 * 1024) + 1); // Large config > 1MB
             (string fileName, string etag) = await UploadConfigurationAsync(largeConfig);
@@ -221,6 +255,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
             Assert.Contains("Anonymization configuration is too large", responseContent);
+
+            Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
         }
 
         [Fact]
