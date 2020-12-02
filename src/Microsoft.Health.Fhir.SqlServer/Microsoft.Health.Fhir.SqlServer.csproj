@@ -3,14 +3,6 @@
     <TargetFramework>netcoreapp3.1</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <None Remove="Features\Schema\Migrations\2.diff.sql" />
-    <None Remove="Features\Schema\Migrations\3.diff.sql" />
-    <None Remove="Features\Schema\Migrations\4.diff.sql" />
-    <None Remove="Features\Schema\Migrations\4.sql" />
-    <None Remove="Features\Schema\Migrations\5.diff.sql" />
-    <None Remove="Features\Schema\Migrations\5.sql" />
-    <None Remove="Features\Schema\Migrations\6.diff.sql" />
-    <None Remove="Features\Schema\Migrations\6.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\2.diff.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\3.diff.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\4.diff.sql" />
@@ -18,18 +10,11 @@
     <EmbeddedResource Include="Features\Schema\Migrations\5.diff.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\5.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\6.diff.sql" />
-    <EmbeddedResource Include="Features\Schema\Migrations\6.sql" />
-    <GenerateFilesInputs Include="Features\Schema\Migrations\6.sql" />
-    <Generated Include="Features\Schema\Model\ImmutableTypes.Generated.cs">
-      <Generator>ImmutableSqlModelGenerator</Generator>
-      <Namespace>Microsoft.Health.Fhir.SqlServer.Features.Schema.Model</Namespace>
-      <Args>"$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)\Features\Schema\Migrations\6.sql'))"</Args>
-    </Generated>
-    <Generated Include="Features\Schema\Model\VLatest.Generated.cs">
-      <Generator>MutableSqlModelGenerator</Generator>
-      <Namespace>Microsoft.Health.Fhir.SqlServer.Features.Schema.Model</Namespace>
-      <Args>"$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)\Features\Schema\Migrations\6.sql'))"</Args>
-    </Generated>
+    <EmbeddedResource Include="Features\Schema\Migrations\6.sql">
+      <InputToMutableSqlGenerator>true</InputToMutableSqlGenerator>
+      <InputToImmutableSqlGenerator>true</InputToImmutableSqlGenerator>
+    </EmbeddedResource>
+
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Ensure.That" Version="9.2.0" />
@@ -58,4 +43,26 @@
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
   </ItemGroup>
+
+  <Target Name="ComputeGeneratorInputs" BeforeTargets="GenerateFiles">
+    <ItemGroup>
+      <MutableSqlGeneratorInputs Include="@(EmbeddedResource)" Condition="'%(EmbeddedResource.InputToMutableSqlGenerator)' == 'true'" />
+      <ImmutableSqlGeneratorInputs Include="@(EmbeddedResource)" Condition="'%(EmbeddedResource.InputToImmutableSqlGenerator)' == 'true'" />
+
+      <!--We create this item group to that MSBuild can know when the GenerateFiles can be skipped.-->
+      <GenerateFilesInputs Include="@(MutableSqlGeneratorInputs);@(ImmutableSqlGeneratorInputs)" />
+
+      <Generated Include="Features\Schema\Model\ImmutableTypes.Generated.cs">
+        <Generator>ImmutableSqlModelGenerator</Generator>
+        <Namespace>Microsoft.Health.Fhir.SqlServer.Features.Schema.Model</Namespace>
+        <Args>@(ImmutableSqlGeneratorInputs->'&quot;%(FullPath)&quot;', ' ')</Args>
+      </Generated>
+      <Generated Include="Features\Schema\Model\VLatest.Generated.cs">
+        <Generator>MutableSqlModelGenerator</Generator>
+        <Namespace>Microsoft.Health.Fhir.SqlServer.Features.Schema.Model</Namespace>
+        <Args>@(MutableSqlGeneratorInputs->'&quot;%(FullPath)&quot;', ' ')</Args>
+      </Generated>
+    </ItemGroup>
+  </Target>
+
 </Project>
