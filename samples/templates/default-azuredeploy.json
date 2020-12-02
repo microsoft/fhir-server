@@ -1,5 +1,5 @@
 {
-    "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
         "serviceName": {
@@ -146,6 +146,7 @@
         },
         "sqlSchemaAutomaticUpdatesEnabled": {
             "type": "bool",
+            "defaultValue": "[if(equals(parameters('solutionType'),'FhirServerCosmosDB'), bool('false'), '')]",
             "metadata": {
                 "description": "Determine whether the sql schema should be automatically upgraded on server startup. If false, sql schema will not be initialized or upgraded on the server startup. The schema migration tool will be required to perform initialize or upgrade. If true, sql schema will be upgraded to the maximum supported version."
             }
@@ -225,7 +226,7 @@
             }
         },
         {
-            "apiVersion": "2015-08-01",
+            "apiVersion": "2018-11-01",
             "type": "Microsoft.Web/sites",
             "name": "[variables('serviceName')]",
             "tags": {
@@ -244,7 +245,7 @@
             ],
             "resources": [
                 {
-                    "apiVersion": "2015-08-01",
+                    "apiVersion": "2018-11-01",
                     "name": "appsettings",
                     "type": "config",
                     "dependsOn": [
@@ -255,7 +256,7 @@
                     "properties": "[if(variables('deployAppInsights'), union(variables('combinedFhirServerConfigProperties'), json(concat('{\"ApplicationInsights:InstrumentationKey\": \"', reference(concat('Microsoft.Insights/components/', variables('appInsightsName'))).InstrumentationKey, '\"}'))), variables('combinedFhirServerConfigProperties'))]"
                 },
                 {
-                    "apiVersion": "2015-08-01",
+                    "apiVersion": "2018-11-01",
                     "type": "extensions",
                     "name": "MSDeploy",
                     "dependsOn": [
@@ -270,7 +271,7 @@
                 {
                     "type": "siteextensions",
                     "name": "AspNetCoreRuntime.3.1.x86",
-                    "apiVersion": "2015-04-01",
+                    "apiVersion": "2018-11-01",
                     "location": "[resourceGroup().location]",
                     "properties": {
                         "version": "3.1.9"
@@ -454,7 +455,7 @@
             "apiVersion": "2019-06-01",
             "location": "[resourceGroup().location]",
             "properties": {
-                "supportsHttpsTrafficOnly": "true"
+                "supportsHttpsTrafficOnly": true
             },
             "condition": "[parameters('enableExport')]",
             "dependsOn": [],

@@ -1,5 +1,5 @@
 {
-    "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
         "serviceName": {
@@ -61,13 +61,6 @@
             "defaultValue": false,
             "metadata": {
                 "description": "Enable Azure AAD SMART on FHIR Proxy"
-            }
-        },
-        "msdeployPackageUrl": {
-            "type": "string",
-            "defaultValue": "",
-            "metadata": {
-                "description": "Webdeploy package to use as depoyment code. If blank, the latest code package will be deployed."
             }
         },
         "deployApplicationInsights": {
@@ -146,7 +139,7 @@
         },
         "sqlSchemaAutomaticUpdatesEnabled": {
             "type": "bool",
-            "defaultValue": "[if(equals(parameters('solutionType'),'FhirServerCosmosDB'), 'false', '')]",
+            "defaultValue": "[if(equals(parameters('solutionType'),'FhirServerCosmosDB'), bool('false'), '')]",
             "metadata": {
                 "description": "Determine whether the sql schema should be automatically upgraded on server startup. If false, sql schema will not be initialized or upgraded on the server startup. The schema migration tool will be required to perform initialize or upgrade. If true, sql schema will be upgraded to the maximum supported version."
             }
@@ -160,7 +153,7 @@
                 "R5"
             ],
             "metadata": {
-                "description": "Only applies when MsdeployPackageUrl is not specified."
+                "description": "Version of the FHIR specification to deploy."
             }
         },
         "imageTag": {
@@ -216,7 +209,7 @@
     "resources": [
         {
             "condition": "[empty(parameters('appServicePlanResourceGroup'))]",
-            "apiVersion": "2019-08-01",
+            "apiVersion": "2018-02-01",
             "name": "[variables('appServicePlanName')]",
             "type": "Microsoft.Web/serverfarms",
             "kind": "linux",
@@ -273,7 +266,7 @@
             ],
             "resources": [
                 {
-                    "apiVersion": "2019-08-01",
+                    "apiVersion": "2018-11-01",
                     "name": "appsettings",
                     "type": "config",
                     "dependsOn": [
@@ -284,7 +277,7 @@
                     "properties": "[if(variables('deployAppInsights'), union(variables('combinedFhirServerConfigProperties'), json(concat('{\"ApplicationInsights__InstrumentationKey\": \"', reference(concat('Microsoft.Insights/components/', variables('appInsightsName'))).InstrumentationKey, '\"}'))), variables('combinedFhirServerConfigProperties'))]"
                 },
                 {
-                    "apiVersion": "2019-08-01",
+                    "apiVersion": "2018-11-01",
                     "name": "web",
                     "type": "config",
                     "dependsOn": [
@@ -472,7 +465,7 @@
             "apiVersion": "2019-06-01",
             "location": "[resourceGroup().location]",
             "properties": {
-                "supportsHttpsTrafficOnly": "true"
+                "supportsHttpsTrafficOnly": true
             },
             "condition": "[parameters('enableExport')]",
             "dependsOn": [],
