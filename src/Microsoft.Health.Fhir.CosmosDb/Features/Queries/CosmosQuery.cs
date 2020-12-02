@@ -22,6 +22,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
     {
         private readonly ICosmosQueryContext _queryContext;
         private readonly FeedIterator<T> _feedIterator;
+        private readonly ICosmosResponseProcessor _processor;
         private readonly ICosmosQueryLogger _logger;
 
         private string _continuationToken;
@@ -32,10 +33,12 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
         /// </summary>
         /// <param name="queryContext">The query context.</param>
         /// <param name="feedIterator">The feed iterator to enumerate.</param>
+        /// <param name="processor">Response processor</param>
         /// <param name="logger">The logger.</param>
         public CosmosQuery(
             ICosmosQueryContext queryContext,
             FeedIterator<T> feedIterator,
+            ICosmosResponseProcessor processor,
             ICosmosQueryLogger logger)
         {
             EnsureArg.IsNotNull(queryContext, nameof(queryContext));
@@ -44,6 +47,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
 
             _queryContext = queryContext;
             _feedIterator = feedIterator;
+            _processor = processor;
             _logger = logger;
 
             _continuationToken = _queryContext.ContinuationToken;
@@ -90,6 +94,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
             {
                 // The SDK wraps exceptions we throw in handlers with a CosmosException.
                 Exception fhirException = ex.InnerException as FhirException ?? ex.InnerException as MicrosoftHealthException;
+
+                if (fhirException == null)
+                {
+                    _processor.ProcessErrorResponse(ex.StatusCode, ex.Headers, ex.Message);
+                }
 
                 _logger.LogQueryExecutionResult(
                     queryId,

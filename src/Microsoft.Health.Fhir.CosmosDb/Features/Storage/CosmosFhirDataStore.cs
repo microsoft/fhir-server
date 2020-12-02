@@ -285,81 +285,71 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(sqlQuerySpec, nameof(sqlQuerySpec));
 
             var context = new CosmosQueryContext(sqlQuerySpec, feedOptions, continuationToken);
-
             var cosmosQuery = _cosmosQueryFactory.Create<T>(_containerScope.Value, context);
-
             var startTime = Clock.UtcNow;
 
-            try
+            FeedResponse<T> page = await cosmosQuery.ExecuteNextAsync(cancellationToken);
+
+            if (!cosmosQuery.HasMoreResults || !feedOptions.MaxItemCount.HasValue || page.Count == feedOptions.MaxItemCount)
             {
-                FeedResponse<T> page = await cosmosQuery.ExecuteNextAsync(cancellationToken);
-
-                if (!cosmosQuery.HasMoreResults || !feedOptions.MaxItemCount.HasValue || page.Count == feedOptions.MaxItemCount)
+                if (page.Count == 0)
                 {
-                    if (page.Count == 0)
-                    {
-                        return (Array.Empty<T>(), page.ContinuationToken);
-                    }
-
-                    var singlePageResults = new List<T>(page.Count);
-                    singlePageResults.AddRange(page);
-                    return (singlePageResults, page.ContinuationToken);
+                    return (Array.Empty<T>(), page.ContinuationToken);
                 }
 
-                int totalDesiredCount = feedOptions.MaxItemCount.Value;
+                var singlePageResults = new List<T>(page.Count);
+                singlePageResults.AddRange(page);
+                return (singlePageResults, page.ContinuationToken);
+            }
 
-                // try to obtain at least half of the requested results
+            int totalDesiredCount = feedOptions.MaxItemCount.Value;
 
-                using var timeoutTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(_cosmosDataStoreConfiguration.SearchEnumerationTimeoutInSeconds) - (Clock.UtcNow - startTime));
-                using var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutTokenSource.Token);
+            // try to obtain at least half of the requested results
 
-                var results = new List<T>(totalDesiredCount);
-                results.AddRange(page);
+            using var timeoutTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(_cosmosDataStoreConfiguration.SearchEnumerationTimeoutInSeconds) - (Clock.UtcNow - startTime));
+            using var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutTokenSource.Token);
 
-                while (cosmosQuery.HasMoreResults && results.Count < totalDesiredCount / 2)
+            var results = new List<T>(totalDesiredCount);
+            results.AddRange(page);
+
+            while (cosmosQuery.HasMoreResults && results.Count < totalDesiredCount / 2)
+            {
+                // The FHIR spec says we cannot return more items in a bundle than the _count parameter, if specified.
+                // If not specified, mustNotExceedMaxItemCount will be false, and we can allow ourselves to go over the limit.
+                // The advantage is that we don't need to construct a new query with a new page size.
+
+                int currentDesiredCount = totalDesiredCount - results.Count;
+                if (mustNotExceedMaxItemCount && currentDesiredCount != feedOptions.MaxItemCount)
                 {
-                    // The FHIR spec says we cannot return more items in a bundle than the _count parameter, if specified.
-                    // If not specified, mustNotExceedMaxItemCount will be false, and we can allow ourselves to go over the limit.
-                    // The advantage is that we don't need to construct a new query with a new page size.
-
-                    int currentDesiredCount = totalDesiredCount - results.Count;
-                    if (mustNotExceedMaxItemCount && currentDesiredCount != feedOptions.MaxItemCount)
-                    {
-                        // Construct a new query with a smaller page size.
-                        // We do this to ensure that we will not exceed the original max page size and that
-                        // we never have to throw a page of data away because it won't fit in the response.
-                        feedOptions.MaxItemCount = currentDesiredCount;
-                        context = new CosmosQueryContext(sqlQuerySpec, feedOptions, page.ContinuationToken);
-                        cosmosQuery = _cosmosQueryFactory.Create<T>(_containerScope.Value, context);
-                    }
-
-                    try
-                    {
-                        page = await cosmosQuery.ExecuteNextAsync(linkedTokenSource.Token);
-                        if (page.Count > 0)
-                        {
-                            results.AddRange(page);
-                        }
-                    }
-                    catch (CosmosException e) when (e.IsRequestRateExceeded())
-                    {
-                        // return whatever we have when we get a 429
-                        break;
-                    }
-                    catch (OperationCanceledException) when (timeoutTokenSource.IsCancellationRequested)
-                    {
-                        // This took too long. Give up.
-                        break;
-                    }
+                    // Construct a new query with a smaller page size.
+                    // We do this to ensure that we will not exceed the original max page size and that
+                    // we never have to throw a page of data away because it won't fit in the response.
+                    feedOptions.MaxItemCount = currentDesiredCount;
+                    context = new CosmosQueryContext(sqlQuerySpec, feedOptions, page.ContinuationToken);
+                    cosmosQuery = _cosmosQueryFactory.Create<T>(_containerScope.Value, context);
                 }
 
-                return (results, page.ContinuationToken);
+                try
+                {
+                    page = await cosmosQuery.ExecuteNextAsync(linkedTokenSource.Token);
+                    if (page.Count > 0)
+                    {
+                        results.AddRange(page);
+                    }
+                }
+                catch (CosmosException e) when (e.IsRequestRateExceeded())
+                {
+                    // return whatever we have when we get a 429
+                    break;
+                }
+                catch (OperationCanceledException) when (timeoutTokenSource.IsCancellationRequested)
+                {
+                    // This took too long. Give up.
+                    break;
+                }
             }
-            catch (CosmosException e) when (e.StatusCode == HttpStatusCode.BadRequest && continuationToken != null && e.ResponseBody.StartsWith("Malformed continuation token", StringComparison.OrdinalIgnoreCase))
-            {
-                // there isn't a status code that indicates this condition, so we rely on the error message.
-                throw new BadRequestException(Core.Resources.InvalidContinuationToken);
-            }
+
+            return (results, page.ContinuationToken);
         }
 
         public void Build(ICapabilityStatementBuilder builder)

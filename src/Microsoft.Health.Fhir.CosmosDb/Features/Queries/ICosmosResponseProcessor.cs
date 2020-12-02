@@ -13,6 +13,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Queries
     {
         Task ProcessErrorResponse(ResponseMessage ex);
 
+        void ProcessErrorResponse(HttpStatusCode statusCode, Headers headers, string errorMessage);
+
         Task ProcessResponse(string sessionToken, double responseRequestCharge, HttpStatusCode? statusCode);
     }
 }
