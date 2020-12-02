@@ -73,6 +73,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 valueValidators);
         }
 
+        public static void ValidateNotExpression(
+            Expression expression,
+            Action<Expression> valueValidator)
+        {
+            NotExpression notExpression = Assert.IsType<NotExpression>(expression);
+            valueValidator(notExpression.NegatedExpression);
+        }
+
         public static void ValidateEqualsExpression(Expression expression, FieldName expectedFieldName, object expectedValue)
         {
             ValidateBinaryExpression(expression, expectedFieldName, BinaryOperator.Equal, expectedValue);

@@ -789,7 +789,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 CreateSearchParameter(SearchParamType.Token),
                 SearchModifierCode.Not,
                 code,
-                e => ValidateStringExpression(e, FieldName.TokenCode, StringOperator.NotContains, code, false));
+                e => ValidateNotExpression(
+                    e,
+                    childExpression => ValidateStringExpression(childExpression, FieldName.TokenCode, StringOperator.Equals, code, false)));
         }
 
         [Fact]
@@ -801,11 +803,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 CreateSearchParameter(SearchParamType.Token),
                 SearchModifierCode.Not,
                 $"|{code}",
-                e => ValidateMultiaryExpression(
+                e => ValidateNotExpression(
                     e,
-                    MultiaryOperator.And,
-                    childExpression => ValidateMissingFieldExpression(childExpression, FieldName.TokenSystem),
-                    childExpression => ValidateStringExpression(childExpression, FieldName.TokenCode, StringOperator.NotContains, code, false)));
+                    childExpression => ValidateMultiaryExpression(
+                        childExpression,
+                        MultiaryOperator.And,
+                        childExpression2 => ValidateMissingFieldExpression(childExpression2, FieldName.TokenSystem),
+                        childExpression2 => ValidateStringExpression(childExpression2, FieldName.TokenCode, StringOperator.Equals, code, false))));
         }
 
         [Theory]
@@ -819,7 +823,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 CreateSearchParameter(SearchParamType.Token),
                 SearchModifierCode.Not,
                 $"{system}|{code}",
-                e => ValidateStringExpression(e, FieldName.TokenSystem, StringOperator.NotContains, system, false));
+                e => ValidateNotExpression(
+                    e,
+                    childExpression => ValidateStringExpression(childExpression, FieldName.TokenSystem, StringOperator.Equals, system, false)));
         }
 
         [Fact]
@@ -832,14 +838,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 CreateSearchParameter(SearchParamType.Token),
                 SearchModifierCode.Not,
                 $"{system}|{code}",
-                e =>
-                {
-                    ValidateMultiaryExpression(
-                        e,
-                        MultiaryOperator.Or,
-                        childExpression => ValidateStringExpression(childExpression, FieldName.TokenSystem, StringOperator.NotContains, system, false),
-                        childExpression => ValidateStringExpression(childExpression, FieldName.TokenCode, StringOperator.NotContains, code, false));
-                });
+                e => ValidateNotExpression(
+                    e,
+                    childExpression => ValidateMultiaryExpression(
+                        childExpression,
+                        MultiaryOperator.And,
+                        childExpression2 => ValidateStringExpression(childExpression2, FieldName.TokenSystem, StringOperator.Equals, system, false),
+                        childExpression2 => ValidateStringExpression(childExpression2, FieldName.TokenCode, StringOperator.Equals, code, false))));
         }
 
         [Theory]
