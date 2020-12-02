@@ -8,22 +8,22 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
-    internal class TokenTokenCompositeSearchParameterRowGenerator : CompositeSearchParameterRowGenerator<(TokenSearchValue component1, TokenSearchValue component2), VLatest.TokenTokenCompositeSearchParamTableTypeRow>
+    internal class TokenTokenCompositeSearchParameterV1RowGenerator : CompositeSearchParameterRowGenerator<(TokenSearchValue component1, TokenSearchValue component2), TokenTokenCompositeSearchParamTableTypeV1Row>
     {
-        private readonly TokenSearchParameterRowGenerator _tokenRowGenerator;
+        private readonly TokenSearchParameterV1RowGenerator _tokenRowGenerator;
 
-        public TokenTokenCompositeSearchParameterRowGenerator(SqlServerFhirModel model, TokenSearchParameterRowGenerator tokenRowGenerator)
+        public TokenTokenCompositeSearchParameterV1RowGenerator(SqlServerFhirModel model, TokenSearchParameterV1RowGenerator tokenRowGenerator)
             : base(model)
         {
             _tokenRowGenerator = tokenRowGenerator;
         }
 
-        internal override bool TryGenerateRow(short searchParamId, (TokenSearchValue component1, TokenSearchValue component2) searchValue, out VLatest.TokenTokenCompositeSearchParamTableTypeRow row)
+        internal override bool TryGenerateRow(short searchParamId, (TokenSearchValue component1, TokenSearchValue component2) searchValue, out TokenTokenCompositeSearchParamTableTypeV1Row row)
         {
             if (_tokenRowGenerator.TryGenerateRow(default, searchValue.component1, out var token1Row) &&
                 _tokenRowGenerator.TryGenerateRow(default, searchValue.component2, out var token2Row))
             {
-                row = new VLatest.TokenTokenCompositeSearchParamTableTypeRow(
+                row = new TokenTokenCompositeSearchParamTableTypeV1Row(
                     searchParamId,
                     token1Row.SystemId,
                     token1Row.Code,

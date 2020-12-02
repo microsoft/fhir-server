@@ -8,24 +8,24 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
-    internal class TokenStringCompositeSearchParameterRowGenerator : CompositeSearchParameterRowGenerator<(TokenSearchValue component1, StringSearchValue component2), VLatest.TokenStringCompositeSearchParamTableTypeRow>
+    internal class TokenStringCompositeSearchParameterV1RowGenerator : CompositeSearchParameterRowGenerator<(TokenSearchValue component1, StringSearchValue component2), TokenStringCompositeSearchParamTableTypeV1Row>
     {
-        private readonly TokenSearchParameterRowGenerator _tokenRowGenerator;
-        private readonly StringSearchParameterRowGenerator _stringRowGenerator;
+        private readonly TokenSearchParameterV1RowGenerator _tokenRowGenerator;
+        private readonly StringSearchParameterV1RowGenerator _stringV1RowGenerator;
 
-        public TokenStringCompositeSearchParameterRowGenerator(SqlServerFhirModel model, TokenSearchParameterRowGenerator tokenRowGenerator, StringSearchParameterRowGenerator stringRowGenerator)
+        public TokenStringCompositeSearchParameterV1RowGenerator(SqlServerFhirModel model, TokenSearchParameterV1RowGenerator tokenRowGenerator, StringSearchParameterV1RowGenerator stringV1RowGenerator)
             : base(model)
         {
             _tokenRowGenerator = tokenRowGenerator;
-            _stringRowGenerator = stringRowGenerator;
+            _stringV1RowGenerator = stringV1RowGenerator;
         }
 
-        internal override bool TryGenerateRow(short searchParamId, (TokenSearchValue component1, StringSearchValue component2) searchValue, out VLatest.TokenStringCompositeSearchParamTableTypeRow row)
+        internal override bool TryGenerateRow(short searchParamId, (TokenSearchValue component1, StringSearchValue component2) searchValue, out TokenStringCompositeSearchParamTableTypeV1Row row)
         {
             if (_tokenRowGenerator.TryGenerateRow(default, searchValue.component1, out var token1Row) &&
-                _stringRowGenerator.TryGenerateRow(default, searchValue.component2, out var string2Row))
+                _stringV1RowGenerator.TryGenerateRow(default, searchValue.component2, out var string2Row))
             {
-                row = new VLatest.TokenStringCompositeSearchParamTableTypeRow(
+                row = new TokenStringCompositeSearchParamTableTypeV1Row(
                     searchParamId,
                     token1Row.SystemId,
                     token1Row.Code,

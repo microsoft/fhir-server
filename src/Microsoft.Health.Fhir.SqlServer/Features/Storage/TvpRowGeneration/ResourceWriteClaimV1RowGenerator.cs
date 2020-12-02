@@ -11,20 +11,20 @@ using Microsoft.Health.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
-    internal class ResourceWriteClaimRowGenerator : ITableValuedParameterRowGenerator<ResourceMetadata, VLatest.ResourceWriteClaimTableTypeRow>
+    internal class ResourceWriteClaimV1RowGenerator : ITableValuedParameterRowGenerator<ResourceMetadata, ResourceWriteClaimTableTypeV1Row>
     {
         private readonly SqlServerFhirModel _model;
 
-        public ResourceWriteClaimRowGenerator(SqlServerFhirModel model)
+        public ResourceWriteClaimV1RowGenerator(SqlServerFhirModel model)
         {
             EnsureArg.IsNotNull(model, nameof(model));
             _model = model;
         }
 
-        public IEnumerable<VLatest.ResourceWriteClaimTableTypeRow> GenerateRows(ResourceMetadata resourceMetadata)
+        public IEnumerable<ResourceWriteClaimTableTypeV1Row> GenerateRows(ResourceMetadata resourceMetadata)
         {
             return resourceMetadata.WriteClaims?.Select(c =>
-                new VLatest.ResourceWriteClaimTableTypeRow(_model.GetClaimTypeId(c.Key), c.Value));
+                new ResourceWriteClaimTableTypeV1Row(_model.GetClaimTypeId(c.Key), c.Value));
         }
     }
 }

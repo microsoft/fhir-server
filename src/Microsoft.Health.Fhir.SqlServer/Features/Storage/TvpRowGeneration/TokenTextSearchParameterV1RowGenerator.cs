@@ -8,16 +8,22 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
-    internal class UriSearchParameterRowGenerator : SearchParameterRowGenerator<UriSearchValue, VLatest.UriSearchParamTableTypeRow>
+    internal class TokenTextSearchParameterV1RowGenerator : SearchParameterRowGenerator<TokenSearchValue, TokenTextTableTypeV1Row>
     {
-        public UriSearchParameterRowGenerator(SqlServerFhirModel model)
+        public TokenTextSearchParameterV1RowGenerator(SqlServerFhirModel model)
             : base(model)
         {
         }
 
-        internal override bool TryGenerateRow(short searchParamId, UriSearchValue searchValue, out VLatest.UriSearchParamTableTypeRow row)
+        internal override bool TryGenerateRow(short searchParamId, TokenSearchValue searchValue, out TokenTextTableTypeV1Row row)
         {
-            row = new VLatest.UriSearchParamTableTypeRow(searchParamId, searchValue.Uri);
+            if (string.IsNullOrWhiteSpace(searchValue.Text))
+            {
+                row = default;
+                return false;
+            }
+
+            row = new TokenTextTableTypeV1Row(searchParamId, searchValue.Text);
             return true;
         }
     }

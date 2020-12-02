@@ -8,18 +8,18 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
-    internal class NumberSearchParameterRowGenerator : SearchParameterRowGenerator<NumberSearchValue, VLatest.NumberSearchParamTableTypeRow>
+    internal class NumberSearchParameterV1RowGenerator : SearchParameterRowGenerator<NumberSearchValue, NumberSearchParamTableTypeV1Row>
     {
-        public NumberSearchParameterRowGenerator(SqlServerFhirModel model)
+        public NumberSearchParameterV1RowGenerator(SqlServerFhirModel model)
             : base(model)
         {
         }
 
-        internal override bool TryGenerateRow(short searchParamId, NumberSearchValue searchValue, out VLatest.NumberSearchParamTableTypeRow row)
+        internal override bool TryGenerateRow(short searchParamId, NumberSearchValue searchValue, out NumberSearchParamTableTypeV1Row row)
         {
             bool isSingleValue = searchValue.Low == searchValue.High;
 
-            row = new VLatest.NumberSearchParamTableTypeRow(
+            row = new NumberSearchParamTableTypeV1Row(
                 searchParamId,
                 isSingleValue ? searchValue.Low : null,
                 isSingleValue ? null : searchValue.Low ?? (decimal?)VLatest.NumberSearchParam.LowValue.MinValue,

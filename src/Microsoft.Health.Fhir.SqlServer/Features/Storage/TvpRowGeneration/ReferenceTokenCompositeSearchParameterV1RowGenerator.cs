@@ -8,27 +8,27 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
-    internal class ReferenceTokenCompositeSearchParameterRowGenerator : CompositeSearchParameterRowGenerator<(ReferenceSearchValue component1, TokenSearchValue component2), VLatest.ReferenceTokenCompositeSearchParamTableTypeRow>
+    internal class ReferenceTokenCompositeSearchParameterV1RowGenerator : CompositeSearchParameterRowGenerator<(ReferenceSearchValue component1, TokenSearchValue component2), ReferenceTokenCompositeSearchParamTableTypeV1Row>
     {
-        private readonly ReferenceSearchParameterRowGenerator _referenceRowGenerator;
-        private readonly TokenSearchParameterRowGenerator _tokenRowGenerator;
+        private readonly ReferenceSearchParameterV1RowGenerator _referenceV1RowGenerator;
+        private readonly TokenSearchParameterV1RowGenerator _tokenRowGenerator;
 
-        public ReferenceTokenCompositeSearchParameterRowGenerator(
+        public ReferenceTokenCompositeSearchParameterV1RowGenerator(
             SqlServerFhirModel model,
-            ReferenceSearchParameterRowGenerator referenceRowGenerator,
-            TokenSearchParameterRowGenerator tokenRowGenerator)
+            ReferenceSearchParameterV1RowGenerator referenceV1RowGenerator,
+            TokenSearchParameterV1RowGenerator tokenRowGenerator)
             : base(model)
         {
-            _referenceRowGenerator = referenceRowGenerator;
+            _referenceV1RowGenerator = referenceV1RowGenerator;
             _tokenRowGenerator = tokenRowGenerator;
         }
 
-        internal override bool TryGenerateRow(short searchParamId, (ReferenceSearchValue component1, TokenSearchValue component2) searchValue, out VLatest.ReferenceTokenCompositeSearchParamTableTypeRow row)
+        internal override bool TryGenerateRow(short searchParamId, (ReferenceSearchValue component1, TokenSearchValue component2) searchValue, out ReferenceTokenCompositeSearchParamTableTypeV1Row row)
         {
-            if (_referenceRowGenerator.TryGenerateRow(default, searchValue.component1, out var reference1Row) &&
+            if (_referenceV1RowGenerator.TryGenerateRow(default, searchValue.component1, out var reference1Row) &&
                 _tokenRowGenerator.TryGenerateRow(default, searchValue.component2, out var token2Row))
             {
-                row = new VLatest.ReferenceTokenCompositeSearchParamTableTypeRow(
+                row = new ReferenceTokenCompositeSearchParamTableTypeV1Row(
                     searchParamId,
                     reference1Row.BaseUri,
                     reference1Row.ReferenceResourceTypeId,
