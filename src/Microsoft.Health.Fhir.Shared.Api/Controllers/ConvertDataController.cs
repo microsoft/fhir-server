@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
             string inputData = ReadStringParameter(inputParams, ConvertDataProperties.InputData);
             string templateCollectionReference = ReadStringParameter(inputParams, ConvertDataProperties.TemplateCollectionReference);
-            string entryPointTemplate = ReadStringParameter(inputParams, ConvertDataProperties.EntryPointTemplate);
+            string rootTemplate = ReadStringParameter(inputParams, ConvertDataProperties.RootTemplate);
             ConversionInputDataType inputDataType = ReadEnumParameter<ConversionInputDataType>(inputParams, ConvertDataProperties.InputDataType);
 
             // Validate template reference format.
@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 CheckIfRegistryIsConfigured(registryServer);
             }
 
-            var convertDataRequest = new ConvertDataRequest(inputData, inputDataType, registryServer, isDefaultTemplateReference, templateCollectionReference, entryPointTemplate);
+            var convertDataRequest = new ConvertDataRequest(inputData, inputDataType, registryServer, isDefaultTemplateReference, templateCollectionReference, rootTemplate);
             ConvertDataResponse response = await _mediator.Send(convertDataRequest, cancellationToken: default);
 
             return new ContentResult
@@ -164,7 +164,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 ConvertDataProperties.InputData,
                 ConvertDataProperties.InputDataType,
                 ConvertDataProperties.TemplateCollectionReference,
-                ConvertDataProperties.EntryPointTemplate,
+                ConvertDataProperties.RootTemplate,
             };
 
             return supportedParams;

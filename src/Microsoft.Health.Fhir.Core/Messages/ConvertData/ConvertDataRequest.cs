@@ -20,20 +20,20 @@ namespace Microsoft.Health.Fhir.Core.Messages.ConvertData
             string registryServer,
             bool isDefaultTemplateReference,
             string templateCollectionReference,
-            string entryPointTemplate)
+            string rootTemplate)
         {
             EnsureArg.IsNotNullOrEmpty(inputData, nameof(inputData));
             EnsureArg.IsNotNull<ConversionInputDataType>(inputDataType, nameof(inputDataType));
             EnsureArg.IsNotNull(registryServer, nameof(registryServer));
             EnsureArg.IsNotNull(templateCollectionReference, nameof(templateCollectionReference));
-            EnsureArg.IsNotNullOrEmpty(entryPointTemplate, nameof(entryPointTemplate));
+            EnsureArg.IsNotNullOrEmpty(rootTemplate, nameof(rootTemplate));
 
             InputData = inputData;
             InputDataType = inputDataType;
             RegistryServer = registryServer;
             IsDefaultTemplateReference = isDefaultTemplateReference;
             TemplateCollectionReference = templateCollectionReference;
-            EntryPointTemplate = entryPointTemplate;
+            RootTemplate = rootTemplate;
         }
 
         /// <summary>
@@ -64,8 +64,8 @@ namespace Microsoft.Health.Fhir.Core.Messages.ConvertData
         public string TemplateCollectionReference { get; }
 
         /// <summary>
-        /// Tells the convert engine which entry point template is used for this conversion call since we have a bunch of templates for different data types.
+        /// Tells the convert engine which root template is used for this conversion call since we have a bunch of templates for different data types.
         /// </summary>
-        public string EntryPointTemplate { get; }
+        public string RootTemplate { get; }
     }
 }

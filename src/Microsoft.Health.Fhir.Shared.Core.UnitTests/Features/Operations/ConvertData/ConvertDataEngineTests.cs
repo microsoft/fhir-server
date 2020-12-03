@@ -90,12 +90,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
         [InlineData("       ")]
         [InlineData("ADT_A02")]
         [InlineData("¶Š™œãý£¾")]
-        public async Task GivenConvertDataRequest_WithWrongEntryPointTemplate_ConvertDataFailedExceptionShouldBeThrown(string entryPointTemplateName)
+        public async Task GivenConvertDataRequest_WithWrongRootTemplate_ConvertDataFailedExceptionShouldBeThrown(string rootTemplateName)
         {
             var convertDataEngine = GetDefaultEngine();
-            var request = GetHl7V2RequestWithEntryPointTemplate(entryPointTemplateName);
+            var request = GetHl7V2RequestWithRootTemplate(rootTemplateName);
             var exception = await Assert.ThrowsAsync<ConvertDataFailedException>(() => convertDataEngine.Process(request, CancellationToken.None));
-            Assert.Equal($"Template '{entryPointTemplateName}' not found", exception.InnerException.Message);
+            Assert.Equal($"Template '{rootTemplateName}' not found", exception.InnerException.Message);
         }
 
         [Fact]
@@ -129,9 +129,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             return new ConvertDataRequest(inputData, ConversionInputDataType.Hl7v2, "microsofthealth", true, ImageInfo.DefaultTemplateImageReference, "ADT_A01");
         }
 
-        private static ConvertDataRequest GetHl7V2RequestWithEntryPointTemplate(string entryPointTemplate)
+        private static ConvertDataRequest GetHl7V2RequestWithRootTemplate(string rootTemplate)
         {
-            return new ConvertDataRequest(GetSampleHl7v2Message(), ConversionInputDataType.Hl7v2, "microsofthealth", true, ImageInfo.DefaultTemplateImageReference, entryPointTemplate);
+            return new ConvertDataRequest(GetSampleHl7v2Message(), ConversionInputDataType.Hl7v2, "microsofthealth", true, ImageInfo.DefaultTemplateImageReference, rootTemplate);
         }
 
         private static string GetSampleHl7v2Message()

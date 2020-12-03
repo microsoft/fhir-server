@@ -10,7 +10,7 @@
             "valueString": "microsofthealth/fhirconverter:default"
         },
         {
-            "name": "entryPointTemplate",
+            "name": "rootTemplate",
             "valueString": "ADT_A01"
         },
         {

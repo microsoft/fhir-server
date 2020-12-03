@@ -196,7 +196,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             return request;
         }
 
-        private static Parameters GetConvertDataParams(string inputData, string inputDataType, string templateSetReference, string entryPointTemplate)
+        private static Parameters GetConvertDataParams(string inputData, string inputDataType, string templateSetReference, string rootTemplate)
         {
             var parametersResource = new Parameters();
             parametersResource.Parameter = new List<Parameters.ParameterComponent>();
@@ -204,7 +204,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = ConvertDataProperties.InputData, Value = new FhirString(inputData) });
             parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = ConvertDataProperties.InputDataType, Value = new FhirString(inputDataType) });
             parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = ConvertDataProperties.TemplateCollectionReference, Value = new FhirString(templateSetReference) });
-            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = ConvertDataProperties.EntryPointTemplate, Value = new FhirString(entryPointTemplate) });
+            parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = ConvertDataProperties.RootTemplate, Value = new FhirString(rootTemplate) });
 
             return parametersResource;
         }

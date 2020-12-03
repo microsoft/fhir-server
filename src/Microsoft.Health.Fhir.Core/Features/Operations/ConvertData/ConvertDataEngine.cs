@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
 
             try
             {
-                return converter.Convert(convertRequest.InputData, convertRequest.EntryPointTemplate, templateProvider, cancellationToken);
+                return converter.Convert(convertRequest.InputData, convertRequest.RootTemplate, templateProvider, cancellationToken);
             }
             catch (FhirConverterException convertException)
             {

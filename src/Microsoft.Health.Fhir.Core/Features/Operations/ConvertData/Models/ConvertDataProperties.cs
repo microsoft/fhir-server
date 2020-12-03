@@ -17,6 +17,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string TemplateCollectionReference = "templateCollectionReference";
 
-        public const string EntryPointTemplate = "entryPointTemplate";
+        public const string RootTemplate = "rootTemplate";
     }
 }
