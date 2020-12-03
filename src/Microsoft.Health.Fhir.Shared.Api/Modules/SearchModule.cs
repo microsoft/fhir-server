@@ -133,8 +133,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
                 .AsService<ICompartmentIndexer>();
 
             services.AddSingleton<ISearchParameterValidator, SearchParameterValidator>();
-            services.AddSingleton<ISearchParameterEditor, SearchParameterEditor>();
             services.AddSingleton<SearchParameterFilterAttribute>();
+            services.AddSingleton<ISearchParameterUtilities, SearchParameterUtilities>();
         }
     }
 }

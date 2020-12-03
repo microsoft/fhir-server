@@ -361,10 +361,12 @@
     <value>The search parameter with definition URL '{0}' is not supported.</value>
   </data>
   <data name="SearchParameterDefinitionBaseNotDefined" xml:space="preserve">
-    <value>bundle.entry[{0}].resource.base is not defined.</value>
+    <value>SearchParameter[{0}].resource.base is not defined.</value>
+    <comment>{0} Is the Uri Identifying the SearchParameter</comment>
   </data>
   <data name="SearchParameterDefinitionComponentReferenceCannotBeComposite" xml:space="preserve">
-    <value>bundle.entry[{0}].component[{1}] cannot refer to a composite SearchParameter.</value>
+    <value>SearchParameter[{0}].component[{1}] cannot refer to a composite SearchParameter.</value>
+    <comment>{0} Is the Uri Identifying the SearchParameter, {1} is the index of the component</comment>
   </data>
   <data name="SearchParameterDefinitionContainsInvalidEntry" xml:space="preserve">
     <value>The search parameter definition contains one or more invalid entries.</value>
@@ -373,22 +375,28 @@
     <value>A search parameter with the same definition URL '{0}' already exists.</value>
   </data>
   <data name="SearchParameterDefinitionInvalidComponent" xml:space="preserve">
-    <value>bundle.entry[{0}].component is null or empty.</value>
+    <value>SearchParameter[{0}].component is null or empty.</value>
+    <comment>{0} Is the Uri Identifying the SearchParameter</comment>
   </data>
   <data name="SearchParameterDefinitionInvalidComponentExpression" xml:space="preserve">
-    <value>bundle.entry[{0}].component[{1}].expression is null or empty.</value>
+    <value>SearchParameter[{0}].component[{1}].expression is null or empty.</value>
+    <comment>{0} Is the Uri Identifying the SearchParameter, {1} is the index of the component</comment>
   </data>
   <data name="SearchParameterDefinitionInvalidComponentReference" xml:space="preserve">
-    <value>bundle.entry[{0}].component[{1}].definition.reference is null or empty or does not refer to a valid SearchParameter resource.</value>
+    <value>SearchParameter[{0}].component[{1}].definition.reference is null or empty or does not refer to a valid SearchParameter resource.</value>
+    <comment>{0} Is the Uri Identifying the SearchParameter, {1} is the index of the component</comment>
   </data>
   <data name="SearchParameterDefinitionInvalidDefinitionUri" xml:space="preserve">
-    <value>bundle.entry[{0}].url is invalid.</value>
+    <value>Entry {0} url is invalid.</value>
+    <comment>{0} Index of the processed element in the ennumeration</comment>
   </data>
   <data name="SearchParameterDefinitionInvalidExpression" xml:space="preserve">
-    <value>bundle.entry[{0}].resource.expression is null or empty.</value>
+    <value>SearchParameter[{0}].resource.expression is null or empty.</value>
+    <comment>{0} Is the Uri Identifying the SearchParameter</comment>
   </data>
   <data name="SearchParameterDefinitionInvalidResource" xml:space="preserve">
-    <value>bundle.entry[{0}].resource is not a SearchParameter resource.</value>
+    <value>Entry {0} is not a SearchParameter resource.</value>
+    <comment>{0} Index of the processed element in the ennumeration</comment>
   </data>
   <data name="SearchParameterNotSupported" xml:space="preserve">
     <value>The search parameter '{0}' is not supported for resource type '{1}'.</value>
@@ -492,13 +500,5 @@
   </data>
   <data name="SearchParameterUnknownNotSupported" xml:space="preserve">
     <value>A search parameter is no longer supported.</value>
-  </data>
-  <data name="TypeFilterWithoutTypeIsUnsupported" xml:space="preserve">
-    <value>The _type parameter must be included when using the _typeFilter parameter. </value>
-    <comment>Export job parameter exception messsage</comment>
-  </data>
-  <data name="TypeFilterUnparseable" xml:space="preserve">
-    <value>The _typeFilter segment '{0}' could not be parsed.</value>
-    <comment>Error message for a bad _typeFilter parameter on an export job. {0} is the segment that couldn't be parsed.</comment>
   </data>
 </root>

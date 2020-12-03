@@ -23,12 +23,11 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
     public class SearchParameterFilterAttributeTests
     {
         private readonly ISearchParameterValidator _searchParameterValidator = Substitute.For<ISearchParameterValidator>();
-        private readonly ISearchParameterEditor _searchParameterEditor = Substitute.For<ISearchParameterEditor>();
 
         [Fact]
         public async Task GivenAnAction_WhenPostingAnObservationObject_ThenNoSearchParameterActionTaken()
         {
-            var filter = new SearchParameterFilterAttribute(_searchParameterValidator, _searchParameterEditor);
+            var filter = new SearchParameterFilterAttribute(_searchParameterValidator);
 
             var context = CreateContext(new Observation());
             var actionExecutedContext = new ActionExecutedContext(context, new List<IFilterMetadata>(), null);
@@ -37,13 +36,12 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             await filter.OnActionExecutionAsync(context, actionExecutionDelegate);
 
             await _searchParameterValidator.DidNotReceive().ValidateSearchParamterInput(Arg.Any<SearchParameter>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
-            await _searchParameterEditor.DidNotReceive().AddSearchParameterAsync(Arg.Any<SearchParameter>(), Arg.Any<CancellationToken>());
         }
 
         [Fact]
         public async Task GivenAnAction_WhenPostingASearchParameterObject_ThenSearchParameterActionsTaken()
         {
-            var filter = new SearchParameterFilterAttribute(_searchParameterValidator, _searchParameterEditor);
+            var filter = new SearchParameterFilterAttribute(_searchParameterValidator);
 
             var context = CreateContext(new SearchParameter());
             var actionExecutedContext = new ActionExecutedContext(context, new List<IFilterMetadata>(), null);
@@ -52,7 +50,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             await filter.OnActionExecutionAsync(context, actionExecutionDelegate);
 
             await _searchParameterValidator.Received().ValidateSearchParamterInput(Arg.Any<SearchParameter>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
-            await _searchParameterEditor.Received().AddSearchParameterAsync(Arg.Any<SearchParameter>(), Arg.Any<CancellationToken>());
         }
 
         private static ActionExecutingContext CreateContext(Base type)

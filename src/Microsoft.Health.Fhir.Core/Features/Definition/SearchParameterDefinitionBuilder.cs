@@ -39,18 +39,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         };
 
         internal static void Build(
-            BundleWrapper bundle,
+            IList<ITypedElement> searchParameters,
             IDictionary<Uri, SearchParameterInfo> uriDictionary,
             IDictionary<string, IDictionary<string, SearchParameterInfo>> resourceTypeDictionary,
             IModelInfoProvider modelInfoProvider)
         {
-            EnsureArg.IsNotNull(bundle, nameof(bundle));
+            EnsureArg.IsNotNull(searchParameters, nameof(searchParameters));
             EnsureArg.IsNotNull(uriDictionary, nameof(uriDictionary));
             EnsureArg.IsNotNull(resourceTypeDictionary, nameof(resourceTypeDictionary));
             EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
 
             ILookup<string, SearchParameterInfo> searchParametersLookup = ValidateAndGetFlattenedList(
-                bundle,
+                searchParameters,
                 uriDictionary,
                 modelInfoProvider).ToLookup(
                     entry => entry.ResourceType,
@@ -110,22 +110,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         }
 
         private static List<(string ResourceType, SearchParameterInfo SearchParameter)> ValidateAndGetFlattenedList(
-            BundleWrapper bundle,
+            IList<ITypedElement> searchParameters,
             IDictionary<Uri, SearchParameterInfo> uriDictionary,
             IModelInfoProvider modelInfoProvider)
         {
             var issues = new List<OperationOutcomeIssue>();
 
-            IReadOnlyList<BundleEntryWrapper> entries = bundle.Entries;
-
             // Do the first pass to make sure all resources are SearchParameter.
-            for (int entryIndex = 0; entryIndex < entries.Count; entryIndex++)
+            for (int entryIndex = 0; entryIndex < searchParameters.Count; entryIndex++)
             {
+                var searchParameterElement = searchParameters[entryIndex];
+
                 // Make sure resources are not null and they are SearchParameter.
-                BundleEntryWrapper entry = entries[entryIndex];
-
-                ITypedElement searchParameterElement = entry.Resource;
-
                 if (searchParameterElement == null || !string.Equals(searchParameterElement.InstanceType, KnownResourceTypes.SearchParameter, StringComparison.OrdinalIgnoreCase))
                 {
                     AddIssue(Core.Resources.SearchParameterDefinitionInvalidResource, entryIndex);
@@ -160,11 +156,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             };
 
             // Do the second pass to make sure the definition is valid.
-            for (int entryIndex = 0; entryIndex < entries.Count; entryIndex++)
+            foreach (var searchParameterElement in searchParameters)
             {
-                BundleEntryWrapper entry = entries[entryIndex];
-
-                ITypedElement searchParameterElement = entry.Resource;
                 var searchParameter = new SearchParameterWrapper(searchParameterElement);
 
                 // If this is a composite search parameter, then make sure components are defined.

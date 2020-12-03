@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using MediatR;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -16,7 +17,6 @@ using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Features.Context;
-using Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters;
 using NSubstitute;
 using Xunit;
 using SearchParamType = Microsoft.Health.Fhir.ValueSets.SearchParamType;
@@ -43,8 +43,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver;
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly IFhirRequestContext _fhirRequestContext = new DefaultFhirRequestContext();
-        private readonly ISearchParameterEditor _searchParameterEditor;
         private readonly SearchParameterStatusManager _searchParameterStatusManager;
+        private readonly ISearchParameterUtilities _searchParameterUtilties;
 
         public SearchParameterDefinitionManagerTests()
         {
@@ -55,7 +55,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
             _fhirRequestContextAccessor.FhirRequestContext.Returns(_fhirRequestContext);
             _searchParameterStatusManager = new SearchParameterStatusManager(_searchParameterStatusDataStore, _searchParameterDefinitionManager, _searchParameterSupportResolver, _mediator);
-            _searchParameterEditor = new SearchParameterEditor(_searchParameterStatusManager, _searchParameterDefinitionManager);
 
             _manager = new SearchParameterStatusManager(
                 _searchParameterStatusDataStore,
@@ -108,6 +107,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _searchParameterSupportResolver
                 .IsSearchParameterSupported(Arg.Is(_searchParameterInfos[4]))
                 .Returns((true, false));
+
+            _searchParameterUtilties = new SearchParameterUtilities(_searchParameterStatusManager, _searchParameterDefinitionManager);
         }
 
         public async Task InitializeAsync()
@@ -287,7 +288,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 Name = "test",
             };
 
-            await _searchParameterEditor.AddSearchParameterAsync(searchParam, CancellationToken.None);
+            await _searchParameterUtilties.AddSearchParameterAsync(searchParam.ToTypedElement(), CancellationToken.None);
 
             var searchParamHash = _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient");
             Assert.NotNull(searchParamHash);
@@ -334,7 +335,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 Name = "test",
             };
 
-            await _searchParameterEditor.AddSearchParameterAsync(searchParam, CancellationToken.None);
+            await _searchParameterUtilties.AddSearchParameterAsync(searchParam.ToTypedElement(), CancellationToken.None);
 
             var patientParamsWithNew = _searchParameterDefinitionManager.GetSearchParameters("Patient");
             Assert.Equal(patientParamCount + 1, patientParamsWithNew.Count());

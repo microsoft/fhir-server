@@ -35,15 +35,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         }
 
         [Theory]
-        [InlineData("SearchParametersWithInvalidBase.json", "bundle.entry[http://hl7.org/fhir/SearchParameter/DomainResource-text].resource.base is not defined.")]
+        [InlineData("SearchParametersWithInvalidBase.json", "SearchParameter[http://hl7.org/fhir/SearchParameter/DomainResource-text].resource.base is not defined.")]
         public void GivenAnInvalidSearchParameterDefinitionFile_WhenBuilt_ThenInvalidDefinitionExceptionShouldBeThrown(string fileName, string expectedIssue)
         {
             BuildAndVerify(fileName, expectedIssue);
         }
 
         [Theory]
-        [InlineData("bundle.entry[1].resource is not a SearchParameter resource.")]
-        [InlineData("bundle.entry[3].url is invalid.")]
+        [InlineData("SearchParameter[1].resource is not a SearchParameter resource.")]
+        [InlineData("SearchParameter[3].url is invalid.")]
         [InlineData("A search parameter with the same definition URL 'http://hl7.org/fhir/SearchParameter/Resource-content' already exists.")]
         public void GivenASearchParameterDefinitionFileWithInvalidEntries_WhenBuilt_ThenInvalidDefinitionExceptionShouldBeThrown(string expectedIssue)
         {
@@ -51,12 +51,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         }
 
         [Theory]
-        [InlineData("bundle.entry[http://hl7.org/fhir/SearchParameter/DocumentReference-relationship].component is null or empty.")]
-        [InlineData("bundle.entry[http://hl7.org/fhir/SearchParameter/Group-characteristic-value].component[1].definition.reference is null or empty or does not refer to a valid SearchParameter resource.")]
-        [InlineData("bundle.entry[http://hl7.org/fhir/SearchParameter/Observation-code-value-quantity].component[0] cannot refer to a composite SearchParameter.")]
-        [InlineData("bundle.entry[http://hl7.org/fhir/SearchParameter/Observation-code-value-string].component[1].expression is null or empty.")]
-        [InlineData("bundle.entry[http://hl7.org/fhir/SearchParameter/Observation-device].resource.base is not defined.")]
-        [InlineData("bundle.entry[http://hl7.org/fhir/SearchParameter/Observation-related].resource.expression is null or empty.")]
+        [InlineData("SearchParameter[http://hl7.org/fhir/SearchParameter/DocumentReference-relationship].component is null or empty.")]
+        [InlineData("SearchParameter[http://hl7.org/fhir/SearchParameter/Group-characteristic-value].component[1].definition.reference is null or empty or does not refer to a valid SearchParameter resource.")]
+        [InlineData("SearchParameter[http://hl7.org/fhir/SearchParameter/Observation-code-value-quantity].component[0] cannot refer to a composite SearchParameter.")]
+        [InlineData("SearchParameter[http://hl7.org/fhir/SearchParameter/Observation-code-value-string].component[1].expression is null or empty.")]
+        [InlineData("SearchParameter[http://hl7.org/fhir/SearchParameter/Observation-device].resource.base is not defined.")]
+        [InlineData("SearchParameter[http://hl7.org/fhir/SearchParameter/Observation-related].resource.expression is null or empty.")]
         public void GivenASearchParameterDefinitionFileWithInvalidDefinitions_WhenBuilt_ThenInvalidDefinitionExceptionShouldBeThrown(string expectedIssue)
         {
             BuildAndVerify(_invalidDefinitionsFile, expectedIssue);
@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
                 $"{typeof(Definitions).Namespace}.DefinitionFiles",
                 typeof(EmbeddedResourceManager).Assembly);
 
-            SearchParameterDefinitionBuilder.Build(bundle, _uriDictionary, _resourceTypeDictionary, ModelInfoProvider.Instance);
+            SearchParameterDefinitionBuilder.Build(bundle.Entries.Select(e => e.Resource).ToList(), _uriDictionary, _resourceTypeDictionary, ModelInfoProvider.Instance);
 
             Assert.Equal(6, _uriDictionary.Count);
 
@@ -91,7 +91,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
                 $"{typeof(Definitions).Namespace}.DefinitionFiles",
                 typeof(EmbeddedResourceManager).Assembly);
 
-            SearchParameterDefinitionBuilder.Build(bundle, _uriDictionary, _resourceTypeDictionary, ModelInfoProvider.Instance);
+            SearchParameterDefinitionBuilder.Build(bundle.Entries.Select(e => e.Resource).ToList(), _uriDictionary, _resourceTypeDictionary, ModelInfoProvider.Instance);
 
             Assert.Equal(
                 ModelInfoProvider.GetResourceTypeNames().Concat(new[] { "Resource", "DomainResource" }).OrderBy(x => x).ToArray(),
@@ -107,7 +107,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
                 $"{typeof(Definitions).Namespace}.DefinitionFiles",
                 typeof(EmbeddedResourceManager).Assembly);
 
-            SearchParameterDefinitionBuilder.Build(bundle, _uriDictionary, _resourceTypeDictionary, ModelInfoProvider.Instance);
+            SearchParameterDefinitionBuilder.Build(bundle.Entries.Select(e => e.Resource).ToList(), _uriDictionary, _resourceTypeDictionary, ModelInfoProvider.Instance);
 
             IDictionary<string, SearchParameterInfo> searchParametersDictionary = _resourceTypeDictionary[ResourceType.Account.ToString()];
 
@@ -132,7 +132,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
                 $"{typeof(Definitions).Namespace}.DefinitionFiles",
                 typeof(EmbeddedResourceManager).Assembly);
 
-            SearchParameterDefinitionBuilder.Build(bundle, _uriDictionary, _resourceTypeDictionary, ModelInfoProvider.Instance);
+            SearchParameterDefinitionBuilder.Build(bundle.Entries.Select(e => e.Resource).ToList(), _uriDictionary, _resourceTypeDictionary, ModelInfoProvider.Instance);
 
             IDictionary<string, SearchParameterInfo> searchParametersDictionary = _resourceTypeDictionary[resourceType.ToString()];
 
@@ -152,7 +152,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
                 typeof(EmbeddedResourceManager).Assembly);
 
             InvalidDefinitionException ex = Assert.Throws<InvalidDefinitionException>(
-                () => SearchParameterDefinitionBuilder.Build(bundle, _uriDictionary, _resourceTypeDictionary, ModelInfoProvider.Instance));
+                () => SearchParameterDefinitionBuilder.Build(bundle.Entries.Select(e => e.Resource).ToList(), _uriDictionary, _resourceTypeDictionary, ModelInfoProvider.Instance));
 
             Assert.Contains(ex.Issues, issue =>
                 issue.Severity == IssueSeverity.Fatal.ToString() &&

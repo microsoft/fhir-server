@@ -6,7 +6,6 @@
 using System;
 using EnsureThat;
 using Hl7.Fhir.Model;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters;
@@ -18,15 +17,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
     internal class SearchParameterFilterAttribute : ActionFilterAttribute
     {
         private ISearchParameterValidator _searchParameterValidator;
-        private ISearchParameterEditor _searchParameterEditor;
 
-        public SearchParameterFilterAttribute(ISearchParameterValidator searchParamValidator, ISearchParameterEditor searchParameterEditor)
+        public SearchParameterFilterAttribute(ISearchParameterValidator searchParamValidator)
         {
             EnsureArg.IsNotNull(searchParamValidator, nameof(searchParamValidator));
-            EnsureArg.IsNotNull(searchParameterEditor, nameof(searchParameterEditor));
 
             _searchParameterValidator = searchParamValidator;
-            _searchParameterEditor = searchParameterEditor;
         }
 
         public override async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
@@ -42,26 +38,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         searchParameter,
                         context.HttpContext.Request.Method,
                         context.HttpContext.RequestAborted);
-
-                    // wait for the Action to execute
-                    await next();
-
-                    if (HttpMethods.IsPost(context.HttpContext.Request.Method))
-                    {
-                        // Once the SearchParameter resource is committed to the data store, we can update the in
-                        // memory SearchParameterDefinitionManager, and persist the status to the data store
-                        await _searchParameterEditor.AddSearchParameterAsync(searchParameter, context.HttpContext.RequestAborted);
-                    }
-                }
-                else
-                {
-                    await next();
                 }
             }
-            else
-            {
-                await next();
-            }
+
+            await next();
         }
     }
 }

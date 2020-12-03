@@ -818,7 +818,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to bundle.entry[{0}].resource.base is not defined..
+        ///   Looks up a localized string similar to SearchParameter[{0}].resource.base is not defined..
         /// </summary>
         internal static string SearchParameterDefinitionBaseNotDefined {
             get {
@@ -827,7 +827,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to bundle.entry[{0}].component[{1}] cannot refer to a composite SearchParameter..
+        ///   Looks up a localized string similar to SearchParameter[{0}].component[{1}] cannot refer to a composite SearchParameter..
         /// </summary>
         internal static string SearchParameterDefinitionComponentReferenceCannotBeComposite {
             get {
@@ -854,7 +854,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to bundle.entry[{0}].component is null or empty..
+        ///   Looks up a localized string similar to SearchParameter[{0}].component is null or empty..
         /// </summary>
         internal static string SearchParameterDefinitionInvalidComponent {
             get {
@@ -863,7 +863,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to bundle.entry[{0}].component[{1}].expression is null or empty..
+        ///   Looks up a localized string similar to SearchParameter[{0}].component[{1}].expression is null or empty..
         /// </summary>
         internal static string SearchParameterDefinitionInvalidComponentExpression {
             get {
@@ -872,7 +872,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to bundle.entry[{0}].component[{1}].definition.reference is null or empty or does not refer to a valid SearchParameter resource..
+        ///   Looks up a localized string similar to SearchParameter[{0}].component[{1}].definition.reference is null or empty or does not refer to a valid SearchParameter resource..
         /// </summary>
         internal static string SearchParameterDefinitionInvalidComponentReference {
             get {
@@ -881,7 +881,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to bundle.entry[{0}].url is invalid..
+        ///   Looks up a localized string similar to Entry {0} url is invalid..
         /// </summary>
         internal static string SearchParameterDefinitionInvalidDefinitionUri {
             get {
@@ -890,7 +890,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to bundle.entry[{0}].resource.expression is null or empty..
+        ///   Looks up a localized string similar to SearchParameter[{0}].resource.expression is null or empty..
         /// </summary>
         internal static string SearchParameterDefinitionInvalidExpression {
             get {
@@ -908,7 +908,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to bundle.entry[{0}].resource is not a SearchParameter resource..
+        ///   Looks up a localized string similar to Entry {0} is not a SearchParameter resource..
         /// </summary>
         internal static string SearchParameterDefinitionInvalidResource {
             get {

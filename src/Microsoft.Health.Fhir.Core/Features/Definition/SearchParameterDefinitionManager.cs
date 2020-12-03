@@ -11,8 +11,8 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.ElementModel;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -52,12 +52,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             var bundle = SearchParameterDefinitionBuilder.ReadEmbeddedSearchParameters("search-parameters.json", _modelInfoProvider);
 
             SearchParameterDefinitionBuilder.Build(
-                bundle,
+                bundle.Entries.Select(e => e.Resource).ToList(),
                 UrlLookup,
                 TypeLookup,
                 _modelInfoProvider);
 
-            CalculateSearchParameterHashAsync();
+            CalculateSearchParameterHash();
 
             return Task.CompletedTask;
         }
@@ -141,18 +141,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             }
         }
 
-        public void AddNewSearchParameters(BundleWrapper searchParamBundle)
+        public void AddNewSearchParameters(IList<ITypedElement> searchParameters)
         {
             SearchParameterDefinitionBuilder.Build(
-                searchParamBundle,
+                searchParameters,
                 UrlLookup,
                 TypeLookup,
                 _modelInfoProvider);
 
-            CalculateSearchParameterHashAsync();
+            CalculateSearchParameterHash();
         }
 
-        private void CalculateSearchParameterHashAsync()
+        private void CalculateSearchParameterHash()
         {
             foreach (KeyValuePair<string, IDictionary<string, SearchParameterInfo>> kvp in TypeLookup)
             {

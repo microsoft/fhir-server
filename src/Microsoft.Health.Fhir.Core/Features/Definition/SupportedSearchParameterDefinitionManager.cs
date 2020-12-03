@@ -7,7 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
-using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
+using Hl7.Fhir.ElementModel;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -82,9 +82,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             return _inner.GetSearchParameterHashForResourceType(resourceType);
         }
 
-        public void AddNewSearchParameters(BundleWrapper searchParamBundle)
+        public void AddNewSearchParameters(IList<ITypedElement> searchParameters)
         {
-            _inner.AddNewSearchParameters(searchParamBundle);
+            _inner.AddNewSearchParameters(searchParameters);
         }
     }
 }

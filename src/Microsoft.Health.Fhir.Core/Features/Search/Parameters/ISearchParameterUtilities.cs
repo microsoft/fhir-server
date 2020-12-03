@@ -4,12 +4,12 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Threading;
-using Hl7.Fhir.Model;
+using Hl7.Fhir.ElementModel;
 
-namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
+namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 {
-    public interface ISearchParameterEditor
+    public interface ISearchParameterUtilities
     {
-        System.Threading.Tasks.Task AddSearchParameterAsync(SearchParameter searchParam, CancellationToken cancellationToken);
+        System.Threading.Tasks.Task AddSearchParameterAsync(ITypedElement searchParam, CancellationToken cancellationToken);
     }
 }

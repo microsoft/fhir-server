@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             await _mediator.Publish(new SearchParametersUpdated(updated));
         }
 
-        public async Task UpdateSearchParameterStatus(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status)
+        public async Task UpdateSearchParameterStatusAsync(IReadOnlyCollection<string> searchParameterUris, SearchParameterStatus status)
         {
             var searchParameterStatusList = new List<ResourceSearchParameterStatus>();
             var updated = new List<SearchParameterInfo>();
@@ -120,11 +120,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             await _mediator.Publish(new SearchParametersUpdated(updated));
         }
 
-        public async Task AddSearchParameterStatus(string searchParamUri)
+        public async Task AddSearchParameterStatusAsync(IReadOnlyCollection<string> searchParamUris)
         {
             // new search parameters are added as supported, until reindexing occurs, when
             // they will be fully enabled
-            await UpdateSearchParameterStatus(new List<string>() { searchParamUri }, SearchParameterStatus.Supported);
+            await UpdateSearchParameterStatusAsync(searchParamUris, SearchParameterStatus.Supported);
         }
     }
 }

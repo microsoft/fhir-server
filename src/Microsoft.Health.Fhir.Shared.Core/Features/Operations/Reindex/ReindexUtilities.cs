@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         {
             try
             {
-                await _searchParameterStatusManager.UpdateSearchParameterStatus(searchParameterUris, SearchParameterStatus.Enabled);
+                await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(searchParameterUris, SearchParameterStatus.Enabled);
             }
             catch (SearchParameterNotSupportedException spx)
             {

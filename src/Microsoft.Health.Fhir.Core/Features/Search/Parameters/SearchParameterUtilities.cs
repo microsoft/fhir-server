@@ -3,23 +3,22 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
 using System.Threading;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
-using Hl7.Fhir.Model;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 
-namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
+namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 {
-    public class SearchParameterEditor : ISearchParameterEditor
+    public class SearchParameterUtilities : ISearchParameterUtilities
     {
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly SearchParameterStatusManager _searchParameterStatusManager;
 
-        public SearchParameterEditor(
+        public SearchParameterUtilities(
             SearchParameterStatusManager searchParameterStatusManager,
             ISearchParameterDefinitionManager searchParameterDefinitionManager)
         {
@@ -30,19 +29,12 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
         }
 
-        public async System.Threading.Tasks.Task AddSearchParameterAsync(SearchParameter searchParam, CancellationToken cancellationToken)
+        public async System.Threading.Tasks.Task AddSearchParameterAsync(ITypedElement searchParam, CancellationToken cancellationToken)
         {
-            // create version agnostic bundle
-            searchParam.ToTypedElement();
-            var bundle = new Bundle();
-            bundle.AddResourceEntry(searchParam, searchParam.Url);
-            var bundleWrapper = new BundleWrapper(bundle.ToResourceElement().Instance);
+            _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement>() { searchParam });
 
-            // add search parameter to definition manager
-            _searchParameterDefinitionManager.AddNewSearchParameters(bundleWrapper);
-
-            // update and persist the status of the new search parameter
-            await _searchParameterStatusManager.AddSearchParameterStatus(searchParam.Url);
+            var searchParameterWrapper = new SearchParameterWrapper(searchParam);
+            await _searchParameterStatusManager.AddSearchParameterStatusAsync(new List<string>() { searchParameterWrapper.Url });
         }
     }
 }
