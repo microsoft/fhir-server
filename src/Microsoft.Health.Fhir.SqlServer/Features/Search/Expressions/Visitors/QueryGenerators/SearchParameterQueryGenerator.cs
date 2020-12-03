@@ -26,27 +26,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             short searchParamId = context.Model.GetSearchParamId(expression.Parameter.Url);
             SmallIntColumn searchParamIdColumn = VLatest.SearchParam.SearchParamId;
 
-            if (expression.Expression is NotExpression notExpression)
-            {
-                context.StringBuilder
-                    .AppendLine("NOT EXISTS")
-                    .AppendLine("(")
-                    .AppendLine("SELECT *")
-                    .AppendLine("FROM TokenSearchParam r2")
-                    .AppendLine("WHERE IsHistory = 0")
-                    .AppendLine("AND ")
-                    .Append(" = ")
-                    .AppendLine(context.Parameters.AddParameter(searchParamIdColumn, searchParamId).ParameterName)
-                    .Append("AND ");
-            }
-            else
-            {
-                context.StringBuilder
-                    .Append(searchParamIdColumn, context.TableAlias)
-                    .Append(" = ")
-                    .AppendLine(context.Parameters.AddParameter(searchParamIdColumn, searchParamId).ParameterName)
-                    .Append("AND ");
-            }
+            context.StringBuilder
+                .Append(searchParamIdColumn, context.TableAlias)
+                .Append(" = ")
+                .AppendLine(context.Parameters.AddParameter(searchParamIdColumn, searchParamId).ParameterName)
+                .Append("AND ");
 
             return expression.Expression.AcceptVisitor(this, context);
         }
@@ -97,15 +81,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
 
             context.StringBuilder.AppendLine();
-
-            return context;
-        }
-
-        public override SearchParameterQueryGeneratorContext VisitNot(NotExpression expression, SearchParameterQueryGeneratorContext context)
-        {
-            context.StringBuilder.Append("NOT (");
-            expression.NegatedExpression.AcceptVisitor(this, context);
-            context.StringBuilder.Append(")");
 
             return context;
         }

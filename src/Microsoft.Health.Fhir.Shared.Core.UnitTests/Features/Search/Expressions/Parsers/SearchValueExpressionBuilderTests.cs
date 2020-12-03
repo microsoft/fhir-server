@@ -780,76 +780,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 });
         }
 
-        [Fact]
-        public void GivenATokenWithNotModifierAndNoSystemSpecified_WhenBuilt_ThenCorrectExpressionShouldBeCreated()
-        {
-            const string code = "code";
-
-            Validate(
-                CreateSearchParameter(SearchParamType.Token),
-                SearchModifierCode.Not,
-                code,
-                e => ValidateNotExpression(
-                    e,
-                    childExpression => ValidateStringExpression(childExpression, FieldName.TokenCode, StringOperator.Equals, code, false)));
-        }
-
-        [Fact]
-        public void GivenATokenWithNotModifierAndEmptySystemSpecified_WhenBuilt_ThenCorrectExpressionShouldBeCreated()
-        {
-            const string code = "code";
-
-            Validate(
-                CreateSearchParameter(SearchParamType.Token),
-                SearchModifierCode.Not,
-                $"|{code}",
-                e => ValidateNotExpression(
-                    e,
-                    childExpression => ValidateMultiaryExpression(
-                        childExpression,
-                        MultiaryOperator.And,
-                        childExpression2 => ValidateMissingFieldExpression(childExpression2, FieldName.TokenSystem),
-                        childExpression2 => ValidateStringExpression(childExpression2, FieldName.TokenCode, StringOperator.Equals, code, false))));
-        }
-
-        [Theory]
-        [InlineData("")]
-        [InlineData("    ")]
-        public void GivenATokenWithNotModifierAndEmptyCodeSpecified_WhenBuilt_ThenCorrectExpressionShouldBeCreated(string code)
-        {
-            const string system = "system";
-
-            Validate(
-                CreateSearchParameter(SearchParamType.Token),
-                SearchModifierCode.Not,
-                $"{system}|{code}",
-                e => ValidateNotExpression(
-                    e,
-                    childExpression => ValidateStringExpression(childExpression, FieldName.TokenSystem, StringOperator.Equals, system, false)));
-        }
-
-        [Fact]
-        public void GivenATokenWithNotModifierAndSystemAndCodeSpecified_WhenBuilt_ThenCorrectExpressionShouldBeCreated()
-        {
-            const string system = "system";
-            const string code = "code";
-
-            Validate(
-                CreateSearchParameter(SearchParamType.Token),
-                SearchModifierCode.Not,
-                $"{system}|{code}",
-                e => ValidateNotExpression(
-                    e,
-                    childExpression => ValidateMultiaryExpression(
-                        childExpression,
-                        MultiaryOperator.And,
-                        childExpression2 => ValidateStringExpression(childExpression2, FieldName.TokenSystem, StringOperator.Equals, system, false),
-                        childExpression2 => ValidateStringExpression(childExpression2, FieldName.TokenCode, StringOperator.Equals, code, false))));
-        }
-
         [Theory]
         [InlineData(SearchModifierCode.Exact)]
         [InlineData(SearchModifierCode.Contains)]
+        [InlineData(SearchModifierCode.Not)]
         [InlineData(SearchModifierCode.Type)]
         public void GivenATokenWithInvalidModifier_WhenBuilding_ThenInvalidSearchOperationExceptionShouldBeThrown(SearchModifierCode modifier)
         {

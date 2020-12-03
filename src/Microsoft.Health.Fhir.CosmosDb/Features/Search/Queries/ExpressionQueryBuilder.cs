@@ -119,15 +119,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                     AppendSubquery(parameterName: null, expression.Expression, context);
                     break;
                 default:
-                    if (expression.Expression is NotExpression notExpression)
-                    {
-                        AppendSubquery(expression.Parameter.Name, notExpression.NegatedExpression, context, true);
-                    }
-                    else
-                    {
-                        AppendSubquery(expression.Parameter.Name, expression.Expression, context);
-                    }
-
+                    AppendSubquery(expression.Parameter.Name, expression.Expression, context);
                     break;
             }
 
@@ -317,15 +309,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
         public object VisitInclude(IncludeExpression expression, Context context)
         {
             throw new InvalidOperationException($"Include expression should have been removed before reaching {nameof(ExpressionQueryBuilder)}.");
-        }
-
-        public object VisitNot(NotExpression expression, Context context)
-        {
-            _queryBuilder.Append("NOT (");
-            expression.NegatedExpression.AcceptVisitor(this, context);
-            _queryBuilder.Append(")");
-
-            return null;
         }
 
         private static string GetCompartmentIndicesParamName(string compartmentType)

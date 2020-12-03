@@ -77,17 +77,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return expression;
         }
 
-        public virtual Expression VisitNot(NotExpression expression, TContext context)
-        {
-            Expression visitedExpression = expression.NegatedExpression.AcceptVisitor(visitor: this, context: context);
-            if (ReferenceEquals(visitedExpression, expression.NegatedExpression))
-            {
-                return expression;
-            }
-
-            return new NotExpression(visitedExpression);
-        }
-
         protected IReadOnlyList<TExpression> VisitArray<TExpression>(IReadOnlyList<TExpression> inputArray, TContext context)
             where TExpression : Expression
         {

@@ -192,10 +192,5 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
         {
             return GetNormalizedSearchParameterQueryGenerator(expression.Parameter);
         }
-
-        public NormalizedSearchParameterQueryGenerator VisitNot(NotExpression expression, object context)
-        {
-            return expression.NegatedExpression.AcceptVisitor(this, context);
-        }
     }
 }
