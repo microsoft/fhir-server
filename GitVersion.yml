@@ -1,5 +1,7 @@
 mode: Mainline
-assembly-versioning-scheme: MajorMinorPatch
+# assembly-version: If this number changes, other assemblies have to update references to the assembly
+assembly-versioning-scheme: Major
+assembly-file-versioning-scheme: MajorMinorPatch
 tag-prefix: release\/
 ignore:
   sha: []
