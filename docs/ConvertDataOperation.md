@@ -26,7 +26,7 @@ To convert Hl7v2 data to FHIR, you need to pass four parameters:
 1. *inputData*: raw string content of the input data.
 2. *inputDataType*: data type of your input, currently only accepts *Hl7v2*.
 3. *templateCollectionReference*: reference string of your template collection, can be either the built-in templates ```microsofthealth/fhirconverter:default``` or your custom image reference.
-4. *entryPointTemplate*: the entry point template to process (render) the
+4. *rootTemplate*: the root template to process (render) the
 input data.
 
 Here is a sample request to convert data:
@@ -47,7 +47,7 @@ Here is a sample request to convert data:
             "valueString": "microsofthealth/fhirconverter:default"
         },
         {
-            "name": "entryPointTemplate",
+            "name": "rootTemplate",
             "valueString": "ADT_A01"
         }
     ]
