@@ -881,7 +881,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Entry {0} url is invalid..
+        ///   Looks up a localized string similar to SearchParameter[{0}].url is invalid..
         /// </summary>
         internal static string SearchParameterDefinitionInvalidDefinitionUri {
             get {

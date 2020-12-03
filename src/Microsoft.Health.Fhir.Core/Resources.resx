@@ -387,7 +387,7 @@
     <comment>{0} Is the Uri Identifying the SearchParameter, {1} is the index of the component</comment>
   </data>
   <data name="SearchParameterDefinitionInvalidDefinitionUri" xml:space="preserve">
-    <value>Entry {0} url is invalid.</value>
+    <value>SearchParameter[{0}].url is invalid.</value>
     <comment>{0} Index of the processed element in the ennumeration</comment>
   </data>
   <data name="SearchParameterDefinitionInvalidExpression" xml:space="preserve">
