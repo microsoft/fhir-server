@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             SubSearch = subSearch;
             CurrentFilter = filter;
 
-            RunFilteredSearches = false;
+            FilteredSearchesComplete = filter == null;
         }
 
         [JsonConstructor]
@@ -41,8 +41,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         /// <summary>
         /// Indicates if all the filters for the job have been evaluated.
         /// </summary>
-        [JsonProperty(JobRecordProperties.RunFilteredSearches)]
-        public bool RunFilteredSearches { get; private set; }
+        [JsonProperty(JobRecordProperties.FilteredSearchesComplete)]
+        public bool FilteredSearchesComplete { get; private set; }
 
         [JsonProperty(JobRecordProperties.TriggeringResourceId)]
         public string TriggeringResourceId { get; private set; }
@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
         public void MarkFiltersFinished()
         {
-            RunFilteredSearches = true;
+            FilteredSearchesComplete = true;
             Page = 0;
             ContinuationToken = null;
         }

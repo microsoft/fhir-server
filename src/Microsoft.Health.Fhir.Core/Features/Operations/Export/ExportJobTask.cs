@@ -245,7 +245,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             IAnonymizer anonymizer = IsAnonymizedExportJob() ? await CreateAnonymizerAsync(cancellationToken) : null;
 
-            if (!progress.RunFilteredSearches)
+            if (!progress.FilteredSearchesComplete)
             {
                 var index = -1;
                 if (_exportJobRecord.Filters != null)
@@ -427,7 +427,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 }
             }
 
-            if (!progress.RunFilteredSearches)
+            if (!progress.FilteredSearchesComplete)
             {
                 var index = -1;
                 if (_exportJobRecord.Filters != null)
@@ -443,7 +443,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         progress.SetFilter(filter);
 
                         List<Tuple<string, string>> filterQueryParametersList = new List<Tuple<string, string>>(queryParametersList);
-                        filterQueryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type, filter.ResourceType));
                         foreach (var param in filter.Parameters)
                         {
                             filterQueryParametersList.Add(param);

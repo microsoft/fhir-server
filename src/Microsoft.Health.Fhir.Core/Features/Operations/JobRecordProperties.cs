@@ -103,7 +103,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string CurrentFilter = "currentFilter";
 
-        public const string RunFilteredSearches = "RunFilteredSearches";
+        public const string FilteredSearchesComplete = "FilteredSearchesComplete";
 
         public const string ResourceTypeSearchParameterHashMap = "resourceTypeSearchParameterHashMap";
 
