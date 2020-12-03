@@ -465,7 +465,7 @@
     <value>Fail to access the container registry '{0}', please check the registry configuration.</value>
   </data>
   <data name="ConvertDataOperationTimeout" xml:space="preserve">
-    <value>Data convert operation has timed out.</value>
+    <value>Convert data operation has timed out.</value>
   </data>
   <data name="ExportFormatNotFound" xml:space="preserve">
     <value>The format '{0}' could not be found.</value>

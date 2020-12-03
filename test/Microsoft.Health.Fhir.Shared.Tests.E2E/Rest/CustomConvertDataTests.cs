@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             };
             var parser = new FhirJsonParser(setting);
             var bundleResource = parser.Parse<Bundle>(bundleContent);
-            Assert.Equal("urn:uuid:b06a26a8-9cb6-ef2c-b4a7-3781a6f7f71a", bundleResource.Entry.First().FullUrl);
+            Assert.Equal("urn:uuid:9d697ec3-48c3-3e17-db6a-29a1765e22c6", bundleResource.Entry.First().FullUrl);
         }
 
         [Theory]
@@ -107,7 +107,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             var responseContent = await response.Content.ReadAsStringAsync();
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-            Assert.Contains($"The specified template collection image '{registry.Server}/{imageReference}' is not found.", responseContent);
+            Assert.Contains($"Image Not Found.", responseContent);
         }
 
         private ContainerRegistryInfo GetTestContainerRegistryInfo()
@@ -143,7 +143,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             await UploadBlob(acrClient, originalConfigStream, repository, originalConfigDigest);
 
             // Upload memory blob
-            Stream byteStream = Samples.GetDefaultConversionTemplates();
+            using Stream byteStream = Samples.GetDefaultConversionTemplates();
             var blobLength = byteStream.Length;
             string blobDigest = ComputeDigest(byteStream);
             await UploadBlob(acrClient, byteStream, repository, blobDigest);

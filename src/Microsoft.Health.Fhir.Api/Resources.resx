@@ -324,7 +324,7 @@
     <value>Missing '_container' for anonymized export</value>
   </data>
   <data name="ConvertDataParameterNotValid" xml:space="preserve">
-    <value>Data convert does not support the following parameter {0} for a POST operation.</value>
+    <value>Convert data does not support the following parameter {0} for a POST operation.</value>
     <comment>{0} = the parameter name which was invalid</comment>
   </data>
   <data name="ConvertDataParameterValueNotValid" xml:space="preserve">
@@ -332,7 +332,7 @@
     <comment>{0} = the parameter name which was invalid</comment>
   </data>
   <data name="ConvertDataParametersNotValid" xml:space="preserve">
-    <value>Data convert operation parameters must be specified as a FHIR Parameters resource.  The body provided in this request is not valid.</value>
+    <value>Convert data operation parameters must be specified as a FHIR Parameters resource.  The body provided in this request is not valid.</value>
   </data>
   <data name="InvalidTemplateCollectionReference" xml:space="preserve">
     <value>The template collection reference '{0}' is invalid.</value>

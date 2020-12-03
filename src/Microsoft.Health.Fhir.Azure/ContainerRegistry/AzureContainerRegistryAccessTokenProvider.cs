@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
         {
             EnsureArg.IsNotNullOrEmpty(registryServer, nameof(registryServer));
 
-            var aadResourceUri = new Uri(_convertDataConfiguration.AzureResourceManagerEndpoint);
+            var aadResourceUri = new Uri(_convertDataConfiguration.ArmResourceManagerId);
             string aadToken;
             try
             {
@@ -112,12 +112,12 @@ namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
             if (refreshTokenResponse.StatusCode == HttpStatusCode.Unauthorized)
             {
                 _logger.LogError("Failed to exchange ACR refresh token: ACR server is unauthorized.");
-                throw new ContainerRegistryNotAuthorizedException(Resources.ContainerRegistryNotAuthorized);
+                throw new ContainerRegistryNotAuthorizedException(string.Format(Resources.ContainerRegistryNotAuthorized, registryServer));
             }
             else if (refreshTokenResponse.StatusCode == HttpStatusCode.NotFound)
             {
                 _logger.LogError("Failed to exchange ACR refresh token: ACR server is not found.");
-                throw new ContainerRegistryNotFoundException(Resources.ContainerRegistryNotFound);
+                throw new ContainerRegistryNotFoundException(string.Format(Resources.ContainerRegistryNotFound, registryServer));
             }
             else if (!refreshTokenResponse.IsSuccessStatusCode)
             {
@@ -159,12 +159,12 @@ namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
             if (accessTokenResponse.StatusCode == HttpStatusCode.Unauthorized)
             {
                 _logger.LogError("Failed to get ACR access token: ACR server is unauthorized.");
-                throw new ContainerRegistryNotAuthorizedException(Resources.ContainerRegistryNotAuthorized);
+                throw new ContainerRegistryNotAuthorizedException(string.Format(Resources.ContainerRegistryNotAuthorized, registryServer));
             }
             else if (accessTokenResponse.StatusCode == HttpStatusCode.NotFound)
             {
                 _logger.LogError("Failed to get ACR access token: ACR server is not found.");
-                throw new ContainerRegistryNotFoundException(Resources.ContainerRegistryNotFound);
+                throw new ContainerRegistryNotFoundException(string.Format(Resources.ContainerRegistryNotFound, registryServer));
             }
             else if (!accessTokenResponse.IsSuccessStatusCode)
             {

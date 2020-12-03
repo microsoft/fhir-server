@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.ConvertData
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Unhandled exception: data convert process failed.");
+                _logger.LogError(ex, "Unhandled exception: convert data process failed.");
                 throw new ConvertDataUnhandledException(string.Format(Resources.ConvertDataFailed, ex.Message), ex);
             }
         }

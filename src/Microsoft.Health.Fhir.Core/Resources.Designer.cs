@@ -241,7 +241,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Data convert operation has timed out..
+        ///   Looks up a localized string similar to Convert data operation has timed out..
         /// </summary>
         internal static string ConvertDataOperationTimeout {
             get {

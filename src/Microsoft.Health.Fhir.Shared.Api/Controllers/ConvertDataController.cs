@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             if (inputParams == null)
             {
-                _logger.LogInformation("Failed to deserialize data convert request body as Parameters resource.");
+                _logger.LogInformation("Failed to deserialize convert data request body as Parameters resource.");
                 throw new RequestNotValidException(Resources.ConvertDataParametersNotValid);
             }
 

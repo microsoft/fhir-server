@@ -142,7 +142,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Data convert does not support the following parameter {0} for a POST operation..
+        ///   Looks up a localized string similar to Convert data does not support the following parameter {0} for a POST operation..
         /// </summary>
         public static string ConvertDataParameterNotValid {
             get {
@@ -151,7 +151,7 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Data convert operation parameters must be specified as a FHIR Parameters resource.  The body provided in this request is not valid..
+        ///   Looks up a localized string similar to Convert data operation parameters must be specified as a FHIR Parameters resource.  The body provided in this request is not valid..
         /// </summary>
         public static string ConvertDataParametersNotValid {
             get {

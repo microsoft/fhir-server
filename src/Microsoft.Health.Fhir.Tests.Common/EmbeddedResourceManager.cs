@@ -34,7 +34,6 @@ namespace Microsoft.Health.Fhir.Tests.Common
 
         public static Stream GetContentAsSteam(string embeddedResourceSubNamespace, string fileName, string extension)
         {
-            var memoryStream = new MemoryStream();
             string resourceName = $"{typeof(EmbeddedResourceManager).Namespace}.{embeddedResourceSubNamespace}.{ModelInfoProvider.Version}.{fileName}.{extension}";
 
             var resourceInfo = Assembly.GetExecutingAssembly().GetManifestResourceInfo(resourceName);
@@ -45,11 +44,7 @@ namespace Microsoft.Health.Fhir.Tests.Common
                 resourceName = $"{typeof(EmbeddedResourceManager).Namespace}.{embeddedResourceSubNamespace}.Normative.{fileName}.{extension}";
             }
 
-            using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName))
-            {
-                stream.CopyTo(memoryStream);
-                return memoryStream;
-            }
+            return Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName);
         }
     }
 }

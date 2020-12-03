@@ -108,7 +108,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             var responseContent = await response.Content.ReadAsStringAsync();
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-            Assert.Contains($"Data convert does not support the following parameter {unsupportedParameter}", responseContent);
+            Assert.Contains($"Convert data does not support the following parameter {unsupportedParameter}", responseContent);
         }
 
         [Theory]
