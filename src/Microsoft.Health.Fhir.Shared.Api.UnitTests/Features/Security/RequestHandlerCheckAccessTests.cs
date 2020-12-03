@@ -14,6 +14,7 @@ using MediatR;
 using Microsoft.Health.Fhir.Api.Features.Security;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using NSubstitute;
 using Xunit;
@@ -27,6 +28,7 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
         {
             typeof(GetCapabilitiesHandler),
             typeof(GetOperationVersionsHandler),
+            typeof(OperationDefinitionRequestHandler),
         };
 
         public static IEnumerable<object[]> GetHandlerTypes()
