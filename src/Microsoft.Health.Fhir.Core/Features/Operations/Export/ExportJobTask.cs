@@ -9,6 +9,7 @@ using System.Globalization;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using AngleSharp.Text;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -225,21 +226,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, progress.ContinuationToken));
             }
 
-            if (_exportJobRecord.ExportType == ExportJobType.Patient)
-            {
-                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type, KnownResourceTypes.Patient));
-            }
-            else if (_exportJobRecord.ExportType == ExportJobType.All && !string.IsNullOrEmpty(_exportJobRecord.ResourceType))
-            {
-                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type, _exportJobRecord.ResourceType));
-            }
-
+            var requestedResourceTypes = _exportJobRecord.ResourceType?.Split(',');
             var filteredResources = new HashSet<string>();
             if (_exportJobRecord.Filters != null)
             {
                 foreach (var filter in _exportJobRecord.Filters)
                 {
-                    filteredResources.Add(filter.ResourceType);
+                    filteredResources.Add(filter.ResourceType.ToUpper(CultureInfo.InvariantCulture));
                 }
             }
 
@@ -259,7 +252,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                             continue;
                         }
 
-                        if (_exportJobRecord.ExportType == ExportJobType.All || filter.ResourceType.Equals(KnownResourceTypes.Patient, StringComparison.Ordinal))
+                        if (requestedResourceTypes != null &&
+                            requestedResourceTypes.Contains(filter.ResourceType, StringComparison.OrdinalIgnoreCase) &&
+                            (_exportJobRecord.ExportType == ExportJobType.All || filter.ResourceType.Equals(KnownResourceTypes.Patient, StringComparison.Ordinal)))
                         {
                             progress.SetFilter(filter);
 
@@ -272,6 +267,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                             await SearchWithFilter(exportJobConfiguration, progress, filter.ResourceType, filterQueryParametersList, sharedQueryParametersList, anonymizer, "filter" + index + "-", cancellationToken);
 
                             progress.SetFilter(null);
+                            await UpdateJobRecordAsync(cancellationToken);
                         }
                     }
                 }
@@ -282,11 +278,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             // This runs if the filteredResources doesn't contain Patient so that when a Patient or Group export is run it will run a full search of Patients.
             // If Patients was filtered the search would already have been run above.
-            if (_exportJobRecord.ExportType == ExportJobType.All || !filteredResources.Contains(KnownResourceTypes.Patient))
+            if (_exportJobRecord.ExportType == ExportJobType.All || !filteredResources.Contains(KnownResourceTypes.Patient.ToUpper(CultureInfo.InvariantCulture)))
             {
-                foreach (var resource in filteredResources)
+                if (_exportJobRecord.ExportType == ExportJobType.Patient)
                 {
-                    queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type + ":not", resource));
+                    queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type, KnownResourceTypes.Patient));
+                }
+                else if (_exportJobRecord.ExportType == ExportJobType.All && requestedResourceTypes != null)
+                {
+                    foreach (var resource in requestedResourceTypes)
+                    {
+                        if (!filteredResources.Contains(resource.ToUpper(CultureInfo.InvariantCulture)))
+                        {
+                            queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type, resource));
+                        }
+                    }
                 }
 
                 await SearchWithFilter(exportJobConfiguration, progress, null, queryParametersList, sharedQueryParametersList, anonymizer, string.Empty, cancellationToken);
@@ -413,17 +419,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.ContinuationToken, progress.ContinuationToken));
             }
 
-            if (!string.IsNullOrEmpty(_exportJobRecord.ResourceType))
-            {
-                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type, _exportJobRecord.ResourceType));
-            }
-
+            var requestedResourceTypes = _exportJobRecord.ResourceType?.Split(',');
             var filteredResources = new HashSet<string>();
             if (_exportJobRecord.Filters != null)
             {
                 foreach (var filter in _exportJobRecord.Filters)
                 {
-                    filteredResources.Add(filter.ResourceType);
+                    filteredResources.Add(filter.ResourceType.ToUpper(CultureInfo.InvariantCulture));
                 }
             }
 
@@ -434,23 +436,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 {
                     foreach (var filter in _exportJobRecord.Filters)
                     {
-                        index++;
-                        if (progress.CurrentFilter != null && filter != progress.CurrentFilter)
+                        if (requestedResourceTypes != null &&
+                            requestedResourceTypes.Contains(filter.ResourceType, StringComparison.OrdinalIgnoreCase))
                         {
-                            continue;
+                            index++;
+                            if (progress.CurrentFilter != null && filter != progress.CurrentFilter)
+                            {
+                                continue;
+                            }
+
+                            progress.SetFilter(filter);
+
+                            List<Tuple<string, string>> filterQueryParametersList = new List<Tuple<string, string>>(queryParametersList);
+                            foreach (var param in filter.Parameters)
+                            {
+                                filterQueryParametersList.Add(param);
+                            }
+
+                            await SearchCompartmentWithFilter(exportJobConfiguration, progress, filter.ResourceType, filterQueryParametersList, batchIdPrefix + "-filter" + index, cancellationToken);
+
+                            progress.SetFilter(null);
+                            await UpdateJobRecordAsync(cancellationToken);
                         }
-
-                        progress.SetFilter(filter);
-
-                        List<Tuple<string, string>> filterQueryParametersList = new List<Tuple<string, string>>(queryParametersList);
-                        foreach (var param in filter.Parameters)
-                        {
-                            filterQueryParametersList.Add(param);
-                        }
-
-                        await SearchCompartmentWithFilter(exportJobConfiguration, progress, filter.ResourceType, filterQueryParametersList, batchIdPrefix + "-filter" + index, cancellationToken);
-
-                        progress.SetFilter(null);
                     }
                 }
 
@@ -458,9 +465,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 await UpdateJobRecordAsync(cancellationToken);
             }
 
-            foreach (var resource in filteredResources)
+            if (requestedResourceTypes != null)
             {
-                queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type + ":not", resource));
+                foreach (var resource in requestedResourceTypes)
+                {
+                    if (!filteredResources.Contains(resource.ToUpper(CultureInfo.InvariantCulture)))
+                    {
+                        queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type, resource));
+                    }
+                }
             }
 
             await SearchCompartmentWithFilter(exportJobConfiguration, progress, null, queryParametersList, batchIdPrefix, cancellationToken);

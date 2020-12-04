@@ -85,6 +85,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 throw new RequestNotValidException(string.Format(Resources.UnsupportedParameter, paramName));
             }
 
+            if (queryCollection?.Keys != null &&
+                queryCollection.Keys.Contains(KnownQueryParameterNames.TypeFilter) &&
+                !queryCollection.Keys.Contains(KnownQueryParameterNames.Type))
+            {
+                throw new RequestNotValidException(Resources.TypeFilterWithoutTypeIsUnsupported);
+            }
+
             if (queryCollection.TryGetValue(KnownQueryParameterNames.OutputFormat, out var outputFormats))
             {
                 foreach (var outputFormat in outputFormats)

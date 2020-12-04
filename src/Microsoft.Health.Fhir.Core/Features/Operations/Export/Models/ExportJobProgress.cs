@@ -18,7 +18,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             SubSearch = subSearch;
             CurrentFilter = filter;
 
-            FilteredSearchesComplete = filter == null;
+            // It is not safe to assume that if no filter is passed into the constructor that there are no filters.
+            // When the progress is first created the list of filters hasn't been parsed yet.
+            FilteredSearchesComplete = false;
         }
 
         [JsonConstructor]

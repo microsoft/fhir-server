@@ -976,7 +976,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 _cancellationToken)
                 .Returns(x =>
                 {
-                    string[] types = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[3].Item2.Split(',');
+                    string[] types =
+                    {
+                        x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[3].Item2,
+                        x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[4].Item2,
+                    };
                     SearchResultEntry[] entries = new SearchResultEntry[types.Length];
 
                     for (int index = 0; index < types.Length; index++)
@@ -1069,7 +1073,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
                     bool typeParameterIncluded = false;
                     bool continuationTokenParameterIncluded = false;
-                    string[] types = null;
+                    var types = new List<string>();
 
                     foreach (Tuple<string, string> parameter in queryParameterList)
                     {
@@ -1080,7 +1084,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                         else if (parameter.Item1 == Core.Features.KnownQueryParameterNames.Type)
                         {
                             typeParameterIncluded = true;
-                            types = parameter.Item2.Split(',');
+                            types.Add(parameter.Item2);
                         }
                     }
 
@@ -1092,9 +1096,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                         throw new Exception();
                     }
 
-                    SearchResultEntry[] entries = new SearchResultEntry[types.Length];
+                    SearchResultEntry[] entries = new SearchResultEntry[types.Count];
 
-                    for (int index = 0; index < types.Length; index++)
+                    for (int index = 0; index < types.Count; index++)
                     {
                         entries[index] = CreateSearchResultEntry(searchCallsMade.ToString(CultureInfo.InvariantCulture), types[index]);
                     }
@@ -1425,7 +1429,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 .Returns(x =>
                 {
                     string parentId = x.ArgAt<string>(1);
-                    string[] resourceTypes = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(3)[2].Item2.Split(',');
+                    string[] resourceTypes =
+                    {
+                        x.ArgAt<IReadOnlyList<Tuple<string, string>>>(3)[2].Item2,
+                        x.ArgAt<IReadOnlyList<Tuple<string, string>>>(3)[3].Item2,
+                    };
 
                     SearchResultEntry[] entries = new SearchResultEntry[resourceTypes.Length];
 
@@ -1684,7 +1692,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                              new Tuple<string, string>("address", "Seattle"),
                          }),
                  };
-            var exportJobRecordWithFormat = CreateExportJobRecord(filters: filters);
+            var exportJobRecordWithFormat = CreateExportJobRecord(
+                resourceType: $"{KnownResourceTypes.Patient},{KnownResourceTypes.Observation},{KnownResourceTypes.Encounter}",
+                filters: filters);
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithFormat);
 
             var checkedObservation = false;
@@ -1760,7 +1770,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                              new Tuple<string, string>("address", "Seattle"),
                          }),
                  };
-            var exportJobRecordWithFormat = CreateExportJobRecord(exportJobType: ExportJobType.Patient, filters: filters);
+            var exportJobRecordWithFormat = CreateExportJobRecord(
+                exportJobType: ExportJobType.Patient,
+                resourceType: $"{KnownResourceTypes.Patient},{KnownResourceTypes.Observation},{KnownResourceTypes.Encounter}",
+                filters: filters);
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithFormat);
 
             var checkedObservation = false;
@@ -1873,7 +1886,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                              new Tuple<string, string>("status", "planned"),
                          }),
                  };
-            var exportJobRecordWithFormat = CreateExportJobRecord(exportJobType: ExportJobType.Patient, filters: filters);
+            var exportJobRecordWithFormat = CreateExportJobRecord(
+                exportJobType: ExportJobType.Patient,
+                resourceType: $"{KnownResourceTypes.Patient},{KnownResourceTypes.Observation},{KnownResourceTypes.Encounter}",
+                filters: filters);
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithFormat);
 
             var checkedObservation = false;
