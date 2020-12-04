@@ -1,0 +1,15 @@
+{
+    "resourceType": "OperationDefinition",
+    "id": "resource-reindex",
+    "url": "[base]/OperationDefinition/resource-reindex",
+    "version": "1.0.0",
+    "name": "Reindex single resource",
+    "status": "active",
+    "kind": "operation",
+    "description": "Reindex a single resource with newly added search parameters.",
+    "code": "reindex",
+    "system": false,
+    "type": false,
+    "instance": true,
+    "parameter": []
+}

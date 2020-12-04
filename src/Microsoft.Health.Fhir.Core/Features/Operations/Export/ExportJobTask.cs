@@ -6,11 +6,13 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using AngleSharp.Text;
 using EnsureThat;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core;
@@ -36,6 +38,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private readonly IResourceToByteArraySerializer _resourceToByteArraySerializer;
         private readonly IExportDestinationClient _exportDestinationClient;
         private readonly IResourceDeserializer _resourceDeserializer;
+        private readonly IMediator _mediator;
         private readonly ILogger _logger;
 
         // Currently we will have only one file per resource type. In the future we will add the ability to split
@@ -55,6 +58,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             IExportDestinationClient exportDestinationClient,
             IResourceDeserializer resourceDeserializer,
             IScoped<IAnonymizerFactory> anonymizerFactory,
+            IMediator mediator,
             ILogger<ExportJobTask> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
@@ -64,6 +68,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             EnsureArg.IsNotNull(resourceToByteArraySerializer, nameof(resourceToByteArraySerializer));
             EnsureArg.IsNotNull(exportDestinationClient, nameof(exportDestinationClient));
             EnsureArg.IsNotNull(resourceDeserializer, nameof(resourceDeserializer));
+            EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
@@ -74,6 +79,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _resourceDeserializer = resourceDeserializer;
             _exportDestinationClient = exportDestinationClient;
             _anonymizerFactory = anonymizerFactory;
+            _mediator = mediator;
             _logger = logger;
         }
 
@@ -196,7 +202,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _exportJobRecord.EndTime = Clock.UtcNow;
 
             await UpdateJobRecordAsync(cancellationToken);
-            _logger.LogInformation($"Export job completed. Id: {_exportJobRecord.Id}, Queued Time: {_exportJobRecord.QueuedTime}, End Time: {_exportJobRecord.EndTime}, IsAnonymizedExport: {IsAnonymizedExportJob()}");
+            _logger.LogInformation(ExtractExportTaskLoggingMessage());
+
+            await _mediator.Publish(new ExportTaskMetricsNotification(_exportJobRecord), CancellationToken.None);
         }
 
         private async Task UpdateJobRecordAsync(CancellationToken cancellationToken)
@@ -623,6 +631,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private bool IsAnonymizedExportJob()
         {
             return !string.IsNullOrEmpty(_exportJobRecord.AnonymizationConfigurationLocation);
+        }
+
+        private string ExtractExportTaskLoggingMessage()
+        {
+            string id = _exportJobRecord.Id ?? string.Empty;
+            string status = _exportJobRecord.Status.ToString();
+            string queuedTime = _exportJobRecord.QueuedTime.ToString("u") ?? string.Empty;
+            string endTime = _exportJobRecord.EndTime?.ToString("u") ?? string.Empty;
+            long dataSize = _exportJobRecord.Output?.Values.Sum(job => job?.CommittedBytes ?? 0) ?? 0;
+            bool isAnonymizedExport = IsAnonymizedExportJob();
+
+            return $"Export job completed. Id: {id}, Status {status}, Queued Time: {queuedTime}, End Time: {endTime}, DataSize: {dataSize}, IsAnonymizedExport: {isAnonymizedExport}";
         }
 
         private async Task<SearchResult> GetGroupPatients(string groupId, List<Tuple<string, string>> queryParametersList, DateTimeOffset groupMembershipTime, CancellationToken cancellationToken)

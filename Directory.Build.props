@@ -3,6 +3,8 @@
   <PropertyGroup>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <WarningsAsErrors />
+    <!-- allow pre-release dependencies -->
+    <NoWarn>$(NoWarn);NU5104</NoWarn>
     <DebugType>Portable</DebugType>
     <LangVersion>8.0</LangVersion>
     <HighEntropyVA>true</HighEntropyVA>

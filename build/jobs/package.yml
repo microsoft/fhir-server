@@ -18,7 +18,7 @@ steps:
     inputs:
       command: publish
       projects: 'test/**/*.csproj'
-      arguments: '--version-suffix $(build.buildnumber) -o "$(build.binariesdirectory)/IntegrationTests" --configuration $(buildConfiguration) --no-build'
+      arguments: '--version-suffix $(build.buildNumber) -o "$(build.binariesdirectory)/IntegrationTests" --configuration $(buildConfiguration) --no-build'
       publishWebProjects: false
       zipAfterPublish: false
 
@@ -29,12 +29,12 @@ steps:
       command: pack
       configuration: '$(buildConfiguration)'
       packDirectory: '$(build.artifactStagingDirectory)/nupkgs'
-      versioningScheme: 'byEnvVar'
-      versionEnvVar: 'nuget_version'
       nobuild: true
+      versioningScheme: byEnvVar
+      versionEnvVar: 'nuget_version'
       zipAfterPublish: true
-    env:
-      nuget_version: 1.0.0-$(build.buildNumber)
+    env:	
+      nuget_version: $(nuGetVersion)
 
   # Publish artifacts
   - task: PublishBuildArtifacts@1

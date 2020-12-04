@@ -22,5 +22,11 @@ namespace Microsoft.Health.Fhir.Core.Data
             string manifestName = $"{@namespace ?? _thisNamespace}.{modelInfoProvider.Version}.{filename}";
             return (assembly ?? _thisAssembly).GetManifestResourceStream(manifestName);
         }
+
+        public static Stream OpenOperationDefinitionFileStream(string filename, string @namespace = null, Assembly assembly = null)
+        {
+            string manifestName = $"{@namespace ?? _thisNamespace}.OperationDefinition.{filename}";
+            return (assembly ?? _thisAssembly).GetManifestResourceStream(manifestName);
+        }
     }
 }
