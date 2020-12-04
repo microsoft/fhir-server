@@ -95,5 +95,7 @@ namespace Microsoft.Health.Fhir.Core.Models
         public bool IsPartiallySupported { get; set; }
 
         public IReadOnlyList<SearchParameterComponentInfo> Component { get; }
+
+        public IReadOnlyList<SearchParameterInfo> ResolvedComponents { get; set; } = Array.Empty<SearchParameterInfo>();
     }
 }

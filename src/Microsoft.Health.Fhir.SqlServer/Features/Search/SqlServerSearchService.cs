@@ -176,6 +176,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                                ?.AcceptVisitor(LastUpdatedToResourceSurrogateIdRewriter.Instance)
                                                .AcceptVisitor(DateTimeEqualityRewriter.Instance)
                                                .AcceptVisitor(FlatteningRewriter.Instance)
+                                               .AcceptVisitor(UntypedReferenceRewriter.Instance)
                                                .AcceptVisitor(_sqlRootExpressionRewriter)
                                                .AcceptVisitor(_sortRewriter, searchOptions)
                                                .AcceptVisitor(DenormalizedPredicateRewriter.Instance)

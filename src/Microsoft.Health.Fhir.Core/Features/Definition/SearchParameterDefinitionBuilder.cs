@@ -212,6 +212,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                         continue;
                     }
 
+                    var resolvedComponents = new List<SearchParameterInfo>(composites.Count);
+
                     for (int componentIndex = 0; componentIndex < composites.Count; componentIndex++)
                     {
                         ITypedElement component = composites[componentIndex];
@@ -244,6 +246,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                                 componentIndex);
                             continue;
                         }
+
+                        resolvedComponents.Add(componentSearchParameter);
+                    }
+
+                    if (resolvedComponents.Count > 0)
+                    {
+                        // this is not actually creating the search parameter, it will return the existing one.
+                        CreateSearchParameterInfo(searchParameter).ResolvedComponents = resolvedComponents;
                     }
                 }
 

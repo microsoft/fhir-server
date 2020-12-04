@@ -170,7 +170,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private IReadOnlyList<ISearchValue> ExtractSearchValues(
             string searchParameterDefinitionUrl,
             SearchParamType? searchParameterType,
-            IEnumerable<string> allowedReferenceResourceTypes,
+            IReadOnlyCollection<string> allowedReferenceResourceTypes,
             ITypedElement element,
             string fhirPathExpression,
             EvaluationContext context)
@@ -239,12 +239,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     continue;
                 }
 
-                _logger.LogDebug(
-                    "The FHIR element '{ElementType}' will be converted using '{ElementTypeConverter}'.",
-                    extractedValue.InstanceType,
-                    converter.GetType().FullName);
+                IEnumerable<ISearchValue> searchValues = converter.ConvertTo(extractedValue);
 
-                results.AddRange(converter.ConvertTo(extractedValue) ?? Enumerable.Empty<ISearchValue>());
+                if (searchValues != null)
+                {
+                    if (searchParameterType == SearchParamType.Reference && allowedReferenceResourceTypes?.Count == 1)
+                    {
+                        // For references, if the type is not specified in the reference string, we can set the type on the search value because
+                        // in this case it can only be of one type.
+                        string singleAllowedResourceType = null;
+                        foreach (ISearchValue searchValue in searchValues)
+                        {
+                            if (searchValue is ReferenceSearchValue rsr && string.IsNullOrEmpty(rsr.ResourceType))
+                            {
+                                results.Add(new ReferenceSearchValue(rsr.Kind, rsr.BaseUri, singleAllowedResourceType ??= allowedReferenceResourceTypes.Single(), rsr.ResourceId));
+                            }
+                            else
+                            {
+                                results.Add(searchValue);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        results.AddRange(searchValues);
+                    }
+                }
             }
 
             return results;
