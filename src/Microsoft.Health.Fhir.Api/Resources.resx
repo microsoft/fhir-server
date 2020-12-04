@@ -326,4 +326,8 @@
   <data name="ContentTypeFormUrlEncodedExpected" xml:space="preserve">
     <value>The "content-type" header must be 'application/x-www-form-urlencoded'.</value>
   </data>
+  <data name="TypeFilterWithoutTypeIsUnsupported" xml:space="preserve">
+    <value>The _type parameter must be included when using the _typeFilter parameter. </value>
+    <comment>Export job parameter exception messsage</comment>
+  </data>
 </root>
