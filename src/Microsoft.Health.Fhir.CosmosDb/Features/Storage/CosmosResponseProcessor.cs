@@ -163,9 +163,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 case KnownCosmosDbCmkSubStatusValue.InvalidKeyVaultKeyUri:
                     errorMessage = Resources.InvalidKeyVaultKeyUri;
                     break;
-                case KnownCosmosDbCmkSubStatusValue.InvalidInputBytes:
-                    errorMessage = Resources.InvalidInputBytes;
-                    break;
                 case KnownCosmosDbCmkSubStatusValue.KeyVaultInternalServerError:
                     errorMessage = Resources.KeyVaultInternalServerError;
                     break;

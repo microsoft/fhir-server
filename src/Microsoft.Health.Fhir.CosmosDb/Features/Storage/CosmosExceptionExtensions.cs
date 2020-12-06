@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Globalization;
 using System.Net;
 using Microsoft.Azure.Cosmos;
@@ -53,6 +54,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             return int.TryParse(cosmosHeaders.Get(CosmosDbHeaders.SubStatus), NumberStyles.Integer, CultureInfo.InvariantCulture, out int subStatusCode)
                 ? subStatusCode
                 : (int?)null;
+        }
+
+        /// <summary>
+        /// Determines if the error is due to a client customer-managed key error
+        /// </summary>
+        /// <param name="exception">The exception object</param>
+        /// <returns>True iff the error is due to client CMK setting.</returns>
+        public static bool IsCmkClientError(this CosmosException exception)
+        {
+            return exception.StatusCode == HttpStatusCode.Forbidden
+                && (Enum.IsDefined(typeof(KnownCosmosDbCmkSubStatusValueClientIssue), exception.SubStatusCode) || exception.SubStatusCode == 3);
         }
     }
 }

@@ -4,8 +4,12 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
+using AngleSharp.Common;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -14,6 +18,7 @@ using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using NSubstitute;
+using NSubstitute.ClearExtensions;
 using NSubstitute.ExceptionExtensions;
 using Xunit;
 
@@ -53,6 +58,38 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
         public async Task GivenCosmosDbCannotBeQueried_WhenHealthIsChecked_ThenUnhealthyStateShouldBeReturned()
         {
             _testProvider.PerformTest(default, default, _cosmosCollectionConfiguration).ThrowsForAnyArgs<HttpRequestException>();
+            HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
+
+            Assert.Equal(HealthStatus.Unhealthy, result.Status);
+        }
+
+        [Fact]
+        public async Task GivenCosmosAccessIsForbidden_IsClientCmkError_WhenHealthIsChecked_ThenHealthyStateShouldBeReturned()
+        {
+            foreach (int clientCmkIssue in new List<int>(Enum.GetValues(typeof(KnownCosmosDbCmkSubStatusValueClientIssue)).Cast<int>()).Concat(3))
+            {
+                _testProvider.ClearSubstitute();
+                _testProvider.PerformTest(default, default, _cosmosCollectionConfiguration)
+                    .ThrowsForAnyArgs(new CosmosException("An error message", HttpStatusCode.Forbidden, subStatusCode: clientCmkIssue, activityId: null, requestCharge: 0));
+
+                HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
+
+                Assert.Equal(HealthStatus.Healthy, result.Status);
+                Assert.Contains("customer-managed key is not available", result.Description);
+            }
+        }
+
+        [Fact]
+        public async Task GivenCosmosAccessIsForbidden_IsNotClientCmkError_WhenHealthIsChecked_ThenUnhealthyStateShouldBeReturned()
+        {
+            _testProvider.PerformTest(default, default, _cosmosCollectionConfiguration)
+                .ThrowsForAnyArgs(new CosmosException(
+                    "An error message",
+                    HttpStatusCode.Forbidden,
+                    subStatusCode: (int)KnownCosmosDbCmkSubStatusValueServerSideIssue.KeyVaultInternalServerError,
+                    activityId: null,
+                    requestCharge: 0));
+
             HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
 
             Assert.Equal(HealthStatus.Unhealthy, result.Status);

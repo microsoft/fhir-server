@@ -64,6 +64,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
 
                 return HealthCheckResult.Healthy("Successfully connected to the data store.");
             }
+            catch (CosmosException ex) when (ex.IsCmkClientError())
+            {
+                return HealthCheckResult.Healthy($"Connection to the data store was unsuccesful, however this is expected because the client's customer-managed key is not available. Error: {ex.Message}");
+            }
             catch (Exception ex) when (ex.IsRequestRateExceeded())
             {
                 return HealthCheckResult.Healthy("Connection to the data store was successful, however, the rate limit has been exceeded.");
