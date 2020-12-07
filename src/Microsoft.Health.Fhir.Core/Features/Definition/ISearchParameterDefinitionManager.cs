@@ -86,7 +86,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         /// <summary>
         /// Allows addition of a new search parameters at runtime.
         /// </summary>
-        /// <param name="searchParameters">An ennumeration containing SearchParameter resources.</param>
-        void AddNewSearchParameters(IList<ITypedElement> searchParameters);
+        /// <param name="searchParameters">An collection containing SearchParameter resources.</param>
+        void AddNewSearchParameters(IReadOnlyCollection<ITypedElement> searchParameters);
     }
 }

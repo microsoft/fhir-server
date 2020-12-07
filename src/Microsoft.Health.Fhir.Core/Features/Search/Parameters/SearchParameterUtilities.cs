@@ -4,7 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using System.Threading;
+using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Microsoft.Health.Fhir.Core.Features.Definition;
@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
         }
 
-        public async System.Threading.Tasks.Task AddSearchParameterAsync(ITypedElement searchParam, CancellationToken cancellationToken)
+        public async Task AddSearchParameterAsync(ITypedElement searchParam)
         {
             _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement>() { searchParam });
 

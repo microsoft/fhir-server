@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
             {
                 // Once the SearchParameter resource is committed to the data store, we can update the in
                 // memory SearchParameterDefinitionManager, and persist the status to the data store
-                await _searchParameterUtitliies.AddSearchParameterAsync(message.Resource.Instance, cancellationToken);
+                await _searchParameterUtitliies.AddSearchParameterAsync(message.Resource.Instance);
             }
 
             return response;

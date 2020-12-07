@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 _reindexUtilities,
                 NullLogger<ReindexJobTask>.Instance);
 
-            _reindexUtilities.UpdateSearchParameters(Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<CancellationToken>()).Returns(x => (true, null));
+            _reindexUtilities.UpdateSearchParameterStatus(Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<CancellationToken>()).Returns(x => (true, null));
         }
 
         public Task DisposeAsync() => Task.CompletedTask;
@@ -230,7 +230,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                 item3 => Assert.True(item3.ContinuationToken == null && item3.Status == OperationStatus.Completed && item3.ResourceType == "AppointmentResponse"),
                 item4 => Assert.True(item4.ContinuationToken == null && item4.Status == OperationStatus.Completed && item4.ResourceType == "Appointment"));
 
-            await _reindexUtilities.Received().UpdateSearchParameters(
+            await _reindexUtilities.Received().UpdateSearchParameterStatus(
                 Arg.Is<IReadOnlyCollection<string>>(r => r.Any(s => s.Contains("Appointment")) &&
                                                          r.Any(s => s.Contains("AppointmentResponse"))),
                 Arg.Any<CancellationToken>());

@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         };
 
         internal static void Build(
-            IList<ITypedElement> searchParameters,
+            IReadOnlyCollection<ITypedElement> searchParameters,
             IDictionary<Uri, SearchParameterInfo> uriDictionary,
             IDictionary<string, IDictionary<string, SearchParameterInfo>> resourceTypeDictionary,
             IModelInfoProvider modelInfoProvider)
@@ -110,11 +110,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         }
 
         private static List<(string ResourceType, SearchParameterInfo SearchParameter)> ValidateAndGetFlattenedList(
-            IList<ITypedElement> searchParameters,
+            IReadOnlyCollection<ITypedElement> searchParamCollection,
             IDictionary<Uri, SearchParameterInfo> uriDictionary,
             IModelInfoProvider modelInfoProvider)
         {
             var issues = new List<OperationOutcomeIssue>();
+            var searchParameters = searchParamCollection.ToList();
 
             // Do the first pass to make sure all resources are SearchParameter.
             for (int entryIndex = 0; entryIndex < searchParameters.Count; entryIndex++)

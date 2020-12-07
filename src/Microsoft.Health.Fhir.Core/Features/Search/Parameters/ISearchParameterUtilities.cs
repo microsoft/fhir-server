@@ -3,13 +3,13 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Threading;
+using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 {
     public interface ISearchParameterUtilities
     {
-        System.Threading.Tasks.Task AddSearchParameterAsync(ITypedElement searchParam, CancellationToken cancellationToken);
+        Task AddSearchParameterAsync(ITypedElement searchParam);
     }
 }

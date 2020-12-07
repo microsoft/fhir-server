@@ -361,7 +361,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 // all queries marked as complete, reindex job is done, check success or failure
                 if (_reindexJobRecord.QueryList.All(q => q.Status == OperationStatus.Completed))
                 {
-                    (bool success, string error) = await _reindexUtilities.UpdateSearchParameters(_reindexJobRecord.SearchParams, cancellationToken);
+                    (bool success, string error) = await _reindexUtilities.UpdateSearchParameterStatus(_reindexJobRecord.SearchParams, cancellationToken);
 
                     if (success)
                     {

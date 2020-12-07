@@ -107,7 +107,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             return _inner.GetSearchParameterHashForResourceType(resourceType);
         }
 
-        public void AddNewSearchParameters(IList<ITypedElement> searchParameters)
+        public void AddNewSearchParameters(IReadOnlyCollection<ITypedElement> searchParameters)
         {
             _inner.AddNewSearchParameters(searchParameters);
         }

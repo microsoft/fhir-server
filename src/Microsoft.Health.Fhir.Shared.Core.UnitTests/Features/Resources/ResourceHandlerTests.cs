@@ -131,7 +131,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             Assert.NotEqual("id1", deserializedResource.Id);
 
             // Ensure for non-SearchParameter, that we do not call Add SearchParameter
-            await _searchParameterUtilities.DidNotReceive().AddSearchParameterAsync(Arg.Any<ITypedElement>(), Arg.Any<CancellationToken>());
+            await _searchParameterUtilities.DidNotReceive().AddSearchParameterAsync(Arg.Any<ITypedElement>());
         }
 
         [Fact]
@@ -146,7 +146,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             await _mediator.CreateResourceAsync(resource);
 
-            await _searchParameterUtilities.Received().AddSearchParameterAsync(Arg.Any<ITypedElement>(), Arg.Any<CancellationToken>());
+            await _searchParameterUtilities.Received().AddSearchParameterAsync(Arg.Any<ITypedElement>());
         }
 
         [Fact]

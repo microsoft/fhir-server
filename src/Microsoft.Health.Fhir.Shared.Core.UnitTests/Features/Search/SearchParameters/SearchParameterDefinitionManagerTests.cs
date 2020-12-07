@@ -288,7 +288,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 Name = "test",
             };
 
-            await _searchParameterUtilties.AddSearchParameterAsync(searchParam.ToTypedElement(), CancellationToken.None);
+            await _searchParameterUtilties.AddSearchParameterAsync(searchParam.ToTypedElement());
 
             var searchParamHash = _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient");
             Assert.NotNull(searchParamHash);
@@ -335,7 +335,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 Name = "test",
             };
 
-            await _searchParameterUtilties.AddSearchParameterAsync(searchParam.ToTypedElement(), CancellationToken.None);
+            await _searchParameterUtilties.AddSearchParameterAsync(searchParam.ToTypedElement());
 
             var patientParamsWithNew = _searchParameterDefinitionManager.GetSearchParameters("Patient");
             Assert.Equal(patientParamCount + 1, patientParamsWithNew.Count());

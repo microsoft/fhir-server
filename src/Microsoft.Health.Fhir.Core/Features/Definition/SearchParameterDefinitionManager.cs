@@ -38,6 +38,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         internal IDictionary<Uri, SearchParameterInfo> UrlLookup { get; set; }
 
+        // TypeLookup key is: Resource type, the inner dictionary key is the Search Parameter name.
         internal IDictionary<string, IDictionary<string, SearchParameterInfo>> TypeLookup { get; }
 
         public IEnumerable<SearchParameterInfo> AllSearchParameters => UrlLookup.Values;
@@ -141,7 +142,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             }
         }
 
-        public void AddNewSearchParameters(IList<ITypedElement> searchParameters)
+        public void AddNewSearchParameters(IReadOnlyCollection<ITypedElement> searchParameters)
         {
             SearchParameterDefinitionBuilder.Build(
                 searchParameters,
