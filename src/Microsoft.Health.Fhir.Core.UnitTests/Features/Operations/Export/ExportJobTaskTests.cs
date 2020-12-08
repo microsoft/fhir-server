@@ -1910,7 +1910,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             var checkedPatient = false;
             var checkedCompartmentPatient = false;
             var checkedEncounter = false;
-            var checkedOther = false;
 
             _searchService.SearchAsync(
                 Arg.Any<string>(),
@@ -2012,8 +2011,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                    }
                    else
                    {
-                       type = KnownResourceTypes.Device;
-                       checkedOther = true;
+                       // Failure condition, Should only check requested resources.
+                       Assert.True(false);
                    }
 
                    return CreateSearchResult(
@@ -2034,7 +2033,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.True(checkedPatient);
             Assert.True(checkedCompartmentPatient);
             Assert.True(checkedEncounter);
-            Assert.True(checkedOther);
 
             // Patient is visited twice (top level and compartment search) so two ids are recorded
             Assert.Equal("11", patientIds);
@@ -2042,9 +2040,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             // Encounter is visited twice (before and after the exception) so two ids are recorded
             Assert.Equal("11", encounterIds);
-            Assert.Equal("1", deviceIds);
 
-            Assert.Equal(4, _inMemoryDestinationClient.ExportedDataFileCount);
+            Assert.Equal(3, _inMemoryDestinationClient.ExportedDataFileCount);
             Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
         }
 

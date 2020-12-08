@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
 using EnsureThat;
 using Newtonsoft.Json;
 
@@ -18,9 +19,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             SubSearch = subSearch;
             CurrentFilter = filter;
 
-            // It is not safe to assume that if no filter is passed into the constructor that there are no filters.
-            // When the progress is first created the list of filters hasn't been parsed yet.
-            FilteredSearchesComplete = false;
+            CompletedFilters = new List<ExportJobFilter>();
         }
 
         [JsonConstructor]
@@ -44,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         /// Indicates if all the filters for the job have been evaluated.
         /// </summary>
         [JsonProperty(JobRecordProperties.FilteredSearchesComplete)]
-        public bool FilteredSearchesComplete { get; private set; }
+        public List<ExportJobFilter> CompletedFilters { get; private set; }
 
         [JsonProperty(JobRecordProperties.TriggeringResourceId)]
         public string TriggeringResourceId { get; private set; }
@@ -62,16 +61,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
         public void SetFilter(ExportJobFilter filter)
         {
+            if (CurrentFilter != null)
+            {
+                CompletedFilters.Add(CurrentFilter);
+            }
+
             CurrentFilter = filter;
             Page = 0;
             ContinuationToken = null;
         }
 
-        public void MarkFiltersFinished()
+        public void MarkFilterFinished()
         {
-            FilteredSearchesComplete = true;
-            Page = 0;
-            ContinuationToken = null;
+            SetFilter(null);
         }
 
         public void NewSubSearch(string resourceId)

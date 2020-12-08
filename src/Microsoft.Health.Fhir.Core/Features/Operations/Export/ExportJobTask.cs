@@ -246,47 +246,36 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             IAnonymizer anonymizer = IsAnonymizedExportJob() ? await CreateAnonymizerAsync(cancellationToken) : null;
 
-            if (!progress.FilteredSearchesComplete)
+            if (progress.CurrentFilter != null)
             {
-                var index = -1;
-                if (_exportJobRecord.Filters != null)
-                {
-                    foreach (var filter in _exportJobRecord.Filters)
-                    {
-                        index++;
-
-                        if (progress.CurrentFilter != null && filter != progress.CurrentFilter)
-                        {
-                            continue;
-                        }
-
-                        if (requestedResourceTypes != null &&
-                            requestedResourceTypes.Contains(filter.ResourceType, StringComparison.OrdinalIgnoreCase) &&
-                            (_exportJobRecord.ExportType == ExportJobType.All || filter.ResourceType.Equals(KnownResourceTypes.Patient, StringComparison.Ordinal)))
-                        {
-                            progress.SetFilter(filter);
-
-                            List<Tuple<string, string>> filterQueryParametersList = new List<Tuple<string, string>>(queryParametersList);
-                            foreach (var param in filter.Parameters)
-                            {
-                                filterQueryParametersList.Add(param);
-                            }
-
-                            await SearchWithFilter(exportJobConfiguration, progress, filter.ResourceType, filterQueryParametersList, sharedQueryParametersList, anonymizer, "filter" + index + "-", cancellationToken);
-
-                            progress.SetFilter(null);
-                            await UpdateJobRecordAsync(cancellationToken);
-                        }
-                    }
-                }
-
-                progress.MarkFiltersFinished();
-                await UpdateJobRecordAsync(cancellationToken);
+                await ProcessFilter(exportJobConfiguration, progress, queryParametersList, sharedQueryParametersList, anonymizer, "filter", cancellationToken);
             }
 
-            // This runs if the filteredResources doesn't contain Patient so that when a Patient or Group export is run it will run a full search of Patients.
-            // If Patients was filtered the search would already have been run above.
-            if (_exportJobRecord.ExportType == ExportJobType.All || !filteredResources.Contains(KnownResourceTypes.Patient.ToUpper(CultureInfo.InvariantCulture)))
+            if (_exportJobRecord.Filters != null && _exportJobRecord.Filters.Any(filter => !progress.CompletedFilters.Contains(filter)))
+            {
+                foreach (var filter in _exportJobRecord.Filters)
+                {
+                    if (!progress.CompletedFilters.Contains(filter) &&
+                        requestedResourceTypes != null &&
+                        requestedResourceTypes.Contains(filter.ResourceType, StringComparison.OrdinalIgnoreCase) &&
+                        (_exportJobRecord.ExportType == ExportJobType.All || filter.ResourceType.Equals(KnownResourceTypes.Patient, StringComparison.Ordinal)))
+                    {
+                        progress.SetFilter(filter);
+                        await ProcessFilter(exportJobConfiguration, progress, queryParametersList, sharedQueryParametersList, anonymizer, "filter", cancellationToken);
+                    }
+                }
+            }
+
+            // The unfiltered search should be run if there were no filters specified, there were types requested that didn't have filters for them, or if a Patient/Group level export didn't have filters for Patients.
+            // Examples:
+            // If a patient/group export job with type and type filters is run, but patients aren't in the types requested, the search should be run here but no patients printed to the output
+            // If a patient/group export job with type and type filters is run, and patients are in the types requested and filtered, the search should not be run as patients were searched above
+            // If an export job with type and type filters is run, the search should not be run if all the types were searched above.
+            if (_exportJobRecord.Filters == null ||
+                (_exportJobRecord.ExportType == ExportJobType.All &&
+                !requestedResourceTypes.All(resourceType => filteredResources.Contains(resourceType.ToUpper(CultureInfo.InvariantCulture)))) ||
+                ((_exportJobRecord.ExportType == ExportJobType.Patient || _exportJobRecord.ExportType == ExportJobType.Group) &&
+                !filteredResources.Contains(KnownResourceTypes.Patient.ToUpper(CultureInfo.InvariantCulture))))
             {
                 if (_exportJobRecord.ExportType == ExportJobType.Patient)
                 {
@@ -305,6 +294,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 await SearchWithFilter(exportJobConfiguration, progress, null, queryParametersList, sharedQueryParametersList, anonymizer, string.Empty, cancellationToken);
             }
+        }
+
+        private async Task ProcessFilter(
+            ExportJobConfiguration exportJobConfiguration,
+            ExportJobProgress exportJobProgress,
+            List<Tuple<string, string>> queryParametersList,
+            List<Tuple<string, string>> sharedQueryParametersList,
+            IAnonymizer anonymizer,
+            string batchIdPrefix,
+            CancellationToken cancellationToken)
+        {
+            var index = _exportJobRecord.Filters.IndexOf(exportJobProgress.CurrentFilter);
+            List<Tuple<string, string>> filterQueryParametersList = new List<Tuple<string, string>>(queryParametersList);
+            foreach (var param in exportJobProgress.CurrentFilter.Parameters)
+            {
+                filterQueryParametersList.Add(param);
+            }
+
+            await SearchWithFilter(exportJobConfiguration, exportJobProgress, exportJobProgress.CurrentFilter.ResourceType, filterQueryParametersList, sharedQueryParametersList, anonymizer, batchIdPrefix + index + "-", cancellationToken);
+
+            exportJobProgress.MarkFilterFinished();
+            await UpdateJobRecordAsync(cancellationToken);
         }
 
         private async Task SearchWithFilter(
@@ -437,54 +448,58 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 }
             }
 
-            if (!progress.FilteredSearchesComplete)
+            if (progress.CurrentFilter != null)
             {
-                var index = -1;
-                if (_exportJobRecord.Filters != null)
+                await ProcessFilterForCompartment(exportJobConfiguration, progress, queryParametersList, batchIdPrefix + "-filter", cancellationToken);
+            }
+
+            if (_exportJobRecord.Filters != null && _exportJobRecord.Filters.Any(filter => !progress.CompletedFilters.Contains(filter)))
+            {
+                foreach (var filter in _exportJobRecord.Filters)
                 {
-                    foreach (var filter in _exportJobRecord.Filters)
+                    if (!progress.CompletedFilters.Contains(filter) &&
+                        requestedResourceTypes != null &&
+                        requestedResourceTypes.Contains(filter.ResourceType, StringComparison.OrdinalIgnoreCase))
                     {
-                        if (requestedResourceTypes != null &&
-                            requestedResourceTypes.Contains(filter.ResourceType, StringComparison.OrdinalIgnoreCase))
+                        progress.SetFilter(filter);
+                        await ProcessFilterForCompartment(exportJobConfiguration, progress, queryParametersList, batchIdPrefix + "-filter", cancellationToken);
+                    }
+                }
+            }
+
+            if (_exportJobRecord.Filters == null ||
+                !requestedResourceTypes.All(resourceType => filteredResources.Contains(resourceType.ToUpper(CultureInfo.InvariantCulture))))
+            {
+                if (requestedResourceTypes != null)
+                {
+                    foreach (var resource in requestedResourceTypes)
+                    {
+                        if (!filteredResources.Contains(resource.ToUpper(CultureInfo.InvariantCulture)))
                         {
-                            index++;
-                            if (progress.CurrentFilter != null && filter != progress.CurrentFilter)
-                            {
-                                continue;
-                            }
-
-                            progress.SetFilter(filter);
-
-                            List<Tuple<string, string>> filterQueryParametersList = new List<Tuple<string, string>>(queryParametersList);
-                            foreach (var param in filter.Parameters)
-                            {
-                                filterQueryParametersList.Add(param);
-                            }
-
-                            await SearchCompartmentWithFilter(exportJobConfiguration, progress, filter.ResourceType, filterQueryParametersList, batchIdPrefix + "-filter" + index, cancellationToken);
-
-                            progress.SetFilter(null);
-                            await UpdateJobRecordAsync(cancellationToken);
+                            queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type, resource));
                         }
                     }
                 }
 
-                progress.MarkFiltersFinished();
-                await UpdateJobRecordAsync(cancellationToken);
+                await SearchCompartmentWithFilter(exportJobConfiguration, progress, null, queryParametersList, batchIdPrefix, cancellationToken);
             }
+        }
 
-            if (requestedResourceTypes != null)
+        private async Task ProcessFilterForCompartment(
+            ExportJobConfiguration exportJobConfiguration,
+            ExportJobProgress exportJobProgress,
+            List<Tuple<string, string>> queryParametersList,
+            string batchIdPrefix,
+            CancellationToken cancellationToken)
+        {
+            var index = _exportJobRecord.Filters.IndexOf(exportJobProgress.CurrentFilter);
+            List<Tuple<string, string>> filterQueryParametersList = new List<Tuple<string, string>>(queryParametersList);
+            foreach (var param in exportJobProgress.CurrentFilter.Parameters)
             {
-                foreach (var resource in requestedResourceTypes)
-                {
-                    if (!filteredResources.Contains(resource.ToUpper(CultureInfo.InvariantCulture)))
-                    {
-                        queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type, resource));
-                    }
-                }
+                filterQueryParametersList.Add(param);
             }
 
-            await SearchCompartmentWithFilter(exportJobConfiguration, progress, null, queryParametersList, batchIdPrefix, cancellationToken);
+            await SearchCompartmentWithFilter(exportJobConfiguration, exportJobProgress, exportJobProgress.CurrentFilter.ResourceType, filterQueryParametersList, batchIdPrefix + index, cancellationToken);
         }
 
         private async Task SearchCompartmentWithFilter(
@@ -530,6 +545,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             // Commit one last time for any pending changes.
             await _exportDestinationClient.CommitAsync(exportJobConfiguration, cancellationToken);
+
+            progress.MarkFilterFinished();
             await UpdateJobRecordAsync(cancellationToken);
         }
 
