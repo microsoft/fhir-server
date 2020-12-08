@@ -472,7 +472,6 @@
     <value>Changes to seach parameters is not allowed while a reindex job is ongoing.  Wait for the reindex job with Id: {0} to finish, or cancel it.</value>
     <comment>{0} Id of currently active Reindex job.</comment>
   </data>
-</root>
   <data name="ConvertDataFailed" xml:space="preserve">
     <value>Failed to convert the input data. Reason: {0}</value>
     <comment>{0} is the failure reason.</comment>
