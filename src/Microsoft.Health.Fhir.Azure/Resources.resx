@@ -129,8 +129,19 @@
   <data name="CannotGetAccessToken" xml:space="preserve">
     <value>Unable to get access token for storage account for export.</value>
   </data>
+  <data name="CannotGetAcrAccessToken" xml:space="preserve">
+    <value>Failed to get access token for Azure Container Registry. Please check your configuration.</value>
+  </data>
   <data name="CannotGetAuthorizedClient" xml:space="preserve">
     <value>Unable to get an authorized client to export destination.</value>
+  </data>
+  <data name="ContainerRegistryNotAuthorized" xml:space="preserve">
+    <value>Failed to access container registry '{0}', please check your configuration.</value>
+    <comment>{0}: the container registry login server</comment>
+  </data>
+  <data name="ContainerRegistryNotFound" xml:space="preserve">
+    <value>Container registry '{0}' not found.</value>
+    <comment>{0}: the container registry login server</comment>
   </data>
   <data name="DestinationClientNotConnected" xml:space="preserve">
     <value>The destination client is not connected to the destination end point.</value>

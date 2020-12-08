@@ -70,13 +70,37 @@ namespace Microsoft.Health.Fhir.Azure {
                 return ResourceManager.GetString("CannotGetAccessToken", resourceCulture);
             }
         }
-        
+
+        internal static string CannotGetAcrAccessToken
+        {
+            get
+            {
+                return ResourceManager.GetString("CannotGetAcrAccessToken", resourceCulture);
+            }
+        }
+
         internal static string CannotGetAuthorizedClient {
             get {
                 return ResourceManager.GetString("CannotGetAuthorizedClient", resourceCulture);
             }
         }
-        
+
+        internal static string ContainerRegistryNotAuthorized
+        {
+            get
+            {
+                return ResourceManager.GetString("ContainerRegistryNotAuthorized", resourceCulture);
+            }
+        }
+
+        internal static string ContainerRegistryNotFound
+        {
+            get
+            {
+                return ResourceManager.GetString("ContainerRegistryNotFound", resourceCulture);
+            }
+        }
+
         internal static string DestinationClientNotConnected {
             get {
                 return ResourceManager.GetString("DestinationClientNotConnected", resourceCulture);
@@ -94,5 +118,6 @@ namespace Microsoft.Health.Fhir.Azure {
                 return ResourceManager.GetString("InvalidStorageUri", resourceCulture);
             }
         }
+
     }
 }

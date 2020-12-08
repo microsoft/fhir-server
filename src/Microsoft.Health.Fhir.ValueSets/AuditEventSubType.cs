@@ -58,5 +58,7 @@ namespace Microsoft.Health.Fhir.ValueSets
         public const string Export = "export";
 
         public const string Reindex = "reindex";
+
+        public const string ConvertData = "convert-data";
     }
 }

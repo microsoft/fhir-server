@@ -54,6 +54,7 @@
     <None Remove="TestFiles\Patient-f001.json" />
     <None Remove="TestFiles\Patient.json" />
     <None Remove="TestFiles\Patient.xml" />
+    <None Remove="TestFiles\R4\conversion_templates.tar.gz" />
     <None Remove="TestFiles\R4\DocumentReference-example-relatesTo-code-appends.indexes.json" />
     <None Remove="TestFiles\R4\DocumentReference-example-relatesTo-code-appends.json" />
     <None Remove="TestFiles\R4\DocumentReference-example-relatesTo-code-transforms-add-target.indexes.json" />
@@ -62,6 +63,7 @@
     <None Remove="TestFiles\R4\DocumentReference-example-relatesTo-code-transforms-replaces-target.json" />
     <None Remove="TestFiles\R4\DocumentReference-example-relatesTo-code-transforms.indexes.json" />
     <None Remove="TestFiles\R4\DocumentReference-example-relatesTo-code-transforms.json" />
+    <None Remove="TestFiles\R4\Parameter-Convert-Data.json" />
     <None Remove="TestFiles\R5\BasicExampleNarrative.json" />
     <None Remove="TestFiles\R5\BasicExampleNarrative.xml" />
     <None Remove="TestFiles\Normative\BloodGlucose.json" />
@@ -104,6 +106,7 @@
     <None Remove="TestFiles\Normative\Weight.json" />
     <None Remove="TestFiles\Normative\WeightInGrams.json" />
     <None Remove="TestFiles\R5\Condition-For-Patient-f001.json" />
+    <None Remove="TestFiles\R5\conversion_templates.tar.gz" />
     <None Remove="TestFiles\R5\Device-d1.json" />
     <None Remove="TestFiles\R5\DocumentReference-example-002.json" />
     <None Remove="TestFiles\R5\DocumentReference-example-003.json" />
@@ -122,6 +125,7 @@
     <None Remove="TestFiles\R5\MedicinalProductDefinition.json" />
     <None Remove="TestFiles\R5\ObservationDefinition-example.json" />
     <None Remove="TestFiles\R5\Organization.json" />
+    <None Remove="TestFiles\R5\Parameter-Convert-Data.json" />
     <None Remove="TestFiles\R5\ValidCompartmentDefinition.json" />
     <None Remove="TestFiles\R4\BasicExampleNarrative.json" />
     <None Remove="TestFiles\R4\BasicExampleNarrative.xml" />
@@ -153,6 +157,7 @@
     <None Remove="TestFiles\Stu3\Bundle-TransactionWithPOSTFullUrlMatchesWithPUTRequestUrl.json" />
     <None Remove="TestFiles\Stu3\Bundle-TransactionWithReferenceInResourceBody.json" />
     <None Remove="TestFiles\Stu3\Bundle-TypeMissing.json" />
+    <None Remove="TestFiles\Stu3\conversion_templates.tar.gz" />
     <None Remove="TestFiles\Stu3\DocumentReference-example-002.json" />
     <None Remove="TestFiles\Stu3\DocumentReference-example-003.json" />
     <None Remove="TestFiles\Stu3\DocumentReference-example-relatesTo-code-appends.indexes.json" />
@@ -165,6 +170,7 @@
     <None Remove="TestFiles\Stu3\DocumentReference-example-relatesTo-code-transforms.json" />
     <None Remove="TestFiles\Stu3\Location-example-hq.json" />
     <None Remove="TestFiles\Stu3\ObservationWithLongEyeColor.json" />
+    <None Remove="TestFiles\Stu3\Parameter-Convert-Data.json" />
     <None Remove="TestFiles\Stu3\PatientWithMinimalData.json" />
     <None Remove="TestFiles\ValidCompartmentDefinition.json" />
     <None Remove="TestFiles\Weight.json" />
@@ -230,16 +236,19 @@
     <EmbeddedResource Include="TestFiles\Normative\Patient.xml" />
     <EmbeddedResource Include="TestFiles\Normative\Weight.json" />
     <EmbeddedResource Include="TestFiles\Normative\WeightInGrams.json" />
+    <EmbeddedResource Include="TestFiles\R4\conversion_templates.tar.gz" />
     <EmbeddedResource Include="TestFiles\R4\DocumentReference-example-relatesTo-code-appends.indexes.json" />
     <EmbeddedResource Include="TestFiles\R4\DocumentReference-example-relatesTo-code-appends.json" />
     <EmbeddedResource Include="TestFiles\R4\DocumentReference-example-relatesTo-code-transforms-replaces-target.indexes.json" />
     <EmbeddedResource Include="TestFiles\R4\DocumentReference-example-relatesTo-code-transforms-replaces-target.json" />
     <EmbeddedResource Include="TestFiles\R4\DocumentReference-example-relatesTo-code-transforms.indexes.json" />
     <EmbeddedResource Include="TestFiles\R4\DocumentReference-example-relatesTo-code-transforms.json" />
+    <EmbeddedResource Include="TestFiles\R4\Parameter-Convert-Data.json" />
     <EmbeddedResource Include="TestFiles\R5\BasicExampleNarrative.json" />
     <EmbeddedResource Include="TestFiles\R5\BasicExampleNarrative.xml" />
     <EmbeddedResource Include="TestFiles\R5\Bundle-TransactionWithReferenceInResourceBody.json" />
     <EmbeddedResource Include="TestFiles\R5\Condition-For-Patient-f001.json" />
+    <EmbeddedResource Include="TestFiles\R5\conversion_templates.tar.gz" />
     <EmbeddedResource Include="TestFiles\R5\Device-d1.json" />
     <EmbeddedResource Include="TestFiles\R5\DocumentReference-example-relatesTo-code-appends.indexes.json" />
     <EmbeddedResource Include="TestFiles\R5\DocumentReference-example-relatesTo-code-appends.json" />
@@ -253,6 +262,7 @@
     <EmbeddedResource Include="TestFiles\R5\MedicinalProductDefinition.json" />
     <EmbeddedResource Include="TestFiles\R5\ObservationDefinition-example.json" />
     <EmbeddedResource Include="TestFiles\R5\Organization.json" />
+    <EmbeddedResource Include="TestFiles\R5\Parameter-Convert-Data.json" />
     <EmbeddedResource Include="TestFiles\R5\ValidCompartmentDefinition.json" />
     <EmbeddedResource Include="TestFiles\R4\BasicExampleNarrative.json" />
     <EmbeddedResource Include="TestFiles\R4\BasicExampleNarrative.xml" />
@@ -287,6 +297,7 @@
     <EmbeddedResource Include="TestFiles\Stu3\Bundle-TransactionWithPOSTFullUrlMatchesWithPUTRequestUrl.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Bundle-TypeMissing.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Condition-For-Patient-f001.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\conversion_templates.tar.gz" />
     <EmbeddedResource Include="TestFiles\Stu3\Device-d1.json" />
     <EmbeddedResource Include="TestFiles\Stu3\DeviceComponent-For-Device-d1.json" />
     <EmbeddedResource Include="TestFiles\Stu3\DocumentReference-example-relatesTo-code-appends.indexes.json" />
@@ -312,6 +323,7 @@
     <EmbeddedResource Include="TestFiles\Stu3\ObservationWithNoCode.xml" />
     <EmbeddedResource Include="TestFiles\Stu3\ObservationWithNoCode.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Organization.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\Parameter-Convert-Data.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Patient-f001.json" />
     <EmbeddedResource Include="TestFiles\Stu3\PatientWithMinimalData.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Patient.json" />

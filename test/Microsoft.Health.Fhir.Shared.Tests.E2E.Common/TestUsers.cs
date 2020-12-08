@@ -13,6 +13,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Common
 
         public static TestUser ExportUser { get; } = new TestUser("globalExporterUser");
 
+        public static TestUser ConvertDataUser { get; } = new TestUser("globalConverterUser");
+
         public static TestUser AdminUser { get; } = new TestUser("globalAdminUser");
     }
 }
