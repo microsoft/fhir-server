@@ -288,3 +288,6 @@ tempkey.jwk
 
 # Azure Service Operator install dir
 install-aso/
+
+# Generated C# code
+*.Generated.cs

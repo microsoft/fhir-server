@@ -1,0 +1,64 @@
+{
+    "resourceType": "OperationDefinition",
+    "id": "anonymized-export",
+    "url": "[base]/OperationDefinition/anonymized-export",
+    "version": "1.0.0",
+    "name": "Anonymized Export",
+    "status": "active",
+    "kind": "operation",
+    "description": "Export all data from a FHIR server after anonymizing it using the [FHIR Tools of Anonymization] (https://github.com/microsoft/FHIR-Tools-for-Anonymization/blob/master/README.md). More details regarding bulk export can be found [here] [http://hl7.org/fhir/uv/bulkdata/export/index.html]. This operation is asynchronous as defined in the [FHIR Asynchronous Request Pattern](http://hl7.org/fhir/async.html)",
+    "code": "export",
+    "system": true,
+    "type": false,
+    "instance": false,
+    "parameter": [
+        {
+            "name": "_outputFormat",
+            "use": "in",
+            "min": 0,
+            "max": "1",
+            "documentation": "The format for the requested bulk data files to be generated. Supported formats - `application/fhir+ndjson`.",
+            "type": "string"
+        },
+        {
+            "name": "_since",
+            "use": "in",
+            "min": 0,
+            "max": "1",
+            "documentation": "Resources updated after this period will be included in the response.",
+            "type": "instant"
+        },
+        {
+            "name": "_type",
+            "use": "in",
+            "min": 0,
+            "max": "1",
+            "documentation": "A string of comma-delimited FHIR resource types. Only resources of the specified resource types(s) will be included in the response.",
+            "type": "string"
+        },
+        {
+            "name": "_container",
+            "use": "in",
+            "min": 1,
+            "max": "1",
+            "documentation": "Name of the container to which data needs to be exported to.",
+            "type": "string"
+        },
+        {
+            "name": "_anonymizationConfig",
+            "use": "in",
+            "min": 1,
+            "max": "1",
+            "documentation": "Path to a file that contains the anonymization configuration information that determines how the exported data will be anonymized. More information can be found [here] (https://github.com/microsoft/FHIR-Tools-for-Anonymization#configuration-file-format)",
+            "type": "string"
+        },
+        {
+            "name": "_anonymizationConfigEtag",
+            "use": "in",
+            "min": 1,
+            "max": "1",
+            "documentation": "ETag that represents the version of the _anonymizationConfig file that needs to be used.",
+            "type": "string"
+        }
+    ]
+}

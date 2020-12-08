@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
 
         public string Tag { get; private set; }
 
-        public Patient Patient { get; private set; }
+        public Patient PatiPatient { get; private set; }
 
         public Patient AdamsPatient { get; private set; }
 
@@ -110,7 +110,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
             TramadolMedication = (await TestFhirClient.CreateAsync(new Medication { Meta = meta, Code = new CodeableConcept("http://snomed.info/sct", "108505002", "Tramadol hydrochloride (substance)") })).Resource;
             Organization = (await TestFhirClient.CreateAsync(new Organization { Meta = meta, Address = new List<Address> { new Address { City = "Seattle" } } })).Resource;
             Practitioner = (await TestFhirClient.CreateAsync(new Practitioner { Meta = meta })).Resource;
-            Patient = await CreatePatient("Pati", Practitioner, Organization);
+            PatiPatient = await CreatePatient("Pati", Practitioner, Organization, "1990-01-01");
 
             // Organization Hierarchy
             LabFOrganization = TestFhirClient.CreateAsync(new Organization { Meta = meta }).Result.Resource;
@@ -124,15 +124,15 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
             SanchezPractitioner = (await TestFhirClient.CreateAsync(new Practitioner { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Sanchez" } } })).Resource;
             TaylorPractitioner = (await TestFhirClient.CreateAsync(new Practitioner { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Taylor" } } })).Resource;
 
-            AdamsPatient = await CreatePatient("Adams", AndersonPractitioner, Organization);
-            SmithPatient = await CreatePatient("Smith",  SanchezPractitioner, Organization);
-            TrumanPatient = await CreatePatient("Truman",  TaylorPractitioner, Organization);
+            AdamsPatient = await CreatePatient("Adams", AndersonPractitioner, Organization, "1974-12-25");
+            SmithPatient = await CreatePatient("Smith",  SanchezPractitioner, Organization, "1981-07-02");
+            TrumanPatient = await CreatePatient("Truman",  TaylorPractitioner, Organization, "1941-01-15");
 
-            AdamsLoincObservation = await CreateObservation(AdamsPatient, Practitioner, Organization, loincCode);
-            SmithLoincObservation = await CreateObservation(SmithPatient, Practitioner, Organization, loincCode);
-            SmithSnomedObservation = await CreateObservation(SmithPatient, Practitioner, Organization, snomedCode);
-            TrumanLoincObservation = await CreateObservation(TrumanPatient, Practitioner, Organization, loincCode);
-            TrumanSnomedObservation = await CreateObservation(TrumanPatient, Practitioner, Organization, snomedCode);
+            AdamsLoincObservation = await CreateObservation(AdamsPatient, Practitioner, Organization, loincCode, "1990-06-12");
+            SmithLoincObservation = await CreateObservation(SmithPatient, Practitioner, Organization, loincCode, "2008-04-10");
+            SmithSnomedObservation = await CreateObservation(SmithPatient, Practitioner, Organization, snomedCode, "1977-09-01");
+            TrumanLoincObservation = await CreateObservation(TrumanPatient, Practitioner, Organization, loincCode, "2018-11-09");
+            TrumanSnomedObservation = await CreateObservation(TrumanPatient, Practitioner, Organization, snomedCode, "1980-03-17");
 
             SmithSnomedDiagnosticReport = await CreateDiagnosticReport(SmithPatient, SmithSnomedObservation, snomedCode);
             TrumanSnomedDiagnosticReport = await CreateDiagnosticReport(TrumanPatient, TrumanSnomedObservation, snomedCode);
@@ -181,7 +181,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
                     })).Resource;
             }
 
-            async Task<Observation> CreateObservation(Patient patient, Practitioner practitioner, Organization organization, CodeableConcept code)
+            async Task<Observation> CreateObservation(Patient patient, Practitioner practitioner, Organization organization, CodeableConcept code, string effectiveDate)
             {
                 return (await TestFhirClient.CreateAsync(
                     new Observation()
@@ -195,15 +195,17 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
                             new ResourceReference($"Organization/{organization.Id}"),
                             new ResourceReference($"Practitioner/{practitioner.Id}"),
                         },
+                        Effective = new FhirDateTime(effectiveDate),
                     })).Resource;
             }
 
-            async Task<Patient> CreatePatient(string familyName, Practitioner practitioner, Organization organization)
+            async Task<Patient> CreatePatient(string familyName, Practitioner practitioner, Organization organization, string birthDate)
             {
                 return (await TestFhirClient.CreateAsync(
                     new Patient
                     {
                         Meta = meta,
+                        BirthDate = birthDate,
                         Name = new List<HumanName> { new HumanName { Family = familyName } },
                         GeneralPractitioner = new List<ResourceReference>()
                         {

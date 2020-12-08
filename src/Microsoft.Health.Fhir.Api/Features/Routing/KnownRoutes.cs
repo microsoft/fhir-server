@@ -28,10 +28,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         public const string ResourceTypeByIdHistory = ResourceTypeById + "/" + History;
         public const string ResourceTypeByIdAndVid = ResourceTypeByIdHistory + "/" + VidRouteSegment;
 
+        public const string OperationDefinition = "OperationDefinition";
+
         public const string Export = "$export";
         public const string ExportResourceType = ResourceType + "/" + Export;
         public const string ExportResourceTypeById = ResourceTypeById + "/" + Export;
         public const string ExportJobLocation = OperationsConstants.Operations + "/" + OperationsConstants.Export + "/" + IdRouteSegment;
+        public const string ExportOperationDefinition = OperationDefinition + "/" + OperationsConstants.Export;
+        public const string PatientExportOperationDefinition = OperationDefinition + "/" + OperationsConstants.PatientExport;
+        public const string GroupExportOperationDefinition = OperationDefinition + "/" + OperationsConstants.GroupExport;
+        public const string AnonymizedExportOperationDefinition = OperationDefinition + "/" + OperationsConstants.AnonymizedExport;
 
         public const string Validate = "$validate";
         public const string ValidateResourceType = ResourceType + "/" + Validate;
@@ -40,13 +46,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         public const string Reindex = "$reindex";
         public const string ReindexSingleResource = ResourceTypeById + "/" + Reindex;
         public const string ReindexJobLocation = OperationsConstants.Operations + "/" + OperationsConstants.Reindex + "/" + IdRouteSegment;
+        public const string ReindexOperationDefinition = OperationDefinition + "/" + OperationsConstants.Reindex;
+        public const string ResourceReindexOperationDefinition = OperationDefinition + "/" + OperationsConstants.ResourceReindex;
 
         public const string ConvertData = "$convert-data";
 
         public const string CompartmentTypeByResourceType = CompartmentTypeRouteSegment + "/" + IdRouteSegment + "/" + CompartmentResourceTypeRouteSegment;
 
         public const string Metadata = "metadata";
-
         public const string Versions = "$versions";
 
         public const string HealthCheck = "/health/check";
