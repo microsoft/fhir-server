@@ -3,11 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using EnsureThat;
-using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
@@ -29,28 +28,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             EnsureArg.IsNotNull(searchParamaterInfos, nameof(searchParamaterInfos));
             EnsureArg.IsGt(searchParamaterInfos.Count(), 0, nameof(searchParamaterInfos));
 
-            StringBuilder sb = new StringBuilder();
+            HashCode hashCode = default;
             foreach (SearchParameterInfo searchParamInfo in searchParamaterInfos.OrderBy(x => x.Url.ToString()))
             {
-                sb.Append(searchParamInfo.Url.ToString());
-                sb.Append(searchParamInfo.Type.ToString());
-                sb.Append(searchParamInfo.Expression);
+                hashCode.Add(searchParamInfo.Url);
+                hashCode.Add(searchParamInfo.Type);
+                hashCode.Add(searchParamInfo.Expression);
 
                 if (searchParamInfo.TargetResourceTypes != null &&
                     searchParamInfo.TargetResourceTypes.Any())
                 {
-                    sb.Append(string.Join(null, searchParamInfo.TargetResourceTypes.OrderBy(s => s)));
+                    hashCode.Add(string.Join(null, searchParamInfo.TargetResourceTypes.OrderBy(s => s)), StringComparer.Ordinal);
                 }
 
                 if (searchParamInfo.BaseResourceTypes != null &&
                     searchParamInfo.BaseResourceTypes.Any())
                 {
-                    sb.Append(string.Join(null, searchParamInfo.BaseResourceTypes.OrderBy(s => s)));
+                    hashCode.Add(string.Join(null, searchParamInfo.BaseResourceTypes.OrderBy(s => s)), StringComparer.Ordinal);
                 }
             }
 
-            string hash = sb.ToString().ComputeHash();
-            return hash;
+            return hashCode.ToHashCode().ToString();
         }
     }
 }
