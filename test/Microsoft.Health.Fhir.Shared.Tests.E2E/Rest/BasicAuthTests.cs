@@ -11,7 +11,10 @@ using System.Net.Http.Headers;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
+using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Client;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -34,12 +37,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         private const string ForbiddenMessage = "Forbidden: Authorization failed.";
         private const string UnauthorizedMessage = "Unauthorized: Authentication failed.";
         private const string InvalidToken = "eyJhbGciOiJSUzI1NiIsImtpZCI6ImNmNWRmMGExNzY5ZWIzZTFkOGRiNWIxMGZiOWY3ZTk0IiwidHlwIjoiSldUIn0.eyJuYmYiOjE1NDQ2ODQ1NzEsImV4cCI6MTU0NDY4ODE3MSwiaXNzIjoiaHR0cHM6Ly9sb2NhbGhvc3Q6NDQzNDgiLCJhdWQiOlsiaHR0cHM6Ly9sb2NhbGhvc3Q6NDQzNDgvcmVzb3VyY2VzIiwiZmhpci1haSJdLCJjbGllbnRfaWQiOiJzZXJ2aWNlY2xpZW50Iiwicm9sZXMiOiJhZG1pbiIsImFwcGlkIjoic2VydmljZWNsaWVudCIsInNjb3BlIjpbImZoaXItYWkiXX0.SKSvy6Jxzwsv1ZSi0PO4Pdq6QDZ6mBJIRxUPgoPlz2JpiB6GMXu5u0n1IpS6zOXihGkGhegjtcqj-6TKE6Ou5uhQ0VTnmf-NxcYKFl48aDihcGem--qa2V8GC7na549Ctj1PLXoYUbovV4LB27Kj3X83sZVnWdHqg_G0AKo4xm7hr23VUvJ1D73lEcYaGd5K9GXHNgUrJO5v288y0uCXZ5ByNDJ-K6Xi7_68dLdshlIiHaeIBuC3rhchSf2hdglkQgOyo4g4gT_HfKjwdrrpGzepNXOPQEwtUs_o2uriXAd7FfbL_Q4ORiDWPXkmwBXqo7uUfg-2SnT3DApc3PuA0";
+        private readonly bool _convertDataEnabled = false;
 
         private readonly TestFhirClient _client;
 
         public BasicAuthTests(HttpIntegrationTestFixture fixture)
         {
             _client = fixture.TestFhirClient;
+            var convertDataConfiguration = ((IOptions<ConvertDataConfiguration>)(fixture.TestFhirServer as InProcTestFhirServer)?.Server?.Services?.GetService(typeof(IOptions<ConvertDataConfiguration>)))?.Value;
+            _convertDataEnabled = convertDataConfiguration?.Enabled ?? false;
         }
 
         [Fact]
@@ -207,6 +213,51 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             Uri contentLocation = await tempClient.ExportAsync();
             await tempClient.CancelExport(contentLocation);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAUserWithNoConvertDataPermissions_WhenConvertData_TheServerShouldReturnForbidden()
+        {
+            if (!_convertDataEnabled)
+            {
+                return;
+            }
+
+            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ReadOnlyUser, TestApplications.NativeClient);
+
+            var parameters = Samples.GetDefaultConvertDataParameter().ToPoco<Parameters>();
+            FhirException fhirException = await Assert.ThrowsAsync<FhirException>(async () => await tempClient.ConvertDataAsync(parameters));
+            Assert.Equal(ForbiddenMessage, fhirException.Message);
+            Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAUserWithConvertDataPermissions_WhenConvertData_TheServerShouldReturnSuccess()
+        {
+            if (!_convertDataEnabled)
+            {
+                return;
+            }
+
+            TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ConvertDataUser, TestApplications.NativeClient);
+            var parameters = Samples.GetDefaultConvertDataParameter().ToPoco<Parameters>();
+            var result = await tempClient.ConvertDataAsync(parameters);
+
+            var setting = new ParserSettings()
+            {
+                AcceptUnknownMembers = true,
+                PermissiveParsing = true,
+            };
+            var parser = new FhirJsonParser(setting);
+            var bundleResource = parser.Parse<Bundle>(result);
+            Assert.Equal("urn:uuid:9d697ec3-48c3-3e17-db6a-29a1765e22c6", bundleResource.Entry.First().FullUrl);
+            Assert.Equal(4, bundleResource.Entry.Count);
+
+            var patient = bundleResource.Entry.First().Resource as Patient;
+            Assert.Equal("Kinmonth", patient.Name.First().Family);
+            Assert.Equal("1987-06-24", patient.BirthDate);
         }
     }
 }
