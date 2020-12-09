@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netcoreapp3.1</TargetFramework>
+    <RootNamespace>Microsoft.Health.Fhir.Core.UnitTests</RootNamespace>
   </PropertyGroup>
   <PropertyGroup>
     <DefineConstants>R4</DefineConstants>

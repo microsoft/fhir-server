@@ -3,6 +3,7 @@
   <PropertyGroup>
     <TargetFramework>netcoreapp3.1</TargetFramework>
     <UserSecretsId>29a71f18-2146-4ff0-a511-da3cf615d951</UserSecretsId>
+    <RootNamespace>Microsoft.Health.Fhir.Web</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
