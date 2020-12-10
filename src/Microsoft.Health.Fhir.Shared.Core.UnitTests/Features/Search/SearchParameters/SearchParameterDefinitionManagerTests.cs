@@ -43,7 +43,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver;
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly IFhirRequestContext _fhirRequestContext = new DefaultFhirRequestContext();
-        private readonly SearchParameterStatusManager _searchParameterStatusManager;
         private readonly ISearchParameterUtilities _searchParameterUtilties;
 
         public SearchParameterDefinitionManagerTests()
@@ -54,7 +53,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance);
             _fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
             _fhirRequestContextAccessor.FhirRequestContext.Returns(_fhirRequestContext);
-            _searchParameterStatusManager = new SearchParameterStatusManager(_searchParameterStatusDataStore, _searchParameterDefinitionManager, _searchParameterSupportResolver, _mediator);
 
             _manager = new SearchParameterStatusManager(
                 _searchParameterStatusDataStore,
@@ -108,7 +106,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 .IsSearchParameterSupported(Arg.Is(_searchParameterInfos[4]))
                 .Returns((true, false));
 
-            _searchParameterUtilties = new SearchParameterUtilities(_searchParameterStatusManager, _searchParameterDefinitionManager);
+            _searchParameterUtilties = new SearchParameterUtilities(_manager, _searchParameterDefinitionManager);
         }
 
         public async Task InitializeAsync()

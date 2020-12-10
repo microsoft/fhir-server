@@ -103,6 +103,7 @@ stages:
       testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
       dnsSuffix: $(aksDnsSuffix)
+      reindexEnabled: true
 
 - stage: deployAksR4Sql
   displayName: 'Deploy R4 Sql in AKS'
@@ -158,6 +159,7 @@ stages:
       resourceGroup: $(ResourceGroupName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
+      reindexEnabled: true
 
 - stage: deployStu3Sql
   displayName: 'Deploy STU3 SQL Site'
@@ -194,6 +196,7 @@ stages:
       resourceGroup: $(ResourceGroupName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
+      reindexEnabled: true
 
 - stage: deployR4Sql
   displayName: 'Deploy R4 SQL Site'
@@ -230,6 +233,7 @@ stages:
       resourceGroup: $(ResourceGroupName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
+      reindexEnabled: true
 
 - stage: deployR5Sql
   displayName: 'Deploy R5 SQL Site'

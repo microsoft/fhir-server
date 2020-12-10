@@ -21,6 +21,9 @@ parameters:
 - name: schemaAutomaticUpdatesEnabled
   type: boolean
   default: false
+- name: reindexEnabled
+  type: boolean
+  default: false
 
 jobs:
 - job: provisionServiceWithHelm
@@ -117,6 +120,8 @@ jobs:
         export:
           enabled: true
           blobStorageUri: $BLOB_URI
+        reindex:
+          enabled: ${{ parameters.reindexEnabled }}
         security:
           enabled: true
           enableAadSmartOnFhirProxy: false
