@@ -500,4 +500,7 @@
   <data name="SearchParameterUnknownNotSupported" xml:space="preserve">
     <value>A search parameter is no longer supported.</value>
   </data>
+  <data name="CustomSearchCreateError" xml:space="preserve">
+    <value>An error occurred creating the custom search parameter.  The issue must be resolved and the parameter resubmitted to become functional.</value>
+  </data>
 </root>
