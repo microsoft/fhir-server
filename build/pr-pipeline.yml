@@ -53,7 +53,8 @@ stages:
 
 - stage: provisionEnvironment
   displayName: Provision Environment
-  dependsOn: []
+  dependsOn:
+  - UpdateVersion
   jobs:
   - job: provision
     steps:
@@ -64,6 +65,12 @@ stages:
         azurePowerShellVersion: latestVersion
         ScriptType: inlineScript
         Inline: |
+          try
+          {
+            Get-AzResourceGroup -Name $(ResourceGroupName) | Remove-AzResourceGroup -Verbose -Force
+          }
+          catch
+          {}
           New-AzResourceGroup -Name "$(ResourceGroupName)" -Location "$(ResourceGroupRegion)" -Force
 
 - stage: aadTestEnvironment
