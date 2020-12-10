@@ -252,7 +252,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
                     if (resolvedComponents.Count > 0)
                     {
-                        // this is not actually creating the search parameter, it will return the existing one.
                         GetOrCreateSearchParameterInfo(searchParameter).ResolvedComponents = resolvedComponents;
                     }
                 }
