@@ -170,7 +170,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private IReadOnlyList<ISearchValue> ExtractSearchValues(
             string searchParameterDefinitionUrl,
             SearchParamType? searchParameterType,
-            IReadOnlyCollection<string> allowedReferenceResourceTypes,
+            IReadOnlyList<string> allowedReferenceResourceTypes,
             ITypedElement element,
             string fhirPathExpression,
             EvaluationContext context)
@@ -199,8 +199,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             // If there is target set, then filter the extracted values to only those types.
             if (searchParameterType == SearchParamType.Reference &&
-                allowedReferenceResourceTypes != null &&
-                allowedReferenceResourceTypes.Any())
+                allowedReferenceResourceTypes?.Count > 0)
             {
                 List<string> targetResourceTypes = _targetTypesLookup.GetOrAdd(searchParameterDefinitionUrl, _ =>
                 {
@@ -247,12 +246,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     {
                         // For references, if the type is not specified in the reference string, we can set the type on the search value because
                         // in this case it can only be of one type.
-                        string singleAllowedResourceType = null;
+                        string singleAllowedResourceType = allowedReferenceResourceTypes[0];
                         foreach (ISearchValue searchValue in searchValues)
                         {
                             if (searchValue is ReferenceSearchValue rsr && string.IsNullOrEmpty(rsr.ResourceType))
                             {
-                                results.Add(new ReferenceSearchValue(rsr.Kind, rsr.BaseUri, singleAllowedResourceType ??= allowedReferenceResourceTypes.Single(), rsr.ResourceId));
+                                results.Add(new ReferenceSearchValue(rsr.Kind, rsr.BaseUri, singleAllowedResourceType, rsr.ResourceId));
                             }
                             else
                             {

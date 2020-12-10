@@ -171,7 +171,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
                 try
                 {
-                    SearchParameterInfo searchParameterInfo = CreateSearchParameterInfo(searchParameter);
+                    SearchParameterInfo searchParameterInfo = GetOrCreateSearchParameterInfo(searchParameter);
                     _uriDictionary.Add(new Uri(searchParameter.Url), searchParameterInfo);
                 }
                 catch (FormatException)
@@ -253,7 +253,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                     if (resolvedComponents.Count > 0)
                     {
                         // this is not actually creating the search parameter, it will return the existing one.
-                        CreateSearchParameterInfo(searchParameter).ResolvedComponents = resolvedComponents;
+                        GetOrCreateSearchParameterInfo(searchParameter).ResolvedComponents = resolvedComponents;
                     }
                 }
 
@@ -287,7 +287,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                         }
                     }
 
-                    validatedSearchParameters.Add((baseResourceType, CreateSearchParameterInfo(searchParameter)));
+                    validatedSearchParameters.Add((baseResourceType, GetOrCreateSearchParameterInfo(searchParameter)));
                 }
             }
 
@@ -314,7 +314,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             }
         }
 
-        private SearchParameterInfo CreateSearchParameterInfo(SearchParameterWrapper searchParameter)
+        private SearchParameterInfo GetOrCreateSearchParameterInfo(SearchParameterWrapper searchParameter)
         {
             // Return SearchParameterInfo that has already been created for this Uri
             if (_uriDictionary.TryGetValue(new Uri(searchParameter.Url), out var spi))

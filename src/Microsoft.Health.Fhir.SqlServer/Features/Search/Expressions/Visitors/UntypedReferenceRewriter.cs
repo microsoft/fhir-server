@@ -22,8 +22,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
         public override Expression VisitSearchParameter(SearchParameterExpression expression, object context)
         {
             // Handle reference search parameters as well as composite search parameters with one or more reference components.
-            // We fist create a bitmask with bits set representing the component indexes that are candidates for this rule.
-            // Bit 0 is for reference, non-composite parameters where the reference if of one type
+            // We first create a bitmask with bits set representing the component indexes that are candidates for this rule.
+            // Bit 0 is for reference, non-composite parameters where the reference is of a single possible type
             // Bits 1 and up represent the component indexes (plus one) where the component is a reference search parameter with one type
 
             int componentCandidates = expression.Parameter.Type switch
@@ -46,7 +46,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             // now see which components have a expression on the reference type
             int componentsPresent = expression.Expression.AcceptVisitor(ParameterPredicateVisitor.Instance, null);
 
-            // now determine which ones we get a type expression
+            // Now determine which components should get a type expression added to it.
+            // componentCandidates will have bits set for each component that we could provide a known type expression for.
+            // componentsPresent will have bits set for each component that actually has a type expression.
+            // So the components that we need to provide a type expression for can be obtained by a set difference,
+            // which we can do with a bitwise complement (~) and bitwise intersection (&).
 
             int componentsToFill = componentCandidates & ~componentsPresent;
 

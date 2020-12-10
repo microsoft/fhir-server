@@ -6,7 +6,7 @@
 
 INSERT INTO dbo.SchemaVersion
 VALUES
-    (6, 'started')
+    (7, 'started')
 
 GO
 
@@ -1150,7 +1150,7 @@ GO
 
 --
 -- STORED PROCEDURE
---     UpsertResource
+--     UpsertResource_2
 --
 -- DESCRIPTION
 --     Creates or updates (including marking deleted) a FHIR resource
