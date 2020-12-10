@@ -18,6 +18,8 @@ steps:
     Write-Host "##vso[task.setvariable variable=nuGetVersion]$(GitVersion.semVer)"
     Write-Host "##vso[task.setvariable variable=assemblySemVer]$(GitVersion.assemblySemVer)"
     Write-Host "##vso[task.setvariable variable=assemblySemFileVer]$(GitVersion.assemblySemFileVer)"
+    $buildName = ${{ build.BuildNumber }} -replace ".", "-"
+    Write-Host "##vso[task.setvariable variable=DeploymentEnvironmentName]fhir-${buildName}"
   name: SetVariablesFromGitVersion
 
 - powershell: |
@@ -28,4 +30,5 @@ steps:
     Write-Host 'assemblySemVer: $(assemblySemVer)'
     Write-Host 'assemblySemFileVer: $(assemblySemFileVer)'
     Write-Host 'nuGetVersion: $(nuGetVersion)'
+    Write-Host 'DeploymentEnvironmentName: $(DeploymentEnvironmentName)'
   name: PrintVariablesFromGitVersion
