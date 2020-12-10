@@ -53,8 +53,7 @@ stages:
 
 - stage: provisionEnvironment
   displayName: Provision Environment
-  dependsOn:
-  - UpdateVersion
+  dependsOn: []
   jobs:
   - job: provision
     steps:
