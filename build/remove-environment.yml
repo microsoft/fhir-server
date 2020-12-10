@@ -5,6 +5,8 @@ trigger: none
 pr: none
 
 variables:
+- name: ResourceGroupName
+  value: 'msh-fhir-pr-$(pr_number)'
 - name: DeploymentEnvironmentName
   value: 'msh-fhir-pr-$(pr_number)'
 - template: build-variables.yml

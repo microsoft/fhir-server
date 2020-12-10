@@ -64,7 +64,7 @@ stages:
         azurePowerShellVersion: latestVersion
         ScriptType: inlineScript
         Inline: |
-          New-AzResourceGroup -Name "$(DeploymentEnvironmentName)" -Location "$(ResourceGroupRegion)" -Force
+          New-AzResourceGroup -Name "$(ResourceGroupName)" -Location "$(ResourceGroupRegion)" -Force
 
 - stage: aadTestEnvironment
   displayName: Setup AAD Test Environment
@@ -143,7 +143,7 @@ stages:
       appServicePlanName: $(appServicePlanName)
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
-      resourceGroup: $(DeploymentEnvironmentName)
+      resourceGroup: $(ResourceGroupName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
 
@@ -161,7 +161,7 @@ stages:
       appServicePlanName: $(appServicePlanName)
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
-      resourceGroup: $(DeploymentEnvironmentName)
+      resourceGroup: $(ResourceGroupName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: true
@@ -179,7 +179,7 @@ stages:
       appServicePlanName: $(appServicePlanName)
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
-      resourceGroup: $(DeploymentEnvironmentName)
+      resourceGroup: $(ResourceGroupName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
 
@@ -197,7 +197,7 @@ stages:
       appServicePlanName: $(appServicePlanName)
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
-      resourceGroup: $(DeploymentEnvironmentName)
+      resourceGroup: $(ResourceGroupName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: true
@@ -215,7 +215,7 @@ stages:
       appServicePlanName: $(appServicePlanName)
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
-      resourceGroup: $(DeploymentEnvironmentName)
+      resourceGroup: $(ResourceGroupName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
 
@@ -233,7 +233,7 @@ stages:
       appServicePlanName: $(appServicePlanName)
       appServicePlanResourceGroup: $(appServicePlanResourceGroup)
       subscription: $(ConnectedServiceName)
-      resourceGroup: $(DeploymentEnvironmentName)
+      resourceGroup: $(ResourceGroupName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
       schemaAutomaticUpdatesEnabled: true
