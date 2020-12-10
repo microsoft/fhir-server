@@ -69,7 +69,7 @@ jobs:
             enableAadSmartOnFhirProxy = $true
             enableExport = $true
             enableConvertData = $true
-            enableReindex = ${{ parameters.reindexEnabled }}
+            enableReindex = if ("${{ parameters.reindexEnabled }}" -eq "true") { $true } else { $false }
             imageTag = '${{ parameters.imageTag }}'
         }
      
