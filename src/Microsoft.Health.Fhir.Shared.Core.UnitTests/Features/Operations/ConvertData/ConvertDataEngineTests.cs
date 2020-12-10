@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             _config = new ConvertDataConfiguration
             {
                 Enabled = true,
-                OperationTimeout = TimeSpan.FromMilliseconds(50),
+                OperationTimeout = TimeSpan.FromSeconds(1),
             };
             _config.ContainerRegistryServers.Add("test.azurecr.io");
         }
