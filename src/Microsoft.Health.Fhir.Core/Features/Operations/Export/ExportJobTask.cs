@@ -272,6 +272,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             // If a patient/group export job with type and type filters is run, and patients are in the types requested and filtered, the search should not be run as patients were searched above
             // If an export job with type and type filters is run, the search should not be run if all the types were searched above.
             if (_exportJobRecord.Filters == null ||
+                _exportJobRecord.Filters.Count == 0 ||
                 (_exportJobRecord.ExportType == ExportJobType.All &&
                 !requestedResourceTypes.All(resourceType => filteredResources.Contains(resourceType.ToUpper(CultureInfo.InvariantCulture)))) ||
                 ((_exportJobRecord.ExportType == ExportJobType.Patient || _exportJobRecord.ExportType == ExportJobType.Group) &&
@@ -468,6 +469,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
 
             if (_exportJobRecord.Filters == null ||
+                _exportJobRecord.Filters.Count == 0 ||
                 !requestedResourceTypes.All(resourceType => filteredResources.Contains(resourceType.ToUpper(CultureInfo.InvariantCulture))))
             {
                 if (requestedResourceTypes != null)

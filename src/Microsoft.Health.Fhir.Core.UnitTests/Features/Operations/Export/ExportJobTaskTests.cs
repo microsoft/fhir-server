@@ -2045,6 +2045,93 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
         }
 
+        // If a patient/group export job with type and type filters is run, but patients aren't in the types requested, the search should be run here but no patients printed to the output
+        // If a patient/group export job with type and type filters is run, and patients are in the types requested and filtered, the search should not be run as patients were searched above
+        // If an export job with type and type filters is run, the search should not be run if all the types were searched above.
+
+        [Fact]
+        public async Task GivenAPatientExportJobWithFiltersAndPatientsAreNotRequested_WhenExecuted_ThenAllResourcesAreExported()
+        {
+            var filters = new List<ExportJobFilter>()
+                 {
+                     new ExportJobFilter(
+                         KnownResourceTypes.Observation,
+                         new List<Tuple<string, string>>()
+                         {
+                             new Tuple<string, string>("status", "final"),
+                             new Tuple<string, string>("subject", "Patient/1"),
+                         }),
+                 };
+
+            await RunTypeFilterTest(filters, $"{KnownResourceTypes.Observation}");
+
+            string observationIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
+
+            Assert.Equal("2", observationIds);
+            Assert.Equal(1, _inMemoryDestinationClient.ExportedDataFileCount);
+            Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
+        }
+
+        private async Task RunTypeFilterTest(IList<ExportJobFilter> filters, string resourceTypes)
+        {
+            var exportJobRecordWithFormat = CreateExportJobRecord(
+                exportJobType: ExportJobType.Patient,
+                resourceType: resourceTypes,
+                filters: filters);
+            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithFormat);
+
+            var resourcesChecked = 0;
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    var type = x[0] as string;
+                    var queryParams = x[1] as IReadOnlyList<Tuple<string, string>>;
+
+                    if (type == null)
+                    {
+                        type = KnownResourceTypes.Device;
+                    }
+
+                    resourcesChecked++;
+
+                    return CreateSearchResult(
+                        new[]
+                        {
+                            CreateSearchResultEntry(resourcesChecked.ToString(), type),
+                        });
+                });
+
+            _searchService.SearchCompartmentAsync(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    var type = x[2] as string;
+                    var queryParams = x[3] as IReadOnlyList<Tuple<string, string>>;
+
+                    if (type == null)
+                    {
+                        type = KnownResourceTypes.Immunization;
+                    }
+
+                    resourcesChecked++;
+
+                    return CreateSearchResult(
+                        new[]
+                        {
+                            CreateSearchResultEntry(resourcesChecked.ToString(), type),
+                        });
+                });
+
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+        }
+
         private ExportJobRecord CreateExportJobRecord(
             string requestEndpoint = "https://localhost/ExportJob/",
             ExportJobType exportJobType = ExportJobType.All,
