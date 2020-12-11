@@ -101,19 +101,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             throw new SearchParameterNotSupportedException(definitionUri);
         }
 
-        public ValueSets.SearchParamType GetSearchParameterType(SearchParameterInfo searchParameter, int? componentIndex)
-        {
-            if (componentIndex == null)
-            {
-                return searchParameter.Type;
-            }
-
-            SearchParameterComponentInfo component = searchParameter.Component[componentIndex.Value];
-            SearchParameterInfo componentSearchParameter = GetSearchParameter(component.DefinitionUrl);
-
-            return componentSearchParameter.Type;
-        }
-
         public void UpdateSearchParameterHashMap(Dictionary<string, string> updatedSearchParamHashMap)
         {
             EnsureArg.IsNotNull(updatedSearchParamHashMap, nameof(updatedSearchParamHashMap));

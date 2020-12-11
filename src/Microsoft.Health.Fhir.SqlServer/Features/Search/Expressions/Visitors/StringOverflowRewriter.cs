@@ -40,7 +40,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public override Expression VisitString(StringExpression expression, object context)
         {
-            if (_searchParameterDefinitionManager.GetSearchParameterType((SearchParameterInfo)context, expression.ComponentIndex) != SearchParamType.String)
+            var searchParameterInfo = (SearchParameterInfo)context;
+            if ((expression.ComponentIndex == null ? searchParameterInfo.Type : searchParameterInfo.ResolvedComponents[expression.ComponentIndex.Value].Type) != SearchParamType.String)
             {
                 return expression;
             }
@@ -72,7 +73,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             public override bool VisitString(StringExpression expression, object context)
             {
-                if (_searchParameterDefinitionManager.GetSearchParameterType((SearchParameterInfo)context, expression.ComponentIndex) != SearchParamType.String)
+                var searchParameterInfo = (SearchParameterInfo)context;
+
+                if ((expression.ComponentIndex == null ? searchParameterInfo.Type : searchParameterInfo.ResolvedComponents[expression.ComponentIndex.Value].Type) != SearchParamType.String) 
                 {
                     return false;
                 }

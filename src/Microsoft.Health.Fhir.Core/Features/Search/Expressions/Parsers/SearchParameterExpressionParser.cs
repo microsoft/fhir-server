@@ -126,7 +126,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                             SearchParameterComponentInfo component = searchParameterComponentInfos[componentIndex];
 
                             // Find the corresponding search parameter info.
-                            SearchParameterInfo componentSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(component.DefinitionUrl);
+                            SearchParameterInfo componentSearchParameter = searchParameter.ResolvedComponents[componentIndex];
 
                             string componentValue = compositeValueParts[componentIndex];
 

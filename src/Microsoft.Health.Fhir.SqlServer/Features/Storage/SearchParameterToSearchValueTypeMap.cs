@@ -78,7 +78,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     return typeof(UriSearchValue);
                 case SearchParamType.Composite:
                     return typeof(Tuple).Assembly.GetType($"{typeof(ValueTuple).FullName}`{searchParameter.Component.Count}", throwOnError: true)
-                        .MakeGenericType(searchParameter.Component.Select(c => GetSearchValueType(_searchParameterDefinitionManager.GetSearchParameter(c.DefinitionUrl))).ToArray());
+                        .MakeGenericType(searchParameter.ResolvedComponents.Select(GetSearchValueType).ToArray());
                 default:
                     throw new ArgumentOutOfRangeException(searchParameter.Code);
             }

@@ -44,10 +44,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
             Expression parsed = _compiler.Parse(parameterInfo.Expression);
 
-            (SearchParamType Type, Expression, Uri DefinitionUrl)[] componentExpressions = parameterInfo.Component
-                ?.Select(x => (_definitionManager.GetSearchParameter(x.DefinitionUrl).Type,
-                    _compiler.Parse(x.Expression),
-                    x.DefinitionUrl))
+            (SearchParamType Type, Expression, Uri DefinitionUrl)[] componentExpressions = parameterInfo.Component?.Zip(parameterInfo.ResolvedComponents)
+                ?.Select(x => (x.Second.Type,
+                    _compiler.Parse(x.First.Expression),
+                    x.First.DefinitionUrl))
                 .ToArray();
 
             IEnumerable<string> resourceTypes = (parameterInfo.TargetResourceTypes ?? Enumerable.Empty<string>()).Concat(parameterInfo.BaseResourceTypes ?? Enumerable.Empty<string>());
