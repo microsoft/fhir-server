@@ -111,8 +111,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 
                         var compositeExpressions = new Expression[compositeValueParts.Count];
 
-                        var searchParameterComponentInfos = searchParameter.Component.ToList();
-
                         for (int componentIndex = 0; componentIndex < compositeValueParts.Count; componentIndex++)
                         {
                             // Find the corresponding search parameter info.
