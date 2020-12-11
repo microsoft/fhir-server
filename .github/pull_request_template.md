@@ -13,3 +13,6 @@ Describe how this change was tested.
 - [ ] Tag the PR with the type of update: **Bug**, **Enhancement**, or **New-Feature**
 - [ ] Tag the PR with **Azure API for FHIR** if this will release to the managed service
 - Review [squash-merge requirements](https://github.com/microsoft/fhir-server/blob/master/SquashMergeRequirements.md)
+
+### Semver Change ([docs](https://github.com/microsoft/fhir-server/blob/master/docs/Versioning.md))
+Patch|Skip|Feature|Breaking
