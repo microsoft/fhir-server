@@ -20,6 +20,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Export;
+using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
@@ -124,6 +125,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     foreach (string filter in filterArray)
                     {
                         var parameterIndex = filter.IndexOf("?", StringComparison.Ordinal);
+
+                        if (parameterIndex < 0)
+                        {
+                            throw new BadRequestException(string.Format(Resources.TypeFilterUnparseable, filter));
+                        }
+
                         var filterType = filter.Substring(0, parameterIndex);
 
                         var filterParameters = filter.Substring(parameterIndex + 1).Split("&");
@@ -132,6 +139,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                         foreach (string parameter in filterParameters)
                         {
                             var keyValue = parameter.Split("=");
+
+                            if (keyValue.Count() < 2)
+                            {
+                                throw new BadRequestException(string.Format(Resources.TypeFilterUnparseable, filter));
+                            }
+
                             parameterTupleList.Add(new Tuple<string, string>(keyValue[0], keyValue[1]));
                         }
 

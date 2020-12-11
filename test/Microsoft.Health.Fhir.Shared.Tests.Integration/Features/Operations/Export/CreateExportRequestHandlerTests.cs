@@ -315,6 +315,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                 })).ToArray());
         }
 
+        [Theory]
+        [InlineData("bad")]
+        [InlineData("Observation?code=a,b,Observation?status=final")] // Doesn't support nested 'or' currently
+        [InlineData("Observation?status:final")] // Incorrect divider
+        public async Task GivenARequestWithIncorectFilters_WhenConverted_ThenABadRequestIsReturned(string filters)
+        {
+            var request = new CreateExportRequest(RequestUrl, ExportJobType.All, filters: filters);
+            await Assert.ThrowsAsync<BadRequestException>(() => _createExportRequestHandler.Handle(request, _cancellationToken));
+        }
+
         /// <summary>
         /// Adds a listener to an object so that it can be spied on.
         /// This allows objects passed in through the fixture to have method calls tracked and arguments recorded.

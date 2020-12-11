@@ -953,6 +953,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The _typeFilter segment &apos;{0}&apos; could not be parsed..
+        /// </summary>
+        internal static string TypeFilterUnparseable {
+            get {
+                return ResourceManager.GetString("TypeFilterUnparseable", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The _type parameter must be included when using the _typeFilter parameter. .
         /// </summary>
         internal static string TypeFilterWithoutTypeIsUnsupported {

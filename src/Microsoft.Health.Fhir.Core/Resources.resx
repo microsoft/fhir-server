@@ -482,4 +482,8 @@
     <value>The _type parameter must be included when using the _typeFilter parameter. </value>
     <comment>Export job parameter exception messsage</comment>
   </data>
+  <data name="TypeFilterUnparseable" xml:space="preserve">
+    <value>The _typeFilter segment '{0}' could not be parsed.</value>
+    <comment>Error message for a bad _typeFilter parameter on an export job. {0} is the segment that couldn't be parsed.</comment>
+  </data>
 </root>
