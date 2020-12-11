@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Diagnostics;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -19,6 +20,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <param name="error">The error message to include in the operation outcome issues list.</param>
         public ConfigureCustomSearchException(string error)
         {
+            Debug.Assert(!string.IsNullOrEmpty(error), "Exception message should not be empty");
+
             AddIssue(error);
         }
 
