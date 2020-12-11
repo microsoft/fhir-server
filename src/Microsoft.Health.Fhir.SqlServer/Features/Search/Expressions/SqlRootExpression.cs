@@ -16,8 +16,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
     /// The root of a search expression tree that will be translated to a SQL command.
     /// It is organized as a set of "normalized" table expression predicates and a set
     /// of "denormalized" predicates. The normalized predicates are over a search parameter
-    /// table, whereas denormalized predicates are applied to the Resource table directly. Some
-    /// of them can be applied to search parameter tables as well.
+    /// tables, whereas denormalized predicates are applied to the Resource table directly.
     /// </summary>
     internal class SqlRootExpression : Expression
     {
@@ -30,8 +29,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
             DenormalizedExpressions = denormalizedExpressions;
         }
 
+        /// <summary>
+        /// Expressions which would genereate CTE on top of *SearchParam table and later be joined with <see cref="Schema.Model.VLatest.Resource"/> table.
+        /// </summary>
         public IReadOnlyList<TableExpression> TableExpressions { get; }
 
+        /// <summary>
+        /// Expressions which should applied directly to <see cref="Schema.Model.VLatest.Resource"/> table.
+        /// </summary>
         public IReadOnlyList<Expression> DenormalizedExpressions { get; }
 
         public static SqlRootExpression WithTableExpressions(params TableExpression[] expressions)
