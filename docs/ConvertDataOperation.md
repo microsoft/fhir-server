@@ -12,7 +12,7 @@ To convert with the built-in template collection, you can directly use the built
 If you want to refine or customize the output from the built-in template collection, you can also build your own template collections.
 To convert with custom template collection, you should follow the following steps:
 1. Get a copy of the [default template collection](https://github.com/microsoft/FHIR-Converter/releases/tag/v3.0) from the FHIR Converter project and customize it.
-2. Compress the templates and push to your ACR. You can use a [commandline tool](https://github.com/microsoft/FHIR-Converter/releases/tag/v3.0) to help upload your templates.
+2. Push custom templates to your ACR. You can use this [CLI tool](https://github.com/microsoft/FHIR-Converter/blob/dotliquid/docs/TemplateManagementCLI.md) to push your templates.
 3. Register the ACR server to your FHIR service configuration by setting `FhirServer:Operations:ConvertData:ContainerRegistryServers:0` to your ACR login server. You can register multiple ACRs by adding more entries in the configuration as the following picture shows.  
 ![acr-registration](./images/convert-data/acr-registration.png)
 4. Give your FHIR service the `AcrPull` permission for the ACR you have registered. 
