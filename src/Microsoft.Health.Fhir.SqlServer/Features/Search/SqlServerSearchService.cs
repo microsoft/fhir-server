@@ -43,7 +43,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         private readonly SortRewriter _sortRewriter;
         private readonly ChainFlatteningRewriter _chainFlatteningRewriter;
-        private readonly StringOverflowRewriter _stringOverflowRewriter;
         private readonly ILogger<SqlServerSearchService> _logger;
         private readonly BitColumn _isMatch = new BitColumn("IsMatch");
         private readonly BitColumn _isPartial = new BitColumn("IsPartial");
@@ -59,7 +58,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             SqlServerFhirModel model,
             SqlRootExpressionRewriter sqlRootExpressionRewriter,
             ChainFlatteningRewriter chainFlatteningRewriter,
-            StringOverflowRewriter stringOverflowRewriter,
             SortRewriter sortRewriter,
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             SchemaInformation schemaInformation,
@@ -70,7 +68,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         {
             EnsureArg.IsNotNull(sqlRootExpressionRewriter, nameof(sqlRootExpressionRewriter));
             EnsureArg.IsNotNull(chainFlatteningRewriter, nameof(chainFlatteningRewriter));
-            EnsureArg.IsNotNull(stringOverflowRewriter, nameof(stringOverflowRewriter));
             EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             EnsureArg.IsNotNull(sortingValidator, nameof(sortingValidator));
@@ -81,7 +78,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _sqlRootExpressionRewriter = sqlRootExpressionRewriter;
             _sortRewriter = sortRewriter;
             _chainFlatteningRewriter = chainFlatteningRewriter;
-            _stringOverflowRewriter = stringOverflowRewriter;
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _logger = logger;
 
@@ -183,7 +179,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                                .AcceptVisitor(NormalizedPredicateReorderer.Instance)
                                                .AcceptVisitor(_chainFlatteningRewriter)
                                                .AcceptVisitor(DateTimeBoundedRangeRewriter.Instance)
-                                               .AcceptVisitor(_stringOverflowRewriter)
+                                               .AcceptVisitor(StringOverflowRewriter.Instance)
                                                .AcceptVisitor(NumericRangeRewriter.Instance)
                                                .AcceptVisitor(MissingSearchParamVisitor.Instance)
                                                .AcceptVisitor(IncludeDenormalizedRewriter.Instance)
