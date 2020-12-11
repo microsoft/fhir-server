@@ -113,6 +113,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     exportJobConfiguration.StorageAccountUri = exportJobRecord.StorageAccountUri;
                 }
 
+                if (_exportJobRecord.Filters != null &&
+                    _exportJobRecord.Filters.Count > 0 &&
+                    string.IsNullOrEmpty(_exportJobRecord.ResourceType))
+                {
+                    throw new BadRequestException(Resources.TypeFilterWithoutTypeIsUnsupported);
+                }
+
                 // Connect to export destination using appropriate client.
                 await _exportDestinationClient.ConnectAsync(exportJobConfiguration, cancellationToken, _exportJobRecord.StorageAccountContainerName);
 
@@ -454,7 +461,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 await ProcessFilterForCompartment(exportJobConfiguration, progress, queryParametersList, batchIdPrefix + "-filter", cancellationToken);
             }
 
-            if (_exportJobRecord.Filters != null && _exportJobRecord.Filters.Any(filter => !progress.CompletedFilters.Contains(filter)))
+            if (_exportJobRecord.Filters != null)
             {
                 foreach (var filter in _exportJobRecord.Filters)
                 {
