@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return searchValueType;
         }
 
-        private Type GetCompositeSearchValueType(SearchParameterInfo searchParameter)
+        private static Type GetCompositeSearchValueType(SearchParameterInfo searchParameter)
         {
             Debug.Assert(searchParameter.Type == SearchParamType.Composite, "Method called with non-composite search parameter");
 
@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 .MakeGenericType(searchParameter.ResolvedComponents.Select(component => GetSearchValueTypeForSearchParameterType(component.Type)).ToArray());
         }
 
-        private Type GetSearchValueTypeForSearchParameterType(SearchParamType searchParameterType) =>
+        private static Type GetSearchValueTypeForSearchParameterType(SearchParamType searchParameterType) =>
             searchParameterType switch
             {
                 SearchParamType.Number => typeof(NumberSearchValue),
