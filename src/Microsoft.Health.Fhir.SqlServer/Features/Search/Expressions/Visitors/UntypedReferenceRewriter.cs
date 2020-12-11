@@ -32,9 +32,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             {
                 SearchParamType.Reference when expression.Parameter.TargetResourceTypes?.Count == 1 => 1,
                 SearchParamType.Composite =>
-                    expression.Parameter.ResolvedComponents.Aggregate(
+                    expression.Parameter.Component.Aggregate(
                             (index: 1, flags: 0),
-                            (acc, p) => (index: acc.index + 1, flags: acc.flags | (p.Type == SearchParamType.Reference && p.TargetResourceTypes?.Count == 1 ? 1 << acc.index : 0)))
+                            (acc, c) => (index: acc.index + 1, flags: acc.flags | (c.ResolvedSearchParameter.Type == SearchParamType.Reference && c.ResolvedSearchParameter.TargetResourceTypes?.Count == 1 ? 1 << acc.index : 0)))
                         .flags,
                 _ => 0
             };
@@ -137,7 +137,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
                 string targetResourceType = actualComponentIndex == null
                     ? searchParameter.TargetResourceTypes.Single()
-                    : searchParameter.ResolvedComponents[actualComponentIndex.Value].TargetResourceTypes.Single();
+                    : searchParameter.Component[actualComponentIndex.Value].ResolvedSearchParameter.TargetResourceTypes.Single();
 
                 newExpressionsToBeAnded.Add(Expression.StringEquals(FieldName.ReferenceResourceType, actualComponentIndex, targetResourceType, false));
             }

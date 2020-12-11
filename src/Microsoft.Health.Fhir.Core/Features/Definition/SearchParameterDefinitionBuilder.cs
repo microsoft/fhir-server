@@ -212,7 +212,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                         continue;
                     }
 
-                    var resolvedComponents = new List<SearchParameterInfo>(composites.Count);
+                    SearchParameterInfo compositeSearchParameter = GetOrCreateSearchParameterInfo(searchParameter);
 
                     for (int componentIndex = 0; componentIndex < composites.Count; componentIndex++)
                     {
@@ -247,12 +247,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                             continue;
                         }
 
-                        resolvedComponents.Add(componentSearchParameter);
-                    }
-
-                    if (resolvedComponents.Count > 0)
-                    {
-                        GetOrCreateSearchParameterInfo(searchParameter).ResolvedComponents = resolvedComponents;
+                        compositeSearchParameter.Component[componentIndex].ResolvedSearchParameter = componentSearchParameter;
                     }
                 }
 

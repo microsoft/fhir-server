@@ -59,7 +59,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             Debug.Assert(searchParameter.Type == SearchParamType.Composite, "Method called with non-composite search parameter");
 
             return typeof(Tuple).Assembly.GetType($"{typeof(ValueTuple).FullName}`{searchParameter.Component.Count}", throwOnError: true)
-                .MakeGenericType(searchParameter.ResolvedComponents.Select(component => GetSearchValueTypeForSearchParameterType(component.Type)).ToArray());
+                .MakeGenericType(searchParameter.Component.Select(component => GetSearchValueTypeForSearchParameterType(component.ResolvedSearchParameter.Type)).ToArray());
         }
 
         private static Type GetSearchValueTypeForSearchParameterType(SearchParamType searchParameterType) =>

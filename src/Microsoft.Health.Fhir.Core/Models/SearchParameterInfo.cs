@@ -98,10 +98,5 @@ namespace Microsoft.Health.Fhir.Core.Models
         /// The component definitions if this is a composite search parameter (<see cref="Type"/> is <see cref="SearchParamType.Composite"/>)
         /// </summary>
         public IReadOnlyList<SearchParameterComponentInfo> Component { get; }
-
-        /// <summary>
-        /// The resolved <see cref="SearchParameterInfo"/>s for each component if this is a composite search parameter (<see cref="Type"/> is <see cref="SearchParamType.Composite"/>)
-        /// </summary>
-        public IReadOnlyList<SearchParameterInfo> ResolvedComponents { get; set; } = Array.Empty<SearchParameterInfo>();
     }
 }

@@ -135,18 +135,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             var codeUri = new Uri("http://code");
             var quantityUri = new Uri("http://quantity");
 
-            SearchParameterComponentInfo[] components = new[] { new SearchParameterComponentInfo(codeUri), new SearchParameterComponentInfo(quantityUri) };
+            SearchParameterComponentInfo[] components =
+            {
+                new SearchParameterComponentInfo(codeUri) { ResolvedSearchParameter = new SearchParameterInfo("code", ValueSets.SearchParamType.Token) },
+                new SearchParameterComponentInfo(quantityUri) { ResolvedSearchParameter = new SearchParameterInfo("quantity", ValueSets.SearchParamType.Quantity) },
+            };
+
             SearchParameterInfo searchParameter = new SearchParameterInfo(
                 DefaultParamName,
                 Microsoft.Health.Fhir.ValueSets.SearchParamType.Composite,
-                components: components)
-            {
-                ResolvedComponents = new[]
-                {
-                    new SearchParameterInfo("code", ValueSets.SearchParamType.Token),
-                    new SearchParameterInfo("quantity", ValueSets.SearchParamType.Quantity),
-                },
-            };
+                components: components);
 
             Validate(
                 searchParameter,
@@ -184,14 +182,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
 
             var quantityUri = new Uri("http://quantity");
 
-            SearchParameterComponentInfo[] components = { new SearchParameterComponentInfo(quantityUri), new SearchParameterComponentInfo(quantityUri) };
+            SearchParameterComponentInfo[] components =
+            {
+                new SearchParameterComponentInfo(quantityUri) { ResolvedSearchParameter = new SearchParameterInfo("quantity", ValueSets.SearchParamType.Quantity) },
+                new SearchParameterComponentInfo(quantityUri) { ResolvedSearchParameter = new SearchParameterInfo("quantity", ValueSets.SearchParamType.Quantity) },
+            };
+
             SearchParameterInfo searchParameter = new SearchParameterInfo(
                 DefaultParamName,
                 Microsoft.Health.Fhir.ValueSets.SearchParamType.Composite,
-                components: components)
-            {
-                ResolvedComponents = new[] { new SearchParameterInfo("quantity", ValueSets.SearchParamType.Quantity), new SearchParameterInfo("quantity", ValueSets.SearchParamType.Quantity) },
-            };
+                components: components);
 
             Validate(
                 searchParameter,
