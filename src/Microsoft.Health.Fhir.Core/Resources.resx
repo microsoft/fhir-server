@@ -453,6 +453,20 @@
     <value>Reindex job id {0} is in state {1} and cannot be cancelled.</value>
     <comment>{0} is the id of the reindex which is a a GUID.  {1} is the state, an enumerated set of state values.</comment>
   </data>
+  <data name="ConvertDataFailed" xml:space="preserve">
+    <value>Failed to convert the input data. Reason: {0}</value>
+    <comment>{0} is the failure reason.</comment>
+  </data>
+  <data name="FetchTemplateCollectionFailed" xml:space="preserve">
+    <value>Failed to fetch the template collection. Reason: {0}</value>
+    <comment>{0} is the failure reason</comment>
+  </data>
+  <data name="ContainerRegistryNotAuthorized" xml:space="preserve">
+    <value>Fail to access the container registry '{0}', please check the registry configuration.</value>
+  </data>
+  <data name="ConvertDataOperationTimeout" xml:space="preserve">
+    <value>Convert data operation has timed out.</value>
+  </data>
   <data name="ExportFormatNotFound" xml:space="preserve">
     <value>The format '{0}' could not be found.</value>
     <comment>{0}: The provided format name</comment>
@@ -460,5 +474,8 @@
   <data name="InvalidTypeParameter" xml:space="preserve">
     <value>The '_type' parameter contains unknown resource(s): {0}</value>
     <comment>{0}: Single or list of unknown resources.</comment>
+  </data>
+  <data name="ElementsAndSummaryParametersAreIncompatible" xml:space="preserve">
+    <value>The '_elements' parameter is supported only when '_summary' is SummaryType.False or '_summary' is not specified at all.</value>
   </data>
 </root>

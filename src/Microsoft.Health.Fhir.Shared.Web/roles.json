@@ -24,6 +24,17 @@
             ]
         },
         {
+            "name": "globalConverter",
+            "dataActions": [
+                "read",
+                "convertData"
+            ],
+            "notDataActions": [],
+            "scopes": [
+                "/"
+            ]
+        },
+        {
             "name": "globalWriter",
             "dataActions": [
                 "*"

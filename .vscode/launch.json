@@ -38,6 +38,7 @@
                 "SqlServer:AllowDatabaseCreation": "true",
                 "SqlServer:ConnectionString": "server=(local);Initial Catalog=FHIR_R4;Integrated Security=true",
                 "SqlServer:Initialize": "true",
+                "SqlServer:SchemaOptions:AutomaticUpdatesEnabled": "true",
                 "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
             },
             "sourceFileMap": {
@@ -52,7 +53,7 @@
             // If you have changed target frameworks, make sure to update the program path.
             "program": "${workspaceFolder}/src/Microsoft.Health.Fhir.Stu3.Web/bin/Debug/netcoreapp3.1/Microsoft.Health.Fhir.Stu3.Web.dll",
             "args": [],
-            "cwd": "${workspaceFolder}/src/Microsoft.Health.Fhir.R4.Web",
+            "cwd": "${workspaceFolder}/src/Microsoft.Health.Fhir.Stu3.Web",
             "stopAtEntry": false,
             "env": {
                 "ASPNETCORE_ENVIRONMENT": "Development",
@@ -70,14 +71,56 @@
             // If you have changed target frameworks, make sure to update the program path.
             "program": "${workspaceFolder}/src/Microsoft.Health.Fhir.Stu3.Web/bin/Debug/netcoreapp3.1/Microsoft.Health.Fhir.Stu3.Web.dll",
             "args": [],
-            "cwd": "${workspaceFolder}/src/Microsoft.Health.Fhir.R4.Web",
+            "cwd": "${workspaceFolder}/src/Microsoft.Health.Fhir.Stu3.Web",
             "stopAtEntry": false,
             "env": {
                 "ASPNETCORE_ENVIRONMENT": "Development",
                 "DataStore": "SqlServer",
                 "SqlServer:AllowDatabaseCreation": "true",
                 "SqlServer:ConnectionString": "server=(local);Initial Catalog=FHIR_STU3;Integrated Security=true",
+                "SqlServer:SchemaOptions:AutomaticUpdatesEnabled": "true",
                 "SqlServer:Initialize": "true",
+                "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
+            },
+            "sourceFileMap": {
+                "/Views": "${workspaceFolder}/Views"
+            }
+        },
+        {
+            "name": "R5 Cosmos DB",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "buildR5",
+            // If you have changed target frameworks, make sure to update the program path.
+            "program": "${workspaceFolder}/src/Microsoft.Health.Fhir.R5.Web/bin/Debug/netcoreapp3.1/Microsoft.Health.Fhir.R5.Web.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/src/Microsoft.Health.Fhir.R5.Web",
+            "stopAtEntry": false,
+            "env": {
+                "ASPNETCORE_ENVIRONMENT": "Development",
+                "DataStore": "CosmosDb"
+            },
+            "sourceFileMap": {
+                "/Views": "${workspaceFolder}/Views"
+            }
+        },
+        {
+            "name": "R5 SQL Server",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "buildR5",
+            // If you have changed target frameworks, make sure to update the program path.
+            "program": "${workspaceFolder}/src/Microsoft.Health.Fhir.R5.Web/bin/Debug/netcoreapp3.1/Microsoft.Health.Fhir.R5.Web.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/src/Microsoft.Health.Fhir.R5.Web",
+            "stopAtEntry": false,
+            "env": {
+                "ASPNETCORE_ENVIRONMENT": "Development",
+                "DataStore": "SqlServer",
+                "SqlServer:AllowDatabaseCreation": "true",
+                "SqlServer:ConnectionString": "server=(local);Initial Catalog=FHIR_R5;Integrated Security=true",
+                "SqlServer:Initialize": "true",
+                "SqlServer:SchemaOptions:AutomaticUpdatesEnabled": "true",
                 "TestAuthEnvironment:FilePath": "..//..//testauthenvironment.json",
             },
             "sourceFileMap": {

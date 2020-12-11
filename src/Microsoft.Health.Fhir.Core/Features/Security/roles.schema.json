@@ -11,7 +11,8 @@
                 "hardDelete",
                 "export",
                 "resourceValidate",
-                "reindex"
+                "reindex",
+                "convertData"
             ]
         }
     },

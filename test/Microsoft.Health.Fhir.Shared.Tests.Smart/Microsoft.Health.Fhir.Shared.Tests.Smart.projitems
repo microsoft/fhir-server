@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <MSBuildAllProjects>$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
+    <HasSharedItems>true</HasSharedItems>
+    <SharedGUID>08829356-360B-4EBF-8DA6-8D19294697C0</SharedGUID>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration">
+    <Import_RootNamespace>Microsoft.Health.Fhir.Shared.Tests.Smart</Import_RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)SmartProxy\SmartProxyBadRequestTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)SmartProxy\SmartProxyTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)SmartProxy\SmartProxyTests.cs" />
+  </ItemGroup>
+</Project>

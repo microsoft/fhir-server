@@ -1,9 +1,7 @@
 {
     "Unsupported": [
-        "http://hl7.org/fhir/SearchParameter/Account-balance",
         "http://hl7.org/fhir/SearchParameter/Bundle-composition",
         "http://hl7.org/fhir/SearchParameter/Bundle-message",
-        "http://hl7.org/fhir/SearchParameter/ChargeItem-price-override",
         "http://hl7.org/fhir/SearchParameter/ConceptMap-source-uri",
         "http://hl7.org/fhir/SearchParameter/ConceptMap-target-uri",
         "http://hl7.org/fhir/SearchParameter/Encounter-length",

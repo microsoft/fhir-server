@@ -9,9 +9,25 @@ variables:
 - template: build-variables.yml
 
 stages:
+- stage: UpdateVersion
+  displayName: 'Determine Semver'
+  dependsOn: []
+  jobs:
+  - job: Semver
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - template: ./jobs/update-semver.yml
+    - script: echo %Action%%BuildVersion%
+      displayName: 'Set build version'
+      env:
+        Action: '##vso[build.updatebuildnumber]'
+        BuildVersion: $(GitVersion.semVer)
+
 - stage: BuildUnitTests
   displayName: 'Build and run unit tests'
-  dependsOn: []
+  dependsOn:
+  - UpdateVersion
   jobs:
   - job: Windows
     pool:
@@ -29,7 +45,8 @@ stages:
 
 - stage: DockerBuild  
   displayName: 'Build images'
-  dependsOn: []
+  dependsOn:
+  - UpdateVersion
   jobs:
   - template: ./jobs/docker-build-all.yml
     parameters: 

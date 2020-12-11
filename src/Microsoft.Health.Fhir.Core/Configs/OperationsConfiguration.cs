@@ -10,5 +10,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public ExportJobConfiguration Export { get; set; } = new ExportJobConfiguration();
 
         public ReindexJobConfiguration Reindex { get; set; } = new ReindexJobConfiguration();
+
+        public ConvertDataConfiguration ConvertData { get; set; } = new ConvertDataConfiguration();
     }
 }

@@ -10,8 +10,8 @@
 
 namespace Microsoft.Health.Fhir.Core {
     using System;
-    
-    
+
+
     /// <summary>
     ///   A strongly-typed resource class, for looking up localized strings, etc.
     /// </summary>
@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "4.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     internal class Resources {
@@ -223,6 +223,33 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Fail to access the container registry &apos;{0}&apos;, please check the registry configuration..
+        /// </summary>
+        internal static string ContainerRegistryNotAuthorized {
+            get {
+                return ResourceManager.GetString("ContainerRegistryNotAuthorized", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Failed to convert the input data. Reason: {0}.
+        /// </summary>
+        internal static string ConvertDataFailed {
+            get {
+                return ResourceManager.GetString("ConvertDataFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Convert data operation has timed out..
+        /// </summary>
+        internal static string ConvertDataOperationTimeout {
+            get {
+                return ResourceManager.GetString("ConvertDataOperationTimeout", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The prefix used to identify custom audit headers cannot be empty..
         /// </summary>
         internal static string CustomHeaderPrefixCannotBeEmpty {
@@ -268,6 +295,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The &apos;_elements&apos; parameter is supported only when &apos;_summary&apos; is SummaryType.False or &apos;_summary&apos; is not specified at all..
+        /// </summary>
+        internal static string ElementsAndSummaryParametersAreIncompatible {
+            get {
+                return ResourceManager.GetString("ElementsAndSummaryParametersAreIncompatible", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Error validating roles:
         ///{0}.
         /// </summary>
@@ -283,6 +319,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string ExportFormatNotFound {
             get {
                 return ResourceManager.GetString("ExportFormatNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Failed to fetch the template collection. Reason: {0}.
+        /// </summary>
+        internal static string FetchTemplateCollectionFailed {
+            get {
+                return ResourceManager.GetString("FetchTemplateCollectionFailed", resourceCulture);
             }
         }
         
