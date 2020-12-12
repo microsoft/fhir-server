@@ -64,6 +64,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
 
         public Patient TrumanPatient { get; private set; }
 
+        public Observation ObservationWithUntypedReferences { get; private set; }
+
         public Observation TrumanSnomedObservation { get; private set; }
 
         public Observation TrumanLoincObservation { get; private set; }
@@ -101,9 +103,9 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
             var meta = new Meta
             {
                 Tag = new List<Coding>
-                    {
-                        new Coding("testTag", Tag),
-                    },
+                {
+                    new Coding("testTag", Tag),
+                },
             };
 
             PercocetMedication = (await TestFhirClient.CreateAsync(new Medication { Meta = meta, Code = new CodeableConcept("http://snomed.info/sct", "16590-619-30", "Percocet tablet") })).Resource;
@@ -125,14 +127,15 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
             TaylorPractitioner = (await TestFhirClient.CreateAsync(new Practitioner { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Taylor" } } })).Resource;
 
             AdamsPatient = await CreatePatient("Adams", AndersonPractitioner, Organization, "1974-12-25");
-            SmithPatient = await CreatePatient("Smith",  SanchezPractitioner, Organization, "1981-07-02");
-            TrumanPatient = await CreatePatient("Truman",  TaylorPractitioner, Organization, "1941-01-15");
+            SmithPatient = await CreatePatient("Smith", SanchezPractitioner, Organization, "1981-07-02");
+            TrumanPatient = await CreatePatient("Truman", TaylorPractitioner, Organization, "1941-01-15");
 
             AdamsLoincObservation = await CreateObservation(AdamsPatient, Practitioner, Organization, loincCode, "1990-06-12");
             SmithLoincObservation = await CreateObservation(SmithPatient, Practitioner, Organization, loincCode, "2008-04-10");
             SmithSnomedObservation = await CreateObservation(SmithPatient, Practitioner, Organization, snomedCode, "1977-09-01");
             TrumanLoincObservation = await CreateObservation(TrumanPatient, Practitioner, Organization, loincCode, "2018-11-09");
             TrumanSnomedObservation = await CreateObservation(TrumanPatient, Practitioner, Organization, snomedCode, "1980-03-17");
+            ObservationWithUntypedReferences = await CreateObservation(AdamsPatient, Practitioner, Organization, loincCode, "1990-06-12", untypedReferences: true);
 
             SmithSnomedDiagnosticReport = await CreateDiagnosticReport(SmithPatient, SmithSnomedObservation, snomedCode);
             TrumanSnomedDiagnosticReport = await CreateDiagnosticReport(TrumanPatient, TrumanSnomedObservation, snomedCode);
@@ -159,11 +162,11 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
                 Meta = meta,
                 Type = Group.GroupType.Person, Actual = true,
                 Member = new List<Group.MemberComponent>
-                    {
-                        new Group.MemberComponent { Entity = new ResourceReference($"Patient/{AdamsPatient.Id}") },
-                        new Group.MemberComponent { Entity = new ResourceReference($"Patient/{SmithPatient.Id}") },
-                        new Group.MemberComponent { Entity = new ResourceReference($"Patient/{TrumanPatient.Id}") },
-                    },
+                {
+                    new Group.MemberComponent { Entity = new ResourceReference($"Patient/{AdamsPatient.Id}") },
+                    new Group.MemberComponent { Entity = new ResourceReference($"Patient/{SmithPatient.Id}") },
+                    new Group.MemberComponent { Entity = new ResourceReference($"Patient/{TrumanPatient.Id}") },
+                },
             };
 
             PatientGroup = (await TestFhirClient.CreateAsync(@group)).Resource;
@@ -181,7 +184,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
                     })).Resource;
             }
 
-            async Task<Observation> CreateObservation(Patient patient, Practitioner practitioner, Organization organization, CodeableConcept code, string effectiveDate)
+            async Task<Observation> CreateObservation(Patient patient, Practitioner practitioner, Organization organization, CodeableConcept code, string effectiveDate, bool untypedReferences = false)
             {
                 return (await TestFhirClient.CreateAsync(
                     new Observation()
@@ -189,11 +192,11 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
                         Meta = meta,
                         Status = ObservationStatus.Final,
                         Code = code,
-                        Subject = new ResourceReference($"Patient/{patient.Id}"),
+                        Subject = new ResourceReference(untypedReferences ? patient.Id : $"Patient/{patient.Id}"),
                         Performer = new List<ResourceReference>()
                         {
-                            new ResourceReference($"Organization/{organization.Id}"),
-                            new ResourceReference($"Practitioner/{practitioner.Id}"),
+                            new ResourceReference(untypedReferences ? organization.Id : $"Organization/{organization.Id}"),
+                            new ResourceReference(untypedReferences ? practitioner.Id : $"Practitioner/{practitioner.Id}"),
                         },
                         Effective = new FhirDateTime(effectiveDate),
                     })).Resource;
@@ -217,14 +220,16 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Search
 
             async Task<MedicationDispense> CreateMedicationDispense(MedicationRequest medicationRequest, Patient patient, Medication medication)
             {
-               return (await TestFhirClient.CreateAsync(
+                return (await TestFhirClient.CreateAsync(
                     new MedicationDispense
                     {
                         Meta = meta,
-                        AuthorizingPrescription = medicationRequest == null ? null : new List<ResourceReference>
-                        {
-                            new ResourceReference($"MedicationRequest/{medicationRequest.Id}"),
-                        },
+                        AuthorizingPrescription = medicationRequest == null
+                            ? null
+                            : new List<ResourceReference>
+                            {
+                                new ResourceReference($"MedicationRequest/{medicationRequest.Id}"),
+                            },
                         Subject = new ResourceReference($"Patient/{patient.Id}"),
                         Performer = new List<MedicationDispense.PerformerComponent>()
                         {

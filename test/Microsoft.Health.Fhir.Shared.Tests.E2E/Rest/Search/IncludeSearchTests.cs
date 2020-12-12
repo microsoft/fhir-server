@@ -288,8 +288,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 Fixture.SmithSnomedObservation,
                 Fixture.TrumanLoincObservation,
                 Fixture.TrumanSnomedObservation,
+                Fixture.ObservationWithUntypedReferences,
                 Fixture.Practitioner,
                 Fixture.Organization);
+
+            ValidateSearchEntryMode(bundle, ResourceType.Observation);
+        }
+
+        [Fact]
+        public async Task GivenAnIncludeSearchExpression_WhenSearched_DoesNotIncludeUntypedReferences()
+        {
+            string query = $"_id={Fixture.ObservationWithUntypedReferences.Id}&_include=Observation:*";
+
+            Bundle bundle = await Client.SearchAsync(ResourceType.Observation, query);
+
+            ValidateBundle(
+                bundle,
+                Fixture.ObservationWithUntypedReferences);
 
             ValidateSearchEntryMode(bundle, ResourceType.Observation);
         }
