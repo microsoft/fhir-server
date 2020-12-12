@@ -22,9 +22,6 @@ stages:
       env:
         Action: '##vso[build.updatebuildnumber]'
         BuildVersion: $(GitVersion.semVer)
-    - powershell: |
-        $buildName = "$(GitVersion.NuGetVersionV2)" -replace "\.", "-"
-        Write-Host "##vso[task.setvariable variable=DeploymentEnvironmentName]fhir-${buildName}"
 
 - stage: BuildUnitTests
   displayName: 'Build and run unit tests'
