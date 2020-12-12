@@ -10,7 +10,6 @@ using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Features.Definition
 {
@@ -88,11 +87,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             }
 
             throw new SearchParameterNotSupportedException(definitionUri);
-        }
-
-        public SearchParamType GetSearchParameterType(SearchParameterInfo searchParameter, int? componentIndex)
-        {
-            return _inner.GetSearchParameterType(searchParameter, componentIndex);
         }
 
         private IEnumerable<SearchParameterInfo> GetAllSearchParameters()

@@ -10,7 +10,6 @@ using System.Globalization;
 using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.Utility;
-using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
@@ -27,18 +26,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             .Cast<SearchComparator>()
             .Select(e => Tuple.Create(e.GetLiteral(), e)).ToArray();
 
-        private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
-
         private readonly Dictionary<SearchParamType, Func<string, ISearchValue>> _parserDictionary;
 
-        public SearchParameterExpressionParser(
-            ISearchParameterDefinitionManager.SearchableSearchParameterDefinitionManagerResolver searchParameterDefinitionManagerResolver,
-            IReferenceSearchValueParser referenceSearchValueParser)
+        public SearchParameterExpressionParser(IReferenceSearchValueParser referenceSearchValueParser)
         {
-            EnsureArg.IsNotNull(searchParameterDefinitionManagerResolver, nameof(searchParameterDefinitionManagerResolver));
             EnsureArg.IsNotNull(referenceSearchValueParser, nameof(referenceSearchValueParser));
-
-            _searchParameterDefinitionManager = searchParameterDefinitionManagerResolver();
 
             _parserDictionary = new (SearchParamType type, Func<string, ISearchValue> parser)[]
                 {
@@ -119,14 +111,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 
                         var compositeExpressions = new Expression[compositeValueParts.Count];
 
-                        var searchParameterComponentInfos = searchParameter.Component.ToList();
-
                         for (int componentIndex = 0; componentIndex < compositeValueParts.Count; componentIndex++)
                         {
-                            SearchParameterComponentInfo component = searchParameterComponentInfos[componentIndex];
-
                             // Find the corresponding search parameter info.
-                            SearchParameterInfo componentSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(component.DefinitionUrl);
+                            SearchParameterInfo componentSearchParameter = searchParameter.Component[componentIndex].ResolvedSearchParameter;
 
                             string componentValue = compositeValueParts[componentIndex];
 

@@ -3,8 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using EnsureThat;
-using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
@@ -18,13 +16,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     /// </summary>
     internal class StringOverflowRewriter : ConcatenationRewriter
     {
-        private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
+        public static readonly StringOverflowRewriter Instance = new StringOverflowRewriter();
 
-        public StringOverflowRewriter(ISupportedSearchParameterDefinitionManager searchParameterDefinitionManager)
-            : base(new Scout(searchParameterDefinitionManager))
+        public StringOverflowRewriter()
+            : base(new Scout())
         {
-            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
-            _searchParameterDefinitionManager = searchParameterDefinitionManager;
         }
 
         public override Expression VisitSearchParameter(SearchParameterExpression expression, object context)
@@ -40,7 +36,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public override Expression VisitString(StringExpression expression, object context)
         {
-            if (_searchParameterDefinitionManager.GetSearchParameterType((SearchParameterInfo)context, expression.ComponentIndex) != SearchParamType.String)
+            var searchParameterInfo = (SearchParameterInfo)context;
+            if ((expression.ComponentIndex == null ? searchParameterInfo.Type : searchParameterInfo.Component[expression.ComponentIndex.Value].ResolvedSearchParameter.Type) != SearchParamType.String)
             {
                 return expression;
             }
@@ -50,13 +47,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         private class Scout : DefaultExpressionVisitor<object, bool>
         {
-            private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
-
-            internal Scout(ISearchParameterDefinitionManager searchParameterDefinitionManager)
+            internal Scout()
                 : base((accumulated, current) => accumulated || current)
             {
-                EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
-                _searchParameterDefinitionManager = searchParameterDefinitionManager;
             }
 
             public override bool VisitSearchParameter(SearchParameterExpression expression, object context)
@@ -72,7 +65,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             public override bool VisitString(StringExpression expression, object context)
             {
-                if (_searchParameterDefinitionManager.GetSearchParameterType((SearchParameterInfo)context, expression.ComponentIndex) != SearchParamType.String)
+                var searchParameterInfo = (SearchParameterInfo)context;
+
+                if ((expression.ComponentIndex == null ? searchParameterInfo.Type : searchParameterInfo.Component[expression.ComponentIndex.Value].ResolvedSearchParameter.Type) != SearchParamType.String)
                 {
                     return false;
                 }

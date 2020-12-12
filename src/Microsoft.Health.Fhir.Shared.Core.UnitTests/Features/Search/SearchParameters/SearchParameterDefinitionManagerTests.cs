@@ -327,15 +327,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             Assert.Null(searchParamHash);
         }
 
-        [Fact]
-        public void GivenSearchParameter_WhenGettingSearchParameterType_CorrectTypeIsReturned()
-        {
-            SearchParameterInfo searchParam = _searchParameterInfos[0];
-            SearchParamType type = _searchParameterDefinitionManager.GetSearchParameterType(searchParam, null);
-
-            Assert.Equal(searchParam.Type, type);
-        }
-
         private static void ValidateSearchParam(SearchParameterInfo expectedSearchParam, SearchParameterInfo actualSearchParam)
         {
             Assert.Equal(expectedSearchParam.Name, actualSearchParam.Name);
