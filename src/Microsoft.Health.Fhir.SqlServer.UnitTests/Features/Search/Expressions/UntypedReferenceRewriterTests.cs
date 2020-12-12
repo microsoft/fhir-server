@@ -17,10 +17,10 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
         private static readonly SearchParameterInfo ReferenceSearchParameterWithTwoTargetTypes = new SearchParameterInfo("p2", SearchParamType.Reference, targetResourceTypes: new[] { "Patient", "Practitioner" });
 
-        private static readonly SearchParameterInfo CompositeParameter = new SearchParameterInfo("c", SearchParamType.Composite, components: new[] { new SearchParameterComponentInfo(), new SearchParameterComponentInfo(), new SearchParameterComponentInfo() })
-        {
-            ResolvedComponents = new[] { ReferenceSearchParameterWithTwoTargetTypes, ReferenceSearchParameterWithOneTargetType, new SearchParameterInfo("number", SearchParamType.Number) },
-        };
+        private static readonly SearchParameterInfo CompositeParameter = new SearchParameterInfo(
+            "c",
+            SearchParamType.Composite,
+            components: new[] { new SearchParameterComponentInfo { ResolvedSearchParameter = ReferenceSearchParameterWithTwoTargetTypes }, new SearchParameterComponentInfo() { ResolvedSearchParameter = ReferenceSearchParameterWithOneTargetType }, new SearchParameterComponentInfo() { ResolvedSearchParameter = new SearchParameterInfo("number", SearchParamType.Number) } });
 
         [Fact]
         public void GivenAnUntypedReferenceExpressionWithOneTargetType_WhenRewritten_ExpressionIncludesType()
@@ -32,6 +32,22 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Expression outputExpression = inputExpression.AcceptVisitor(UntypedReferenceRewriter.Instance);
 
             Assert.Equal("(Param p (And (StringEquals ReferenceResourceId 'myId') (StringEquals ReferenceResourceType 'Organization')))", outputExpression.ToString());
+        }
+
+        [Fact]
+        public void GivenAnUntypedReferenceExpressionWithOneTargetTypeWithMultipleOrs_WhenRewritten_ExpressionIncludesType()
+        {
+            SearchParameterExpression inputExpression = Expression.SearchParameter(
+                ReferenceSearchParameterWithOneTargetType,
+                Expression.Or(
+                    Expression.StringEquals(FieldName.ReferenceResourceId, null, "myId1", false),
+                    Expression.StringEquals(FieldName.ReferenceResourceId, null, "myId2", false)));
+
+            Expression outputExpression = inputExpression.AcceptVisitor(UntypedReferenceRewriter.Instance);
+
+            Assert.Equal(
+                "(Param p (Or (And (StringEquals ReferenceResourceId 'myId1') (StringEquals ReferenceResourceType 'Organization')) (And (StringEquals ReferenceResourceId 'myId2') (StringEquals ReferenceResourceType 'Organization'))))",
+                outputExpression.ToString());
         }
 
         [Fact]
@@ -89,6 +105,30 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Expression outputExpression = inputExpression.AcceptVisitor(UntypedReferenceRewriter.Instance);
 
             Assert.Same(inputExpression, outputExpression);
+        }
+
+        [Fact]
+        public void GivenCompositeSearchParameterWithTypedAndUntypedReferencesORedTogether_WhenRewritten_ExpressionIncludesType()
+        {
+            SearchParameterExpression inputExpression = Expression.SearchParameter(
+                CompositeParameter,
+                Expression.Or(
+                    Expression.And(
+                        Expression.StringEquals(FieldName.ReferenceResourceId, 0, "patientId", false),
+                        Expression.StringEquals(FieldName.ReferenceResourceId, 1, "orgId1", false),
+                        Expression.Equals(FieldName.Number, 2, 8)),
+                    Expression.And(
+                        Expression.StringEquals(FieldName.ReferenceResourceId, 0, "patientId", false),
+                        Expression.StringEquals(FieldName.ReferenceResourceId, 1, "orgId2", false),
+                        Expression.Equals(FieldName.Number, 2, 8)),
+                    Expression.And(
+                        Expression.StringEquals(FieldName.ReferenceResourceId, 0, "patientId", false),
+                        Expression.StringEquals(FieldName.ReferenceResourceId, 1, "orgId3", false),
+                        Expression.Equals(FieldName.Number, 2, 8))));
+
+            Expression outputExpression = inputExpression.AcceptVisitor(UntypedReferenceRewriter.Instance);
+
+            Assert.Equal("(Param c (Or (And (StringEquals [0].ReferenceResourceId 'patientId') (StringEquals [1].ReferenceResourceId 'orgId1') (FieldEqual [2].Number 8) (StringEquals [1].ReferenceResourceType 'Organization')) (And (StringEquals [0].ReferenceResourceId 'patientId') (StringEquals [1].ReferenceResourceId 'orgId2') (FieldEqual [2].Number 8) (StringEquals [1].ReferenceResourceType 'Organization')) (And (StringEquals [0].ReferenceResourceId 'patientId') (StringEquals [1].ReferenceResourceId 'orgId3') (FieldEqual [2].Number 8) (StringEquals [1].ReferenceResourceType 'Organization'))))", outputExpression.ToString());
         }
     }
 }
