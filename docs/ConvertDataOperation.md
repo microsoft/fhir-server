@@ -1,35 +1,33 @@
-# Convert Data Operation
-The ```$convert-data``` operation allows data conversion from legacy formats (currently supports **Hl7v2** only) to FHIR format. This feature is currently turned off by default. To enable the feature, update the `FhirServer:Operations:ConvertData:Enabled` setting to be true.
+# Convert Data operation
 
-## Conversion Template Collection
-The convert data operation is based on the [FHIR Converter Project](https://github.com/microsoft/FHIR-Converter/tree/dotliquid).
-To make a data conversion call, you need a template collection to define the mappings between different data formats.
+FHIR server implements $convert-data, a custom operation to enable data conversion from legacy formats to FHIR format. Currently it supports HL7v2 to FHIR conversion. It uses the Liquid templating engine and default conversion templates from the [FHIR Converter](https://github.com/microsoft/FHIR-Converter/tree/dotliquid) OSS project. 
 
-We have a built-in template collection (hl7v2 to FHIR R4), which is a copy from the [FHIR Converter project](https://github.com/microsoft/FHIR-Converter/releases/tag/v3.0). Currently the version of templates is ```v3.0``` and we will periodically update to the latest stable release in the future.
+## How to use $convert-data
 
-To convert with the built-in template collection, you can directly use the built-in template collection reference ```microsofthealth/fhirconverter:default``` in the request payload.
+Follow these steps to setup and use $convert-data API. Rest of this document details these steps. 
 
-If you want to refine or customize the output from the built-in template collection, you can also build your own template collections.
-To convert with custom template collection, you should follow the following steps:
-1. Get a copy of the [default template collection](https://github.com/microsoft/FHIR-Converter/releases/tag/v3.0) from the FHIR Converter project and customize it.
-2. Push custom templates to your ACR. You can use this [CLI tool](https://github.com/microsoft/FHIR-Converter/blob/dotliquid/docs/TemplateManagementCLI.md) to push your templates.
-3. Register the ACR server to your FHIR service configuration by setting `FhirServer:Operations:ConvertData:ContainerRegistryServers:0` to your ACR login server. You can register multiple ACRs by adding more entries in the configuration as the following picture shows.  
-![acr-registration](./images/convert-data/acr-registration.png)
-4. Give your FHIR service the `AcrPull` permission for the ACR you have registered. 
-![acr-rbac](./images/convert-data/acr-rbac.png)
-5. Now you are able to use your custom template collection in the format of `<RegistryServer>/<imageName>:<imageTag>` `<RegistryServer>/<imageName>@<imageDigest>`. 
-Both image tag and digest are supported in the reference string, but we strongly recommend to choose digest because it's immutable and stable. 
+1. Ensure that $convert-data is enabled on the FHIR server.
+1. Call $convert-data endpoint.
+1. Evaluate default templates.
+1. Customize templates if needed.
+1. Publish custom templates.
+1. Make templates accessible to the FHIR Server.
+1. Verify.
 
-## Request format
-The request payload is passed as [Parameters](http://hl7.org/fhir/parameters.html) resource to the ```$convert-data``` api.
-To convert Hl7v2 data to FHIR, you need to pass four parameters:
-1. *inputData*: raw string content of the input data.
-2. *inputDataType*: data type of your input, currently only accepts *Hl7v2*.
-3. *templateCollectionReference*: reference string of your template collection, can be either the built-in templates ```microsofthealth/fhirconverter:default``` or your custom image reference.
-4. *rootTemplate*: the root template to process (render) the
-input data.
+### 1. Enable $convert-data
+You can enable $convert-data while deploying FHIR Server. In order to enable or disable the feature at a later stage, set the `FhirServer:Operations:ConvertData:Enabled` setting in the FHIR server to _true_.
 
-Here is a sample request to convert data:
+### 2. Make API call
+Make a call to ```<<FHIR service base URL>>/$convert-data``` with the [Parameters](http://hl7.org/fhir/parameters.html) resource in the request body as described below:
+
+| Parameter Name      | Description | Accepted values |
+| ----------- | ----------- | ----------- |
+| inputData      | Data to be converted | A valid JSON String|
+| inputDataType   | Data type of input | ```HL7v2``` |
+| templateCollectionReference | Reference to a template collection. It can be the default templates, or an image on Azure Container Registry that the FHIR server can access. | ```microsofthealth/fhirconverter:default```, \<RegistryServer\>/\<imageName\>:\<imageTag\>, \<RegistryServer\>/\<imageName\>@\<imageDigest\> |
+| rootTemplate | The root template to use while transforming the data. | ```ADT_A01```, ```OML_O21```, ```ORU_R01```, ```VXU_V04``` |
+
+**Sample request:**
 ```json
 {
     "resourceType": "Parameters",
@@ -53,7 +51,11 @@ Here is a sample request to convert data:
     ]
 }
 ```
-And the expected response with the built-in template collection. Note the response content type is `text/plain` because the output format is determined by the mapping definition from your templates.
+
+**Sample response:**
+
+Note the Content-Type is the response header is set to `text/plain` because the output format is determined by the mapping definition from your templates.
+
 ```
 {
   "resourceType": "Bundle",
@@ -64,134 +66,8 @@ And the expected response with the built-in template collection. Note the respon
       "resource": {
         "resourceType": "Patient",
         "id": "9d697ec3-48c3-3e17-db6a-29a1765e22c6",
-        "identifier": [
-          {
-            "value": "3735064194"
-          },
-          {
-            "value": "3735064194"
-          },
-          {
-            "value": "2021051528"
-          }
-        ],
-        "name": [
-          {
-            "family": "Kinmonth",
-            "given": [
-              "Joanna",
-              "Chelsea"
-            ],
-            "prefix": [
-              "Ms"
-            ]
-          }
-        ],
-        "birthDate": "1987-06-24",
-        "gender": "female",
-        "address": [
-          {
-            "line": [
-              "89 Transaction House",
-              "Handmaiden Street"
-            ],
-            "city": "Wembley",
-            "postalCode": "FV75 4GJ",
-            "country": "GBR"
-          }
-        ],
-        "telecom": [
-          {
-            "value": "020 3614 5541",
-            "use": "home"
-          }
-        ]
-      },
-      "request": {
-        "method": "PUT",
-        "url": "Patient/9d697ec3-48c3-3e17-db6a-29a1765e22c6"
-      }
-    },
-    {
-      "fullUrl": "urn:uuid:7f6c5e84-04ee-8b73-e018-d66073b40c3e",
-      "resource": {
-        "resourceType": "Encounter",
-        "id": "7f6c5e84-04ee-8b73-e018-d66073b40c3e",
-        "class": {
-          "code": "IMP",
-          "display": "inpatient encounter",
-          "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode"
-        },
-        "status": "unknown",
-        "location": [
-          {
-            "location": {
-              "reference": "Location/"
-            },
-            "status": "active"
-          }
-        ],
-        "participant": [
-          {
-            "type": [
-              {
-                "coding": [
-                  {
-                    "code": "ATND",
-                    "system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType",
-                    "display": "attender"
-                  }
-                ]
-              }
-            ]
-          }
-        ],
-        "serviceType": {
-          "coding": [
-            {
-              "code": "CAR"
-            }
-          ]
-        },
-        "identifier": [
-          {
-            "value": "16094728916771313876",
-            "type": {
-              "coding": [
-                {
-                  "system": "http://terminology.hl7.org/CodeSystem/v2-0203"
-                }
-              ],
-              "text": "visit number"
-            }
-          }
-        ],
-        "period": {
-          "start": "2020-05-08T13:10:15Z"
-        },
-        "subject": {
-          "reference": "Patient/9d697ec3-48c3-3e17-db6a-29a1765e22c6"
-        }
-      },
-      "request": {
-        "method": "PUT",
-        "url": "Encounter/7f6c5e84-04ee-8b73-e018-d66073b40c3e"
-      }
-    },
-    {
-      "fullUrl": "urn:uuid:50becdb5-ff56-56c6-40a1-6d554dca80f0",
-      "resource": {
-        "resourceType": "Location",
-        "id": "50becdb5-ff56-56c6-40a1-6d554dca80f0",
-        "mode": "instance",
-        "physicalType": {
-          "coding": [
-            {
-              "system": "http://terminology.hl7.org/CodeSystem/location-physical-type"
-            }
-          ]
-        }
-      },
+        ...
+        ...
       "request": {
         "method": "PUT",
         "url": "Location/50becdb5-ff56-56c6-40a1-6d554dca80f0"
@@ -200,3 +76,35 @@ And the expected response with the built-in template collection. Note the respon
   ]
 }
 ```
+
+### 3. Evaluate default templates
+When you deploy the FHIR server, a copy of the latest template released by the [FHIR Converter](https://github.com/microsoft/FHIR-Converter/tree/dotliquid) project is stored with the FHIR server. You can use these default templates by passing ```microsofthealth/fhirconverter:default``` in the request payload as described earlier.
+
+If the data conversion using default templates meets your requirements, you are all set. Otherwise, you should customize the templates as described below.
+
+### 4. Customize templates
+Use the [FHIR Converter](https://marketplace.visualstudio.com/items?itemName=ms-azuretools.vscode-health-fhir-converter) Visual Studio Code extension to customize the templates as per your need. You will first need to install [Visual Studio Code](https://code.visualstudio.com/) if do not have it already.
+
+### 5. Publish your templates to Azure Container Registry (ACR)
+The FHIR server can read custom templates from the [ACR](https://azure.microsoft.com/en-us/services/container-registry/). Create a container registry, and use the [Template Management CLI](https://github.com/microsoft/FHIR-Converter/blob/dotliquid/docs/TemplateManagementCLI.md) tool to push the customized templates to the ACR.
+
+### 6. Make templates accessible to the FHIR server
+
+There are two steps needed to make the templates accessible to the FHIR server at run time.
+
+a) Provide `AcrPull` permission to your FHIR service on the ACR you created.
+
+![acr-rbac](./images/convert-data/acr-rbac.png)&nbsp;
+
+
+b) Register the ACR on your FHIR server by setting `FhirServer:Operations:ConvertData:ContainerRegistryServers:0` to your ACR login server. You can register multiple ACRs by adding more entries in the configuration as the following picture shows.  
+
+![acr-registration](./images/convert-data/acr-registration.png)&nbsp;
+
+### 7. Verify
+
+Make a call to the $convert-data API specifying your template reference in the templateCollectionReference parameter. You can use any one of the following two formats to specify the reference. However, we strongly recommend choosing digest because its immutable and stable.
+
+ `<RegistryServer>/<imageName>:<imageTag>` 
+
+`<RegistryServer>/<imageName>@<imageDigest>`
