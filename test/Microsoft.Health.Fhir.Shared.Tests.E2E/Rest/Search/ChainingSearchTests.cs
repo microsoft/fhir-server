@@ -121,6 +121,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
+        public async Task GivenAReverseChainSearchExpressionWithMultipleTargetTypes_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        {
+            string query = $"?_tag={Fixture.Tag}&_type=Patient,Device&_has:Observation:subject:code=429858000";
+
+            Bundle bundle = await Client.SearchAsync(query);
+
+            ValidateBundle(bundle, Fixture.SmithPatient, Fixture.TrumanPatient);
+        }
+
+        [Fact]
         public async Task GivenANestedReverseChainSearchExpressionOverASimpleParameter_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"_tag={Fixture.Tag}&_has:Observation:patient:_has:DiagnosticReport:result:code=429858000";
