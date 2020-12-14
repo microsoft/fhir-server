@@ -242,12 +242,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
 
             var requestedResourceTypes = _exportJobRecord.ResourceType?.Split(',');
-            var filteredResources = new HashSet<string>();
+            var filteredResources = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             if (_exportJobRecord.Filters != null)
             {
                 foreach (var filter in _exportJobRecord.Filters)
                 {
-                    filteredResources.Add(filter.ResourceType.ToUpper(CultureInfo.InvariantCulture));
+                    filteredResources.Add(filter.ResourceType);
                 }
             }
 
@@ -265,7 +265,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     if (!progress.CompletedFilters.Contains(filter) &&
                         requestedResourceTypes != null &&
                         requestedResourceTypes.Contains(filter.ResourceType, StringComparison.OrdinalIgnoreCase) &&
-                        (_exportJobRecord.ExportType == ExportJobType.All || filter.ResourceType.Equals(KnownResourceTypes.Patient, StringComparison.Ordinal)))
+                        (_exportJobRecord.ExportType == ExportJobType.All || filter.ResourceType.Equals(KnownResourceTypes.Patient, StringComparison.OrdinalIgnoreCase)))
                     {
                         progress.SetFilter(filter);
                         await ProcessFilter(exportJobConfiguration, progress, queryParametersList, sharedQueryParametersList, anonymizer, "filter", cancellationToken);
@@ -281,9 +281,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             if (_exportJobRecord.Filters == null ||
                 _exportJobRecord.Filters.Count == 0 ||
                 (_exportJobRecord.ExportType == ExportJobType.All &&
-                !requestedResourceTypes.All(resourceType => filteredResources.Contains(resourceType.ToUpper(CultureInfo.InvariantCulture)))) ||
+                !requestedResourceTypes.All(resourceType => filteredResources.Contains(resourceType))) ||
                 ((_exportJobRecord.ExportType == ExportJobType.Patient || _exportJobRecord.ExportType == ExportJobType.Group) &&
-                !filteredResources.Contains(KnownResourceTypes.Patient.ToUpper(CultureInfo.InvariantCulture))))
+                !filteredResources.Contains(KnownResourceTypes.Patient)))
             {
                 if (_exportJobRecord.ExportType == ExportJobType.Patient)
                 {
@@ -293,7 +293,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 {
                     foreach (var resource in requestedResourceTypes)
                     {
-                        if (!filteredResources.Contains(resource.ToUpper(CultureInfo.InvariantCulture)))
+                        if (!filteredResources.Contains(resource))
                         {
                             queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type, resource));
                         }
@@ -447,12 +447,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
 
             var requestedResourceTypes = _exportJobRecord.ResourceType?.Split(',');
-            var filteredResources = new HashSet<string>();
+            var filteredResources = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             if (_exportJobRecord.Filters != null)
             {
                 foreach (var filter in _exportJobRecord.Filters)
                 {
-                    filteredResources.Add(filter.ResourceType.ToUpper(CultureInfo.InvariantCulture));
+                    filteredResources.Add(filter.ResourceType);
                 }
             }
 
@@ -477,13 +477,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             if (_exportJobRecord.Filters == null ||
                 _exportJobRecord.Filters.Count == 0 ||
-                !requestedResourceTypes.All(resourceType => filteredResources.Contains(resourceType.ToUpper(CultureInfo.InvariantCulture))))
+                !requestedResourceTypes.All(resourceType => filteredResources.Contains(resourceType)))
             {
                 if (requestedResourceTypes != null)
                 {
                     foreach (var resource in requestedResourceTypes)
                     {
-                        if (!filteredResources.Contains(resource.ToUpper(CultureInfo.InvariantCulture)))
+                        if (!filteredResources.Contains(resource))
                         {
                             queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type, resource));
                         }
