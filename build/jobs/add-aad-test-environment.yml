@@ -37,7 +37,7 @@ jobs:
         }
 
         # If a deleted keyvault exists, remove it first
-        $environmentName = "$(DeploymentEnvironmentName)" -replace "\.", "-" 
+        $environmentName = "$(DeploymentEnvironmentName)" -replace "\.", "" 
         if (Get-AzKeyVault -VaultName "${environmentName}-ts" -Location "westus" -InRemovedState)
         {
             Remove-AzKeyVault -VaultName "${environmentName}-ts" -InRemovedState -Location "westus" -Force
