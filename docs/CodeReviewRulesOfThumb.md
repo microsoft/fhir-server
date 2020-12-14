@@ -4,11 +4,15 @@ This document aims to outline a set of best practices that are followed, within 
 
 ## Select a reviewer
 
-Author:
+FHIR team authors:
+
 - Manually assign at least one reviewer when creating a PR
 - Let the reviewer know that you have selected them during scrum (or ping them over Teams)
 
-Reviewer:
+External contributor authors:
+- The FHIR team will assign a reviewer to go over your PR
+
+Reviewers:
 - Indicate right away if you are the wrong reviewer (you won't be able to review the PR if you are going on vacation, for example)
 
 Anyone can review a PR, even if you are not assigned as the reviewer.
@@ -38,21 +42,21 @@ Anyone can review a PR, even if you are not assigned as the reviewer.
 |“I don't understand this”|“It's hard to understand this because I don't see why we need to use a dictionary here instead of a list”|Ask specific questions|
 |“This method should be async”|“This method should be async, otherwise it could cause deadlocks”|Explain why|
 |“Hey, you should remove this line”|“Marking this as a must-fix before merging because this line will break the server/client connection.”|Prioritize your comments|
-|“Maybe try a different name for this variable”|“It would be good to rename this to something like `CurrencyValueSet` to avoid the name `SystemValues`, since the `ValueSet` uri is "http://hl7.org/fhir/ValueSet/currencies" and the `CodeSystem` is "urn:iso:std:iso:4217" ([here](https://www.hl7.org/fhir/valueset-currencies.html) is the relevant part of the spec).”|Help suggest a new name if you think a variable could be renamed|
+|“Maybe try a different name for this variable”|“It would be good to rename this to something like `CurrencyValueSet` to avoid the name `SystemValues`, since the `ValueSet` uri is “http://hl7.org/fhir/ValueSet/currencies” and the `CodeSystem` is “urn:iso:std:iso:4217” ([here](https://www.hl7.org/fhir/valueset-currencies.html) is the relevant part of the spec).”|Help suggest a new name if you think a variable could be renamed|
 
 ## Ask questions to gain understanding
 
 - Not all comments are actionable
-- Preface non-actionable comments with "for my understanding"
-- It's important to continue to ask these questions
+- Preface non-actionable comments with “for my understanding”
+- It's important to continue to ask clarifying questions
 
 ## Practice healthy communication
 
 |Instead of This|Try This|Reasoning|
 |---|---|---|
-|"You forgot to add method comment"|"This method is missing a comment"|Avoid words like "mine and "yours"|
-|“You should use a constant”|"Here it seems we need a constant because..."|Use the word "we"|
-|"Rename to user_id"|"What do you think of renaming to user_id?"|If fitting, ask questions instead of making demands|
+|“You forgot to add method comment”|“This method is missing a comment”|Avoid words like “mine” and “yours”|
+|“You should use a constant”|“Here it seems we need a constant because...”|Use the word “we”|
+|“Rename to user_id”|“What do you think of renaming to user_id?”|If fitting, ask questions instead of making demands|
 
 ## Be humble and assume the best of the author
 
@@ -60,7 +64,7 @@ Anyone can review a PR, even if you are not assigned as the reviewer.
 
 ## Move long PR discussions to video calls
 
-- Be open to moving discussions to chat or video calls for clarification
+- Authors who are members of the FHIR team should be open to moving discussions to chat or video calls for clarification
 - Post a resolution comment so other people reading the PR know what happened
 
 ## Positive reinforcement is important!
@@ -69,8 +73,8 @@ Anyone can review a PR, even if you are not assigned as the reviewer.
 
 ## Additional notes
 
-- Consider using [Code Flow](https://www.1eswiki.com/wiki/CodeFlow_integration_with_GitHub_Pull_Requests), a tool that integrates with Github to provide a helpful UI for code reviewing
+- Consider using the [Visual Studio Code extension for PRs](https://marketplace.visualstudio.com/items?itemName=GitHub.vscode-pull-request-github), a tool that integrates with Github to provide a helpful UI for code reviewing
 - If the same issue occurs in multiple places in one file, add one comment that mentions that this occurs more than once (reconsider for multiple files)
-- It is nice to proceed nitpick comments with “nit”
+- It is nice to precede nitpick comments with “nit”
 - The thumbs up reaction can be used for acknowledging a comment in a PR discussion
 
