@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             Expression parsed = _compiler.Parse(parameterInfo.Expression);
 
             (SearchParamType Type, Expression, Uri DefinitionUrl)[] componentExpressions = parameterInfo.Component
-                ?.Select(x => (_definitionManager.GetSearchParameter(x.DefinitionUrl).Type,
+                ?.Select(x => (x.ResolvedSearchParameter.Type,
                     _compiler.Parse(x.Expression),
                     x.DefinitionUrl))
                 .ToArray();

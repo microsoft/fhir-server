@@ -20,8 +20,8 @@ namespace Microsoft.Health.Fhir.Core.Models
             Uri url = null,
             IReadOnlyList<SearchParameterComponentInfo> components = null,
             string expression = null,
-            IReadOnlyCollection<string> targetResourceTypes = null,
-            IReadOnlyCollection<string> baseResourceTypes = null,
+            IReadOnlyList<string> targetResourceTypes = null,
+            IReadOnlyList<string> baseResourceTypes = null,
             string description = null)
             : this(
                 name,
@@ -41,8 +41,8 @@ namespace Microsoft.Health.Fhir.Core.Models
             Uri url = null,
             IReadOnlyList<SearchParameterComponentInfo> components = null,
             string expression = null,
-            IReadOnlyCollection<string> targetResourceTypes = null,
-            IReadOnlyCollection<string> baseResourceTypes = null,
+            IReadOnlyList<string> targetResourceTypes = null,
+            IReadOnlyList<string> baseResourceTypes = null,
             string description = null)
             : this(name)
         {
@@ -70,9 +70,9 @@ namespace Microsoft.Health.Fhir.Core.Models
 
         public string Expression { get; }
 
-        public IReadOnlyCollection<string> TargetResourceTypes { get; } = Array.Empty<string>();
+        public IReadOnlyList<string> TargetResourceTypes { get; } = Array.Empty<string>();
 
-        public IReadOnlyCollection<string> BaseResourceTypes { get; } = Array.Empty<string>();
+        public IReadOnlyList<string> BaseResourceTypes { get; } = Array.Empty<string>();
 
         public Uri Url { get; }
 
@@ -94,6 +94,14 @@ namespace Microsoft.Health.Fhir.Core.Models
         /// </summary>
         public bool IsPartiallySupported { get; set; }
 
+        /// <summary>
+        /// The component definitions if this is a composite search parameter (<see cref="Type"/> is <see cref="SearchParamType.Composite"/>)
+        /// </summary>
         public IReadOnlyList<SearchParameterComponentInfo> Component { get; }
+
+        /// <summary>
+        /// The resolved <see cref="SearchParameterInfo"/>s for each component if this is a composite search parameter (<see cref="Type"/> is <see cref="SearchParamType.Composite"/>)
+        /// </summary>
+        public IReadOnlyList<SearchParameterInfo> ResolvedComponents { get; set; } = Array.Empty<SearchParameterInfo>();
     }
 }

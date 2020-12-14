@@ -133,6 +133,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.Health.Fhir.Stu3.
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Client", "Client", "{83B3EE6D-693E-4E86-A925-28B1A108268E}"
 EndProject
+Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "Microsoft.Health.Fhir.Shared.Tests.Smart", "test\Microsoft.Health.Fhir.Shared.Tests.Smart\Microsoft.Health.Fhir.Shared.Tests.Smart.shproj", "{A955963B-D766-492D-94FD-98A8B9EA8931}"
+EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
 		test\Microsoft.Health.Fhir.Shared.Tests.E2E.Common\Microsoft.Health.Fhir.Shared.Tests.E2E.Common.projitems*{0478b687-7105-40f6-a2dc-81057890e944}*SharedItemsImports = 13
@@ -404,6 +406,7 @@ Global
 		{4640D17C-7229-4D90-A330-0423DFC3FFC5} = {83B3EE6D-693E-4E86-A925-28B1A108268E}
 		{743EA25C-A6F5-4B41-BC56-69D9A89386A3} = {83B3EE6D-693E-4E86-A925-28B1A108268E}
 		{83B3EE6D-693E-4E86-A925-28B1A108268E} = {7457B218-2651-49B5-BED8-22233889516A}
+		{A955963B-D766-492D-94FD-98A8B9EA8931} = {85F39C13-BC62-49A0-9C06-3BBA724D35ED}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		RESX_SortFileContentOnSave = True

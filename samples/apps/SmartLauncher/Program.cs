@@ -6,7 +6,7 @@
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Hosting;
 
-namespace SmartLauncher
+namespace Microsoft.Health.Internal.SmartLauncher
 {
     public class Program
     {

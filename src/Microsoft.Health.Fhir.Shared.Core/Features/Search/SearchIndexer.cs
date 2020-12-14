@@ -116,7 +116,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     SearchParameterComponentInfo component = searchParameter.Component[i];
 
                     // First find the type of the component.
-                    SearchParameterInfo componentSearchParameterDefinition = _searchParameterDefinitionManager.GetSearchParameter(component.DefinitionUrl);
+                    SearchParameterInfo componentSearchParameterDefinition = searchParameter.Component[i].ResolvedSearchParameter;
 
                     IReadOnlyList<ISearchValue> extractedComponentValues = ExtractSearchValues(
                         componentSearchParameterDefinition.Url.ToString(),
@@ -171,7 +171,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         private IReadOnlyList<ISearchValue> ExtractSearchValues(
             string searchParameterDefinitionUrl,
             SearchParamType? searchParameterType,
-            IEnumerable<string> allowedReferenceResourceTypes,
+            IReadOnlyList<string> allowedReferenceResourceTypes,
             Base element,
             string fhirPathExpression,
             FhirEvaluationContext context)
@@ -200,8 +200,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             // If there is target set, then filter the extracted values to only those types.
             if (searchParameterType == SearchParamType.Reference &&
-                allowedReferenceResourceTypes != null &&
-                allowedReferenceResourceTypes.Any())
+                allowedReferenceResourceTypes?.Count > 0)
             {
                 List<string> targetResourceTypes = _targetTypesLookup.GetOrAdd(searchParameterDefinitionUrl, _ =>
                 {
@@ -234,12 +233,32 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     continue;
                 }
 
-                _logger.LogDebug(
-                    "The FHIR element '{ElementType}' will be converted using '{ElementTypeConverter}'.",
-                    extractedValue.TypeName,
-                    converter.GetType().FullName);
+                IEnumerable<ISearchValue> searchValues = converter.ConvertTo(extractedValue);
 
-                results.AddRange(converter.ConvertTo(extractedValue) ?? Enumerable.Empty<ISearchValue>());
+                if (searchValues != null)
+                {
+                    if (searchParameterType == SearchParamType.Reference && allowedReferenceResourceTypes?.Count == 1)
+                    {
+                        // For references, if the type is not specified in the reference string, we can set the type on the search value because
+                        // in this case it can only be of one type.
+                        string singleAllowedResourceType = allowedReferenceResourceTypes[0];
+                        foreach (ISearchValue searchValue in searchValues)
+                        {
+                            if (searchValue is ReferenceSearchValue rsr && string.IsNullOrEmpty(rsr.ResourceType))
+                            {
+                                results.Add(new ReferenceSearchValue(rsr.Kind, rsr.BaseUri, singleAllowedResourceType, rsr.ResourceId));
+                            }
+                            else
+                            {
+                                results.Add(searchValue);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        results.AddRange(searchValues);
+                    }
+                }
             }
 
             return results;

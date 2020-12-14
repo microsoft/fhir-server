@@ -12,11 +12,13 @@ using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+using Microsoft.Health.Fhir.Tests.E2E;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Fhir.Tests.E2E.Rest;
+using Microsoft.Health.Internal.SmartLauncher;
 using Xunit;
 
-namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
+namespace Microsoft.Health.Fhir.Smart.Tests.E2E.SmartProxy
 {
     public class SmartProxyTestFixture : IDisposable, IAsyncLifetime
     {
@@ -56,7 +58,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
                             { "DefaultSmartAppUrl", "/sampleapp/launch.html" },
                         });
                     })
-                    .UseStartup<SmartLauncher.Startup>()
+                    .UseStartup<Startup>()
                     .UseUrls(baseUrl);
 
                 WebServer = builder.Build();

@@ -18,5 +18,7 @@ namespace Microsoft.Health.Fhir.Core.Models
         public Uri DefinitionUrl { get; }
 
         public string Expression { get; }
+
+        public SearchParameterInfo ResolvedSearchParameter { get; set; }
     }
 }

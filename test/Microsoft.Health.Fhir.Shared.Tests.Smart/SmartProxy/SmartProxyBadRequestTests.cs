@@ -12,7 +12,7 @@ using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Microsoft.Health.Fhir.Tests.E2E.Rest;
 using Xunit;
 
-namespace Microsoft.Health.Fhir.Tests.E2E.SmartProxy
+namespace Microsoft.Health.Fhir.Smart.Tests.E2E.SmartProxy
 {
     [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.All)]
     public class SmartProxyBadRequestTests : IClassFixture<HttpIntegrationTestFixture>

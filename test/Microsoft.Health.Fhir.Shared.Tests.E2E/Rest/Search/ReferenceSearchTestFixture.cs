@@ -27,7 +27,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             Patients = await TestFhirClient.CreateResourcesAsync<Patient>(
                 p => p.ManagingOrganization = new ResourceReference("Organization/123"),
-                p => p.ManagingOrganization = new ResourceReference("Organization/abc"));
+                p => p.ManagingOrganization = new ResourceReference("Organization/abc"),
+                p => p.ManagingOrganization = new ResourceReference("ijk"), // type not specified, but known constrained to be Organization
+                p => p.GeneralPractitioner = new List<ResourceReference> { new ResourceReference("Practitioner/p1") },
+                p => p.GeneralPractitioner = new List<ResourceReference> { new ResourceReference("p2") }); // type not specified and not known because it could be Practitioner, Organization, or PractitionerRole
         }
     }
 }
