@@ -10,8 +10,8 @@
 
 namespace Microsoft.Health.Fhir.Core {
     using System;
-
-
+    
+    
     /// <summary>
     ///   A strongly-typed resource class, for looking up localized strings, etc.
     /// </summary>
@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "4.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     internal class Resources {
@@ -949,6 +949,24 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string TruncatedIncludeMessage {
             get {
                 return ResourceManager.GetString("TruncatedIncludeMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The _typeFilter segment &apos;{0}&apos; could not be parsed..
+        /// </summary>
+        internal static string TypeFilterUnparseable {
+            get {
+                return ResourceManager.GetString("TypeFilterUnparseable", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The _type parameter must be included when using the _typeFilter parameter. .
+        /// </summary>
+        internal static string TypeFilterWithoutTypeIsUnsupported {
+            get {
+                return ResourceManager.GetString("TypeFilterWithoutTypeIsUnsupported", resourceCulture);
             }
         }
         

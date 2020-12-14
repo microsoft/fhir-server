@@ -245,7 +245,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
             if (_modifier == null)
             {
-                // Based on spec http://hl7.org/fhir/STU3/search.html#token,
+                // Based on spec http://hl7.org/fhir/search.html#token,
                 // we need to make sure to test if system is missing or not based on how it is supplied.
                 if (token.System == null)
                 {

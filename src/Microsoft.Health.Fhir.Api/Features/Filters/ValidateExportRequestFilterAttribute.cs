@@ -45,6 +45,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 KnownQueryParameterNames.Type,
                 KnownQueryParameterNames.Container,
                 KnownQueryParameterNames.Format,
+                KnownQueryParameterNames.TypeFilter,
             };
 
             _supportedQueryParamsForAnonymizedExport = new HashSet<string>(StringComparer.Ordinal)
@@ -82,6 +83,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 }
 
                 throw new RequestNotValidException(string.Format(Resources.UnsupportedParameter, paramName));
+            }
+
+            if (queryCollection?.Keys != null &&
+                queryCollection.Keys.Contains(KnownQueryParameterNames.TypeFilter) &&
+                !queryCollection.Keys.Contains(KnownQueryParameterNames.Type))
+            {
+                throw new RequestNotValidException(Resources.TypeFilterWithoutTypeIsUnsupported);
             }
 
             if (queryCollection.TryGetValue(KnownQueryParameterNames.OutputFormat, out var outputFormats))

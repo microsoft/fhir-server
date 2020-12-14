@@ -341,6 +341,10 @@
   <data name="ContentTypeFormUrlEncodedExpected" xml:space="preserve">
     <value>The "content-type" header must be 'application/x-www-form-urlencoded'.</value>
   </data>
+  <data name="TypeFilterWithoutTypeIsUnsupported" xml:space="preserve">
+    <value>The _type parameter must be included when using the _typeFilter parameter. </value>
+    <comment>Export job parameter exception messsage</comment>
+  </data>
   <data name="ContainerRegistryNotConfigured" xml:space="preserve">
     <value>The container registry '{0}' is not configured.</value>
     <comment>{0}: the container registry login server</comment>

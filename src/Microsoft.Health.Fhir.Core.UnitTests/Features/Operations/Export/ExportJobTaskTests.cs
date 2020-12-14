@@ -985,7 +985,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 _cancellationToken)
                 .Returns(x =>
                 {
-                    string[] types = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[3].Item2.Split(',');
+                    string[] types =
+                    {
+                        x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[3].Item2,
+                        x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[4].Item2,
+                    };
                     SearchResultEntry[] entries = new SearchResultEntry[types.Length];
 
                     for (int index = 0; index < types.Length; index++)
@@ -1078,7 +1082,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
                     bool typeParameterIncluded = false;
                     bool continuationTokenParameterIncluded = false;
-                    string[] types = null;
+                    var types = new List<string>();
 
                     foreach (Tuple<string, string> parameter in queryParameterList)
                     {
@@ -1089,7 +1093,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                         else if (parameter.Item1 == Core.Features.KnownQueryParameterNames.Type)
                         {
                             typeParameterIncluded = true;
-                            types = parameter.Item2.Split(',');
+                            types.Add(parameter.Item2);
                         }
                     }
 
@@ -1101,9 +1105,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                         throw new Exception();
                     }
 
-                    SearchResultEntry[] entries = new SearchResultEntry[types.Length];
+                    SearchResultEntry[] entries = new SearchResultEntry[types.Count];
 
-                    for (int index = 0; index < types.Length; index++)
+                    for (int index = 0; index < types.Count; index++)
                     {
                         entries[index] = CreateSearchResultEntry(searchCallsMade.ToString(CultureInfo.InvariantCulture), types[index]);
                     }
@@ -1168,7 +1172,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     });
 
             _searchService.SearchAsync(
-                null,
+                KnownResourceTypes.Patient,
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
                 _cancellationToken)
                 .Returns(x =>
@@ -1234,7 +1238,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             int countOfSearches = 0;
             _searchService.SearchAsync(
-                null,
+                KnownResourceTypes.Patient,
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
                 _cancellationToken)
                 .Returns(x =>
@@ -1303,7 +1307,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             int countOfSearches = 0;
             _searchService.SearchAsync(
-                null,
+                KnownResourceTypes.Patient,
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
                 _cancellationToken)
                 .Returns(x =>
@@ -1411,7 +1415,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                     });
 
             _searchService.SearchAsync(
-                null,
+                KnownResourceTypes.Patient,
                 Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
                 _cancellationToken)
                 .Returns(x =>
@@ -1436,7 +1440,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 .Returns(x =>
                 {
                     string parentId = x.ArgAt<string>(1);
-                    string[] resourceTypes = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(3)[2].Item2.Split(',');
+                    string[] resourceTypes =
+                    {
+                        x.ArgAt<IReadOnlyList<Tuple<string, string>>>(3)[2].Item2,
+                        x.ArgAt<IReadOnlyList<Tuple<string, string>>>(3)[3].Item2,
+                    };
 
                     SearchResultEntry[] entries = new SearchResultEntry[resourceTypes.Length];
 
@@ -1676,6 +1684,452 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal("1", patientIds);
             Assert.Equal("2", observationIds);
             Assert.Equal(2, _inMemoryDestinationClient.ExportedDataFileCount);
+            Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
+        }
+
+        [Fact]
+        public async Task GivenAnExportJobWithFilters_WhenExecuted_ThenAllResourcesAreExportedToTheProperLocation()
+        {
+            var filters = new List<ExportJobFilter>()
+                 {
+                     new ExportJobFilter(
+                         KnownResourceTypes.Observation,
+                         new List<Tuple<string, string>>()
+                         {
+                             new Tuple<string, string>("status", "final"),
+                             new Tuple<string, string>("subject", "Patient/1"),
+                         }),
+                     new ExportJobFilter(
+                         KnownResourceTypes.Patient,
+                         new List<Tuple<string, string>>()
+                         {
+                             new Tuple<string, string>("address", "Seattle"),
+                         }),
+                 };
+            var exportJobRecordWithFormat = CreateExportJobRecord(
+                resourceType: $"{KnownResourceTypes.Patient},{KnownResourceTypes.Observation},{KnownResourceTypes.Encounter}",
+                filters: filters);
+            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithFormat);
+
+            var checkedObservation = false;
+            var checkedPatient = false;
+            var checkedOther = false;
+
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    var type = x[0] as string;
+                    var queryParams = x[1] as IReadOnlyList<Tuple<string, string>>;
+
+                    if (type == KnownResourceTypes.Observation)
+                    {
+                        Assert.Contains(queryParams, (param) => param == filters[0].Parameters[0]);
+                        Assert.Contains(queryParams, (param) => param == filters[0].Parameters[1]);
+                        checkedObservation = true;
+                    }
+                    else if (type == KnownResourceTypes.Patient)
+                    {
+                        Assert.Contains(queryParams, (param) => param == filters[1].Parameters[0]);
+                        checkedPatient = true;
+                    }
+                    else
+                    {
+                        type = KnownResourceTypes.Encounter;
+                        checkedOther = true;
+                    }
+
+                    return CreateSearchResult(
+                        new[]
+                        {
+                            CreateSearchResultEntry("1", type),
+                        });
+                });
+
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            string patientIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
+            string observationIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
+            string encounterIds = _inMemoryDestinationClient.GetExportedData(new Uri(EncounterFileName, UriKind.Relative));
+
+            Assert.True(checkedObservation);
+            Assert.True(checkedPatient);
+            Assert.True(checkedOther);
+
+            Assert.Equal("1", patientIds);
+            Assert.Equal("1", observationIds);
+            Assert.Equal("1", encounterIds);
+            Assert.Equal(3, _inMemoryDestinationClient.ExportedDataFileCount);
+            Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
+        }
+
+        [Fact]
+        public async Task GivenAPatientExportJobWithFilters_WhenExecuted_ThenAllResourcesAreExportedToTheProperLocation()
+        {
+            var filters = new List<ExportJobFilter>()
+                 {
+                     new ExportJobFilter(
+                         KnownResourceTypes.Observation,
+                         new List<Tuple<string, string>>()
+                         {
+                             new Tuple<string, string>("status", "final"),
+                             new Tuple<string, string>("subject", "Patient/1"),
+                         }),
+                     new ExportJobFilter(
+                         KnownResourceTypes.Patient,
+                         new List<Tuple<string, string>>()
+                         {
+                             new Tuple<string, string>("address", "Seattle"),
+                         }),
+                 };
+            var exportJobRecordWithFormat = CreateExportJobRecord(
+                exportJobType: ExportJobType.Patient,
+                resourceType: $"{KnownResourceTypes.Patient},{KnownResourceTypes.Observation},{KnownResourceTypes.Encounter}",
+                filters: filters);
+            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithFormat);
+
+            var checkedObservation = false;
+            var checkedPatient = false;
+            var checkedCompartmentPatient = false;
+            var checkedOther = false;
+
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    var type = x[0] as string;
+                    var queryParams = x[1] as IReadOnlyList<Tuple<string, string>>;
+
+                    if (type == KnownResourceTypes.Patient)
+                    {
+                        Assert.Contains(queryParams, (param) => param == filters[1].Parameters[0]);
+                        checkedPatient = true;
+                    }
+                    else
+                    {
+                        // Failure condition, only Patients should be searched.
+                        Assert.True(false);
+                    }
+
+                    return CreateSearchResult(
+                        new[]
+                        {
+                            CreateSearchResultEntry("1", type),
+                        });
+                });
+
+            _searchService.SearchCompartmentAsync(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    var type = x[2] as string;
+                    var queryParams = x[3] as IReadOnlyList<Tuple<string, string>>;
+
+                    if (type == KnownResourceTypes.Observation)
+                    {
+                        Assert.Contains(queryParams, (param) => param == filters[0].Parameters[0]);
+                        Assert.Contains(queryParams, (param) => param == filters[0].Parameters[1]);
+                        checkedObservation = true;
+                    }
+                    else if (type == KnownResourceTypes.Patient)
+                    {
+                        Assert.Contains(queryParams, (param) => param == filters[1].Parameters[0]);
+                        checkedCompartmentPatient = true;
+                    }
+                    else
+                    {
+                        type = KnownResourceTypes.Encounter;
+                        checkedOther = true;
+                    }
+
+                    return CreateSearchResult(
+                        new[]
+                        {
+                            CreateSearchResultEntry("1", type),
+                        });
+                });
+
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            string patientIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
+            string observationIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
+            string encounterIds = _inMemoryDestinationClient.GetExportedData(new Uri(EncounterFileName, UriKind.Relative));
+
+            Assert.True(checkedObservation);
+            Assert.True(checkedPatient);
+            Assert.True(checkedCompartmentPatient);
+            Assert.True(checkedOther);
+
+            Assert.Equal("11", patientIds);
+            Assert.Equal("1", observationIds);
+            Assert.Equal("1", encounterIds);
+            Assert.Equal(3, _inMemoryDestinationClient.ExportedDataFileCount);
+            Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
+        }
+
+        [Fact]
+        public async Task GivenAPatientExportJobToResumeWithFilters_WhenExecuted_ThenAllResourcesAreExportedToTheProperLocation()
+        {
+            var filters = new List<ExportJobFilter>()
+                 {
+                     new ExportJobFilter(
+                         KnownResourceTypes.Observation,
+                         new List<Tuple<string, string>>()
+                         {
+                             new Tuple<string, string>("status", "final"),
+                             new Tuple<string, string>("subject", "Patient/1"),
+                         }),
+                     new ExportJobFilter(
+                         KnownResourceTypes.Patient,
+                         new List<Tuple<string, string>>()
+                         {
+                             new Tuple<string, string>("address", "Seattle"),
+                         }),
+                     new ExportJobFilter(
+                         KnownResourceTypes.Encounter,
+                         new List<Tuple<string, string>>()
+                         {
+                             new Tuple<string, string>("status", "planned"),
+                         }),
+                 };
+            var exportJobRecordWithFormat = CreateExportJobRecord(
+                exportJobType: ExportJobType.Patient,
+                resourceType: $"{KnownResourceTypes.Patient},{KnownResourceTypes.Observation},{KnownResourceTypes.Encounter}",
+                filters: filters);
+            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithFormat);
+
+            var checkedObservation = false;
+            var checkedPatient = false;
+            var checkedCompartmentPatient = false;
+            var checkedEncounter = false;
+
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    var type = x[0] as string;
+                    var queryParams = x[1] as IReadOnlyList<Tuple<string, string>>;
+
+                    if (type == KnownResourceTypes.Patient)
+                    {
+                        Assert.Contains(queryParams, (param) => param == filters[1].Parameters[0]);
+                        checkedPatient = true;
+                    }
+                    else
+                    {
+                        // Failure condition, only Patients should be searched.
+                        Assert.True(false);
+                    }
+
+                    return CreateSearchResult(
+                        new[]
+                        {
+                            CreateSearchResultEntry("1", type),
+                        });
+                });
+
+            var compartmentVisited = false;
+            _searchService.SearchCompartmentAsync(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    var type = x[2] as string;
+                    var queryParams = x[3] as IReadOnlyList<Tuple<string, string>>;
+
+                    if (compartmentVisited)
+                    {
+                        throw new Exception();
+                    }
+
+                    if (type == KnownResourceTypes.Observation)
+                    {
+                        Assert.Contains(queryParams, (param) => param == filters[0].Parameters[0]);
+                        Assert.Contains(queryParams, (param) => param == filters[0].Parameters[1]);
+                        checkedObservation = true;
+                    }
+                    else if (type == KnownResourceTypes.Patient)
+                    {
+                        Assert.Contains(queryParams, (param) => param == filters[1].Parameters[0]);
+                        checkedCompartmentPatient = true;
+                    }
+                    else if (type == KnownResourceTypes.Encounter)
+                    {
+                        Assert.Contains(queryParams, (param) => param == filters[2].Parameters[0]);
+                        compartmentVisited = true;
+                    }
+                    else
+                    {
+                        // Failure condition, others shouldn't be searched yet.
+                        Assert.True(false);
+                    }
+
+                    return CreateSearchResult(
+                        new[]
+                        {
+                            CreateSearchResultEntry("1", type),
+                        }, type == KnownResourceTypes.Encounter ? "ct" : null);
+                });
+
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            Assert.NotEqual(OperationStatus.Completed, _exportJobRecord.Status);
+
+            _searchService.SearchCompartmentAsync(
+               Arg.Any<string>(),
+               Arg.Any<string>(),
+               Arg.Any<string>(),
+               Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+               _cancellationToken)
+               .Returns(x =>
+               {
+                   var type = x[2] as string;
+                   var queryParams = x[3] as IReadOnlyList<Tuple<string, string>>;
+
+                   if (type == KnownResourceTypes.Observation)
+                   {
+                       // Failure condition, Observation already checked.
+                       Assert.True(false);
+                   }
+                   else if (type == KnownResourceTypes.Encounter)
+                   {
+                       Assert.Contains(queryParams, (param) => param == filters[2].Parameters[0]);
+                       checkedEncounter = true;
+                   }
+                   else
+                   {
+                       // Failure condition, Should only check requested resources.
+                       Assert.True(false);
+                   }
+
+                   return CreateSearchResult(
+                       new[]
+                       {
+                            CreateSearchResultEntry("1", type),
+                       });
+               });
+
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            string patientIds = _inMemoryDestinationClient.GetExportedData(new Uri(PatientFileName, UriKind.Relative));
+            string observationIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
+            string encounterIds = _inMemoryDestinationClient.GetExportedData(new Uri(EncounterFileName, UriKind.Relative));
+            string deviceIds = _inMemoryDestinationClient.GetExportedData(new Uri(KnownResourceTypes.Device + ".ndjson", UriKind.Relative));
+
+            Assert.True(checkedObservation);
+            Assert.True(checkedPatient);
+            Assert.True(checkedCompartmentPatient);
+            Assert.True(checkedEncounter);
+
+            // Patient is visited twice (top level and compartment search) so two ids are recorded
+            Assert.Equal("11", patientIds);
+            Assert.Equal("1", observationIds);
+
+            // Encounter is visited twice (before and after the exception) so two ids are recorded
+            Assert.Equal("11", encounterIds);
+
+            Assert.Equal(3, _inMemoryDestinationClient.ExportedDataFileCount);
+            Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
+        }
+
+        // If a patient/group export job with type and type filters is run, but patients aren't in the types requested, the search should be run here but no patients printed to the output
+        // If a patient/group export job with type and type filters is run, and patients are in the types requested and filtered, the search should not be run as patients were searched above
+        // If an export job with type and type filters is run, the search should not be run if all the types were searched above.
+
+        [Fact]
+        public async Task GivenAPatientExportJobWithFiltersAndPatientsAreNotRequested_WhenExecuted_ThenAllResourcesAreExported()
+        {
+            var filters = new List<ExportJobFilter>()
+                 {
+                     new ExportJobFilter(
+                         KnownResourceTypes.Observation,
+                         new List<Tuple<string, string>>()
+                         {
+                             new Tuple<string, string>("status", "final"),
+                             new Tuple<string, string>("subject", "Patient/1"),
+                         }),
+                 };
+
+            await RunTypeFilterTest(filters, $"{KnownResourceTypes.Observation}");
+
+            string observationIds = _inMemoryDestinationClient.GetExportedData(new Uri(ObservationFileName, UriKind.Relative));
+
+            Assert.Equal("2", observationIds);
+            Assert.Equal(1, _inMemoryDestinationClient.ExportedDataFileCount);
+            Assert.Equal(OperationStatus.Completed, _exportJobRecord.Status);
+        }
+
+        private async Task RunTypeFilterTest(IList<ExportJobFilter> filters, string resourceTypes)
+        {
+            var exportJobRecordWithFormat = CreateExportJobRecord(
+                exportJobType: ExportJobType.Patient,
+                resourceType: resourceTypes,
+                filters: filters);
+            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithFormat);
+
+            var resourcesChecked = 0;
+            _searchService.SearchAsync(
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    var type = x[0] as string;
+                    var queryParams = x[1] as IReadOnlyList<Tuple<string, string>>;
+
+                    if (type == null)
+                    {
+                        type = KnownResourceTypes.Device;
+                    }
+
+                    resourcesChecked++;
+
+                    return CreateSearchResult(
+                        new[]
+                        {
+                            CreateSearchResultEntry(resourcesChecked.ToString(), type),
+                        });
+                });
+
+            _searchService.SearchCompartmentAsync(
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    var type = x[2] as string;
+                    var queryParams = x[3] as IReadOnlyList<Tuple<string, string>>;
+
+                    if (type == null)
+                    {
+                        type = KnownResourceTypes.Immunization;
+                    }
+
+                    resourcesChecked++;
+
+                    return CreateSearchResult(
+                        new[]
+                        {
+                            CreateSearchResultEntry(resourcesChecked.ToString(), type),
+                        });
+                });
+
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
         }
 
         private ExportJobRecord CreateExportJobRecord(
@@ -1683,6 +2137,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             ExportJobType exportJobType = ExportJobType.All,
             string format = ExportFormatTags.ResourceName,
             string resourceType = null,
+            IList<ExportJobFilter> filters = null,
             string hash = "hash",
             PartialDateTime since = null,
             string groupId = null,
@@ -1699,6 +2154,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 exportJobType,
                 format,
                 resourceType,
+                filters,
                 hash,
                 since: since,
                 groupId: groupId,
@@ -1743,6 +2199,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 new Uri("https://localhost/ExportJob/"),
                 ExportJobType.Patient,
                 ExportFormatTags.ResourceName,
+                null,
                 null,
                 "hash",
                 storageAccountConnectionHash: string.Empty,

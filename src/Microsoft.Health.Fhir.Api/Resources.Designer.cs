@@ -511,6 +511,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The _type parameter must be included when using the _typeFilter parameter. .
+        /// </summary>
+        public static string TypeFilterWithoutTypeIsUnsupported {
+            get {
+                return ResourceManager.GetString("TypeFilterWithoutTypeIsUnsupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Unable to obtain OpenID configuration..
         /// </summary>
         public static string UnableToObtainOpenIdConfiguration {

@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Options;
@@ -81,6 +82,54 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                     new object[] { RequestUrl, null, RequestUrlWithSince, SinceParameter },
                     new object[] { RequestUrl, null, new Uri("http://localhost/test"), null },
                     new object[] { RequestUrlWithSince, SinceParameter, new Uri("https://localhost/$export?_since=2020-01-01"), PartialDateTime.Parse("2020-01-01") },
+                };
+            }
+        }
+
+        public static IEnumerable<object[]> ExportFilters
+        {
+            get
+            {
+                return new[]
+                {
+                    new object[]
+                    {
+                        "Observation?status=final",
+                        new List<ExportJobFilter>()
+                        {
+                            new ExportJobFilter("Observation", new List<Tuple<string, string>>()
+                            {
+                                new Tuple<string, string>("status", "final"),
+                            }),
+                        },
+                    },
+                    new object[]
+                    {
+                        "Observation?status:not=final&_include=Observation:subject",
+                        new List<ExportJobFilter>()
+                        {
+                            new ExportJobFilter("Observation", new List<Tuple<string, string>>()
+                            {
+                                new Tuple<string, string>("status:not", "final"),
+                                new Tuple<string, string>("_include", "Observation:subject"),
+                            }),
+                        },
+                    },
+                    new object[]
+                    {
+                        "Observation?status:not=final,Patient?address=Seattle",
+                        new List<ExportJobFilter>()
+                        {
+                            new ExportJobFilter("Observation", new List<Tuple<string, string>>()
+                            {
+                                new Tuple<string, string>("status:not", "final"),
+                            }),
+                            new ExportJobFilter("Patient", new List<Tuple<string, string>>()
+                            {
+                                new Tuple<string, string>("address", "Seattle"),
+                            }),
+                        },
+                    },
                 };
             }
         }
@@ -240,6 +289,39 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
         public async Task GivenARequestWithANonexistantFormatName_WhenConverted_ThenABadRequestIsReturned()
         {
             var request = new CreateExportRequest(RequestUrl, ExportJobType.All, formatName: "invalid");
+            await Assert.ThrowsAsync<BadRequestException>(() => _createExportRequestHandler.Handle(request, _cancellationToken));
+        }
+
+        [Theory]
+        [MemberData(nameof(ExportFilters))]
+        public async Task GivenARequestWithFilters_WhenConverted_ThenTheFiltersArePopulated(string filters, IList<ExportJobFilter> expectedFilters)
+        {
+            ExportJobRecord actualRecord = null;
+            await _fhirOperationDataStore.CreateExportJobAsync(
+                Arg.Do<ExportJobRecord>(record =>
+                {
+                    actualRecord = record;
+                }), Arg.Any<CancellationToken>());
+
+            var request = new CreateExportRequest(RequestUrl, ExportJobType.All, filters: filters);
+            CreateExportResponse response = await _createExportRequestHandler.Handle(request, _cancellationToken);
+
+            Assert.Collection(
+                actualRecord.Filters,
+                expectedFilters.Select((actFilter) => new Action<ExportJobFilter>((expFilter) =>
+                {
+                    Assert.Equal(expFilter.ResourceType, actFilter.ResourceType);
+                    Assert.Equal(expFilter.Parameters, actFilter.Parameters);
+                })).ToArray());
+        }
+
+        [Theory]
+        [InlineData("bad")]
+        [InlineData("Observation?code=a,b,Observation?status=final")] // Doesn't support nested 'or' currently
+        [InlineData("Observation?status:final")] // Incorrect divider
+        public async Task GivenARequestWithIncorectFilters_WhenConverted_ThenABadRequestIsReturned(string filters)
+        {
+            var request = new CreateExportRequest(RequestUrl, ExportJobType.All, filters: filters);
             await Assert.ThrowsAsync<BadRequestException>(() => _createExportRequestHandler.Handle(request, _cancellationToken));
         }
 
