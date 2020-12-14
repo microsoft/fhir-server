@@ -4,7 +4,7 @@ variables:
     appServicePlanName: '$(resourceGroupRoot)-$(prNumber)-asp'
     prNumber: $(system.pullRequest.pullRequestNumber)
     ResourceGroupName: '$(resourceGroupRoot)-$(prNumber)'
-    DeploymentEnvironmentName: 'fhir-$(GitVersion.NuGetVersionV2)'
+    DeploymentEnvironmentName: 'fhir-$(build.BuildNumber)'
     CrucibleEnvironmentUrl: ''
     TestEnvironmentName: 'OSS PR$(prNumber)'
     ImageTag: '$(build.BuildNumber)'
