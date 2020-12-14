@@ -111,5 +111,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         {
             _inner.AddNewSearchParameters(searchParameters);
         }
+
+        public void UpdateSearchParameterHashMap(Dictionary<string, string> updatedSearchParamHashMap)
+        {
+            _inner.UpdateSearchParameterHashMap(updatedSearchParamHashMap);
+        }
     }
 }

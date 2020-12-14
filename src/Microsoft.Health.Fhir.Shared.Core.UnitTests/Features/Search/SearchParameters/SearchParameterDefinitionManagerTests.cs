@@ -300,15 +300,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         }
 
         [Fact]
-        public void GivenSearchParameter_WhenGettingSearchParameterType_CorrectTypeIsReturned()
-        {
-            SearchParameterInfo searchParam = _searchParameterInfos[0];
-            SearchParamType type = _searchParameterDefinitionManager.GetSearchParameterType(searchParam, null);
-
-            Assert.Equal(searchParam.Type, type);
-        }
-
-        [Fact]
         public void GivenASPDefinitionManager_WhenInitialed_ThenSearchParametersHashHasValues()
         {
             var searchParams = _searchParameterDefinitionManager.GetSearchParameters("Patient");
