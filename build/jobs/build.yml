@@ -8,18 +8,11 @@ steps:
   inputs:
     useGlobalJson: true
 
-- powershell: |
-    Write-Host '----------Variables to use for build----------'
-    Write-Host $[stageDependencies.UpdateVersion.Semver.outputs['GitVersion.assemblySemVer']]
-    Write-Host $[stageDependencies.UpdateVersion.Semver.outputs['GitVersion.assemblySemFileVer']]
-    Write-Host $[stageDependencies.UpdateVersion.Semver.outputs['GitVersion.informationalVersion']]
-  name: PrintVariablesFromGitVersion
-
 - task: DotNetCoreCLI@2
   displayName: 'dotnet build $(buildConfiguration)'
   inputs:
     command: build
-    arguments: "--configuration $(buildConfiguration) /p:AssemblyVersion=$[stageDependencies.UpdateVersion.Semver.outputs['GitVersion.assemblySemVer']] /p:FileVersion=$[stageDependencies.UpdateVersion.Semver.outputs['GitVersion.assemblySemFileVer']] /p:InformationalVersion=$[stageDependencies.UpdateVersion.Semver.outputs['GitVersion.informationalVersion']] /warnaserror"
+    arguments: "--configuration $(buildConfiguration) /p:AssemblyVersion=$(assemblySemVer) /p:FileVersion=$(assemblySemFileVer) /p:InformationalVersion=$(informationalVersion) /warnaserror"
 
 - task: DotNetCoreCLI@2
   displayName: 'dotnet test UnitTests'
