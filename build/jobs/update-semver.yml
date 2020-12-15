@@ -29,3 +29,9 @@ steps:
     Write-Host 'assemblySemFileVer: $(assemblySemFileVer)'
     Write-Host 'nuGetVersion: $(nuGetVersion)'
   name: PrintVariablesFromGitVersion
+  
+- powershell: |
+    $buildNumber = "$(GitVersion.semVer)" -replace "\.", "" 
+    Write-Host "##vso[build.updatebuildnumber]$buildNumber" 
+    Write-Host "Updated  build number to '$buildNumber"
+  name: SetBuildVersion

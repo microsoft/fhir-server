@@ -17,11 +17,6 @@ stages:
       vmImage: 'ubuntu-latest'
     steps:
     - template: ./jobs/update-semver.yml
-    - powershell: |
-        $buildNumber = "$(GitVersion.semVer)" -replace "\.", "" 
-        Write-Host "##vso[build.updatebuildnumber]$buildNumber" 
-        Write-Host "Updated  build number to '$buildNumber"
-      name: SetBuildVersion
 
 - stage: BuildUnitTests
   displayName: 'Build and run unit tests'
