@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     /// Represents a FHIR server for end-to-end testing.
     /// Creates and caches <see cref="TestFhirClient"/> instances that target the server.
     /// </summary>
-    public abstract class TestFhirServer : IDisposable
+    public abstract class TestFhirServer : IAsyncDisposable
     {
         private readonly ConcurrentDictionary<(ResourceFormat format, TestApplication clientApplication, TestUser user), Lazy<TestFhirClient>> _cache = new ConcurrentDictionary<(ResourceFormat format, TestApplication clientApplication, TestUser user), Lazy<TestFhirClient>>();
         private static readonly AsyncLocal<SessionTokenContainer> _asyncLocalSessionTokenContainer = new AsyncLocal<SessionTokenContainer>();
@@ -203,7 +203,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             SecurityEnabled = localSecurityEnabled;
         }
 
-        public virtual void Dispose()
+        public virtual ValueTask DisposeAsync()
         {
             foreach (Lazy<TestFhirClient> cacheValue in _cache.Values)
             {
@@ -212,6 +212,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     cacheValue.Value.HttpClient.Dispose();
                 }
             }
+
+            return default;
         }
 
         /// <summary>

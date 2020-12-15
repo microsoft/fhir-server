@@ -7,7 +7,6 @@ using System;
 using System.Collections.Concurrent;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.Health.Fhir.Smart.Tests.E2E;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Xunit;
 
@@ -82,7 +81,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             {
                 if (cacheValue.IsValueCreated)
                 {
-                    (await cacheValue.Value).Dispose();
+                    await (await cacheValue.Value).DisposeAsync();
                 }
             }
         }

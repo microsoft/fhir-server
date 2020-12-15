@@ -13,6 +13,7 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Metrics;
 
 namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Metric
 {
+    [RequiresIsolatedDatabase]
     public class StartupWithMetricHandler : StartupBaseForCustomProviders
     {
         public StartupWithMetricHandler(IConfiguration configuration)

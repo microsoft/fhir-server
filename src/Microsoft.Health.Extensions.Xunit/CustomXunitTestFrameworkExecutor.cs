@@ -12,6 +12,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Xunit;
 using Xunit.Abstractions;
 using Xunit.Sdk;
 
@@ -67,14 +68,25 @@ namespace Microsoft.Health.Extensions.Xunit
                 _context = ExecutionContext.Capture();
             }
 
-            protected override Task BeforeTestAssemblyFinishedAsync()
+            protected override async Task BeforeTestAssemblyFinishedAsync()
             {
-                foreach (var disposable in _assemblyFixtureMappings.Values.OfType<IDisposable>())
+                foreach (var fixture in _assemblyFixtureMappings.Values)
                 {
-                    Aggregator.Run(disposable.Dispose);
+                    switch (fixture)
+                    {
+                        case IAsyncLifetime d:
+                            await d.DisposeAsync();
+                            break;
+                        case IAsyncDisposable d:
+                            await d.DisposeAsync();
+                            break;
+                        case IDisposable d:
+                            d.Dispose();
+                            break;
+                    }
                 }
 
-                return base.BeforeTestAssemblyFinishedAsync();
+                await base.BeforeTestAssemblyFinishedAsync();
             }
 
             protected override Task<RunSummary> RunTestCollectionAsync(IMessageBus messageBus, ITestCollection testCollection, IEnumerable<IXunitTestCase> testCases, CancellationTokenSource cancellationTokenSource)
