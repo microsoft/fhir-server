@@ -21,7 +21,7 @@ stages:
         $buildNumber = "$(GitVersion.semVer)" -replace "\.", "" 
         Write-Host "##vso[build.updatebuildnumber]$buildNumber" 
         Write-Host "Updated  build number to '$buildNumber"
-      name: "Set build version"
+      name: SetBuildVersion
 
 - stage: BuildUnitTests
   displayName: 'Build and run unit tests'
