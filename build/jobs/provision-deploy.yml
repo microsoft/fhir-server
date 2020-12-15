@@ -54,7 +54,7 @@ jobs:
         $additionalProperties["SqlServer__AllowDatabaseCreation"] = "true"
         $additionalProperties["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true"
 
-        $webAppName = "${{ parameters.webAppName }}" -replace "\.", ""
+        $webAppName = "${{ parameters.webAppName }}"
         $templateParameters = @{
             fhirVersion = "${{ parameters.version }}"
             appServicePlanName = "${{ parameters.appServicePlanName }}"

@@ -17,11 +17,14 @@ stages:
       vmImage: 'ubuntu-latest'
     steps:
     - template: ./jobs/update-semver.yml
+    - bash: |
+        envName = "${$(GitVersion.semver)//\./}"
+        echo "##vso[task.setvariable variable=environmentName]$envName"
     - script: echo %Action%%BuildVersion%
       displayName: 'Set build version'
       env:
         Action: '##vso[build.updatebuildnumber]'
-        BuildVersion: $(GitVersion.semVer)
+        BuildVersion: $(environmentName)
 
 - stage: BuildUnitTests
   displayName: 'Build and run unit tests'
