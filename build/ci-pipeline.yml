@@ -18,11 +18,6 @@ stages:
       vmImage: 'ubuntu-latest'
     steps:
     - template: ./jobs/update-semver.yml
-    - script: echo %Action%%BuildVersion%
-      displayName: 'Set build version'
-      env:
-        Action: '##vso[build.updatebuildnumber]'
-        BuildVersion: $(GitVersion.semVer)
 
 - stage: BuildUnitTests
   displayName: 'Build and run unit tests'
