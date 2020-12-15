@@ -39,7 +39,7 @@ service:
   port: 80
 
 database:
-  # options: SqlServer, SqlContainer, CosmosDb
+  # options: ExistingSqlServer, SqlServer, SqlContainer, CosmosDb
   dataStore: "SqlServer"
   resourceGroup: ""
   location: ""
@@ -86,6 +86,15 @@ database:
       runAsUser: 10001
       runAsGroup: 10001
       fsGroup: 10001
+  existingSqlServer:
+    userName: sa
+    databaseName: FHIR
+    serverName: mymssql-mssql-linux.default
+    password: fhir
+    # name of a pre-created secret to retrieve the SQL Server's password.
+    # the secret must have a key named `DATABASEPASSWORD` with the password as its value.
+    existingSecret: ""
+    port: 1433
 
 appInsights:
   secretKey: "instrumentationKey"
