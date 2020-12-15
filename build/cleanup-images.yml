@@ -32,7 +32,7 @@ jobs:
                 $difference = New-TimeSpan -Start $imageDate.lastUpdateTime -End $currentDate
 
                 if (($tagParts[0] -notlike "*build*") -and (($difference.totalDays -gt 60) -or (($difference.totalDays -gt 7) -and ($tagParts[0] -like "pr*")))) {
-                  az acr repository untag --name $(azureContai | nerRegistryName) --image '${version}_fhir-server:${tag}'
+                  az acr repository untag --name $(azureContainerRegistryName) --image '${version}_fhir-server:${tag}'
                 }
               }
               catch {
