@@ -10,16 +10,16 @@ steps:
 
 - powershell: |
     Write-Host '----------Variables to use for build----------'
-    Write-Host "$[stageDependencies.UpdateVersion.Semver.outputs['GitVersion.GitVersion.AssemblySemVer']]"
-    Write-Host "$[stageDependencies.UpdateVersion.Semver.outputs['GitVersion.GitVersion.AssemblySemFileVer']]"
-    Write-Host "$[stageDependencies.UpdateVersion.Semver.outputs['GitVersion.GitVersion.InformationalVersion']]"
+    Write-Host $[stageDependencies.UpdateVersion.Semver.outputs['GitVersion.assemblySemVer']]
+    Write-Host $[stageDependencies.UpdateVersion.Semver.outputs['GitVersion.assemblySemFileVer']]
+    Write-Host $[stageDependencies.UpdateVersion.Semver.outputs['GitVersion.informationalVersion']]
   name: PrintVariablesFromGitVersion
 
 - task: DotNetCoreCLI@2
   displayName: 'dotnet build $(buildConfiguration)'
   inputs:
     command: build
-    arguments: "--configuration $(buildConfiguration) /p:AssemblyVersion=$[stageDependencies.UpdateVersion.Semver.outputs['GitVersion.GitVersion.AssemblySemVer']] /p:FileVersion=$[stageDependencies.UpdateVersion.Semver.outputs['GitVersion.GitVersion.AssemblySemFileVer']] /p:InformationalVersion=$[stageDependencies.UpdateVersion.Semver.outputs['GitVersion.GitVersion.InformationalVersion']] /warnaserror"
+    arguments: "--configuration $(buildConfiguration) /p:AssemblyVersion=$[stageDependencies.UpdateVersion.Semver.outputs['GitVersion.assemblySemVer']] /p:FileVersion=$[stageDependencies.UpdateVersion.Semver.outputs['GitVersion.assemblySemFileVer']] /p:InformationalVersion=$[stageDependencies.UpdateVersion.Semver.outputs['GitVersion.informationalVersion']] /warnaserror"
 
 - task: DotNetCoreCLI@2
   displayName: 'dotnet test UnitTests'
