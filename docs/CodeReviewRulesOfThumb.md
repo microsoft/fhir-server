@@ -13,7 +13,7 @@ External contributor authors:
 - The FHIR team will assign a reviewer to go over your PR
 
 Reviewers:
-- Indicate right away if you are the wrong reviewer (you won't be able to review the PR if you are going on vacation, for example)
+- Indicate right away if you won't be able to or don't feel comfortable to sign-off as the reviewer (i.e. you won't be able to review the PR because you are going on vacation)
 
 Anyone can review a PR, even if you are not assigned as the reviewer.
 
@@ -84,4 +84,3 @@ External contributor authors:
 - If the same issue occurs in multiple places in one file, add one comment that mentions that this occurs more than once (reconsider for multiple files)
 - It is nice to precede nitpick comments with “nit”
 - The thumbs up reaction can be used for acknowledging a comment in a PR discussion
-
