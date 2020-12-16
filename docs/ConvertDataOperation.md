@@ -15,16 +15,16 @@ Follow these steps to setup and use $convert-data API. Rest of this document det
 1. Verify.
 
 ### 1. Enable $convert-data
-You can enable $convert-data while deploying FHIR Server. In order to enable or disable the feature at a later stage, set the `FhirServer:Operations:ConvertData:Enabled` setting in the FHIR server to _true_.
+You can enable $convert-data while deploying FHIR Server. In order to enable or disable the feature at a later stage, set the `FhirServer__Operations__ConvertData__Enabled` setting in the FHIR server to _true_.
 
 ### 2. Make API call
 Make a call to ```<<FHIR service base URL>>/$convert-data``` with the [Parameters](http://hl7.org/fhir/parameters.html) resource in the request body as described below:
 
 | Parameter Name      | Description | Accepted values |
 | ----------- | ----------- | ----------- |
-| inputData      | Data to be converted | A valid JSON String|
-| inputDataType   | Data type of input | ```HL7v2``` |
-| templateCollectionReference | Reference to a template collection. It can be the default templates, or an image on Azure Container Registry that the FHIR server can access. | ```microsofthealth/fhirconverter:default```, \<RegistryServer\>/\<imageName\>:\<imageTag\>, \<RegistryServer\>/\<imageName\>@\<imageDigest\> |
+| inputData      | Data to be converted. | A valid JSON String|
+| inputDataType   | Data type of input. | ```HL7v2``` |
+| templateCollectionReference | Reference to a template collection. It can be the default templates, or an image on Azure Container Registry that the FHIR server can access. | ```microsofthealth/fhirconverter:default```, \<RegistryServer\>/\<imageName\>@\<imageDigest\>, \<RegistryServer\>/\<imageName\>:\<imageTag\> |
 | rootTemplate | The root template to use while transforming the data. | ```ADT_A01```, ```OML_O21```, ```ORU_R01```, ```VXU_V04``` |
 
 **Sample request:**
@@ -97,7 +97,7 @@ a) Provide `AcrPull` permission to your FHIR service on the ACR you created.
 ![acr-rbac](./images/convert-data/acr-rbac.png)&nbsp;
 
 
-b) Register the ACR on your FHIR server by setting `FhirServer:Operations:ConvertData:ContainerRegistryServers:0` to your ACR login server. You can register multiple ACRs by adding more entries in the configuration as the following picture shows.  
+b) Register the ACR on your FHIR server by setting `FhirServer__Operations__ConvertData__ContainerRegistryServers__0` to your ACR login server. You can register multiple ACRs by adding more entries in the configuration as the following picture shows.  
 
 ![acr-registration](./images/convert-data/acr-registration.png)&nbsp;
 
@@ -105,6 +105,6 @@ b) Register the ACR on your FHIR server by setting `FhirServer:Operations:Conver
 
 Make a call to the $convert-data API specifying your template reference in the templateCollectionReference parameter. You can use any one of the following two formats to specify the reference. However, we strongly recommend choosing digest because its immutable and stable.
 
- `<RegistryServer>/<imageName>:<imageTag>` 
-
 `<RegistryServer>/<imageName>@<imageDigest>`
+
+`<RegistryServer>/<imageName>:<imageTag>` 
