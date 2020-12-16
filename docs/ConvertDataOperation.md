@@ -1,6 +1,6 @@
 # Convert Data operation
 
-FHIR server implements $convert-data, a custom operation to enable data conversion from legacy formats to FHIR format. Currently it supports HL7v2 to FHIR conversion. It uses the Liquid templating engine and default conversion templates from the [FHIR Converter](https://github.com/microsoft/FHIR-Converter/tree/dotliquid) OSS project. 
+FHIR server implements $convert-data, a custom operation to enable data conversion from legacy formats to FHIR format. Currently it supports HL7v2 to FHIR conversion. It uses the Liquid templating engine and default conversion templates from the [FHIR Converter](https://github.com/microsoft/FHIR-Converter/) project. 
 
 ## How to use $convert-data
 
@@ -78,7 +78,7 @@ Note the Content-Type is the response header is set to `text/plain` because the 
 ```
 
 ### 3. Evaluate default templates
-When you deploy the FHIR server, a copy of the latest template released by the [FHIR Converter](https://github.com/microsoft/FHIR-Converter/tree/dotliquid) project is stored with the FHIR server. You can use these default templates by passing ```microsofthealth/fhirconverter:default``` in the request payload as described earlier.
+When you deploy the FHIR server, a copy of the latest template released by the [FHIR Converter](https://github.com/microsoft/FHIR-Converter/) project is stored with the FHIR server. You can use these default templates by passing ```microsofthealth/fhirconverter:default``` in the request payload as described earlier.
 
 If the data conversion using default templates meets your requirements, you are all set. Otherwise, you should customize the templates as described below.
 
@@ -86,7 +86,7 @@ If the data conversion using default templates meets your requirements, you are 
 Use the [FHIR Converter](https://marketplace.visualstudio.com/items?itemName=ms-azuretools.vscode-health-fhir-converter) Visual Studio Code extension to customize the templates as per your need. You will first need to install [Visual Studio Code](https://code.visualstudio.com/) if do not have it already.
 
 ### 5. Publish your templates to Azure Container Registry (ACR)
-The FHIR server can read custom templates from the [ACR](https://azure.microsoft.com/en-us/services/container-registry/). Create a container registry, and use the [Template Management CLI](https://github.com/microsoft/FHIR-Converter/blob/dotliquid/docs/TemplateManagementCLI.md) tool to push the customized templates to the ACR.
+The FHIR server can read custom templates from the [ACR](https://azure.microsoft.com/en-us/services/container-registry/). Create a container registry, and use the [Template Management CLI](https://github.com/microsoft/FHIR-Converter/blob/main/docs/TemplateManagementCLI.md) tool to push the customized templates to the ACR.
 
 ### 6. Make templates accessible to the FHIR server
 
