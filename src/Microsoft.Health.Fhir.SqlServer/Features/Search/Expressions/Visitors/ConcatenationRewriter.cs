@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return expression;
             }
 
-            return new SqlRootExpression(newTableExpressions, expression.DenormalizedExpressions);
+            return new SqlRootExpression(newTableExpressions, expression.ResourceExpressions);
         }
 
         public override Expression VisitTable(TableExpression tableExpression, object context)

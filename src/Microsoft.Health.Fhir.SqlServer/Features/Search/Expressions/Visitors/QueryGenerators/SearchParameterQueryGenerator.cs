@@ -7,6 +7,7 @@ using System;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
 using Microsoft.Data.SqlClient;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer;
@@ -23,6 +24,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         public override SearchParameterQueryGeneratorContext VisitSearchParameter(SearchParameterExpression expression, SearchParameterQueryGeneratorContext context)
         {
+            SearchParameterQueryGenerator delegatedGenerator = GetSearchParameterQueryGenerator(expression);
+            if (delegatedGenerator != null)
+            {
+                return expression.Expression.AcceptVisitor(delegatedGenerator, context);
+            }
+
             short searchParamId = context.Model.GetSearchParamId(expression.Parameter.Url);
             SmallIntColumn searchParamIdColumn = VLatest.SearchParam.SearchParamId;
 
@@ -50,6 +57,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         public override SearchParameterQueryGeneratorContext VisitMissingSearchParameter(MissingSearchParameterExpression expression, SearchParameterQueryGeneratorContext context)
         {
+            SearchParameterQueryGenerator delegatedGenerator = GetSearchParameterQueryGenerator(expression);
+            if (delegatedGenerator != null)
+            {
+                return expression.AcceptVisitor(delegatedGenerator, context);
+            }
+
             Debug.Assert(!expression.IsMissing, "IsMissing=true expressions should have been rewritten");
 
             short searchParamId = context.Model.GetSearchParamId(expression.Parameter.Url);
@@ -83,6 +96,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             context.StringBuilder.AppendLine();
 
             return context;
+        }
+
+        private SearchParameterQueryGenerator GetSearchParameterQueryGenerator(SearchParameterExpressionBase searchParameter)
+        {
+            switch (searchParameter.Parameter.Name)
+            {
+                case SearchParameterNames.Id:
+                    return ResourceIdParameterQueryGenerator.Instance;
+                case SearchParameterNames.ResourceType:
+                    return ResourceTypeIdParameterQueryGenerator.Instance;
+                case SqlSearchParameters.ResourceSurrogateIdParameterName:
+                    return ResourceSurrogateIdParameterQueryGenerator.Instance;
+                default:
+                    return null;
+            }
         }
 
         private static bool TryEscapeValueForLike(ref string value)

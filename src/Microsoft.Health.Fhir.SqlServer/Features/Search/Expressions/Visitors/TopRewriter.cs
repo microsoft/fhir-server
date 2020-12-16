@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             newNormalizedPredicates.Add(TopTableExpression);
 
-            return new SqlRootExpression(newNormalizedPredicates, expression.DenormalizedExpressions);
+            return new SqlRootExpression(newNormalizedPredicates, expression.ResourceExpressions);
         }
     }
 }

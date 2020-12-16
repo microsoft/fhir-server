@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 }
             }).ToList();
 
-            return new SqlRootExpression(reorderedExpressions, expression.DenormalizedExpressions);
+            return new SqlRootExpression(reorderedExpressions, expression.ResourceExpressions);
         }
     }
 }

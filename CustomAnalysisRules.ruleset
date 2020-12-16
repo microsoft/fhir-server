@@ -21,6 +21,7 @@
     <Rule Id="SA1615" Action="None" />
     <Rule Id="SA1623" Action="None" />
     <Rule Id="SA1629" Action="None" />
+    <Rule Id="SA1642" Action="None" />
     <Rule Id="SA1652" Action="None" />
   </Rules>
   <Rules AnalyzerId="Microsoft.CodeQuality.Analyzers" RuleNamespace="Microsoft.CodeQuality.Analyzers">

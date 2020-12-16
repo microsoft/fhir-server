@@ -53,7 +53,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             if (normalizedPredicates == null)
             {
-                SqlRootExpression.WithDenormalizedExpressions(expression.Expressions);
+                SqlRootExpression.WithResourceExpressions(expression.Expressions);
             }
 
             return new SqlRootExpression(
@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
         {
             return TryGetNormalizedGenerator(expression, out var generator, out var kind)
                 ? SqlRootExpression.WithTableExpressions(new TableExpression(generator, normalizedPredicate: expression, denormalizedPredicate: null, kind, chainLevel: kind == TableExpressionKind.Chain ? 1 : 0))
-                : SqlRootExpression.WithDenormalizedExpressions(expression);
+                : SqlRootExpression.WithResourceExpressions(expression);
         }
 
         private bool TryGetNormalizedGenerator(Expression expression, out NormalizedSearchParameterQueryGenerator normalizedGenerator, out TableExpressionKind kind)

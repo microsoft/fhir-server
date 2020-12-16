@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             newNormalizedPredicates.Add(new TableExpression(queryGenerator, new SortExpression(context.Sort[0].searchParameterInfo), null, TableExpressionKind.Sort));
 
-            return new SqlRootExpression(newNormalizedPredicates, expression.DenormalizedExpressions);
+            return new SqlRootExpression(newNormalizedPredicates, expression.ResourceExpressions);
         }
     }
 }

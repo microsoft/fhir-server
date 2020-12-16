@@ -135,7 +135,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             if (expression.TableExpressions.Count == 0 &&
                 !_isHistorySearch &&
-                expression.DenormalizedExpressions.Any(e => e.AcceptVisitor(ExpressionContainsParameterVisitor.Instance, SearchParameterNames.ResourceType)))
+                expression.ResourceExpressions.Any(e => e.AcceptVisitor(ExpressionContainsParameterVisitor.Instance, SearchParameterNames.ResourceType)))
             {
                 // If this is a simple search over a resource type (like GET /Observation)
                 // make sure the optimizer does not decide to do a scan on the clustered index, since we have an index specifically for this common case
@@ -154,7 +154,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             using (var delimitedClause = StringBuilder.BeginDelimitedWhereClause())
             {
-                foreach (var denormalizedPredicate in expression.DenormalizedExpressions)
+                foreach (var denormalizedPredicate in expression.ResourceExpressions)
                 {
                     delimitedClause.BeginDelimitedElement();
                     denormalizedPredicate.AcceptVisitor(DispatchingDenormalizedSearchParameterQueryGenerator.Instance, GetContext());

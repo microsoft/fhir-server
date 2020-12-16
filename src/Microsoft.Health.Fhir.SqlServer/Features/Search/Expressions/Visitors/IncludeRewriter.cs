@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             }
 
             reorderedExpressions.Add(IncludeUnionAllExpression);
-            return new SqlRootExpression(reorderedExpressions, expression.DenormalizedExpressions);
+            return new SqlRootExpression(reorderedExpressions, expression.ResourceExpressions);
         }
 
         private static IList<TableExpression> SortIncludeIterateExpressions(IList<TableExpression> expressions)

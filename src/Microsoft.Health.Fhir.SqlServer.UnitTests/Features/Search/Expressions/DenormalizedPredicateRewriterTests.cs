@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         [Fact]
         public void GivenExpressionWithNoTableExpressions_WhenRewritten_ReturnsOriginalExpression()
         {
-            var inputExpression = SqlRootExpression.WithDenormalizedExpressions(
+            var inputExpression = SqlRootExpression.WithResourceExpressions(
                 Expression.Equals(FieldName.Number, null, 1));
             var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(DenormalizedPredicateRewriter.Instance);
             Assert.Equal(inputExpression, visitedExpression);
@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     new SearchParameterExpression(new SearchParameterInfo(paramName), Expression.Equals(FieldName.String, null, "TestParamValue")),
                 });
             var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(DenormalizedPredicateRewriter.Instance);
-            Assert.Equal(inputExpression.DenormalizedExpressions[0], visitedExpression.TableExpressions[0].DenormalizedPredicate);
+            Assert.Equal(inputExpression.ResourceExpressions[0], visitedExpression.TableExpressions[0].DenormalizedPredicate);
         }
 
         [Fact]
@@ -66,7 +66,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     new SearchParameterExpression(new SearchParameterInfo(SqlSearchParameters.ResourceSurrogateIdParameterName), Expression.Equals(FieldName.String, null, "TestParamValue2")),
                 });
             var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(DenormalizedPredicateRewriter.Instance);
-            Assert.Equal(Expression.And(inputExpression.DenormalizedExpressions).ToString(), visitedExpression.TableExpressions[0].DenormalizedPredicate.ToString());
+            Assert.Equal(Expression.And(inputExpression.ResourceExpressions).ToString(), visitedExpression.TableExpressions[0].DenormalizedPredicate.ToString());
         }
 
         [Theory]
@@ -85,8 +85,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     new SearchParameterExpression(new SearchParameterInfo("TestParamName"), Expression.Equals(FieldName.String, null, "NonExtractableTestParamValue")),
                 });
             var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(DenormalizedPredicateRewriter.Instance);
-            Assert.Empty(visitedExpression.DenormalizedExpressions);
-            Assert.Equal(new TableExpression(null, null, Expression.And(inputExpression.DenormalizedExpressions), TableExpressionKind.All).ToString(), visitedExpression.TableExpressions[0].ToString());
+            Assert.Empty(visitedExpression.ResourceExpressions);
+            Assert.Equal(new TableExpression(null, null, Expression.And(inputExpression.ResourceExpressions), TableExpressionKind.All).ToString(), visitedExpression.TableExpressions[0].ToString());
         }
 
         [Fact]
@@ -102,7 +102,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     new SearchParameterExpression(new SearchParameterInfo(SearchParameterNames.ResourceType), Expression.Equals(FieldName.String, null, "TestParamValue1")),
                 });
             var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(DenormalizedPredicateRewriter.Instance);
-            Assert.Same(inputExpression.DenormalizedExpressions, visitedExpression.DenormalizedExpressions);
+            Assert.Same(inputExpression.ResourceExpressions, visitedExpression.ResourceExpressions);
         }
 
         [Theory]
@@ -120,7 +120,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     new SearchParameterExpression(new SearchParameterInfo(paramName), Expression.Equals(FieldName.String, null, "ExtractableTestParamValue")),
                 });
             var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(DenormalizedPredicateRewriter.Instance);
-            Assert.Equal(inputExpression.DenormalizedExpressions[0], visitedExpression.TableExpressions[0].DenormalizedPredicateOnChainRoot);
+            Assert.Equal(inputExpression.ResourceExpressions[0], visitedExpression.TableExpressions[0].DenormalizedPredicateOnChainRoot);
             Assert.Equal(inputExpression.TableExpressions[0].ChainLevel, visitedExpression.TableExpressions[0].ChainLevel);
         }
     }
