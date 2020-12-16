@@ -15,7 +15,7 @@ Follow these steps to setup and use $convert-data API. Rest of this document det
 1. Verify.
 
 ### 1. Enable $convert-data
-You can enable $convert-data while deploying FHIR Server. In order to enable or disable the feature at a later stage, set the `FhirServer__Operations__ConvertData__Enabled` setting in the FHIR server to _true_.
+You can enable $convert-data while deploying FHIR Server. In order to enable or disable the feature at a later stage, set the `FhirServer__Operations__ConvertData__Enabled` setting in the FHIR server to _true_ or _false_ respectively.
 
 ### 2. Make API call
 Make a call to ```<<FHIR service base URL>>/$convert-data``` with the [Parameters](http://hl7.org/fhir/parameters.html) resource in the request body as described below:
@@ -78,12 +78,15 @@ Note the Content-Type is the response header is set to `text/plain` because the 
 ```
 
 ### 3. Evaluate default templates
-When you deploy the FHIR server, a copy of the latest template released by the [FHIR Converter](https://github.com/microsoft/FHIR-Converter/) project is stored with the FHIR server. You can use these default templates by passing ```microsofthealth/fhirconverter:default``` in the request payload as described earlier.
+When you deploy the FHIR server, a copy of the latest templates released by the [FHIR Converter](https://github.com/microsoft/FHIR-Converter/) project is stored with the FHIR server. We call these **default templates**.
 
-If the data conversion using default templates meets your requirements, you are all set. Otherwise, you should customize the templates as described below.
+You can use these default templates in the conversion call by passing ```microsofthealth/fhirconverter:default``` in the request payload as described earlier.
+
+⚠ Default templates help you get started quickly. However, as the FHIR Converter project releases new versions of the templates, the default templates on the FHIR Server may change when you upgrade the server. In order to have consistent data conversion behavior across FHIR server versions, you must store your own copy of templates on an Azure Container Registry and use with your API calls as described below.
 
 ### 4. Customize templates
-Use the [FHIR Converter](https://marketplace.visualstudio.com/items?itemName=ms-azuretools.vscode-health-fhir-converter) Visual Studio Code extension to customize the templates as per your need. You will first need to install [Visual Studio Code](https://code.visualstudio.com/) if do not have it already.
+
+You can obtain the latest templates from the [FHIR Converter](https://github.com/microsoft/FHIR-Converter/tree/main/data) github page. Use the FHIR Converter [Visual Studio Code extension](https://marketplace.visualstudio.com/items?itemName=ms-azuretools.vscode-health-fhir-converter) to customize the templates as per your needs. You will first need to install [Visual Studio Code](https://code.visualstudio.com/) if do not have it already.
 
 ### 5. Publish your templates to Azure Container Registry (ACR)
 The FHIR server can read custom templates from the [ACR](https://azure.microsoft.com/en-us/services/container-registry/). Create a container registry, and use the [Template Management CLI](https://github.com/microsoft/FHIR-Converter/blob/main/docs/TemplateManagementCLI.md) tool to push the customized templates to the ACR.
