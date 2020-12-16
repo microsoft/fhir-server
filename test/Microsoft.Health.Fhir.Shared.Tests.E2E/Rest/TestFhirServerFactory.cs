@@ -7,7 +7,6 @@ using System;
 using System.Collections.Concurrent;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.Health.Fhir.Smart.Tests.E2E;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Xunit;
 
@@ -20,12 +19,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     public class TestFhirServerFactory : IAsyncLifetime, IAsyncDisposable
     {
         private readonly ConcurrentDictionary<(DataStore dataStore, Type startupType), Lazy<Task<TestFhirServer>>> _cache = new ConcurrentDictionary<(DataStore dataStore, Type startupType), Lazy<Task<TestFhirServer>>>();
-
-        public TestFhirServerFactory()
-        {
-            // allow cosmos DB session consistency
-            TestFhirServer.CreateSession();
-        }
 
         public async Task<TestFhirServer> GetTestFhirServerAsync(DataStore dataStore, Type startupType)
         {
@@ -82,7 +75,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             {
                 if (cacheValue.IsValueCreated)
                 {
-                    (await cacheValue.Value).Dispose();
+                    await (await cacheValue.Value).DisposeAsync();
                 }
             }
         }

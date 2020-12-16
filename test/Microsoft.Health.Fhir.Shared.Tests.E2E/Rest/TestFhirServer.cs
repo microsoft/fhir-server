@@ -33,10 +33,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     /// Represents a FHIR server for end-to-end testing.
     /// Creates and caches <see cref="TestFhirClient"/> instances that target the server.
     /// </summary>
-    public abstract class TestFhirServer : IDisposable
+    public abstract class TestFhirServer : IAsyncDisposable
     {
         private readonly ConcurrentDictionary<(ResourceFormat format, TestApplication clientApplication, TestUser user), Lazy<TestFhirClient>> _cache = new ConcurrentDictionary<(ResourceFormat format, TestApplication clientApplication, TestUser user), Lazy<TestFhirClient>>();
-        private static readonly AsyncLocal<SessionTokenContainer> _asyncLocalSessionTokenContainer = new AsyncLocal<SessionTokenContainer>();
+        private readonly SessionTokenContainer _sessionTokenContainer = new SessionTokenContainer();
 
         private readonly Dictionary<string, AuthenticationHttpMessageHandler> _authenticationHandlers = new Dictionary<string, AuthenticationHttpMessageHandler>();
 
@@ -54,15 +54,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         protected internal Uri AuthorizeUri { get; set; }
 
         public Uri BaseAddress { get; }
-
-        public static void CreateSession()
-        {
-            if (_asyncLocalSessionTokenContainer.Value == null)
-            {
-                // Ensure that we are able to preserve session tokens across requests in this execution context and its children.
-                _asyncLocalSessionTokenContainer.Value = new SessionTokenContainer();
-            }
-        }
 
         public TestFhirClient GetTestFhirClient(ResourceFormat format, bool reusable = true, AuthenticationHttpMessageHandler authenticationHandler = null)
         {
@@ -93,7 +84,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             HttpMessageHandler innerHandler = authenticationHandler ?? CreateMessageHandler();
 
-            var sessionMessageHandler = new SessionMessageHandler(innerHandler, _asyncLocalSessionTokenContainer);
+            var sessionMessageHandler = new SessionMessageHandler(innerHandler, _sessionTokenContainer);
 
             var httpClient = new HttpClient(sessionMessageHandler) { BaseAddress = BaseAddress };
 
@@ -203,7 +194,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             SecurityEnabled = localSecurityEnabled;
         }
 
-        public virtual void Dispose()
+        public virtual ValueTask DisposeAsync()
         {
             foreach (Lazy<TestFhirClient> cacheValue in _cache.Values)
             {
@@ -212,6 +203,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     cacheValue.Value.HttpClient.Dispose();
                 }
             }
+
+            return default;
         }
 
         /// <summary>
@@ -219,14 +212,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         /// </summary>
         private class SessionMessageHandler : DelegatingHandler
         {
-            private readonly AsyncLocal<SessionTokenContainer> _asyncLocalSessionTokenContainer;
+            private readonly SessionTokenContainer _sessionTokenContainer;
             private readonly AsyncRetryPolicy<HttpResponseMessage> _polly;
 
-            public SessionMessageHandler(HttpMessageHandler innerHandler, AsyncLocal<SessionTokenContainer> asyncLocalSessionTokenContainer)
+            public SessionMessageHandler(HttpMessageHandler innerHandler, SessionTokenContainer sessionTokenContainer)
                 : base(innerHandler)
             {
-                _asyncLocalSessionTokenContainer = asyncLocalSessionTokenContainer;
-                EnsureArg.IsNotNull(asyncLocalSessionTokenContainer, nameof(asyncLocalSessionTokenContainer));
+                EnsureArg.IsNotNull(sessionTokenContainer, nameof(sessionTokenContainer));
+                _sessionTokenContainer = sessionTokenContainer;
+
                 _polly = Policy.Handle<HttpRequestException>(x =>
                     {
                         if (x.InnerException is IOException || x.InnerException is SocketException)
@@ -242,13 +236,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
             {
-                SessionTokenContainer sessionTokenContainer = _asyncLocalSessionTokenContainer.Value;
-                if (sessionTokenContainer == null)
-                {
-                    throw new InvalidOperationException($"{nameof(SessionTokenContainer)} has not been set for the execution context");
-                }
-
-                string latestValue = sessionTokenContainer.SessionToken;
+                string latestValue = _sessionTokenContainer.SessionToken;
 
                 if (!string.IsNullOrEmpty(latestValue))
                 {
@@ -266,7 +254,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
                 if (response.Headers.TryGetValues("x-ms-session-token", out var tokens))
                 {
-                    sessionTokenContainer.SessionToken = tokens.SingleOrDefault();
+                    _sessionTokenContainer.SessionToken = tokens.SingleOrDefault();
                 }
 
                 return response;
