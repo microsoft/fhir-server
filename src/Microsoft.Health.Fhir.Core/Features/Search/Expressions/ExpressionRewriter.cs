@@ -126,5 +126,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 }
             }
         }
+
+        protected static void EnsureAllocatedAndPopulatedChangeType<TDestination, TSource>(ref List<TDestination> destination, IReadOnlyList<TSource> source, int count)
+            where TSource : Expression
+        {
+            if (destination == null)
+            {
+                destination = new List<TDestination>();
+                for (int j = 0; j < count; j++)
+                {
+                    destination.Add((TDestination)(object)source[j]);
+                }
+            }
+        }
     }
 }

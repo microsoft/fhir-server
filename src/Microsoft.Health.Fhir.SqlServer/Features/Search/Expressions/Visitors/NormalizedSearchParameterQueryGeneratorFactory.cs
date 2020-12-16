@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Concurrent;
 using EnsureThat;
-using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
@@ -44,14 +43,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         private NormalizedSearchParameterQueryGenerator VisitSearchParameterExpressionBase(SearchParameterInfo searchParameterInfo, Expression childExpression, object context)
         {
-            switch (searchParameterInfo.Name)
+            if (searchParameterInfo.ColumnLocation().HasFlag(SearchParameterColumnLocation.ResourceTable))
             {
-                case SearchParameterNames.Id:
-                case SearchParameterNames.LastUpdated:
-                case SearchParameterNames.ResourceType:
-                case SqlSearchParameters.ResourceSurrogateIdParameterName:
-                    // these are all denormalized
-                    return null;
+                return null;
             }
 
             if (childExpression != null)

@@ -32,13 +32,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             var newNormalizedPredicates = new List<TableExpression>(expression.TableExpressions.Count + 1);
 
-            Expression denormalizedExpression = Expression.And(expression.ResourceExpressions);
-            var allExpression = new TableExpression(null, null, denormalizedExpression, TableExpressionKind.All);
+            Expression resourceExpression = Expression.And(expression.ResourceExpressions);
+            var allExpression = new TableExpression(null, resourceExpression, null, TableExpressionKind.All);
 
             newNormalizedPredicates.Add(allExpression);
             newNormalizedPredicates.AddRange(expression.TableExpressions);
 
-            return new SqlRootExpression(newNormalizedPredicates, Array.Empty<Expression>());
+            return new SqlRootExpression(newNormalizedPredicates, Array.Empty<SearchParameterExpression>());
         }
     }
 }

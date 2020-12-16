@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 throw new InvalidOperationException("Or is not supported as a top-level expression");
             }
 
-            List<Expression> denormalizedPredicates = null;
+            List<SearchParameterExpressionBase> denormalizedPredicates = null;
             List<TableExpression> normalizedPredicates = null;
 
             for (var i = 0; i < expression.Expressions.Count; i++)
@@ -40,25 +40,34 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
                 if (TryGetNormalizedGenerator(childExpression, out var normalizedGenerator, out var tableExpressionKind))
                 {
-                    EnsureAllocatedAndPopulated(ref denormalizedPredicates, expression.Expressions, i);
+                    EnsureAllocatedAndPopulatedChangeType(ref denormalizedPredicates, expression.Expressions, i);
                     EnsureAllocatedAndPopulated(ref normalizedPredicates, Array.Empty<TableExpression>(), 0);
 
                     normalizedPredicates.Add(new TableExpression(normalizedGenerator, childExpression, null, tableExpressionKind, tableExpressionKind == TableExpressionKind.Chain ? 1 : 0));
                 }
                 else
                 {
-                    denormalizedPredicates?.Add(childExpression);
+                    denormalizedPredicates?.Add((SearchParameterExpressionBase)childExpression);
                 }
             }
 
             if (normalizedPredicates == null)
             {
-                SqlRootExpression.WithResourceExpressions(expression.Expressions);
+                denormalizedPredicates = new List<SearchParameterExpressionBase>(expression.Expressions.Count);
+                foreach (Expression resourceExpression in expression.Expressions)
+                {
+                    denormalizedPredicates.Add((SearchParameterExpressionBase)resourceExpression);
+                }
+
+                return SqlRootExpression.WithResourceExpressions(denormalizedPredicates);
             }
 
-            return new SqlRootExpression(
-                normalizedPredicates ?? (IReadOnlyList<TableExpression>)Array.Empty<TableExpression>(),
-                denormalizedPredicates ?? expression.Expressions);
+            if (denormalizedPredicates == null)
+            {
+                return SqlRootExpression.WithTableExpressions(normalizedPredicates);
+            }
+
+            return new SqlRootExpression(normalizedPredicates, denormalizedPredicates);
         }
 
         public override Expression VisitSearchParameter(SearchParameterExpression expression, int context) => ConvertNonMultiary(expression);
@@ -76,7 +85,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
         {
             return TryGetNormalizedGenerator(expression, out var generator, out var kind)
                 ? SqlRootExpression.WithTableExpressions(new TableExpression(generator, normalizedPredicate: expression, denormalizedPredicate: null, kind, chainLevel: kind == TableExpressionKind.Chain ? 1 : 0))
-                : SqlRootExpression.WithResourceExpressions(expression);
+                : SqlRootExpression.WithResourceExpressions((SearchParameterExpressionBase)expression);
         }
 
         private bool TryGetNormalizedGenerator(Expression expression, out NormalizedSearchParameterQueryGenerator normalizedGenerator, out TableExpressionKind kind)

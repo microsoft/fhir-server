@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         public void GivenExpressionWithNoTableExpressions_WhenRewritten_ReturnsOriginalExpression()
         {
             var inputExpression = SqlRootExpression.WithResourceExpressions(
-                Expression.Equals(FieldName.Number, null, 1));
+                Expression.SearchParameter(new SearchParameterInfo("abc"), Expression.Equals(FieldName.Number, null, 1)));
             var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(DenormalizedPredicateRewriter.Instance);
             Assert.Equal(inputExpression, visitedExpression);
         }
@@ -44,7 +44,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 {
                     new TableExpression(null, null, null, TableExpressionKind.Normal),
                 },
-                new List<Expression>
+                new List<SearchParameterExpressionBase>
                 {
                     new SearchParameterExpression(new SearchParameterInfo(paramName), Expression.Equals(FieldName.String, null, "TestParamValue")),
                 });
@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 {
                     new TableExpression(null, null, null, TableExpressionKind.Normal),
                 },
-                new List<Expression>
+                new List<SearchParameterExpressionBase>
                 {
                     new SearchParameterExpression(new SearchParameterInfo(SearchParameterNames.ResourceType), Expression.Equals(FieldName.String, null, "TestParamValue1")),
                     new SearchParameterExpression(new SearchParameterInfo(SqlSearchParameters.ResourceSurrogateIdParameterName), Expression.Equals(FieldName.String, null, "TestParamValue2")),
@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 {
                     new TableExpression(null, null, null, TableExpressionKind.Normal),
                 },
-                new List<Expression>
+                new List<SearchParameterExpressionBase>
                 {
                     new SearchParameterExpression(new SearchParameterInfo(paramName), Expression.Equals(FieldName.String, null, "ExtractableTestParamValue")),
                     new SearchParameterExpression(new SearchParameterInfo("TestParamName"), Expression.Equals(FieldName.String, null, "NonExtractableTestParamValue")),
@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 {
                     new TableExpression(null, null, null, TableExpressionKind.Include),
                 },
-                new List<Expression>
+                new List<SearchParameterExpressionBase>
                 {
                     new SearchParameterExpression(new SearchParameterInfo(SearchParameterNames.ResourceType), Expression.Equals(FieldName.String, null, "TestParamValue1")),
                 });
@@ -115,7 +115,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 {
                     new TableExpression(null, null, null, TableExpressionKind.Chain, 1),
                 },
-                new List<Expression>
+                new List<SearchParameterExpressionBase>
                 {
                     new SearchParameterExpression(new SearchParameterInfo(paramName), Expression.Equals(FieldName.String, null, "ExtractableTestParamValue")),
                 });

@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
     /// </summary>
     internal class SqlRootExpression : Expression
     {
-        public SqlRootExpression(IReadOnlyList<TableExpression> tableExpressions, IReadOnlyList<Expression> resourceExpressions)
+        public SqlRootExpression(IReadOnlyList<TableExpression> tableExpressions, IReadOnlyList<SearchParameterExpressionBase> resourceExpressions)
         {
             EnsureArg.IsNotNull(tableExpressions, nameof(tableExpressions));
             EnsureArg.IsNotNull(resourceExpressions, nameof(resourceExpressions));
@@ -32,24 +32,24 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
 
         public IReadOnlyList<TableExpression> TableExpressions { get; }
 
-        public IReadOnlyList<Expression> ResourceExpressions { get; }
+        public IReadOnlyList<SearchParameterExpressionBase> ResourceExpressions { get; }
 
         public static SqlRootExpression WithTableExpressions(params TableExpression[] expressions)
         {
-            return new SqlRootExpression(expressions, Array.Empty<Expression>());
+            return new SqlRootExpression(expressions, Array.Empty<SearchParameterExpressionBase>());
         }
 
-        public static SqlRootExpression WithResourceExpressions(params Expression[] expressions)
+        public static SqlRootExpression WithResourceExpressions(params SearchParameterExpressionBase[] expressions)
         {
             return new SqlRootExpression(Array.Empty<TableExpression>(), expressions);
         }
 
         public static SqlRootExpression WithTableExpressions(IReadOnlyList<TableExpression> expressions)
         {
-            return new SqlRootExpression(expressions, Array.Empty<Expression>());
+            return new SqlRootExpression(expressions, Array.Empty<SearchParameterExpressionBase>());
         }
 
-        public static SqlRootExpression WithResourceExpressions(IReadOnlyList<Expression> expressions)
+        public static SqlRootExpression WithResourceExpressions(IReadOnlyList<SearchParameterExpressionBase> expressions)
         {
             return new SqlRootExpression(Array.Empty<TableExpression>(), expressions);
         }

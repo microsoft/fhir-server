@@ -279,10 +279,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     {
                         AppendHistoryClause(delimited);
                         AppendDeletedClause(delimited);
-                        if (tableExpression.DenormalizedPredicate != null)
+                        if (tableExpression.NormalizedPredicate != null)
                         {
                             delimited.BeginDelimitedElement();
-                            tableExpression.DenormalizedPredicate?.AcceptVisitor(DispatchingDenormalizedSearchParameterQueryGenerator.Instance, GetContext());
+                            tableExpression.NormalizedPredicate.AcceptVisitor(DispatchingDenormalizedSearchParameterQueryGenerator.Instance, GetContext());
                         }
                     }
 

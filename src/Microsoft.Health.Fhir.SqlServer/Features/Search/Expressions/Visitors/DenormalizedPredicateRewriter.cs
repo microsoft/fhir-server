@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
@@ -35,22 +34,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             for (int i = 0; i < expression.ResourceExpressions.Count; i++)
             {
-                Expression currentExpression = expression.ResourceExpressions[i];
+                SearchParameterExpressionBase currentExpression = expression.ResourceExpressions[i];
 
                 if (currentExpression is SearchParameterExpression searchParameterExpression)
                 {
-                    switch (searchParameterExpression.Parameter.Name)
+                    if (searchParameterExpression.Parameter.ColumnLocation().HasFlag(SearchParameterColumnLocation.SearchParamTable))
                     {
-                        case SqlSearchParameters.ResourceSurrogateIdParameterName:
-                        case SearchParameterNames.ResourceType:
-                            extractedDenormalizedExpression = extractedDenormalizedExpression == null ? currentExpression : Expression.And(extractedDenormalizedExpression, currentExpression);
-                            EnsureAllocatedAndPopulated(ref newDenormalizedPredicates, expression.ResourceExpressions, i);
-
-                            break;
-                        default:
-                            containsDenormalizedExpressionNotOnSearchParameterTables = true;
-                            newDenormalizedPredicates?.Add(currentExpression);
-                            break;
+                        extractedDenormalizedExpression = extractedDenormalizedExpression == null ? (Expression)currentExpression : Expression.And(extractedDenormalizedExpression, currentExpression);
+                        EnsureAllocatedAndPopulated(ref newDenormalizedPredicates, expression.ResourceExpressions, i);
+                    }
+                    else
+                    {
+                        containsDenormalizedExpressionNotOnSearchParameterTables = true;
+                        newDenormalizedPredicates?.Add(currentExpression);
                     }
                 }
             }
@@ -61,7 +57,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             {
                 // There is a predicate over _id, which is on the Resource table but not on the search parameter tables.
                 // So the first table expression should be an "All" expression, where we restrict the resultset to resources with that ID.
-                newTableExpressions.Add(new TableExpression(null, null, TableExpression.And(expression.ResourceExpressions), TableExpressionKind.All));
+                newTableExpressions.Add(new TableExpression(null, Expression.And(expression.ResourceExpressions), null, TableExpressionKind.All));
             }
 
             foreach (var tableExpression in expression.TableExpressions)
@@ -84,7 +80,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 }
             }
 
-            return new SqlRootExpression(newTableExpressions, Array.Empty<Expression>());
+            return new SqlRootExpression(newTableExpressions, Array.Empty<SearchParameterExpressionBase>());
         }
 
         public Expression VisitTable(TableExpression tableExpression, object context)

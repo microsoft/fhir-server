@@ -33,18 +33,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
             int chainLevel = 0,
             Expression denormalizedPredicateOnChainRoot = null)
         {
-            switch (normalizedPredicate)
-            {
-                case SearchParameterExpressionBase _:
-                case CompartmentSearchExpression _:
-                case ChainedExpression _:
-                case IncludeExpression _:
-                case null:
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(normalizedPredicate));
-            }
-
             SearchParameterQueryGenerator = searchParameterQueryGenerator;
             NormalizedPredicate = normalizedPredicate;
             DenormalizedPredicate = denormalizedPredicate;

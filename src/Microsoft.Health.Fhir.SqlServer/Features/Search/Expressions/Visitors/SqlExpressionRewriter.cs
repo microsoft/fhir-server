@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     {
         public virtual Expression VisitSqlRoot(SqlRootExpression expression, TContext context)
         {
-            IReadOnlyList<Expression> denormalizedPredicates = VisitArray(expression.ResourceExpressions, context);
+            IReadOnlyList<SearchParameterExpressionBase> denormalizedPredicates = VisitArray(expression.ResourceExpressions, context);
             IReadOnlyList<TableExpression> normalizedPredicates = VisitArray(expression.TableExpressions, context);
 
             if (ReferenceEquals(normalizedPredicates, expression.TableExpressions) &&

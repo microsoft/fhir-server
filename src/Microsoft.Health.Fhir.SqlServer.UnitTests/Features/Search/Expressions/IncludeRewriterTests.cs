@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     new TableExpression(null, null, denormalizedExpression, TableExpressionKind.All),
                     new TableExpression(null, null, null, TableExpressionKind.Top),
                 },
-                new List<Expression>());
+                new List<SearchParameterExpressionBase>());
 
             var rewrittenExpressions = ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).TableExpressions;
 
@@ -95,7 +95,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     new TableExpression(IncludeQueryGenerator.Instance,  includeMedicationDispensePatient, null, TableExpressionKind.Include),
                     new TableExpression(null, null, null, TableExpressionKind.Top),
                 },
-                new List<Expression>());
+                new List<SearchParameterExpressionBase>());
 
             var orderedExpressions = ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).TableExpressions;
 
@@ -149,7 +149,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     new TableExpression(IncludeQueryGenerator.Instance,  includeMedicationDispensePatient, null, TableExpressionKind.Include),
                     new TableExpression(null, null, null, TableExpressionKind.Top),
                 },
-                new List<Expression>());
+                new List<SearchParameterExpressionBase>());
 
             var orderedExpressions = ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).TableExpressions;
 
@@ -203,7 +203,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     new TableExpression(IncludeQueryGenerator.Instance,  revincludeMedicationDispensePrescription, null, TableExpressionKind.Include),
                     new TableExpression(null, null, null, TableExpressionKind.Top),
                 },
-                new List<Expression>());
+                new List<SearchParameterExpressionBase>());
 
             var orderedExpressions = ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).TableExpressions;
 
@@ -257,7 +257,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     new TableExpression(IncludeQueryGenerator.Instance,  includeMedicationRequestPatient, null, TableExpressionKind.Include),
                     new TableExpression(null, null, null, TableExpressionKind.Top),
                 },
-                new List<Expression>());
+                new List<SearchParameterExpressionBase>());
 
             var orderedExpressions = ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).TableExpressions;
 
@@ -311,7 +311,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     new TableExpression(IncludeQueryGenerator.Instance,  revincludeMedicationRequestPatient, null, TableExpressionKind.Include),
                     new TableExpression(null, null, null, TableExpressionKind.Top),
                 },
-                new List<Expression>());
+                new List<SearchParameterExpressionBase>());
 
             var orderedExpressions = ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).TableExpressions;
 
@@ -365,7 +365,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     new TableExpression(IncludeQueryGenerator.Instance,  includeMedicationDispensePatient, null, TableExpressionKind.Include),
                     new TableExpression(null, null, null, TableExpressionKind.Top),
                 },
-                new List<Expression>());
+                new List<SearchParameterExpressionBase>());
 
             var orderedExpressions = ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).TableExpressions;
 
@@ -419,7 +419,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     new TableExpression(IncludeQueryGenerator.Instance,  includeMedicationDispensePatient, null, TableExpressionKind.Include),
                     new TableExpression(null, null, null, TableExpressionKind.Top),
                 },
-                new List<Expression>());
+                new List<SearchParameterExpressionBase>());
 
             var orderedExpressions = ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).TableExpressions;
 
@@ -473,7 +473,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     new TableExpression(IncludeQueryGenerator.Instance,  revincludeMedicationDispensePrescription, null, TableExpressionKind.Include),
                     new TableExpression(null, null, null, TableExpressionKind.Top),
                 },
-                new List<Expression>());
+                new List<SearchParameterExpressionBase>());
 
             var orderedExpressions = ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).TableExpressions;
 
@@ -527,7 +527,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     new TableExpression(IncludeQueryGenerator.Instance,  includeMedicationRequestPatient, null, TableExpressionKind.Include),
                     new TableExpression(null, null, null, TableExpressionKind.Top),
                 },
-                new List<Expression>());
+                new List<SearchParameterExpressionBase>());
 
             var orderedExpressions = ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).TableExpressions;
 
@@ -581,7 +581,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     new TableExpression(IncludeQueryGenerator.Instance,  revincludeMedicationRequestPatient, null, TableExpressionKind.Include),
                     new TableExpression(null, null, null, TableExpressionKind.Top),
                 },
-                new List<Expression>());
+                new List<SearchParameterExpressionBase>());
 
             var orderedExpressions = ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).TableExpressions;
 
@@ -635,7 +635,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     new TableExpression(IncludeQueryGenerator.Instance,  revincludePatientGeneralPractitioner, null, TableExpressionKind.Include),
                     new TableExpression(null, null, null, TableExpressionKind.Top),
                 },
-                new List<Expression>());
+                new List<SearchParameterExpressionBase>());
 
             var orderedExpressions = ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).TableExpressions;
 
@@ -689,7 +689,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     new TableExpression(IncludeQueryGenerator.Instance,  revincludeMedicationDispensePrescription, null, TableExpressionKind.Include),
                     new TableExpression(null, null, null, TableExpressionKind.Top),
                 },
-                new List<Expression>());
+                new List<SearchParameterExpressionBase>());
 
             var orderedExpressions = ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).TableExpressions;
 
@@ -750,7 +750,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     new TableExpression(IncludeQueryGenerator.Instance,  includeIteratePatientGeneralPractitioner, null, TableExpressionKind.Include),
                     new TableExpression(null, null, null, TableExpressionKind.Top),
                 },
-                new List<Expression>());
+                new List<SearchParameterExpressionBase>());
 
             var orderedExpressions = ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).TableExpressions;
 
@@ -815,7 +815,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     new TableExpression(IncludeQueryGenerator.Instance,  includeIterateMedicationRequestPatient, null, TableExpressionKind.Include),
                     new TableExpression(null, null, null, TableExpressionKind.Top),
                 },
-                new List<Expression>());
+                new List<SearchParameterExpressionBase>());
 
             var orderedExpressions = ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).TableExpressions;
 
@@ -880,7 +880,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     new TableExpression(IncludeQueryGenerator.Instance,  includeIteratePatientGeneralPractitioner, null, TableExpressionKind.Include),
                     new TableExpression(null, null, null, TableExpressionKind.Top),
                 },
-                new List<Expression>());
+                new List<SearchParameterExpressionBase>());
 
             var orderedExpressions = ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).TableExpressions;
 
@@ -945,7 +945,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     new TableExpression(IncludeQueryGenerator.Instance,  includeMedicationDispensePrescription, null, TableExpressionKind.Include),
                     new TableExpression(null, null, null, TableExpressionKind.Top),
                 },
-                new List<Expression>());
+                new List<SearchParameterExpressionBase>());
 
             var orderedExpressions = ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).TableExpressions;
 
@@ -1010,7 +1010,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     new TableExpression(IncludeQueryGenerator.Instance,  includeIterateMedicationRequestPatient, null, TableExpressionKind.Include),
                     new TableExpression(null, null, null, TableExpressionKind.Top),
                 },
-                new List<Expression>());
+                new List<SearchParameterExpressionBase>());
 
             var orderedExpressions = ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).TableExpressions;
 
@@ -1075,7 +1075,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     new TableExpression(IncludeQueryGenerator.Instance,  includeMedicationDispensePrescription, null, TableExpressionKind.Include),
                     new TableExpression(null, null, null, TableExpressionKind.Top),
                 },
-                new List<Expression>());
+                new List<SearchParameterExpressionBase>());
 
             var orderedExpressions = ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).TableExpressions;
 
@@ -1142,7 +1142,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     new TableExpression(IncludeQueryGenerator.Instance,  includeMedicationDispensePrescription, null, TableExpressionKind.Include),
                     new TableExpression(null, null, null, TableExpressionKind.Top),
                 },
-                new List<Expression>());
+                new List<SearchParameterExpressionBase>());
 
             var orderedExpressions = ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).TableExpressions;
 
@@ -1207,7 +1207,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     new TableExpression(IncludeQueryGenerator.Instance,  includeMedicationDispensePrescription, null, TableExpressionKind.Include),
                     new TableExpression(null, null, null, TableExpressionKind.Top),
                 },
-                new List<Expression>());
+                new List<SearchParameterExpressionBase>());
 
             var orderedExpressions = ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).TableExpressions;
 
@@ -1272,7 +1272,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     new TableExpression(IncludeQueryGenerator.Instance,  includeMedicationDispensePrescription, null, TableExpressionKind.Include),
                     new TableExpression(null, null, null, TableExpressionKind.Top),
                 },
-                new List<Expression>());
+                new List<SearchParameterExpressionBase>());
 
             var orderedExpressions = ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).TableExpressions;
 
@@ -1343,7 +1343,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 
                     new TableExpression(null, null, null, TableExpressionKind.Top),
                 },
-                new List<Expression>());
+                new List<SearchParameterExpressionBase>());
 
             var orderedExpressions = ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).TableExpressions;
 
@@ -1419,7 +1419,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     new TableExpression(IncludeQueryGenerator.Instance,  includeIterateDeviceLocation, null, TableExpressionKind.Include),
                     new TableExpression(null, null, null, TableExpressionKind.Top),
                 },
-                new List<Expression>());
+                new List<SearchParameterExpressionBase>());
 
             var orderedExpressions = ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).TableExpressions;
 
@@ -1493,7 +1493,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     new TableExpression(IncludeQueryGenerator.Instance,  includeMedicationDispenseWildcard, null, TableExpressionKind.Include),
                     new TableExpression(null, null, null, TableExpressionKind.Top),
                 },
-                new List<Expression>());
+                new List<SearchParameterExpressionBase>());
 
             var orderedExpressions = ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).TableExpressions;
 
@@ -1554,7 +1554,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     new TableExpression(IncludeQueryGenerator.Instance,  revIncludeMedicationDispenseWildcard, null, TableExpressionKind.Include),
                     new TableExpression(null, null, null, TableExpressionKind.Top),
                 },
-                new List<Expression>());
+                new List<SearchParameterExpressionBase>());
 
             var orderedExpressions = ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).TableExpressions;
 
@@ -1620,7 +1620,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                     new TableExpression(IncludeQueryGenerator.Instance,  includeIterateDiagnosticReportPatient, null, TableExpressionKind.Include),
                     new TableExpression(null, null, null, TableExpressionKind.Top),
                 },
-                new List<Expression>());
+                new List<SearchParameterExpressionBase>());
 
             Assert.Throws<SearchOperationNotSupportedException>(() => ((SqlRootExpression)sqlExpression.AcceptVisitor(IncludeRewriter.Instance)).TableExpressions);
         }
