@@ -64,8 +64,15 @@ Anyone can review a PR, even if you are not assigned as the reviewer.
 
 ## Move long PR discussions to video calls
 
-- Authors who are members of the FHIR team should be open to moving discussions to chat or video calls for clarification
+FHIR team authors:
+
+- Be open to moving discussions to chat or video calls for clarification
 - Post a resolution comment so other people reading the PR know what happened
+
+External contributor authors:
+
+- Longer discussions with external contributors will be handled on a case-by-case basis
+- The FHIR team will reach out to you if we believe it would be helpful to move discussions to a different platform
 
 ## Positive reinforcement is important!
 
