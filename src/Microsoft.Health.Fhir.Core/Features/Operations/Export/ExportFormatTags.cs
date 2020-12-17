@@ -17,5 +17,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         public const string Timestamp = "<timestamp>";
 
         public const string Id = "<id>";
+
+        public const string Sequence = "<sequence>";
     }
 }

@@ -103,7 +103,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         public string Hash { get; private set; }
 
         [JsonProperty(JobRecordProperties.Output)]
-        public IDictionary<string, ExportFileInfo> Output { get; private set; } = new Dictionary<string, ExportFileInfo>();
+        public IDictionary<string, List<ExportFileInfo>> Output { get; private set; } = new Dictionary<string, List<ExportFileInfo>>();
 
         [JsonProperty(JobRecordProperties.Error)]
         public IList<ExportFileInfo> Error { get; private set; } = new List<ExportFileInfo>();

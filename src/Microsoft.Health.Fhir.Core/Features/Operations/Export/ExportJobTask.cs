@@ -44,10 +44,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         // Currently we will have only one file per resource type. In the future we will add the ability to split
         // individual files based on a max file size. This could result in a single resource having multiple files.
         // We will have to update the below mapping to support multiple ExportFileInfo per resource type.
-        private readonly IDictionary<string, ExportFileInfo> _resourceTypeToFileInfoMapping = new Dictionary<string, ExportFileInfo>();
+        // private readonly IDictionary<string, ExportFileInfo> _resourceTypeToFileInfoMapping = new Dictionary<string, ExportFileInfo>();
 
         private ExportJobRecord _exportJobRecord;
         private WeakETag _weakETag;
+        private ExportFileManager _fileManager;
 
         public ExportJobTask(
             Func<IScoped<IFhirOperationDataStore>> fhirOperationDataStoreFactory,
@@ -90,6 +91,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             _exportJobRecord = exportJobRecord;
             _weakETag = weakETag;
+            _fileManager = new ExportFileManager(_exportJobRecord, _exportDestinationClient);
 
             try
             {
@@ -566,7 +568,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 ResourceWrapper resourceWrapper = result.Resource;
 
                 string resourceType = resourceWrapper.ResourceTypeName;
-
+                /*
                 // Check whether we already have an existing file for the current resource type.
                 if (!_resourceTypeToFileInfoMapping.TryGetValue(resourceType, out ExportFileInfo exportFileInfo))
                 {
@@ -599,7 +601,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                     _resourceTypeToFileInfoMapping.Add(resourceType, exportFileInfo);
                 }
-
+                */
                 ResourceElement element = _resourceDeserializer.Deserialize(resourceWrapper);
 
                 if (anonymizer != null)
@@ -610,10 +612,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 // Serialize into NDJson and write to the file.
                 byte[] bytesToWrite = _resourceToByteArraySerializer.Serialize(element);
 
-                await _exportDestinationClient.WriteFilePartAsync(exportFileInfo.FileUri, partId, bytesToWrite, cancellationToken);
+                await _fileManager.WriteToFile(resourceType, partId, bytesToWrite, cancellationToken);
 
-                // Increment the file information.
-                exportFileInfo.IncrementCount(bytesToWrite.Length);
+                // await _exportDestinationClient.WriteFilePartAsync(exportFileInfo.FileUri, partId, bytesToWrite, cancellationToken);
+                //// Increment the file information.
+                // exportFileInfo.IncrementCount(bytesToWrite.Length);
             }
         }
 
@@ -665,7 +668,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             string status = _exportJobRecord.Status.ToString();
             string queuedTime = _exportJobRecord.QueuedTime.ToString("u") ?? string.Empty;
             string endTime = _exportJobRecord.EndTime?.ToString("u") ?? string.Empty;
-            long dataSize = _exportJobRecord.Output?.Values.Sum(job => job?.CommittedBytes ?? 0) ?? 0;
+            long dataSize = _exportJobRecord.Output?.Values.Sum(fileList => fileList.Sum(job => job?.CommittedBytes ?? 0)) ?? 0;
             bool isAnonymizedExport = IsAnonymizedExportJob();
 
             return $"Export job completed. Id: {id}, Status {status}, Queued Time: {queuedTime}, End Time: {endTime}, DataSize: {dataSize}, IsAnonymizedExport: {isAnonymizedExport}";

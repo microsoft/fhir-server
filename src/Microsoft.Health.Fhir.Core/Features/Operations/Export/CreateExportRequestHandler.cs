@@ -20,7 +20,6 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Export;
-using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
@@ -181,7 +180,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             formatConfiguration ??= new ExportJobFormatConfiguration()
             {
-                Format = useContainer ? $"{ExportFormatTags.Timestamp}-{ExportFormatTags.Id}/{ExportFormatTags.ResourceName}" : ExportFormatTags.ResourceName,
+                Format = useContainer ? $"{ExportFormatTags.Timestamp}-{ExportFormatTags.Id}/{ExportFormatTags.ResourceName}-{ExportFormatTags.Sequence}" : $"{ExportFormatTags.ResourceName}-{ExportFormatTags.Sequence}",
             };
 
             return formatConfiguration;
