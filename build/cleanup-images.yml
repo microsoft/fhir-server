@@ -10,7 +10,7 @@ stages:
   jobs:
   - template: ./jobs/cleanup-version-images.yml
     parameters: 
-      tag: 'stu3'
+      version: 'stu3'
 
 - stage: CleanupR4
   displayName: 'Cleanup R4'
@@ -18,7 +18,7 @@ stages:
   jobs:
   - template: ./jobs/cleanup-version-images.yml
     parameters: 
-      tag: 'r4'
+      version: 'r4'
 
 - stage: CleanupR5
   displayName: 'Cleanup R5'
@@ -26,4 +26,4 @@ stages:
   jobs:
   - template: ./jobs/cleanup-version-images.yml
     parameters: 
-      tag: 'r5'
+      version: 'r5'
