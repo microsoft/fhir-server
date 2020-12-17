@@ -15,7 +15,7 @@ jobs:
         scriptType: ps
         scriptLocation: InlineScript
         inlineScript: |
-          $version = ${{ parameters.version }}
+          $version = "${{ parameters.version }}"
         
           Write-Host "Untagging ${version} images"
           $repository = "${version}_fhir-server"
