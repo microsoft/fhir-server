@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             string storageAccountConnectionHash = string.IsNullOrEmpty(_exportJobConfiguration.StorageAccountConnection) ?
                 string.Empty :
-                Microsoft.Health.Core.Extensions.StringExtensions.ComputeHash(_exportJobConfiguration.StorageAccountConnection);
+                StringExtensions.ComputeHash(_exportJobConfiguration.StorageAccountConnection);
 
             // Check to see if a matching job exists or not. If a matching job exists, we will return that instead.
             // Otherwise, we will create a new export job. This will be a best effort since the likelihood of this happen should be small.
@@ -90,6 +90,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     request.ResourceType,
                     filters,
                     hash,
+                    _exportJobConfiguration.MaxFileSizeInMB,
                     requestorClaims,
                     request.Since,
                     request.GroupId,
@@ -180,7 +181,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             formatConfiguration ??= new ExportJobFormatConfiguration()
             {
-                Format = useContainer ? $"{ExportFormatTags.Timestamp}-{ExportFormatTags.Id}/{ExportFormatTags.ResourceName}-{ExportFormatTags.Sequence}" : $"{ExportFormatTags.ResourceName}-{ExportFormatTags.Sequence}",
+                Format = useContainer ?
+                    $"{ExportFormatTags.Timestamp}-{ExportFormatTags.Id}/{ExportFormatTags.ResourceName}-{ExportFormatTags.Sequence}" :
+                    $"{ExportFormatTags.ResourceName}-{ExportFormatTags.Sequence}",
             };
 
             return formatConfiguration;

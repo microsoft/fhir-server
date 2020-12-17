@@ -24,6 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             string resourceType,
             IList<ExportJobFilter> filters,
             string hash,
+            uint maxFileSizeInMB,
             IReadOnlyCollection<KeyValuePair<string, string>> requestorClaims = null,
             PartialDateTime since = null,
             string groupId = null,
@@ -38,6 +39,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
             EnsureArg.IsNotNullOrWhiteSpace(hash, nameof(hash));
             EnsureArg.IsNotNullOrWhiteSpace(exportFormat, nameof(exportFormat));
+            EnsureArg.IsGt(maxFileSizeInMB, 0, nameof(maxFileSizeInMB));
 
             Hash = hash;
             RequestUri = requestUri;
@@ -52,6 +54,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             StorageAccountUri = storageAccountUri;
             MaximumNumberOfResourcesPerQuery = maximumNumberOfResourcesPerQuery;
             NumberOfPagesPerCommit = numberOfPagesPerCommit;
+            MaxFileSizeInMB = maxFileSizeInMB;
 
             AnonymizationConfigurationLocation = anonymizationConfigurationLocation;
             AnonymizationConfigurationFileETag = anonymizationConfigurationFileETag;
@@ -141,5 +144,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
         [JsonProperty(JobRecordProperties.AnonymizationConfigurationFileETag)]
         public string AnonymizationConfigurationFileETag { get; private set; }
+
+        [JsonProperty(JobRecordProperties.MaxFileSizeInMB)]
+        public uint MaxFileSizeInMB { get; private set; } = 64;
     }
 }

@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Threading;
@@ -116,7 +117,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
         private async Task<GetExportResponse> SetupAndExecuteGetExportJobByIdAsync(OperationStatus jobStatus, bool addFailureDetails = true)
         {
-            var jobRecord = new ExportJobRecord(_createRequestUri, ExportJobType.Patient, ExportFormatTags.ResourceName, null, null, "hash")
+            var jobRecord = new ExportJobRecord(_createRequestUri, ExportJobType.Patient, ExportFormatTags.ResourceName, null, null, "hash", maxFileSizeInMB: 64)
             {
                 Status = jobStatus,
             };
@@ -129,7 +130,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             {
                 var exportFileInfo = new ExportFileInfo("patient", new Uri("https://exportlocation/fileUri"), sequence: 0);
                 exportFileInfo.IncrementCount(100);
-                jobRecord.Output.Add("patient", exportFileInfo);
+                jobRecord.Output.Add("patient", new List<ExportFileInfo>() { exportFileInfo });
             }
 
             var jobOutcome = new ExportJobOutcome(jobRecord, WeakETag.FromVersionId("eTag"));

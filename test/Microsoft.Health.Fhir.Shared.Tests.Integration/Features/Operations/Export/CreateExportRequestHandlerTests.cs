@@ -266,8 +266,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
         }
 
         [Theory]
-        [InlineData(false, ExportFormatTags.ResourceName)]
-        [InlineData(true, ExportFormatTags.Timestamp + "-" + ExportFormatTags.Id + "/" + ExportFormatTags.ResourceName)]
+        [InlineData(false, ExportFormatTags.ResourceName + "-" + ExportFormatTags.Sequence)]
+        [InlineData(true, ExportFormatTags.Timestamp + "-" + ExportFormatTags.Id + "/" + ExportFormatTags.ResourceName + "-" + ExportFormatTags.Sequence)]
         public async Task GivenARequest_WhenNoFormatsAreSet_ThenHardcodedDefaultIsReturned(bool containerSpecified, string expectedFormat)
         {
             _exportJobConfiguration.Formats = null;

@@ -17,26 +17,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
     /// Helper class that takes care of managing files for export. Currently it takes
     /// care of creating new files (at the beginning of export as well as once a file
     /// has reached a certain size) and keeping track of current file for each resource type.
-    /// Expected use case: each ExportJobTask will instantiate a copy.
+    /// Expected use case: each ExportJobTask will instantiate a copy; single-threaded access.
     /// </summary>
     internal class ExportFileManager
     {
         private readonly ExportJobRecord _exportJobRecord;
         private readonly IExportDestinationClient _exportDestinationClient;
         private readonly IDictionary<string, ExportFileInfo> _resourceTypeToFileInfoMapping;
+        private readonly uint _maxFileSizeInBytes;
         private bool _isInitialized = false;
 
         public ExportFileManager(ExportJobRecord exportJobRecord, IExportDestinationClient exportDestinationClient)
         {
             EnsureArg.IsNotNull(exportJobRecord, nameof(exportJobRecord));
             EnsureArg.IsNotNull(exportDestinationClient, nameof(exportDestinationClient));
+            EnsureArg.IsGt(exportJobRecord.MaxFileSizeInMB, 0, nameof(exportJobRecord.MaxFileSizeInMB));
 
             _exportJobRecord = exportJobRecord;
             _exportDestinationClient = exportDestinationClient;
+            _maxFileSizeInBytes = _exportJobRecord.MaxFileSizeInMB * 1024 * 1024;
             _resourceTypeToFileInfoMapping = new Dictionary<string, ExportFileInfo>();
         }
 
-        private async Task Initialize()
+        private async Task Initialize(CancellationToken cancellationToken)
         {
             // Each resource type can have multiple files. We need to keep track of the latest file.
             foreach (KeyValuePair<string, List<ExportFileInfo>> output in _exportJobRecord.Output)
@@ -47,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 // If there are entries in ExportJobRecord Output before FileManager gets initialized,
                 // it means we are "restarting" an export job. We have to make sure that each file
                 // has been opened on the ExportDestinationClient.
-                await _exportDestinationClient.OpenFileAsync(latestFile.FileUri, CancellationToken.None);
+                await _exportDestinationClient.OpenFileAsync(latestFile.FileUri, cancellationToken);
             }
 
             _isInitialized = true;
@@ -59,7 +62,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             if (!_isInitialized)
             {
-                await Initialize();
+                await Initialize(cancellationToken);
             }
 
             ExportFileInfo fileInfo = await GetFile(resourceType, cancellationToken);
@@ -68,7 +71,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             fileInfo.IncrementCount(data.Length);
 
             // We need to create a new file if the current file has exceeded a certain limit.
-            if (fileInfo.CommittedBytes >= 1024 * 1024)
+            if (fileInfo.CommittedBytes >= _maxFileSizeInBytes)
             {
                 await CreateNewFileAndUpdateMappings(resourceType, fileInfo.Sequence + 1, cancellationToken);
             }
@@ -80,7 +83,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             if (!_resourceTypeToFileInfoMapping.TryGetValue(resourceType, out ExportFileInfo exportFileInfo))
             {
-                exportFileInfo = await CreateNewFileAndUpdateMappings(resourceType, 1, cancellationToken);
+                // If it is not present in the mapping, we have to create the first file for this resource type.
+                // Hence file sequence will always be 1 in this case.
+                exportFileInfo = await CreateNewFileAndUpdateMappings(resourceType, fileSequence: 1, cancellationToken);
             }
 
             return exportFileInfo;
@@ -103,7 +108,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             var newFile = new ExportFileInfo(resourceType, fileUri, sequence: fileSequence);
 
-            // Since we created a new file the JobRecord Output also needs to know about it.
+            // Since we created a new file the ExportJobRecord Output also needs to be updated.
             if (_exportJobRecord.Output.TryGetValue(resourceType, out List<ExportFileInfo> fileList))
             {
                 fileList.Add(newFile);

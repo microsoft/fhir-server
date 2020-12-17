@@ -52,5 +52,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// </summary>
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2227:Collection properties should be read only", Justification = "This is a configuration class")]
         public IList<ExportJobFormatConfiguration> Formats { get; set; }
+
+        /// <summary>
+        /// Determines max size for an exported file.
+        /// </summary>
+        public uint MaxFileSizeInMB { get; set; } = 64;
     }
 }
