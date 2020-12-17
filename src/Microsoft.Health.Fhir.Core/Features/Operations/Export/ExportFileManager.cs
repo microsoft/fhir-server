@@ -13,11 +13,18 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
-    public class ExportFileManager
+    /// <summary>
+    /// Helper class that takes care of managing files for export. Currently it takes
+    /// care of creating new files (at the beginning of export as well as once a file
+    /// has reached a certain size) and keeping track of current file for each resource type.
+    /// Expected use case: each ExportJobTask will instantiate a copy.
+    /// </summary>
+    internal class ExportFileManager
     {
         private readonly ExportJobRecord _exportJobRecord;
         private readonly IExportDestinationClient _exportDestinationClient;
         private readonly IDictionary<string, ExportFileInfo> _resourceTypeToFileInfoMapping;
+        private bool _isInitialized = false;
 
         public ExportFileManager(ExportJobRecord exportJobRecord, IExportDestinationClient exportDestinationClient)
         {
@@ -26,18 +33,34 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             _exportJobRecord = exportJobRecord;
             _exportDestinationClient = exportDestinationClient;
-
-            // Each resource type can have multiple files. We need to kepp track of the latest file.
             _resourceTypeToFileInfoMapping = new Dictionary<string, ExportFileInfo>();
+        }
+
+        private async Task Initialize()
+        {
+            // Each resource type can have multiple files. We need to keep track of the latest file.
             foreach (KeyValuePair<string, List<ExportFileInfo>> output in _exportJobRecord.Output)
             {
-                _resourceTypeToFileInfoMapping.Add(output.Key, output.Value[output.Value.Count - 1]);
+                ExportFileInfo latestFile = output.Value[output.Value.Count - 1];
+                _resourceTypeToFileInfoMapping.Add(output.Key, latestFile);
+
+                // If there are entries in ExportJobRecord Output before FileManager gets initialized,
+                // it means we are "restarting" an export job. We have to make sure that each file
+                // has been opened on the ExportDestinationClient.
+                await _exportDestinationClient.OpenFileAsync(latestFile.FileUri, CancellationToken.None);
             }
+
+            _isInitialized = true;
         }
 
         public async Task WriteToFile(string resourceType, string partId, byte[] data, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
+
+            if (!_isInitialized)
+            {
+                await Initialize();
+            }
 
             ExportFileInfo fileInfo = await GetFile(resourceType, cancellationToken);
             await _exportDestinationClient.WriteFilePartAsync(fileInfo.FileUri, partId, data, cancellationToken);
