@@ -19,7 +19,7 @@ using Microsoft.Health.SqlServer.Features.Storage;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
 {
-    internal class SqlQueryGenerator : DefaultExpressionVisitor<SearchOptions, object>, ISqlExpressionVisitor<SearchOptions, object>
+    internal class SqlQueryGenerator : DefaultSqlExpressionVisitor<SearchOptions, object>
     {
         private string _cteMainSelect; // This is represents the CTE that is the main selector for use with includes
         private List<string> _includeCteIds;
@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         public SqlServerFhirModel Model { get; }
 
-        public object VisitSqlRoot(SqlRootExpression expression, SearchOptions context)
+        public override object VisitSqlRoot(SqlRootExpression expression, SearchOptions context)
         {
             if (!(context is SearchOptions searchOptions))
             {
@@ -194,7 +194,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private bool IsInSortMode(SearchOptions context) => context.Sort != null && context.Sort.Count > 0 && _sortVisited;
 
-        public object VisitTable(TableExpression tableExpression, SearchOptions context)
+        public override object VisitTable(TableExpression tableExpression, SearchOptions context)
         {
             const string referenceSourceTableAlias = "refSource";
             const string referenceTargetResourceTableAlias = "refTarget";
@@ -279,10 +279,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     {
                         AppendHistoryClause(delimited);
                         AppendDeletedClause(delimited);
-                        if (tableExpression.DenormalizedPredicate != null)
+                        if (tableExpression.NormalizedPredicate != null)
                         {
                             delimited.BeginDelimitedElement();
-                            tableExpression.DenormalizedPredicate?.AcceptVisitor(DispatchingDenormalizedSearchParameterQueryGenerator.Instance, GetContext());
+                            tableExpression.NormalizedPredicate?.AcceptVisitor(DispatchingDenormalizedSearchParameterQueryGenerator.Instance, GetContext());
                         }
                     }
 
@@ -333,7 +333,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     break;
 
                 case TableExpressionKind.Chain:
-                    var chainedExpression = (ChainedExpression)tableExpression.NormalizedPredicate;
+                    var chainedExpression = (SqlChainLinkExpression)tableExpression.NormalizedPredicate;
 
                     StringBuilder.Append("SELECT ");
                     if (tableExpression.ChainLevel == 1)
@@ -360,7 +360,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
                     // For reverse chaning, if there is a parameter on the _id search parameter, we need another join to get the resource ID of the reference source (all we have is the surrogate ID at this point)
 
-                    bool denormalizedHandledBySecondJoin = tableExpression.DenormalizedPredicate != null && chainedExpression.Reversed && tableExpression.DenormalizedPredicate.AcceptVisitor(ExpressionContainsParameterVisitor.Instance, SearchParameterNames.Id);
+                    bool denormalizedHandledBySecondJoin = chainedExpression.ExpressionOnTarget != null && chainedExpression.Reversed && chainedExpression.ExpressionOnTarget.AcceptVisitor(ExpressionContainsParameterVisitor.Instance, SearchParameterNames.Id);
 
                     if (denormalizedHandledBySecondJoin)
                     {
@@ -375,7 +375,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                                 .Append(" = ").Append(VLatest.Resource.ResourceSurrogateId, referenceSourceResourceTableAlias);
 
                             delimited.BeginDelimitedElement();
-                            tableExpression.DenormalizedPredicate?.AcceptVisitor(DispatchingDenormalizedSearchParameterQueryGenerator.Instance, GetContext(referenceSourceResourceTableAlias));
+                            chainedExpression.ExpressionOnTarget.AcceptVisitor(DispatchingDenormalizedSearchParameterQueryGenerator.Instance, GetContext(referenceSourceResourceTableAlias));
                         }
                     }
 
@@ -409,16 +409,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                             AppendIntersectionWithPredecessor(delimited, tableExpression, chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias);
                         }
 
-                        if (tableExpression.DenormalizedPredicate != null && !denormalizedHandledBySecondJoin)
+                        if (chainedExpression.ExpressionOnTarget != null && !denormalizedHandledBySecondJoin)
                         {
                             delimited.BeginDelimitedElement();
-                            tableExpression.DenormalizedPredicate?.AcceptVisitor(DispatchingDenormalizedSearchParameterQueryGenerator.Instance, GetContext(chainedExpression.Reversed ? referenceSourceTableAlias : referenceTargetResourceTableAlias));
+                            chainedExpression.ExpressionOnTarget?.AcceptVisitor(DispatchingDenormalizedSearchParameterQueryGenerator.Instance, GetContext(chainedExpression.Reversed ? referenceSourceTableAlias : referenceTargetResourceTableAlias));
                         }
 
-                        if (tableExpression.DenormalizedPredicateOnChainRoot != null)
+                        if (chainedExpression.ExpressionOnSource != null)
                         {
                             delimited.BeginDelimitedElement();
-                            tableExpression.DenormalizedPredicateOnChainRoot.AcceptVisitor(DispatchingDenormalizedSearchParameterQueryGenerator.Instance, GetContext(chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias));
+                            chainedExpression.ExpressionOnSource.AcceptVisitor(DispatchingDenormalizedSearchParameterQueryGenerator.Instance, GetContext(chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias));
                         }
                     }
 

@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 
@@ -15,11 +16,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     /// These are predicates on the ResourceSurrogateId and ResourceType columns. The idea is to make these
     /// queries as selective as possible.
     /// </summary>
-    internal class DenormalizedPredicateRewriter : ExpressionRewriterWithInitialContext<object>, ISqlExpressionVisitor<object, Expression>
+    internal class DenormalizedPredicateRewriter : SqlExpressionRewriterWithInitialContext<object>
     {
         public static readonly DenormalizedPredicateRewriter Instance = new DenormalizedPredicateRewriter();
 
-        public Expression VisitSqlRoot(SqlRootExpression expression, object context)
+        public override Expression VisitSqlRoot(SqlRootExpression expression, object context)
         {
             if (expression.TableExpressions.Count == 0 || expression.ResourceExpressions.Count == 0 ||
                 expression.TableExpressions.All(e => e.Kind == TableExpressionKind.Include))
@@ -62,30 +63,41 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             foreach (var tableExpression in expression.TableExpressions)
             {
-                if (tableExpression.Kind == TableExpressionKind.Include)
+                if (tableExpression.Kind == TableExpressionKind.Include ||
+                    (tableExpression.Kind == TableExpressionKind.Normal && tableExpression.ChainLevel > 0) ||
+                    (tableExpression.Kind == TableExpressionKind.Chain && tableExpression.ChainLevel > 1))
                 {
+                    // these predicates do not apply to referenced resources
+
                     newTableExpressions.Add(tableExpression);
                 }
                 else if (tableExpression.Kind == TableExpressionKind.Chain)
                 {
-                    newTableExpressions.Add(new TableExpression(tableExpression.SearchParameterQueryGenerator, tableExpression.NormalizedPredicate, tableExpression.DenormalizedPredicate, tableExpression.Kind, chainLevel: tableExpression.ChainLevel, denormalizedPredicateOnChainRoot: extractedDenormalizedExpression));
+                    var sqlChainLinkExpression = (SqlChainLinkExpression)tableExpression.NormalizedPredicate;
+
+                    Debug.Assert(sqlChainLinkExpression.ExpressionOnSource == null);
+
+                    var newChainLinkExpression = new SqlChainLinkExpression(
+                        sqlChainLinkExpression.ResourceType,
+                        sqlChainLinkExpression.ReferenceSearchParameter,
+                        sqlChainLinkExpression.TargetResourceType,
+                        sqlChainLinkExpression.Reversed,
+                        extractedDenormalizedExpression,
+                        sqlChainLinkExpression.ExpressionOnTarget);
+
+                    newTableExpressions.Add(new TableExpression(tableExpression.SearchParameterQueryGenerator, newChainLinkExpression, null, tableExpression.Kind, chainLevel: tableExpression.ChainLevel));
                 }
                 else
                 {
-                    Expression newDenormalizedPredicate = tableExpression.DenormalizedPredicate == null
+                    Expression newDenormalizedPredicate = tableExpression.NormalizedPredicate == null
                         ? extractedDenormalizedExpression
-                        : Expression.And(tableExpression.DenormalizedPredicate, extractedDenormalizedExpression);
+                        : Expression.And(tableExpression.NormalizedPredicate, extractedDenormalizedExpression);
 
-                    newTableExpressions.Add(new TableExpression(tableExpression.SearchParameterQueryGenerator, tableExpression.NormalizedPredicate, newDenormalizedPredicate, tableExpression.Kind));
+                    newTableExpressions.Add(new TableExpression(tableExpression.SearchParameterQueryGenerator, newDenormalizedPredicate, null, tableExpression.Kind, tableExpression.ChainLevel));
                 }
             }
 
             return new SqlRootExpression(newTableExpressions, Array.Empty<SearchParameterExpressionBase>());
-        }
-
-        public Expression VisitTable(TableExpression tableExpression, object context)
-        {
-            throw new InvalidOperationException();
         }
     }
 }

@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return expression;
         }
 
-        private class Scout : DefaultExpressionVisitor<object, bool>
+        private class Scout : DefaultSqlExpressionVisitor<object, bool>
         {
             internal static readonly Scout Instance = new Scout();
 

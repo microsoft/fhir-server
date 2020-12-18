@@ -37,5 +37,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             return new TableExpression(tableExpression.SearchParameterQueryGenerator, normalizedPredicate, denormalizedPredicate, tableExpression.Kind);
         }
+
+        public virtual Expression VisitSqlChainLink(SqlChainLinkExpression sqlChainLinkExpression, TContext context)
+        {
+            Expression visitedExpressionOnSource = sqlChainLinkExpression.ExpressionOnSource?.AcceptVisitor(this, context);
+            Expression visitedExpressionOnTarget = sqlChainLinkExpression.ExpressionOnTarget?.AcceptVisitor(this, context);
+
+            if (ReferenceEquals(visitedExpressionOnSource, sqlChainLinkExpression.ExpressionOnSource) &&
+                ReferenceEquals(visitedExpressionOnTarget, sqlChainLinkExpression.ExpressionOnTarget))
+            {
+                return sqlChainLinkExpression;
+            }
+
+            return new SqlChainLinkExpression(
+                sqlChainLinkExpression.ResourceType,
+                sqlChainLinkExpression.ReferenceSearchParameter,
+                sqlChainLinkExpression.TargetResourceType,
+                sqlChainLinkExpression.Reversed,
+                visitedExpressionOnSource,
+                visitedExpressionOnTarget);
+        }
     }
 }
