@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         {
             var tableExpressions = new List<TableExpression>
             {
-                new TableExpression(null, new MissingSearchParameterExpression(new SearchParameterInfo("TestParam"), true), null, TableExpressionKind.Normal),
+                new TableExpression(null, new MissingSearchParameterExpression(new SearchParameterInfo("TestParam"), true), TableExpressionKind.Normal),
             };
 
             var inputExpression = SqlRootExpression.WithTableExpressions(tableExpressions);
@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         {
             var tableExpressions = new List<TableExpression>
             {
-                new TableExpression(null, null, null, TableExpressionKind.Normal),
+                new TableExpression(null, null, TableExpressionKind.Normal),
             };
 
             var inputExpression = SqlRootExpression.WithTableExpressions(tableExpressions);
@@ -49,8 +49,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         {
             var tableExpressions = new List<TableExpression>
             {
-                new TableExpression(null, null, null, TableExpressionKind.Normal),
-                new TableExpression(null, new MissingSearchParameterExpression(new SearchParameterInfo("TestParam"), false), null, TableExpressionKind.Normal),
+                new TableExpression(null, null, TableExpressionKind.Normal),
+                new TableExpression(null, new MissingSearchParameterExpression(new SearchParameterInfo("TestParam"), false), TableExpressionKind.Normal),
             };
 
             var inputExpression = SqlRootExpression.WithTableExpressions(tableExpressions);
@@ -63,8 +63,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         {
             var tableExpressions = new List<TableExpression>
             {
-                new TableExpression(null, null, null, TableExpressionKind.Normal),
-                new TableExpression(null, new MissingSearchParameterExpression(new SearchParameterInfo("TestParam"), true), null, TableExpressionKind.Normal),
+                new TableExpression(null, null, TableExpressionKind.Normal),
+                new TableExpression(null, new MissingSearchParameterExpression(new SearchParameterInfo("TestParam"), true), TableExpressionKind.Normal),
             };
 
             var inputExpression = SqlRootExpression.WithTableExpressions(tableExpressions);

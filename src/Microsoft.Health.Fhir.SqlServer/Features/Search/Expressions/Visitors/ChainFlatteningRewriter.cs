@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Collections.Generic;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
@@ -68,7 +67,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 new TableExpression(
                     ChainAnchorQueryGenerator.Instance,
                     sqlChainLinkExpression,
-                    null,
                     TableExpressionKind.Chain,
                     chainLevel));
 
@@ -82,7 +80,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                     new TableExpression(
                         queryGenerator,
                         chainedExpression.Expression,
-                        null,
                         TableExpressionKind.Normal,
                         chainLevel));
             }

@@ -20,24 +20,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         /// <param name="searchParameterQueryGenerator">The search parameter query generator</param>
         /// <param name="normalizedPredicate">The search expression over a columns belonging exclusively to a search parameter table.
         /// Applies to the chain target if a chained expression.</param>
-        /// <param name="denormalizedPredicate">The search expression over columns that exist the Resource table. Applies to the chain target if a chained expression.</param>
         /// <param name="kind">The table expression kind.</param>
         /// <param name="chainLevel">The nesting chain nesting level of the current expression. 0 if not a chain expression.</param>
         /// <param name="denormalizedPredicateOnChainRoot">The search expression over columns that exist the Resource table. Applies to the chain root if a chained expression.</param>
         public TableExpression(
             NormalizedSearchParameterQueryGenerator searchParameterQueryGenerator,
             Expression normalizedPredicate,
-            Expression denormalizedPredicate,
             TableExpressionKind kind,
-            int chainLevel = 0,
-            Expression denormalizedPredicateOnChainRoot = null)
+            int chainLevel = 0)
         {
             SearchParameterQueryGenerator = searchParameterQueryGenerator;
             NormalizedPredicate = normalizedPredicate;
-            DenormalizedPredicate = denormalizedPredicate;
             Kind = kind;
             ChainLevel = chainLevel;
-            DenormalizedPredicateOnChainRoot = denormalizedPredicateOnChainRoot;
         }
 
         public TableExpressionKind Kind { get; }
@@ -55,16 +50,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         /// </summary>
         public Expression NormalizedPredicate { get; }
 
-        /// <summary>
-        /// The search expression over columns that exist the Resource table. Applies to the chain target if a chained expression.
-        /// </summary>
-        public Expression DenormalizedPredicate { get; }
-
-        /// <summary>
-        /// The search expression over columns that exist the Resource table. Applies to the chain root if a chained expression.
-        /// </summary>
-        public Expression DenormalizedPredicateOnChainRoot { get; }
-
         public override TOutput AcceptVisitor<TContext, TOutput>(IExpressionVisitor<TContext, TOutput> visitor, TContext context)
         {
             return AcceptVisitor((ISqlExpressionVisitor<TContext, TOutput>)visitor, context);
@@ -77,7 +62,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
 
         public override string ToString()
         {
-            return $"(Table {Kind} {(ChainLevel == 0 ? null : $"ChainLevel:{ChainLevel} ")}{SearchParameterQueryGenerator?.Table} Normalized:{NormalizedPredicate} Denormalized:{DenormalizedPredicate} DenormalizedOnChainRoot:{DenormalizedPredicateOnChainRoot})";
+            return $"(Table {Kind} {(ChainLevel == 0 ? null : $"ChainLevel:{ChainLevel} ")}{SearchParameterQueryGenerator?.Table} Normalized:{NormalizedPredicate})";
         }
     }
 }

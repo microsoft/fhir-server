@@ -58,7 +58,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             {
                 // There is a predicate over _id, which is on the Resource table but not on the search parameter tables.
                 // So the first table expression should be an "All" expression, where we restrict the resultset to resources with that ID.
-                newTableExpressions.Add(new TableExpression(null, Expression.And(expression.ResourceExpressions), null, TableExpressionKind.All));
+                newTableExpressions.Add(new TableExpression(null, Expression.And(expression.ResourceExpressions), TableExpressionKind.All));
             }
 
             foreach (var tableExpression in expression.TableExpressions)
@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                         extractedDenormalizedExpression,
                         sqlChainLinkExpression.ExpressionOnTarget);
 
-                    newTableExpressions.Add(new TableExpression(tableExpression.SearchParameterQueryGenerator, newChainLinkExpression, null, tableExpression.Kind, chainLevel: tableExpression.ChainLevel));
+                    newTableExpressions.Add(new TableExpression(tableExpression.SearchParameterQueryGenerator, newChainLinkExpression, tableExpression.Kind, chainLevel: tableExpression.ChainLevel));
                 }
                 else
                 {
@@ -93,7 +93,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                         ? extractedDenormalizedExpression
                         : Expression.And(tableExpression.NormalizedPredicate, extractedDenormalizedExpression);
 
-                    newTableExpressions.Add(new TableExpression(tableExpression.SearchParameterQueryGenerator, newDenormalizedPredicate, null, tableExpression.Kind, tableExpression.ChainLevel));
+                    newTableExpressions.Add(new TableExpression(tableExpression.SearchParameterQueryGenerator, newDenormalizedPredicate, tableExpression.Kind, tableExpression.ChainLevel));
                 }
             }
 

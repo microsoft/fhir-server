@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         public void GivenExpressionWithSingleTableExpression_WhenReordered_ReturnsOriginalExpression()
         {
             var inputExpression = SqlRootExpression.WithTableExpressions(
-                new TableExpression(null, null, null, TableExpressionKind.Normal));
+                new TableExpression(null, null, TableExpressionKind.Normal));
             var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(NormalizedPredicateReorderer.Instance);
             Assert.Equal(inputExpression, visitedExpression);
         }
@@ -34,8 +34,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         {
             var tableExpressions = new List<TableExpression>
             {
-                new TableExpression(new ReferenceSearchParameterQueryGenerator(), NormalExpression, null, TableExpressionKind.Normal),
-                new TableExpression(null, null, Expression.Equals(FieldName.String, null, "TestId"), TableExpressionKind.All),
+                new TableExpression(new ReferenceSearchParameterQueryGenerator(), NormalExpression, TableExpressionKind.Normal),
+                new TableExpression(null, null, TableExpressionKind.All),
             };
 
             var inputExpression = SqlRootExpression.WithTableExpressions(tableExpressions);
@@ -48,8 +48,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         {
             var tableExpressions = new List<TableExpression>
             {
-                new TableExpression(null, NormalExpression, null, TableExpressionKind.Normal),
-                new TableExpression(new ReferenceSearchParameterQueryGenerator(), NormalExpression, null, TableExpressionKind.Normal),
+                new TableExpression(null, NormalExpression, TableExpressionKind.Normal),
+                new TableExpression(new ReferenceSearchParameterQueryGenerator(), NormalExpression, TableExpressionKind.Normal),
             };
 
             var inputExpression = SqlRootExpression.WithTableExpressions(tableExpressions);
@@ -62,8 +62,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         {
             var tableExpressions = new List<TableExpression>
             {
-                new TableExpression(null, NormalExpression, null, TableExpressionKind.Normal),
-                new TableExpression(new CompartmentSearchParameterQueryGenerator(), NormalExpression, null, TableExpressionKind.Normal),
+                new TableExpression(null, NormalExpression, TableExpressionKind.Normal),
+                new TableExpression(new CompartmentSearchParameterQueryGenerator(), NormalExpression, TableExpressionKind.Normal),
             };
 
             var inputExpression = SqlRootExpression.WithTableExpressions(tableExpressions);
@@ -76,8 +76,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         {
             var tableExpressions = new List<TableExpression>
             {
-                new TableExpression(new IncludeQueryGenerator(), NormalExpression, null, TableExpressionKind.Include),
-                new TableExpression(null, new MissingSearchParameterExpression(new SearchParameterInfo("TestParam"), true), null, TableExpressionKind.Normal),
+                new TableExpression(new IncludeQueryGenerator(), NormalExpression, TableExpressionKind.Include),
+                new TableExpression(null, new MissingSearchParameterExpression(new SearchParameterInfo("TestParam"), true), TableExpressionKind.Normal),
             };
 
             var inputExpression = SqlRootExpression.WithTableExpressions(tableExpressions);
@@ -90,8 +90,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         {
             var tableExpressions = new List<TableExpression>
             {
-                new TableExpression(new IncludeQueryGenerator(), NormalExpression, null, TableExpressionKind.Include),
-                new TableExpression(null, NormalExpression, null, TableExpressionKind.Normal),
+                new TableExpression(new IncludeQueryGenerator(), NormalExpression, TableExpressionKind.Include),
+                new TableExpression(null, NormalExpression, TableExpressionKind.Normal),
             };
 
             var inputExpression = SqlRootExpression.WithTableExpressions(tableExpressions);

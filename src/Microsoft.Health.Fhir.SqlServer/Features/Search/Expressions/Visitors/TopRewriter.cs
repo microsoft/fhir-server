@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     {
         public static readonly TopRewriter Instance = new TopRewriter();
 
-        private static readonly TableExpression TopTableExpression = new TableExpression(null, null, null, TableExpressionKind.Top);
+        private static readonly TableExpression TopTableExpression = new TableExpression(null, null, TableExpressionKind.Top);
 
         public override Expression VisitSqlRoot(SqlRootExpression expression, SearchOptions context)
         {

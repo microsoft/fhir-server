@@ -18,8 +18,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     {
         internal static readonly IncludeRewriter Instance = new IncludeRewriter();
 
-        private static readonly TableExpression IncludeUnionAllExpression = new TableExpression(null, null, null, TableExpressionKind.IncludeUnionAll);
-        private static readonly TableExpression IncludeLimitExpression = new TableExpression(null, null, null, TableExpressionKind.IncludeLimit);
+        private static readonly TableExpression IncludeUnionAllExpression = new TableExpression(null, null, TableExpressionKind.IncludeUnionAll);
+        private static readonly TableExpression IncludeLimitExpression = new TableExpression(null, null, TableExpressionKind.IncludeLimit);
 
         public override Expression VisitSqlRoot(SqlRootExpression expression, object context)
         {

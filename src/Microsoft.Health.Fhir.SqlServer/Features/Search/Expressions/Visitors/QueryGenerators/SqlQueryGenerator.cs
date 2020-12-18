@@ -220,7 +220,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                             StringBuilder.Append("SELECT ").Append(VLatest.Resource.ResourceSurrogateId, null).Append(" AS Sid1, ")
                                 .Append(cte).AppendLine(".SortValue")
                                 .Append("FROM ").AppendLine(tableExpression.SearchParameterQueryGenerator.Table)
-                            .Append("INNER JOIN ").AppendLine(cte);
+                                .Append("INNER JOIN ").AppendLine(cte);
 
                             using (var delimited = StringBuilder.BeginDelimitedOnClause())
                             {
@@ -248,12 +248,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         {
                             // if chainLevel > 0 or if in sort mode, the intersection is already handled in the JOIN
                             AppendIntersectionWithPredecessor(delimited, tableExpression);
-                        }
-
-                        if (tableExpression.DenormalizedPredicate != null)
-                        {
-                            delimited.BeginDelimitedElement();
-                            tableExpression.DenormalizedPredicate?.AcceptVisitor(DispatchingDenormalizedSearchParameterQueryGenerator.Instance, GetContext());
                         }
 
                         if (tableExpression.NormalizedPredicate != null)
@@ -301,12 +295,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         using (var delimited = StringBuilder.BeginDelimitedWhereClause())
                         {
                             AppendHistoryClause(delimited);
-
-                            if (tableExpression.DenormalizedPredicate != null)
-                            {
-                                delimited.BeginDelimitedElement();
-                                tableExpression.DenormalizedPredicate?.AcceptVisitor(DispatchingDenormalizedSearchParameterQueryGenerator.Instance, GetContext());
-                            }
 
                             delimited.BeginDelimitedElement();
                             tableExpression.NormalizedPredicate.AcceptVisitor(tableExpression.SearchParameterQueryGenerator, GetContext());
@@ -709,12 +697,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         using (var delimited = StringBuilder.BeginDelimitedWhereClause())
                         {
                             AppendHistoryClause(delimited);
-
-                            if (tableExpression.DenormalizedPredicate != null)
-                            {
-                                delimited.BeginDelimitedElement();
-                                tableExpression.DenormalizedPredicate?.AcceptVisitor(DispatchingDenormalizedSearchParameterQueryGenerator.Instance, GetContext());
-                            }
 
                             if (tableExpression.NormalizedPredicate != null)
                             {

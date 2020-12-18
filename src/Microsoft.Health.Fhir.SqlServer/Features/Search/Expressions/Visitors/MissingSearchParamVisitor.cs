@@ -41,7 +41,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                             new TableExpression(
                                 tableExpression.SearchParameterQueryGenerator,
                                 null,
-                                tableExpression.DenormalizedPredicate,
                                 TableExpressionKind.All));
                     }
 
@@ -68,7 +67,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return new TableExpression(
                 tableExpression.SearchParameterQueryGenerator,
                 normalizedPredicate,
-                tableExpression.DenormalizedPredicate,
                 TableExpressionKind.NotExists);
         }
 

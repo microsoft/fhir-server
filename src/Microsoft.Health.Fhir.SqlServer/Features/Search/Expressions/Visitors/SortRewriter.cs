@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             var newNormalizedPredicates = new List<TableExpression>(expression.TableExpressions.Count + 1);
             newNormalizedPredicates.AddRange(expression.TableExpressions);
 
-            newNormalizedPredicates.Add(new TableExpression(queryGenerator, new SortExpression(context.Sort[0].searchParameterInfo), null, TableExpressionKind.Sort));
+            newNormalizedPredicates.Add(new TableExpression(queryGenerator, new SortExpression(context.Sort[0].searchParameterInfo), TableExpressionKind.Sort));
 
             return new SqlRootExpression(newNormalizedPredicates, expression.ResourceExpressions);
         }
