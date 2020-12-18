@@ -18,9 +18,12 @@ stages:
     steps:
     - template: ./jobs/update-semver.yml  
     - powershell: |
-        $buildNumber = "$(GitVersion.semVer)" -replace "\.", "" 
         Write-Host "##vso[build.updatebuildnumber]$buildNumber" 
         Write-Host "Updated  build number to '$buildNumber"
+
+        $deploymentEnvName = "$(GitVersion.semVer)" -replace "\.", "" 
+        Write-Host "##vso[task.setvariable variable=DeploymentEnvironmentName;]f$deploymentEnvName" 
+        Write-Host "Updated DeploymentEnvironmentName 'f$deploymentEnvName"
       name: SetBuildVersion
 
 - stage: BuildUnitTests
