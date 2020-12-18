@@ -12,7 +12,7 @@
     <EnableSourceControlManagerQueries>$(EnableSourceLink)</EnableSourceControlManagerQueries>
     <!--This will target the latest patch release of the runtime released with the current SDK.  -->
     <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
-    <SdkPackageVersion>3.1.9</SdkPackageVersion>
+    <SdkPackageVersion>5.0.0</SdkPackageVersion>
     <HealthcareSharedPackageVersion>1.0.80</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>1.9.0</Hl7FhirVersion>
   </PropertyGroup>
