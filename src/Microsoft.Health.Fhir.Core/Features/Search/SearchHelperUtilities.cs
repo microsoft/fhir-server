@@ -3,10 +3,11 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using EnsureThat;
+using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search
@@ -28,27 +29,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             EnsureArg.IsNotNull(searchParamaterInfos, nameof(searchParamaterInfos));
             EnsureArg.IsGt(searchParamaterInfos.Count(), 0, nameof(searchParamaterInfos));
 
-            HashCode hashCode = default;
+            StringBuilder sb = new StringBuilder();
             foreach (SearchParameterInfo searchParamInfo in searchParamaterInfos.OrderBy(x => x.Url.ToString()))
             {
-                hashCode.Add(searchParamInfo.Url);
-                hashCode.Add(searchParamInfo.Type);
-                hashCode.Add(searchParamInfo.Expression);
+                sb.Append(searchParamInfo.Url.ToString());
+                sb.Append(searchParamInfo.Type.ToString());
+                sb.Append(searchParamInfo.Expression);
 
                 if (searchParamInfo.TargetResourceTypes != null &&
                     searchParamInfo.TargetResourceTypes.Any())
                 {
-                    hashCode.Add(string.Join(null, searchParamInfo.TargetResourceTypes.OrderBy(s => s)), StringComparer.Ordinal);
+                    sb.Append(string.Join(null, searchParamInfo.TargetResourceTypes.OrderBy(s => s)));
                 }
 
                 if (searchParamInfo.BaseResourceTypes != null &&
                     searchParamInfo.BaseResourceTypes.Any())
                 {
-                    hashCode.Add(string.Join(null, searchParamInfo.BaseResourceTypes.OrderBy(s => s)), StringComparer.Ordinal);
+                    sb.Append(string.Join(null, searchParamInfo.BaseResourceTypes.OrderBy(s => s)));
                 }
             }
 
-            return hashCode.ToHashCode().ToString();
+            string hash = sb.ToString().ComputeHash();
+            return hash;
         }
     }
 }
