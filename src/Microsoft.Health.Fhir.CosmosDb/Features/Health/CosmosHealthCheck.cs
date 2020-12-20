@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -66,7 +67,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
             }
             catch (CosmosException ex) when (ex.IsCmkClientError())
             {
-                return HealthCheckResult.Healthy($"Connection to the data store was unsuccesful, however this is expected because the client's customer-managed key is not available. Error: {ex.Message}");
+                return HealthCheckResult.Unhealthy(
+                    "Connection to the data store was unsuccesful because of the client's customer-managed key is not available.",
+                    exception: ex,
+                    new Dictionary<string, object>() { { "IsCustomerManagedKeyError", true } });
             }
             catch (Exception ex) when (ex.IsRequestRateExceeded())
             {

@@ -68,31 +68,40 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Health
         {
             foreach (int clientCmkIssue in new List<int>(Enum.GetValues(typeof(KnownCosmosDbCmkSubStatusValueClientIssue)).Cast<int>()).Concat(3))
             {
+                var cosmosException = new CosmosException("Some error message", HttpStatusCode.Forbidden, subStatusCode: clientCmkIssue, activityId: null, requestCharge: 0);
                 _testProvider.ClearSubstitute();
-                _testProvider.PerformTest(default, default, _cosmosCollectionConfiguration)
-                    .ThrowsForAnyArgs(new CosmosException("An error message", HttpStatusCode.Forbidden, subStatusCode: clientCmkIssue, activityId: null, requestCharge: 0));
+                _testProvider.PerformTest(default, default, _cosmosCollectionConfiguration).ThrowsForAnyArgs(cosmosException);
 
                 HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
 
-                Assert.Equal(HealthStatus.Healthy, result.Status);
+                Assert.Equal(HealthStatus.Unhealthy, result.Status);
                 Assert.Contains("customer-managed key is not available", result.Description);
+                Assert.NotNull(result.Data);
+                Assert.True(result.Data.ContainsKey("IsCustomerManagedKeyError"));
+                Assert.True((bool)result.Data["IsCustomerManagedKeyError"]);
+                Assert.NotNull(result.Exception);
+                Assert.Equal(cosmosException, result.Exception);
             }
         }
 
         [Fact]
         public async Task GivenCosmosAccessIsForbidden_IsNotClientCmkError_WhenHealthIsChecked_ThenUnhealthyStateShouldBeReturned()
         {
+            const int SomeNonClientErrorSubstatusCode = 12345;
             _testProvider.PerformTest(default, default, _cosmosCollectionConfiguration)
                 .ThrowsForAnyArgs(new CosmosException(
                     "An error message",
                     HttpStatusCode.Forbidden,
-                    subStatusCode: (int)KnownCosmosDbCmkSubStatusValueServerSideIssue.KeyVaultInternalServerError,
+                    subStatusCode: SomeNonClientErrorSubstatusCode,
                     activityId: null,
                     requestCharge: 0));
 
             HealthCheckResult result = await _healthCheck.CheckHealthAsync(new HealthCheckContext());
 
             Assert.Equal(HealthStatus.Unhealthy, result.Status);
+            Assert.DoesNotContain("customer-managed key is not available", result.Description);
+            Assert.False(result.Data.Any());
+            Assert.Null(result.Exception);
         }
 
         [Fact]
