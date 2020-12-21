@@ -1,20 +1,20 @@
-# Search architecture and implementation
+#Search architecture and implementation
 
 This document attempts to describe how search is implemented for the FHIR service. The [FHIR specification](https://www.hl7.org/fhir/search.html) has more information on how search is defined.
 
 Search functionality consists of three areas:
 
-- [Extraction](#Extraction)
-- [Persistence](#Persistence)
-- [Search](#Search)
+- [Extraction](#extraction)
+- [Persistence](#persistence)
+- [Search](#search)
 
-## Extraction
+##Extraction
 
 The searchable value for a resource can be mapped to any property within the resource and can also be a single value or a list of values. Because of this, the first step in searching is to extract these searchable values out of the resource. To do that, we use the [FHIR Path](https://hl7.org/fhirpath/) and the expression defined in the search parameter definition file.
 
-These searchable values are in various types. To make persistence and search easy, the searchable values will be converted to types that implement a common `ISearchValue` interface, which will be described in more detail in [Normalized search value type](#Normalized-search-value-type) section.
+These searchable values are in various types. To make persistence and search easy, the searchable values will be converted to types that implement a common `ISearchValue` interface, which will be described in more detail in [Normalized search value type](#normalized-search-value-type) section.
 
-### Normalized search value type
+###Normalized search value type
 
 Each search parameter type has its own type that implements the `ISearchValue` interface and its responsibility is to normalize the value so that it can be stored using different persistence layers and efficiently searched.
 

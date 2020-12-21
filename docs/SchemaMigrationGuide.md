@@ -62,7 +62,7 @@ The SQL Server schema upgrade scripts would still be part of any upgrade package
 
     Test before executing the migration and test after the migration is completed.  
 
- ## How to toggle between the options
+## How to toggle between the options
 There is a configurable property in the launchSettings.json which can be set to true/false based on the desired behavior. By default, the property is considered to be false.
 
 `SqlServer:SchemaOptions:AutomaticUpdatesEnabled": "true"`
@@ -82,4 +82,4 @@ This configurable property should be considered for each web project
 
  Q2. What should we do in case of automatic SQL Server schema upgrade fails?
 
- A2. If an automatic SQL Server schema upgrade fails and the web application is unable to start then you can toggle the SQL Server schema auto upgrade flag as mentioned under the [section](#How-to-toggle-between-the-options) so that the upgrade scripts would not run and application would start on the current version.
+ A2. If an automatic SQL Server schema upgrade fails and the web application is unable to start then you can toggle the SQL Server schema auto upgrade flag as mentioned under the [section](#how-to-toggle-between-the-options) so that the upgrade scripts would not run and application would start on the current version.

@@ -291,3 +291,6 @@ install-aso/
 
 # Generated C# code
 *.Generated.cs
+
+# docfx
+_site
