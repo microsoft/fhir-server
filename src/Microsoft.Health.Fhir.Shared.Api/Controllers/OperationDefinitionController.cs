@@ -96,6 +96,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             return await GetOperationDefinitionAsync(OperationsConstants.AnonymizedExport);
         }
 
+        [HttpGet]
+        [Route(KnownRoutes.ConvertDataOperationDefinition, Name = RouteNames.ConvertDataOperationDefinition)]
+        [AllowAnonymous]
+        public async Task<IActionResult> ConvertDataOperationDefinition()
+        {
+            return await GetOperationDefinitionAsync(OperationsConstants.ConvertData);
+        }
+
         private async Task<IActionResult> GetOperationDefinitionAsync(string operationName)
         {
             CheckIfOperationIsEnabledAndRespond(operationName);
@@ -121,6 +129,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 case OperationsConstants.Reindex:
                 case OperationsConstants.ResourceReindex:
                     operationEnabled = _operationConfiguration.Reindex.Enabled;
+                    break;
+                case OperationsConstants.ConvertData:
+                    operationEnabled = _operationConfiguration.ConvertData.Enabled;
                     break;
                 default:
                     break;

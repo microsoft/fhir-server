@@ -50,5 +50,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         internal const string GroupExportOperationDefinition = "GroupExportOperationDefinition";
 
         internal const string AnonymizedExportOperationDefinition = "AnonymizedExportOperationDefinition";
+
+        internal const string ConvertDataOperationDefinition = "ConvertDataOperationDefinition";
     }
 }
