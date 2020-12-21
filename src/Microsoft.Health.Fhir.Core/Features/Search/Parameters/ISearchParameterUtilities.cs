@@ -3,16 +3,13 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Microsoft.Health.Fhir.Core.Models;
+using System.Threading.Tasks;
+using Hl7.Fhir.ElementModel;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 {
-    public interface ISearchParameterSupportResolver
+    public interface ISearchParameterUtilities
     {
-        /// <summary>
-        /// Determines if the given search parameter is able to be indexed
-        /// </summary>
-        /// <param name="info">Search Parameter info</param>
-        (bool Supported, bool IsPartiallySupported) IsSearchParameterSupported(SearchParameterInfo info);
+        Task AddSearchParameterAsync(ITypedElement searchParam);
     }
 }

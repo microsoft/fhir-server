@@ -176,6 +176,13 @@
             "metadata": {
                 "description": "Determines whether the $convert-data operation will be enabled for this fhir instance. If true, an Azure container registry will be created as part of the deployment. You will need owner or user-administrator permissions for this."
             }
+        },
+        "enableReindex": {
+            "type": "bool",
+            "defaultValue": false,
+            "metadata": {
+                "description": "Determines whether the $reindex operation will be enabled for this fhir instance."
+            } 
         }
     },
     "variables": {
@@ -212,7 +219,8 @@
             "FhirServer:Operations:Export:Enabled": "[parameters('enableExport')]",
             "FhirServer:Operations:Export:StorageAccountUri": "[if(parameters('enableExport'), concat('https://', variables('storageAccountName'), variables('blobStorageUri')), 'null')]",
             "FhirServer:Operations:ConvertData:Enabled": "[parameters('enableConvertData')]",
-            "FhirServer:Operations:ConvertData:ContainerRegistryServers:0": "[if(parameters('enableConvertData'), concat(variables('azureContainerRegistryName'), variables('azureContainerRegistryUri')), 'null')]"
+            "FhirServer:Operations:ConvertData:ContainerRegistryServers:0": "[if(parameters('enableConvertData'), concat(variables('azureContainerRegistryName'), variables('azureContainerRegistryUri')), 'null')]",
+            "FhirServer:Operations:Reindex:Enabled": "[parameters('enableReindex')]"
         },
         "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'))]",
         "computedSqlServerReference": "[concat('Microsoft.Sql/servers/', variables('serviceName'))]",

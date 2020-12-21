@@ -308,7 +308,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             }
         }
 
-        public async Task<bool> CheckActiveReindexJobsAsync(CancellationToken cancellationToken)
+        public async Task<(bool, string)> CheckActiveReindexJobsAsync(CancellationToken cancellationToken)
         {
             try
             {
@@ -322,10 +322,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
 
                 if (result.Any())
                 {
-                    return true;
+                    return (true, result.FirstOrDefault().JobRecord.Id);
                 }
 
-                return false;
+                return (false, string.Empty);
             }
             catch (CosmosException dce)
             {

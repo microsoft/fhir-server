@@ -302,6 +302,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             {
                 Name = paramName,
                 Type = SearchParamType.String,
+                Url = $"http://testparameter/{resourceType}-{paramName}",
             }.ToInfo();
 
             _searchParameterDefinitionManager.GetSearchParameter(resourceType.ToString(), paramName).Returns(searchParameter);
