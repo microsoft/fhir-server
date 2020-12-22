@@ -63,6 +63,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <returns>True iff the error is due to client CMK setting.</returns>
         public static bool IsCmkClientError(this CosmosException exception)
         {
+            // NOTE: It has been confirmed that a SubStatusCode of value '3', although not listed in
+            // https://docs.microsoft.com/en-us/rest/api/cosmos-db/http-status-codes-for-cosmosdb#substatus-codes-for-end-user-issues
+            // as a possible CMK SubStatusCode by Cosmos DB, has been acknowledged as a possible value in some scenarios if the custtomer has disabled their key.
             return exception.StatusCode == HttpStatusCode.Forbidden
                 && (Enum.IsDefined(typeof(KnownCosmosDbCmkSubStatusValueClientIssue), exception.SubStatusCode) || exception.SubStatusCode == 3);
         }

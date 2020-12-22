@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Health
             catch (CosmosException ex) when (ex.IsCmkClientError())
             {
                 return HealthCheckResult.Unhealthy(
-                    "Connection to the data store was unsuccesful because of the client's customer-managed key is not available.",
+                    "Connection to the data store was unsuccesful because the client's customer-managed key is not available.",
                     exception: ex,
                     new Dictionary<string, object>() { { "IsCustomerManagedKeyError", true } });
             }
