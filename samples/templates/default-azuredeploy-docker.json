@@ -123,11 +123,11 @@
                 "description": "Use Cosmos DB free tier."
             }
         },
-        "cosmosDbByokKeyUrl": {
+        "cosmosDbCmkUrl": {
             "type": "string",
             "defaultValue": "",
             "metadata": {
-                "description": "Key url for the Cosmos DB customer managed key. If not provided a system managed key will be used."
+                "description": "Key url for the Cosmos DB customer managed key. If not provided a system managed key will be used. If an invalid value is provided the service will not start."
             }
         },
         "sqlAdminPassword": {
@@ -350,7 +350,7 @@
                 "name": "[variables('serviceName')]",
                 "databaseAccountOfferType": "Standard",
                 "consistencyPolicy": "[parameters('cosmosDbAccountConsistencyPolicy')]",
-                "keyVaultKeyUri": "[parameters('cosmosDbByokKeyUrl')]",
+                "keyVaultKeyUri": "[parameters('cosmosDbCmkUrl')]",
                 "locations": [
                     {
                         "locationName": "[resourceGroup().location]",
