@@ -1007,7 +1007,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The _type parameter must be included when using the _typeFilter parameter. .
+        ///   Looks up a localized string similar to The _type parameter must be included when using the _typeFilter parameter..
         /// </summary>
         internal static string TypeFilterWithoutTypeIsUnsupported {
             get {
