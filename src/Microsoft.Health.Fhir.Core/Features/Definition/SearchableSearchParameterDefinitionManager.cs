@@ -7,10 +7,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
+using Hl7.Fhir.ElementModel;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Features.Definition
 {
@@ -90,11 +90,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             throw new SearchParameterNotSupportedException(definitionUri);
         }
 
-        public SearchParamType GetSearchParameterType(SearchParameterInfo searchParameter, int? componentIndex)
-        {
-            return _inner.GetSearchParameterType(searchParameter, componentIndex);
-        }
-
         private IEnumerable<SearchParameterInfo> GetAllSearchParameters()
         {
             if (_fhirReqeustContextAccessor.FhirRequestContext.IncludePartiallyIndexedSearchParams)
@@ -107,14 +102,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             }
         }
 
-        public void UpdateSearchParameterHashMap(Dictionary<string, string> updatedSearchParamHashMap)
-        {
-            _inner.UpdateSearchParameterHashMap(updatedSearchParamHashMap);
-        }
-
         public string GetSearchParameterHashForResourceType(string resourceType)
         {
             return _inner.GetSearchParameterHashForResourceType(resourceType);
+        }
+
+        public void AddNewSearchParameters(IReadOnlyCollection<ITypedElement> searchParameters)
+        {
+            _inner.AddNewSearchParameters(searchParameters);
+        }
+
+        public void UpdateSearchParameterHashMap(Dictionary<string, string> updatedSearchParamHashMap)
+        {
+            _inner.UpdateSearchParameterHashMap(updatedSearchParamHashMap);
         }
     }
 }

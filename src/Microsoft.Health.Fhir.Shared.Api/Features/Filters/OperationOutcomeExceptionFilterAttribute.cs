@@ -21,6 +21,7 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Validation;
@@ -133,6 +134,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                         break;
                     case FhirTransactionFailedException fhirTransactionFailedException:
                         operationOutcomeResult.StatusCode = fhirTransactionFailedException.ResponseStatusCode;
+                        break;
+                    case AzureContainerRegistryTokenException _:
+                    case FetchTemplateCollectionFailedException _:
+                    case ConvertDataUnhandledException _:
+                        operationOutcomeResult.StatusCode = HttpStatusCode.InternalServerError;
+                        break;
+                    case ConvertDataTimeoutException _:
+                        operationOutcomeResult.StatusCode = HttpStatusCode.GatewayTimeout;
+                        break;
+                    case ConfigureCustomSearchException _:
+                        operationOutcomeResult.StatusCode = HttpStatusCode.FailedDependency;
                         break;
                 }
 

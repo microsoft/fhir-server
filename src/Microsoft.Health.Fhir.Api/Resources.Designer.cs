@@ -106,6 +106,15 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The container registry &apos;{0}&apos; is not configured..
+        /// </summary>
+        public static string ContainerRegistryNotConfigured {
+            get {
+                return ResourceManager.GetString("ContainerRegistryNotConfigured", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The &quot;content-type&quot; header must be &apos;application/x-www-form-urlencoded&apos;..
         /// </summary>
         public static string ContentTypeFormUrlEncodedExpected {
@@ -129,6 +138,33 @@ namespace Microsoft.Health.Fhir.Api {
         public static string CustomAuditHeaderTooLarge {
             get {
                 return ResourceManager.GetString("CustomAuditHeaderTooLarge", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Convert data does not support the following parameter {0} for a POST operation..
+        /// </summary>
+        public static string ConvertDataParameterNotValid {
+            get {
+                return ResourceManager.GetString("ConvertDataParameterNotValid", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Convert data operation parameters must be specified as a FHIR Parameters resource.  The body provided in this request is not valid..
+        /// </summary>
+        public static string ConvertDataParametersNotValid {
+            get {
+                return ResourceManager.GetString("ConvertDataParametersNotValid", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Value of the following parameter {0} is invalid..
+        /// </summary>
+        public static string ConvertDataParameterValueNotValid {
+            get {
+                return ResourceManager.GetString("ConvertDataParameterValueNotValid", resourceCulture);
             }
         }
         
@@ -246,6 +282,15 @@ namespace Microsoft.Health.Fhir.Api {
         public static string InvalidRedirectUri {
             get {
                 return ResourceManager.GetString("InvalidRedirectUri", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The template collection reference &apos;{0}&apos; is invalid..
+        /// </summary>
+        public static string InvalidTemplateCollectionReference {
+            get {
+                return ResourceManager.GetString("InvalidTemplateCollectionReference", resourceCulture);
             }
         }
         
@@ -462,6 +507,15 @@ namespace Microsoft.Health.Fhir.Api {
         public static string TransactionFailed {
             get {
                 return ResourceManager.GetString("TransactionFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The _type parameter must be included when using the _typeFilter parameter. .
+        /// </summary>
+        public static string TypeFilterWithoutTypeIsUnsupported {
+            get {
+                return ResourceManager.GetString("TypeFilterWithoutTypeIsUnsupported", resourceCulture);
             }
         }
         

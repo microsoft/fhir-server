@@ -38,5 +38,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         internal const string GetReindexStatusById = "GetReindexStatusById";
 
         internal const string PostBundle = "PostBundle";
+
+        internal const string ReindexOperationDefintion = "ReindexOperationDefintion";
+
+        internal const string ResourceReindexOperationDefinition = "ResourceReindexOperationDefinition";
+
+        internal const string ExportOperationDefinition = "ExportOperationDefinition";
+
+        internal const string PatientExportOperationDefinition = "PatientExportOperationDefinition";
+
+        internal const string GroupExportOperationDefinition = "GroupExportOperationDefinition";
+
+        internal const string AnonymizedExportOperationDefinition = "AnonymizedExportOperationDefinition";
     }
 }

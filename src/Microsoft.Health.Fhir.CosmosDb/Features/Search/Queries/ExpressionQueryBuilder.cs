@@ -226,17 +226,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                     break;
 
                 default:
-                {
-                    string message = string.Format(
-                        CultureInfo.InvariantCulture,
-                        Resources.UnhandledEnumValue,
-                        nameof(MultiaryOperator),
-                        op);
+                    {
+                        string message = string.Format(
+                            CultureInfo.InvariantCulture,
+                            Resources.UnhandledEnumValue,
+                            nameof(MultiaryOperator),
+                            op);
 
-                    Debug.Fail(message);
+                        Debug.Fail(message);
 
-                    throw new InvalidOperationException(message);
-                }
+                        throw new InvalidOperationException(message);
+                    }
             }
 
             if (op == MultiaryOperator.Or)

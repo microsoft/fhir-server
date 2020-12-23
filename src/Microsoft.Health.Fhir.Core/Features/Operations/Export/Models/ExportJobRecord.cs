@@ -22,6 +22,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             ExportJobType exportType,
             string exportFormat,
             string resourceType,
+            IList<ExportJobFilter> filters,
             string hash,
             IReadOnlyCollection<KeyValuePair<string, string>> requestorClaims = null,
             PartialDateTime since = null,
@@ -43,6 +44,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             ExportType = exportType;
             ExportFormat = exportFormat;
             ResourceType = resourceType;
+            Filters = filters;
             RequestorClaims = requestorClaims;
             Since = since;
             GroupId = groupId;
@@ -87,6 +89,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
         [JsonProperty(JobRecordProperties.ResourceType)]
         public string ResourceType { get; private set; }
+
+        /// <summary>
+        /// All the filters for specific types included in the job. Set by the _typeFilter parameter.
+        /// </summary>
+        [JsonProperty(JobRecordProperties.Filters)]
+        public IList<ExportJobFilter> Filters { get; private set; }
 
         [JsonProperty(JobRecordProperties.RequestorClaims)]
         public IReadOnlyCollection<KeyValuePair<string, string>> RequestorClaims { get; private set; }

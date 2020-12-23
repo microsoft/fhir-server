@@ -58,6 +58,7 @@ stages:
       resourceGroup: $(DeploymentEnvironmentName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
+      reindexEnabled: true
 
 - stage: deployStu3Sql
   displayName: 'Deploy STU3 SQL Site'
@@ -94,6 +95,7 @@ stages:
       resourceGroup: $(DeploymentEnvironmentName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
+      reindexEnabled: true
 
 - stage: deployR4Sql
   displayName: 'Deploy R4 SQL Site'
@@ -130,6 +132,7 @@ stages:
       resourceGroup: $(DeploymentEnvironmentName)
       testEnvironmentUrl: $(TestEnvironmentUrl)
       imageTag: $(ImageTag)
+      reindexEnabled: true
 
 - stage: deployR5Sql
   displayName: 'Deploy R5 SQL Site'

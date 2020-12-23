@@ -4,6 +4,8 @@
     <TargetFramework>netcoreapp3.1</TargetFramework>
     <GenerateEmbeddedFilesManifest>true</GenerateEmbeddedFilesManifest>
     <UserSecretsId>SmartLauncher_3d9536f4-982c-4334-83df-890fb8ae70e6</UserSecretsId>
+    <AssemblyName>Microsoft.Health.Internal.SmartLauncher</AssemblyName>
+    <RootNamespace>Microsoft.Health.Internal.SmartLauncher</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>

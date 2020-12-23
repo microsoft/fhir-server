@@ -4,7 +4,8 @@
 variables:
   buildConfiguration: 'Release' 
   azureSubscriptionEndpoint: 'docker-build'
-  azureContainerRegistry: 'healthplatformregistry.azurecr.io'
+  azureContainerRegistryName: 'healthplatformregistry'
+  azureContainerRegistry: '$(azureContainerRegistryName).azurecr.io'
   composeLocation: 'build/docker/docker-compose.yaml'
   DeploymentEnvironmentNameSql: '$(DeploymentEnvironmentName)-sql'
   DeploymentEnvironmentNameR4: '$(DeploymentEnvironmentName)-r4'

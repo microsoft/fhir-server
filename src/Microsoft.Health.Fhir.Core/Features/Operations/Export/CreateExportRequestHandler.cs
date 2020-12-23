@@ -20,6 +20,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Export;
+using Microsoft.Health.Fhir.Core.Models;
 using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
@@ -77,26 +78,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             // Otherwise, we will create a new export job. This will be a best effort since the likelihood of this happen should be small.
             ExportJobOutcome outcome = await _fhirOperationDataStore.GetExportJobByHashAsync(hash, cancellationToken);
 
-            ExportJobFormatConfiguration formatConfiguration = null;
+            var filters = ParseFilter(request.Filters);
 
-            if (request.FormatName != null)
-            {
-                formatConfiguration = _exportJobConfiguration.Formats?.FirstOrDefault(
-                (ExportJobFormatConfiguration formatConfig) => formatConfig.Name.Equals(request.FormatName, StringComparison.OrdinalIgnoreCase));
-
-                if (formatConfiguration == null)
-                {
-                    throw new BadRequestException(Resources.ExportFormatNotFound);
-                }
-            }
-
-            formatConfiguration ??= _exportJobConfiguration.Formats?.FirstOrDefault(
-                (ExportJobFormatConfiguration formatConfig) => formatConfig.Default);
-
-            formatConfiguration ??= new ExportJobFormatConfiguration()
-            {
-                Format = request.ContainerName == null ? ExportFormatTags.ResourceName : $"{ExportFormatTags.Timestamp}-{ExportFormatTags.Id}/{ExportFormatTags.ResourceName}",
-            };
+            ExportJobFormatConfiguration formatConfiguration = ParseFormat(request.FormatName, request.ContainerName != null);
 
             if (outcome == null)
             {
@@ -105,6 +89,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     request.RequestType,
                     formatConfiguration.Format,
                     request.ResourceType,
+                    filters,
                     hash,
                     requestorClaims,
                     request.Since,
@@ -121,6 +106,85 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
 
             return new CreateExportResponse(outcome.JobRecord.Id);
+        }
+
+        /// <summary>
+        /// Parses the _typeFilter parameter from a string into a list of <see cref="ExportJobFilter"/> objects.
+        /// </summary>
+        /// <param name="filterString">The _typeFilter parameter input.</param>
+        /// <returns>A list of <see cref="ExportJobFilter"/></returns>
+        private IList<ExportJobFilter> ParseFilter(string filterString)
+        {
+            var filters = new List<ExportJobFilter>();
+
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(filterString))
+                {
+                    var filterArray = filterString.Split(",");
+                    foreach (string filter in filterArray)
+                    {
+                        var parameterIndex = filter.IndexOf("?", StringComparison.Ordinal);
+
+                        if (parameterIndex < 0)
+                        {
+                            throw new BadRequestException(string.Format(Resources.TypeFilterUnparseable, filter));
+                        }
+
+                        var filterType = filter.Substring(0, parameterIndex);
+
+                        var filterParameters = filter.Substring(parameterIndex + 1).Split("&");
+                        var parameterTupleList = new List<Tuple<string, string>>();
+
+                        foreach (string parameter in filterParameters)
+                        {
+                            var keyValue = parameter.Split("=");
+
+                            if (keyValue.Count() < 2)
+                            {
+                                throw new BadRequestException(string.Format(Resources.TypeFilterUnparseable, filter));
+                            }
+
+                            parameterTupleList.Add(new Tuple<string, string>(keyValue[0], keyValue[1]));
+                        }
+
+                        filters.Add(new ExportJobFilter(filterType, parameterTupleList));
+                    }
+                }
+
+                return filters;
+            }
+            catch
+            {
+                // TODO: Replace message
+                throw new BadRequestException(Resources.ExportFormatNotFound);
+            }
+        }
+
+        private ExportJobFormatConfiguration ParseFormat(string formatName, bool useContainer)
+        {
+            ExportJobFormatConfiguration formatConfiguration = null;
+
+            if (formatName != null)
+            {
+                formatConfiguration = _exportJobConfiguration.Formats?.FirstOrDefault(
+                (ExportJobFormatConfiguration formatConfig) => formatConfig.Name.Equals(formatName, StringComparison.OrdinalIgnoreCase));
+
+                if (formatConfiguration == null)
+                {
+                    throw new BadRequestException(Resources.ExportFormatNotFound);
+                }
+            }
+
+            formatConfiguration ??= _exportJobConfiguration.Formats?.FirstOrDefault(
+                (ExportJobFormatConfiguration formatConfig) => formatConfig.Default);
+
+            formatConfiguration ??= new ExportJobFormatConfiguration()
+            {
+                Format = useContainer ? $"{ExportFormatTags.Timestamp}-{ExportFormatTags.Id}/{ExportFormatTags.ResourceName}" : ExportFormatTags.ResourceName,
+            };
+
+            return formatConfiguration;
         }
     }
 }

@@ -82,10 +82,6 @@ namespace Microsoft.Extensions.DependencyInjection
                 .Singleton()
                 .AsSelf();
 
-            services.Add<StringOverflowRewriter>()
-                .Singleton()
-                .AsSelf();
-
             services.Add<SortRewriter>()
                 .Singleton()
                 .AsSelf();

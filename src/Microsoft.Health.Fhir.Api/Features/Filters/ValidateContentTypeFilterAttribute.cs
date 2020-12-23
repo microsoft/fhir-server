@@ -11,7 +11,6 @@ using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
-using Microsoft.Health.Fhir.Api.Features.Routing;
 using Microsoft.Net.Http.Headers;
 using Task = System.Threading.Tasks.Task;
 

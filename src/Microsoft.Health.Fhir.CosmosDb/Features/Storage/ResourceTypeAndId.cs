@@ -10,12 +10,14 @@ using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
+    /// <summary>
+    /// Represents a reference to another resource. <see cref="ResourceTypeName"/> is allowed to be null, making the reference untyped.
+    /// </summary>
     internal readonly struct ResourceTypeAndId : IEquatable<ResourceTypeAndId>
     {
         [JsonConstructor]
         public ResourceTypeAndId(string resourceTypeName, string resourceId)
         {
-            EnsureArg.IsNotNullOrWhiteSpace(resourceTypeName, nameof(resourceTypeName));
             EnsureArg.IsNotNullOrWhiteSpace(resourceId, nameof(resourceId));
 
             ResourceTypeName = resourceTypeName;

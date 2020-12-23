@@ -1,0 +1,29 @@
+# DESCRIPTION: 	
+# Removes old docker images.
+
+variables:
+- template: build-variables.yml
+
+stages:
+- stage: CleanupStu3
+  displayName: 'Cleanup Stu3'
+  jobs:
+  - template: ./jobs/cleanup-version-images.yml
+    parameters: 
+      version: 'stu3'
+
+- stage: CleanupR4
+  displayName: 'Cleanup R4'
+  dependsOn: []
+  jobs:
+  - template: ./jobs/cleanup-version-images.yml
+    parameters: 
+      version: 'r4'
+
+- stage: CleanupR5
+  displayName: 'Cleanup R5'
+  dependsOn: []
+  jobs:
+  - template: ./jobs/cleanup-version-images.yml
+    parameters: 
+      version: 'r5'

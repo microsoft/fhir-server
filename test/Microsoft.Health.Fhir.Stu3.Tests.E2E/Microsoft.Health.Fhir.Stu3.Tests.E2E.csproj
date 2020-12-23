@@ -17,18 +17,20 @@
     <Compile Include="..\Microsoft.Health.Fhir.Shared.Tests.E2E\Rest\AnonymizedExportTests.cs" Link="Rest\AnonymizedExportTests.cs" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="3.1.9" />
-    <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection" Version="1.0.0-master-20201201-1" />
-    <PackageReference Include="Microsoft.Health.Test.Utilities" Version="1.0.0-master-20201201-1" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="$(SdkPackageVersion)" />
+    <PackageReference Include="Microsoft.Azure.ContainerRegistry" Version="1.0.0-preview.1" />
+    <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection" Version="$(HealthcareSharedPackageVersion)" />
+    <PackageReference Include="Microsoft.Health.Test.Utilities" Version="$(HealthcareSharedPackageVersion)" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.7.1" />
-    <PackageReference Include="selenium.chrome.webdriver" Version="85.0.0" />
     <PackageReference Include="selenium.webdriver" Version="3.141.0" />
+    <PackageReference Include="selenium.chrome.webdriver" Version="85.0.0" />
     <PackageReference Include="xunit" Version="2.4.1" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.4.3" />
-    <PackageReference Include="System.IO.FileSystem.AccessControl" Version="4.7.0" />
+    <PackageReference Include="System.IO.FileSystem.AccessControl" Version="5.0.0" />
     <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="4.7.0" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\samples\apps\SmartLauncher\SmartLauncher.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Extensions.Xunit\Microsoft.Health.Extensions.Xunit.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.CosmosDb\Microsoft.Health.Fhir.CosmosDb.csproj" />
@@ -38,7 +40,6 @@
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Stu3.Core\Microsoft.Health.Fhir.Stu3.Core.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Tests.Common\Microsoft.Health.Fhir.Tests.Common.csproj" />
     <ProjectReference Include="..\..\src\Microsoft.Health.Fhir.Stu3.Web\Microsoft.Health.Fhir.Stu3.Web.csproj" />
-    <ProjectReference Include="..\..\samples\apps\SmartLauncher\SmartLauncher.csproj" />
   </ItemGroup>
   <ItemGroup>
     <None Update="xunit.runner.json">
@@ -70,4 +71,5 @@
       <BuiltProjectOutputGroupOutput Include="$(ProjectRuntimeConfigFilePath)" FinalOutputPath="$(ProjectRuntimeConfigFilePath)" />
     </ItemGroup>
   </Target>
+  <Import Project="..\Microsoft.Health.Fhir.Shared.Tests.Smart\Microsoft.Health.Fhir.Shared.Tests.Smart.projitems" Label="Shared" />
 </Project>

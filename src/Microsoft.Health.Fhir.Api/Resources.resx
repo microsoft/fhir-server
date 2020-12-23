@@ -323,7 +323,30 @@
   <data name="ContainerIsRequiredForAnonymizedExport" xml:space="preserve">
     <value>Missing '_container' for anonymized export</value>
   </data>
+  <data name="ConvertDataParameterNotValid" xml:space="preserve">
+    <value>Convert data does not support the following parameter {0} for a POST operation.</value>
+    <comment>{0} = the parameter name which was invalid</comment>
+  </data>
+  <data name="ConvertDataParameterValueNotValid" xml:space="preserve">
+    <value>Value of the following parameter {0} is invalid.</value>
+    <comment>{0} = the parameter name which was invalid</comment>
+  </data>
+  <data name="ConvertDataParametersNotValid" xml:space="preserve">
+    <value>Convert data operation parameters must be specified as a FHIR Parameters resource.  The body provided in this request is not valid.</value>
+  </data>
+  <data name="InvalidTemplateCollectionReference" xml:space="preserve">
+    <value>The template collection reference '{0}' is invalid.</value>
+    <comment>{0}: template collection reference</comment>
+  </data>
   <data name="ContentTypeFormUrlEncodedExpected" xml:space="preserve">
     <value>The "content-type" header must be 'application/x-www-form-urlencoded'.</value>
+  </data>
+  <data name="TypeFilterWithoutTypeIsUnsupported" xml:space="preserve">
+    <value>The _type parameter must be included when using the _typeFilter parameter. </value>
+    <comment>Export job parameter exception messsage</comment>
+  </data>
+  <data name="ContainerRegistryNotConfigured" xml:space="preserve">
+    <value>The container registry '{0}' is not configured.</value>
+    <comment>{0}: the container registry login server</comment>
   </data>
 </root>

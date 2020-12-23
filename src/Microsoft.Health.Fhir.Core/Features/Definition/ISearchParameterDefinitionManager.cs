@@ -5,8 +5,8 @@
 
 using System;
 using System.Collections.Generic;
+using Hl7.Fhir.ElementModel;
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Features.Definition
 {
@@ -62,15 +62,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         SearchParameterInfo GetSearchParameter(Uri definitionUri);
 
         /// <summary>
-        /// Gets the type of a search parameter expression. In the case of a composite search parameter, the component parameter
-        /// can be specified, to retrieve the type of that component.
-        /// </summary>
-        /// <param name="searchParameter">The search parameter</param>
-        /// <param name="componentIndex">The optional component index if the search parameter is a composite</param>
-        /// <returns>The search parameter type.</returns>
-        SearchParamType GetSearchParameterType(SearchParameterInfo searchParameter, int? componentIndex);
-
-        /// <summary>
         /// Updates the existing resource type - search parameter hash mapping with the given new values.
         /// </summary>
         /// <param name="updatedSearchParamHashMap">Dictionary containing resource type to search parameter hash values</param>
@@ -82,5 +73,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         /// <param name="resourceType">Resource type for which we need the hash of search parameters.</param>
         /// <returns>A string representing a hash of the search parameters.</returns>
         public string GetSearchParameterHashForResourceType(string resourceType);
+
+        /// <summary>
+        /// Allows addition of a new search parameters at runtime.
+        /// </summary>
+        /// <param name="searchParameters">An collection containing SearchParameter resources.</param>
+        void AddNewSearchParameters(IReadOnlyCollection<ITypedElement> searchParameters);
     }
 }

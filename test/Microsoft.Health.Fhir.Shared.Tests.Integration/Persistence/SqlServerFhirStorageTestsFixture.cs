@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var upsertResourceTvpGenerator = serviceProvider.GetRequiredService<VLatest.UpsertResourceTvpGenerator<ResourceMetadata>>();
             var upsertSearchParamsTvpGenerator = serviceProvider.GetRequiredService<VLatest.UpsertSearchParamsTvpGenerator<List<ResourceSearchParameterStatus>>>();
 
-            var searchParameterToSearchValueTypeMap = new SearchParameterToSearchValueTypeMap(new SupportedSearchParameterDefinitionManager(searchParameterDefinitionManager));
+            var searchParameterToSearchValueTypeMap = new SearchParameterToSearchValueTypeMap();
 
             SqlTransactionHandler = new SqlTransactionHandler();
             SqlConnectionWrapperFactory = new SqlConnectionWrapperFactory(SqlTransactionHandler, new SqlCommandWrapperFactory(), sqlConnectionFactory);

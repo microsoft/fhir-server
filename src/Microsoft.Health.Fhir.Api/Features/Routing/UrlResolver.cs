@@ -257,5 +257,43 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
 
             return new Uri(uriString);
         }
+
+        public Uri ResolveOperationDefinitionUrl(string operationName)
+        {
+            EnsureArg.IsNotNullOrWhiteSpace(operationName, nameof(operationName));
+
+            string routeName = null;
+            switch (operationName)
+            {
+                case OperationsConstants.Export:
+                    routeName = RouteNames.ExportOperationDefinition;
+                    break;
+                case OperationsConstants.PatientExport:
+                    routeName = RouteNames.PatientExportOperationDefinition;
+                    break;
+                case OperationsConstants.GroupExport:
+                    routeName = RouteNames.GroupExportOperationDefinition;
+                    break;
+                case OperationsConstants.AnonymizedExport:
+                    routeName = RouteNames.AnonymizedExportOperationDefinition;
+                    break;
+                case OperationsConstants.Reindex:
+                    routeName = RouteNames.ReindexOperationDefintion;
+                    break;
+                case OperationsConstants.ResourceReindex:
+                    routeName = RouteNames.ResourceReindexOperationDefinition;
+                    break;
+                default:
+                    throw new OperationNotImplementedException(string.Format(Resources.OperationNotImplemented, operationName));
+            }
+
+            string uriString = UrlHelper.RouteUrl(
+                routeName,
+                values: null,
+                Request.Scheme,
+                Request.Host.Value);
+
+            return new Uri(uriString);
+        }
     }
 }

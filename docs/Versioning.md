@@ -1,7 +1,7 @@
 # Semantic Versioning for FHIR Server
 
 This guide gives an overview of the Semantic versioning implementation in use with this project.
-To achieve semantic versioning consistently and relaiably the [GitVersion](https://github.com/GitTools/GitVersion) library is used.
+To achieve semantic versioning consistently and reliably the [GitVersion](https://github.com/GitTools/GitVersion) library is used.
 
 ## Git Version
 
@@ -33,3 +33,18 @@ or
 ```
 
 For bug fixes or other incremental changes, nothing needs to be added, this will happen automatically.
+
+## Examples of when to increment versions
+
+| Action  | Command  |
+|---|---|
+| Updated a minor nuget package version  | None :beach_umbrella: |
+| Fixed a bug  | None :beach_umbrella: |
+| Backwards-compatible change  | None :beach_umbrella: :tropical_drink: |
+| Updated documentation  | None or `+semver: skip` |
+| Adding a new feature/component/library | `+semver: feature` :bowtie: |
+| Major product-level change | `+semver: major` |
+| Incompatible binary change | `+semver: major` :boom: |
+<br />
+
+:exclamation: Note: The Assembly version is using the Major version with static Minor and Patch versions (e.g. {major}.0.0), so using `+semver: major` will force downstream applications to be recompiled. Incrementing the Minor or Patch versions will keep resulting assemblies binary-compatible.

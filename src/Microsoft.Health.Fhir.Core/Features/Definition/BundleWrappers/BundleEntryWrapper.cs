@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers
     {
         private readonly Lazy<ITypedElement> _entry;
 
-        public BundleEntryWrapper(ITypedElement entry)
+        internal BundleEntryWrapper(ITypedElement entry)
         {
             EnsureArg.IsNotNull(entry, nameof(entry));
 

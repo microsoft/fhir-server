@@ -41,6 +41,10 @@ spec:
             - name: FhirServer__Operations__Export__StorageAccountUri
               value: {{ .Values.export.blobStorageUri | quote }}
             {{- end }}
+            {{- if .Values.reindex.enabled }}
+            - name: FhirServer__Operations__Reindex__Enabled
+              value: "true"
+            {{- end }}
             {{- if .Values.serviceMonitor.enabled }}
             - name: PrometheusMetrics__enabled
               value: "true"

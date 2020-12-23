@@ -30,7 +30,17 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
         {
             EnsureArg.IsNotNull(resourceUri, nameof(resourceUri));
 
-            string accessToken = await _azureServiceTokenProvider.GetAccessTokenAsync(resourceUri.ToString(), cancellationToken: cancellationToken);
+            string accessToken;
+            try
+            {
+                accessToken = await _azureServiceTokenProvider.GetAccessTokenAsync(resourceUri.ToString(), cancellationToken: cancellationToken);
+            }
+            catch (AzureServiceTokenProviderException ex)
+            {
+                _logger.LogWarning(ex, "Failed to retrieve access token");
+                throw new AccessTokenProviderException(Resources.CannotGetAccessToken);
+            }
+
             if (accessToken == null)
             {
                 _logger.LogWarning("Failed to retrieve access token");

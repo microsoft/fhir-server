@@ -3,6 +3,7 @@ variables:
     resourceGroupRoot: 'msh-fhir-ci'
     appServicePlanName: '$(resourceGroupRoot)-linux'
     DeploymentEnvironmentName: '$(resourceGroupRoot)'
+    ResourceGroupName: '$(resourceGroupRoot)'
     CrucibleEnvironmentUrl: 'https://crucible.mshapis.com/'
     TestEnvironmentName: 'OSS CI'
     ImageTag: '$(build.BuildNumber)'

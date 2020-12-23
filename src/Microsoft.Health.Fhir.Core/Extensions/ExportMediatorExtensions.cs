@@ -22,6 +22,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             ExportJobType requestType,
             string resourceType,
             PartialDateTime since,
+            string filters,
             string groupId,
             string containerName,
             string formatName,
@@ -32,7 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             EnsureArg.IsNotNull(mediator, nameof(mediator));
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
 
-            var request = new CreateExportRequest(requestUri, requestType, resourceType, since, groupId, containerName, formatName, anonymizationConfigLocation, anonymizationConfigFileETag);
+            var request = new CreateExportRequest(requestUri, requestType, resourceType, since, filters, groupId, containerName, formatName, anonymizationConfigLocation, anonymizationConfigFileETag);
 
             CreateExportResponse response = await mediator.Send(request, cancellationToken);
             return response;

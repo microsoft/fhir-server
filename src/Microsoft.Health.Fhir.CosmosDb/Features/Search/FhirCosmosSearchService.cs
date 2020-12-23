@@ -225,7 +225,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             {
                 // fetch in the resources to include from _include parameters.
 
-                var referencesToInclude = matches.SelectMany(m => m.ReferencesToInclude).Distinct().ToList();
+                var referencesToInclude = matches
+                    .SelectMany(m => m.ReferencesToInclude)
+                    .Where(r => r.ResourceTypeName != null) // exclude untyped references to align with the current SQL behavior
+                    .Distinct()
+                    .ToList();
 
                 // partition the references to avoid creating an excessively large query
                 foreach (IEnumerable<ResourceTypeAndId> batchOfReferencesToInclude in referencesToInclude.TakeBatch(100))

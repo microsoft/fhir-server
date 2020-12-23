@@ -12,6 +12,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)AssemblyInfo.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\AadSmartOnFhirClaimsExtractorTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\AadSmartOnFhirProxyControllerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Controllers\ConvertDataControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ExportControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ReindexControllerTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\TestHttpMessageHandler.cs" />
@@ -31,6 +32,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidateExportRequestFilterAttributeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidateResourceIdFilterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidateResourceTypeFilterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\SearchParameterFilterAttributeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidationQueryFilterAndParameterParserAttributeTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\FhirJsonInputFormatterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Formatters\FhirJsonOutputFormatterTests.cs" />

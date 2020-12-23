@@ -37,9 +37,10 @@ jobs:
         }
 
         # If a deleted keyvault exists, remove it first
-        if (Get-AzKeyVault -VaultName "$(DeploymentEnvironmentName)-ts" -Location "westus" -InRemovedState)
+        $environmentName = "$(DeploymentEnvironmentName)" -replace "\.", "" 
+        if (Get-AzKeyVault -VaultName "${environmentName}-ts" -Location "westus" -InRemovedState)
         {
-            Remove-AzKeyVault -VaultName "$(DeploymentEnvironmentName)-ts" -InRemovedState -Location "westus" -Force
+            Remove-AzKeyVault -VaultName "${environmentName}-ts" -InRemovedState -Location "westus" -Force
         }
  
         $response = Invoke-RestMethod -Method 'Post' -Uri $adTokenUrl -ContentType "application/x-www-form-urlencoded" -Body $body
@@ -48,4 +49,4 @@ jobs:
         Import-Module $(System.DefaultWorkingDirectory)/samples/scripts/PowerShell/FhirServer/FhirServer.psd1
         Import-Module $(System.DefaultWorkingDirectory)/release/scripts/PowerShell/FhirServerRelease/FhirServerRelease.psd1
 
-        $output = Add-AadTestAuthEnvironment -TestAuthEnvironmentPath $(System.DefaultWorkingDirectory)/testauthenvironment.json -EnvironmentName $(DeploymentEnvironmentName) -TenantAdminCredential $adminCredential
+        $output = Add-AadTestAuthEnvironment -TestAuthEnvironmentPath $(System.DefaultWorkingDirectory)/testauthenvironment.json -EnvironmentName $environmentName -ResourceGroupName $(ResourceGroupName) -TenantAdminCredential $adminCredential

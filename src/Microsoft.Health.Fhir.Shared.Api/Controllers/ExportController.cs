@@ -85,6 +85,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
             [FromQuery(Name = KnownQueryParameterNames.Type)] string resourceType,
             [FromQuery(Name = KnownQueryParameterNames.Container)] string containerName,
+            [FromQuery(Name = KnownQueryParameterNames.TypeFilter)] string typeFilter,
             [FromQuery(Name = KnownQueryParameterNames.Format)] string formatName,
             [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationLocation)] string anonymizationConfigLocation,
             [FromQuery(Name = KnownQueryParameterNames.AnonymizationConfigurationFileEtag)] string anonymizationConfigFileETag)
@@ -97,7 +98,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 CheckContainerNameForAnonymizedExport(containerName);
             }
 
-            return await SendExportRequest(ExportJobType.All, since, resourceType, containerName: containerName, formatName: formatName, anonymizationConfigLocation: anonymizationConfigLocation, anonymizationConfigFileETag: anonymizationConfigFileETag);
+            return await SendExportRequest(ExportJobType.All, since, typeFilter, resourceType, containerName: containerName, formatName: formatName, anonymizationConfigLocation: anonymizationConfigLocation, anonymizationConfigFileETag: anonymizationConfigFileETag);
         }
 
         [HttpGet]
@@ -108,6 +109,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
             [FromQuery(Name = KnownQueryParameterNames.Type)] string resourceType,
             [FromQuery(Name = KnownQueryParameterNames.Container)] string containerName,
+            [FromQuery(Name = KnownQueryParameterNames.TypeFilter)] string typeFilter,
             [FromQuery(Name = KnownQueryParameterNames.Format)] string formatName,
             string typeParameter)
         {
@@ -119,7 +121,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new RequestNotValidException(string.Format(Resources.UnsupportedResourceType, typeParameter));
             }
 
-            return await SendExportRequest(ExportJobType.Patient, since, resourceType, containerName: containerName, formatName: formatName);
+            return await SendExportRequest(ExportJobType.Patient, since, typeFilter, resourceType, containerName: containerName, formatName: formatName);
         }
 
         [HttpGet]
@@ -130,6 +132,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             [FromQuery(Name = KnownQueryParameterNames.Since)] PartialDateTime since,
             [FromQuery(Name = KnownQueryParameterNames.Type)] string resourceType,
             [FromQuery(Name = KnownQueryParameterNames.Container)] string containerName,
+            [FromQuery(Name = KnownQueryParameterNames.TypeFilter)] string typeFilter,
             [FromQuery(Name = KnownQueryParameterNames.Format)] string formatName,
             string typeParameter,
             string idParameter)
@@ -142,7 +145,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new RequestNotValidException(string.Format(Resources.UnsupportedResourceType, typeParameter));
             }
 
-            return await SendExportRequest(ExportJobType.Group, since, resourceType, idParameter, containerName: containerName, formatName: formatName);
+            return await SendExportRequest(ExportJobType.Group, since, typeFilter, resourceType, idParameter, containerName: containerName, formatName: formatName);
         }
 
         [HttpGet]
@@ -184,6 +187,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private async Task<IActionResult> SendExportRequest(
             ExportJobType exportType,
             PartialDateTime since,
+            string filters,
             string resourceType = null,
             string groupId = null,
             string containerName = null,
@@ -196,6 +200,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 exportType,
                 resourceType,
                 since,
+                filters,
                 groupId,
                 containerName,
                 formatName,

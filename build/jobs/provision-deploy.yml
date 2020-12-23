@@ -22,6 +22,9 @@ parameters:
 - name: schemaAutomaticUpdatesEnabled
   type: boolean
   default: false
+- name: reindexEnabled
+  type: boolean
+  default: false
 
 jobs:
 - job: provisionEnvironment
@@ -54,31 +57,34 @@ jobs:
         $additionalProperties["SqlServer__AllowDatabaseCreation"] = "true"
         $additionalProperties["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "true"
 
+        $webAppName = "${{ parameters.webAppName }}"
         $templateParameters = @{
             fhirVersion = "${{ parameters.version }}"
             appServicePlanName = "${{ parameters.appServicePlanName }}"
             appServicePlanSku = "B3"
-            serviceName = "${{ parameters.webAppName }}"
+            serviceName = $webAppName
             securityAuthenticationAuthority = "https://login.microsoftonline.com/$(tenant-id)"
             securityAuthenticationAudience = "${{ parameters.testEnvironmentUrl }}"
             additionalFhirServerConfigProperties = $additionalProperties 
             enableAadSmartOnFhirProxy = $true
             enableExport = $true
+            enableConvertData = $true
+            enableReindex = if ("${{ parameters.reindexEnabled }}" -eq "true") { $true } else { $false }
             imageTag = '${{ parameters.imageTag }}'
         }
      
         if("${{ parameters.sql }}" -eq "true"){
+            # Set SQL Variables
             $templateParameters["solutionType"] = "FhirServerSqlServer"
             $templateParameters["sqlAdminPassword"] = "$(-join((((33,35,37,38,42,43,45,46,95) + (48..57) + (65..90) + (97..122) | Get-Random -Count 20) + ((33,35,37,38,42,43,45,46,95) | Get-Random -Count 1) + ((48..57) | Get-Random -Count 1) + ((65..90) | Get-Random -Count 1) + ((97..122) | Get-Random -Count 1) | Get-Random -Count 24) | % {[char]$_}))"
             $templateParameters["sqlSchemaAutomaticUpdatesEnabled"] = if ("${{ parameters.schemaAutomaticUpdatesEnabled }}" -eq "true") { $true } else { $false }
+        }
 
-            # Deploy SQL Environment
-            New-AzResourceGroupDeployment -Name "${{ parameters.webAppName }}" -ResourceGroupName "${{ parameters.resourceGroup }}" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy-docker-sql.json -TemplateParameterObject $templateParameters -Verbose
-        }
-        else{
-            # Deploy CosmosDb environment
-            New-AzResourceGroupDeployment -Name "${{ parameters.webAppName }}" -ResourceGroupName "${{ parameters.resourceGroup }}" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy-docker.json -TemplateParameterObject $templateParameters -Verbose
-        }
-     
-        Set-AzKeyVaultAccessPolicy -VaultName "${{ parameters.webAppName }}" -ObjectId 4d4d503d-9ca8-462e-9e18-b35fc8b5285b -PermissionsToSecrets list,get
+        Write-Host "Provisioning Resource Group"
+        Write-Host $webAppName
+        Write-Host "${{ parameters.resourceGroup }}"
+        New-AzResourceGroupDeployment -Name $webAppName -ResourceGroupName "${{ parameters.resourceGroup }}" -TemplateFile $(System.DefaultWorkingDirectory)/samples/templates/default-azuredeploy-docker.json -TemplateParameterObject $templateParameters -Verbose
+        
+        Write-Host "Setting Key Vault access"
+        Set-AzKeyVaultAccessPolicy -VaultName $webAppName -ObjectId 4d4d503d-9ca8-462e-9e18-b35fc8b5285b -PermissionsToSecrets list,get
 

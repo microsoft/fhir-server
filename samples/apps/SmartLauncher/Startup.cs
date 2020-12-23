@@ -11,9 +11,10 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Health.Internal.SmartLauncher.Models;
 using Newtonsoft.Json;
 
-namespace SmartLauncher
+namespace Microsoft.Health.Internal.SmartLauncher
 {
     public class Startup
     {
@@ -39,7 +40,7 @@ namespace SmartLauncher
             }
 
             app.UseDefaultFiles();
-            app.UseStaticFiles(new StaticFileOptions { FileProvider = new EmbeddedFileProvider(Assembly.GetExecutingAssembly(), "SmartLauncher.wwwroot") });
+            app.UseStaticFiles(new StaticFileOptions { FileProvider = new EmbeddedFileProvider(Assembly.GetExecutingAssembly(), "Microsoft.Health.Internal.SmartLauncher.wwwroot") });
 
             app.Map("/config", a =>
             {

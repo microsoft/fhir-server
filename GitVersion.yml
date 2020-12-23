@@ -1,5 +1,7 @@
 mode: Mainline
-assembly-versioning-scheme: MajorMinorPatch
+# assembly-version: If this number changes, other assemblies have to update references to the assembly
+assembly-versioning-scheme: Major
+assembly-file-versioning-scheme: MajorMinorPatch
 tag-prefix: release\/
 ignore:
   sha: []
@@ -24,7 +26,7 @@ branches:
     is-release-branch: false
   hotfix:
     regex: ^hotfix(es)?[/-]
-    tag: beta
+    tag: useBranchName
     increment: Patch
     prevent-increment-of-merged-branch-version: false
     track-merge-target: false

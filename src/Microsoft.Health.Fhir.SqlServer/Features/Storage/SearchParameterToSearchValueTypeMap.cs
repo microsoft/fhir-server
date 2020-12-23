@@ -7,8 +7,6 @@ using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Linq;
-using EnsureThat;
-using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
@@ -23,22 +21,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     /// </summary>
     internal class SearchParameterToSearchValueTypeMap
     {
-        private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
-        private readonly ConcurrentDictionary<SearchParameterInfo, Type> _map = new ConcurrentDictionary<SearchParameterInfo, Type>();
-
-        public SearchParameterToSearchValueTypeMap(ISupportedSearchParameterDefinitionManager searchParameterDefinitionManager)
-        {
-            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
-            _searchParameterDefinitionManager = searchParameterDefinitionManager;
-        }
+        private readonly ConcurrentDictionary<SearchParameterInfo, Type> _compositeMap = new ConcurrentDictionary<SearchParameterInfo, Type>();
 
         public Type GetSearchValueType(SearchParameterInfo searchParameter)
         {
-            if (!_map.TryGetValue(searchParameter, out Type type))
+            if (searchParameter.Type != SearchParamType.Composite)
             {
-                type = GetSearchValueTypeImpl(searchParameter);
+                return GetSearchValueTypeForSearchParameterType(searchParameter.Type);
+            }
 
-                _map.TryAdd(searchParameter, type);
+            if (!_compositeMap.TryGetValue(searchParameter, out Type type))
+            {
+                type = GetCompositeSearchValueType(searchParameter);
+
+                _compositeMap.TryAdd(searchParameter, type);
             }
 
             return type;
@@ -58,30 +54,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return searchValueType;
         }
 
-        private Type GetSearchValueTypeImpl(SearchParameterInfo searchParameter)
+        private static Type GetCompositeSearchValueType(SearchParameterInfo searchParameter)
         {
-            switch (searchParameter.Type)
-            {
-                case SearchParamType.Number:
-                    return typeof(NumberSearchValue);
-                case SearchParamType.Date:
-                    return typeof(DateTimeSearchValue);
-                case SearchParamType.String:
-                    return typeof(StringSearchValue);
-                case SearchParamType.Token:
-                    return typeof(TokenSearchValue);
-                case SearchParamType.Reference:
-                    return typeof(ReferenceSearchValue);
-                case SearchParamType.Quantity:
-                    return typeof(QuantitySearchValue);
-                case SearchParamType.Uri:
-                    return typeof(UriSearchValue);
-                case SearchParamType.Composite:
-                    return typeof(Tuple).Assembly.GetType($"{typeof(ValueTuple).FullName}`{searchParameter.Component.Count}", throwOnError: true)
-                        .MakeGenericType(searchParameter.Component.Select(c => GetSearchValueType(_searchParameterDefinitionManager.GetSearchParameter(c.DefinitionUrl))).ToArray());
-                default:
-                    throw new ArgumentOutOfRangeException(searchParameter.Code);
-            }
+            Debug.Assert(searchParameter.Type == SearchParamType.Composite, "Method called with non-composite search parameter");
+
+            return typeof(Tuple).Assembly.GetType($"{typeof(ValueTuple).FullName}`{searchParameter.Component.Count}", throwOnError: true)
+                .MakeGenericType(searchParameter.Component.Select(component => GetSearchValueTypeForSearchParameterType(component.ResolvedSearchParameter.Type)).ToArray());
         }
+
+        private static Type GetSearchValueTypeForSearchParameterType(SearchParamType searchParameterType) =>
+            searchParameterType switch
+            {
+                SearchParamType.Number => typeof(NumberSearchValue),
+                SearchParamType.Date => typeof(DateTimeSearchValue),
+                SearchParamType.String => typeof(StringSearchValue),
+                SearchParamType.Token => typeof(TokenSearchValue),
+                SearchParamType.Reference => typeof(ReferenceSearchValue),
+                SearchParamType.Quantity => typeof(QuantitySearchValue),
+                SearchParamType.Uri => typeof(UriSearchValue),
+                _ => throw new ArgumentOutOfRangeException(nameof(searchParameterType))
+            };
     }
 }

@@ -23,6 +23,9 @@ export:
   enabled: false
   blobStorageUri: https://mystorageaccount.blob.core.windows.net
 
+reindex:
+  enabled: false
+
 podSecurityContext: {}
   # fsGroup: 2000
 

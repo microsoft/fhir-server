@@ -9,6 +9,8 @@
     <Import_RootNamespace>Microsoft.Health.Fhir.Api</Import_RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)Controllers\ConvertDataController.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Controllers\OperationDefinitionController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ReindexController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\ExportController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Controllers\FhirController.cs" />
@@ -19,7 +21,9 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\ActionResults\OperationVersionsResult.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\ContentTypes\ContentTypeService.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ParameterCompatibleFilter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\SearchParameterFilterAttribute.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Filters\ValidationQueryFilterAndParameterParserAttribute.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Operations\OperationsCapabilityProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Bundle\BundleSerializer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Routing\QueryStringParser.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Modules\FeatureFlags\Validate\ValidateFeatureModule.cs" />

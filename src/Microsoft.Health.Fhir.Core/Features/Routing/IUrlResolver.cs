@@ -64,5 +64,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Routing
         /// <param name="id">The id that corresponds to the current operation.</param>
         /// <returns>The final url.</returns>
         Uri ResolveOperationResultUrl(string operationName, string id);
+
+        /// <summary>
+        /// Resolves the operation definition URL for the specified operation.
+        /// </summary>
+        /// <param name="operationName">The name of the operation.</param>
+        /// <returns>The final url.</returns>
+        Uri ResolveOperationDefinitionUrl(string operationName);
     }
 }

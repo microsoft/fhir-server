@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,7 +22,6 @@ using Microsoft.SqlServer.Dac.Compare;
 using NSubstitute;
 using Polly;
 using Xunit;
-
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
@@ -50,6 +50,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _sqlServerFhirModel = sqlServerFhirModel;
             _sqlConnectionFactory = sqlConnectionFactory;
+            _searchParameterDefinitionManager.StartAsync(CancellationToken.None).Wait();
         }
 
         public async Task CreateAndInitializeDatabase(string databaseName, bool forceIncrementalSchemaUpgrade, SchemaInitializer schemaInitializer = null, CancellationToken cancellationToken = default)
@@ -90,7 +91,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 });
 
             await schemaInitializer.InitializeAsync(forceIncrementalSchemaUpgrade, cancellationToken);
-            await _searchParameterDefinitionManager.StartAsync(CancellationToken.None);
             _sqlServerFhirModel.Initialize(SchemaVersionConstants.Max, true);
         }
 
@@ -118,9 +118,27 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var source = new SchemaCompareDatabaseEndpoint(testConnectionString1);
             var target = new SchemaCompareDatabaseEndpoint(testConnectionString2);
             var comparison = new SchemaComparison(source, target);
+
             SchemaComparisonResult result = comparison.Compare();
 
-            return result.IsEqual;
+            // These types were introduced in earlier schema versions but are no longer used in newer versions.
+            // They are not removed so as to no break compatibility with instances requiring an older schema version.
+            // Exclude them from the schema comparison differences.
+            (string type, string name)[] deprecatedObjectToIgnore =
+            {
+                ("Procedure", "[dbo].[UpsertResource]"),
+                ("TableType", "[dbo].[ReferenceSearchParamTableType_1]"),
+                ("TableType", "[dbo].[ReferenceTokenCompositeSearchParamTableType_1]"),
+            };
+
+            var remainingDifferences = result.Differences.Where(
+                d => !deprecatedObjectToIgnore.Any(
+                    i =>
+                        (d.SourceObject?.ObjectType.Name == i.type && d.SourceObject?.Name?.ToString() == i.name) ||
+                        (d.TargetObject?.ObjectType.Name == i.type && d.TargetObject?.Name?.ToString() == i.name)))
+                .ToList();
+
+            return remainingDifferences.Count == 0;
         }
 
         public async Task DeleteAllExportJobRecordsAsync(CancellationToken cancellationToken = default)

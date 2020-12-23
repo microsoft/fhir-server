@@ -11,6 +11,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
+using Hl7.Fhir.ElementModel;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
@@ -23,8 +24,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
     public class SearchParameterDefinitionManager : ISearchParameterDefinitionManager, IHostedService
     {
         private readonly IModelInfoProvider _modelInfoProvider;
-
-        private IDictionary<string, IDictionary<string, SearchParameterInfo>> _typeLookup;
         private ConcurrentDictionary<string, string> _resourceTypeSearchParameterHashMap;
 
         public SearchParameterDefinitionManager(IModelInfoProvider modelInfoProvider)
@@ -33,11 +32,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             _modelInfoProvider = modelInfoProvider;
             _resourceTypeSearchParameterHashMap = new ConcurrentDictionary<string, string>();
+            TypeLookup = new Dictionary<string, IDictionary<string, SearchParameterInfo>>();
+            UrlLookup = new Dictionary<Uri, SearchParameterInfo>();
         }
 
         internal IDictionary<Uri, SearchParameterInfo> UrlLookup { get; set; }
 
-        internal IDictionary<string, IDictionary<string, SearchParameterInfo>> TypeLookup { get => _typeLookup; }
+        // TypeLookup key is: Resource type, the inner dictionary key is the Search Parameter name.
+        internal IDictionary<string, IDictionary<string, SearchParameterInfo>> TypeLookup { get; }
 
         public IEnumerable<SearchParameterInfo> AllSearchParameters => UrlLookup.Values;
 
@@ -48,14 +50,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public Task StartAsync(CancellationToken cancellationToken)
         {
-            var builder = new SearchParameterDefinitionBuilder(
-                _modelInfoProvider,
-                "search-parameters.json");
+            var bundle = SearchParameterDefinitionBuilder.ReadEmbeddedSearchParameters("search-parameters.json", _modelInfoProvider);
 
-            builder.Build();
+            SearchParameterDefinitionBuilder.Build(
+                bundle.Entries.Select(e => e.Resource).ToList(),
+                UrlLookup,
+                TypeLookup,
+                _modelInfoProvider);
 
-            _typeLookup = builder.ResourceTypeDictionary;
-            UrlLookup = builder.UriDictionary;
+            CalculateSearchParameterHash();
 
             return Task.CompletedTask;
         }
@@ -64,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public IEnumerable<SearchParameterInfo> GetSearchParameters(string resourceType)
         {
-            if (_typeLookup.TryGetValue(resourceType, out IDictionary<string, SearchParameterInfo> value))
+            if (TypeLookup.TryGetValue(resourceType, out IDictionary<string, SearchParameterInfo> value))
             {
                 return value.Values;
             }
@@ -74,7 +77,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public SearchParameterInfo GetSearchParameter(string resourceType, string name)
         {
-            if (_typeLookup.TryGetValue(resourceType, out IDictionary<string, SearchParameterInfo> lookup) &&
+            if (TypeLookup.TryGetValue(resourceType, out IDictionary<string, SearchParameterInfo> lookup) &&
                 lookup.TryGetValue(name, out SearchParameterInfo searchParameter))
             {
                 return searchParameter;
@@ -87,7 +90,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         {
             searchParameter = null;
 
-            return _typeLookup.TryGetValue(resourceType, out IDictionary<string, SearchParameterInfo> searchParameters) &&
+            return TypeLookup.TryGetValue(resourceType, out IDictionary<string, SearchParameterInfo> searchParameters) &&
                 searchParameters.TryGetValue(name, out searchParameter);
         }
 
@@ -101,17 +104,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             throw new SearchParameterNotSupportedException(definitionUri);
         }
 
-        public ValueSets.SearchParamType GetSearchParameterType(SearchParameterInfo searchParameter, int? componentIndex)
+        public string GetSearchParameterHashForResourceType(string resourceType)
         {
-            if (componentIndex == null)
+            EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
+
+            if (_resourceTypeSearchParameterHashMap.TryGetValue(resourceType, out string hash))
             {
-                return searchParameter.Type;
+                return hash;
             }
 
-            SearchParameterComponentInfo component = searchParameter.Component[componentIndex.Value];
-            SearchParameterInfo componentSearchParameter = GetSearchParameter(component.DefinitionUrl);
-
-            return componentSearchParameter.Type;
+            return null;
         }
 
         public void UpdateSearchParameterHashMap(Dictionary<string, string> updatedSearchParamHashMap)
@@ -127,16 +129,27 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             }
         }
 
-        public string GetSearchParameterHashForResourceType(string resourceType)
+        public void AddNewSearchParameters(IReadOnlyCollection<ITypedElement> searchParameters)
         {
-            EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
+            SearchParameterDefinitionBuilder.Build(
+                searchParameters,
+                UrlLookup,
+                TypeLookup,
+                _modelInfoProvider);
 
-            if (_resourceTypeSearchParameterHashMap.TryGetValue(resourceType, out string hash))
+            CalculateSearchParameterHash();
+        }
+
+        private void CalculateSearchParameterHash()
+        {
+            foreach (KeyValuePair<string, IDictionary<string, SearchParameterInfo>> kvp in TypeLookup)
             {
-                return hash;
+                string searchParamHash = SearchHelperUtilities.CalculateSearchParameterHash(kvp.Value.Values);
+                _resourceTypeSearchParameterHashMap.AddOrUpdate(
+                    kvp.Key,
+                    searchParamHash,
+                    (resourceType, existingValue) => searchParamHash);
             }
-
-            return null;
         }
     }
 }
