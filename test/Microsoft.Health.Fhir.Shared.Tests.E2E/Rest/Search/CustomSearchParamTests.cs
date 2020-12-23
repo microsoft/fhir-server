@@ -6,7 +6,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -20,16 +22,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
     [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json)]
     public class CustomSearchParamTests : SearchTestsBase<HttpIntegrationTestFixture>
     {
+        private readonly HttpIntegrationTestFixture _fixture;
+
         public CustomSearchParamTests(HttpIntegrationTestFixture fixture)
             : base(fixture)
         {
+            _fixture = fixture;
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenANewSearchParam_WhenReindexingComplete_ThenResourcesSearchedWithNewParamReturned()
         {
-            var patientName = Guid.NewGuid().ToString().Substring(28).ToLower();
-            var patient = new Patient() { Name = new List<HumanName>() { new HumanName { Family = patientName } } };
+            var patientName = Guid.NewGuid().ToString().ComputeHash().Substring(28).ToLower();
+            var patient = new Patient { Name = new List<HumanName> { new HumanName { Family = patientName } } };
             var searchParam = Samples.GetJsonSample<SearchParameter>("SearchParameter");
 
             // POST a new patient
@@ -41,20 +46,29 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // POST a new Search parameter
             await Client.CreateAsync(searchParam);
 
-            // Start a reindex job
-            (FhirResponse<Parameters> _, Uri reindexJobUri) = await Client.PostReindexJobAsync(new Parameters());
+            Uri reindexJobUri;
+            try
+            {
+                // Start a reindex job
+                (_, reindexJobUri) = await Client.PostReindexJobAsync(new Parameters());
+            }
+            catch (FhirException ex) when (ex.StatusCode == HttpStatusCode.BadRequest && ex.Message.Contains("not enabled"))
+            {
+                Skip.If(!_fixture.IsUsingInProcTestServer, "Reindex is not enabled on this server.");
+                return;
+            }
 
             await WaitForReindexStatus(reindexJobUri, "Running", "Completed");
 
-            var reindexJobResult = await Client.CheckReindexAsync(reindexJobUri);
-            var param = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == "searchParams");
+            FhirResponse<Parameters> reindexJobResult = await Client.CheckReindexAsync(reindexJobUri);
+            Parameters.ParameterComponent param = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == "searchParams");
 
             Assert.Contains("http://hl7.org/fhir/SearchParameter/Patient-foo", param.Value.ToString());
 
             await WaitForReindexStatus(reindexJobUri, "Completed");
 
             // When job complete, search for resources using new parameter
-            await ExecuteAndValidateBundle($"Patient?foo={patientName}", expectedPatient.Resource);
+            await ExecuteAndValidateBundle($"Patient?foo:exact={patientName}", expectedPatient.Resource);
         }
 
         private async Task WaitForReindexStatus(System.Uri reindexJobUri, params string[] desiredStatus)
