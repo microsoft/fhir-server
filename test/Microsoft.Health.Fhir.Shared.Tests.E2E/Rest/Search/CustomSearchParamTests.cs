@@ -3,16 +3,20 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
+using Microsoft.Health.Test.Utilities;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 {
+    [Trait(Traits.Category, Categories.CustomSearch)]
     [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json)]
     public class CustomSearchParamTests : SearchTestsBase<HttpIntegrationTestFixture>
     {
@@ -24,26 +28,26 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenANewSearchParam_WhenReindexingComplete_ThenResourcesSearchedWithNewParamReturned()
         {
-            var patientName = System.Guid.NewGuid().ToString().Substring(28).ToLower();
-            var patient = new Patient() { Name = new List<HumanName>() { new HumanName() { Family = patientName } } };
+            var patientName = Guid.NewGuid().ToString().Substring(28).ToLower();
+            var patient = new Patient() { Name = new List<HumanName>() { new HumanName { Family = patientName } } };
             var searchParam = Samples.GetJsonSample<SearchParameter>("SearchParameter");
 
             // POST a new patient
-            var expectedPatient = await Client.CreateAsync<Patient>(patient);
+            FhirResponse<Patient> expectedPatient = await Client.CreateAsync(patient);
 
-            // POST a second patient to show it is filtered and not retuend when using the new search parameter
-            await Client.CreateAsync<Patient>(Samples.GetJsonSample<Patient>("Patient"));
+            // POST a second patient to show it is filtered and not returned when using the new search parameter
+            await Client.CreateAsync(Samples.GetJsonSample<Patient>("Patient"));
 
             // POST a new Search parameter
-            await Client.CreateAsync<SearchParameter>(searchParam);
+            await Client.CreateAsync(searchParam);
 
             // Start a reindex job
-            (var reindexJobResult, var reindexJobUri) = await Client.PostReindexJobAsync(new Parameters());
+            (FhirResponse<Parameters> _, Uri reindexJobUri) = await Client.PostReindexJobAsync(new Parameters());
 
             await WaitForReindexStatus(reindexJobUri, "Running", "Completed");
 
-            reindexJobResult = await Client.CheckReindexAsync(reindexJobUri);
-            var param = reindexJobResult.Resource.Parameter.Where(p => p.Name == "searchParams").FirstOrDefault();
+            var reindexJobResult = await Client.CheckReindexAsync(reindexJobUri);
+            var param = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == "searchParams");
 
             Assert.Contains("http://hl7.org/fhir/SearchParameter/Patient-foo", param.Value.ToString());
 
@@ -56,11 +60,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         private async Task WaitForReindexStatus(System.Uri reindexJobUri, params string[] desiredStatus)
         {
             int checkReindexCount = 0;
-            var currentStatus = string.Empty;
+            string currentStatus;
             do
             {
-                var reindexJobResult = await Client.CheckReindexAsync(reindexJobUri);
-                currentStatus = reindexJobResult.Resource.Parameter.Where(p => p.Name == "status").FirstOrDefault().Value.ToString();
+                FhirResponse<Parameters> reindexJobResult = await Client.CheckReindexAsync(reindexJobUri);
+                currentStatus = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == "status")?.Value.ToString();
                 checkReindexCount++;
                 await Task.Delay(1000);
             }
