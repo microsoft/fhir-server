@@ -41,7 +41,7 @@
             "use": "in",
             "min": 1,
             "max": "1",
-            "documentation": "The root template to use while transforming the data. Supported values - `ADT_A01`, `OML_O21`, `ORU_R01`, `VXU_V04`.",
+            "documentation": "The root template to use while transforming the data. Supported default values - `ADT_A01`, `OML_O21`, `ORU_R01`, `VXU_V04`.",
             "type": "string"
         }
     ]
