@@ -8,3 +8,4 @@ variables:
     CrucibleEnvironmentUrl: ''
     TestEnvironmentName: 'OSS PR$(prNumber)'
     ImageTag: '$(build.BuildNumber)'
+    enableAks: true
