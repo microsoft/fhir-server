@@ -50,6 +50,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
         public const string ResourceReindexOperationDefinition = OperationDefinition + "/" + OperationsConstants.ResourceReindex;
 
         public const string ConvertData = "$convert-data";
+        public const string ConvertDataOperationDefinition = OperationDefinition + "/" + OperationsConstants.ConvertData;
 
         public const string CompartmentTypeByResourceType = CompartmentTypeRouteSegment + "/" + IdRouteSegment + "/" + CompartmentResourceTypeRouteSegment;
 
