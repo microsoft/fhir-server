@@ -125,7 +125,7 @@ jobs:
           enabled: ${{ parameters.reindexEnabled }}
         security:
           enabled: true
-          enableAadSmartOnFhirProxy: false
+          enableAadSmartOnFhirProxy: true
           authority: https://login.microsoftonline.com/${tenantId}
           audience: ${{ parameters.testEnvironmentUrl }}
         EOF
