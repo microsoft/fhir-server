@@ -5,11 +5,8 @@
 
 using System;
 using System.Collections.Generic;
-
-#if R5
 using System.Linq;
-#endif
-
+using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
@@ -45,11 +42,12 @@ namespace Microsoft.Health.Fhir.Core
 
         public IReadOnlyCollection<string> GetResourceTypeNames()
         {
-            var supportedResources = ModelInfo.SupportedResources;
+            List<string> supportedResources = ModelInfo.SupportedResources;
 
-#if R5
-            supportedResources = supportedResources.Where(x => x != "CanonicalResource" && x != "MetadataResource").ToList();
-#endif
+            if (Version == FhirSpecification.R5)
+            {
+                supportedResources = supportedResources.Where(x => x != "CanonicalResource" && x != "MetadataResource").ToList();
+            }
 
             return supportedResources;
         }
@@ -70,6 +68,13 @@ namespace Microsoft.Health.Fhir.Core
             {
                 ElementResolver = elementResolver,
             };
+        }
+
+        public ITypedElement ToTypedElement(ISourceNode sourceNode)
+        {
+            EnsureArg.IsNotNull(sourceNode);
+
+            return sourceNode.ToTypedElement(StructureDefinitionSummaryProvider);
         }
     }
 }
