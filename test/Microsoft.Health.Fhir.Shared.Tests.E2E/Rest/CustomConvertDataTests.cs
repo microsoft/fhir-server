@@ -14,7 +14,6 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using Hl7.Fhir.Model;
-using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
 using Microsoft.Azure.ContainerRegistry;
 using Microsoft.Azure.ContainerRegistry.Models;
@@ -38,10 +37,11 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
     /// </summary>
     [Trait(Traits.Category, Categories.CustomConvertData)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
-    public class CustomConvertDataTests : IClassFixture<HttpIntegrationTestFixture>
+    public class CustomConvertDataTests : IClassFixture<HttpIntegrationTestFixture>, IAsyncLifetime
     {
         private const string TestRepositoryName = "conversiontemplatestest";
         private const string TestRepositoryTag = "test1.0";
+        private string testTemplateReference;
 
         private readonly TestFhirClient _testFhirClient;
         private readonly ConvertDataConfiguration _convertDataConfiguration;
@@ -64,9 +64,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
                 return;
             }
 
-            await PushTemplateSet(registry, TestRepositoryName, TestRepositoryTag);
-
-            var parameters = GetConvertDataParams(GetSampleHl7v2Message(), "hl7v2", $"{registry.Server}/{TestRepositoryName}:{TestRepositoryTag}", "ADT_A01");
+            var parameters = GetConvertDataParams(GetSampleHl7v2Message(), "hl7v2", testTemplateReference, "ADT_A01");
             var requestMessage = GenerateConvertDataRequest(parameters);
             HttpResponseMessage response = await _testFhirClient.HttpClient.SendAsync(requestMessage);
 
@@ -84,8 +82,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         }
 
         [Theory]
-        [InlineData("template:1234567890")]
-        [InlineData("wrongtemplate:default")]
+        [InlineData("template@sha256:a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3")]
+        [InlineData("wrongtemplate@sha256:03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4")]
         [InlineData("template@sha256:592535ef52d742f81e35f4d87b43d9b535ed56cf58c90a14fc5fd7ea0fbb8695")]
         public async Task GivenAValidRequest_ButTemplateSetIsNotFound_WhenConvertData_ShouldReturnError(string imageReference)
         {
@@ -97,8 +95,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             {
                 return;
             }
-
-            await PushTemplateSet(registry, TestRepositoryName, TestRepositoryTag);
 
             var parameters = GetConvertDataParams(GetSampleHl7v2Message(), "hl7v2", $"{registry.Server}/{imageReference}", "ADT_A01");
 
@@ -127,7 +123,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             return containerRegistry;
         }
 
-        private async Task PushTemplateSet(ContainerRegistryInfo registry, string repository, string tag)
+        private async System.Threading.Tasks.Task<string> GenerateCustomTemplateReference(ContainerRegistryInfo registry, string repository, string tag)
         {
             AzureContainerRegistryClient acrClient = new AzureContainerRegistryClient(registry.Server, new AcrBasicToken(registry));
 
@@ -155,6 +151,17 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             };
             var v2Manifest = new V2Manifest(schemaV2, mediatypeV2Manifest, new Descriptor(mediatypeV1Manifest, originalConfigBytes.Length, originalConfigDigest), layers);
             await acrClient.Manifests.CreateAsync(repository, tag, v2Manifest);
+
+            var imageAttributes = await acrClient.Tag.GetAttributesAsync(repository, tag);
+            var digest = imageAttributes.Attributes.Digest;
+
+            return $"{registry.Server}/{repository}@{digest}";
+        }
+
+        private async Task DeleteCustomTemplate(ContainerRegistryInfo registry, string repository, string tag)
+        {
+            AzureContainerRegistryClient acrClient = new AzureContainerRegistryClient(registry.Server, new AcrBasicToken(registry));
+            await acrClient.Tag.DeleteAsync(repository, tag);
         }
 
         private async Task UploadBlob(AzureContainerRegistryClient acrClient, Stream stream, string repository, string digest)
@@ -184,10 +191,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
         private HttpRequestMessage GenerateConvertDataRequest(
             Parameters inputParameters,
-            string path = "$convert-data",
-            string acceptHeader = ContentType.JSON_CONTENT_HEADER,
-            string preferHeader = "respond-async",
-            Dictionary<string, string> queryParams = null)
+            string path = "$convert-data")
         {
             var request = new HttpRequestMessage
             {
@@ -216,6 +220,24 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         private static string GetSampleHl7v2Message()
         {
             return "MSH|^~\\&|SIMHOSP|SFAC|RAPP|RFAC|20200508131015||ADT^A01|517|T|2.3|||AL||44|ASCII\nEVN|A01|20200508131015|||C005^Whittingham^Sylvia^^^Dr^^^DRNBR^PRSNL^^^ORGDR|\nPID|1|3735064194^^^SIMULATOR MRN^MRN|3735064194^^^SIMULATOR MRN^MRN~2021051528^^^NHSNBR^NHSNMBR||Kinmonth^Joanna^Chelsea^^Ms^^CURRENT||19870624000000|F|||89 Transaction House^Handmaiden Street^Wembley^^FV75 4GJ^GBR^HOME||020 3614 5541^HOME|||||||||C^White - Other^^^||||||||\nPD1|||FAMILY PRACTICE^^12345|\nPV1|1|I|OtherWard^MainRoom^Bed 183^Simulated Hospital^^BED^Main Building^4|28b|||C005^Whittingham^Sylvia^^^Dr^^^DRNBR^PRSNL^^^ORGDR|||CAR|||||||||16094728916771313876^^^^visitid||||||||||||||||||||||ARRIVED|||20200508131015||";
+        }
+
+        public async Task InitializeAsync()
+        {
+            var registry = GetTestContainerRegistryInfo();
+            if (registry != null)
+            {
+                testTemplateReference = await GenerateCustomTemplateReference(registry, TestRepositoryName, TestRepositoryTag);
+            }
+        }
+
+        public async Task DisposeAsync()
+        {
+            var registry = GetTestContainerRegistryInfo();
+            if (registry != null)
+            {
+                await DeleteCustomTemplate(registry, TestRepositoryName, TestRepositoryTag);
+            }
         }
 
         internal class ContainerRegistryInfo

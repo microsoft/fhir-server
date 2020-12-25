@@ -61,11 +61,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
         }
 
         [Theory]
-        [InlineData("fakeacr.azurecr.io/template:default")]
-        [InlineData("test.azurecr-test.io/template:default")]
+        [InlineData("fakeacr.azurecr.io/template@sha256:a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3")]
         [InlineData("test.azurecr.com/template@sha256:592535ef52d742f81e35f4d87b43d9b535ed56cf58c90a14fc5fd7ea0fbb8696")]
-        [InlineData("*****####.com/template:default")]
-        [InlineData("¶Š™œãý£¾.com/template:default")]
         public async Task GivenConvertDataRequest_WithUnconfiguredRegistry_ContainerRegistryNotConfiguredExceptionShouldBeThrown(string templateReference)
         {
             var convertDataEngine = GetDefaultEngine();

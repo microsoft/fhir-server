@@ -63,7 +63,9 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Controllers
         [Theory]
         [InlineData("abc.azurecr.io")]
         [InlineData("abc.azurecr.io/:tag")]
-        [InlineData("testimage:tag")]
+        [InlineData("testimage/aaa:tag")]
+        [InlineData("testimage@")]
+        [InlineData("testimage@sha256:a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3")]
         public async Task GivenAConvertDataRequest_WithInvalidReference_WhenInvalidBodySent_ThenRequestNotValidThrown(string templateCollectionReference)
         {
             var body = GetConvertDataParamsWithCustomTemplateReference(templateCollectionReference);

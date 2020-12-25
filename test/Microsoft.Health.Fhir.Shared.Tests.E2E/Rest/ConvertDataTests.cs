@@ -135,9 +135,31 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         [Theory]
         [InlineData("fakeacr.azurecr.io/template:default")]
         [InlineData("test.azurecr-test.io/template:default")]
-        [InlineData("test.azurecr.com/template@sha256:592535ef52d742f81e35f4d87b43d9b535ed56cf58c90a14fc5fd7ea0fbb8696")]
         [InlineData("*****####.com/template:default")]
         [InlineData("¶Š™œãý£¾.com/template:default")]
+        public async Task GivenAValidRequest_WithoutDigest_WhenConvertData_ShouldReturnBadRequest(string templateReference)
+        {
+            if (!_convertDataEnabled)
+            {
+                return;
+            }
+
+            var parameters = GetConvertDataParams(GetSampleHl7v2Message(), "hl7v2", templateReference, "ADT_A01");
+
+            var requestMessage = GenerateConvertDataRequest(parameters);
+            HttpResponseMessage response = await _testFhirClient.HttpClient.SendAsync(requestMessage);
+            var responseContent = await response.Content.ReadAsStringAsync();
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+            var registryName = templateReference.Split('/')[0];
+            Assert.Contains($"Digest must be provided in image reference '{templateReference}'.", responseContent);
+        }
+
+        [Theory]
+        [InlineData("test.azurecr.com/template@sha256:592535ef52d742f81e35f4d87b43d9b535ed56cf58c90a14fc5fd7ea0fbb8696")]
+        [InlineData("fakeazurecr.io/template@sha256:a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3")]
+        [InlineData("acr/template@sha256:03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4")]
         public async Task GivenAValidRequest_ButTemplateRegistryIsNotConfigured_WhenConvertData_ShouldReturnBadRequest(string templateReference)
         {
             if (!_convertDataEnabled)

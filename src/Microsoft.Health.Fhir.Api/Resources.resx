@@ -349,4 +349,8 @@
     <value>The container registry '{0}' is not configured.</value>
     <comment>{0}: the container registry login server</comment>
   </data>
+  <data name="DigestIsRequiredInReference" xml:space="preserve">
+    <value>Digest must be provided in image reference '{0}'.</value>
+    <comment>{0}: image reference</comment>
+  </data>
 </root>

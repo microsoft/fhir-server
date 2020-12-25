@@ -133,15 +133,6 @@ namespace Microsoft.Health.Fhir.Api {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The maximum length of a custom audit header value is {0}. The supplied custom audit header &apos;{1}&apos; has length of {2}..
-        /// </summary>
-        public static string CustomAuditHeaderTooLarge {
-            get {
-                return ResourceManager.GetString("CustomAuditHeaderTooLarge", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Convert data does not support the following parameter {0} for a POST operation..
         /// </summary>
         public static string ConvertDataParameterNotValid {
@@ -165,6 +156,24 @@ namespace Microsoft.Health.Fhir.Api {
         public static string ConvertDataParameterValueNotValid {
             get {
                 return ResourceManager.GetString("ConvertDataParameterValueNotValid", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The maximum length of a custom audit header value is {0}. The supplied custom audit header &apos;{1}&apos; has length of {2}..
+        /// </summary>
+        public static string CustomAuditHeaderTooLarge {
+            get {
+                return ResourceManager.GetString("CustomAuditHeaderTooLarge", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Digest must be provided in image reference &apos;{0}&apos;..
+        /// </summary>
+        public static string DigestIsRequiredInReference {
+            get {
+                return ResourceManager.GetString("DigestIsRequiredInReference", resourceCulture);
             }
         }
         

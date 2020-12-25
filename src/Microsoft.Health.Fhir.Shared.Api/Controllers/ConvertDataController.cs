@@ -39,6 +39,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private static HashSet<string> _supportedParams = GetSupportedParams();
 
         private const char ImageRegistryDelimiter = '/';
+        private const char ImageDigestDelimiter = '@';
 
         public ConvertDataController(
             IMediator mediator,
@@ -68,6 +69,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             string rootTemplate = ReadStringParameter(inputParams, ConvertDataProperties.RootTemplate);
             ConversionInputDataType inputDataType = ReadEnumParameter<ConversionInputDataType>(inputParams, ConvertDataProperties.InputDataType);
 
+            bool isDefaultTemplateReference = IsDefaultTemplateReference(templateCollectionReference);
+
             // Validate template reference format.
             if (!ImageInfo.IsValidImageReference(templateCollectionReference))
             {
@@ -75,8 +78,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 throw new RequestNotValidException(string.Format(Resources.InvalidTemplateCollectionReference, templateCollectionReference));
             }
 
+            // Digest information must be present for custom template reference.
+            if (!isDefaultTemplateReference && !templateCollectionReference.Contains(ImageDigestDelimiter, StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogInformation("Digest information is not found.");
+                throw new RequestNotValidException(string.Format(Resources.DigestIsRequiredInReference, templateCollectionReference));
+            }
+
             // Validate template registry has been configured.
-            bool isDefaultTemplateReference = IsDefaultTemplateReference(templateCollectionReference);
             string registryServer = ExtractRegistryServer(templateCollectionReference);
             if (!isDefaultTemplateReference)
             {

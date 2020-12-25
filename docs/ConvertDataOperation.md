@@ -24,7 +24,7 @@ Make a call to ```<<FHIR service base URL>>/$convert-data``` with the [Parameter
 | ----------- | ----------- | ----------- |
 | inputData      | Data to be converted. | A valid JSON String|
 | inputDataType   | Data type of input. | ```HL7v2``` |
-| templateCollectionReference | Reference to a template collection. It can be the default templates, or an image on Azure Container Registry that the FHIR server can access. | ```microsofthealth/fhirconverter:default```, \<RegistryServer\>/\<imageName\>@\<imageDigest\>, \<RegistryServer\>/\<imageName\>:\<imageTag\> |
+| templateCollectionReference | Reference to a template collection. It can be the default templates, or an image specified by digest on Azure Container Registry that the FHIR server can access. | ```microsofthealth/fhirconverter:default```, \<RegistryServer\>/\<imageName\>@\<imageDigest\>|
 | rootTemplate | The root template to use while transforming the data. | ```ADT_A01```, ```OML_O21```, ```ORU_R01```, ```VXU_V04``` |
 
 **Sample request:**
@@ -106,8 +106,6 @@ b) Register the ACR on your FHIR server by setting `FhirServer__Operations__Conv
 
 ### 7. Verify
 
-Make a call to the $convert-data API specifying your template reference in the templateCollectionReference parameter. You can use any one of the following two formats to specify the reference. However, we strongly recommend choosing digest because its immutable and stable.
+Make a call to the $convert-data API specifying your template reference in the templateCollectionReference parameter. Currently we only support using digest to specify the reference because it's immutable and stable.
 
 `<RegistryServer>/<imageName>@<imageDigest>`
-
-`<RegistryServer>/<imageName>:<imageTag>` 

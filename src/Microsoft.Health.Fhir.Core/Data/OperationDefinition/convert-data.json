@@ -33,7 +33,7 @@
             "use": "in",
             "min": 1,
             "max": "1",
-            "documentation": "Reference to a template collection which can be the default templates, or an image on Azure Container Registry that the FHIR server can access. Supported values - `microsofthealth/fhirconverter:default`, `<RegistryServer>/<imageName>@<imageDigest>`, `<RegistryServer>/<imageName>:<imageTag>`.",
+            "documentation": "Reference to a template collection which can be the default templates, or an image specified by digest on Azure Container Registry that the FHIR server can access. Supported values - `microsofthealth/fhirconverter:default`, `<RegistryServer>/<imageName>@<imageDigest>`",
             "type": "string"
         },
         {
