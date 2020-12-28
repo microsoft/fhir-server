@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             _fixture = fixture;
         }
 
-        [Fact(Skip = "Failing intermittently due to known issue")]
+        [Fact(Skip = "Failing intermittently due to known issue 1559")]
         public async Task GivenANewSearchParam_WhenReindexingComplete_ThenResourcesSearchedWithNewParamReturned()
         {
             var patientName = Guid.NewGuid().ToString().ComputeHash().Substring(28).ToLower();
