@@ -5,21 +5,30 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Security.Cryptography;
+using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
+using Microsoft.Azure.ContainerRegistry;
+using Microsoft.Azure.ContainerRegistry.Models;
 using Microsoft.Azure.Storage;
 using Microsoft.Azure.Storage.Auth;
 using Microsoft.Azure.Storage.Blob;
 using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Azure;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Metric;
+using Microsoft.Health.Fhir.TemplateManagement.Client;
+using Microsoft.Health.Fhir.TemplateManagement.Models;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -65,7 +74,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
             _metricHandler.ResetCount();
 
-            (string fileName, string etag) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
+            (string fileName, string etag) = await UploadConfigurationToStorageAsync(RedactResourceIdAnonymizationConfiguration);
 
             string containerName = Guid.NewGuid().ToString("N");
             Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, containerName, etag);
@@ -86,6 +95,56 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         }
 
         [Fact]
+        public async Task GivenAValidConfigurationWithETag_WhenExportingAnonymizedData_WithACRProvider_ResourceShouldBeAnonymized()
+        {
+            if (!_isUsingInProcTestServer)
+            {
+                return;
+            }
+
+            _metricHandler.ResetCount();
+
+            string registryServer = string.Empty;
+            string registryPassword = string.Empty;
+            (string tag, string etag) = await UploadConfigurationToAcrAsync(RedactResourceIdAnonymizationConfiguration, registryServer, registryPassword);
+
+            string containerName = Guid.NewGuid().ToString("N");
+            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(tag, containerName, etag);
+            HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
+            IList<Uri> blobUris = await CheckExportStatus(response);
+
+            IEnumerable<string> dataFromExport = await DownloadBlobAndParse(blobUris);
+            FhirJsonParser parser = new FhirJsonParser();
+
+            foreach (string content in dataFromExport)
+            {
+                Resource result = parser.Parse<Resource>(content);
+
+                Assert.Contains(result.Meta.Security, c => "REDACTED".Equals(c.Code));
+            }
+
+            Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
+        }
+
+        [Fact]
+        public async Task Mytest()
+        {
+            var acrProvider = new ExportDestinationArtifactAcrProvider();
+
+            var cancellationToken = new CancellationToken(false);
+            using (Stream stream = new MemoryStream())
+            {
+                await acrProvider.FetchAsync(string.Empty, stream, cancellationToken);
+                stream.Position = 0;
+                using (StreamReader reader = new StreamReader(stream))
+                {
+                    string configurationContent = await reader.ReadToEndAsync();
+                    Console.WriteLine("Wanquan");
+                }
+            }
+        }
+
+        [Fact]
         public async Task GivenAValidConfigurationWithETagNoQuotes_WhenExportingAnonymizedData_ResourceShouldBeAnonymized()
         {
             if (!_isUsingInProcTestServer)
@@ -95,7 +154,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
             _metricHandler.ResetCount();
 
-            (string fileName, string etag) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
+            (string fileName, string etag) = await UploadConfigurationToStorageAsync(RedactResourceIdAnonymizationConfiguration);
             etag = etag.Substring(1, 17);
             string containerName = Guid.NewGuid().ToString("N");
             Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, containerName, etag);
@@ -125,7 +184,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
             _metricHandler.ResetCount();
 
-            (string fileName, string _) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
+            (string fileName, string _) = await UploadConfigurationToStorageAsync(RedactResourceIdAnonymizationConfiguration);
 
             string containerName = Guid.NewGuid().ToString("N");
             Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, containerName);
@@ -155,7 +214,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
             _metricHandler.ResetCount();
 
-            (string fileName, string etag) = await UploadConfigurationAsync("Invalid Json.");
+            (string fileName, string etag) = await UploadConfigurationToStorageAsync("Invalid Json.");
 
             string containerName = Guid.NewGuid().ToString("N");
             Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, containerName, etag);
@@ -178,7 +237,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
             _metricHandler.ResetCount();
 
-            (string fileName, string _) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
+            (string fileName, string _) = await UploadConfigurationToStorageAsync(RedactResourceIdAnonymizationConfiguration);
 
             string containerName = Guid.NewGuid().ToString("N");
             Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, containerName, "\"0x000000000000000\"");
@@ -201,7 +260,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
             _metricHandler.ResetCount();
 
-            (string fileName, string _) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
+            (string fileName, string _) = await UploadConfigurationToStorageAsync(RedactResourceIdAnonymizationConfiguration);
 
             string containerName = Guid.NewGuid().ToString("N");
             Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, containerName, "\"invalid-etag");
@@ -246,7 +305,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             _metricHandler.ResetCount();
 
             string largeConfig = new string('*', (1024 * 1024) + 1); // Large config > 1MB
-            (string fileName, string etag) = await UploadConfigurationAsync(largeConfig);
+            (string fileName, string etag) = await UploadConfigurationToStorageAsync(largeConfig);
 
             string containerName = Guid.NewGuid().ToString("N");
             Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, containerName, etag);
@@ -267,13 +326,13 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
                 return;
             }
 
-            (string fileName, string _) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
+            (string fileName, string _) = await UploadConfigurationToStorageAsync(RedactResourceIdAnonymizationConfiguration);
 
             string containerName = string.Empty;
             await Assert.ThrowsAsync<FhirException>(() => _testFhirClient.AnonymizedExportAsync(fileName, containerName));
         }
 
-        private async Task<(string, string)> UploadConfigurationAsync(string configurationContent, string blobName = null)
+        private async Task<(string, string)> UploadConfigurationToStorageAsync(string configurationContent, string blobName = null)
         {
             blobName = blobName ?? $"{Guid.NewGuid()}.json";
             CloudStorageAccount cloudAccount = GetCloudStorageAccountHelper();
@@ -287,6 +346,75 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             await blob.UploadTextAsync(configurationContent);
 
             return (blobName, blob.Properties.ETag);
+        }
+
+        private async Task<(string, string)> UploadConfigurationToAcrAsync(
+            string configurationContent,
+            string registryServer,
+            string registryPassword,
+            string tag = null)
+        {
+            tag = tag ?? $"{Guid.NewGuid()}.json";
+
+            string registryUsername = registryServer.Split('.')[0];
+            string repository = "anonymization";
+            string imageReference = string.Format("{0}/{1}:{2}", registryServer, "acrtest", "onelayer");
+            ImageInfo imageInfo = ImageInfo.CreateFromImageReference(imageReference);
+            string token = "Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes($"{registryUsername}:{registryPassword}"));
+
+            IAzureContainerRegistryClient client = new AzureContainerRegistryClient(imageInfo.Registry, new ACRClientCredentials(token));
+
+            int schemaV2 = 2;
+            string mediatypeV2Manifest = "application/vnd.docker.distribution.manifest.v2+json";
+            string mediatypeV1Manifest = "application/vnd.oci.image.config.v1+json";
+            string emptyConfigStr = "{}";
+
+            // Upload config blob
+            byte[] originalImageConfigBytes = Encoding.UTF8.GetBytes(emptyConfigStr);
+            using var originalConfigStream = new MemoryStream(originalImageConfigBytes);
+            string originalConfigDigest = ComputeDigest(originalConfigStream);
+            await UploadBlob(client, originalConfigStream, repository, originalConfigDigest);
+
+            // Upload memory blob
+
+            List<Descriptor> layers = new List<Descriptor>();
+            byte[] originalConfigurationBytes = Encoding.UTF8.GetBytes(configurationContent);
+            using var byteStream = new MemoryStream(originalConfigurationBytes);
+            var blobLength = byteStream.Length;
+            string blobDigest = ComputeDigest(byteStream);
+            await UploadBlob(client, byteStream, repository, blobDigest);
+            layers.Add(new Descriptor("application/vnd.oci.image.layer.v1.tar", blobLength, blobDigest));
+
+            // Push manifest
+            var v2Manifest = new V2Manifest(schemaV2, mediatypeV2Manifest, new Descriptor(mediatypeV1Manifest, originalImageConfigBytes.Length, originalConfigDigest), layers);
+            await client.Manifests.CreateAsync(repository, tag, v2Manifest);
+
+            return (tag, string.Empty);
+        }
+
+        private async Task UploadBlob(IAzureContainerRegistryClient client, Stream stream, string repository, string digest)
+        {
+            stream.Position = 0;
+            var uploadInfo = await client.Blob.StartUploadAsync(repository);
+            var uploadedLayer = await client.Blob.UploadAsync(stream, uploadInfo.Location);
+            await client.Blob.EndUploadAsync(digest, uploadedLayer.Location);
+        }
+
+        private static string ComputeDigest(Stream s)
+        {
+            s.Position = 0;
+            StringBuilder sb = new StringBuilder();
+
+            using (var hash = SHA256.Create())
+            {
+                byte[] result = hash.ComputeHash(s);
+                foreach (byte b in result)
+                {
+                    sb.Append(b.ToString("x2"));
+                }
+            }
+
+            return "sha256:" + sb.ToString();
         }
 
         private async Task<HttpResponseMessage> WaitForCompleteAsync(Uri contentLocation)
