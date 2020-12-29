@@ -135,7 +135,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 uriString: "$export",
                 baseUriString: "$export",
                 correlationId: _exportJobRecord.Id,
-                requestHeaders: null,
+                requestHeaders: new Dictionary<string, StringValues>(),
                 responseHeaders: new Dictionary<string, StringValues>());
 
                 _contextAccessor.FhirRequestContext = fhirRequestContext;

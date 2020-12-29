@@ -18,6 +18,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Internal;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
@@ -74,6 +75,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 _resourceDeserializer,
                 null,
                 Substitute.For<IMediator>(),
+                Substitute.For<IFhirRequestContextAccessor>(),
                 NullLogger<ExportJobTask>.Instance);
         }
 
@@ -499,6 +501,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 _resourceDeserializer,
                 null,
                 Substitute.For<IMediator>(),
+                Substitute.For<IFhirRequestContextAccessor>(),
                 NullLogger<ExportJobTask>.Instance);
 
             await exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
@@ -531,6 +534,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 _resourceDeserializer,
                 null,
                 Substitute.For<IMediator>(),
+                Substitute.For<IFhirRequestContextAccessor>(),
                 NullLogger<ExportJobTask>.Instance);
 
             _searchService.SearchAsync(
@@ -571,6 +575,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 _resourceDeserializer,
                 null,
                 Substitute.For<IMediator>(),
+                Substitute.For<IFhirRequestContextAccessor>(),
                 NullLogger<ExportJobTask>.Instance);
 
             await exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
@@ -614,6 +619,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 _resourceDeserializer,
                 null,
                 Substitute.For<IMediator>(),
+                Substitute.For<IFhirRequestContextAccessor>(),
                 NullLogger<ExportJobTask>.Instance);
 
             await exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
@@ -677,6 +683,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 _resourceDeserializer,
                 null,
                 Substitute.For<IMediator>(),
+                Substitute.For<IFhirRequestContextAccessor>(),
                 NullLogger<ExportJobTask>.Instance);
 
             numberOfSuccessfulPages = 5;
@@ -857,6 +864,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 _resourceDeserializer,
                 null,
                 Substitute.For<IMediator>(),
+                Substitute.For<IFhirRequestContextAccessor>(),
                 NullLogger<ExportJobTask>.Instance);
 
             await secondExportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
@@ -951,6 +959,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 _resourceDeserializer,
                 null,
                 Substitute.For<IMediator>(),
+                Substitute.For<IFhirRequestContextAccessor>(),
                 NullLogger<ExportJobTask>.Instance);
 
             // Reseting the number of calls so that the ressource id of the Patient is the same ('2') as it was when the crash happened.
@@ -1138,6 +1147,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 _resourceDeserializer,
                 null,
                 Substitute.For<IMediator>(),
+                Substitute.For<IFhirRequestContextAccessor>(),
                 NullLogger<ExportJobTask>.Instance);
 
             // Reseting the number of calls so that the ressource id of the Patient is the same ('2') as it was when the crash happened.
@@ -1379,6 +1389,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 _resourceDeserializer,
                 null,
                 Substitute.For<IMediator>(),
+                Substitute.For<IFhirRequestContextAccessor>(),
                 NullLogger<ExportJobTask>.Instance);
 
             // Reseting the number of calls so that the ressource id of the Patient is the same ('2') as it was when the crash happened.
@@ -1537,6 +1548,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 _resourceDeserializer,
                 factory.CreateMockScope(),
                 Substitute.For<IMediator>(),
+                Substitute.For<IFhirRequestContextAccessor>(),
                 NullLogger<ExportJobTask>.Instance);
 
             await anonymizedExportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
@@ -1571,6 +1583,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 _resourceDeserializer,
                 factory.CreateMockScope(),
                 Substitute.For<IMediator>(),
+                Substitute.For<IFhirRequestContextAccessor>(),
                 NullLogger<ExportJobTask>.Instance);
 
             await exportJobTask.ExecuteAsync(exportJobRecordWithOneResource, _weakETag, _cancellationToken);
@@ -1607,6 +1620,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 _resourceDeserializer,
                 factory.CreateMockScope(),
                 Substitute.For<IMediator>(),
+                Substitute.For<IFhirRequestContextAccessor>(),
                 NullLogger<ExportJobTask>.Instance);
 
             await exportJobTask.ExecuteAsync(exportJobRecordWithOneResource, _weakETag, _cancellationToken);
