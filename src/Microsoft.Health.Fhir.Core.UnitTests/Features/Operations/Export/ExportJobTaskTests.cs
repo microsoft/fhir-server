@@ -56,6 +56,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         private readonly CancellationToken _cancellationToken;
 
         private ExportJobOutcome _lastExportJobOutcome;
+        private IFhirRequestContextAccessor _contextAccessor;
 
         public ExportJobTaskTests()
         {
@@ -64,6 +65,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
             _resourceToByteArraySerializer.Serialize(Arg.Any<ResourceElement>()).Returns(x => Encoding.UTF8.GetBytes(x.ArgAt<ResourceElement>(0).Instance.Value.ToString()));
             _resourceDeserializer.Deserialize(Arg.Any<ResourceWrapper>()).Returns(x => new ResourceElement(ElementNode.FromElement(ElementNode.ForPrimitive(x.ArgAt<ResourceWrapper>(0).ResourceId))));
+
+            _contextAccessor = Substitute.For<IFhirRequestContextAccessor>();
 
             _exportJobTask = new ExportJobTask(
                 () => _fhirOperationDataStore.CreateMockScope(),
@@ -75,7 +78,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 _resourceDeserializer,
                 null,
                 Substitute.For<IMediator>(),
-                Substitute.For<IFhirRequestContextAccessor>(),
+                _contextAccessor,
                 NullLogger<ExportJobTask>.Instance);
         }
 
@@ -396,6 +399,32 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.Equal(OperationStatus.Failed, _lastExportJobOutcome.JobRecord.Status);
             Assert.Equal(endTimestamp, _lastExportJobOutcome.JobRecord.EndTime);
             Assert.False(string.IsNullOrWhiteSpace(_lastExportJobOutcome.JobRecord.FailureDetails.FailureReason));
+        }
+
+        [Fact]
+        public async Task GivenSearchHadIssues_WhenExecuted_ThenIssuesAreRecorded()
+        {
+            var issue = new OperationOutcomeIssue("warning", "code", "message");
+
+            var exportJobRecordWithOneResource = CreateExportJobRecord();
+
+            SetupExportJobRecordAndOperationDataStore(exportJobRecordWithOneResource);
+
+            // First search should not have continuation token in the list of query parameters.
+            _searchService.SearchAsync(
+                null,
+                Arg.Any<IReadOnlyList<Tuple<string, string>>>(),
+                _cancellationToken)
+                .Returns(x =>
+                {
+                    _contextAccessor.FhirRequestContext.BundleIssues.Add(issue);
+
+                    return CreateSearchResult();
+                });
+
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+
+            Assert.True(_exportJobRecord.Issues.Contains(issue));
         }
 
         [Theory]
