@@ -6,6 +6,7 @@
 using EnsureThat;
 using Microsoft.Azure.Storage.Blob;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Azure.ContainerRegistry;
 using Microsoft.Health.Fhir.Azure.ExportDestinationClient;
@@ -29,15 +30,21 @@ namespace Microsoft.Health.Fhir.Azure
                 .Transient()
                 .AsService<IExportDestinationClient>();
 
-            /*
-            fhirServerBuilder.Services.Add<ExportDestinationArtifactProvider>()
-                .Transient()
-                .AsService<IArtifactProvider>();
-            */
+            fhirServerBuilder.Services.AddTransient<ExportDestinationArtifactProvider>();
+            fhirServerBuilder.Services.AddTransient<ExportDestinationArtifactAcrProvider>();
 
-            fhirServerBuilder.Services.Add<ExportDestinationArtifactAcrProvider>()
-            .Transient()
-            .AsService<IArtifactProvider>();
+            fhirServerBuilder.Services.AddTransient<ArtifactProviderResolver>(serviceProvider => key =>
+            {
+                switch (key)
+                {
+                    case "acr":
+                        return serviceProvider.GetService<ExportDestinationArtifactAcrProvider>();
+                    case "storage":
+                        return serviceProvider.GetService<ExportDestinationArtifactProvider>();
+                    default:
+                        throw null;
+                }
+            });
 
             return fhirServerBuilder;
         }

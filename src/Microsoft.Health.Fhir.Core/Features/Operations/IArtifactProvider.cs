@@ -9,6 +9,8 @@ using System.Threading.Tasks;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations
 {
+    public delegate IArtifactProvider ArtifactProviderResolver(string key);
+
     public interface IArtifactProvider
     {
         /// <summary>
