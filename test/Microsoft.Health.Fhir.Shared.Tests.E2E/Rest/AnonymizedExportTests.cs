@@ -104,8 +104,8 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
             _metricHandler.ResetCount();
 
-            string registryServer = string.Empty;
-            string registryPassword = string.Empty;
+            string registryServer = Environment.GetEnvironmentVariable("TestContainerRegistryServer");
+            string registryPassword = Environment.GetEnvironmentVariable("TestContainerRegistryPassword");
             (string tag, string etag) = await UploadConfigurationToAcrAsync(RedactResourceIdAnonymizationConfiguration, registryServer, registryPassword);
 
             string containerName = Guid.NewGuid().ToString("N");

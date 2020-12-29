@@ -30,8 +30,8 @@ namespace Microsoft.Health.Fhir.Azure
 
         public async Task FetchAsync(string blobNameWithETag, Stream targetStream, CancellationToken cancellationToken)
         {
-            string registryServer = string.Empty;
-            string registryPassword = string.Empty;
+            string registryServer = Environment.GetEnvironmentVariable("TestContainerRegistryServer");
+            string registryPassword = Environment.GetEnvironmentVariable("TestContainerRegistryPassword");
             string registryUsername = registryServer.Split('.')[0];
 
             string imageReference = string.Format("{0}/{1}:{2}", registryServer, "acrtest", "onelayer");
