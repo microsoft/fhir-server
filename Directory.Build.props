@@ -50,7 +50,7 @@
   <Choose>
     <When Condition="$(MSBuildProjectName)!='SmartLauncher' AND !$(MSBuildProjectName.Contains('Test'))">
       <ItemGroup>
-        <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.6.3" />
+        <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="3.3.2" />
       </ItemGroup>
     </When>
   </Choose>
