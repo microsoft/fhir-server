@@ -97,6 +97,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _exportJobRecord = exportJobRecord;
             _weakETag = weakETag;
 
+            var existingFhirRequestContext = _contextAccessor.FhirRequestContext;
+
             try
             {
                 ExportJobConfiguration exportJobConfiguration = _exportJobConfiguration;
@@ -217,6 +219,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 _exportJobRecord.FailureDetails = new JobFailureDetails(Resources.UnknownError, HttpStatusCode.InternalServerError);
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
+            }
+            finally
+            {
+                _contextAccessor.FhirRequestContext = existingFhirRequestContext;
             }
         }
 

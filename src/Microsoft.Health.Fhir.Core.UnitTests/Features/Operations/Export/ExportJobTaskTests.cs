@@ -16,6 +16,7 @@ using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Internal;
+using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Context;
@@ -62,24 +63,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         {
             _cancellationToken = _cancellationTokenSource.Token;
             SetupExportJobRecordAndOperationDataStore();
-
-            _resourceToByteArraySerializer.Serialize(Arg.Any<ResourceElement>()).Returns(x => Encoding.UTF8.GetBytes(x.ArgAt<ResourceElement>(0).Instance.Value.ToString()));
-            _resourceDeserializer.Deserialize(Arg.Any<ResourceWrapper>()).Returns(x => new ResourceElement(ElementNode.FromElement(ElementNode.ForPrimitive(x.ArgAt<ResourceWrapper>(0).ResourceId))));
-
-            _contextAccessor = Substitute.For<IFhirRequestContextAccessor>();
-
-            _exportJobTask = new ExportJobTask(
-                () => _fhirOperationDataStore.CreateMockScope(),
-                Options.Create(_exportJobConfiguration),
-                () => _searchService.CreateMockScope(),
-                _groupMemberExtractor,
-                _resourceToByteArraySerializer,
-                _inMemoryDestinationClient,
-                _resourceDeserializer,
-                null,
-                Substitute.For<IMediator>(),
-                _contextAccessor,
-                NullLogger<ExportJobTask>.Instance);
+            _exportJobTask = CreateExportJobTask();
         }
 
         [Fact]
@@ -520,18 +504,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             mockExportDestinationClient.ConnectAsync(Arg.Any<ExportJobConfiguration>(), Arg.Any<CancellationToken>(), Arg.Any<string>())
                 .Returns<Task>(x => throw new DestinationConnectionException(connectionFailure, HttpStatusCode.BadRequest));
 
-            var exportJobTask = new ExportJobTask(
-                () => _fhirOperationDataStore.CreateMockScope(),
-                Options.Create(_exportJobConfiguration),
-                () => _searchService.CreateMockScope(),
-                _groupMemberExtractor,
-                _resourceToByteArraySerializer,
-                mockExportDestinationClient,
-                _resourceDeserializer,
-                null,
-                Substitute.For<IMediator>(),
-                Substitute.For<IFhirRequestContextAccessor>(),
-                NullLogger<ExportJobTask>.Instance);
+            var exportJobTask = CreateExportJobTask(exportDestinationClient: mockExportDestinationClient);
 
             await exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
@@ -553,18 +526,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 storageAccountConnectionHash: Microsoft.Health.Core.Extensions.StringExtensions.ComputeHash(exportJobConfiguration.StorageAccountConnection));
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithConnection);
 
-            var exportJobTask = new ExportJobTask(
-                () => _fhirOperationDataStore.CreateMockScope(),
-                Options.Create(exportJobConfiguration),
-                () => _searchService.CreateMockScope(),
-                _groupMemberExtractor,
-                _resourceToByteArraySerializer,
-                _inMemoryDestinationClient,
-                _resourceDeserializer,
-                null,
-                Substitute.For<IMediator>(),
-                Substitute.For<IFhirRequestContextAccessor>(),
-                NullLogger<ExportJobTask>.Instance);
+            var exportJobTask = CreateExportJobTask(exportJobConfiguration);
 
             _searchService.SearchAsync(
                Arg.Any<string>(),
@@ -594,20 +556,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 storageAccountConnectionHash: Microsoft.Health.Core.Extensions.StringExtensions.ComputeHash("different connection"));
             SetupExportJobRecordAndOperationDataStore(exportJobRecordWithChangedConnection);
 
-            var exportJobTask = new ExportJobTask(
-                () => _fhirOperationDataStore.CreateMockScope(),
-                Options.Create(_exportJobConfiguration),
-                () => _searchService.CreateMockScope(),
-                _groupMemberExtractor,
-                _resourceToByteArraySerializer,
-                _inMemoryDestinationClient,
-                _resourceDeserializer,
-                null,
-                Substitute.For<IMediator>(),
-                Substitute.For<IFhirRequestContextAccessor>(),
-                NullLogger<ExportJobTask>.Instance);
-
-            await exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
+            await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
             Assert.NotNull(_lastExportJobOutcome);
             Assert.Equal(OperationStatus.Failed, _lastExportJobOutcome.JobRecord.Status);
@@ -638,18 +587,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 return Task.CompletedTask;
             });
 
-            var exportJobTask = new ExportJobTask(
-                () => _fhirOperationDataStore.CreateMockScope(),
-                Options.Create(_exportJobConfiguration),
-                () => _searchService.CreateMockScope(),
-                _groupMemberExtractor,
-                _resourceToByteArraySerializer,
-                mockDestinationClient,
-                _resourceDeserializer,
-                null,
-                Substitute.For<IMediator>(),
-                Substitute.For<IFhirRequestContextAccessor>(),
-                NullLogger<ExportJobTask>.Instance);
+            var exportJobTask = CreateExportJobTask(exportDestinationClient: mockDestinationClient);
 
             await exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
@@ -702,18 +640,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // been committed up until the "crash".
             _inMemoryDestinationClient = new InMemoryExportDestinationClient();
 
-            var secondExportJobTask = new ExportJobTask(
-                () => _fhirOperationDataStore.CreateMockScope(),
-                Options.Create(_exportJobConfiguration),
-                () => _searchService.CreateMockScope(),
-                _groupMemberExtractor,
-                _resourceToByteArraySerializer,
-                _inMemoryDestinationClient,
-                _resourceDeserializer,
-                null,
-                Substitute.For<IMediator>(),
-                Substitute.For<IFhirRequestContextAccessor>(),
-                NullLogger<ExportJobTask>.Instance);
+            var secondExportJobTask = CreateExportJobTask();
 
             numberOfSuccessfulPages = 5;
             await secondExportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
@@ -883,18 +810,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // and resuming the export process. The export destination client contains data that has
             // been committed up until the "crash".
             _inMemoryDestinationClient = new InMemoryExportDestinationClient();
-            var secondExportJobTask = new ExportJobTask(
-                () => _fhirOperationDataStore.CreateMockScope(),
-                Options.Create(_exportJobConfiguration),
-                () => _searchService.CreateMockScope(),
-                _groupMemberExtractor,
-                _resourceToByteArraySerializer,
-                _inMemoryDestinationClient,
-                _resourceDeserializer,
-                null,
-                Substitute.For<IMediator>(),
-                Substitute.For<IFhirRequestContextAccessor>(),
-                NullLogger<ExportJobTask>.Instance);
+            var secondExportJobTask = CreateExportJobTask();
 
             await secondExportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
@@ -978,18 +894,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // been committed up until the "crash".
             _inMemoryDestinationClient = new InMemoryExportDestinationClient();
 
-            var secondExportJobTask = new ExportJobTask(
-                () => _fhirOperationDataStore.CreateMockScope(),
-                Options.Create(_exportJobConfiguration),
-                () => _searchService.CreateMockScope(),
-                _groupMemberExtractor,
-                _resourceToByteArraySerializer,
-                _inMemoryDestinationClient,
-                _resourceDeserializer,
-                null,
-                Substitute.For<IMediator>(),
-                Substitute.For<IFhirRequestContextAccessor>(),
-                NullLogger<ExportJobTask>.Instance);
+            var secondExportJobTask = CreateExportJobTask();
 
             // Reseting the number of calls so that the ressource id of the Patient is the same ('2') as it was when the crash happened.
             numberOfCalls = 1;
@@ -1166,18 +1071,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // been committed up until the "crash".
             _inMemoryDestinationClient = new InMemoryExportDestinationClient();
 
-            var secondExportJobTask = new ExportJobTask(
-                () => _fhirOperationDataStore.CreateMockScope(),
-                Options.Create(_exportJobConfiguration),
-                () => _searchService.CreateMockScope(),
-                _groupMemberExtractor,
-                _resourceToByteArraySerializer,
-                _inMemoryDestinationClient,
-                _resourceDeserializer,
-                null,
-                Substitute.For<IMediator>(),
-                Substitute.For<IFhirRequestContextAccessor>(),
-                NullLogger<ExportJobTask>.Instance);
+            var secondExportJobTask = CreateExportJobTask();
 
             // Reseting the number of calls so that the ressource id of the Patient is the same ('2') as it was when the crash happened.
             await secondExportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
@@ -1408,18 +1302,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             // been committed up until the "crash".
             _inMemoryDestinationClient = new InMemoryExportDestinationClient();
 
-            var secondExportJobTask = new ExportJobTask(
-                () => _fhirOperationDataStore.CreateMockScope(),
-                Options.Create(_exportJobConfiguration),
-                () => _searchService.CreateMockScope(),
-                _groupMemberExtractor,
-                _resourceToByteArraySerializer,
-                _inMemoryDestinationClient,
-                _resourceDeserializer,
-                null,
-                Substitute.For<IMediator>(),
-                Substitute.For<IFhirRequestContextAccessor>(),
-                NullLogger<ExportJobTask>.Instance);
+            var secondExportJobTask = CreateExportJobTask();
 
             // Reseting the number of calls so that the ressource id of the Patient is the same ('2') as it was when the crash happened.
             await secondExportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
@@ -1567,18 +1450,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             factory.CreateAnonymizerAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(_ => Task.FromResult<IAnonymizer>(anonymizer));
             var inMemoryDestinationClient = new InMemoryExportDestinationClient();
 
-            var anonymizedExportJobTask = new ExportJobTask(
-                () => _fhirOperationDataStore.CreateMockScope(),
-                Options.Create(_exportJobConfiguration),
-                () => _searchService.CreateMockScope(),
-                _groupMemberExtractor,
-                _resourceToByteArraySerializer,
-                inMemoryDestinationClient,
-                _resourceDeserializer,
-                factory.CreateMockScope(),
-                Substitute.For<IMediator>(),
-                Substitute.For<IFhirRequestContextAccessor>(),
-                NullLogger<ExportJobTask>.Instance);
+            var anonymizedExportJobTask = CreateExportJobTask(exportDestinationClient: inMemoryDestinationClient, anonymizerFactory: factory.CreateMockScope());
 
             await anonymizedExportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);
 
@@ -1602,18 +1474,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             IAnonymizerFactory factory = Substitute.For<IAnonymizerFactory>();
             factory.CreateAnonymizerAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns<Task<IAnonymizer>>(_ => throw (Exception)Activator.CreateInstance(exceptionType, expectedErrorMessage));
 
-            var exportJobTask = new ExportJobTask(
-                () => _fhirOperationDataStore.CreateMockScope(),
-                Options.Create(_exportJobConfiguration),
-                () => _searchService.CreateMockScope(),
-                _groupMemberExtractor,
-                _resourceToByteArraySerializer,
-                _inMemoryDestinationClient,
-                _resourceDeserializer,
-                factory.CreateMockScope(),
-                Substitute.For<IMediator>(),
-                Substitute.For<IFhirRequestContextAccessor>(),
-                NullLogger<ExportJobTask>.Instance);
+            var exportJobTask = CreateExportJobTask(anonymizerFactory: factory.CreateMockScope());
 
             await exportJobTask.ExecuteAsync(exportJobRecordWithOneResource, _weakETag, _cancellationToken);
 
@@ -1639,18 +1500,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             IAnonymizerFactory factory = Substitute.For<IAnonymizerFactory>();
             factory.CreateAnonymizerAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns<Task<IAnonymizer>>(_ => Task.FromResult(anonymizer));
 
-            var exportJobTask = new ExportJobTask(
-                () => _fhirOperationDataStore.CreateMockScope(),
-                Options.Create(_exportJobConfiguration),
-                () => _searchService.CreateMockScope(),
-                _groupMemberExtractor,
-                _resourceToByteArraySerializer,
-                _inMemoryDestinationClient,
-                _resourceDeserializer,
-                factory.CreateMockScope(),
-                Substitute.For<IMediator>(),
-                Substitute.For<IFhirRequestContextAccessor>(),
-                NullLogger<ExportJobTask>.Instance);
+            var exportJobTask = CreateExportJobTask(anonymizerFactory: factory.CreateMockScope());
 
             await exportJobTask.ExecuteAsync(exportJobRecordWithOneResource, _weakETag, _cancellationToken);
 
@@ -2208,6 +2058,30 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 storageAccountContainerName: containerName,
                 anonymizationConfigurationLocation: anonymizationConfigurationLocation,
                 anonymizationConfigurationFileETag: anonymizationConfigurationFileEtag);
+        }
+
+        private ExportJobTask CreateExportJobTask(
+            ExportJobConfiguration exportJobConfiguration = null,
+            IExportDestinationClient exportDestinationClient = null,
+            IScoped<IAnonymizerFactory> anonymizerFactory = null)
+        {
+            _resourceToByteArraySerializer.Serialize(Arg.Any<ResourceElement>()).Returns(x => Encoding.UTF8.GetBytes(x.ArgAt<ResourceElement>(0).Instance.Value.ToString()));
+            _resourceDeserializer.Deserialize(Arg.Any<ResourceWrapper>()).Returns(x => new ResourceElement(ElementNode.FromElement(ElementNode.ForPrimitive(x.ArgAt<ResourceWrapper>(0).ResourceId))));
+
+            _contextAccessor = Substitute.For<IFhirRequestContextAccessor>();
+
+            return new ExportJobTask(
+                () => _fhirOperationDataStore.CreateMockScope(),
+                Options.Create(exportJobConfiguration == null ? _exportJobConfiguration : exportJobConfiguration),
+                () => _searchService.CreateMockScope(),
+                _groupMemberExtractor,
+                _resourceToByteArraySerializer,
+                exportDestinationClient == null ? _inMemoryDestinationClient : exportDestinationClient,
+                _resourceDeserializer,
+                anonymizerFactory,
+                Substitute.For<IMediator>(),
+                _contextAccessor,
+                NullLogger<ExportJobTask>.Instance);
         }
 
         private SearchResult CreateSearchResult(IEnumerable<SearchResultEntry> resourceWrappers = null, string continuationToken = null)
