@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using FluentValidation;
 using FluentValidation.Internal;
@@ -63,7 +64,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.FhirPrimitive
             var validator = new IdValidator();
 
             var result = validator.Validate(
-                new PropertyValidatorContext(new ValidationContext(defaultObservation), PropertyRule.Create<ResourceElement, string>(x => x.Id), "Id"));
+                new PropertyValidatorContext(
+                    new ValidationContext<ResourceElement>(defaultObservation),
+                    PropertyRule.Create<ResourceElement, string>(x => x.Id),
+                    "Id",
+                    defaultObservation.Id));
 
             return result;
         }
