@@ -3,6 +3,7 @@
   <PropertyGroup>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <WarningsAsErrors />
+    <AnalysisMode>AllEnabledByDefault</AnalysisMode>
     <!-- allow pre-release dependencies -->
     <NoWarn>$(NoWarn);NU5104</NoWarn>
     <DebugType>Portable</DebugType>
@@ -45,13 +46,6 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0" />
     <PackageReference Include="StyleCop.Analyzers" Version="1.1.118" />
+    <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="5.0.1" />
   </ItemGroup>
-
-  <Choose>
-    <When Condition="$(MSBuildProjectName)!='SmartLauncher' AND !$(MSBuildProjectName.Contains('Test'))">
-      <ItemGroup>
-        <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="3.3.2" />
-      </ItemGroup>
-    </When>
-  </Choose>
 </Project>
