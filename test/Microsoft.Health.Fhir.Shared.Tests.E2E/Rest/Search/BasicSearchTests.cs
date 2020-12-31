@@ -243,6 +243,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
+        [Trait(Traits.Priority, Priority.One)]
         public async Task GivenVariousTypesOfResources_WhenSearchingAcrossAllResourceTypesUsingCommonSearchParameter_ThenOnlyResourcesMatchingTypeAndCommonSearchParameterShouldBeReturned()
         {
             // Create various resources.

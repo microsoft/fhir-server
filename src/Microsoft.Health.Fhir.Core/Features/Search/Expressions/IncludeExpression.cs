@@ -31,7 +31,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <param name="iterate"> If :iterate (:recurse) modifer was applied.</param>
         public IncludeExpression(string[] resourceTypes, SearchParameterInfo referenceSearchParameter, string sourceResourceType, string targetResourceType, IEnumerable<string> referencedTypes, bool wildCard, bool reversed, bool iterate)
         {
-            EnsureArg.IsNotNull(resourceTypes, nameof(resourceTypes));
+            EnsureArg.HasItems(resourceTypes, nameof(resourceTypes));
 
             if (!wildCard)
             {
