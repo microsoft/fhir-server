@@ -20,6 +20,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
         private string _searchParameterName;
         private SearchModifierCode? _modifier;
+        private string _targetTypeModifier;
         private SearchComparator _comparator;
         private int? _componentIndex;
 
@@ -28,6 +29,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         public Expression Build(
             string searchParameterName,
             SearchModifierCode? modifier,
+            string targetTypeModifier,
             SearchComparator comparator,
             int? componentIndex,
             ISearchValue searchValue)
@@ -37,12 +39,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 modifier == null || Enum.IsDefined(typeof(SearchModifierCode), modifier.Value),
                 "Invalid modifier.");
             Debug.Assert(
+                (modifier != SearchModifierCode.Type && targetTypeModifier == null) ||
+                (modifier == SearchModifierCode.Type && !string.IsNullOrWhiteSpace(targetTypeModifier)),
+                "Target type needs to be specified for Type modifier.");
+            Debug.Assert(
                 Enum.IsDefined(typeof(SearchComparator), comparator),
                 "Invalid comparator.");
             EnsureArg.IsNotNull(searchValue, nameof(searchValue));
 
             _searchParameterName = searchParameterName;
             _modifier = modifier;
+            _targetTypeModifier = targetTypeModifier;
             _comparator = comparator;
             _componentIndex = componentIndex;
 
@@ -172,7 +179,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         {
             EnsureArg.IsNotNull(reference, nameof(reference));
 
-            if (_modifier != null)
+            if (_modifier != null && _modifier != SearchModifierCode.Type)
             {
                 ThrowModifierNotSupported();
             }

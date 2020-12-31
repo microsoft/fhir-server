@@ -271,7 +271,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             {
                 parsedModifier = ParseSearchParamModifier();
 
-                if (parsedModifier == null)
+                if (parsedModifier == SearchModifierCode.Type)
                 {
                     targetTypeModifier = modifier;
                 }
@@ -289,7 +289,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 // Modifier on a Reference Search Parameter can be used to restrict target type
                 if (searchParameter.Type == SearchParamType.Reference && searchParameter.TargetResourceTypes.Contains(modifier, StringComparer.OrdinalIgnoreCase))
                 {
-                    return null;
+                    return SearchModifierCode.Type;
                 }
 
                 throw new InvalidSearchOperationException(

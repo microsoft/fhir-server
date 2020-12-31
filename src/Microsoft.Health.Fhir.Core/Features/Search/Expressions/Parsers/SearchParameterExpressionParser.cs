@@ -192,6 +192,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 return helper.Build(
                     searchParameter.Name,
                     modifier,
+                    targetTypeModifier,
                     comparator,
                     componentIndex,
                     searchValue);
@@ -212,6 +213,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                     return helper.Build(
                         searchParameter.Name,
                         modifier,
+                        targetTypeModifier,
                         comparator,
                         componentIndex,
                         searchValue);
