@@ -511,4 +511,8 @@
     <value>The _type parameter must be included when using the _typeFilter parameter.</value>
     <comment>Export job parameter exception messsage</comment>
   </data>
+  <data name="SearchParameterMustBeCommon" xml:space="preserve">
+    <value>Search parameter '{0}' is not common for '{1}' and '{2}'.</value>
+    <comment>{0}: the invalid search parameter. {1}: first resource type. {2} other resource type.</comment>
+  </data>
 </root>

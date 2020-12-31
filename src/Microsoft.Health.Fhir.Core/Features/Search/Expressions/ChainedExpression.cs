@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Linq;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -16,26 +17,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <summary>
         /// Initializes a new instance of the <see cref="ChainedExpression"/> class.
         /// </summary>
-        /// <param name="resourceType">The resource type that supports this search expression.</param>
+        /// <param name="resourceTypes">The resource type that supports this search expression.</param>
         /// <param name="referenceSearchParameter">The search parameter that establishes the reference</param>
-        /// <param name="targetResourceType">The target resource type.</param>
+        /// <param name="targetResourceTypes">The target resource type.</param>
         /// <param name="reversed">If this is a reversed chained expression.</param>
         /// <param name="expression">The search expression.</param>
         public ChainedExpression(
-            string resourceType,
+            string[] resourceTypes,
             SearchParameterInfo referenceSearchParameter,
-            string targetResourceType,
+            string[] targetResourceTypes,
             bool reversed,
             Expression expression)
         {
-            EnsureArg.IsTrue(ModelInfoProvider.IsKnownResource(resourceType), nameof(resourceType));
+            EnsureArg.IsNotNull(resourceTypes, nameof(resourceTypes));
+            EnsureArg.IsTrue(resourceTypes.All(x => ModelInfoProvider.IsKnownResource(x)), nameof(resourceTypes));
             EnsureArg.IsNotNull(referenceSearchParameter, nameof(referenceSearchParameter));
-            EnsureArg.IsTrue(ModelInfoProvider.IsKnownResource(targetResourceType), nameof(targetResourceType));
+            EnsureArg.IsNotNull(targetResourceTypes, nameof(targetResourceTypes));
+            EnsureArg.IsTrue(targetResourceTypes.All(x => ModelInfoProvider.IsKnownResource(x)), nameof(targetResourceTypes));
             EnsureArg.IsNotNull(expression, nameof(expression));
 
-            ResourceType = resourceType;
+            ResourceTypes = resourceTypes;
             ReferenceSearchParameter = referenceSearchParameter;
-            TargetResourceType = targetResourceType;
+            TargetResourceTypes = targetResourceTypes;
             Reversed = reversed;
             Expression = expression;
         }
@@ -43,7 +46,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <summary>
         /// Gets the resource type which is being searched.
         /// </summary>
-        public string ResourceType { get; }
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1819:Properties should not return arrays", Justification = "Array property")]
+        public string[] ResourceTypes { get; }
 
         /// <summary>
         /// Gets the parameter name.
@@ -53,7 +57,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <summary>
         /// Gets the target resource type.
         /// </summary>
-        public string TargetResourceType { get; }
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1819:Properties should not return arrays", Justification = "Array property")]
+        public string[] TargetResourceTypes { get; }
 
         /// <summary>
         /// Get if the expression is reversed.
@@ -74,7 +79,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
         public override string ToString()
         {
-            return $"({(Reversed ? "Reverse " : string.Empty)}Chain {ReferenceSearchParameter.Name}:{TargetResourceType} {Expression})";
+            return $"({(Reversed ? "Reverse " : string.Empty)}Chain {ReferenceSearchParameter.Name}:{string.Join(", ", TargetResourceTypes)} {Expression})";
         }
     }
 }
