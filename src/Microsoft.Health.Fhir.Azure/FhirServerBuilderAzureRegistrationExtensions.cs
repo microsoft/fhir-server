@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
-using Microsoft.Azure.ContainerRegistry;
 using Microsoft.Azure.Storage.Blob;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,6 +15,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 using Microsoft.Health.Fhir.Core.Registration;
+using Microsoft.Health.Fhir.TemplateManagement.Client;
 
 namespace Microsoft.Health.Fhir.Azure
 {
@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.Azure
             {
                 fhirServerBuilder.Services.Add<AzureContainerRegistryClientInitializer>()
                     .Transient()
-                    .AsService<IExportClientInitializer<AzureContainerRegistryClient>>();
+                    .AsService<IExportClientInitializer<ACRClient>>();
             }
 
             return fhirServerBuilder;

@@ -9,7 +9,6 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Microsoft.Azure.ContainerRegistry;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -17,11 +16,10 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 using Microsoft.Health.Fhir.TemplateManagement.Client;
-using Microsoft.Health.Fhir.TemplateManagement.Models;
 
 namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
 {
-    public class AzureContainerRegistryClientInitializer : IExportClientInitializer<AzureContainerRegistryClient>, IDisposable
+    public class AzureContainerRegistryClientInitializer : IExportClientInitializer<ACRClient>, IDisposable
     {
         private bool _disposed = false;
         private readonly IContainerRegistryTokenProvider _containerRegistryTokenProvider;
@@ -43,16 +41,16 @@ namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
 
             _cache = new MemoryCache(new MemoryCacheOptions
             {
-                SizeLimit = _exportJobConfiguration.CacheSizeLimit,
+                SizeLimit = _exportJobConfiguration.MaximumConfigSize,
             });
         }
 
-        public Task<AzureContainerRegistryClient> GetAuthorizedClientAsync(CancellationToken cancellationToken)
+        public Task<ACRClient> GetAuthorizedClientAsync(CancellationToken cancellationToken)
         {
             return GetAuthorizedClientAsync(_exportJobConfiguration, cancellationToken);
         }
 
-        public Task<AzureContainerRegistryClient> GetAuthorizedClientAsync(ExportJobConfiguration exportJobConfiguration, CancellationToken cancellationToken)
+        public Task<ACRClient> GetAuthorizedClientAsync(ExportJobConfiguration exportJobConfiguration, CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(exportJobConfiguration.AcrServer))
             {
@@ -72,12 +70,12 @@ namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
 
             accessToken = _cache.GetOrCreateAsync(GetCacheKey(exportJobConfiguration.AcrServer), TokenEntryFactory).Result;
 
-            AzureContainerRegistryClient acrClient = null;
+            ACRClient acrClient = null;
             try
             {
                 // string token = "Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes($"{registryUsername}:{registryPassword}"));
 
-                acrClient = new AzureContainerRegistryClient(exportJobConfiguration.AcrServer, new ACRClientCredentials(accessToken));
+                acrClient = new ACRClient(exportJobConfiguration.AcrServer, accessToken);
             }
             catch (Exception ex)
             {

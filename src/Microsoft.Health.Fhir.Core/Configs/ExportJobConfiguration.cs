@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
 
         public string AcrServer { get; set; } = string.Empty;
 
-        public int CacheSizeLimit { get; set; } = 100000000;
+        public int MaximumConfigSize { get; set; } = 100000000;
 
         public ushort MaximumNumberOfConcurrentJobsAllowed { get; set; } = 1;
 

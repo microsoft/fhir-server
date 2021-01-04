@@ -7,14 +7,15 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
-using Microsoft.Azure.ContainerRegistry;
 using Microsoft.Azure.ContainerRegistry.Models;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
+using Microsoft.Health.Fhir.TemplateManagement.ArtifactProviders;
+using Microsoft.Health.Fhir.TemplateManagement.Client;
+using Microsoft.Health.Fhir.TemplateManagement.Exceptions;
 using Microsoft.Health.Fhir.TemplateManagement.Models;
-using Microsoft.Health.Fhir.TemplateManagement.Utilities;
 
 namespace Microsoft.Health.Fhir.Azure
 {
@@ -22,13 +23,14 @@ namespace Microsoft.Health.Fhir.Azure
     public class ExportDestinationArtifactAcrProvider : IArtifactProvider
 #pragma warning restore CA1001 // Types that own disposable fields should be disposable
     {
-        private IExportClientInitializer<AzureContainerRegistryClient> _exportClientInitializer;
+        private IExportClientInitializer<ACRClient> _exportClientInitializer;
         private ExportJobConfiguration _exportJobConfiguration;
-        private AzureContainerRegistryClient _client;
+        private ACRClient _client;
         private ImageInfo _imageInfo;
+        private OCIArtifactProvider _artifactProvider;
 
         public ExportDestinationArtifactAcrProvider(
-            IExportClientInitializer<AzureContainerRegistryClient> exportClientInitializer,
+            IExportClientInitializer<ACRClient> exportClientInitializer,
             IOptions<ExportJobConfiguration> exportJobConfiguration)
         {
             EnsureArg.IsNotNull(exportClientInitializer, nameof(exportClientInitializer));
@@ -38,15 +40,15 @@ namespace Microsoft.Health.Fhir.Azure
             _exportJobConfiguration = exportJobConfiguration.Value;
         }
 
-        public async Task FetchAsync(string blobNameWithETag, Stream targetStream, CancellationToken cancellationToken)
+        public async Task FetchAsync(string blobName, Stream targetStream, CancellationToken cancellationToken)
         {
-            string[] registryInfo = _exportJobConfiguration.AcrServer.Split(":");
-            string registryServer = registryInfo[0];
-
-            string imageReference = string.Format("{0}/{1}:{2}", registryServer, "acrtest", "onelayer");
+            string registryServer = _exportJobConfiguration.AcrServer;
+            string repository = "anonymization";
+            string imageReference = string.Format("{0}/{1}:{2}", registryServer, repository, blobName);
             _imageInfo = ImageInfo.CreateFromImageReference(imageReference);
 
             await ConnectAsync(cancellationToken);
+            _artifactProvider = new OCIArtifactProvider(_imageInfo, _client);
 
             // Pull
             Stream rawStream = await Pull(cancellationToken);
@@ -56,43 +58,24 @@ namespace Microsoft.Health.Fhir.Azure
         private async Task<Stream> Pull(CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var manifest = await GetManifestAsync(_imageInfo, cancellationToken);
+            var artifactLayers = await _artifactProvider.GetOCIArtifactAsync(cancellationToken);
 
             // Should be only 1 layer refer to the Anonymization config file
-            var layer = manifest.Layers[0];
-            cancellationToken.ThrowIfCancellationRequested();
-            Stream rawStream = await _client.Blob.GetAsync(_imageInfo.ImageName, layer.Digest, cancellationToken);
-
-            // Validate according to layer digest
-            /*
-                using var streamReader = new MemoryStream();
-                rawStream.CopyTo(streamReader);
-                var rawBytes = streamReader.ToArray();
-                ValidationUtility.ValidateOneBlob(rawBytes, layerDigest);
-
-                OCIArtifactLayer artifactsLayer = new OCIArtifactLayer()
-                {
-                    Content = rawBytes,
-                    Digest = layerDigest,
-                    Size = rawBytes.Length,
-                };
-
-                StreamReader reader = new StreamReader(new MemoryStream(artifactsLayer.Content));
-                string result = await reader.ReadToEndAsync();
-            */
-
-            return rawStream;
+            Stream configContent = new MemoryStream(artifactLayers[0].Content);
+            return configContent;
         }
 
-        public virtual async Task<ManifestWrapper> GetManifestAsync(ImageInfo imageInfo, CancellationToken cancellationToken = default)
+        private async Task<ManifestWrapper> GetManifestAsync(CancellationToken cancellationToken = default)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            string mediatypeV2Manifest = "application/vnd.docker.distribution.manifest.v2+json";
-
-            var manifestInfo = await _client.Manifests.GetAsync(imageInfo.ImageName, imageInfo.Label, mediatypeV2Manifest, cancellationToken);
-
-            ValidationUtility.ValidateManifest(manifestInfo);
+            var manifestInfo = await _artifactProvider.GetManifestAsync(cancellationToken);
+            ValidateImageSize(manifestInfo, _exportJobConfiguration.MaximumConfigSize);
             return manifestInfo;
+        }
+
+        private async Task<OCIArtifactLayer> GetLayerAsync(string layerDigest, CancellationToken cancellationToken = default)
+        {
+            var artifactsLayer = await _artifactProvider.GetLayerAsync(layerDigest, cancellationToken);
+            return artifactsLayer;
         }
 
         private async Task ConnectAsync(CancellationToken cancellationToken)
@@ -100,6 +83,20 @@ namespace Microsoft.Health.Fhir.Azure
             if (_client == null)
             {
                 _client = await _exportClientInitializer.GetAuthorizedClientAsync(_exportJobConfiguration, cancellationToken);
+            }
+        }
+
+        private static void ValidateImageSize(ManifestWrapper manifestInfo, int configSizeLimitMegabytes)
+        {
+            long imageSize = 0;
+            foreach (var oneLayer in manifestInfo.Layers)
+            {
+                imageSize += (long)oneLayer.Size;
+            }
+
+            if (imageSize / 1024f / 1024f > configSizeLimitMegabytes)
+            {
+                throw new ImageTooLargeException(TemplateManagementErrorCode.ImageSizeTooLarge, $"Image size is larger than the size limitation: {configSizeLimitMegabytes} Megabytes");
             }
         }
     }
