@@ -11,7 +11,6 @@ using System.Net;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
@@ -21,7 +20,6 @@ using Microsoft.Azure.Storage;
 using Microsoft.Azure.Storage.Auth;
 using Microsoft.Azure.Storage.Blob;
 using Microsoft.Extensions.Options;
-using Microsoft.Health.Fhir.Azure;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
@@ -124,24 +122,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             }
 
             Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
-        }
-
-        [Fact]
-        public async Task Mytest()
-        {
-            var acrProvider = new ExportDestinationArtifactAcrProvider();
-
-            var cancellationToken = new CancellationToken(false);
-            using (Stream stream = new MemoryStream())
-            {
-                await acrProvider.FetchAsync(string.Empty, stream, cancellationToken);
-                stream.Position = 0;
-                using (StreamReader reader = new StreamReader(stream))
-                {
-                    string configurationContent = await reader.ReadToEndAsync();
-                    Console.WriteLine("Wanquan");
-                }
-            }
         }
 
         [Fact]
