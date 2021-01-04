@@ -8,9 +8,14 @@ using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using EnsureThat;
 using Microsoft.Azure.ContainerRegistry;
 using Microsoft.Azure.ContainerRegistry.Models;
+using Microsoft.Azure.Storage.Blob;
+using Microsoft.Extensions.Options;
+using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations;
+using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 using Microsoft.Health.Fhir.TemplateManagement.Client;
 using Microsoft.Health.Fhir.TemplateManagement.Models;
 using Microsoft.Health.Fhir.TemplateManagement.Utilities;
@@ -21,24 +26,31 @@ namespace Microsoft.Health.Fhir.Azure
     public class ExportDestinationArtifactAcrProvider : IArtifactProvider
 #pragma warning restore CA1001 // Types that own disposable fields should be disposable
     {
-        private IAzureContainerRegistryClient _client;
+        private IExportClientInitializer<AzureContainerRegistryClient> _exportClientInitializer;
+        private ExportJobConfiguration _exportJobConfiguration;
+        private AzureContainerRegistryClient _client;
         private ImageInfo _imageInfo;
 
-        public ExportDestinationArtifactAcrProvider()
+        public ExportDestinationArtifactAcrProvider(
+            IExportClientInitializer<AzureContainerRegistryClient> exportClientInitializer,
+            IOptions<ExportJobConfiguration> exportJobConfiguration)
         {
+            EnsureArg.IsNotNull(exportClientInitializer, nameof(exportClientInitializer));
+            EnsureArg.IsNotNull(exportJobConfiguration?.Value, nameof(exportJobConfiguration));
+
+            _exportClientInitializer = exportClientInitializer;
+            _exportJobConfiguration = exportJobConfiguration.Value;
         }
 
         public async Task FetchAsync(string blobNameWithETag, Stream targetStream, CancellationToken cancellationToken)
         {
-            string registryServer = Environment.GetEnvironmentVariable("TestContainerRegistryServer");
-            string registryPassword = Environment.GetEnvironmentVariable("TestContainerRegistryPassword");
-            string registryUsername = registryServer.Split('.')[0];
+            string[] registryInfo = _exportJobConfiguration.AcrServer.Split(":");
+            string registryServer = registryInfo[0];
 
             string imageReference = string.Format("{0}/{1}:{2}", registryServer, "acrtest", "onelayer");
             _imageInfo = ImageInfo.CreateFromImageReference(imageReference);
-            string token = "Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes($"{registryUsername}:{registryPassword}"));
 
-            _client = new AzureContainerRegistryClient(_imageInfo.Registry, new ACRClientCredentials(token));
+            await ConnectAsync(cancellationToken);
 
             // Pull
             Stream rawStream = await Pull(cancellationToken);
@@ -85,6 +97,14 @@ namespace Microsoft.Health.Fhir.Azure
 
             ValidationUtility.ValidateManifest(manifestInfo);
             return manifestInfo;
+        }
+
+        private async Task ConnectAsync(CancellationToken cancellationToken)
+        {
+            if (_client == null)
+            {
+                _client = await _exportClientInitializer.GetAuthorizedClientAsync(_exportJobConfiguration, cancellationToken);
+            }
         }
     }
 }

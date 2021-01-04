@@ -35,7 +35,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 try
                 {
-                    await _artifactProviderResolver("acr").FetchAsync(configurationLocation, stream, cancellationToken);
+                    string[] configLocation = configurationLocation.Split(':');
+                    string type = configLocation[0];
+                    await _artifactProviderResolver(type).FetchAsync(configLocation[1], stream, cancellationToken);
                     stream.Position = 0;
                 }
                 catch (FileNotFoundException ex)

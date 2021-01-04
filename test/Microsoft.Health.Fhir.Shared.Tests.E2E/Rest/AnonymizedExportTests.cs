@@ -355,7 +355,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             string tag = null)
         {
             tag = tag ?? $"{Guid.NewGuid()}.json";
-
             string registryUsername = registryServer.Split('.')[0];
             string repository = "anonymization";
             string imageReference = string.Format("{0}/{1}:{2}", registryServer, "acrtest", "onelayer");

@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
+using Microsoft.Azure.ContainerRegistry;
 using Microsoft.Azure.Storage.Blob;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -72,6 +73,13 @@ namespace Microsoft.Health.Fhir.Azure
                 fhirServerBuilder.Services.Add<AzureConnectionStringClientInitializer>()
                     .Transient()
                     .AsService<IExportClientInitializer<CloudBlobClient>>();
+            }
+
+            if (!string.IsNullOrWhiteSpace(exportJobConfiguration.AcrServer))
+            {
+                fhirServerBuilder.Services.Add<AzureContainerRegistryClientInitializer>()
+                    .Transient()
+                    .AsService<IExportClientInitializer<AzureContainerRegistryClient>>();
             }
 
             return fhirServerBuilder;
