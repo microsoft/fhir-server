@@ -214,7 +214,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
 
             Expression expression = Substitute.For<Expression>();
 
-            _searchParameterExpressionParser.Parse(searchParameter, SearchModifierCode.Missing, null, value).Returns(expression);
+            _searchParameterExpressionParser.Parse(searchParameter, new SearchModifier(SearchModifierCode.Missing), value).Returns(expression);
 
             // Parse the expression.
             Expression actualExpression = _expressionParser.Parse(resourceType.ToString(), key, value);
@@ -329,7 +329,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
         {
             Expression expectedExpression = Substitute.For<Expression>();
 
-            _searchParameterExpressionParser.Parse(searchParameter, null, null, value).Returns(expectedExpression);
+            _searchParameterExpressionParser.Parse(searchParameter, null, value).Returns(expectedExpression);
 
             return expectedExpression;
         }
