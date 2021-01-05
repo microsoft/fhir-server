@@ -27,7 +27,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             Assert.Collection(
                 visitedExpression.TableExpressions,
                 e => { Assert.Equal(TableExpressionKind.All, e.Kind); },
-                e => { Assert.NotNull(e.NormalizedPredicate as MissingSearchParameterExpression); });
+                e => { Assert.NotNull(e.Predicate as MissingSearchParameterExpression); });
             Assert.Equal(tableExpressions.Count + 1, visitedExpression.TableExpressions.Count);
         }
 

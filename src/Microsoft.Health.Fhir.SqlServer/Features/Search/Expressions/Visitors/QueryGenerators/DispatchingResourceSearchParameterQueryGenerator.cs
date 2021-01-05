@@ -9,9 +9,9 @@ using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
 {
-    internal class DispatchingDenormalizedSearchParameterQueryGenerator : SearchParameterQueryGenerator
+    internal class DispatchingResourceSearchParameterQueryGenerator : SearchParameterQueryGenerator
     {
-        public static readonly DispatchingDenormalizedSearchParameterQueryGenerator Instance = new DispatchingDenormalizedSearchParameterQueryGenerator();
+        public static readonly DispatchingResourceSearchParameterQueryGenerator Instance = new DispatchingResourceSearchParameterQueryGenerator();
 
         public override SearchParameterQueryGeneratorContext VisitSearchParameter(SearchParameterExpression expression, SearchParameterQueryGeneratorContext context)
         {

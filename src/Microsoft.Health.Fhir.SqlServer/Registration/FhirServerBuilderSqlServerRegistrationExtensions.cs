@@ -70,7 +70,7 @@ namespace Microsoft.Extensions.DependencyInjection
 
             AddSqlServerTableRowParameterGenerators(services);
 
-            services.Add<NormalizedSearchParameterQueryGeneratorFactory>()
+            services.Add<TableExpressionQueryGeneratorFactory>()
                 .Singleton()
                 .AsSelf();
 

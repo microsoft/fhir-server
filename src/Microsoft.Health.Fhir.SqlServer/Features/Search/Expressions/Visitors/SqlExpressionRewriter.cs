@@ -12,28 +12,28 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     {
         public virtual Expression VisitSqlRoot(SqlRootExpression expression, TContext context)
         {
-            IReadOnlyList<SearchParameterExpressionBase> denormalizedPredicates = VisitArray(expression.ResourceExpressions, context);
-            IReadOnlyList<TableExpression> normalizedPredicates = VisitArray(expression.TableExpressions, context);
+            IReadOnlyList<SearchParameterExpressionBase> visitedResourceExpressions = VisitArray(expression.ResourceExpressions, context);
+            IReadOnlyList<TableExpression> visitedTableExpressions = VisitArray(expression.TableExpressions, context);
 
-            if (ReferenceEquals(normalizedPredicates, expression.TableExpressions) &&
-                ReferenceEquals(denormalizedPredicates, expression.ResourceExpressions))
+            if (ReferenceEquals(visitedTableExpressions, expression.TableExpressions) &&
+                ReferenceEquals(visitedResourceExpressions, expression.ResourceExpressions))
             {
                 return expression;
             }
 
-            return new SqlRootExpression(normalizedPredicates, denormalizedPredicates);
+            return new SqlRootExpression(visitedTableExpressions, visitedResourceExpressions);
         }
 
         public virtual Expression VisitTable(TableExpression tableExpression, TContext context)
         {
-            Expression normalizedPredicate = tableExpression.NormalizedPredicate?.AcceptVisitor(this, context);
+            Expression rewrittenPredicate = tableExpression.Predicate?.AcceptVisitor(this, context);
 
-            if (ReferenceEquals(normalizedPredicate, tableExpression.NormalizedPredicate))
+            if (ReferenceEquals(rewrittenPredicate, tableExpression.Predicate))
             {
                 return tableExpression;
             }
 
-            return new TableExpression(tableExpression.SearchParameterQueryGenerator, normalizedPredicate, tableExpression.Kind);
+            return new TableExpression(tableExpression.QueryGenerator, rewrittenPredicate, tableExpression.Kind);
         }
 
         public virtual Expression VisitSqlChainLink(SqlChainLinkExpression sqlChainLinkExpression, TContext context)

@@ -13,9 +13,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     /// <summary>
     /// Reorders table expressions by expected selectivity. Most selective are moved to the front.
     /// </summary>
-    internal class NormalizedPredicateReorderer : SqlExpressionRewriterWithInitialContext<object>
+    internal class TableExpressionReorderer : SqlExpressionRewriterWithInitialContext<object>
     {
-        public static readonly NormalizedPredicateReorderer Instance = new NormalizedPredicateReorderer();
+        public static readonly TableExpressionReorderer Instance = new TableExpressionReorderer();
 
         public override Expression VisitSqlRoot(SqlRootExpression expression, object context)
         {
@@ -31,16 +31,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                     return 20;
                 }
 
-                if (t.NormalizedPredicate is MissingSearchParameterExpression)
+                if (t.Predicate is MissingSearchParameterExpression)
                 {
                     return -10;
                 }
 
-                switch (t.SearchParameterQueryGenerator)
+                switch (t.QueryGenerator)
                 {
-                    case ReferenceSearchParameterQueryGenerator _:
+                    case ReferenceQueryGenerator _:
                         return 10;
-                    case CompartmentSearchParameterQueryGenerator _:
+                    case CompartmentQueryGenerator _:
                         return 10;
                     case IncludeQueryGenerator _:
                         return -20;

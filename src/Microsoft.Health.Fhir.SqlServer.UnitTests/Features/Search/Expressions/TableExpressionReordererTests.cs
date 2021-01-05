@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Hl7.FhirPath.Sprache;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
@@ -16,7 +15,7 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 {
-    public class NormalizedPredicateReordererTests
+    public class TableExpressionReordererTests
     {
         private static readonly Expression NormalExpression = new SearchParameterExpression(new SearchParameterInfo("TestParam"), Expression.Equals(FieldName.TokenCode, null, "TestValue"));
 
@@ -25,7 +24,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         {
             var inputExpression = SqlRootExpression.WithTableExpressions(
                 new TableExpression(null, null, TableExpressionKind.Normal));
-            var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(NormalizedPredicateReorderer.Instance);
+            var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(TableExpressionReorderer.Instance);
             Assert.Equal(inputExpression, visitedExpression);
         }
 
@@ -34,12 +33,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         {
             var tableExpressions = new List<TableExpression>
             {
-                new TableExpression(new ReferenceSearchParameterQueryGenerator(), NormalExpression, TableExpressionKind.Normal),
+                new TableExpression(new ReferenceQueryGenerator(), NormalExpression, TableExpressionKind.Normal),
                 new TableExpression(null, null, TableExpressionKind.All),
             };
 
             var inputExpression = SqlRootExpression.WithTableExpressions(tableExpressions);
-            var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(NormalizedPredicateReorderer.Instance);
+            var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(TableExpressionReorderer.Instance);
             Assert.Collection(visitedExpression.TableExpressions, new[] { 1, 0 }.Select<int, Action<TableExpression>>(x => e => Assert.Equal(tableExpressions[x], e)).ToArray());
         }
 
@@ -49,11 +48,11 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             var tableExpressions = new List<TableExpression>
             {
                 new TableExpression(null, NormalExpression, TableExpressionKind.Normal),
-                new TableExpression(new ReferenceSearchParameterQueryGenerator(), NormalExpression, TableExpressionKind.Normal),
+                new TableExpression(new ReferenceQueryGenerator(), NormalExpression, TableExpressionKind.Normal),
             };
 
             var inputExpression = SqlRootExpression.WithTableExpressions(tableExpressions);
-            var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(NormalizedPredicateReorderer.Instance);
+            var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(TableExpressionReorderer.Instance);
             Assert.Collection(visitedExpression.TableExpressions, new[] { 1, 0 }.Select<int, Action<TableExpression>>(x => e => Assert.Equal(tableExpressions[x], e)).ToArray());
         }
 
@@ -63,11 +62,11 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             var tableExpressions = new List<TableExpression>
             {
                 new TableExpression(null, NormalExpression, TableExpressionKind.Normal),
-                new TableExpression(new CompartmentSearchParameterQueryGenerator(), NormalExpression, TableExpressionKind.Normal),
+                new TableExpression(new CompartmentQueryGenerator(), NormalExpression, TableExpressionKind.Normal),
             };
 
             var inputExpression = SqlRootExpression.WithTableExpressions(tableExpressions);
-            var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(NormalizedPredicateReorderer.Instance);
+            var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(TableExpressionReorderer.Instance);
             Assert.Collection(visitedExpression.TableExpressions, new[] { 1, 0 }.Select<int, Action<TableExpression>>(x => e => Assert.Equal(tableExpressions[x], e)).ToArray());
         }
 
@@ -81,7 +80,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             };
 
             var inputExpression = SqlRootExpression.WithTableExpressions(tableExpressions);
-            var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(NormalizedPredicateReorderer.Instance);
+            var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(TableExpressionReorderer.Instance);
             Assert.Collection(visitedExpression.TableExpressions, new[] { 1, 0 }.Select<int, Action<TableExpression>>(x => e => Assert.Equal(tableExpressions[x], e)).ToArray());
         }
 
@@ -95,7 +94,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             };
 
             var inputExpression = SqlRootExpression.WithTableExpressions(tableExpressions);
-            var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(NormalizedPredicateReorderer.Instance);
+            var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(TableExpressionReorderer.Instance);
             Assert.Collection(visitedExpression.TableExpressions, new[] { 1, 0 }.Select<int, Action<TableExpression>>(x => e => Assert.Equal(tableExpressions[x], e)).ToArray());
         }
     }

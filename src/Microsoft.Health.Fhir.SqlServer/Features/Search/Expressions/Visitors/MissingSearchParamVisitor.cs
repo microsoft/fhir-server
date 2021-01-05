@@ -29,7 +29,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 TableExpression tableExpression = expression.TableExpressions[i];
 
                 // process only normalized predicates. Ignore Sort as it has its own visitor.
-                if (tableExpression.Kind != TableExpressionKind.Sort && tableExpression.NormalizedPredicate?.AcceptVisitor(Scout.Instance, null) == true)
+                if (tableExpression.Kind != TableExpressionKind.Sort && tableExpression.Predicate?.AcceptVisitor(Scout.Instance, null) == true)
                 {
                     EnsureAllocatedAndPopulated(ref newTableExpressions, expression.TableExpressions, i);
 
@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                         // seed with all resources so that we have something to restrict
                         newTableExpressions.Add(
                             new TableExpression(
-                                tableExpression.SearchParameterQueryGenerator,
+                                tableExpression.QueryGenerator,
                                 null,
                                 TableExpressionKind.All));
                     }
@@ -62,11 +62,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public override Expression VisitTable(TableExpression tableExpression, object context)
         {
-            var normalizedPredicate = tableExpression.NormalizedPredicate.AcceptVisitor(this, context);
+            var predicate = tableExpression.Predicate.AcceptVisitor(this, context);
 
             return new TableExpression(
-                tableExpression.SearchParameterQueryGenerator,
-                normalizedPredicate,
+                tableExpression.QueryGenerator,
+                predicate,
                 TableExpressionKind.NotExists);
         }
 

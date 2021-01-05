@@ -7,7 +7,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
 {
-    internal abstract class DenormalizedSearchParameterQueryGenerator : SearchParameterQueryGenerator
+    internal abstract class ResourceTableSearchParameterQueryGenerator : SearchParameterQueryGenerator
     {
         public override SearchParameterQueryGeneratorContext VisitSearchParameter(SearchParameterExpression expression, SearchParameterQueryGeneratorContext context)
         {

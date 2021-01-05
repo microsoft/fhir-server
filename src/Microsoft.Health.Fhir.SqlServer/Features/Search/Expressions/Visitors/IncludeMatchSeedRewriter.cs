@@ -11,12 +11,12 @@ using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
     /// <summary>
-    /// Rewriter used to add an expression before the top clause if all of the table expressions are include expressions.
-    /// Any denormalized expressions are added to the AllExpression that will be evaluated before the top expression is executed.
+    /// Rewriter used to add an All TableExpression to serve as a seed for match results when the TableExpressions in a SqlRootExpression
+    /// consists solely of Include expressions.
     /// </summary>
-    internal class IncludeDenormalizedRewriter : SqlExpressionRewriterWithInitialContext<object>
+    internal class IncludeMatchSeedRewriter : SqlExpressionRewriterWithInitialContext<object>
     {
-        public static readonly IncludeDenormalizedRewriter Instance = new IncludeDenormalizedRewriter();
+        public static readonly IncludeMatchSeedRewriter Instance = new IncludeMatchSeedRewriter();
 
         public override Expression VisitSqlRoot(SqlRootExpression expression, object context)
         {
@@ -30,15 +30,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return expression;
             }
 
-            var newNormalizedPredicates = new List<TableExpression>(expression.TableExpressions.Count + 1);
+            var newTableExpressions = new List<TableExpression>(expression.TableExpressions.Count + 1);
 
             Expression resourceExpression = Expression.And(expression.ResourceExpressions);
             var allExpression = new TableExpression(null, resourceExpression, TableExpressionKind.All);
 
-            newNormalizedPredicates.Add(allExpression);
-            newNormalizedPredicates.AddRange(expression.TableExpressions);
+            newTableExpressions.Add(allExpression);
+            newTableExpressions.AddRange(expression.TableExpressions);
 
-            return new SqlRootExpression(newNormalizedPredicates, Array.Empty<SearchParameterExpression>());
+            return new SqlRootExpression(newTableExpressions, Array.Empty<SearchParameterExpression>());
         }
     }
 }

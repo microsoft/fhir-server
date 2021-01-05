@@ -8,7 +8,7 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
 {
-    internal class ResourceTypeIdParameterQueryGenerator : DenormalizedSearchParameterQueryGenerator
+    internal class ResourceTypeIdParameterQueryGenerator : ResourceTableSearchParameterQueryGenerator
     {
         public static readonly ResourceTypeIdParameterQueryGenerator Instance = new ResourceTypeIdParameterQueryGenerator();
 

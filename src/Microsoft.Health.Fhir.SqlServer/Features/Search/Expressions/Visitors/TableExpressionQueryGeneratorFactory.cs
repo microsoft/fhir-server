@@ -16,14 +16,14 @@ using Microsoft.Health.Fhir.ValueSets;
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
     /// <summary>
-    /// Returns the <see cref="NormalizedSearchParameterQueryGenerator"/> for an expression.
+    /// Returns the <see cref="TableExpressionQueryGenerator"/> for an expression.
     /// </summary>
-    internal class NormalizedSearchParameterQueryGeneratorFactory : IExpressionVisitorWithInitialContext<object, NormalizedSearchParameterQueryGenerator>
+    internal class TableExpressionQueryGeneratorFactory : IExpressionVisitorWithInitialContext<object, TableExpressionQueryGenerator>
     {
         private readonly SearchParameterToSearchValueTypeMap _searchParameterToSearchValueTypeMap;
-        private readonly ConcurrentDictionary<Uri, NormalizedSearchParameterQueryGenerator> _cache = new ConcurrentDictionary<Uri, NormalizedSearchParameterQueryGenerator>();
+        private readonly ConcurrentDictionary<Uri, TableExpressionQueryGenerator> _cache = new ConcurrentDictionary<Uri, TableExpressionQueryGenerator>();
 
-        public NormalizedSearchParameterQueryGeneratorFactory(SearchParameterToSearchValueTypeMap searchParameterToSearchValueTypeMap)
+        public TableExpressionQueryGeneratorFactory(SearchParameterToSearchValueTypeMap searchParameterToSearchValueTypeMap)
         {
             EnsureArg.IsNotNull(searchParameterToSearchValueTypeMap, nameof(searchParameterToSearchValueTypeMap));
             _searchParameterToSearchValueTypeMap = searchParameterToSearchValueTypeMap;
@@ -31,17 +31,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public object InitialContext => null;
 
-        public NormalizedSearchParameterQueryGenerator VisitSearchParameter(SearchParameterExpression expression, object context)
+        public TableExpressionQueryGenerator VisitSearchParameter(SearchParameterExpression expression, object context)
         {
             return VisitSearchParameterExpressionBase(expression.Parameter, expression.Expression, context);
         }
 
-        public NormalizedSearchParameterQueryGenerator VisitMissingSearchParameter(MissingSearchParameterExpression expression, object context)
+        public TableExpressionQueryGenerator VisitMissingSearchParameter(MissingSearchParameterExpression expression, object context)
         {
             return VisitSearchParameterExpressionBase(expression.Parameter, null, context);
         }
 
-        private NormalizedSearchParameterQueryGenerator VisitSearchParameterExpressionBase(SearchParameterInfo searchParameterInfo, Expression childExpression, object context)
+        private TableExpressionQueryGenerator VisitSearchParameterExpressionBase(SearchParameterInfo searchParameterInfo, Expression childExpression, object context)
         {
             if (searchParameterInfo.ColumnLocation().HasFlag(SearchParameterColumnLocation.ResourceTable))
             {
@@ -65,54 +65,54 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             return generator;
 
-            NormalizedSearchParameterQueryGenerator GetGenerator(SearchParameterInfo param)
+            TableExpressionQueryGenerator GetGenerator(SearchParameterInfo param)
             {
                 switch (param.Type)
                 {
                     case SearchParamType.Token:
-                        return TokenSearchParameterQueryGenerator.Instance;
+                        return TokenQueryGenerator.Instance;
                     case SearchParamType.Date:
-                        return DateTimeSearchParameterQueryGenerator.Instance;
+                        return DateTimeQueryGenerator.Instance;
                     case SearchParamType.Number:
-                        return NumberSearchParameterQueryGenerator.Instance;
+                        return NumberQueryGenerator.Instance;
                     case SearchParamType.Quantity:
-                        return QuantitySearchParameterQueryGenerator.Instance;
+                        return QuantityQueryGenerator.Instance;
                     case SearchParamType.Reference:
-                        return ReferenceSearchParameterQueryGenerator.Instance;
+                        return ReferenceQueryGenerator.Instance;
                     case SearchParamType.String:
-                        return StringSearchParameterQueryGenerator.Instance;
+                        return StringQueryGenerator.Instance;
                     case SearchParamType.Uri:
-                        return UriSearchParameterQueryGenerator.Instance;
+                        return UriQueryGenerator.Instance;
                     case SearchParamType.Composite:
                         Type searchValueType = _searchParameterToSearchValueTypeMap.GetSearchValueType(param);
                         if (searchValueType == typeof(ValueTuple<TokenSearchValue, QuantitySearchValue>))
                         {
-                            return TokenQuantityCompositeSearchParameterQueryGenerator.Instance;
+                            return TokenQuantityCompositeQueryGenerator.Instance;
                         }
 
                         if (searchValueType == typeof(ValueTuple<ReferenceSearchValue, TokenSearchValue>))
                         {
-                            return ReferenceTokenCompositeSearchParameterQueryGenerator.Instance;
+                            return ReferenceTokenCompositeQueryGenerator.Instance;
                         }
 
                         if (searchValueType == typeof(ValueTuple<TokenSearchValue, TokenSearchValue>))
                         {
-                            return TokenTokenCompositeSearchParameterQueryGenerator.Instance;
+                            return TokenTokenCompositeQueryGenerator.Instance;
                         }
 
                         if (searchValueType == typeof(ValueTuple<TokenSearchValue, DateTimeSearchValue>))
                         {
-                            return TokenDateTimeCompositeSearchParameterQueryGenerator.Instance;
+                            return TokenDateTimeCompositeQueryGenerator.Instance;
                         }
 
                         if (searchValueType == typeof(ValueTuple<TokenSearchValue, StringSearchValue>))
                         {
-                            return TokenStringCompositeSearchParameterQueryGenerator.Instance;
+                            return TokenStringCompositeQueryGenerator.Instance;
                         }
 
                         if (searchValueType == typeof(ValueTuple<TokenSearchValue, NumberSearchValue, NumberSearchValue>))
                         {
-                            return TokenNumberNumberSearchParameterQueryGenerator.Instance;
+                            return TokenNumberNumberQueryGenerator.Instance;
                         }
 
                         throw new InvalidOperationException($"Unexpected composite search parameter {param.Url}");
@@ -123,27 +123,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             }
         }
 
-        public NormalizedSearchParameterQueryGenerator GetNormalizedSearchParameterQueryGenerator(SearchParameterInfo searchParameterInfo)
+        public TableExpressionQueryGenerator GetTableExpressionQueryGenerator(SearchParameterInfo searchParameterInfo)
         {
             return VisitSearchParameterExpressionBase(searchParameterInfo, null, null);
         }
 
-        public NormalizedSearchParameterQueryGenerator VisitBinary(BinaryExpression expression, object context)
+        public TableExpressionQueryGenerator VisitBinary(BinaryExpression expression, object context)
         {
             throw new InvalidOperationException("Not expecting a BinaryExpression under a Token search param.");
         }
 
-        public NormalizedSearchParameterQueryGenerator VisitChained(ChainedExpression expression, object context)
+        public TableExpressionQueryGenerator VisitChained(ChainedExpression expression, object context)
         {
             return ChainAnchorQueryGenerator.Instance;
         }
 
-        public NormalizedSearchParameterQueryGenerator VisitMissingField(MissingFieldExpression expression, object context)
+        public TableExpressionQueryGenerator VisitMissingField(MissingFieldExpression expression, object context)
         {
-            return TokenSearchParameterQueryGenerator.Instance;
+            return TokenQueryGenerator.Instance;
         }
 
-        public NormalizedSearchParameterQueryGenerator VisitMultiary(MultiaryExpression expression, object context)
+        public TableExpressionQueryGenerator VisitMultiary(MultiaryExpression expression, object context)
         {
             foreach (var childExpression in expression.Expressions)
             {
@@ -157,29 +157,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return null;
         }
 
-        public NormalizedSearchParameterQueryGenerator VisitString(StringExpression expression, object context)
+        public TableExpressionQueryGenerator VisitString(StringExpression expression, object context)
         {
             if (expression.FieldName == FieldName.TokenText)
             {
-                return TokenTextSearchParameterQueryGenerator.Instance;
+                return TokenTextQueryGenerator.Instance;
             }
 
-            return TokenSearchParameterQueryGenerator.Instance;
+            return TokenQueryGenerator.Instance;
         }
 
-        public NormalizedSearchParameterQueryGenerator VisitCompartment(CompartmentSearchExpression expression, object context)
+        public TableExpressionQueryGenerator VisitCompartment(CompartmentSearchExpression expression, object context)
         {
-            return CompartmentSearchParameterQueryGenerator.Instance;
+            return CompartmentQueryGenerator.Instance;
         }
 
-        public NormalizedSearchParameterQueryGenerator VisitInclude(IncludeExpression expression, object context)
+        public TableExpressionQueryGenerator VisitInclude(IncludeExpression expression, object context)
         {
             return IncludeQueryGenerator.Instance;
         }
 
-        public NormalizedSearchParameterQueryGenerator VisitSortParameter(SortExpression expression, object context)
+        public TableExpressionQueryGenerator VisitSortParameter(SortExpression expression, object context)
         {
-            return GetNormalizedSearchParameterQueryGenerator(expression.Parameter);
+            return GetTableExpressionQueryGenerator(expression.Parameter);
         }
     }
 }

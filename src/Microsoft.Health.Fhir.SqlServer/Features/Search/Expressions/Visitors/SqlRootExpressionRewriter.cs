@@ -12,16 +12,16 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Query
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
     /// <summary>
-    /// Constructs a <see cref="SqlRootExpression"/> by partitioning predicates into normalized and denormalized predicates.
+    /// Constructs a <see cref="SqlRootExpression"/> by partitioning an expression into expressions over search parameter tables and expressions over the Resource table
     /// </summary>
     internal class SqlRootExpressionRewriter : ExpressionRewriterWithInitialContext<int>
     {
-        private readonly NormalizedSearchParameterQueryGeneratorFactory _normalizedSearchParameterQueryGeneratorFactory;
+        private readonly TableExpressionQueryGeneratorFactory _tableExpressionQueryGeneratorFactory;
 
-        public SqlRootExpressionRewriter(NormalizedSearchParameterQueryGeneratorFactory normalizedSearchParameterQueryGeneratorFactory)
+        public SqlRootExpressionRewriter(TableExpressionQueryGeneratorFactory tableExpressionQueryGeneratorFactory)
         {
-            EnsureArg.IsNotNull(normalizedSearchParameterQueryGeneratorFactory, nameof(normalizedSearchParameterQueryGeneratorFactory));
-            _normalizedSearchParameterQueryGeneratorFactory = normalizedSearchParameterQueryGeneratorFactory;
+            EnsureArg.IsNotNull(tableExpressionQueryGeneratorFactory, nameof(tableExpressionQueryGeneratorFactory));
+            _tableExpressionQueryGeneratorFactory = tableExpressionQueryGeneratorFactory;
         }
 
         public override Expression VisitMultiary(MultiaryExpression expression, int context)
@@ -31,43 +31,43 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 throw new InvalidOperationException("Or is not supported as a top-level expression");
             }
 
-            List<SearchParameterExpressionBase> denormalizedPredicates = null;
-            List<TableExpression> normalizedPredicates = null;
+            List<SearchParameterExpressionBase> resourceExpressions = null;
+            List<TableExpression> tableExpressions = null;
 
             for (var i = 0; i < expression.Expressions.Count; i++)
             {
                 Expression childExpression = expression.Expressions[i];
 
-                if (TryGetNormalizedGenerator(childExpression, out var normalizedGenerator, out var tableExpressionKind))
+                if (TryGetTableExpressionQueryGenerator(childExpression, out var tableExpressionGenerator, out var tableExpressionKind))
                 {
-                    EnsureAllocatedAndPopulatedChangeType(ref denormalizedPredicates, expression.Expressions, i);
-                    EnsureAllocatedAndPopulated(ref normalizedPredicates, Array.Empty<TableExpression>(), 0);
+                    EnsureAllocatedAndPopulatedChangeType(ref resourceExpressions, expression.Expressions, i);
+                    EnsureAllocatedAndPopulated(ref tableExpressions, Array.Empty<TableExpression>(), 0);
 
-                    normalizedPredicates.Add(new TableExpression(normalizedGenerator, childExpression, tableExpressionKind, tableExpressionKind == TableExpressionKind.Chain ? 1 : 0));
+                    tableExpressions.Add(new TableExpression(tableExpressionGenerator, childExpression, tableExpressionKind, tableExpressionKind == TableExpressionKind.Chain ? 1 : 0));
                 }
                 else
                 {
-                    denormalizedPredicates?.Add((SearchParameterExpressionBase)childExpression);
+                    resourceExpressions?.Add((SearchParameterExpressionBase)childExpression);
                 }
             }
 
-            if (normalizedPredicates == null)
+            if (tableExpressions == null)
             {
-                denormalizedPredicates = new List<SearchParameterExpressionBase>(expression.Expressions.Count);
+                resourceExpressions = new List<SearchParameterExpressionBase>(expression.Expressions.Count);
                 foreach (Expression resourceExpression in expression.Expressions)
                 {
-                    denormalizedPredicates.Add((SearchParameterExpressionBase)resourceExpression);
+                    resourceExpressions.Add((SearchParameterExpressionBase)resourceExpression);
                 }
 
-                return SqlRootExpression.WithResourceExpressions(denormalizedPredicates);
+                return SqlRootExpression.WithResourceExpressions(resourceExpressions);
             }
 
-            if (denormalizedPredicates == null)
+            if (resourceExpressions == null)
             {
-                return SqlRootExpression.WithTableExpressions(normalizedPredicates);
+                return SqlRootExpression.WithTableExpressions(tableExpressions);
             }
 
-            return new SqlRootExpression(normalizedPredicates, denormalizedPredicates);
+            return new SqlRootExpression(tableExpressions, resourceExpressions);
         }
 
         public override Expression VisitSearchParameter(SearchParameterExpression expression, int context) => ConvertNonMultiary(expression);
@@ -83,15 +83,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         private Expression ConvertNonMultiary(Expression expression)
         {
-            return TryGetNormalizedGenerator(expression, out var generator, out var kind)
-                ? SqlRootExpression.WithTableExpressions(new TableExpression(generator, normalizedPredicate: expression, kind, chainLevel: kind == TableExpressionKind.Chain ? 1 : 0))
+            return TryGetTableExpressionQueryGenerator(expression, out var generator, out var kind)
+                ? SqlRootExpression.WithTableExpressions(new TableExpression(generator, predicate: expression, kind, chainLevel: kind == TableExpressionKind.Chain ? 1 : 0))
                 : SqlRootExpression.WithResourceExpressions((SearchParameterExpressionBase)expression);
         }
 
-        private bool TryGetNormalizedGenerator(Expression expression, out NormalizedSearchParameterQueryGenerator normalizedGenerator, out TableExpressionKind kind)
+        private bool TryGetTableExpressionQueryGenerator(Expression expression, out TableExpressionQueryGenerator tableExpressionGenerator, out TableExpressionKind kind)
         {
-            normalizedGenerator = expression.AcceptVisitor(_normalizedSearchParameterQueryGeneratorFactory);
-            switch (normalizedGenerator)
+            tableExpressionGenerator = expression.AcceptVisitor(_tableExpressionQueryGeneratorFactory);
+            switch (tableExpressionGenerator)
             {
                 case ChainAnchorQueryGenerator _:
                     kind = TableExpressionKind.Chain;
@@ -104,7 +104,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                     break;
             }
 
-            return normalizedGenerator != null;
+            return tableExpressionGenerator != null;
         }
     }
 }

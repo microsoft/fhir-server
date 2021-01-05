@@ -17,12 +17,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     /// </summary>
     internal class ChainFlatteningRewriter : SqlExpressionRewriterWithInitialContext<(TableExpression containingTableExpression, int chainLevel)>
     {
-        private readonly NormalizedSearchParameterQueryGeneratorFactory _normalizedSearchParameterQueryGeneratorFactory;
+        private readonly TableExpressionQueryGeneratorFactory _tableExpressionQueryGeneratorFactory;
 
-        public ChainFlatteningRewriter(NormalizedSearchParameterQueryGeneratorFactory normalizedSearchParameterQueryGeneratorFactory)
+        public ChainFlatteningRewriter(TableExpressionQueryGeneratorFactory tableExpressionQueryGeneratorFactory)
         {
-            EnsureArg.IsNotNull(normalizedSearchParameterQueryGeneratorFactory, nameof(normalizedSearchParameterQueryGeneratorFactory));
-            _normalizedSearchParameterQueryGeneratorFactory = normalizedSearchParameterQueryGeneratorFactory;
+            EnsureArg.IsNotNull(tableExpressionQueryGeneratorFactory, nameof(tableExpressionQueryGeneratorFactory));
+            _tableExpressionQueryGeneratorFactory = tableExpressionQueryGeneratorFactory;
         }
 
         public override Expression VisitSqlRoot(SqlRootExpression expression, (TableExpression containingTableExpression, int chainLevel) context)
@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
                 EnsureAllocatedAndPopulated(ref newTableExpressions, expression.TableExpressions, i);
 
-                ProcessChainedExpression((ChainedExpression)tableExpression.NormalizedPredicate, newTableExpressions, 1);
+                ProcessChainedExpression((ChainedExpression)tableExpression.Predicate, newTableExpressions, 1);
             }
 
             if (newTableExpressions == null)
@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         private void ProcessChainedExpression(ChainedExpression chainedExpression, List<TableExpression> tableExpressions, int chainLevel)
         {
-            NormalizedSearchParameterQueryGenerator queryGenerator = chainedExpression.Expression.AcceptVisitor(_normalizedSearchParameterQueryGeneratorFactory, null);
+            TableExpressionQueryGenerator queryGenerator = chainedExpression.Expression.AcceptVisitor(_tableExpressionQueryGeneratorFactory, null);
 
             Expression expressionOnTarget = queryGenerator == null ? chainedExpression.Expression : null;
 

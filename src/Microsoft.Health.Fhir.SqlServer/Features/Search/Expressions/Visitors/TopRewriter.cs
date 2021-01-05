@@ -22,12 +22,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return expression;
             }
 
-            var newNormalizedPredicates = new List<TableExpression>(expression.TableExpressions.Count + 1);
-            newNormalizedPredicates.AddRange(expression.TableExpressions);
+            var newTableExpressions = new List<TableExpression>(expression.TableExpressions.Count + 1);
+            newTableExpressions.AddRange(expression.TableExpressions);
 
-            newNormalizedPredicates.Add(TopTableExpression);
+            newTableExpressions.Add(TopTableExpression);
 
-            return new SqlRootExpression(newNormalizedPredicates, expression.ResourceExpressions);
+            return new SqlRootExpression(newTableExpressions, expression.ResourceExpressions);
         }
     }
 }

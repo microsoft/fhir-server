@@ -35,10 +35,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             // Sort include expressions if there is an include iterate expression
             // Order so that include iterate expression appear after the expressions they select from
             IEnumerable<TableExpression> sortedIncludeExpressions = includeExpressions;
-            if (includeExpressions.Any(e => ((IncludeExpression)e.NormalizedPredicate).Iterate))
+            if (includeExpressions.Any(e => ((IncludeExpression)e.Predicate).Iterate))
             {
-                IEnumerable<TableExpression> nonIncludeIterateExpressions = includeExpressions.Where(e => !((IncludeExpression)e.NormalizedPredicate).Iterate);
-                List<TableExpression> includeIterateExpressions = includeExpressions.Where(e => ((IncludeExpression)e.NormalizedPredicate).Iterate).ToList();
+                IEnumerable<TableExpression> nonIncludeIterateExpressions = includeExpressions.Where(e => !((IncludeExpression)e.Predicate).Iterate);
+                List<TableExpression> includeIterateExpressions = includeExpressions.Where(e => ((IncludeExpression)e.Predicate).Iterate).ToList();
                 sortedIncludeExpressions = nonIncludeIterateExpressions.Concat(SortIncludeIterateExpressions(includeIterateExpressions));
             }
 
@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             // list from the end and add a limit expression after each include expression
             for (var i = reorderedExpressions.Count - 1; i >= 0; i--)
             {
-                switch (reorderedExpressions[i].SearchParameterQueryGenerator)
+                switch (reorderedExpressions[i].QueryGenerator)
                 {
                     case IncludeQueryGenerator _:
                         reorderedExpressions.Insert(i + 1, IncludeLimitExpression);
@@ -156,8 +156,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             private static bool IsDependencyEdge(TableExpression x, TableExpression y)
             {
                 // Assumes both expressions are include iterate expressions
-                var xInclude = (IncludeExpression)x.NormalizedPredicate;
-                var yInclude = (IncludeExpression)y.NormalizedPredicate;
+                var xInclude = (IncludeExpression)x.Predicate;
+                var yInclude = (IncludeExpression)y.Predicate;
 
                 return xInclude.Produces.Intersect(yInclude.Requires).Any();
             }

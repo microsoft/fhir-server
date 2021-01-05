@@ -16,22 +16,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     /// These are predicates on the ResourceSurrogateId and ResourceType columns. The idea is to make these
     /// queries as selective as possible.
     /// </summary>
-    internal class DenormalizedPredicateRewriter : SqlExpressionRewriterWithInitialContext<object>
+    internal class ResourceColumnPredicatePushdownRewriter : SqlExpressionRewriterWithInitialContext<object>
     {
-        public static readonly DenormalizedPredicateRewriter Instance = new DenormalizedPredicateRewriter();
+        public static readonly ResourceColumnPredicatePushdownRewriter Instance = new ResourceColumnPredicatePushdownRewriter();
 
         public override Expression VisitSqlRoot(SqlRootExpression expression, object context)
         {
             if (expression.TableExpressions.Count == 0 || expression.ResourceExpressions.Count == 0 ||
                 expression.TableExpressions.All(e => e.Kind == TableExpressionKind.Include))
             {
-                // if only Include expressions, the case is handled in IncludeDenormalizedRewriter
+                // if only Include expressions, the case is handled in IncludeMatchSeedRewriter
                 return expression;
             }
 
-            Expression extractedDenormalizedExpression = null;
-            List<Expression> newDenormalizedPredicates = null;
-            bool containsDenormalizedExpressionNotOnSearchParameterTables = false;
+            Expression extractedCommonResourceExpressions = null;
+            bool containsResourceExpressionFoundOnlyOnResourceTable = false;
 
             for (int i = 0; i < expression.ResourceExpressions.Count; i++)
             {
@@ -41,20 +40,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 {
                     if (searchParameterExpression.Parameter.ColumnLocation().HasFlag(SearchParameterColumnLocation.SearchParamTable))
                     {
-                        extractedDenormalizedExpression = extractedDenormalizedExpression == null ? (Expression)currentExpression : Expression.And(extractedDenormalizedExpression, currentExpression);
-                        EnsureAllocatedAndPopulated(ref newDenormalizedPredicates, expression.ResourceExpressions, i);
+                        extractedCommonResourceExpressions = extractedCommonResourceExpressions == null ? (Expression)currentExpression : Expression.And(extractedCommonResourceExpressions, currentExpression);
                     }
                     else
                     {
-                        containsDenormalizedExpressionNotOnSearchParameterTables = true;
-                        newDenormalizedPredicates?.Add(currentExpression);
+                        containsResourceExpressionFoundOnlyOnResourceTable = true;
                     }
                 }
             }
 
             var newTableExpressions = new List<TableExpression>(expression.TableExpressions.Count);
 
-            if (containsDenormalizedExpressionNotOnSearchParameterTables)
+            if (containsResourceExpressionFoundOnlyOnResourceTable)
             {
                 // There is a predicate over _id, which is on the Resource table but not on the search parameter tables.
                 // So the first table expression should be an "All" expression, where we restrict the resultset to resources with that ID.
@@ -73,7 +70,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 }
                 else if (tableExpression.Kind == TableExpressionKind.Chain)
                 {
-                    var sqlChainLinkExpression = (SqlChainLinkExpression)tableExpression.NormalizedPredicate;
+                    var sqlChainLinkExpression = (SqlChainLinkExpression)tableExpression.Predicate;
 
                     Debug.Assert(sqlChainLinkExpression.ExpressionOnSource == null);
 
@@ -82,18 +79,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                         sqlChainLinkExpression.ReferenceSearchParameter,
                         sqlChainLinkExpression.TargetResourceType,
                         sqlChainLinkExpression.Reversed,
-                        extractedDenormalizedExpression,
+                        extractedCommonResourceExpressions,
                         sqlChainLinkExpression.ExpressionOnTarget);
 
-                    newTableExpressions.Add(new TableExpression(tableExpression.SearchParameterQueryGenerator, newChainLinkExpression, tableExpression.Kind, chainLevel: tableExpression.ChainLevel));
+                    newTableExpressions.Add(new TableExpression(tableExpression.QueryGenerator, newChainLinkExpression, tableExpression.Kind, chainLevel: tableExpression.ChainLevel));
                 }
                 else
                 {
-                    Expression newDenormalizedPredicate = tableExpression.NormalizedPredicate == null
-                        ? extractedDenormalizedExpression
-                        : Expression.And(tableExpression.NormalizedPredicate, extractedDenormalizedExpression);
+                    Expression predicate = tableExpression.Predicate == null
+                        ? extractedCommonResourceExpressions
+                        : Expression.And(tableExpression.Predicate, extractedCommonResourceExpressions);
 
-                    newTableExpressions.Add(new TableExpression(tableExpression.SearchParameterQueryGenerator, newDenormalizedPredicate, tableExpression.Kind, tableExpression.ChainLevel));
+                    newTableExpressions.Add(new TableExpression(tableExpression.QueryGenerator, predicate, tableExpression.Kind, tableExpression.ChainLevel));
                 }
             }
 

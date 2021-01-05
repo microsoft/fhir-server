@@ -56,16 +56,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                     default:
                         if (_rewritingScout != null)
                         {
-                            var newNormalizedPredicate = tableExpression.NormalizedPredicate.AcceptVisitor(_rewritingScout, null);
-                            if (!ReferenceEquals(newNormalizedPredicate, tableExpression.NormalizedPredicate))
+                            var newPredicate = tableExpression.Predicate.AcceptVisitor(_rewritingScout, null);
+                            if (!ReferenceEquals(newPredicate, tableExpression.Predicate))
                             {
                                 found = true;
-                                tableExpression = new TableExpression(tableExpression.SearchParameterQueryGenerator, newNormalizedPredicate, tableExpression.Kind, tableExpression.ChainLevel);
+                                tableExpression = new TableExpression(tableExpression.QueryGenerator, newPredicate, tableExpression.Kind, tableExpression.ChainLevel);
                             }
                         }
                         else
                         {
-                            found = tableExpression.NormalizedPredicate.AcceptVisitor(_booleanScout, null);
+                            found = tableExpression.Predicate.AcceptVisitor(_booleanScout, null);
                         }
 
                         break;
@@ -94,13 +94,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public override Expression VisitTable(TableExpression tableExpression, object context)
         {
-            var normalizedPredicate = tableExpression.NormalizedPredicate.AcceptVisitor(this, context);
+            var predicate = tableExpression.Predicate.AcceptVisitor(this, context);
 
-            Debug.Assert(normalizedPredicate != tableExpression.NormalizedPredicate, "expecting table expression to have been rewritten for concatenation");
+            Debug.Assert(predicate != tableExpression.Predicate, "expecting table expression to have been rewritten for concatenation");
 
             return new TableExpression(
-                tableExpression.SearchParameterQueryGenerator,
-                normalizedPredicate,
+                tableExpression.QueryGenerator,
+                predicate,
                 TableExpressionKind.Concatenation,
                 tableExpression.ChainLevel);
         }

@@ -15,11 +15,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     /// </summary>
     internal class SortRewriter : SqlExpressionRewriter<SearchOptions>
     {
-        private readonly NormalizedSearchParameterQueryGeneratorFactory _normalizedSearchParameterQueryGeneratorFactory;
+        private readonly TableExpressionQueryGeneratorFactory _tableExpressionQueryGeneratorFactory;
 
-        public SortRewriter(NormalizedSearchParameterQueryGeneratorFactory normalizedSearchParameterQueryGeneratorFactory)
+        public SortRewriter(TableExpressionQueryGeneratorFactory tableExpressionQueryGeneratorFactory)
         {
-            _normalizedSearchParameterQueryGeneratorFactory = normalizedSearchParameterQueryGeneratorFactory;
+            _tableExpressionQueryGeneratorFactory = tableExpressionQueryGeneratorFactory;
         }
 
         public override Expression VisitSqlRoot(SqlRootExpression expression, SearchOptions context)
@@ -42,14 +42,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return expression;
             }
 
-            var queryGenerator = _normalizedSearchParameterQueryGeneratorFactory.GetNormalizedSearchParameterQueryGenerator(context.Sort[0].searchParameterInfo);
+            var queryGenerator = _tableExpressionQueryGeneratorFactory.GetTableExpressionQueryGenerator(context.Sort[0].searchParameterInfo);
 
-            var newNormalizedPredicates = new List<TableExpression>(expression.TableExpressions.Count + 1);
-            newNormalizedPredicates.AddRange(expression.TableExpressions);
+            var newTableExpressions = new List<TableExpression>(expression.TableExpressions.Count + 1);
+            newTableExpressions.AddRange(expression.TableExpressions);
 
-            newNormalizedPredicates.Add(new TableExpression(queryGenerator, new SortExpression(context.Sort[0].searchParameterInfo), TableExpressionKind.Sort));
+            newTableExpressions.Add(new TableExpression(queryGenerator, new SortExpression(context.Sort[0].searchParameterInfo), TableExpressionKind.Sort));
 
-            return new SqlRootExpression(newNormalizedPredicates, expression.ResourceExpressions);
+            return new SqlRootExpression(newTableExpressions, expression.ResourceExpressions);
         }
     }
 }

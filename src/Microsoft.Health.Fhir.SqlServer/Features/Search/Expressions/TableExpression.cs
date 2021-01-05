@@ -17,20 +17,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         /// <summary>
         /// Creates a new instance of the <see cref="TableExpression"/> class.
         /// </summary>
-        /// <param name="searchParameterQueryGenerator">The search parameter query generator</param>
-        /// <param name="normalizedPredicate">The search expression over a columns belonging exclusively to a search parameter table.
+        /// <param name="queryGenerator">The search parameter query generator</param>
+        /// <param name="predicate">The search expression over a columns belonging exclusively to a search parameter table.
         /// Applies to the chain target if a chained expression.</param>
         /// <param name="kind">The table expression kind.</param>
         /// <param name="chainLevel">The nesting chain nesting level of the current expression. 0 if not a chain expression.</param>
-        /// <param name="denormalizedPredicateOnChainRoot">The search expression over columns that exist the Resource table. Applies to the chain root if a chained expression.</param>
         public TableExpression(
-            NormalizedSearchParameterQueryGenerator searchParameterQueryGenerator,
-            Expression normalizedPredicate,
+            TableExpressionQueryGenerator queryGenerator,
+            Expression predicate,
             TableExpressionKind kind,
             int chainLevel = 0)
         {
-            SearchParameterQueryGenerator = searchParameterQueryGenerator;
-            NormalizedPredicate = normalizedPredicate;
+            QueryGenerator = queryGenerator;
+            Predicate = predicate;
             Kind = kind;
             ChainLevel = chainLevel;
         }
@@ -42,13 +41,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         /// </summary>
         public int ChainLevel { get; }
 
-        public NormalizedSearchParameterQueryGenerator SearchParameterQueryGenerator { get; }
+        public TableExpressionQueryGenerator QueryGenerator { get; }
 
         /// <summary>
         /// The search expression over a columns belonging exclusively to a search parameter table.
         /// Applies to the chain target if a chained expression.
         /// </summary>
-        public Expression NormalizedPredicate { get; }
+        public Expression Predicate { get; }
 
         public override TOutput AcceptVisitor<TContext, TOutput>(IExpressionVisitor<TContext, TOutput> visitor, TContext context)
         {
@@ -62,7 +61,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
 
         public override string ToString()
         {
-            return $"(Table {Kind} {(ChainLevel == 0 ? null : $"ChainLevel:{ChainLevel} ")}{SearchParameterQueryGenerator?.Table} Normalized:{NormalizedPredicate})";
+            return $"(Table {Kind} {(ChainLevel == 0 ? null : $"ChainLevel:{ChainLevel} ")}{QueryGenerator?.Table} Normalized:{Predicate})";
         }
     }
 }

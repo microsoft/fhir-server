@@ -13,11 +13,9 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
 {
     /// <summary>
-    /// The root of a search expression tree that will be translated to a SQL command.
-    /// It is organized as a set of "normalized" table expression predicates and a set
-    /// of "denormalized" predicates. The normalized predicates are over a search parameter
-    /// table, whereas denormalized predicates are applied to the Resource table directly. Some
-    /// of them can be applied to search parameter tables as well.
+    /// The root of a search expression tree that will be translated to a SQL batch.
+    /// It is organized as a set of expressions that are over search parameter tables (<see cref="TableExpressions"/>) and a set
+    /// of expressions over the columns on the Resource table (<see cref="ResourceExpressions"/>).
     /// </summary>
     internal class SqlRootExpression : Expression
     {
