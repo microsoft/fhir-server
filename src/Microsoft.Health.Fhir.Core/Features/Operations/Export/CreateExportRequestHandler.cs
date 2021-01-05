@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     request.ResourceType,
                     filters,
                     hash,
-                    _exportJobConfiguration.MaxFileSizeInMB,
+                    _exportJobConfiguration.RollingFileSizeInMB,
                     requestorClaims,
                     request.Since,
                     request.GroupId,
@@ -182,8 +182,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             formatConfiguration ??= new ExportJobFormatConfiguration()
             {
                 Format = useContainer ?
-                    $"{ExportFormatTags.Timestamp}-{ExportFormatTags.Id}/{ExportFormatTags.ResourceName}-{ExportFormatTags.Sequence}" :
-                    $"{ExportFormatTags.ResourceName}-{ExportFormatTags.Sequence}",
+                    $"{ExportFormatTags.Timestamp}-{ExportFormatTags.Id}/{ExportFormatTags.ResourceName}" :
+                    $"{ExportFormatTags.ResourceName}",
             };
 
             return formatConfiguration;

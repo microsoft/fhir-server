@@ -44,7 +44,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             // Each resource type can have multiple files. We need to keep track of the latest file.
             foreach (KeyValuePair<string, List<ExportFileInfo>> output in _exportJobRecord.Output)
             {
-                ExportFileInfo latestFile = output.Value[output.Value.Count - 1];
+                // Find the most recent file for that resource type.
+                int maxSequence = 0;
+                ExportFileInfo latestFile = null;
+                foreach (ExportFileInfo file in output.Value)
+                {
+                    if (file.Sequence > maxSequence)
+                    {
+                        maxSequence = file.Sequence;
+                        latestFile = file;
+                    }
+                }
+
                 _resourceTypeToFileInfoMapping.Add(output.Key, latestFile);
 
                 // If there are entries in ExportJobRecord Output before FileManager gets initialized,
@@ -93,7 +104,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         private async Task<ExportFileInfo> CreateNewFileAndUpdateMappings(string resourceType, int fileSequence, CancellationToken cancellationToken)
         {
-            string fileName = _exportJobRecord.ExportFormat + ".ndjson";
+            string fileName = $"{_exportJobRecord.ExportFormat}-{fileSequence}.ndjson";
 
             string dateTime = _exportJobRecord.QueuedTime.UtcDateTime.ToString("s")
                     .Replace("-", string.Empty, StringComparison.OrdinalIgnoreCase)
@@ -102,7 +113,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             fileName = fileName.Replace(ExportFormatTags.Timestamp, dateTime, StringComparison.OrdinalIgnoreCase);
             fileName = fileName.Replace(ExportFormatTags.Id, _exportJobRecord.Id, StringComparison.OrdinalIgnoreCase);
             fileName = fileName.Replace(ExportFormatTags.ResourceName, resourceType, StringComparison.OrdinalIgnoreCase);
-            fileName = fileName.Replace(ExportFormatTags.Sequence, fileSequence.ToString(), StringComparison.OrdinalIgnoreCase);
 
             Uri fileUri = await _exportDestinationClient.CreateFileAsync(fileName, cancellationToken);
 

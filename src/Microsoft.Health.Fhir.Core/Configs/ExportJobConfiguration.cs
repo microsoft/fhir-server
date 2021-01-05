@@ -54,8 +54,8 @@ namespace Microsoft.Health.Fhir.Core.Configs
         public IList<ExportJobFormatConfiguration> Formats { get; set; }
 
         /// <summary>
-        /// Determines max size for an exported file.
+        /// Determines the approximate file size for a single exported file.
         /// </summary>
-        public uint MaxFileSizeInMB { get; set; } = 64;
+        public uint RollingFileSizeInMB { get; set; } = 64;
     }
 }
