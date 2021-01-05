@@ -148,7 +148,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         [JsonProperty(JobRecordProperties.AnonymizationConfigurationFileETag)]
         public string AnonymizationConfigurationFileETag { get; private set; }
 
-        [JsonProperty(JobRecordProperties.MaxFileSizeInMB)]
+        [JsonProperty(JobRecordProperties.RollingFileSizeInMB)]
         public uint MaxFileSizeInMB { get; private set; } = 64;
     }
 }

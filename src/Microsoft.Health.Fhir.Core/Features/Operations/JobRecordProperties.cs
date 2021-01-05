@@ -109,7 +109,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
 
         public const string ExportFormat = "exportFormat";
 
-        public const string MaxFileSizeInMB = "maxFileSizeInMB";
+        public const string RollingFileSizeInMB = "rollingFileSizeInMB";
 
         public const string Issues = "issues";
     }
