@@ -35,7 +35,7 @@ To see what is releasing in the FHIR Server, please refer to the [releases](http
 - Quickstart guides to deploy open source using [portal](docs/QuickstartDeployPortal.md), [CLI](docs/QuickstartDeployCLI.md), and [PowerShell](docs/QuickstartDeployPowershell.md).
 - [Register a resource application](docs/Register-Resource-Application.md): Learn how to register a resource application, which is an Azure Active Directory representation of the FHIR server API.
 - [Register a client application](docs/Register-Client-Application.md): Learn how to register a client application registration, which is an Azure Active Directory representation of an application that can be used to authenticate on behalf of a user and request access to resource applications.
-- [SMART on FHIR Proxy tutorial)(docs/SMARTonFHIR.md): Describes how to use the proxy to enable SMART on FHIR applications with the FHIR Server.
+- [SMART on FHIR Proxy tutorial](docs/SMARTonFHIR.md): Describes how to use the proxy to enable SMART on FHIR applications with the FHIR Server.
 - [FHIR Postman tutorial](https://docs.microsoft.com/azure/healthcare-apis/access-fhir-postman-tutorial): Describes how to access a FHIR API using Postman.
 - [Authentication](docs/Authentication.md): Describes the authentication settings for the FHIR server and how to make use of it in development and test scenarios.
 - [Roles](docs/Roles.md): Describes how the FHIR Server for Azure role-based access control (RBAC) system works.
@@ -77,3 +77,4 @@ For more information see the [Code of Conduct FAQ](https://opensource.microsoft.
 contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
 
 FHIR&reg; is the registered trademark of HL7 and is used with the permission of HL7. 
+

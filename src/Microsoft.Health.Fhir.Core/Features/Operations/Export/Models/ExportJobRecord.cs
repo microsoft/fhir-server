@@ -111,6 +111,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         [JsonProperty(JobRecordProperties.Error)]
         public IList<ExportFileInfo> Error { get; private set; } = new List<ExportFileInfo>();
 
+        [JsonProperty(JobRecordProperties.Issues)]
+        public IList<OperationOutcomeIssue> Issues { get; private set; } = new List<OperationOutcomeIssue>();
+
         [JsonProperty(JobRecordProperties.Progress)]
         public ExportJobProgress Progress { get; set; }
 

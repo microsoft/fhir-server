@@ -59,19 +59,20 @@ jobs:
       azurePowerShellVersion: latestVersion
       ScriptType: inlineScript
       Inline: |
-        $secrets = Get-AzKeyVaultSecret -VaultName $(DeploymentEnvironmentName)-ts
+        $keyVault = "$(DeploymentEnvironmentName)-ts"
+        $secrets = Get-AzKeyVaultSecret -VaultName $keyVault
         
         foreach($secret in $secrets)
         {
             $environmentVariableName = $secret.Name.Replace("--","_")
 
-            $secretValue = Get-AzKeyVaultSecret -VaultName $(DeploymentEnvironmentName)-ts -Name $secret.Name
+            $secretValue = Get-AzKeyVaultSecret -VaultName $keyVault -Name $secret.Name
             Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($secretValue.SecretValueText)"
         }
 
-        $storageAccounts = Get-AzStorageAccount -ResourceGroupName $(DeploymentEnvironmentName)
+        $storageAccounts = Get-AzStorageAccount -ResourceGroupName $(ResourceGroupName)
         foreach ($storageAccount in $storageAccounts) {
-            $accKey = Get-AzStorageAccountKey -ResourceGroupName $(DeploymentEnvironmentName) -Name $storageAccount.StorageAccountName | Where-Object {$_.KeyName -eq "key1"}
+            $accKey = Get-AzStorageAccountKey -ResourceGroupName $(ResourceGroupName) -Name $storageAccount.StorageAccountName | Where-Object {$_.KeyName -eq "key1"}
 
             $storageSecretName = "$($storageAccount.StorageAccountName)_secret"
             Write-Host "##vso[task.setvariable variable=$($storageSecretName)]$($accKey.Value)"
@@ -120,19 +121,20 @@ jobs:
       azurePowerShellVersion: latestVersion
       ScriptType: inlineScript
       Inline: |
-        $secrets = Get-AzKeyVaultSecret -VaultName $(DeploymentEnvironmentName)-ts
+        $keyVault = "$(DeploymentEnvironmentName)-ts"
+        $secrets = Get-AzKeyVaultSecret -VaultName $keyVault
         
         foreach($secret in $secrets)
         {
             $environmentVariableName = $secret.Name.Replace("--","_")
 
-            $secretValue = Get-AzKeyVaultSecret -VaultName $(DeploymentEnvironmentName)-ts -Name $secret.Name
+            $secretValue = Get-AzKeyVaultSecret -VaultName $keyVault -Name $secret.Name
             Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($secretValue.SecretValueText)"
         }
 
-        $storageAccounts = Get-AzStorageAccount -ResourceGroupName $(DeploymentEnvironmentName)
+        $storageAccounts = Get-AzStorageAccount -ResourceGroupName $(ResourceGroupName)
         foreach ($storageAccount in $storageAccounts) {
-            $accKey = Get-AzStorageAccountKey -ResourceGroupName $(DeploymentEnvironmentName) -Name $storageAccount.StorageAccountName | Where-Object {$_.KeyName -eq "key1"}
+            $accKey = Get-AzStorageAccountKey -ResourceGroupName $(ResourceGroupName) -Name $storageAccount.StorageAccountName | Where-Object {$_.KeyName -eq "key1"}
 
             $storageSecretName = "$($storageAccount.StorageAccountName)_secret"
             Write-Host "##vso[task.setvariable variable=$($storageSecretName)]$($accKey.Value)"

@@ -29,6 +29,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         /// <param name="searchParameterUris">The list of search parameter Uris</param>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>true if successfull, or false with error message is unsuccessfull</returns>
-        Task<(bool, string)> UpdateSearchParameters(IReadOnlyCollection<string> searchParameterUris, CancellationToken cancellationToken);
+        Task<(bool, string)> UpdateSearchParameterStatus(IReadOnlyCollection<string> searchParameterUris, CancellationToken cancellationToken);
     }
 }

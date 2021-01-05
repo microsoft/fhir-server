@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -29,6 +30,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
 
         public PropertyValidatorOptions Options { get; set; } = new PropertyValidatorOptions();
 
+        public bool ShouldValidateAsynchronously(IValidationContext context) => true;
+
         public IEnumerable<ValidationFailure> Validate(PropertyValidatorContext context)
         {
             EnsureArg.IsNotNull(context, nameof(context));
@@ -53,13 +56,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         public Task<IEnumerable<ValidationFailure>> ValidateAsync(PropertyValidatorContext context, CancellationToken cancellation)
         {
             return Task.FromResult(Validate(context));
-        }
-
-        public bool ShouldValidateAsync(ValidationContext context)
-        {
-            EnsureArg.IsNotNull(context, nameof(context));
-
-            return context.InstanceToValidate is ResourceElement;
         }
     }
 }

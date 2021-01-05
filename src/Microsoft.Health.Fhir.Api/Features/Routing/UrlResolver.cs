@@ -283,6 +283,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Routing
                 case OperationsConstants.ResourceReindex:
                     routeName = RouteNames.ResourceReindexOperationDefinition;
                     break;
+                case OperationsConstants.ConvertData:
+                    routeName = RouteNames.ConvertDataOperationDefinition;
+                    break;
                 default:
                     throw new OperationNotImplementedException(string.Format(Resources.OperationNotImplemented, operationName));
             }

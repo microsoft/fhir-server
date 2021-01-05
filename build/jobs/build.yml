@@ -3,8 +3,6 @@ parameters:
   packageArtifacts: true
 
 steps:
-- template: update-semver.yml
-
 - task: UseDotNet@2
   displayName: 'Use .NET Core sdk'
   inputs:
@@ -14,7 +12,7 @@ steps:
   displayName: 'dotnet build $(buildConfiguration)'
   inputs:
     command: build
-    arguments: '--configuration $(buildConfiguration) /p:AssemblyVersion="$(assemblySemVer)" /p:FileVersion="$(assemblySemFileVer)" /p:InformationalVersion="$(informationalVersion)" /warnaserror'
+    arguments: '--configuration $(buildConfiguration) /p:AssemblyVersion="$(assemblySemVer)" /p:FileVersion="$(assemblySemFileVer)" /p:InformationalVersion="$(informationalVersion)" /p:Version="$(majorMinorPatch)" /warnaserror'
 
 - task: DotNetCoreCLI@2
   displayName: 'dotnet test UnitTests'

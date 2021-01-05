@@ -4,45 +4,26 @@
 variables:
 - template: build-variables.yml
 
-jobs:
-- job: deleteImage
-  displayName: 'Delete Images'
-  pool:
-    vmImage: $(WindowsVmImage)
-  steps:
-  - task: AzureCLI@2
-    displayName: 'Delete Images'
-    inputs:
-      azureSubscription: $(ConnectedServiceName)
-      scriptType: ps
-      scriptLocation: InlineScript
-      inlineScript: |
-        $versions = "stu3","r4","r5"
-        
-        foreach ($version in $versions) {
-          $repository = "${version}_fhir-server"
-          $tagList = az acr repository show-tags --name $(azureContainerRegistryName) --repository $repository | ConvertFrom-Json
+stages:
+- stage: CleanupStu3
+  displayName: 'Cleanup Stu3'
+  jobs:
+  - template: ./jobs/cleanup-version-images.yml
+    parameters: 
+      version: 'stu3'
 
-          foreach ($tag in $tagList) {
-            $tagParts = $tag.Split('-')
-              try {
-                $imageName = "${repository}:${tag}"
-                $imageDate = az acr repository show --name $(azureContainerRegistryName) --image $imageName | ConvertFrom-Json
-                $currentDate = Get-Date
-                $difference = New-TimeSpan -Start $imageDate.lastUpdateTime -End $currentDate
+- stage: CleanupR4
+  displayName: 'Cleanup R4'
+  dependsOn: []
+  jobs:
+  - template: ./jobs/cleanup-version-images.yml
+    parameters: 
+      version: 'r4'
 
-                if (($tagParts[0] -notlike "*build*") -and (($difference.totalDays -gt 60) -or (($difference.totalDays -gt 7) -and ($tagParts[0] -like "pr*")))) {
-                  az acr repository untag --name $(azureContai | nerRegistryName) --image '${version}_fhir-server:${tag}'
-                }
-              }
-              catch {
-                Write-Host "Error deleting tag ${tag} in ${version} repository"
-              }
-          }
-        }
-
-        foreach ($version in $versions) {
-          $repository = "${version}_fhir-server"
-          az acr repository show-manifests --name $(azureContainerRegistryName) --repository $repository --query "[?tags[0]==null].digest" -o tsv `
-          | %{ az acr repository delete --name $(azureContainerRegistryName) --image $repository@$_ --yes }
-        }
+- stage: CleanupR5
+  displayName: 'Cleanup R5'
+  dependsOn: []
+  jobs:
+  - template: ./jobs/cleanup-version-images.yml
+    parameters: 
+      version: 'r5'

@@ -36,11 +36,14 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
             var defaultObservation = Samples.GetDefaultObservation().ToPoco<Observation>();
             defaultObservation.Text.Div = maliciousNarrative;
 
+            var instanceToValidate = defaultObservation.ToResourceElement();
+
             IEnumerable<ValidationFailure> result = _validator.Validate(
                 new PropertyValidatorContext(
-                    new ValidationContext(defaultObservation.ToResourceElement()),
+                    new ValidationContext<ResourceElement>(instanceToValidate),
                     PropertyRule.Create<ResourceElement, ResourceElement>(x => x),
-                    "Resource"));
+                    "Resource",
+                    instanceToValidate));
 
             List<ValidationFailure> validationFailures = result as List<ValidationFailure> ?? result.ToList();
             Assert.NotEmpty(validationFailures);
@@ -65,11 +68,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Validation.Narratives
             bundle.Entry.Add(new Bundle.EntryComponent { Resource = defaultObservation });
             bundle.Entry.Add(new Bundle.EntryComponent { Resource = defaultPatient });
 
+            var instanceToValidate = bundle.ToResourceElement();
             var result = _validator.Validate(
                 new PropertyValidatorContext(
-                    new ValidationContext(bundle.ToResourceElement()),
+                    new ValidationContext<ResourceElement>(instanceToValidate),
                     PropertyRule.Create<ResourceElement, ResourceElement>(x => x),
-                    "Resource"));
+                    "Resource",
+                    instanceToValidate));
 
             List<ValidationFailure> validationFailures = result as List<ValidationFailure> ?? result.ToList();
             Assert.NotEmpty(validationFailures);

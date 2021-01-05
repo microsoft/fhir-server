@@ -106,6 +106,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Changes to seach parameters is not allowed while a reindex job is ongoing.  Wait for the reindex job with Id: {0} to finish, or cancel it..
+        /// </summary>
+        internal static string ChangesToSearchParametersNotAllowedWhileReindexing {
+            get {
+                return ResourceManager.GetString("ChangesToSearchParametersNotAllowedWhileReindexing", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Comparator &apos;{0}&apos; is not supported for search parameter &apos;{1}&apos;..
         /// </summary>
         internal static string ComparatorNotSupported {
@@ -255,6 +264,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string CustomHeaderPrefixCannotBeEmpty {
             get {
                 return ResourceManager.GetString("CustomHeaderPrefixCannotBeEmpty", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to An error occurred creating the custom search parameter.  The issue must be resolved and the parameter resubmitted to become functional..
+        /// </summary>
+        internal static string CustomSearchCreateError {
+            get {
+                return ResourceManager.GetString("CustomSearchCreateError", resourceCulture);
             }
         }
         
@@ -620,7 +638,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Only one active or paused reindex job allowed.  Cancel any previous jobs before submitting a new job..
+        ///   Looks up a localized string similar to Only one active or paused reindex job allowed.  Cancel job with id: {0} before submitting a new job..
         /// </summary>
         internal static string OnlyOneResourceJobAllowed {
             get {
@@ -809,7 +827,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to bundle.entry[{0}].resource.base is not defined..
+        ///   Looks up a localized string similar to SearchParameter[{0}].resource.base is not defined..
         /// </summary>
         internal static string SearchParameterDefinitionBaseNotDefined {
             get {
@@ -818,7 +836,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to bundle.entry[{0}].component[{1}] cannot refer to a composite SearchParameter..
+        ///   Looks up a localized string similar to SearchParameter[{0}].component[{1}] cannot refer to a composite SearchParameter..
         /// </summary>
         internal static string SearchParameterDefinitionComponentReferenceCannotBeComposite {
             get {
@@ -845,7 +863,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to bundle.entry[{0}].component is null or empty..
+        ///   Looks up a localized string similar to SearchParameter[{0}].component is null or empty..
         /// </summary>
         internal static string SearchParameterDefinitionInvalidComponent {
             get {
@@ -854,7 +872,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to bundle.entry[{0}].component[{1}].expression is null or empty..
+        ///   Looks up a localized string similar to SearchParameter[{0}].component[{1}].expression is null or empty..
         /// </summary>
         internal static string SearchParameterDefinitionInvalidComponentExpression {
             get {
@@ -863,7 +881,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to bundle.entry[{0}].component[{1}].definition.reference is null or empty or does not refer to a valid SearchParameter resource..
+        ///   Looks up a localized string similar to SearchParameter[{0}].component[{1}].definition.reference is null or empty or does not refer to a valid SearchParameter resource..
         /// </summary>
         internal static string SearchParameterDefinitionInvalidComponentReference {
             get {
@@ -872,7 +890,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to bundle.entry[{0}].url is invalid..
+        ///   Looks up a localized string similar to SearchParameter[{0}].url is invalid..
         /// </summary>
         internal static string SearchParameterDefinitionInvalidDefinitionUri {
             get {
@@ -881,7 +899,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to bundle.entry[{0}].resource.expression is null or empty..
+        ///   Looks up a localized string similar to SearchParameter[{0}].resource.expression is null or empty..
         /// </summary>
         internal static string SearchParameterDefinitionInvalidExpression {
             get {
@@ -890,7 +908,16 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to bundle.entry[{0}].resource is not a SearchParameter resource..
+        ///   Looks up a localized string similar to The search parameter defintion is missing the Uri..
+        /// </summary>
+        internal static string SearchParameterDefinitionInvalidMissingUri {
+            get {
+                return ResourceManager.GetString("SearchParameterDefinitionInvalidMissingUri", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Entry {0} is not a SearchParameter resource..
         /// </summary>
         internal static string SearchParameterDefinitionInvalidResource {
             get {
@@ -899,7 +926,25 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Search parameter {0} is no longer supported and cannot be marked enabled..
+        ///   Looks up a localized string similar to A search parameter with Uri &apos;{0}&apos; was not found..
+        /// </summary>
+        internal static string SearchParameterDefinitionNotFound {
+            get {
+                return ResourceManager.GetString("SearchParameterDefinitionNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Search parameter &apos;{0}&apos; is not common for &apos;{1}&apos; and &apos;{2}&apos;..
+        /// </summary>
+        internal static string SearchParameterMustBeCommon {
+            get {
+                return ResourceManager.GetString("SearchParameterMustBeCommon", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0} So it cannot be marked enabled..
         /// </summary>
         internal static string SearchParameterNoLongerSupported {
             get {
@@ -913,6 +958,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string SearchParameterNotSupported {
             get {
                 return ResourceManager.GetString("SearchParameterNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to A search parameter is no longer supported..
+        /// </summary>
+        internal static string SearchParameterUnknownNotSupported {
+            get {
+                return ResourceManager.GetString("SearchParameterUnknownNotSupported", resourceCulture);
             }
         }
         
@@ -962,7 +1016,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The _type parameter must be included when using the _typeFilter parameter. .
+        ///   Looks up a localized string similar to The _type parameter must be included when using the _typeFilter parameter..
         /// </summary>
         internal static string TypeFilterWithoutTypeIsUnsupported {
             get {

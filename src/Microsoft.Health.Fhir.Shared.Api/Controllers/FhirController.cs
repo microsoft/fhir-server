@@ -145,6 +145,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpPost]
         [Route(KnownRoutes.ResourceType)]
         [AuditEventType(AuditEventSubType.Create)]
+        [ServiceFilter(typeof(SearchParameterFilterAttribute))]
         public async Task<IActionResult> Create([FromBody] Resource resource)
         {
             RawResourceElement response = await _mediator.CreateResourceAsync(resource.ToResourceElement(), HttpContext.RequestAborted);

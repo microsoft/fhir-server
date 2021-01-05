@@ -15,6 +15,7 @@ using Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Metric;
 
 namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 {
+    [RequiresIsolatedDatabase]
     public class StartupForExportTestProvider : StartupBaseForCustomProviders
     {
         public StartupForExportTestProvider(IConfiguration configuration)

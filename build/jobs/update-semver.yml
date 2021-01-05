@@ -7,17 +7,18 @@ steps:
     
 - task: GitVersion@5
   displayName: 'GitVersion'
+  name: GitVersion
   inputs:
     configFilePath: '$(Build.SourcesDirectory)/GitVersion.yml'
 
 # Can set these: https://github.com/GitTools/actions/blob/master/gitversion/execute/action.yml
 - powershell: |
     Write-Host "##vso[task.setvariable variable=semVer]$(GitVersion.semVer)"
-    Write-Host "##vso[task.setvariable variable=informationalVersion]$(GitVersion.informationalVersion)"
-    Write-Host "##vso[task.setvariable variable=majorMinorPatch]$(GitVersion.majorMinorPatch)"
-    Write-Host "##vso[task.setvariable variable=nuGetVersion]$(GitVersion.semVer)"
-    Write-Host "##vso[task.setvariable variable=assemblySemVer]$(GitVersion.assemblySemVer)"
-    Write-Host "##vso[task.setvariable variable=assemblySemFileVer]$(GitVersion.assemblySemFileVer)"
+    Write-Host "##vso[task.setvariable variable=informationalVersion;isOutput=true]$(GitVersion.informationalVersion)"
+    Write-Host "##vso[task.setvariable variable=majorMinorPatch;isOutput=true]$(GitVersion.majorMinorPatch)"
+    Write-Host "##vso[task.setvariable variable=nuGetVersion;isOutput=true]$(GitVersion.semVer)"
+    Write-Host "##vso[task.setvariable variable=assemblySemVer;isOutput=true]$(GitVersion.assemblySemVer)"
+    Write-Host "##vso[task.setvariable variable=assemblySemFileVer;isOutput=true]$(GitVersion.assemblySemFileVer)"
   name: SetVariablesFromGitVersion
 
 - powershell: |

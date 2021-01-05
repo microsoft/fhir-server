@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using Hl7.Fhir.ElementModel;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Definition
@@ -72,5 +73,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         /// <param name="resourceType">Resource type for which we need the hash of search parameters.</param>
         /// <returns>A string representing a hash of the search parameters.</returns>
         public string GetSearchParameterHashForResourceType(string resourceType);
+
+        /// <summary>
+        /// Allows addition of a new search parameters at runtime.
+        /// </summary>
+        /// <param name="searchParameters">An collection containing SearchParameter resources.</param>
+        void AddNewSearchParameters(IReadOnlyCollection<ITypedElement> searchParameters);
     }
 }

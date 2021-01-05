@@ -19,6 +19,7 @@ using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Export;
+using Microsoft.Health.Fhir.Core.Models;
 using NSubstitute;
 using Xunit;
 
@@ -72,6 +73,22 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             Assert.False(string.IsNullOrWhiteSpace(output.Type));
             Assert.NotNull(output.FileUri);
             Assert.True(output.Count >= 0);
+
+            var error = result.JobResult.Error.FirstOrDefault();
+
+            // Check whether required fields are present for Error.
+            Assert.NotNull(error);
+            Assert.False(string.IsNullOrWhiteSpace(error.Type));
+            Assert.NotNull(error.FileUri);
+            Assert.True(error.Count >= 0);
+
+            var issue = result.JobResult.Issues.FirstOrDefault();
+
+            // Check whether required fields are present for Issues.
+            Assert.NotNull(issue);
+            Assert.False(string.IsNullOrWhiteSpace(issue.Diagnostics));
+            Assert.False(string.IsNullOrWhiteSpace(issue.Code));
+            Assert.False(string.IsNullOrWhiteSpace(issue.Severity));
         }
 
         [Theory]
@@ -131,6 +148,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 var exportFileInfo = new ExportFileInfo("patient", new Uri("https://exportlocation/fileUri"), sequence: 0);
                 exportFileInfo.IncrementCount(100);
                 jobRecord.Output.Add("patient", new List<ExportFileInfo>() { exportFileInfo });
+
+                var exportErrorInfo = new ExportFileInfo("error", new Uri("https://exportlocation/fileUri"), sequence: 0);
+                exportErrorInfo.IncrementCount(100);
+                jobRecord.Error.Add(exportErrorInfo);
+
+                var exportIssue = new OperationOutcomeIssue("warning", "code", "message");
+                jobRecord.Issues.Add(exportIssue);
             }
 
             var jobOutcome = new ExportJobOutcome(jobRecord, WeakETag.FromVersionId("eTag"));

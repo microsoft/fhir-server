@@ -1,0 +1,48 @@
+{
+    "resourceType": "OperationDefinition",
+    "id": "convert-data",
+    "url": "[base]/OperationDefinition/convert-data",
+    "version": "1.0.0",
+    "name": "Convert Data",
+    "status": "active",
+    "kind": "operation",
+    "description": "Convert data operation enables data conversion from legacy formats to FHIR format.",
+    "code": "convert-data",
+    "system": true,
+    "type": false,
+    "instance": false,
+    "parameter": [
+        {
+            "name": "inputData",
+            "use": "in",
+            "min": 1,
+            "max": "1",
+            "documentation": "Input data to be converted.",
+            "type": "string"
+        },
+        {
+            "name": "inputDataType",
+            "use": "in",
+            "min": 1,
+            "max": "1",
+            "documentation": "The format of input data. Supported formats - `Hl7v2`.",
+            "type": "string"
+        },
+        {
+            "name": "templateCollectionReference",
+            "use": "in",
+            "min": 1,
+            "max": "1",
+            "documentation": "Reference to a template collection which can be the default templates, or an image on Azure Container Registry that the FHIR server can access. Supported values - `microsofthealth/fhirconverter:default`, `<RegistryServer>/<imageName>@<imageDigest>`, `<RegistryServer>/<imageName>:<imageTag>`.",
+            "type": "string"
+        },
+        {
+            "name": "rootTemplate",
+            "use": "in",
+            "min": 1,
+            "max": "1",
+            "documentation": "The root template to use while transforming the data. Supported default values - `ADT_A01`, `OML_O21`, `ORU_R01`, `VXU_V04`.",
+            "type": "string"
+        }
+    ]
+}

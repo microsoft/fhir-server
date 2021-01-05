@@ -90,7 +90,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         [InlineData(KnownCosmosDbCmkSubStatusValue.KeyVaultServiceUnavailable)]
         [InlineData(KnownCosmosDbCmkSubStatusValue.KeyVaultWrapUnwrapFailure)]
         [InlineData(KnownCosmosDbCmkSubStatusValue.InvalidKeyVaultKeyUri)]
-        [InlineData(KnownCosmosDbCmkSubStatusValue.InvalidInputBytes)]
         [InlineData(KnownCosmosDbCmkSubStatusValue.KeyVaultInternalServerError)]
         [InlineData(KnownCosmosDbCmkSubStatusValue.KeyVaultDnsNotResolved)]
         public async Task GivenAnExceptionWithCmkSubStatus_WhenProcessing_ThenExceptionShouldThrow(KnownCosmosDbCmkSubStatusValue subStatusValue)

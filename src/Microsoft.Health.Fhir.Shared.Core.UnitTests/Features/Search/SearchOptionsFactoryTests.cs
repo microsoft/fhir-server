@@ -108,7 +108,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             const string paramName1 = "address-city";
             const string value1 = "Seattle";
 
-            _expressionParser.Parse(resourceType.ToString(), paramName1, value1).Returns(
+            _expressionParser.Parse(Arg.Is<string[]>(x => x.Length == 1 && x[0] == resourceType.ToString()), paramName1, value1).Returns(
                 x => throw new SearchParameterNotSupportedException(typeof(Patient), paramName1));
 
             var queryParameters = new[]

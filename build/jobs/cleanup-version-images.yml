@@ -1,0 +1,44 @@
+parameters:
+- name: version
+  type: string
+
+jobs:
+- job: deleteImage
+  displayName: "Delete ${{ parameters.version }} Images"
+  pool:
+    vmImage: $(WindowsVmImage)
+  steps:
+    - task: AzureCLI@2
+      displayName: 'Delete Images'
+      inputs:
+        azureSubscription: $(ConnectedServiceName)
+        scriptType: ps
+        scriptLocation: InlineScript
+        inlineScript: |
+          $version = "${{ parameters.version }}"
+        
+          Write-Host "Untagging ${version} images"
+          $repository = "${version}_fhir-server"
+          $tagList = az acr repository show-tags --name $(azureContainerRegistryName) --repository $repository | ConvertFrom-Json
+
+          foreach ($tag in $tagList) {
+            $tagParts = $tag.Split('-')
+              try {
+                $imageName = "${repository}:${tag}"
+                $imageDate = az acr repository show --name $(azureContainerRegistryName) --image $imageName | ConvertFrom-Json
+                $currentDate = Get-Date
+                $difference = New-TimeSpan -Start $imageDate.lastUpdateTime -End $currentDate
+
+                if (($tagParts[0] -notlike "*build*") -and (($difference.totalDays -gt 60) -or (($difference.totalDays -gt 7) -and ($tagParts[0] -like "*-pr*")))) {
+                  az acr repository untag --name $(azureContainerRegistryName) --image "${version}_fhir-server:${tag}"
+                }
+              }
+              catch {
+                Write-Host "Error deleting tag ${tag} in ${version} repository"
+              }
+          }
+
+          Write-Host "Removing untagged ${version} images"
+          $repository = "${version}_fhir-server"
+          az acr repository show-manifests --name $(azureContainerRegistryName) --repository $repository --query "[?tags[0]==null].digest" -o tsv `
+          | %{ az acr repository delete --name $(azureContainerRegistryName) --image $repository@$_ --yes }

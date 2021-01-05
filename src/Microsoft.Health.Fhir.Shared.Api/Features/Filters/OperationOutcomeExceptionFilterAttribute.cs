@@ -143,6 +143,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     case ConvertDataTimeoutException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.GatewayTimeout;
                         break;
+                    case ConfigureCustomSearchException _:
+                        operationOutcomeResult.StatusCode = HttpStatusCode.FailedDependency;
+                        break;
                 }
 
                 context.Result = operationOutcomeResult;

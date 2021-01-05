@@ -10,7 +10,7 @@ jobs:
       azureSubscription: $(ConnectedServiceName)
       azurePowerShellVersion: latestVersion
       ScriptType: InlineScript
-      Inline: 'Get-AzResourceGroup -Name $(DeploymentEnvironmentName) | Remove-AzResourceGroup -Verbose -Force'
+      Inline: 'Get-AzResourceGroup -Name $(ResourceGroupName) | Remove-AzResourceGroup -Verbose -Force'
 
 - job: cleanupAad
   displayName: 'Cleanup Azure Active Directory'

@@ -11,15 +11,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
     public enum KnownCosmosDbCmkSubStatusValue
     {
         // Customer-Managed Key (CMK) values
-        AadClientCredentialsGrantFailure = 4000,
-        AadServiceUnavailable = 4001,
-        KeyVaultAuthenticationFailure = 4002,
-        KeyVaultKeyNotFound = 4003,
-        KeyVaultServiceUnavailable = 4004,
-        KeyVaultWrapUnwrapFailure = 4005,
-        InvalidKeyVaultKeyUri = 4006,
-        InvalidInputBytes = 4007,
-        KeyVaultInternalServerError = 4008,
-        KeyVaultDnsNotResolved = 4009,
+        AadClientCredentialsGrantFailure = KnownCosmosDbCmkSubStatusValueServerSideIssue.AadClientCredentialsGrantFailure,
+        AadServiceUnavailable = KnownCosmosDbCmkSubStatusValueServerSideIssue.AadServiceUnavailable,
+        KeyVaultAuthenticationFailure = KnownCosmosDbCmkSubStatusValueClientIssue.KeyVaultAuthenticationFailure,
+        KeyVaultKeyNotFound = KnownCosmosDbCmkSubStatusValueClientIssue.KeyVaultKeyNotFound,
+        KeyVaultServiceUnavailable = KnownCosmosDbCmkSubStatusValueServerSideIssue.KeyVaultServiceUnavailable,
+        KeyVaultWrapUnwrapFailure = KnownCosmosDbCmkSubStatusValueClientIssue.KeyVaultWrapUnwrapFailure,
+        InvalidKeyVaultKeyUri = KnownCosmosDbCmkSubStatusValueClientIssue.InvalidKeyVaultKeyUri,
+        KeyVaultInternalServerError = KnownCosmosDbCmkSubStatusValueServerSideIssue.KeyVaultInternalServerError,
+        KeyVaultDnsNotResolved = KnownCosmosDbCmkSubStatusValueClientIssue.KeyVaultDnsNotResolved,
     }
 }
