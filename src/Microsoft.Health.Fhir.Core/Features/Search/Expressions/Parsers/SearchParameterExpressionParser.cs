@@ -178,7 +178,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             {
                 // This is a single value expression.
                 ISearchValue searchValue = parser(valueSpan.ToString());
-                searchValue = ApplyTargetTypeModifier(searchValue);
+                searchValue = ApplyTargetTypeModifier(modifier, searchValue);
 
                 return helper.Build(
                     searchParameter.Name,
@@ -198,7 +198,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 Expression[] expressions = parts.Select(part =>
                 {
                     ISearchValue searchValue = parser(part);
-                    searchValue = ApplyTargetTypeModifier(searchValue);
+                    searchValue = ApplyTargetTypeModifier(modifier, searchValue);
 
                     return helper.Build(
                         searchParameter.Name,
@@ -211,7 +211,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 return Expression.Or(expressions);
             }
 
-            ISearchValue ApplyTargetTypeModifier(ISearchValue source)
+            ISearchValue ApplyTargetTypeModifier(SearchModifier modifier, ISearchValue source)
             {
                 var referenceSearchValue = source as ReferenceSearchValue;
                 if (referenceSearchValue == null || modifier?.SearchModifierCode != SearchModifierCode.Type)
