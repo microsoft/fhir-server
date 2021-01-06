@@ -50,6 +50,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _sqlServerFhirModel = sqlServerFhirModel;
             _sqlConnectionFactory = sqlConnectionFactory;
+            _searchParameterDefinitionManager.StartAsync(CancellationToken.None).Wait();
         }
 
         public async Task CreateAndInitializeDatabase(string databaseName, bool forceIncrementalSchemaUpgrade, SchemaInitializer schemaInitializer = null, CancellationToken cancellationToken = default)
@@ -90,7 +91,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 });
 
             await schemaInitializer.InitializeAsync(forceIncrementalSchemaUpgrade, cancellationToken);
-            await _searchParameterDefinitionManager.StartAsync(CancellationToken.None);
             _sqlServerFhirModel.Initialize(SchemaVersionConstants.Max, true);
         }
 

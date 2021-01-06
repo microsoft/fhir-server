@@ -75,9 +75,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                     Debug.Assert(sqlChainLinkExpression.ExpressionOnSource == null);
 
                     var newChainLinkExpression = new SqlChainLinkExpression(
-                        sqlChainLinkExpression.ResourceType,
+                        sqlChainLinkExpression.ResourceTypes,
                         sqlChainLinkExpression.ReferenceSearchParameter,
-                        sqlChainLinkExpression.TargetResourceType,
+                        sqlChainLinkExpression.TargetResourceTypes,
                         sqlChainLinkExpression.Reversed,
                         extractedCommonResourceExpressions,
                         sqlChainLinkExpression.ExpressionOnTarget);

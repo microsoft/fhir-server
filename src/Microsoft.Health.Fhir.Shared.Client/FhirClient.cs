@@ -347,6 +347,28 @@ namespace Microsoft.Health.Fhir.Client
             return await CreateResponseAsync<Bundle>(response);
         }
 
+        public async Task<(FhirResponse<Parameters>, Uri)> PostReindexJobAsync(Parameters parameters, CancellationToken cancellationToken = default)
+        {
+            var message = new HttpRequestMessage(HttpMethod.Post, "$reindex")
+            {
+                Content = CreateStringContent(parameters),
+            };
+
+            HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
+
+            await EnsureSuccessStatusCodeAsync(response);
+
+            return (await CreateResponseAsync<Parameters>(response), response.Content.Headers.ContentLocation);
+        }
+
+        public async Task<FhirResponse<Parameters>> CheckReindexAsync(Uri contentLocation, CancellationToken cancellationToken = default)
+        {
+            using var message = new HttpRequestMessage(HttpMethod.Get, contentLocation);
+            HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
+
+            return await CreateResponseAsync<Parameters>(response);
+        }
+
         /// <summary>
         /// Calls the $validate endpoint.
         /// </summary>

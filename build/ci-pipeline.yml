@@ -15,7 +15,7 @@ stages:
   jobs:
   - job: Semver
     pool:
-      vmImage: 'ubuntu-latest'
+      vmImage: $(WindowsVmImage)
     steps:
     - template: ./jobs/update-semver.yml
 

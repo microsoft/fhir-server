@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
@@ -22,26 +23,26 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private ISearchIndexer _searchIndexer;
         private ResourceDeserializer _deserializer;
         private readonly ISupportedSearchParameterDefinitionManager _searchParameterDefinitionManager;
-        private readonly ISearchParameterStatusDataStore _searchParameterStatusDataStore;
+        private readonly SearchParameterStatusManager _searchParameterStatusManager;
 
         public ReindexUtilities(
             Func<IScoped<IFhirDataStore>> fhirDataStoreFactory,
             ISearchIndexer searchIndexer,
             ResourceDeserializer deserializer,
             ISupportedSearchParameterDefinitionManager searchParameterDefinitionManager,
-            ISearchParameterStatusDataStore searchParameterStatusDataStore)
+            SearchParameterStatusManager searchParameterStatusManager)
         {
             EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));
             EnsureArg.IsNotNull(searchIndexer, nameof(searchIndexer));
             EnsureArg.IsNotNull(deserializer, nameof(deserializer));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
-            EnsureArg.IsNotNull(searchParameterStatusDataStore, nameof(searchParameterStatusDataStore));
+            EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
 
             _fhirDataStoreFactory = fhirDataStoreFactory;
             _searchIndexer = searchIndexer;
             _deserializer = deserializer;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
-            _searchParameterStatusDataStore = searchParameterStatusDataStore;
+            _searchParameterStatusManager = searchParameterStatusManager;
         }
 
         /// <summary>
@@ -89,32 +90,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
             }
         }
 
-        public async Task<(bool, string)> UpdateSearchParameters(IReadOnlyCollection<string> searchParameterUris, CancellationToken cancellationToken)
+        public async Task<(bool, string)> UpdateSearchParameterStatus(IReadOnlyCollection<string> searchParameterUris, CancellationToken cancellationToken)
         {
-            var searchParameterStatusList = new List<ResourceSearchParameterStatus>();
-
-            foreach (string uri in searchParameterUris)
+            try
             {
-                var searchParamUri = new Uri(uri);
-
-                try
-                {
-                    _searchParameterDefinitionManager.SetSearchParameterEnabled(searchParamUri);
-                }
-                catch (SearchParameterNotSupportedException)
-                {
-                    return (false, string.Format(Core.Resources.SearchParameterNoLongerSupported, uri));
-                }
-
-                searchParameterStatusList.Add(new ResourceSearchParameterStatus()
-                {
-                    LastUpdated = DateTimeOffset.UtcNow,
-                    Status = SearchParameterStatus.Enabled,
-                    Uri = searchParamUri,
-                });
+                await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(searchParameterUris, SearchParameterStatus.Enabled);
             }
-
-            await _searchParameterStatusDataStore.UpsertStatuses(searchParameterStatusList);
+            catch (SearchParameterNotSupportedException spx)
+            {
+                var errorMessage = spx.Issues.FirstOrDefault()?.Diagnostics ?? Core.Resources.SearchParameterUnknownNotSupported;
+                return (false, string.Format(Core.Resources.SearchParameterNoLongerSupported, errorMessage));
+            }
 
             return (true, null);
         }

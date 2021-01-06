@@ -40,7 +40,7 @@ namespace Microsoft.Health.Internal.SmartLauncher
             }
 
             app.UseDefaultFiles();
-            app.UseStaticFiles(new StaticFileOptions { FileProvider = new EmbeddedFileProvider(Assembly.GetExecutingAssembly(), "SmartLauncher.wwwroot") });
+            app.UseStaticFiles(new StaticFileOptions { FileProvider = new EmbeddedFileProvider(Assembly.GetExecutingAssembly(), "Microsoft.Health.Internal.SmartLauncher.wwwroot") });
 
             app.Map("/config", a =>
             {

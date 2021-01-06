@@ -48,9 +48,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             }
 
             return new SqlChainLinkExpression(
-                sqlChainLinkExpression.ResourceType,
+                sqlChainLinkExpression.ResourceTypes,
                 sqlChainLinkExpression.ReferenceSearchParameter,
-                sqlChainLinkExpression.TargetResourceType,
+                sqlChainLinkExpression.TargetResourceTypes,
                 sqlChainLinkExpression.Reversed,
                 visitedExpressionOnSource,
                 visitedExpressionOnTarget);

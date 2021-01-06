@@ -13,29 +13,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
     internal class SqlChainLinkExpression : Expression
     {
         public SqlChainLinkExpression(
-            string resourceType,
+            string[] resourceTypes,
             SearchParameterInfo referenceSearchParameter,
-            string targetResourceType,
+            string[] targetResourceTypes,
             bool reversed,
             Expression expressionOnSource = null,
             Expression expressionOnTarget = null)
         {
-            EnsureArg.IsNotEmptyOrWhiteSpace(resourceType, nameof(resourceType));
+            EnsureArg.IsNotNull(resourceTypes, nameof(resourceTypes));
             EnsureArg.IsNotNull(referenceSearchParameter, nameof(referenceSearchParameter));
-            EnsureArg.IsNotEmptyOrWhiteSpace(targetResourceType, nameof(targetResourceType));
+            EnsureArg.IsNotNull(targetResourceTypes, nameof(targetResourceTypes));
 
-            ResourceType = resourceType;
+            ResourceTypes = resourceTypes;
             ReferenceSearchParameter = referenceSearchParameter;
-            TargetResourceType = targetResourceType;
+            TargetResourceTypes = targetResourceTypes;
             Reversed = reversed;
             ExpressionOnSource = expressionOnSource;
             ExpressionOnTarget = expressionOnTarget;
         }
 
         /// <summary>
-        /// Gets the resource type which is being searched.
+        /// Gets the resource types which are being searched.
         /// </summary>
-        public string ResourceType { get; }
+        public string[] ResourceTypes { get; }
 
         /// <summary>
         /// Gets the parameter name.
@@ -43,9 +43,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         public SearchParameterInfo ReferenceSearchParameter { get; }
 
         /// <summary>
-        /// Gets the target resource type.
+        /// Gets the target resource types.
         /// </summary>
-        public string TargetResourceType { get; }
+        public string[] TargetResourceTypes { get; }
 
         /// <summary>
         /// Get if the expression is reversed.
@@ -63,7 +63,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
 
         public override string ToString()
         {
-            return $"({(Reversed ? "Reverse " : string.Empty)}SqlChainLink {ReferenceSearchParameter.Name}:{TargetResourceType} {(ExpressionOnSource == null ? string.Empty : $" Source:{ExpressionOnSource}")}{(ExpressionOnTarget == null ? string.Empty : $" Target:{ExpressionOnTarget}")})";
+            return $"({(Reversed ? "Reverse " : string.Empty)}SqlChainLink {ReferenceSearchParameter.Name}:{string.Join(", ", TargetResourceTypes)} {(ExpressionOnSource == null ? string.Empty : $" Source:{ExpressionOnSource}")}{(ExpressionOnTarget == null ? string.Empty : $" Target:{ExpressionOnTarget}")})";
         }
     }
 }

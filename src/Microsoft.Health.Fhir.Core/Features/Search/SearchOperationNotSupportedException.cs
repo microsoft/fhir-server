@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             Issues.Add(new OperationOutcomeIssue(
                 OperationOutcomeConstants.IssueSeverity.Error,
-                OperationOutcomeConstants.IssueType.Forbidden,
+                OperationOutcomeConstants.IssueType.NotSupported,
                 message));
         }
     }

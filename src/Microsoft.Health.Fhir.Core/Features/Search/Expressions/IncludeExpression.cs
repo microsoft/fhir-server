@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <summary>
         /// Initializes a new instance of the <see cref="IncludeExpression"/> class.
         /// </summary>
-        /// <param name="resourceType">The resource that supports the reference.</param>
+        /// <param name="resourceTypes">The resource that supports the reference.</param>
         /// <param name="referenceSearchParameter">THe search parameter that establishes the reference relationship.</param>
         /// <param name="sourceResourceType">The source type of the reference.</param>
         /// <param name="targetResourceType">The target type of the reference.</param>
@@ -29,9 +29,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <param name="wildCard">If this is a wildcard reference include (include all referenced resources).</param>
         /// <param name="reversed">If this is a reversed include (revinclude) expression.</param>
         /// <param name="iterate"> If :iterate (:recurse) modifer was applied.</param>
-        public IncludeExpression(string resourceType, SearchParameterInfo referenceSearchParameter, string sourceResourceType, string targetResourceType, IEnumerable<string> referencedTypes, bool wildCard, bool reversed, bool iterate)
+        public IncludeExpression(string[] resourceTypes, SearchParameterInfo referenceSearchParameter, string sourceResourceType, string targetResourceType, IEnumerable<string> referencedTypes, bool wildCard, bool reversed, bool iterate)
         {
-            EnsureArg.IsNotNullOrWhiteSpace(resourceType, nameof(resourceType));
+            EnsureArg.HasItems(resourceTypes, nameof(resourceTypes));
 
             if (!wildCard)
             {
@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 EnsureArg.IsNotNull(sourceResourceType, nameof(sourceResourceType));
             }
 
-            ResourceType = resourceType;
+            ResourceTypes = resourceTypes;
             ReferenceSearchParameter = referenceSearchParameter;
             SourceResourceType = sourceResourceType;
             TargetResourceType = targetResourceType;
@@ -58,7 +58,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <summary>
         /// Gets the resource type which is being searched.
         /// </summary>
-        public string ResourceType { get; }
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1819:Properties should not return arrays", Justification = "Array property")]
+        public string[] ResourceTypes { get; }
 
         /// <summary>
         /// Gets the reference search parameter for the relationship.

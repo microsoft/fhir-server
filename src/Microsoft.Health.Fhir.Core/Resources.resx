@@ -302,7 +302,8 @@
     <value>Only one modifier separator can be specified.</value>
   </data>
   <data name="OnlyOneResourceJobAllowed" xml:space="preserve">
-    <value>Only one active or paused reindex job allowed.  Cancel any previous jobs before submitting a new job.</value>
+    <value>Only one active or paused reindex job allowed.  Cancel job with id: {0} before submitting a new job.</value>
+    <comment>{0} is Id of currently active reindex job</comment>
   </data>
   <data name="OpenIdConfiguration" xml:space="preserve">
     <value>Failed to retrieve the OpenId configuration from the authentication provider.</value>
@@ -360,10 +361,12 @@
     <value>The search parameter with definition URL '{0}' is not supported.</value>
   </data>
   <data name="SearchParameterDefinitionBaseNotDefined" xml:space="preserve">
-    <value>bundle.entry[{0}].resource.base is not defined.</value>
+    <value>SearchParameter[{0}].resource.base is not defined.</value>
+    <comment>{0} Is the Uri Identifying the SearchParameter</comment>
   </data>
   <data name="SearchParameterDefinitionComponentReferenceCannotBeComposite" xml:space="preserve">
-    <value>bundle.entry[{0}].component[{1}] cannot refer to a composite SearchParameter.</value>
+    <value>SearchParameter[{0}].component[{1}] cannot refer to a composite SearchParameter.</value>
+    <comment>{0} Is the Uri Identifying the SearchParameter, {1} is the index of the component</comment>
   </data>
   <data name="SearchParameterDefinitionContainsInvalidEntry" xml:space="preserve">
     <value>The search parameter definition contains one or more invalid entries.</value>
@@ -372,22 +375,28 @@
     <value>A search parameter with the same definition URL '{0}' already exists.</value>
   </data>
   <data name="SearchParameterDefinitionInvalidComponent" xml:space="preserve">
-    <value>bundle.entry[{0}].component is null or empty.</value>
+    <value>SearchParameter[{0}].component is null or empty.</value>
+    <comment>{0} Is the Uri Identifying the SearchParameter</comment>
   </data>
   <data name="SearchParameterDefinitionInvalidComponentExpression" xml:space="preserve">
-    <value>bundle.entry[{0}].component[{1}].expression is null or empty.</value>
+    <value>SearchParameter[{0}].component[{1}].expression is null or empty.</value>
+    <comment>{0} Is the Uri Identifying the SearchParameter, {1} is the index of the component</comment>
   </data>
   <data name="SearchParameterDefinitionInvalidComponentReference" xml:space="preserve">
-    <value>bundle.entry[{0}].component[{1}].definition.reference is null or empty or does not refer to a valid SearchParameter resource.</value>
+    <value>SearchParameter[{0}].component[{1}].definition.reference is null or empty or does not refer to a valid SearchParameter resource.</value>
+    <comment>{0} Is the Uri Identifying the SearchParameter, {1} is the index of the component</comment>
   </data>
   <data name="SearchParameterDefinitionInvalidDefinitionUri" xml:space="preserve">
-    <value>bundle.entry[{0}].url is invalid.</value>
+    <value>SearchParameter[{0}].url is invalid.</value>
+    <comment>{0} Index of the processed element in the ennumeration</comment>
   </data>
   <data name="SearchParameterDefinitionInvalidExpression" xml:space="preserve">
-    <value>bundle.entry[{0}].resource.expression is null or empty.</value>
+    <value>SearchParameter[{0}].resource.expression is null or empty.</value>
+    <comment>{0} Is the Uri Identifying the SearchParameter</comment>
   </data>
   <data name="SearchParameterDefinitionInvalidResource" xml:space="preserve">
-    <value>bundle.entry[{0}].resource is not a SearchParameter resource.</value>
+    <value>Entry {0} is not a SearchParameter resource.</value>
+    <comment>{0} Index of the processed element in the ennumeration</comment>
   </data>
   <data name="SearchParameterNotSupported" xml:space="preserve">
     <value>The search parameter '{0}' is not supported for resource type '{1}'.</value>
@@ -446,12 +455,22 @@
     <value>WeakETag must be in the weak ETag format.</value>
   </data>
   <data name="SearchParameterNoLongerSupported" xml:space="preserve">
-    <value>Search parameter {0} is no longer supported and cannot be marked enabled.</value>
-    <comment>{0}; the name of the search parameter which is no longer supported</comment>
+    <value>{0} So it cannot be marked enabled.</value>
+    <comment>{0} SearchParameterNotSupported string populated with search parameter info.</comment>
   </data>
   <data name="ReindexJobInCompletedState" xml:space="preserve">
     <value>Reindex job id {0} is in state {1} and cannot be cancelled.</value>
     <comment>{0} is the id of the reindex which is a a GUID.  {1} is the state, an enumerated set of state values.</comment>
+  </data>
+  <data name="SearchParameterDefinitionInvalidMissingUri" xml:space="preserve">
+    <value>The search parameter defintion is missing the Uri.</value>
+  </data>
+  <data name="SearchParameterDefinitionNotFound" xml:space="preserve">
+    <value>A search parameter with Uri '{0}' was not found.</value>
+  </data>
+  <data name="ChangesToSearchParametersNotAllowedWhileReindexing" xml:space="preserve">
+    <value>Changes to seach parameters is not allowed while a reindex job is ongoing.  Wait for the reindex job with Id: {0} to finish, or cancel it.</value>
+    <comment>{0} Id of currently active Reindex job.</comment>
   </data>
   <data name="ConvertDataFailed" xml:space="preserve">
     <value>Failed to convert the input data. Reason: {0}</value>
@@ -478,12 +497,22 @@
   <data name="ElementsAndSummaryParametersAreIncompatible" xml:space="preserve">
     <value>The '_elements' parameter is supported only when '_summary' is SummaryType.False or '_summary' is not specified at all.</value>
   </data>
-  <data name="TypeFilterWithoutTypeIsUnsupported" xml:space="preserve">
-    <value>The _type parameter must be included when using the _typeFilter parameter. </value>
-    <comment>Export job parameter exception messsage</comment>
+  <data name="SearchParameterUnknownNotSupported" xml:space="preserve">
+    <value>A search parameter is no longer supported.</value>
+  </data>
+  <data name="CustomSearchCreateError" xml:space="preserve">
+    <value>An error occurred creating the custom search parameter.  The issue must be resolved and the parameter resubmitted to become functional.</value>
   </data>
   <data name="TypeFilterUnparseable" xml:space="preserve">
     <value>The _typeFilter segment '{0}' could not be parsed.</value>
     <comment>Error message for a bad _typeFilter parameter on an export job. {0} is the segment that couldn't be parsed.</comment>
+  </data>
+  <data name="TypeFilterWithoutTypeIsUnsupported" xml:space="preserve">
+    <value>The _type parameter must be included when using the _typeFilter parameter.</value>
+    <comment>Export job parameter exception messsage</comment>
+  </data>
+  <data name="SearchParameterMustBeCommon" xml:space="preserve">
+    <value>Search parameter '{0}' is not common for '{1}' and '{2}'.</value>
+    <comment>{0}: the invalid search parameter. {1}: first resource type. {2} other resource type.</comment>
   </data>
 </root>

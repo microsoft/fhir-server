@@ -41,6 +41,10 @@ spec:
             - name: FhirServer__Operations__Export__StorageAccountUri
               value: {{ .Values.export.blobStorageUri | quote }}
             {{- end }}
+            {{- if .Values.reindex.enabled }}
+            - name: FhirServer__Operations__Reindex__Enabled
+              value: "true"
+            {{- end }}
             {{- if .Values.serviceMonitor.enabled }}
             - name: PrometheusMetrics__enabled
               value: "true"
@@ -125,6 +129,36 @@ spec:
               value: {{ $dbservicename }}
             - name: SqlServer__ConnectionString
               value: "Server=tcp:$(DATABASESERVERNAME),1433;Initial Catalog=$(DATABASENAME);Persist Security Info=False;User ID=$(DATABASEUSERNAME);Password=$(DATABASEPASSWORD);MultipleActiveResultSets=False;Connection Timeout=30"
+            {{- end }}
+            {{- if eq .Values.database.dataStore "ExistingSqlServer" }}
+            - name: DataStore
+              value: "SqlServer"
+            - name: SqlServer__AllowDatabaseCreation
+              value: "true"
+            - name: SqlServer__Initialize
+              value: "true"
+            - name: SqlServer__SchemaOptions__AutomaticUpdatesEnabled
+              value: {{ .Values.database.sql.schema.automaticUpdatesEnabled | quote }}
+            - name: DATABASEUSERNAME
+              value: {{ .Values.database.existingSqlServer.userName }}
+            - name: DATABASEPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  {{- if .Values.database.existingSqlServer.existingSecret }}
+                  name: {{ .Values.database.existingSqlServer.existingSecret }}
+                  key: DATABASEPASSWORD
+                  {{- else }}
+                  name: {{ include "fhir-server.fullname" . }}-existing-mssql
+                  key: DATABASEPASSWORD
+                  {{- end }}
+            - name: DATABASENAME
+              value: {{ .Values.database.existingSqlServer.databaseName }}
+            - name: DATABASESERVERNAME
+              value: {{ .Values.database.existingSqlServer.serverName }}
+            - name: DATABASESERVERPORT
+              value: {{ .Values.database.existingSqlServer.port | quote }}
+            - name: SqlServer__ConnectionString
+              value: "Server=tcp:$(DATABASESERVERNAME),$(DATABASESERVERPORT);Initial Catalog=$(DATABASENAME);Persist Security Info=False;User ID=$(DATABASEUSERNAME);Password=$(DATABASEPASSWORD);MultipleActiveResultSets=False;Connection Timeout=30"
             {{- end }}
             {{- if eq .Values.database.dataStore "CosmosDb" }}
             - name: DataStore

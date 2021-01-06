@@ -57,9 +57,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             Expression expressionOnTarget = queryGenerator == null ? chainedExpression.Expression : null;
 
             var sqlChainLinkExpression = new SqlChainLinkExpression(
-                chainedExpression.ResourceType,
+                chainedExpression.ResourceTypes,
                 chainedExpression.ReferenceSearchParameter,
-                chainedExpression.TargetResourceType,
+                chainedExpression.TargetResourceTypes,
                 chainedExpression.Reversed,
                 expressionOnTarget: expressionOnTarget);
 

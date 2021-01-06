@@ -123,6 +123,13 @@
                 "description": "Use Cosmos DB free tier."
             }
         },
+        "cosmosDbCmkUrl": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Key url for the Cosmos DB customer managed key. If not provided a system managed key will be used. If an invalid value is provided the service will not start."
+            }
+        },
         "sqlAdminPassword": {
             "type": "securestring",
             "defaultValue": "",
@@ -176,6 +183,13 @@
             "metadata": {
                 "description": "Determines whether the $convert-data operation will be enabled for this fhir instance. If true, an Azure container registry will be created as part of the deployment. You will need owner or user-administrator permissions for this."
             }
+        },
+        "enableReindex": {
+            "type": "bool",
+            "defaultValue": false,
+            "metadata": {
+                "description": "Determines whether the $reindex operation will be enabled for this fhir instance."
+            } 
         }
     },
     "variables": {
@@ -209,7 +223,8 @@
             "FhirServer__Operations__Export__Enabled": "[parameters('enableExport')]",
             "FhirServer__Operations__Export__StorageAccountUri": "[if(parameters('enableExport'), concat('https://', variables('storageAccountName'), variables('blobStorageUri')), 'null')]",
             "FhirServer__Operations__ConvertData__Enabled": "[parameters('enableConvertData')]",
-            "FhirServer__Operations__ConvertData__ContainerRegistryServers__0": "[if(parameters('enableConvertData'), concat(variables('azureContainerRegistryName'), variables('azureContainerRegistryUri')), 'null')]"
+            "FhirServer__Operations__ConvertData__ContainerRegistryServers__0": "[if(parameters('enableConvertData'), concat(variables('azureContainerRegistryName'), variables('azureContainerRegistryUri')), 'null')]",
+            "FhirServer__Operations__Reindex__Enabled": "[parameters('enableReindex')]"
         },
         "combinedFhirServerConfigProperties": "[union(variables('staticFhirServerConfigProperties'), parameters('additionalFhirServerConfigProperties'))]",
         "computedSqlServerReference": "[concat('Microsoft.Sql/servers/', variables('serviceName'))]",
@@ -324,7 +339,7 @@
         },
         {
             "condition": "[equals(parameters('solutionType'),'FhirServerCosmosDB')]",
-            "apiVersion": "2015-04-08",
+            "apiVersion": "2019-12-12",
             "type": "Microsoft.DocumentDB/databaseAccounts",
             "tags": {
                 "FhirServerSolution": "[parameters('solutionType')]"
@@ -335,13 +350,13 @@
                 "name": "[variables('serviceName')]",
                 "databaseAccountOfferType": "Standard",
                 "consistencyPolicy": "[parameters('cosmosDbAccountConsistencyPolicy')]",
+                "keyVaultKeyUri": "[parameters('cosmosDbCmkUrl')]",
                 "locations": [
                     {
                         "locationName": "[resourceGroup().location]",
                         "failoverPriority": 0
                     }
-                ],
-                "enableFreeTier": "[variables('isCosmosDbFreeTier')]"
+                ]
             }
         },
         {
@@ -510,15 +525,15 @@
             "comments": "Container registry for storing templates images",
             "condition": "[parameters('enableConvertData')]",
             "tags": {
-              "displayName": "Container Registry",
-              "container.registry": "[variables('azureContainerRegistryName')]"
+                "displayName": "Container Registry",
+                "container.registry": "[variables('azureContainerRegistryName')]"
             },
             "sku": {
-              "name": "Basic",
-              "tier": "Basic"
+                "name": "Basic",
+                "tier": "Basic"
             },
             "properties": {
-              "adminUserEnabled": "true"
+                "adminUserEnabled": "true"
             }
         },
         {

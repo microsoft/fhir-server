@@ -385,10 +385,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         AppendHistoryClause(delimited, referenceSourceTableAlias);
 
                         delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ResourceTypeId, referenceSourceTableAlias)
-                            .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.ResourceTypeId, Model.GetResourceTypeId(chainedExpression.ResourceType)));
+                            .Append(" IN (")
+                            .Append(string.Join(", ", chainedExpression.ResourceTypes.Select(x => Parameters.AddParameter(VLatest.ReferenceSearchParam.ResourceTypeId, Model.GetResourceTypeId(x)))))
+                            .Append(")");
 
                         delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, referenceSourceTableAlias)
-                            .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, Model.GetResourceTypeId(chainedExpression.TargetResourceType)));
+                            .Append(" IN (")
+                            .Append(string.Join(", ", chainedExpression.TargetResourceTypes.Select(x => Parameters.AddParameter(VLatest.ReferenceSearchParam.ReferenceResourceTypeId, Model.GetResourceTypeId(x)))))
+                            .Append(")");
 
                         if (tableExpression.ChainLevel == 1)
                         {
@@ -462,21 +466,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         table = !includeExpression.Reversed ? referenceSourceTableAlias : referenceTargetResourceTableAlias;
 
                         // For RevIncludeIterate we expect to have a TargetType specified if the target reference can be of multiple types
-                        var resourceId = Model.GetResourceTypeId(includeExpression.ResourceType);
+                        var resourceIds = includeExpression.ResourceTypes.Select(x => Model.GetResourceTypeId(x)).ToArray();
                         if (includeExpression.Reversed && includeExpression.Iterate)
                         {
                             if (includeExpression.TargetResourceType != null)
                             {
-                                resourceId = Model.GetResourceTypeId(includeExpression.TargetResourceType);
+                                resourceIds = new[] { Model.GetResourceTypeId(includeExpression.TargetResourceType) };
                             }
                             else if (includeExpression.ReferenceSearchParameter?.TargetResourceTypes?.Count > 0)
                             {
-                                resourceId = Model.GetResourceTypeId(includeExpression.ReferenceSearchParameter.TargetResourceTypes.ToList().First());
+                                resourceIds = new[] { Model.GetResourceTypeId(includeExpression.ReferenceSearchParameter.TargetResourceTypes.ToList().First()) };
                             }
                         }
 
                         delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ResourceTypeId, table)
-                            .Append(" = ").Append(Parameters.AddParameter(VLatest.ReferenceSearchParam.ResourceTypeId, resourceId));
+                             .Append(" IN (")
+                             .Append(string.Join(", ", resourceIds))
+                             .Append(")");
 
                         // Get FROM ctes
                         string fromCte = _cteMainSelect;

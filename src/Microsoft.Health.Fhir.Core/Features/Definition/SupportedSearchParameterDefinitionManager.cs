@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using EnsureThat;
+using Hl7.Fhir.ElementModel;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -76,20 +77,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             return _inner.AllSearchParameters.Where(p => p.IsSearchable == false && p.IsSupported == true);
         }
 
-        public void SetSearchParameterEnabled(Uri searchParameterUri)
+        public string GetSearchParameterHashForResourceType(string resourceType)
         {
-            var supportedParameter = GetSearchParameter(searchParameterUri);
-            supportedParameter.IsSearchable = true;
+            return _inner.GetSearchParameterHashForResourceType(resourceType);
+        }
+
+        public void AddNewSearchParameters(IReadOnlyCollection<ITypedElement> searchParameters)
+        {
+            _inner.AddNewSearchParameters(searchParameters);
         }
 
         public void UpdateSearchParameterHashMap(Dictionary<string, string> updatedSearchParamHashMap)
         {
             _inner.UpdateSearchParameterHashMap(updatedSearchParamHashMap);
-        }
-
-        public string GetSearchParameterHashForResourceType(string resourceType)
-        {
-            return _inner.GetSearchParameterHashForResourceType(resourceType);
         }
     }
 }

@@ -119,7 +119,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 {
                     new TableExpression(
                         ChainAnchorQueryGenerator.Instance,
-                        new SqlChainLinkExpression("Observation", new SearchParameterInfo("myref"), "Patient", false),
+                        new SqlChainLinkExpression(new[] { "Observation" }, new SearchParameterInfo("myref"), new[] { "Patient" }, false),
                         TableExpressionKind.Chain,
                         1),
                     new TableExpression(

@@ -21,6 +21,9 @@ parameters:
 - name: schemaAutomaticUpdatesEnabled
   type: boolean
   default: false
+- name: reindexEnabled
+  type: boolean
+  default: false
 
 jobs:
 - job: provisionServiceWithHelm
@@ -48,7 +51,7 @@ jobs:
         corsMethods=`cat $corsPath | jq -r '.FhirServer.Cors.Methods | @csv' | tr -d '"'`
         corsHeaders=`cat $corsPath | jq -r '.FhirServer.Cors.Headers | @csv' | tr -d '"'`
         corsMaxAge=`cat $corsPath | jq -r '.FhirServer.Cors.MaxAge'`        
-        repositoryName=`echo $(azureContainerRegistry)/${{parameters.version}}_fhir-server | tr '[:upper:]' '[:lower:]'`
+        repositoryName=`echo ${{parameters.version}}_fhir-server | tr '[:upper:]' '[:lower:]'`
         releaseName=`echo "$(DeploymentEnvironmentName)-${{parameters.version}}-${{parameters.dataStore}}" | tr '[:upper:]' '[:lower:]'`
         hostName=`echo "${releaseName}.${{parameters.dnsSuffix}}" | tr '[:upper:]' '[:lower:]'`
         tenantId="$(tenant-id)"
@@ -72,6 +75,7 @@ jobs:
 
         cat <<EOF > release-values.yaml
         image:
+          registry: $(azureContainerRegistry)
           repository: $repositoryName
           tag: ${{parameters.imageTag}}
         resources:
@@ -117,9 +121,11 @@ jobs:
         export:
           enabled: true
           blobStorageUri: $BLOB_URI
+        reindex:
+          enabled: ${{ parameters.reindexEnabled }}
         security:
           enabled: true
-          enableAadSmartOnFhirProxy: false
+          enableAadSmartOnFhirProxy: true
           authority: https://login.microsoftonline.com/${tenantId}
           audience: ${{ parameters.testEnvironmentUrl }}
         EOF
