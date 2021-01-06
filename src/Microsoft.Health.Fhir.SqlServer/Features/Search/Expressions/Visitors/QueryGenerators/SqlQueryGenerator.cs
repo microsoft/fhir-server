@@ -157,7 +157,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 foreach (var resourceExpressions in expression.ResourceExpressions)
                 {
                     delimitedClause.BeginDelimitedElement();
-                    resourceExpressions.AcceptVisitor(DispatchingResourceSearchParameterQueryGenerator.Instance, GetContext());
+                    resourceExpressions.AcceptVisitor(ResourceColumnSearchParameterQueryGenerator.Instance, GetContext());
                 }
 
                 if (expression.TableExpressions.Count == 0)
@@ -276,7 +276,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         if (tableExpression.Predicate != null)
                         {
                             delimited.BeginDelimitedElement();
-                            tableExpression.Predicate?.AcceptVisitor(DispatchingResourceSearchParameterQueryGenerator.Instance, GetContext());
+                            tableExpression.Predicate?.AcceptVisitor(ResourceColumnSearchParameterQueryGenerator.Instance, GetContext());
                         }
                     }
 
@@ -362,7 +362,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                                 .Append(" = ").Append(VLatest.Resource.ResourceSurrogateId, referenceSourceResourceTableAlias);
 
                             delimited.BeginDelimitedElement();
-                            chainedExpression.ExpressionOnTarget.AcceptVisitor(DispatchingResourceSearchParameterQueryGenerator.Instance, GetContext(referenceSourceResourceTableAlias));
+                            chainedExpression.ExpressionOnTarget.AcceptVisitor(ResourceColumnSearchParameterQueryGenerator.Instance, GetContext(referenceSourceResourceTableAlias));
                         }
                     }
 
@@ -403,13 +403,13 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         if (chainedExpression.ExpressionOnTarget != null && !expressionOnTargetHandledBySecondJoin)
                         {
                             delimited.BeginDelimitedElement();
-                            chainedExpression.ExpressionOnTarget?.AcceptVisitor(DispatchingResourceSearchParameterQueryGenerator.Instance, GetContext(chainedExpression.Reversed ? referenceSourceTableAlias : referenceTargetResourceTableAlias));
+                            chainedExpression.ExpressionOnTarget?.AcceptVisitor(ResourceColumnSearchParameterQueryGenerator.Instance, GetContext(chainedExpression.Reversed ? referenceSourceTableAlias : referenceTargetResourceTableAlias));
                         }
 
                         if (chainedExpression.ExpressionOnSource != null)
                         {
                             delimited.BeginDelimitedElement();
-                            chainedExpression.ExpressionOnSource.AcceptVisitor(DispatchingResourceSearchParameterQueryGenerator.Instance, GetContext(chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias));
+                            chainedExpression.ExpressionOnSource.AcceptVisitor(ResourceColumnSearchParameterQueryGenerator.Instance, GetContext(chainedExpression.Reversed ? referenceTargetResourceTableAlias : referenceSourceTableAlias));
                         }
                     }
 

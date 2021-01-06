@@ -10,6 +10,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 {
     internal static class SearchParameterInfoExtensions
     {
+        /// <summary>
+        /// Determines the location of the column(s) for a given search parameter are located.
+        /// </summary>
+        /// <param name="searchParameter">The search parameter</param>
+        /// <returns>The location enum value. Note this is a flags enum</returns>
         public static SearchParameterColumnLocation ColumnLocation(this SearchParameterInfo searchParameter)
         {
             switch (searchParameter.Name)

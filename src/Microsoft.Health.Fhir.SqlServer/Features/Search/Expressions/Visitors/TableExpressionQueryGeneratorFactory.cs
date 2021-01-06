@@ -135,7 +135,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public TableExpressionQueryGenerator VisitChained(ChainedExpression expression, object context)
         {
-            return ChainAnchorQueryGenerator.Instance;
+            return ChainLinkQueryGenerator.Instance;
         }
 
         public TableExpressionQueryGenerator VisitMissingField(MissingFieldExpression expression, object context)

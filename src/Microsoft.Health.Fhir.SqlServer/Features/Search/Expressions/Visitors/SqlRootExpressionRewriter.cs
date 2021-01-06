@@ -38,7 +38,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             {
                 Expression childExpression = expression.Expressions[i];
 
-                if (TryGetTableExpressionQueryGenerator(childExpression, out var tableExpressionGenerator, out var tableExpressionKind))
+                if (TryGetTableExpressionQueryGenerator(childExpression, out TableExpressionQueryGenerator tableExpressionGenerator, out TableExpressionKind tableExpressionKind))
                 {
                     EnsureAllocatedAndPopulatedChangeType(ref resourceExpressions, expression.Expressions, i);
                     EnsureAllocatedAndPopulated(ref tableExpressions, Array.Empty<TableExpression>(), 0);
@@ -53,13 +53,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             if (tableExpressions == null)
             {
-                resourceExpressions = new List<SearchParameterExpressionBase>(expression.Expressions.Count);
-                foreach (Expression resourceExpression in expression.Expressions)
+                SearchParameterExpressionBase[] castedResourceExpressions = new SearchParameterExpressionBase[expression.Expressions.Count];
+
+                for (var i = 0; i < expression.Expressions.Count; i++)
                 {
-                    resourceExpressions.Add((SearchParameterExpressionBase)resourceExpression);
+                    castedResourceExpressions[i] = (SearchParameterExpressionBase)expression.Expressions[i];
                 }
 
-                return SqlRootExpression.WithResourceExpressions(resourceExpressions);
+                return SqlRootExpression.WithResourceExpressions(castedResourceExpressions);
             }
 
             if (resourceExpressions == null)
@@ -93,7 +94,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             tableExpressionGenerator = expression.AcceptVisitor(_tableExpressionQueryGeneratorFactory);
             switch (tableExpressionGenerator)
             {
-                case ChainAnchorQueryGenerator _:
+                case ChainLinkQueryGenerator _:
                     kind = TableExpressionKind.Chain;
                     break;
                 case IncludeQueryGenerator _:

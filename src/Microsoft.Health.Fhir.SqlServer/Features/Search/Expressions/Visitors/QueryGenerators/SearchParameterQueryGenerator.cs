@@ -24,9 +24,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         public override SearchParameterQueryGeneratorContext VisitSearchParameter(SearchParameterExpression expression, SearchParameterQueryGeneratorContext context)
         {
-            SearchParameterQueryGenerator delegatedGenerator = GetSearchParameterQueryGenerator(expression);
+            SearchParameterQueryGenerator delegatedGenerator = GetSearchParameterQueryGeneratorIfResourceColumnSearchParameter(expression);
             if (delegatedGenerator != null)
             {
+                // This is a search parameter over a column that exists on the Resource table or both the Resource table and search parameter tables.
+                // Delegate to the visitor specific to it.
                 return expression.Expression.AcceptVisitor(delegatedGenerator, context);
             }
 
@@ -57,9 +59,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         public override SearchParameterQueryGeneratorContext VisitMissingSearchParameter(MissingSearchParameterExpression expression, SearchParameterQueryGeneratorContext context)
         {
-            SearchParameterQueryGenerator delegatedGenerator = GetSearchParameterQueryGenerator(expression);
+            SearchParameterQueryGenerator delegatedGenerator = GetSearchParameterQueryGeneratorIfResourceColumnSearchParameter(expression);
             if (delegatedGenerator != null)
             {
+                // This is a search parameter over a column that exists on the Resource table or both the Resource table and search parameter tables.
+                // Delegate to the visitor specific to it.
                 return expression.AcceptVisitor(delegatedGenerator, context);
             }
 
@@ -98,7 +102,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             return context;
         }
 
-        private SearchParameterQueryGenerator GetSearchParameterQueryGenerator(SearchParameterExpressionBase searchParameter)
+        protected static SearchParameterQueryGenerator GetSearchParameterQueryGeneratorIfResourceColumnSearchParameter(SearchParameterExpressionBase searchParameter)
         {
             switch (searchParameter.Parameter.Name)
             {

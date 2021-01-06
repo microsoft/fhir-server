@@ -44,8 +44,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         public TableExpressionQueryGenerator QueryGenerator { get; }
 
         /// <summary>
-        /// The search expression over a columns belonging exclusively to a search parameter table.
-        /// Applies to the chain target if a chained expression.
+        /// The search expression over columns of the corresponding search parameter table.
         /// </summary>
         public Expression Predicate { get; }
 
@@ -61,7 +60,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
 
         public override string ToString()
         {
-            return $"(Table {Kind} {(ChainLevel == 0 ? null : $"ChainLevel:{ChainLevel} ")}{QueryGenerator?.Table} Normalized:{Predicate})";
+            return $"(Table {Kind} {(ChainLevel == 0 ? null : $"ChainLevel:{ChainLevel} ")}{QueryGenerator?.Table} Predicate:{Predicate})";
         }
     }
 }

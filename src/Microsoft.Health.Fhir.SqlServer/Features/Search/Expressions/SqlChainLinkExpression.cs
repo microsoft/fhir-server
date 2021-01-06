@@ -10,6 +10,9 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
 {
+    /// <summary>
+    /// An expression type used to represent a non-leaf chaining expression. Used by the SQL layer, created from <see cref="ChainedExpression"/>.
+    /// </summary>
     internal class SqlChainLinkExpression : Expression
     {
         public SqlChainLinkExpression(
@@ -52,9 +55,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
         /// </summary>
         public bool Reversed { get; }
 
-        public Expression ExpressionOnSource { get; }
-
+        /// <summary>
+        /// The expression on the chain target. For example, for Observation?subject:Patient._lastUpdated=2020, this would be _lastUpdated=2020
+        /// </summary>
         public Expression ExpressionOnTarget { get; }
+
+        /// <summary>
+        /// The expression on the chain source. For example, for Observation?subject:Patient._lastUpdated=2020, this would be type=Observation
+        /// </summary>
+        public Expression ExpressionOnSource { get; }
 
         public override TOutput AcceptVisitor<TContext, TOutput>(IExpressionVisitor<TContext, TOutput> visitor, TContext context)
         {

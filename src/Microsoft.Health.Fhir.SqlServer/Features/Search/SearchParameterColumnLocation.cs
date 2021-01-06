@@ -7,6 +7,9 @@ using System;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 {
+    /// <summary>
+    /// Indicates where the column(s) of for a search parameter are located.
+    /// </summary>
     [Flags]
     internal enum SearchParameterColumnLocation
     {

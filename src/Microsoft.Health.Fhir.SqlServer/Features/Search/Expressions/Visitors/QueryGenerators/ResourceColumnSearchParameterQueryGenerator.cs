@@ -4,14 +4,13 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
 {
-    internal class DispatchingResourceSearchParameterQueryGenerator : SearchParameterQueryGenerator
+    internal class ResourceColumnSearchParameterQueryGenerator : SearchParameterQueryGenerator
     {
-        public static readonly DispatchingResourceSearchParameterQueryGenerator Instance = new DispatchingResourceSearchParameterQueryGenerator();
+        public static readonly ResourceColumnSearchParameterQueryGenerator Instance = new ResourceColumnSearchParameterQueryGenerator();
 
         public override SearchParameterQueryGeneratorContext VisitSearchParameter(SearchParameterExpression expression, SearchParameterQueryGeneratorContext context)
         {
@@ -25,17 +24,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private SearchParameterQueryGenerator GetSearchParameterQueryGenerator(SearchParameterExpressionBase searchParameter)
         {
-            switch (searchParameter.Parameter.Name)
-            {
-                case SearchParameterNames.Id:
-                    return ResourceIdParameterQueryGenerator.Instance;
-                case SearchParameterNames.ResourceType:
-                    return ResourceTypeIdParameterQueryGenerator.Instance;
-                case SqlSearchParameters.ResourceSurrogateIdParameterName:
-                    return ResourceSurrogateIdParameterQueryGenerator.Instance;
-                default:
-                    throw new NotSupportedException(searchParameter.Parameter.Name);
-            }
+            return GetSearchParameterQueryGeneratorIfResourceColumnSearchParameter(searchParameter) ?? throw new InvalidOperationException($"Unexpected search parameter {searchParameter.Parameter.Name}");
         }
     }
 }

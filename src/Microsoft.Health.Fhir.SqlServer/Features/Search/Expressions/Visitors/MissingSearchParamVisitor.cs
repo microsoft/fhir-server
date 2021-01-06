@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             {
                 TableExpression tableExpression = expression.TableExpressions[i];
 
-                // process only normalized predicates. Ignore Sort as it has its own visitor.
+                // Ignore Sort as it has its own visitor.
                 if (tableExpression.Kind != TableExpressionKind.Sort && tableExpression.Predicate?.AcceptVisitor(Scout.Instance, null) == true)
                 {
                     EnsureAllocatedAndPopulated(ref newTableExpressions, expression.TableExpressions, i);

@@ -11,7 +11,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
     /// <summary>
-    /// It creates the correct generator and populates the normalized predicates for sort parameters.
+    /// It creates the correct generator and populates the predicates for sort parameters.
     /// </summary>
     internal class SortRewriter : SqlExpressionRewriter<SearchOptions>
     {

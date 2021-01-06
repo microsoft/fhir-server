@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             tableExpressions.Add(
                 new TableExpression(
-                    ChainAnchorQueryGenerator.Instance,
+                    ChainLinkQueryGenerator.Instance,
                     sqlChainLinkExpression,
                     TableExpressionKind.Chain,
                     chainLevel));
