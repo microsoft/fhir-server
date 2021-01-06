@@ -119,7 +119,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                     AppendSubquery(parameterName: null, expression.Expression, context);
                     break;
                 default:
-                    AppendSubquery(expression.Parameter.Name, expression.Expression, context);
+                    if (expression.Expression is NotExpression notExpression)
+                    {
+                        AppendSubquery(expression.Parameter.Name, notExpression.Expression, context, true);
+                    }
+                    else
+                    {
+                        AppendSubquery(expression.Parameter.Name, expression.Expression, context);
+                    }
+
                     break;
             }
 
@@ -211,8 +219,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
         public object VisitNotExpression(NotExpression expression, Context context)
         {
-            // TODO: This will be removed once it's implemented.
-            throw new SearchOperationNotSupportedException("Modifier ':not' is not supported");
+            string message = $"Not expression should be handled in {nameof(VisitSearchParameter)}";
+            Debug.Fail(message);
+            throw new InvalidOperationException(message);
         }
 
         public object VisitMultiary(MultiaryExpression expression, Context context)
