@@ -102,7 +102,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     selectingFromResourceTable = false;
                     StringBuilder.AppendLine("SELECT COUNT(DISTINCT Sid1)");
                 }
-                else if (expression.TableExpressions.Count == 0)
+                else
                 {
                     // We will be counting over the Resource table.
                     selectingFromResourceTable = true;
