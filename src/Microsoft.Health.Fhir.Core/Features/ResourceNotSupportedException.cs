@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Core.Features
 
             Issues.Add(new OperationOutcomeIssue(
                     OperationOutcomeConstants.IssueSeverity.Error,
-                    OperationOutcomeConstants.IssueType.Forbidden,
+                    OperationOutcomeConstants.IssueType.NotSupported,
                     string.Format(Core.Resources.ResourceNotSupported, resourceType)));
         }
     }

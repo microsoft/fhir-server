@@ -87,25 +87,24 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             string embeddedResourceNamespace = null,
             Assembly assembly = null)
         {
-            using (Stream stream = modelInfoProvider.OpenVersionedFileStream(embeddedResourceName, embeddedResourceNamespace, assembly))
+            using Stream stream = modelInfoProvider.OpenVersionedFileStream(embeddedResourceName, embeddedResourceNamespace, assembly);
+            using TextReader reader = new StreamReader(stream);
+            using JsonReader jsonReader = new JsonTextReader(reader);
+            try
             {
-                using TextReader reader = new StreamReader(stream);
-                using JsonReader jsonReader = new JsonTextReader(reader);
-                try
-                {
-                    return new BundleWrapper(FhirJsonNode.Read(jsonReader).ToTypedElement(modelInfoProvider.StructureDefinitionSummaryProvider));
-                }
-                catch (FormatException ex)
-                {
-                    var issue = new OperationOutcomeIssue(
-                            OperationOutcomeConstants.IssueSeverity.Fatal,
-                            OperationOutcomeConstants.IssueType.Invalid,
-                            ex.Message);
+                ISourceNode sourceNode = FhirJsonNode.Read(jsonReader);
+                return new BundleWrapper(modelInfoProvider.ToTypedElement(sourceNode));
+            }
+            catch (FormatException ex)
+            {
+                var issue = new OperationOutcomeIssue(
+                    OperationOutcomeConstants.IssueSeverity.Fatal,
+                    OperationOutcomeConstants.IssueType.Invalid,
+                    ex.Message);
 
-                    throw new InvalidDefinitionException(
-                        Core.Resources.SearchParameterDefinitionContainsInvalidEntry,
-                        new OperationOutcomeIssue[] { issue });
-                }
+                throw new InvalidDefinitionException(
+                    Core.Resources.SearchParameterDefinitionContainsInvalidEntry,
+                    new OperationOutcomeIssue[] { issue });
             }
         }
 

@@ -244,6 +244,42 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenVariousTypesOfResources_WhenSearchingAcrossAllResourceTypesUsingCommonSearchParameter_ThenOnlyResourcesMatchingTypeAndCommonSearchParameterShouldBeReturned()
+        {
+            // Create various resources.
+            var suffix = Guid.NewGuid().ToString("N").Substring(0, 4);
+            Patient nonMatchingPatient = (await Client.CreateAsync(new Patient() { Name = new List<HumanName>() { new HumanName() { Family = $"Adams{suffix}" } } })).Resource;
+            Practitioner nonMatchingPractitioner = (await Client.CreateAsync(new Practitioner() { Name = new List<HumanName>() { new HumanName() { Family = $"Wilson{suffix}" } } })).Resource;
+            Patient matchingPatient = (await Client.CreateAsync(new Patient() { Name = new List<HumanName>() { new HumanName() { Family = $"Smith{suffix}" } } })).Resource;
+            Practitioner matchingPractitioner = (await Client.CreateAsync(new Practitioner() { Name = new List<HumanName>() { new HumanName() { Family = $"Smith{suffix}" } } })).Resource;
+
+            var query = $"?_type=Patient,Practitioner&family={matchingPatient.Name[0].Family}";
+            await ExecuteAndValidateBundle(query, matchingPatient, matchingPractitioner);
+            Bundle bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient,Practitioner"), ("family", matchingPatient.Name[0].Family));
+            ValidateBundle(bundle, query, matchingPatient, matchingPractitioner);
+
+            query = $"?_type=Patient,Practitioner&family={nonMatchingPatient.Name[0].Family}";
+            await ExecuteAndValidateBundle(query, nonMatchingPatient);
+            bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient,Practitioner"), ("family", nonMatchingPatient.Name[0].Family));
+            ValidateBundle(bundle, query, nonMatchingPatient);
+
+            query = $"?_type=Patient,Practitioner&family={nonMatchingPractitioner.Name[0].Family}";
+            await ExecuteAndValidateBundle(query, nonMatchingPractitioner);
+            bundle = await Client.SearchPostAsync(null, default, ("_type", "Patient,Practitioner"), ("family", nonMatchingPractitioner.Name[0].Family));
+            ValidateBundle(bundle, query, nonMatchingPractitioner);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenVariousTypesOfResources_WhenSearchingAcrossAllResourceTypesUsingNonCommonSearchParameter_ThenExceptionShouldBeThrown()
+        {
+            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync($"?_type=Encounter,Procedure&subject=Patient/123"));
+
+            Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
         public async Task GivenResources_WhenSearchedWithCount_ThenNumberOfResourcesReturnedShouldNotExceedCount()
         {
             const int numberOfResources = 5;

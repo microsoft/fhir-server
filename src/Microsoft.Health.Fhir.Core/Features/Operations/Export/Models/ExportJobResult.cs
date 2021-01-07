@@ -16,7 +16,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
     /// </summary>
     public class ExportJobResult
     {
-        public ExportJobResult(DateTimeOffset transactionTime, Uri requestUri, bool requiresAccessToken, IList<ExportOutputResponse> output, IList<ExportOutputResponse> errors)
+        public ExportJobResult(DateTimeOffset transactionTime, Uri requestUri, bool requiresAccessToken, IList<ExportOutputResponse> output, IList<ExportOutputResponse> errors, IList<Core.Models.OperationOutcomeIssue> issues)
         {
             EnsureArg.IsNotDefault<DateTimeOffset>(transactionTime, nameof(transactionTime));
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
@@ -28,6 +28,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             RequiresAccessToken = requiresAccessToken;
             Output = output;
             Error = errors;
+            Issues = issues;
         }
 
         [JsonConstructor]
@@ -49,5 +50,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
 
         [JsonProperty("error")]
         public IList<ExportOutputResponse> Error { get; private set; }
+
+        [JsonProperty("issues")]
+        public IList<Microsoft.Health.Fhir.Core.Models.OperationOutcomeIssue> Issues { get; private set; }
     }
 }
