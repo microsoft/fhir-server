@@ -199,19 +199,38 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 }
 
                 // This is a multiple value expression.
-                Expression[] expressions = parts.Select(part =>
+                if (modifier == SearchModifierCode.Not)
                 {
-                    ISearchValue searchValue = parser(part);
+                    Expression[] expressions = parts.Select(part =>
+                    {
+                        ISearchValue searchValue = parser(part);
 
-                    return helper.Build(
-                        searchParameter.Name,
-                        modifier,
-                        comparator,
-                        componentIndex,
-                        searchValue);
-                }).ToArray();
+                        return helper.Build(
+                            searchParameter.Name,
+                            null,
+                            comparator,
+                            componentIndex,
+                            searchValue);
+                    }).ToArray();
 
-                return Expression.Or(expressions);
+                    return Expression.Not(Expression.Or(expressions));
+                }
+                else
+                {
+                    Expression[] expressions = parts.Select(part =>
+                    {
+                        ISearchValue searchValue = parser(part);
+
+                        return helper.Build(
+                            searchParameter.Name,
+                            modifier,
+                            comparator,
+                            componentIndex,
+                            searchValue);
+                    }).ToArray();
+
+                    return Expression.Or(expressions);
+                }
             }
         }
 

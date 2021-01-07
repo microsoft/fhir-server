@@ -51,6 +51,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return expression;
         }
 
+        public virtual Expression VisitNotExpression(NotExpression expression, TContext context)
+        {
+            Expression visitedExpression = expression.Expression.AcceptVisitor(visitor: this, context: context);
+            if (ReferenceEquals(visitedExpression, expression.Expression))
+            {
+                return expression;
+            }
+
+            return new NotExpression(visitedExpression);
+        }
+
         public virtual Expression VisitMultiary(MultiaryExpression expression, TContext context)
         {
             IReadOnlyList<Expression> rewrittenExpressions = VisitArray(expression.Expressions, context);

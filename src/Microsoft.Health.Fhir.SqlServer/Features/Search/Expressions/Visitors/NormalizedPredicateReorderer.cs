@@ -37,6 +37,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                     return -10;
                 }
 
+                var order = t.NormalizedPredicate?.AcceptVisitor(Scout.Instance, context);
+                if (order != 0)
+                {
+                    return order;
+                }
+
                 switch (t.SearchParameterQueryGenerator)
                 {
                     case ReferenceSearchParameterQueryGenerator _:
@@ -51,6 +57,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             }).ToList();
 
             return new SqlRootExpression(reorderedExpressions, expression.DenormalizedExpressions);
+        }
+
+        public override Expression VisitNotExpression(NotExpression expression, object context)
+        {
+            return base.VisitNotExpression(expression, context);
+        }
+
+        private class Scout : DefaultExpressionVisitor<object, int>
+        {
+            internal static readonly Scout Instance = new Scout();
+
+            private Scout()
+                : base((accumulated, current) => current != 0 ? current : accumulated)
+            {
+            }
+
+            public override int VisitNotExpression(NotExpression expression, object context)
+            {
+                return -15;
+            }
         }
     }
 }
