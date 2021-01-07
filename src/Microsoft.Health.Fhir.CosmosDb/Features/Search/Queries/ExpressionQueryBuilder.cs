@@ -219,9 +219,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
         public object VisitNotExpression(NotExpression expression, Context context)
         {
-            string message = $"Not expression should be handled in {nameof(VisitSearchParameter)}";
-            Debug.Fail(message);
-            throw new InvalidOperationException(message);
+            _queryBuilder.Append("NOT (");
+            expression.Expression.AcceptVisitor(this, context);
+            _queryBuilder.Append(")");
+            return null;
         }
 
         public object VisitMultiary(MultiaryExpression expression, Context context)

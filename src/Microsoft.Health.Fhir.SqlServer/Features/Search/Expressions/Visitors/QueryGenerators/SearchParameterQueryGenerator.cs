@@ -65,8 +65,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         public override SearchParameterQueryGeneratorContext VisitNotExpression(NotExpression expression, SearchParameterQueryGeneratorContext context)
         {
-            Debug.Assert(false, "Not expressions should have been rewritten");
-
+            context.StringBuilder.Append("NOT ");
             return base.VisitNotExpression(expression, context);
         }
 
