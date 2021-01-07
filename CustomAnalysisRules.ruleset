@@ -5,7 +5,7 @@
   <Rules AnalyzerId="Microsoft.CodeAnalysis.CSharp.Features" RuleNamespace="Microsoft.CodeAnalysis.CSharp.Features">
     <Rule Id="IDE0003" Action="Warning" />
     <Rule Id="IDE0004" Action="Warning" />
-    <Rule Id="IDE0005" Action="None" />
+    <Rule Id="IDE0005" Action="Warning" />
     <Rule Id="IDE1005" Action="Warning" />
   </Rules>
   <Rules AnalyzerId="StyleCop.Analyzers" RuleNamespace="StyleCop.Analyzers">
