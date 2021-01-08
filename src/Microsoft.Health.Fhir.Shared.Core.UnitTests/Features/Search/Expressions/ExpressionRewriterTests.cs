@@ -25,8 +25,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions
             var simpleExpression2 = Expression.Equals(FieldName.Number, null, 5M);
             VerifyVisit(simpleExpression1);
             VerifyVisit(Expression.SearchParameter(new SearchParameterInfo("my-param"), simpleExpression1));
-            VerifyVisit(Expression.Chained("Observation", new SearchParameterInfo("subject"), "Patient", false, simpleExpression1));
-            VerifyVisit(Expression.Chained("Patient", new SearchParameterInfo("subject"), "Observation", true, simpleExpression1));
+            VerifyVisit(Expression.Chained(new[] { "Observation" }, new SearchParameterInfo("subject"), new[] { "Patient" }, false, simpleExpression1));
+            VerifyVisit(Expression.Chained(new[] { "Patient" }, new SearchParameterInfo("subject"), new[] { "Observation" }, true, simpleExpression1));
             VerifyVisit(Expression.CompartmentSearch("Patient", "x"));
             VerifyVisit(Expression.Missing(FieldName.Quantity, null));
             VerifyVisit(Expression.MissingSearchParameter(new SearchParameterInfo("my-param"), true));
@@ -53,8 +53,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions
 
             VerifyVisit($"(Param my-param {expectedAndString1})", Expression.SearchParameter(new SearchParameterInfo("my-param"), simpleExpression1));
 
-            VerifyVisit($"(Chain subject:Patient {expectedAndString1})", Expression.Chained("Observation", new SearchParameterInfo("subject"), "Patient", false, simpleExpression1));
-            VerifyVisit($"(Reverse Chain subject:Observation {expectedAndString1})", Expression.Chained("Patient", new SearchParameterInfo("subject"), "Observation", true, simpleExpression1));
+            VerifyVisit($"(Chain subject:Patient {expectedAndString1})", Expression.Chained(new[] { "Observation" }, new SearchParameterInfo("subject"), new[] { "Patient" }, false, simpleExpression1));
+            VerifyVisit($"(Reverse Chain subject:Observation {expectedAndString1})", Expression.Chained(new[] { "Patient" }, new SearchParameterInfo("subject"), new[] { "Observation" }, true, simpleExpression1));
             VerifyVisit($"(Or {expectedAndString1} {expectedAndString2})", Expression.Or(simpleExpression1, simpleExpression2));
         }
 

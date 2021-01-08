@@ -216,27 +216,54 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
 
             // If the resource type is not specified, then the common
             // search parameters should be used.
-            ResourceType parsedResourceType = ResourceType.DomainResource;
-
-            if (!string.IsNullOrWhiteSpace(resourceType) &&
-                !Enum.TryParse(resourceType, out parsedResourceType))
-            {
-                throw new ResourceNotSupportedException(resourceType);
-            }
+            ResourceType[] parsedResourceTypes = new[] { ResourceType.DomainResource };
 
             var searchExpressions = new List<Expression>();
-
-            if (!string.IsNullOrWhiteSpace(resourceType))
+            if (string.IsNullOrWhiteSpace(resourceType))
             {
+                // Try to parse resource types from _type Search Parameter
+                // This will result in empty array if _type has any modifiers
+                // Which is good, since :not modifier changes the meaning of the
+                // search parameter and we can no longer use it to deduce types
+                // (and should proceed with ResourceType.DomainResource in that case)
+                var resourceTypes = searchParams.Parameters
+                    .Where(q => q.Item1 == KnownQueryParameterNames.Type) // <-- Equality comparison to avoid modifiers
+                    .SelectMany(q => q.Item2.SplitByOrSeparator())
+                    .Where(type => ModelInfoProvider.IsKnownResource(type))
+                    .Select(x =>
+                    {
+                        if (!Enum.TryParse(x, out ResourceType parsedType))
+                        {
+                            // Should never get here
+                            throw new ResourceNotSupportedException(x);
+                        }
+
+                        return parsedType;
+                    })
+                    .Distinct();
+
+                if (resourceTypes.Any())
+                {
+                    parsedResourceTypes = resourceTypes.ToArray();
+                }
+            }
+            else
+            {
+                if (!Enum.TryParse(resourceType, out parsedResourceTypes[0]))
+                {
+                    throw new ResourceNotSupportedException(resourceType);
+                }
+
                 searchExpressions.Add(Expression.SearchParameter(_resourceTypeSearchParameter, Expression.StringEquals(FieldName.TokenCode, null, resourceType, false)));
             }
 
+            var resourceTypesString = parsedResourceTypes.Select(x => x.ToString()).ToArray();
             searchExpressions.AddRange(searchParams.Parameters.Select(
                     q =>
                     {
                         try
                         {
-                            return _expressionParser.Parse(parsedResourceType.ToString(), q.Item1, q.Item2);
+                            return _expressionParser.Parse(resourceTypesString, q.Item1, q.Item2);
                         }
                         catch (SearchParameterNotSupportedException)
                         {
@@ -250,14 +277,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             if (searchParams.Include?.Count > 0)
             {
                 searchExpressions.AddRange(searchParams.Include.Select(
-                    q => _expressionParser.ParseInclude(parsedResourceType.ToString(), q, false /* not reversed */, false /* no iterate */))
+                    q => _expressionParser.ParseInclude(resourceTypesString, q, false /* not reversed */, false /* no iterate */))
                     .Where(item => item != null));
             }
 
             if (searchParams.RevInclude?.Count > 0)
             {
                 searchExpressions.AddRange(searchParams.RevInclude.Select(
-                    q => _expressionParser.ParseInclude(parsedResourceType.ToString(), q, true /* reversed */, false /* no iterate */))
+                    q => _expressionParser.ParseInclude(resourceTypesString, q, true /* reversed */, false /* no iterate */))
                     .Where(item => item != null));
             }
 
@@ -314,7 +341,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 {
                     try
                     {
-                        SearchParameterInfo searchParameterInfo = _searchParameterDefinitionManager.GetSearchParameter(parsedResourceType.ToString(), sorting.Item1);
+                        SearchParameterInfo searchParameterInfo = resourceTypesString.Select(t => _searchParameterDefinitionManager.GetSearchParameter(t, sorting.Item1)).Distinct().First();
                         sortings.Add((searchParameterInfo, sorting.Item2.ToCoreSortOrder()));
                     }
                     catch (SearchParameterNotSupportedException)
@@ -323,7 +350,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                         _contextAccessor.FhirRequestContext.BundleIssues.Add(new OperationOutcomeIssue(
                             OperationOutcomeConstants.IssueSeverity.Warning,
                             OperationOutcomeConstants.IssueType.NotSupported,
-                            string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchParameterNotSupported, sorting.Item1, parsedResourceType.ToString())));
+                            string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchParameterNotSupported, sorting.Item1, string.Join(", ", resourceTypesString))));
                     }
                 }
 
@@ -374,7 +401,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                     }
 
                     var reversed = RevIncludeIterateModifiers.Contains(p.Item1);
-                    var expression = _expressionParser.ParseInclude(includeResourceType, p.Item2, reversed, true);
+                    var expression = _expressionParser.ParseInclude(new[] { includeResourceType }, p.Item2, reversed, true);
 
                     // Reversed Iterate expressions (not wildcard) must specify target type if there is more than one possible target type
                     if (expression.Reversed && expression.Iterate && expression.TargetResourceType == null && expression.ReferenceSearchParameter?.TargetResourceTypes?.Count > 1)

@@ -935,6 +935,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Search parameter &apos;{0}&apos; is not common for &apos;{1}&apos; and &apos;{2}&apos;..
+        /// </summary>
+        internal static string SearchParameterMustBeCommon {
+            get {
+                return ResourceManager.GetString("SearchParameterMustBeCommon", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to {0} So it cannot be marked enabled..
         /// </summary>
         internal static string SearchParameterNoLongerSupported {
@@ -1007,7 +1016,7 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to The _type parameter must be included when using the _typeFilter parameter. .
+        ///   Looks up a localized string similar to The _type parameter must be included when using the _typeFilter parameter..
         /// </summary>
         internal static string TypeFilterWithoutTypeIsUnsupported {
             get {

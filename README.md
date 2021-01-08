@@ -77,3 +77,4 @@ For more information see the [Code of Conduct FAQ](https://opensource.microsoft.
 contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
 
 FHIR&reg; is the registered trademark of HL7 and is used with the permission of HL7. 
+

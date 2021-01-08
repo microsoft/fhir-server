@@ -119,7 +119,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                     AppendSubquery(parameterName: null, expression.Expression, context);
                     break;
                 default:
-                    AppendSubquery(expression.Parameter.Name, expression.Expression, context);
+                    if (expression.Expression is NotExpression notExpression)
+                    {
+                        AppendSubquery(expression.Parameter.Name, notExpression.Expression, context, true);
+                    }
+                    else
+                    {
+                        AppendSubquery(expression.Parameter.Name, expression.Expression, context);
+                    }
+
                     break;
             }
 
@@ -206,6 +214,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                 .Append("NOT IS_DEFINED(")
                 .Append(context.InstanceVariableName).Append(".").Append(GetFieldName(expression, context))
                 .Append(")");
+            return null;
+        }
+
+        public object VisitNotExpression(NotExpression expression, Context context)
+        {
+            _queryBuilder.Append("NOT (");
+            expression.Expression.AcceptVisitor(this, context);
+            _queryBuilder.Append(")");
             return null;
         }
 

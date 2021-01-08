@@ -53,7 +53,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                     outcome.JobRecord.RequestUri,
                     requiresAccessToken: false,
                     outcome.JobRecord.Output.Values.Select(x => x.ToExportOutputResponse()).OrderBy(x => x.Type, StringComparer.Ordinal).ToList(),
-                    outcome.JobRecord.Error.Select(x => x.ToExportOutputResponse()).ToList());
+                    outcome.JobRecord.Error.Select(x => x.ToExportOutputResponse()).ToList(),
+                    outcome.JobRecord.Issues);
 
                 exportResponse = new GetExportResponse(HttpStatusCode.OK, jobResult);
             }

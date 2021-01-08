@@ -182,6 +182,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                                .AcceptVisitor(StringOverflowRewriter.Instance)
                                                .AcceptVisitor(NumericRangeRewriter.Instance)
                                                .AcceptVisitor(MissingSearchParamVisitor.Instance)
+                                               .AcceptVisitor(NotExpressionRewriter.Instance)
                                                .AcceptVisitor(IncludeDenormalizedRewriter.Instance)
                                                .AcceptVisitor(TopRewriter.Instance, searchOptions)
                                                .AcceptVisitor(IncludeRewriter.Instance)

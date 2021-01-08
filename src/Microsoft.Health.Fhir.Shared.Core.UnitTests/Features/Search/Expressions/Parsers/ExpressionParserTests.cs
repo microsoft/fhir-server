@@ -56,7 +56,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             Expression expectedExpression = SetupExpression(searchParameter, value);
 
             // Parse the expression.
-            Expression expression = _expressionParser.Parse(sourceResourceType.ToString(), key, value);
+            Expression expression = _expressionParser.Parse(new[] { sourceResourceType.ToString() }, key, value);
 
             ValidateChainedExpression(
                 expression,
@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             SetupReferenceSearchParameter(sourceResourceType, param1, targetResourceTypes);
 
             // Parse the expression.
-            Assert.Throws<InvalidSearchOperationException>(() => _expressionParser.Parse(sourceResourceType.ToString(), key, value));
+            Assert.Throws<InvalidSearchOperationException>(() => _expressionParser.Parse(new[] { sourceResourceType.ToString() }, key, value));
         }
 
         [Fact]
@@ -112,7 +112,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 .ToArray();
 
             // Parse the expression.
-            Expression expression = _expressionParser.Parse(sourceResourceType.ToString(), key, value);
+            Expression expression = _expressionParser.Parse(new[] { sourceResourceType.ToString() }, key, value);
 
             ValidateChainedExpression(
                 expression,
@@ -150,7 +150,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             Expression expectedExpression = SetupExpression(searchParameter, value);
 
             // Parse the expression.
-            Expression expression = _expressionParser.Parse(sourceResourceType.ToString(), key, value);
+            Expression expression = _expressionParser.Parse(new[] { sourceResourceType.ToString() }, key, value);
 
             ValidateChainedExpression(
                 expression,
@@ -183,7 +183,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             Expression expectedExpression = SetupExpression(searchParameter, value);
 
             // Parse the expression.
-            Expression expression = _expressionParser.Parse(sourceResourceType.ToString(), key, value);
+            Expression expression = _expressionParser.Parse(new[] { sourceResourceType.ToString() }, key, value);
 
             ValidateChainedExpression(
                 expression,
@@ -217,7 +217,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             _searchParameterExpressionParser.Parse(searchParameter, new SearchModifier(SearchModifierCode.Missing), value).Returns(expression);
 
             // Parse the expression.
-            Expression actualExpression = _expressionParser.Parse(resourceType.ToString(), key, value);
+            Expression actualExpression = _expressionParser.Parse(new[] { resourceType.ToString() }, key, value);
 
             // The mock requires the modifier to match so if we get the same expression instance
             // then it means we got the modifier correctly.
@@ -238,7 +238,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             SetupSearchParameter(sourceResourceType, param1);
 
             // Parse the expression.
-            Assert.Throws<InvalidSearchOperationException>(() => _expressionParser.Parse(sourceResourceType.ToString(), key, value));
+            Assert.Throws<InvalidSearchOperationException>(() => _expressionParser.Parse(new[] { sourceResourceType.ToString() }, key, value));
         }
 
         [Fact]
@@ -255,7 +255,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             SetupReferenceSearchParameter(sourceResourceType, param1, targetResourceType);
 
             // Parse the expression.
-            Assert.Throws<InvalidSearchOperationException>(() => _expressionParser.Parse(sourceResourceType.ToString(), key, "Error"));
+            Assert.Throws<InvalidSearchOperationException>(() => _expressionParser.Parse(new[] { sourceResourceType.ToString() }, key, "Error"));
         }
 
         [Fact]
@@ -273,7 +273,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             SetupReferenceSearchParameter(sourceResourceType, param1, targetResourceType);
 
             // Parse the expression.
-            Assert.Throws<InvalidSearchOperationException>(() => _expressionParser.Parse(sourceResourceType.ToString(), key, "Error"));
+            Assert.Throws<InvalidSearchOperationException>(() => _expressionParser.Parse(new[] { sourceResourceType.ToString() }, key, "Error"));
         }
 
         [Fact]
@@ -284,7 +284,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             SetupSearchParameter(resourceType, "param1");
 
             // Parse the expression.
-            Assert.Throws<InvalidSearchOperationException>(() => _expressionParser.Parse(resourceType.ToString(), "param1:param2:param3", "Error"));
+            Assert.Throws<InvalidSearchOperationException>(() => _expressionParser.Parse(new[] { resourceType.ToString() }, "param1:param2:param3", "Error"));
         }
 
         [Fact]
@@ -293,7 +293,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             ResourceType resourceType = ResourceType.Location;
             string invalidParameterName = "...";
 
-            Assert.Throws<SearchParameterNotSupportedException>(() => _expressionParser.Parse(resourceType.ToString(), invalidParameterName, "value"));
+            Assert.Throws<SearchParameterNotSupportedException>(() => _expressionParser.Parse(new[] { resourceType.ToString() }, invalidParameterName, "value"));
         }
 
         private SearchParameterInfo SetupSearchParameter(ResourceType resourceType, string paramName)
