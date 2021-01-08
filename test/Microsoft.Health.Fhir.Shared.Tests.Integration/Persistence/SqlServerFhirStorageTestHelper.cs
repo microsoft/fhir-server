@@ -30,27 +30,22 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     {
         private readonly string _masterDatabaseName;
         private readonly string _initialConnectionString;
-        private readonly SearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly SqlServerFhirModel _sqlServerFhirModel;
         private readonly ISqlConnectionFactory _sqlConnectionFactory;
 
         public SqlServerFhirStorageTestHelper(
             string initialConnectionString,
             string masterDatabaseName,
-            SearchParameterDefinitionManager searchParameterDefinitionManager,
             SqlServerFhirModel sqlServerFhirModel,
             ISqlConnectionFactory sqlConnectionFactory)
         {
-            EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(sqlServerFhirModel, nameof(sqlServerFhirModel));
             EnsureArg.IsNotNull(sqlConnectionFactory, nameof(sqlConnectionFactory));
 
             _masterDatabaseName = masterDatabaseName;
             _initialConnectionString = initialConnectionString;
-            _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _sqlServerFhirModel = sqlServerFhirModel;
             _sqlConnectionFactory = sqlConnectionFactory;
-            _searchParameterDefinitionManager.StartAsync(CancellationToken.None).Wait();
         }
 
         public async Task CreateAndInitializeDatabase(string databaseName, bool forceIncrementalSchemaUpgrade, SchemaInitializer schemaInitializer = null, CancellationToken cancellationToken = default)

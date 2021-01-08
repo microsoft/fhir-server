@@ -7,8 +7,10 @@ using System;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Abstractions.Features.Transactions;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Xunit;
@@ -45,6 +47,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public ISearchParameterStatusDataStore SearchParameterStatusDataStore => _fixture.GetRequiredService<ISearchParameterStatusDataStore>();
 
         public FilebasedSearchParameterStatusDataStore FilebasedSearchParameterStatusDataStore => _fixture.GetRequiredService<FilebasedSearchParameterStatusDataStore>();
+
+        public ISearchService SearchService => _fixture.GetRequiredService<ISearchService>();
+
+        public SearchParameterDefinitionManager SearchParameterDefinitionManager => _fixture.GetRequiredService<SearchParameterDefinitionManager>();
+
+        public SupportedSearchParameterDefinitionManager SupportedSearchParameterDefinitionManager => _fixture.GetRequiredService<SupportedSearchParameterDefinitionManager>();
 
         void IDisposable.Dispose()
         {
