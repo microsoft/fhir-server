@@ -12,20 +12,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
     /// <summary>
     /// An expression over a search param or compartment table.
     /// </summary>
-    internal class TableExpression : Expression
+    internal class SearchParamTableExpression : Expression
     {
         /// <summary>
-        /// Creates a new instance of the <see cref="TableExpression"/> class.
+        /// Creates a new instance of the <see cref="SearchParamTableExpression"/> class.
         /// </summary>
         /// <param name="queryGenerator">The search parameter query generator</param>
         /// <param name="predicate">The search expression over a columns belonging exclusively to a search parameter table.
         /// Applies to the chain target if a chained expression.</param>
         /// <param name="kind">The table expression kind.</param>
         /// <param name="chainLevel">The nesting chain nesting level of the current expression. 0 if not a chain expression.</param>
-        public TableExpression(
-            TableExpressionQueryGenerator queryGenerator,
+        public SearchParamTableExpression(
+            SearchParamTableExpressionQueryGenerator queryGenerator,
             Expression predicate,
-            TableExpressionKind kind,
+            SearchParamTableExpressionKind kind,
             int chainLevel = 0)
         {
             QueryGenerator = queryGenerator;
@@ -34,14 +34,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
             ChainLevel = chainLevel;
         }
 
-        public TableExpressionKind Kind { get; }
+        public SearchParamTableExpressionKind Kind { get; }
 
         /// <summary>
         /// The nesting chain nesting level of the current expression. 0 if not a chain expression.
         /// </summary>
         public int ChainLevel { get; }
 
-        public TableExpressionQueryGenerator QueryGenerator { get; }
+        public SearchParamTableExpressionQueryGenerator QueryGenerator { get; }
 
         /// <summary>
         /// The search expression over columns of the corresponding search parameter table.

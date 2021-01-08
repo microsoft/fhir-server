@@ -22,8 +22,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public override Expression VisitSqlRoot(SqlRootExpression expression, object context)
         {
-            if (expression.TableExpressions.Count == 0 || expression.ResourceExpressions.Count == 0 ||
-                expression.TableExpressions.All(e => e.Kind == TableExpressionKind.Include))
+            if (expression.SearchParamTableExpressions.Count == 0 || expression.ResourceTableExpressions.Count == 0 ||
+                expression.SearchParamTableExpressions.All(e => e.Kind == SearchParamTableExpressionKind.Include))
             {
                 // if only Include expressions, the case is handled in IncludeMatchSeedRewriter
                 return expression;
@@ -32,9 +32,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             Expression extractedCommonResourceExpressions = null;
             bool containsResourceExpressionFoundOnlyOnResourceTable = false;
 
-            for (int i = 0; i < expression.ResourceExpressions.Count; i++)
+            for (int i = 0; i < expression.ResourceTableExpressions.Count; i++)
             {
-                SearchParameterExpressionBase currentExpression = expression.ResourceExpressions[i];
+                SearchParameterExpressionBase currentExpression = expression.ResourceTableExpressions[i];
 
                 if (currentExpression is SearchParameterExpression searchParameterExpression)
                 {
@@ -49,26 +49,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 }
             }
 
-            var newTableExpressions = new List<TableExpression>(expression.TableExpressions.Count);
+            var newTableExpressions = new List<SearchParamTableExpression>(expression.SearchParamTableExpressions.Count);
 
             if (containsResourceExpressionFoundOnlyOnResourceTable)
             {
                 // There is a predicate over _id, which is on the Resource table but not on the search parameter tables.
                 // So the first table expression should be an "All" expression, where we restrict the resultset to resources with that ID.
-                newTableExpressions.Add(new TableExpression(null, Expression.And(expression.ResourceExpressions), TableExpressionKind.All));
+                newTableExpressions.Add(new SearchParamTableExpression(null, Expression.And(expression.ResourceTableExpressions), SearchParamTableExpressionKind.All));
             }
 
-            foreach (var tableExpression in expression.TableExpressions)
+            foreach (var tableExpression in expression.SearchParamTableExpressions)
             {
-                if (tableExpression.Kind == TableExpressionKind.Include ||
-                    (tableExpression.Kind == TableExpressionKind.Normal && tableExpression.ChainLevel > 0) ||
-                    (tableExpression.Kind == TableExpressionKind.Chain && tableExpression.ChainLevel > 1))
+                if (tableExpression.Kind == SearchParamTableExpressionKind.Include ||
+                    (tableExpression.Kind == SearchParamTableExpressionKind.Normal && tableExpression.ChainLevel > 0) ||
+                    (tableExpression.Kind == SearchParamTableExpressionKind.Chain && tableExpression.ChainLevel > 1))
                 {
                     // these predicates do not apply to referenced resources
 
                     newTableExpressions.Add(tableExpression);
                 }
-                else if (tableExpression.Kind == TableExpressionKind.Chain)
+                else if (tableExpression.Kind == SearchParamTableExpressionKind.Chain)
                 {
                     var sqlChainLinkExpression = (SqlChainLinkExpression)tableExpression.Predicate;
 
@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                         extractedCommonResourceExpressions,
                         sqlChainLinkExpression.ExpressionOnTarget);
 
-                    newTableExpressions.Add(new TableExpression(tableExpression.QueryGenerator, newChainLinkExpression, tableExpression.Kind, chainLevel: tableExpression.ChainLevel));
+                    newTableExpressions.Add(new SearchParamTableExpression(tableExpression.QueryGenerator, newChainLinkExpression, tableExpression.Kind, chainLevel: tableExpression.ChainLevel));
                 }
                 else
                 {
@@ -90,7 +90,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                         ? extractedCommonResourceExpressions
                         : Expression.And(tableExpression.Predicate, extractedCommonResourceExpressions);
 
-                    newTableExpressions.Add(new TableExpression(tableExpression.QueryGenerator, predicate, tableExpression.Kind, tableExpression.ChainLevel));
+                    newTableExpressions.Add(new SearchParamTableExpression(tableExpression.QueryGenerator, predicate, tableExpression.Kind, tableExpression.ChainLevel));
                 }
             }
 

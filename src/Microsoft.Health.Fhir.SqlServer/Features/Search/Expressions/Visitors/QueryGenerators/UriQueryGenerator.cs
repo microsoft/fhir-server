@@ -9,7 +9,7 @@ using Microsoft.Health.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
 {
-    internal class UriQueryGenerator : TableExpressionQueryGenerator
+    internal class UriQueryGenerator : SearchParamTableExpressionQueryGenerator
     {
         public static readonly UriQueryGenerator Instance = new UriQueryGenerator();
 

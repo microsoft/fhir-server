@@ -16,14 +16,14 @@ using Microsoft.Health.Fhir.ValueSets;
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
     /// <summary>
-    /// Returns the <see cref="TableExpressionQueryGenerator"/> for an expression.
+    /// Returns the <see cref="SearchParamTableExpressionQueryGenerator"/> for an expression.
     /// </summary>
-    internal class TableExpressionQueryGeneratorFactory : IExpressionVisitorWithInitialContext<object, TableExpressionQueryGenerator>
+    internal class SearchParamTableExpressionQueryGeneratorFactory : IExpressionVisitorWithInitialContext<object, SearchParamTableExpressionQueryGenerator>
     {
         private readonly SearchParameterToSearchValueTypeMap _searchParameterToSearchValueTypeMap;
-        private readonly ConcurrentDictionary<Uri, TableExpressionQueryGenerator> _cache = new ConcurrentDictionary<Uri, TableExpressionQueryGenerator>();
+        private readonly ConcurrentDictionary<Uri, SearchParamTableExpressionQueryGenerator> _cache = new ConcurrentDictionary<Uri, SearchParamTableExpressionQueryGenerator>();
 
-        public TableExpressionQueryGeneratorFactory(SearchParameterToSearchValueTypeMap searchParameterToSearchValueTypeMap)
+        public SearchParamTableExpressionQueryGeneratorFactory(SearchParameterToSearchValueTypeMap searchParameterToSearchValueTypeMap)
         {
             EnsureArg.IsNotNull(searchParameterToSearchValueTypeMap, nameof(searchParameterToSearchValueTypeMap));
             _searchParameterToSearchValueTypeMap = searchParameterToSearchValueTypeMap;
@@ -31,17 +31,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public object InitialContext => null;
 
-        public TableExpressionQueryGenerator VisitSearchParameter(SearchParameterExpression expression, object context)
+        public SearchParamTableExpressionQueryGenerator VisitSearchParameter(SearchParameterExpression expression, object context)
         {
             return VisitSearchParameterExpressionBase(expression.Parameter, expression.Expression, context);
         }
 
-        public TableExpressionQueryGenerator VisitMissingSearchParameter(MissingSearchParameterExpression expression, object context)
+        public SearchParamTableExpressionQueryGenerator VisitMissingSearchParameter(MissingSearchParameterExpression expression, object context)
         {
             return VisitSearchParameterExpressionBase(expression.Parameter, null, context);
         }
 
-        private TableExpressionQueryGenerator VisitSearchParameterExpressionBase(SearchParameterInfo searchParameterInfo, Expression childExpression, object context)
+        private SearchParamTableExpressionQueryGenerator VisitSearchParameterExpressionBase(SearchParameterInfo searchParameterInfo, Expression childExpression, object context)
         {
             if (searchParameterInfo.ColumnLocation().HasFlag(SearchParameterColumnLocation.ResourceTable))
             {
@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             return generator;
 
-            TableExpressionQueryGenerator GetGenerator(SearchParameterInfo param)
+            SearchParamTableExpressionQueryGenerator GetGenerator(SearchParameterInfo param)
             {
                 switch (param.Type)
                 {
@@ -123,27 +123,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             }
         }
 
-        public TableExpressionQueryGenerator GetTableExpressionQueryGenerator(SearchParameterInfo searchParameterInfo)
+        public SearchParamTableExpressionQueryGenerator GetSearchParamTableExpressionQueryGenerator(SearchParameterInfo searchParameterInfo)
         {
             return VisitSearchParameterExpressionBase(searchParameterInfo, null, null);
         }
 
-        public TableExpressionQueryGenerator VisitBinary(BinaryExpression expression, object context)
+        public SearchParamTableExpressionQueryGenerator VisitBinary(BinaryExpression expression, object context)
         {
             throw new InvalidOperationException("Not expecting a BinaryExpression under a Token search param.");
         }
 
-        public TableExpressionQueryGenerator VisitChained(ChainedExpression expression, object context)
+        public SearchParamTableExpressionQueryGenerator VisitChained(ChainedExpression expression, object context)
         {
             return ChainLinkQueryGenerator.Instance;
         }
 
-        public TableExpressionQueryGenerator VisitMissingField(MissingFieldExpression expression, object context)
+        public SearchParamTableExpressionQueryGenerator VisitMissingField(MissingFieldExpression expression, object context)
         {
             return TokenQueryGenerator.Instance;
         }
 
-        public TableExpressionQueryGenerator VisitMultiary(MultiaryExpression expression, object context)
+        public SearchParamTableExpressionQueryGenerator VisitMultiary(MultiaryExpression expression, object context)
         {
             foreach (var childExpression in expression.Expressions)
             {
@@ -157,7 +157,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return null;
         }
 
-        public TableExpressionQueryGenerator VisitString(StringExpression expression, object context)
+        public SearchParamTableExpressionQueryGenerator VisitString(StringExpression expression, object context)
         {
             if (expression.FieldName == FieldName.TokenText)
             {
@@ -167,19 +167,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return TokenQueryGenerator.Instance;
         }
 
-        public TableExpressionQueryGenerator VisitCompartment(CompartmentSearchExpression expression, object context)
+        public SearchParamTableExpressionQueryGenerator VisitCompartment(CompartmentSearchExpression expression, object context)
         {
             return CompartmentQueryGenerator.Instance;
         }
 
-        public TableExpressionQueryGenerator VisitInclude(IncludeExpression expression, object context)
+        public SearchParamTableExpressionQueryGenerator VisitInclude(IncludeExpression expression, object context)
         {
             return IncludeQueryGenerator.Instance;
         }
 
-        public TableExpressionQueryGenerator VisitSortParameter(SortExpression expression, object context)
+        public SearchParamTableExpressionQueryGenerator VisitSortParameter(SortExpression expression, object context)
         {
-            return GetTableExpressionQueryGenerator(expression.Parameter);
+            return GetSearchParamTableExpressionQueryGenerator(expression.Parameter);
         }
     }
 }

@@ -10,7 +10,7 @@ using Microsoft.Health.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
 {
-    internal class DateTimeQueryGenerator : TableExpressionQueryGenerator
+    internal class DateTimeQueryGenerator : SearchParamTableExpressionQueryGenerator
     {
         public static readonly DateTimeQueryGenerator Instance = new DateTimeQueryGenerator();
 

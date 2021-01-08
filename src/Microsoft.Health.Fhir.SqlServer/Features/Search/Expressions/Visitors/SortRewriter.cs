@@ -15,11 +15,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     /// </summary>
     internal class SortRewriter : SqlExpressionRewriter<SearchOptions>
     {
-        private readonly TableExpressionQueryGeneratorFactory _tableExpressionQueryGeneratorFactory;
+        private readonly SearchParamTableExpressionQueryGeneratorFactory _searchParamTableExpressionQueryGeneratorFactory;
 
-        public SortRewriter(TableExpressionQueryGeneratorFactory tableExpressionQueryGeneratorFactory)
+        public SortRewriter(SearchParamTableExpressionQueryGeneratorFactory searchParamTableExpressionQueryGeneratorFactory)
         {
-            _tableExpressionQueryGeneratorFactory = tableExpressionQueryGeneratorFactory;
+            _searchParamTableExpressionQueryGeneratorFactory = searchParamTableExpressionQueryGeneratorFactory;
         }
 
         public override Expression VisitSqlRoot(SqlRootExpression expression, SearchOptions context)
@@ -42,14 +42,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return expression;
             }
 
-            var queryGenerator = _tableExpressionQueryGeneratorFactory.GetTableExpressionQueryGenerator(context.Sort[0].searchParameterInfo);
+            var queryGenerator = _searchParamTableExpressionQueryGeneratorFactory.GetSearchParamTableExpressionQueryGenerator(context.Sort[0].searchParameterInfo);
 
-            var newTableExpressions = new List<TableExpression>(expression.TableExpressions.Count + 1);
-            newTableExpressions.AddRange(expression.TableExpressions);
+            var newTableExpressions = new List<SearchParamTableExpression>(expression.SearchParamTableExpressions.Count + 1);
+            newTableExpressions.AddRange(expression.SearchParamTableExpressions);
 
-            newTableExpressions.Add(new TableExpression(queryGenerator, new SortExpression(context.Sort[0].searchParameterInfo), TableExpressionKind.Sort));
+            newTableExpressions.Add(new SearchParamTableExpression(queryGenerator, new SortExpression(context.Sort[0].searchParameterInfo), SearchParamTableExpressionKind.Sort));
 
-            return new SqlRootExpression(newTableExpressions, expression.ResourceExpressions);
+            return new SqlRootExpression(newTableExpressions, expression.ResourceTableExpressions);
         }
     }
 }

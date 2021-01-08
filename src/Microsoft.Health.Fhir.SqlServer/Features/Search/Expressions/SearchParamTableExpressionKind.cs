@@ -6,9 +6,9 @@
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
 {
     /// <summary>
-    /// The different kinds of <see cref="TableExpression"/>s.
+    /// The different kinds of <see cref="SearchParamTableExpression"/>s.
     /// </summary>
-    internal enum TableExpressionKind
+    internal enum SearchParamTableExpressionKind
     {
         /// <summary>
         /// Represents a table expression that applies a filter, producing a set of candidate resource IDs.

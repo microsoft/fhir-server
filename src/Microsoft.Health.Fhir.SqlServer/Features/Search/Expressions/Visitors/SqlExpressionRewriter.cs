@@ -12,11 +12,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     {
         public virtual Expression VisitSqlRoot(SqlRootExpression expression, TContext context)
         {
-            IReadOnlyList<SearchParameterExpressionBase> visitedResourceExpressions = VisitArray(expression.ResourceExpressions, context);
-            IReadOnlyList<TableExpression> visitedTableExpressions = VisitArray(expression.TableExpressions, context);
+            IReadOnlyList<SearchParameterExpressionBase> visitedResourceExpressions = VisitArray(expression.ResourceTableExpressions, context);
+            IReadOnlyList<SearchParamTableExpression> visitedTableExpressions = VisitArray(expression.SearchParamTableExpressions, context);
 
-            if (ReferenceEquals(visitedTableExpressions, expression.TableExpressions) &&
-                ReferenceEquals(visitedResourceExpressions, expression.ResourceExpressions))
+            if (ReferenceEquals(visitedTableExpressions, expression.SearchParamTableExpressions) &&
+                ReferenceEquals(visitedResourceExpressions, expression.ResourceTableExpressions))
             {
                 return expression;
             }
@@ -24,16 +24,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return new SqlRootExpression(visitedTableExpressions, visitedResourceExpressions);
         }
 
-        public virtual Expression VisitTable(TableExpression tableExpression, TContext context)
+        public virtual Expression VisitTable(SearchParamTableExpression searchParamTableExpression, TContext context)
         {
-            Expression rewrittenPredicate = tableExpression.Predicate?.AcceptVisitor(this, context);
+            Expression rewrittenPredicate = searchParamTableExpression.Predicate?.AcceptVisitor(this, context);
 
-            if (ReferenceEquals(rewrittenPredicate, tableExpression.Predicate))
+            if (ReferenceEquals(rewrittenPredicate, searchParamTableExpression.Predicate))
             {
-                return tableExpression;
+                return searchParamTableExpression;
             }
 
-            return new TableExpression(tableExpression.QueryGenerator, rewrittenPredicate, tableExpression.Kind);
+            return new SearchParamTableExpression(searchParamTableExpression.QueryGenerator, rewrittenPredicate, searchParamTableExpression.Kind);
         }
 
         public virtual Expression VisitSqlChainLink(SqlChainLinkExpression sqlChainLinkExpression, TContext context)

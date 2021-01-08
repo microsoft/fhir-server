@@ -175,7 +175,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                                .AcceptVisitor(UntypedReferenceRewriter.Instance)
                                                .AcceptVisitor(_sqlRootExpressionRewriter)
                                                .AcceptVisitor(_sortRewriter, searchOptions)
-                                               .AcceptVisitor(TableExpressionReorderer.Instance)
+                                               .AcceptVisitor(SearchParamTableExpressionReorderer.Instance)
                                                .AcceptVisitor(MissingSearchParamVisitor.Instance)
                                                .AcceptVisitor(_chainFlatteningRewriter)
                                                .AcceptVisitor(ResourceColumnPredicatePushdownRewriter.Instance)
@@ -185,7 +185,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                                .AcceptVisitor(IncludeMatchSeedRewriter.Instance)
                                                .AcceptVisitor(TopRewriter.Instance, searchOptions)
                                                .AcceptVisitor(IncludeRewriter.Instance)
-                                           ?? SqlRootExpression.WithResourceExpressions();
+                                           ?? SqlRootExpression.WithResourceTableExpressions();
 
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())

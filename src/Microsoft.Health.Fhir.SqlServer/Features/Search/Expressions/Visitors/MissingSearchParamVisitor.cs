@@ -10,7 +10,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
     /// <summary>
     /// Turns an expression with a :missing=true search parameter expression and turns it into a
-    /// <see cref="TableExpressionKind.NotExists"/> table expression with the condition negated
+    /// <see cref="SearchParamTableExpressionKind.NotExists"/> table expression with the condition negated
     /// </summary>
     internal class MissingSearchParamVisitor : SqlExpressionRewriterWithInitialContext<object>
     {
@@ -18,37 +18,37 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public override Expression VisitSqlRoot(SqlRootExpression expression, object context)
         {
-            if (expression.TableExpressions.Count == 0)
+            if (expression.SearchParamTableExpressions.Count == 0)
             {
                 return expression;
             }
 
-            List<TableExpression> newTableExpressions = null;
-            for (var i = 0; i < expression.TableExpressions.Count; i++)
+            List<SearchParamTableExpression> newTableExpressions = null;
+            for (var i = 0; i < expression.SearchParamTableExpressions.Count; i++)
             {
-                TableExpression tableExpression = expression.TableExpressions[i];
+                SearchParamTableExpression searchParamTableExpression = expression.SearchParamTableExpressions[i];
 
                 // Ignore Sort as it has its own visitor.
-                if (tableExpression.Kind != TableExpressionKind.Sort && tableExpression.Predicate?.AcceptVisitor(Scout.Instance, null) == true)
+                if (searchParamTableExpression.Kind != SearchParamTableExpressionKind.Sort && searchParamTableExpression.Predicate?.AcceptVisitor(Scout.Instance, null) == true)
                 {
-                    EnsureAllocatedAndPopulated(ref newTableExpressions, expression.TableExpressions, i);
+                    EnsureAllocatedAndPopulated(ref newTableExpressions, expression.SearchParamTableExpressions, i);
 
                     // If this is the first expression, we need to add another expression before it
                     if (i == 0)
                     {
                         // seed with all resources so that we have something to restrict
                         newTableExpressions.Add(
-                            new TableExpression(
-                                tableExpression.QueryGenerator,
+                            new SearchParamTableExpression(
+                                searchParamTableExpression.QueryGenerator,
                                 null,
-                                TableExpressionKind.All));
+                                SearchParamTableExpressionKind.All));
                     }
 
-                    newTableExpressions.Add((TableExpression)tableExpression.AcceptVisitor(this, context));
+                    newTableExpressions.Add((SearchParamTableExpression)searchParamTableExpression.AcceptVisitor(this, context));
                 }
                 else
                 {
-                    newTableExpressions?.Add(tableExpression);
+                    newTableExpressions?.Add(searchParamTableExpression);
                 }
             }
 
@@ -57,17 +57,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return expression;
             }
 
-            return new SqlRootExpression(newTableExpressions, expression.ResourceExpressions);
+            return new SqlRootExpression(newTableExpressions, expression.ResourceTableExpressions);
         }
 
-        public override Expression VisitTable(TableExpression tableExpression, object context)
+        public override Expression VisitTable(SearchParamTableExpression searchParamTableExpression, object context)
         {
-            var predicate = tableExpression.Predicate.AcceptVisitor(this, context);
+            var predicate = searchParamTableExpression.Predicate.AcceptVisitor(this, context);
 
-            return new TableExpression(
-                tableExpression.QueryGenerator,
+            return new SearchParamTableExpression(
+                searchParamTableExpression.QueryGenerator,
                 predicate,
-                TableExpressionKind.NotExists);
+                SearchParamTableExpressionKind.NotExists);
         }
 
         public override Expression VisitMissingSearchParameter(MissingSearchParameterExpression expression, object context)

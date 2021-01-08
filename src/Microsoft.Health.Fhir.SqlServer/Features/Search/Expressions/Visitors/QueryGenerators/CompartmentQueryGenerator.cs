@@ -9,7 +9,7 @@ using Microsoft.Health.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
 {
-    internal class CompartmentQueryGenerator : TableExpressionQueryGenerator
+    internal class CompartmentQueryGenerator : SearchParamTableExpressionQueryGenerator
     {
         public static readonly CompartmentQueryGenerator Instance = new CompartmentQueryGenerator();
 

@@ -10,7 +10,7 @@ using Microsoft.Health.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
 {
-    internal class ReferenceQueryGenerator : TableExpressionQueryGenerator
+    internal class ReferenceQueryGenerator : SearchParamTableExpressionQueryGenerator
     {
         public static readonly ReferenceQueryGenerator Instance = new ReferenceQueryGenerator();
 

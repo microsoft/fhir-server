@@ -11,35 +11,35 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Query
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
     /// <summary>
-    /// Flattens chained expressions into <see cref="SqlRootExpression"/>'s <see cref="SqlRootExpression.TableExpressions"/> list.
+    /// Flattens chained expressions into <see cref="SqlRootExpression"/>'s <see cref="SqlRootExpression.SearchParamTableExpressions"/> list.
     /// The expression within a chained expression is promoted to a top-level table expression, but we keep track of the height
-    /// via the <see cref="TableExpression.ChainLevel"/>.
+    /// via the <see cref="SearchParamTableExpression.ChainLevel"/>.
     /// </summary>
-    internal class ChainFlatteningRewriter : SqlExpressionRewriterWithInitialContext<(TableExpression containingTableExpression, int chainLevel)>
+    internal class ChainFlatteningRewriter : SqlExpressionRewriterWithInitialContext<(SearchParamTableExpression containingTableExpression, int chainLevel)>
     {
-        private readonly TableExpressionQueryGeneratorFactory _tableExpressionQueryGeneratorFactory;
+        private readonly SearchParamTableExpressionQueryGeneratorFactory _searchParamTableExpressionQueryGeneratorFactory;
 
-        public ChainFlatteningRewriter(TableExpressionQueryGeneratorFactory tableExpressionQueryGeneratorFactory)
+        public ChainFlatteningRewriter(SearchParamTableExpressionQueryGeneratorFactory searchParamTableExpressionQueryGeneratorFactory)
         {
-            EnsureArg.IsNotNull(tableExpressionQueryGeneratorFactory, nameof(tableExpressionQueryGeneratorFactory));
-            _tableExpressionQueryGeneratorFactory = tableExpressionQueryGeneratorFactory;
+            EnsureArg.IsNotNull(searchParamTableExpressionQueryGeneratorFactory, nameof(searchParamTableExpressionQueryGeneratorFactory));
+            _searchParamTableExpressionQueryGeneratorFactory = searchParamTableExpressionQueryGeneratorFactory;
         }
 
-        public override Expression VisitSqlRoot(SqlRootExpression expression, (TableExpression containingTableExpression, int chainLevel) context)
+        public override Expression VisitSqlRoot(SqlRootExpression expression, (SearchParamTableExpression containingTableExpression, int chainLevel) context)
         {
-            List<TableExpression> newTableExpressions = null;
-            for (var i = 0; i < expression.TableExpressions.Count; i++)
+            List<SearchParamTableExpression> newTableExpressions = null;
+            for (var i = 0; i < expression.SearchParamTableExpressions.Count; i++)
             {
-                TableExpression tableExpression = expression.TableExpressions[i];
-                if (tableExpression.Kind != TableExpressionKind.Chain)
+                SearchParamTableExpression searchParamTableExpression = expression.SearchParamTableExpressions[i];
+                if (searchParamTableExpression.Kind != SearchParamTableExpressionKind.Chain)
                 {
-                    newTableExpressions?.Add(tableExpression);
+                    newTableExpressions?.Add(searchParamTableExpression);
                     continue;
                 }
 
-                EnsureAllocatedAndPopulated(ref newTableExpressions, expression.TableExpressions, i);
+                EnsureAllocatedAndPopulated(ref newTableExpressions, expression.SearchParamTableExpressions, i);
 
-                ProcessChainedExpression((ChainedExpression)tableExpression.Predicate, newTableExpressions, 1);
+                ProcessChainedExpression((ChainedExpression)searchParamTableExpression.Predicate, newTableExpressions, 1);
             }
 
             if (newTableExpressions == null)
@@ -47,12 +47,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return expression;
             }
 
-            return new SqlRootExpression(newTableExpressions, expression.ResourceExpressions);
+            return new SqlRootExpression(newTableExpressions, expression.ResourceTableExpressions);
         }
 
-        private void ProcessChainedExpression(ChainedExpression chainedExpression, List<TableExpression> tableExpressions, int chainLevel)
+        private void ProcessChainedExpression(ChainedExpression chainedExpression, List<SearchParamTableExpression> tableExpressions, int chainLevel)
         {
-            TableExpressionQueryGenerator queryGenerator = chainedExpression.Expression.AcceptVisitor(_tableExpressionQueryGeneratorFactory, null);
+            SearchParamTableExpressionQueryGenerator queryGenerator = chainedExpression.Expression.AcceptVisitor(_searchParamTableExpressionQueryGeneratorFactory, null);
 
             Expression expressionOnTarget = queryGenerator == null ? chainedExpression.Expression : null;
 
@@ -64,10 +64,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 expressionOnTarget: expressionOnTarget);
 
             tableExpressions.Add(
-                new TableExpression(
+                new SearchParamTableExpression(
                     ChainLinkQueryGenerator.Instance,
                     sqlChainLinkExpression,
-                    TableExpressionKind.Chain,
+                    SearchParamTableExpressionKind.Chain,
                     chainLevel));
 
             if (chainedExpression.Expression is ChainedExpression nestedChainedExpression)
@@ -77,10 +77,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             else if (queryGenerator != null)
             {
                 tableExpressions.Add(
-                    new TableExpression(
+                    new SearchParamTableExpression(
                         queryGenerator,
                         chainedExpression.Expression,
-                        TableExpressionKind.Normal,
+                        SearchParamTableExpressionKind.Normal,
                         chainLevel));
             }
         }

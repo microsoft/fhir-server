@@ -10,7 +10,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 {
     internal class ResourceIdParameterQueryGenerator : ResourceTableSearchParameterQueryGenerator
     {
-        public static readonly ResourceIdParameterQueryGenerator Instance = new ResourceIdParameterQueryGenerator();
+        public static new readonly ResourceIdParameterQueryGenerator Instance = new ResourceIdParameterQueryGenerator();
 
         public override SearchParameterQueryGeneratorContext VisitString(StringExpression expression, SearchParameterQueryGeneratorContext context)
         {

@@ -14,42 +14,48 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
 {
     /// <summary>
     /// The root of a search expression tree that will be translated to a SQL batch.
-    /// It is organized as a set of expressions that are over search parameter tables (<see cref="TableExpressions"/>) and a set
-    /// of expressions over the columns on the Resource table (<see cref="ResourceExpressions"/>).
+    /// It is organized as a set of expressions that are over search parameter tables (<see cref="SearchParamTableExpressions"/>) and a set
+    /// of expressions over the columns on the Resource table (<see cref="ResourceTableExpressions"/>).
     /// </summary>
     internal class SqlRootExpression : Expression
     {
-        public SqlRootExpression(IReadOnlyList<TableExpression> tableExpressions, IReadOnlyList<SearchParameterExpressionBase> resourceExpressions)
+        public SqlRootExpression(IReadOnlyList<SearchParamTableExpression> searchParamTableExpressions, IReadOnlyList<SearchParameterExpressionBase> resourceTableExpressions)
         {
-            EnsureArg.IsNotNull(tableExpressions, nameof(tableExpressions));
-            EnsureArg.IsNotNull(resourceExpressions, nameof(resourceExpressions));
+            EnsureArg.IsNotNull(searchParamTableExpressions, nameof(searchParamTableExpressions));
+            EnsureArg.IsNotNull(resourceTableExpressions, nameof(resourceTableExpressions));
 
-            TableExpressions = tableExpressions;
-            ResourceExpressions = resourceExpressions;
+            SearchParamTableExpressions = searchParamTableExpressions;
+            ResourceTableExpressions = resourceTableExpressions;
         }
 
-        public IReadOnlyList<TableExpression> TableExpressions { get; }
+        /// <summary>
+        /// Expressions applied to various search parameter tables (e.g. TokenSearchParam, NumberSearchParam, etc.) or the CompartmentAssignment table.
+        /// </summary>
+        public IReadOnlyList<SearchParamTableExpression> SearchParamTableExpressions { get; }
 
-        public IReadOnlyList<SearchParameterExpressionBase> ResourceExpressions { get; }
+        /// <summary>
+        /// Expressions applied to directly to the Resource table.
+        /// </summary>
+        public IReadOnlyList<SearchParameterExpressionBase> ResourceTableExpressions { get; }
 
-        public static SqlRootExpression WithTableExpressions(params TableExpression[] expressions)
+        public static SqlRootExpression WithSearchParamTableExpressions(params SearchParamTableExpression[] expressions)
         {
             return new SqlRootExpression(expressions, Array.Empty<SearchParameterExpressionBase>());
         }
 
-        public static SqlRootExpression WithResourceExpressions(params SearchParameterExpressionBase[] expressions)
+        public static SqlRootExpression WithResourceTableExpressions(params SearchParameterExpressionBase[] expressions)
         {
-            return new SqlRootExpression(Array.Empty<TableExpression>(), expressions);
+            return new SqlRootExpression(Array.Empty<SearchParamTableExpression>(), expressions);
         }
 
-        public static SqlRootExpression WithTableExpressions(IReadOnlyList<TableExpression> expressions)
+        public static SqlRootExpression WithSearchParamTableExpressions(IReadOnlyList<SearchParamTableExpression> expressions)
         {
             return new SqlRootExpression(expressions, Array.Empty<SearchParameterExpressionBase>());
         }
 
-        public static SqlRootExpression WithResourceExpressions(IReadOnlyList<SearchParameterExpressionBase> expressions)
+        public static SqlRootExpression WithResourceTableExpressions(IReadOnlyList<SearchParameterExpressionBase> expressions)
         {
-            return new SqlRootExpression(Array.Empty<TableExpression>(), expressions);
+            return new SqlRootExpression(Array.Empty<SearchParamTableExpression>(), expressions);
         }
 
         public override TOutput AcceptVisitor<TContext, TOutput>(IExpressionVisitor<TContext, TOutput> visitor, TContext context)
@@ -65,7 +71,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
 
         public override string ToString()
         {
-            return $"(SqlRoot (Joined{(TableExpressions.Any() ? " " + string.Join(" ", TableExpressions) : null)}) (Resource{(ResourceExpressions.Any() ? " " + string.Join(" ", ResourceExpressions) : null)}))";
+            return $"(SqlRoot (SearchParamTables:{(SearchParamTableExpressions.Any() ? " " + string.Join(" ", SearchParamTableExpressions) : null)}) (ResourceTable:{(ResourceTableExpressions.Any() ? " " + string.Join(" ", ResourceTableExpressions) : null)}))";
         }
     }
 }

@@ -11,7 +11,7 @@ using Microsoft.Health.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
 {
-    internal class TokenQueryGenerator : TableExpressionQueryGenerator
+    internal class TokenQueryGenerator : SearchParamTableExpressionQueryGenerator
     {
         public static readonly TokenQueryGenerator Instance = new TokenQueryGenerator();
 

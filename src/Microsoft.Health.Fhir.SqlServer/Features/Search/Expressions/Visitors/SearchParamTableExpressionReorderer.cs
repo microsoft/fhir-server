@@ -13,20 +13,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     /// <summary>
     /// Reorders table expressions by expected selectivity. Most selective are moved to the front.
     /// </summary>
-    internal class TableExpressionReorderer : SqlExpressionRewriterWithInitialContext<object>
+    internal class SearchParamTableExpressionReorderer : SqlExpressionRewriterWithInitialContext<object>
     {
-        public static readonly TableExpressionReorderer Instance = new TableExpressionReorderer();
+        public static readonly SearchParamTableExpressionReorderer Instance = new SearchParamTableExpressionReorderer();
 
         public override Expression VisitSqlRoot(SqlRootExpression expression, object context)
         {
-            if (expression.TableExpressions.Count == 1)
+            if (expression.SearchParamTableExpressions.Count == 1)
             {
                 return expression;
             }
 
-            List<TableExpression> reorderedExpressions = expression.TableExpressions.OrderByDescending(t =>
+            List<SearchParamTableExpression> reorderedExpressions = expression.SearchParamTableExpressions.OrderByDescending(t =>
             {
-                if (t.Kind == TableExpressionKind.All)
+                if (t.Kind == SearchParamTableExpressionKind.All)
                 {
                     return 20;
                 }
@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 }
             }).ToList();
 
-            return new SqlRootExpression(reorderedExpressions, expression.ResourceExpressions);
+            return new SqlRootExpression(reorderedExpressions, expression.ResourceTableExpressions);
         }
     }
 }

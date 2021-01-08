@@ -11,7 +11,7 @@ using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
     /// <summary>
-    /// Rewriter used to add an All TableExpression to serve as a seed for match results when the TableExpressions in a SqlRootExpression
+    /// Rewriter used to add an All SearchParamTableExpression to serve as a seed for match results when the SearchParamTableExpressions in a SqlRootExpression
     /// consists solely of Include expressions.
     /// </summary>
     internal class IncludeMatchSeedRewriter : SqlExpressionRewriterWithInitialContext<object>
@@ -20,23 +20,23 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public override Expression VisitSqlRoot(SqlRootExpression expression, object context)
         {
-            if (expression.TableExpressions.Count == 0)
+            if (expression.SearchParamTableExpressions.Count == 0)
             {
                 return expression;
             }
 
-            if (!expression.TableExpressions.All(te => te.Kind == TableExpressionKind.Include))
+            if (!expression.SearchParamTableExpressions.All(te => te.Kind == SearchParamTableExpressionKind.Include))
             {
                 return expression;
             }
 
-            var newTableExpressions = new List<TableExpression>(expression.TableExpressions.Count + 1);
+            var newTableExpressions = new List<SearchParamTableExpression>(expression.SearchParamTableExpressions.Count + 1);
 
-            Expression resourceExpression = Expression.And(expression.ResourceExpressions);
-            var allExpression = new TableExpression(null, resourceExpression, TableExpressionKind.All);
+            Expression resourceExpression = Expression.And(expression.ResourceTableExpressions);
+            var allExpression = new SearchParamTableExpression(null, resourceExpression, SearchParamTableExpressionKind.All);
 
             newTableExpressions.Add(allExpression);
-            newTableExpressions.AddRange(expression.TableExpressions);
+            newTableExpressions.AddRange(expression.SearchParamTableExpressions);
 
             return new SqlRootExpression(newTableExpressions, Array.Empty<SearchParameterExpression>());
         }

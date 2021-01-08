@@ -13,21 +13,21 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     {
         public static readonly TopRewriter Instance = new TopRewriter();
 
-        private static readonly TableExpression TopTableExpression = new TableExpression(null, null, TableExpressionKind.Top);
+        private static readonly SearchParamTableExpression _topSearchParamTableExpression = new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Top);
 
         public override Expression VisitSqlRoot(SqlRootExpression expression, SearchOptions context)
         {
-            if (context.CountOnly || expression.TableExpressions.Count == 0)
+            if (context.CountOnly || expression.SearchParamTableExpressions.Count == 0)
             {
                 return expression;
             }
 
-            var newTableExpressions = new List<TableExpression>(expression.TableExpressions.Count + 1);
-            newTableExpressions.AddRange(expression.TableExpressions);
+            var newTableExpressions = new List<SearchParamTableExpression>(expression.SearchParamTableExpressions.Count + 1);
+            newTableExpressions.AddRange(expression.SearchParamTableExpressions);
 
-            newTableExpressions.Add(TopTableExpression);
+            newTableExpressions.Add(_topSearchParamTableExpression);
 
-            return new SqlRootExpression(newTableExpressions, expression.ResourceExpressions);
+            return new SqlRootExpression(newTableExpressions, expression.ResourceTableExpressions);
         }
     }
 }

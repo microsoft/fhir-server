@@ -10,7 +10,7 @@ using Microsoft.Health.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
 {
-    internal class NumberQueryGenerator : TableExpressionQueryGenerator
+    internal class NumberQueryGenerator : SearchParamTableExpressionQueryGenerator
     {
         public static readonly NumberQueryGenerator Instance = new NumberQueryGenerator();
 
