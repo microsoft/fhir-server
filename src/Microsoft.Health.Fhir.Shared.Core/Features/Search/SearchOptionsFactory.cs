@@ -221,8 +221,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             var searchExpressions = new List<Expression>();
             if (string.IsNullOrWhiteSpace(resourceType))
             {
+                // Try to parse resource types from _type Search Parameter
+                // This will result in empty array if _type has any modifiers
+                // Which is good, since :not modifier changes the meaning of the
+                // search parameter and we can no longer use it to deduce types
+                // (and should proceed with ResourceType.DomainResource in that case)
                 var resourceTypes = searchParams.Parameters
-                    .Where(q => q.Item1 == KnownQueryParameterNames.Type)
+                    .Where(q => q.Item1 == KnownQueryParameterNames.Type) // <-- Equality comparison to avoid modifiers
                     .SelectMany(q => q.Item2.SplitByOrSeparator())
                     .Where(type => ModelInfoProvider.IsKnownResource(type))
                     .Select(x =>

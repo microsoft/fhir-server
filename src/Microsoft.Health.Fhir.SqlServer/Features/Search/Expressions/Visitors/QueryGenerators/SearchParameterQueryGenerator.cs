@@ -80,6 +80,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             return context;
         }
 
+        public override SearchParameterQueryGeneratorContext VisitNotExpression(NotExpression expression, SearchParameterQueryGeneratorContext context)
+        {
+            context.StringBuilder.Append("NOT ");
+            return base.VisitNotExpression(expression, context);
+        }
+
         public override SearchParameterQueryGeneratorContext VisitMultiary(MultiaryExpression expression, SearchParameterQueryGeneratorContext context)
         {
             if (expression.MultiaryOperation == MultiaryOperator.Or)

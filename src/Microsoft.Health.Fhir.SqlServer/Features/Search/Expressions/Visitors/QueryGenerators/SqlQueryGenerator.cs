@@ -67,6 +67,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
             if (expression.SearchParamTableExpressions.Count > 0)
             {
+                if (expression.ResourceTableExpressions.Count > 0)
+                {
+                    throw new InvalidOperationException("Expected no predicates on the Resource table because of the presence of TableExpressions");
+                }
+
                 StringBuilder.Append("WITH ");
 
                 StringBuilder.AppendDelimited($",{Environment.NewLine}", expression.SearchParamTableExpressions, (sb, tableExpression) =>
@@ -85,14 +90,29 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             }
 
             string resourceTableAlias = "r";
+            bool selectingFromResourceTable;
             var (searchParamInfo, sortOrder) = searchOptions.Sort.Count == 0 ? default : searchOptions.Sort[0];
 
             if (searchOptions.CountOnly)
             {
-                StringBuilder.AppendLine("SELECT COUNT(DISTINCT ").Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).Append(")");
+                if (expression.SearchParamTableExpressions.Count > 0)
+                {
+                    // The last CTE has all the surrogate IDs that match the results.
+                    // We just need to count those and don't need to join with the Resource table
+                    selectingFromResourceTable = false;
+                    StringBuilder.AppendLine("SELECT COUNT(DISTINCT Sid1)");
+                }
+                else
+                {
+                    // We will be counting over the Resource table.
+                    selectingFromResourceTable = true;
+                    StringBuilder.AppendLine("SELECT COUNT(*)");
+                }
             }
             else
             {
+                selectingFromResourceTable = true;
+
                 // DISTINCT is used since different ctes may return the same resources due to _include and _include:iterate search parameters
                 StringBuilder.Append("SELECT DISTINCT ");
 
@@ -131,58 +151,67 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 StringBuilder.AppendLine();
             }
 
-            StringBuilder.Append("FROM ").Append(VLatest.Resource).Append(" ").Append(resourceTableAlias);
+            if (selectingFromResourceTable)
+            {
+                StringBuilder.Append("FROM ").Append(VLatest.Resource).Append(" ").Append(resourceTableAlias);
 
-            if (expression.SearchParamTableExpressions.Count == 0 &&
-                !_isHistorySearch &&
-                expression.ResourceTableExpressions.Any(e => e.AcceptVisitor(ExpressionContainsParameterVisitor.Instance, SearchParameterNames.ResourceType)))
-            {
-                // If this is a simple search over a resource type (like GET /Observation)
-                // make sure the optimizer does not decide to do a scan on the clustered index, since we have an index specifically for this common case
-                StringBuilder.Append(" WITH(INDEX(").Append(VLatest.Resource.IX_Resource_ResourceTypeId_ResourceSurrgateId).AppendLine("))");
-            }
-            else
-            {
-                StringBuilder.AppendLine();
-            }
-
-            if (expression.SearchParamTableExpressions.Count > 0)
-            {
-                StringBuilder.AppendLine().Append("INNER JOIN ").AppendLine(TableExpressionName(_tableExpressionCounter));
-                StringBuilder.Append("ON ").Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).Append(" = ").Append(TableExpressionName(_tableExpressionCounter)).AppendLine(".Sid1");
-            }
-
-            using (var delimitedClause = StringBuilder.BeginDelimitedWhereClause())
-            {
-                foreach (var resourceExpressions in expression.ResourceTableExpressions)
+                if (expression.SearchParamTableExpressions.Count == 0 &&
+                    !_isHistorySearch &&
+                    expression.ResourceTableExpressions.Any(e => e.AcceptVisitor(ExpressionContainsParameterVisitor.Instance, SearchParameterNames.ResourceType)) &&
+                    !expression.ResourceTableExpressions.Any(e => e.AcceptVisitor(ExpressionContainsParameterVisitor.Instance, SearchParameterNames.Id)))
                 {
-                    delimitedClause.BeginDelimitedElement();
-                    resourceExpressions.AcceptVisitor(ResourceTableSearchParameterQueryGenerator.Instance, GetContext());
-                }
-
-                if (expression.SearchParamTableExpressions.Count == 0)
-                {
-                    AppendHistoryClause(delimitedClause);
-                    AppendDeletedClause(delimitedClause);
-                }
-            }
-
-            if (!searchOptions.CountOnly)
-            {
-                StringBuilder.Append("ORDER BY ");
-                if (searchParamInfo == null || searchParamInfo.Name == KnownQueryParameterNames.LastUpdated)
-                {
-                    StringBuilder
-                        .Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).Append(" ")
-                        .AppendLine(sortOrder == SortOrder.Ascending ? "ASC" : "DESC");
+                    // If this is a simple search over a resource type (like GET /Observation)
+                    // make sure the optimizer does not decide to do a scan on the clustered index, since we have an index specifically for this common case
+                    StringBuilder.Append(" WITH(INDEX(").Append(VLatest.Resource.IX_Resource_ResourceTypeId_ResourceSurrgateId).AppendLine("))");
                 }
                 else
                 {
-                    StringBuilder
-                        .Append($"{TableExpressionName(_tableExpressionCounter)}.SortValue ")
-                        .Append(sortOrder == SortOrder.Ascending ? "ASC" : "DESC").Append(", ")
-                        .Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).AppendLine(" ASC ");
+                    StringBuilder.AppendLine();
                 }
+
+                if (expression.SearchParamTableExpressions.Count > 0)
+                {
+                    StringBuilder.AppendLine().Append("INNER JOIN ").AppendLine(TableExpressionName(_tableExpressionCounter));
+                    StringBuilder.Append("ON ").Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).Append(" = ").Append(TableExpressionName(_tableExpressionCounter)).AppendLine(".Sid1");
+                }
+
+                using (var delimitedClause = StringBuilder.BeginDelimitedWhereClause())
+                {
+                    foreach (var denormalizedPredicate in expression.ResourceTableExpressions)
+                    {
+                        delimitedClause.BeginDelimitedElement();
+                        denormalizedPredicate.AcceptVisitor(ResourceTableSearchParameterQueryGenerator.Instance, GetContext());
+                    }
+
+                    if (expression.SearchParamTableExpressions.Count == 0)
+                    {
+                        AppendHistoryClause(delimitedClause);
+                        AppendDeletedClause(delimitedClause);
+                    }
+                }
+
+                if (!searchOptions.CountOnly)
+                {
+                    StringBuilder.Append("ORDER BY ");
+                    if (searchParamInfo == null || searchParamInfo.Name == KnownQueryParameterNames.LastUpdated)
+                    {
+                        StringBuilder
+                            .Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).Append(" ")
+                            .AppendLine(sortOrder == SortOrder.Ascending ? "ASC" : "DESC");
+                    }
+                    else
+                    {
+                        StringBuilder
+                            .Append($"{TableExpressionName(_tableExpressionCounter)}.SortValue ")
+                            .Append(sortOrder == SortOrder.Ascending ? "ASC" : "DESC").Append(", ")
+                            .Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).AppendLine(" ASC ");
+                    }
+                }
+            }
+            else
+            {
+                // this is selecting only from the last CTE (for a count)
+                StringBuilder.Append("FROM ").AppendLine(TableExpressionName(_tableExpressionCounter));
             }
 
             StringBuilder.Append("OPTION(RECOMPILE)");
@@ -480,9 +509,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                         }
 
                         delimited.BeginDelimitedElement().Append(VLatest.ReferenceSearchParam.ResourceTypeId, table)
-                             .Append(" IN (")
-                             .Append(string.Join(", ", resourceIds))
-                             .Append(")");
+                            .Append(" IN (")
+                            .Append(string.Join(", ", resourceIds))
+                            .Append(")");
 
                         // Get FROM ctes
                         string fromCte = _cteMainSelect;

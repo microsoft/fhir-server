@@ -143,6 +143,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return TokenQueryGenerator.Instance;
         }
 
+        public SearchParamTableExpressionQueryGenerator VisitNotExpression(NotExpression expression, object context)
+        {
+            return expression.Expression.AcceptVisitor(this, context);
+        }
+
         public SearchParamTableExpressionQueryGenerator VisitMultiary(MultiaryExpression expression, object context)
         {
             foreach (var childExpression in expression.Expressions)

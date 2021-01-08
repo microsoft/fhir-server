@@ -177,6 +177,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                                .AcceptVisitor(_sortRewriter, searchOptions)
                                                .AcceptVisitor(SearchParamTableExpressionReorderer.Instance)
                                                .AcceptVisitor(MissingSearchParamVisitor.Instance)
+                                               .AcceptVisitor(NotExpressionRewriter.Instance)
                                                .AcceptVisitor(_chainFlatteningRewriter)
                                                .AcceptVisitor(ResourceColumnPredicatePushdownRewriter.Instance)
                                                .AcceptVisitor(DateTimeBoundedRangeRewriter.Instance)
@@ -207,7 +208,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     if (searchOptions.CountOnly)
                     {
                         await reader.ReadAsync(cancellationToken);
-                        return new SearchResult(reader.GetInt32(0), searchOptions.UnsupportedSearchParams);
+                        var searchResult = new SearchResult(reader.GetInt32(0), searchOptions.UnsupportedSearchParams);
+
+                        // call NextResultAsync to get the info messages
+                        await reader.NextResultAsync(cancellationToken);
+
+                        return searchResult;
                     }
 
                     var resources = new List<SearchResultEntry>(searchOptions.MaxItemCount);

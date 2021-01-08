@@ -17,7 +17,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 {
     public class SearchParamTableExpressionReordererTests
     {
-        private static readonly Expression NormalExpression = new SearchParameterExpression(new SearchParameterInfo("TestParam"), Expression.Equals(FieldName.TokenCode, null, "TestValue"));
+        private static readonly SearchParameterExpression NormalExpression = new SearchParameterExpression(new SearchParameterInfo("TestParam"), Expression.Equals(FieldName.TokenCode, null, "TestValue"));
+        private static readonly SearchParameterExpression NotExpression = new SearchParameterExpression(NormalExpression.Parameter, Expression.Not(NormalExpression.Expression));
 
         [Fact]
         public void GivenExpressionWithSingleTableExpression_WhenReordered_ReturnsOriginalExpression()
@@ -29,7 +30,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         }
 
         [Fact]
-        public void GivenExpressionWithMulthMultipleTableExpressions_WhenReordered_DenormilizedExpressionReturnedFirst()
+        public void GivenExpressionWithMultipleTableExpressions_WhenReordered_DenormilizedExpressionReturnedFirst()
         {
             var tableExpressions = new List<SearchParamTableExpression>
             {
@@ -43,7 +44,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         }
 
         [Fact]
-        public void GivenExpressionWithMulthMultipleTableExpressions_WhenReordered_ReferenceExpressionReturnedBeforeNormal()
+        public void GivenExpressionWithMultipleTableExpressions_WhenReordered_ReferenceExpressionReturnedBeforeNormal()
         {
             var tableExpressions = new List<SearchParamTableExpression>
             {
@@ -57,7 +58,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         }
 
         [Fact]
-        public void GivenExpressionWithMulthMultipleTableExpressions_WhenReordered_CompartmentExpressionReturnedBeforeNormal()
+        public void GivenExpressionWithMultipleTableExpressions_WhenReordered_CompartmentExpressionReturnedBeforeNormal()
         {
             var tableExpressions = new List<SearchParamTableExpression>
             {
@@ -71,11 +72,11 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         }
 
         [Fact]
-        public void GivenExpressionWithMulthMultipleTableExpressions_WhenReordered_MissingParameterExpressionReturnedBeforeInclude()
+        public void GivenExpressionWithMultipleTableExpressions_WhenReordered_MissingParameterExpressionReturnedBeforeNotExpression()
         {
             var tableExpressions = new List<SearchParamTableExpression>
             {
-                new SearchParamTableExpression(new IncludeQueryGenerator(), NormalExpression, SearchParamTableExpressionKind.Include),
+                new SearchParamTableExpression(null, NotExpression, SearchParamTableExpressionKind.Normal),
                 new SearchParamTableExpression(null, new MissingSearchParameterExpression(new SearchParameterInfo("TestParam"), true), SearchParamTableExpressionKind.Normal),
             };
 
@@ -85,7 +86,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         }
 
         [Fact]
-        public void GivenExpressionWithMulthMultipleTableExpressions_WhenReordered_IncludeExpressionReturnedLast()
+        public void GivenExpressionWithMultipleTableExpressions_WhenReordered_IncludeExpressionReturnedLast()
         {
             var tableExpressions = new List<SearchParamTableExpression>
             {
