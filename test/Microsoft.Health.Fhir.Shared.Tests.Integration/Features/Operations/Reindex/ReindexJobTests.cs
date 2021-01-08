@@ -6,19 +6,18 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Threading;
 using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Reindex;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
-using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
@@ -27,8 +26,6 @@ using Microsoft.Health.Fhir.Core.Messages.Reindex;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
-using Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries;
-using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
@@ -54,8 +51,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         private ReindexUtilities _reindexUtilities;
         private readonly ISearchIndexer _searchIndexer = Substitute.For<ISearchIndexer>();
         private ISupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager;
-        private SearchableSearchParameterDefinitionManager _searchableSearchParameterDefinitionManager;
-        private readonly IOptions<CoreFeatureConfiguration> coreOptions = Substitute.For<IOptions<CoreFeatureConfiguration>>();
         private SearchParameterStatusManager _searchParameterStatusManager;
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
         private readonly IMediator _mediator = Substitute.For<IMediator>();
@@ -82,11 +77,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             IOptions<ReindexJobConfiguration> optionsReindexConfig = Substitute.For<IOptions<ReindexJobConfiguration>>();
             optionsReindexConfig.Value.Returns(_jobConfiguration);
 
-            _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance);
-            await _searchParameterDefinitionManager.StartAsync(CancellationToken.None);
-            _supportedSearchParameterDefinitionManager = new SupportedSearchParameterDefinitionManager(_searchParameterDefinitionManager);
-            var fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
-            _searchableSearchParameterDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, fhirRequestContextAccessor);
+            _searchParameterDefinitionManager = _fixture.SearchParameterDefinitionManager;
+            _supportedSearchParameterDefinitionManager = _fixture.SupportedSearchParameterDefinitionManager;
 
             _searchParameterStatusManager = new SearchParameterStatusManager(
                 _searchParameterStatusDataStore,
@@ -106,14 +98,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 _supportedSearchParameterDefinitionManager,
                 _searchParameterStatusManager);
 
-            coreOptions.Value.Returns(new CoreFeatureConfiguration());
-
-            var searchParameterExpressionParser = new SearchParameterExpressionParser(new ReferenceSearchValueParser(fhirRequestContextAccessor));
-            var expressionParser = new ExpressionParser(() => _searchableSearchParameterDefinitionManager, searchParameterExpressionParser);
-            var searchOptionsFactory = new SearchOptionsFactory(expressionParser, () => _searchableSearchParameterDefinitionManager, coreOptions, fhirRequestContextAccessor, _sortingValidator, NullLogger<SearchOptionsFactory>.Instance);
-            var cosmosSearchService = new FhirCosmosSearchService(searchOptionsFactory, _fixture.DataStore as CosmosFhirDataStore, new QueryBuilder(), _searchParameterDefinitionManager, fhirRequestContextAccessor) as ISearchService;
-
-            _searchService = cosmosSearchService.CreateMockScope();
+            _searchService = _fixture.SearchService.CreateMockScope();
 
             await _fhirStorageTestHelper.DeleteAllReindexJobRecordsAsync(CancellationToken.None);
         }
@@ -179,7 +164,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     reindexJobWrapper = await _fhirOperationDataStore.GetReindexJobByIdAsync(response.Job.JobRecord.Id, cancellationTokenSource.Token);
                 }
 
-                Assert.True(delayCount <= 9);
+                Assert.InRange(delayCount, 0, 20);
             }
             finally
             {
@@ -221,7 +206,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     reindexJobWrapper = await _fhirOperationDataStore.GetReindexJobByIdAsync(response.Job.JobRecord.Id, cancellationTokenSource.Token);
                 }
 
-                Assert.True(delayCount <= 9);
+                Assert.InRange(delayCount, 0, 20);
             }
             finally
             {
@@ -296,7 +281,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                     reindexJobWrapper = await _fhirOperationDataStore.GetReindexJobByIdAsync(response.Job.JobRecord.Id, cancellationTokenSource.Token);
                 }
 
-                Assert.True(delayCount <= 9);
+                Assert.InRange(delayCount, 0, 20);
 
                 searchResults = await _searchService.Value.SearchAsync("Patient", queryParams, CancellationToken.None);
 
@@ -328,7 +313,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             json = json.Replace("Chalmers", patientName);
             json = json.Replace("\"id\": \"example\"", "\"id\": \"" + patientName + "\"");
             var rawResource = new RawResource(json, FhirResourceFormat.Json, isMetaSet: false);
-            var resourceRequest = Substitute.For<ResourceRequest>();
+            var resourceRequest = new ResourceRequest(WebRequestMethods.Http.Put);
             var compartmentIndices = Substitute.For<CompartmentIndices>();
             var resourceElement = Deserializers.ResourceDeserializer.DeserializeRaw(rawResource, "v1", DateTimeOffset.UtcNow);
             var searchIndices = _searchIndexer.Extract(resourceElement);
