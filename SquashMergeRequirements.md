@@ -25,6 +25,12 @@ PR title + PR number (maximum 50 characters)
 
 Squash/Merge description:
 
-User friendly description + GitHub or VSTS item number (maximum 72 characters)
+User friendly description (maximum 72 characters per line) + GitHub or VSTS item number + Semver command (if relevant)
 
-`Enables customer managed keys for Cosmos DB backed services. (AB#12345)`
+```
+Enables customer managed keys for Cosmos DB backed services.
+Adds details to the healthcheck endpoint when keys are not configured.
+
+Refs AB#12345
++semver: patch
+```
