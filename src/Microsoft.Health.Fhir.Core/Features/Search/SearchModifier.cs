@@ -22,7 +22,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// <param name="resourceType">Resource type used to constrain abstract modifier code (e.g. <see cref="SearchModifierCode.Type"/>)</param>
         public SearchModifier(SearchModifierCode searchModifierCode, string resourceType = null)
         {
-            EnsureArg.EnumIsDefined(searchModifierCode, nameof(searchModifierCode));
             if (searchModifierCode == SearchModifierCode.Type)
             {
                 EnsureArg.IsNotEmptyOrWhiteSpace(resourceType, nameof(resourceType));
