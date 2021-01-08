@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             string resourceType,
             IList<ExportJobFilter> filters,
             string hash,
-            uint maxFileSizeInMB,
+            uint rollingFileSizeInMB,
             IReadOnlyCollection<KeyValuePair<string, string>> requestorClaims = null,
             PartialDateTime since = null,
             string groupId = null,
@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
             EnsureArg.IsNotNullOrWhiteSpace(hash, nameof(hash));
             EnsureArg.IsNotNullOrWhiteSpace(exportFormat, nameof(exportFormat));
-            EnsureArg.IsGt(maxFileSizeInMB, 0, nameof(maxFileSizeInMB));
+            EnsureArg.IsGt(rollingFileSizeInMB, 0, nameof(rollingFileSizeInMB));
 
             Hash = hash;
             RequestUri = requestUri;
@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             StorageAccountUri = storageAccountUri;
             MaximumNumberOfResourcesPerQuery = maximumNumberOfResourcesPerQuery;
             NumberOfPagesPerCommit = numberOfPagesPerCommit;
-            MaxFileSizeInMB = maxFileSizeInMB;
+            RollingFileSizeInMB = rollingFileSizeInMB;
 
             AnonymizationConfigurationLocation = anonymizationConfigurationLocation;
             AnonymizationConfigurationFileETag = anonymizationConfigurationFileETag;
@@ -105,7 +105,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         [JsonProperty(JobRecordProperties.Hash)]
         public string Hash { get; private set; }
 
-        [JsonProperty(JobRecordProperties.Output)]
+        [JsonProperty(JobRecordProperties.Output, ItemConverterType = typeof(ExportJobRecordOutputConverter))]
         public IDictionary<string, List<ExportFileInfo>> Output { get; private set; } = new Dictionary<string, List<ExportFileInfo>>();
 
         [JsonProperty(JobRecordProperties.Error)]
@@ -149,6 +149,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         public string AnonymizationConfigurationFileETag { get; private set; }
 
         [JsonProperty(JobRecordProperties.RollingFileSizeInMB)]
-        public uint MaxFileSizeInMB { get; private set; } = 64;
+        public uint RollingFileSizeInMB { get; private set; } = 64;
     }
 }

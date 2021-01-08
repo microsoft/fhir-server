@@ -31,11 +31,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         {
             EnsureArg.IsNotNull(exportJobRecord, nameof(exportJobRecord));
             EnsureArg.IsNotNull(exportDestinationClient, nameof(exportDestinationClient));
-            EnsureArg.IsGt(exportJobRecord.MaxFileSizeInMB, 0, nameof(exportJobRecord.MaxFileSizeInMB));
+            EnsureArg.IsGt(exportJobRecord.RollingFileSizeInMB, 0, nameof(exportJobRecord.RollingFileSizeInMB));
 
             _exportJobRecord = exportJobRecord;
             _exportDestinationClient = exportDestinationClient;
-            _maxFileSizeInBytes = _exportJobRecord.MaxFileSizeInMB * 1024 * 1024;
+            _maxFileSizeInBytes = _exportJobRecord.RollingFileSizeInMB * 1024 * 1024;
             _resourceTypeToFileInfoMapping = new Dictionary<string, ExportFileInfo>();
         }
 

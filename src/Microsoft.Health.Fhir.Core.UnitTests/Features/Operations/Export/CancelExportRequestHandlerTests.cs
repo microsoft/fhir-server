@@ -160,7 +160,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 resourceType: null,
                 filters: null,
                 hash: "123",
-                maxFileSizeInMB: 64,
+                rollingFileSizeInMB: 64,
                 requestorClaims: null)
             {
                 Status = operationStatus,
