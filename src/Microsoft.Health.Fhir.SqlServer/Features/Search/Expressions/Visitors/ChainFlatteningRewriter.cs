@@ -15,7 +15,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     /// The expression within a chained expression is promoted to a top-level table expression, but we keep track of the height
     /// via the <see cref="SearchParamTableExpression.ChainLevel"/>.
     /// </summary>
-    internal class ChainFlatteningRewriter : SqlExpressionRewriterWithInitialContext<(SearchParamTableExpression containingTableExpression, int chainLevel)>
+    internal class ChainFlatteningRewriter : SqlExpressionRewriterWithInitialContext<object>
     {
         private readonly SearchParamTableExpressionQueryGeneratorFactory _searchParamTableExpressionQueryGeneratorFactory;
 
@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             _searchParamTableExpressionQueryGeneratorFactory = searchParamTableExpressionQueryGeneratorFactory;
         }
 
-        public override Expression VisitSqlRoot(SqlRootExpression expression, (SearchParamTableExpression containingTableExpression, int chainLevel) context)
+        public override Expression VisitSqlRoot(SqlRootExpression expression, object context)
         {
             List<SearchParamTableExpression> newTableExpressions = null;
             for (var i = 0; i < expression.SearchParamTableExpressions.Count; i++)
