@@ -282,11 +282,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 
         private Expression ParseSearchValueExpression(SearchParameterInfo searchParameter, string modifier, string value)
         {
-            SearchModifierCode? parsedModifier = ParseSearchParamModifier();
-
+            SearchModifier parsedModifier = ParseSearchParamModifier();
             return _searchParameterExpressionParser.Parse(searchParameter, parsedModifier, value);
 
-            SearchModifierCode? ParseSearchParamModifier()
+            SearchModifier ParseSearchParamModifier()
             {
                 if (string.IsNullOrEmpty(modifier))
                 {
@@ -295,7 +294,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 
                 if (SearchParamModifierMapping.TryGetValue(modifier, out SearchModifierCode searchModifierCode))
                 {
-                    return searchModifierCode;
+                    return new SearchModifier(searchModifierCode);
+                }
+
+                // Modifier on a Reference Search Parameter can be used to restrict target type
+                if (searchParameter.Type == SearchParamType.Reference && searchParameter.TargetResourceTypes.Contains(modifier, StringComparer.OrdinalIgnoreCase))
+                {
+                    return new SearchModifier(SearchModifierCode.Type, modifier);
                 }
 
                 throw new InvalidSearchOperationException(

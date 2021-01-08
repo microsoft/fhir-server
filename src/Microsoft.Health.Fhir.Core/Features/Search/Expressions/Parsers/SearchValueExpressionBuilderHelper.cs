@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         private const decimal ApproximateMultiplier = .1M;
 
         private string _searchParameterName;
-        private SearchModifierCode? _modifier;
+        private SearchModifier _modifier;
         private SearchComparator _comparator;
         private int? _componentIndex;
 
@@ -27,15 +27,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
         public Expression Build(
             string searchParameterName,
-            SearchModifierCode? modifier,
+            SearchModifier modifier,
             SearchComparator comparator,
             int? componentIndex,
             ISearchValue searchValue)
         {
             EnsureArg.IsNotNullOrWhiteSpace(searchParameterName, nameof(searchParameterName));
-            Debug.Assert(
-                modifier == null || Enum.IsDefined(typeof(SearchModifierCode), modifier.Value),
-                "Invalid modifier.");
             Debug.Assert(
                 Enum.IsDefined(typeof(SearchComparator), comparator),
                 "Invalid comparator.");
@@ -172,7 +169,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         {
             EnsureArg.IsNotNull(reference, nameof(reference));
 
-            if (_modifier != null)
+            if (_modifier != null && _modifier.SearchModifierCode != SearchModifierCode.Type)
             {
                 ThrowModifierNotSupported();
             }
@@ -221,11 +218,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 // is case-insensitive search so we will normalize into lower case for search.
                 _outputExpression = Expression.StartsWith(FieldName.String, _componentIndex, s.String, true);
             }
-            else if (_modifier == SearchModifierCode.Exact)
+            else if (_modifier.SearchModifierCode == SearchModifierCode.Exact)
             {
                 _outputExpression = Expression.StringEquals(FieldName.String, _componentIndex, s.String, false);
             }
-            else if (_modifier == SearchModifierCode.Contains)
+            else if (_modifier.SearchModifierCode == SearchModifierCode.Contains)
             {
                 // Based on spec http://hl7.org/fhir/STU3/search.html#modifiers,
                 // contains is case-insensitive search so we will normalize into lower case for search.
@@ -247,14 +244,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             {
                 _outputExpression = BuildEqualityExpression();
             }
-            else if (_modifier == SearchModifierCode.Not)
+            else if (_modifier.SearchModifierCode == SearchModifierCode.Not)
             {
                 _outputExpression = Expression.Not(BuildEqualityExpression());
             }
-            else if (_modifier == SearchModifierCode.Above ||
-                     _modifier == SearchModifierCode.Below ||
-                     _modifier == SearchModifierCode.In ||
-                     _modifier == SearchModifierCode.NotIn)
+            else if (_modifier.SearchModifierCode == SearchModifierCode.Above ||
+                     _modifier.SearchModifierCode == SearchModifierCode.Below ||
+                     _modifier.SearchModifierCode == SearchModifierCode.In ||
+                     _modifier.SearchModifierCode == SearchModifierCode.NotIn)
             {
                 // These modifiers are not supported yet but will be supported eventually.
                 ThrowModifierNotSupported();
@@ -298,7 +295,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         {
             EnsureArg.IsNotNull(uri, nameof(uri));
 
-            switch (_modifier)
+            switch (_modifier?.SearchModifierCode)
             {
                 case null:
                     _outputExpression = Expression.StringEquals(FieldName.Uri, _componentIndex, uri.Uri, false);
