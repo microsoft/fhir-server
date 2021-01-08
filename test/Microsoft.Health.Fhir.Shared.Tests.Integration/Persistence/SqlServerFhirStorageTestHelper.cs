@@ -178,9 +178,29 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        public Task DeleteAllReindexJobRecordsAsync(CancellationToken cancellationToken = default)
+        public async Task DeleteAllReindexJobRecordsAsync(CancellationToken cancellationToken = default)
         {
-            throw new NotImplementedException();
+            using (var connection = await _sqlConnectionFactory.GetSqlConnectionAsync())
+            {
+                var command = new SqlCommand("DELETE FROM dbo.ReindexJob", connection);
+
+                await command.Connection.OpenAsync(cancellationToken);
+                await command.ExecuteNonQueryAsync(cancellationToken);
+            }
+        }
+
+        public async Task DeleteReindexJobRecordAsync(string id, CancellationToken cancellationToken = default)
+        {
+            using (var connection = await _sqlConnectionFactory.GetSqlConnectionAsync())
+            {
+                var command = new SqlCommand("DELETE FROM dbo.ReindexJob WHERE Id = @id", connection);
+
+                var parameter = new SqlParameter { ParameterName = "@id", Value = id };
+                command.Parameters.Add(parameter);
+
+                await command.Connection.OpenAsync(cancellationToken);
+                await command.ExecuteNonQueryAsync(cancellationToken);
+            }
         }
 
         async Task<object> IFhirStorageTestHelper.GetSnapshotToken()
