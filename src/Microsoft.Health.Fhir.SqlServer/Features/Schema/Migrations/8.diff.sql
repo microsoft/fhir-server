@@ -1,3 +1,10 @@
+/*
+We are making the following changes in this version of the schema
+-- Adding two bit columns to StringSearchParam table - IsMin and IsMax
+-- Updating the corresponding table value type to include these two new values
+-- Updating the Upsert stored procedure to handle these two new values
+*/
+
 CREATE TYPE dbo.StringSearchParamTableType_2 AS TABLE
 (
     SearchParamId smallint NOT NULL,
@@ -8,8 +15,8 @@ CREATE TYPE dbo.StringSearchParamTableType_2 AS TABLE
 );
 
 ALTER TABLE dbo.StringSearchParam
-ADD IsMin bit not null,
-	IsMax bit NOT NULL;
+ADD IsMin bit NOT NULL,
+    IsMax bit NOT NULL;
 
 GO
 
