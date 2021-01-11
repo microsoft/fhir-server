@@ -48,7 +48,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             }
             else if (jsonData is JObject)
             {
-                // JObject entry = jsonData as JObject;
                 ExportFileInfo fileInfo = serializer.Deserialize<ExportFileInfo>(jsonData.CreateReader());
                 result.Add(fileInfo);
             }

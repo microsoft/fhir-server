@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             AnonymizationConfigurationFileETag = anonymizationConfigurationFileETag;
 
             // Default values
-            SchemaVersion = 1;
+            SchemaVersion = 2;
             Id = Guid.NewGuid().ToString();
             Status = OperationStatus.Queued;
 
@@ -149,6 +149,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
         public string AnonymizationConfigurationFileETag { get; private set; }
 
         [JsonProperty(JobRecordProperties.RollingFileSizeInMB)]
-        public uint RollingFileSizeInMB { get; private set; } = 64;
+        public uint RollingFileSizeInMB { get; private set; }
     }
 }

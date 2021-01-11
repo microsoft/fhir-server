@@ -1,0 +1,128 @@
+{
+    "requestUri": "https://localhost:44348/Patient/$export",
+    "exportType": "Patient",
+    "exportFormat": "<resourcename>",
+    "requestorClaims": [],
+    "hash": "hash",
+    "output": {
+        "Claim": {
+            "type": "Claim",
+            "url": "http://127.0.0.1:10000/devstoreaccount1/fcf87438-cdbd-4537-8f4d-4ab739310f3f/Claim.ndjson",
+            "sequence": 0,
+            "count": 1749,
+            "committedBytes": 2343777
+        },
+        "Condition": {
+            "type": "Condition",
+            "url": "http://127.0.0.1:10000/devstoreaccount1/fcf87438-cdbd-4537-8f4d-4ab739310f3f/Condition.ndjson",
+            "sequence": 0,
+            "count": 117,
+            "committedBytes": 92615
+        },
+        "Encounter": {
+            "type": "Encounter",
+            "url": "http://127.0.0.1:10000/devstoreaccount1/fcf87438-cdbd-4537-8f4d-4ab739310f3f/Encounter.ndjson",
+            "sequence": 0,
+            "count": 923,
+            "committedBytes": 807913
+        },
+        "MedicationRequest": {
+            "type": "MedicationRequest",
+            "url": "http://127.0.0.1:10000/devstoreaccount1/fcf87438-cdbd-4537-8f4d-4ab739310f3f/MedicationRequest.ndjson",
+            "sequence": 0,
+            "count": 826,
+            "committedBytes": 758186
+        },
+        "Goal": {
+            "type": "Goal",
+            "url": "http://127.0.0.1:10000/devstoreaccount1/fcf87438-cdbd-4537-8f4d-4ab739310f3f/Goal.ndjson",
+            "sequence": 0,
+            "count": 41,
+            "committedBytes": 23805
+        },
+        "ExplanationOfBenefit": {
+            "type": "ExplanationOfBenefit",
+            "url": "http://127.0.0.1:10000/devstoreaccount1/fcf87438-cdbd-4537-8f4d-4ab739310f3f/ExplanationOfBenefit.ndjson",
+            "sequence": 0,
+            "count": 923,
+            "committedBytes": 4323169
+        },
+        "CareTeam": {
+            "type": "CareTeam",
+            "url": "http://127.0.0.1:10000/devstoreaccount1/fcf87438-cdbd-4537-8f4d-4ab739310f3f/CareTeam.ndjson",
+            "sequence": 0,
+            "count": 49,
+            "committedBytes": 73228
+        },
+        "CarePlan": {
+            "type": "CarePlan",
+            "url": "http://127.0.0.1:10000/devstoreaccount1/fcf87438-cdbd-4537-8f4d-4ab739310f3f/CarePlan.ndjson",
+            "sequence": 0,
+            "count": 49,
+            "committedBytes": 79182
+        },
+        "Observation": {
+            "type": "Observation",
+            "url": "http://127.0.0.1:10000/devstoreaccount1/fcf87438-cdbd-4537-8f4d-4ab739310f3f/Observation.ndjson",
+            "sequence": 0,
+            "count": 3945,
+            "committedBytes": 3149954
+        },
+        "Procedure": {
+            "type": "Procedure",
+            "url": "http://127.0.0.1:10000/devstoreaccount1/fcf87438-cdbd-4537-8f4d-4ab739310f3f/Procedure.ndjson",
+            "sequence": 0,
+            "count": 633,
+            "committedBytes": 437826
+        },
+        "DiagnosticReport": {
+            "type": "DiagnosticReport",
+            "url": "http://127.0.0.1:10000/devstoreaccount1/fcf87438-cdbd-4537-8f4d-4ab739310f3f/DiagnosticReport.ndjson",
+            "sequence": 0,
+            "count": 317,
+            "committedBytes": 427641
+        },
+        "Immunization": {
+            "type": "Immunization",
+            "url": "http://127.0.0.1:10000/devstoreaccount1/fcf87438-cdbd-4537-8f4d-4ab739310f3f/Immunization.ndjson",
+            "sequence": 0,
+            "count": 141,
+            "committedBytes": 80332
+        },
+        "ImagingStudy": {
+            "type": "ImagingStudy",
+            "url": "http://127.0.0.1:10000/devstoreaccount1/fcf87438-cdbd-4537-8f4d-4ab739310f3f/ImagingStudy.ndjson",
+            "sequence": 0,
+            "count": 4,
+            "committedBytes": 4142
+        },
+        "MedicationAdministration": {
+            "type": "MedicationAdministration",
+            "url": "http://127.0.0.1:10000/devstoreaccount1/fcf87438-cdbd-4537-8f4d-4ab739310f3f/MedicationAdministration.ndjson",
+            "sequence": 0,
+            "count": 6,
+            "committedBytes": 3513
+        },
+        "Patient": {
+            "type": "Patient",
+            "url": "http://127.0.0.1:10000/devstoreaccount1/fcf87438-cdbd-4537-8f4d-4ab739310f3f/Patient.ndjson",
+            "sequence": 0,
+            "count": 12,
+            "committedBytes": 40150
+        }
+    },
+    "error": [],
+    "progress": {
+        "page": 0
+    },
+    "storageAccountConnectionHash": "",
+    "storageAccountUri": "",
+    "maximumNumberOfResourcesPerQuery": 100,
+    "numberOfPagesPerCommit": 10,
+    "storageAccountContainerName": "fcf87438-cdbd-4537-8f4d-4ab739310f3f",
+    "id": "fcf87438-cdbd-4537-8f4d-4ab739310f3f",
+    "queuedTime": "2020-12-03T17:24:06.3879275+00:00",
+    "schemaVersion": 1,
+    "status": "Completed",
+    "endTime": "2020-12-03T17:25:46.0667082+00:00"
+}
