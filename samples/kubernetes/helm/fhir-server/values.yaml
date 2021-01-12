@@ -5,7 +5,7 @@
 replicaCount: 1
 
 image:
-  registry: healthplatformregistry.azurecr.io
+  registry: mcr.microsoft.com/healthcareapis/r4-fhir-server
   repository: r4_fhir-server
   tag: master
   pullPolicy: IfNotPresent
@@ -59,7 +59,7 @@ database:
     edition: 5
     maxPoolSize: 100
     schema:
-      automaticUpdatesEnabled: false
+      automaticUpdatesEnabled: true
   cosmosDb:
     initialCollectionThroughput: "400"
     # databaseId: health

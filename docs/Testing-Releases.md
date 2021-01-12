@@ -32,6 +32,7 @@ Here are the tags for Docker images that should be noted:
 * healthplatformregistry.azurecr.io/${version}_fhir-server:**master** - The latest code that has been merged to the main branch and passed all tests.
 * healthplatformregistry.azurecr.io/${version}_fhir-server:**release** - The latest release, this is the tag we will focus on.
 * healthplatformregistry.azurecr.io/${version}_fhir-server:**build-[release number]** - Allows you to pin or access a specific release.
+* mcr.microsoft.com/healthcareapis/${version}_fhir-server - If the image has issues with the above tags, this is used.
 
 The current data store used by Azure API for FHIR is Cosmos DB, the following steps will walk through creating a test environment using Containers targeting the "release" label above.
 
