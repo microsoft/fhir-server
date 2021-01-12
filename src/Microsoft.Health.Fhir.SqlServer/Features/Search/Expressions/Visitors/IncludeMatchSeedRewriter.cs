@@ -13,6 +13,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     /// <summary>
     /// Rewriter used to add an All SearchParamTableExpression to serve as a seed for match results when the SearchParamTableExpressions in a SqlRootExpression
     /// consists solely of Include expressions.
+    /// Suppose you have an include query like Observation?code=abc&amp;_include=Observation:subject. The include will be based on the CTE that gets the IDs of the first p observations where the code is abc.
+    /// Now suppose you have simply Observation?_include=Observation:subject. Here there is no CTE to base the include on, so we inject one that yields the first p Observations.
     /// </summary>
     internal class IncludeMatchSeedRewriter : SqlExpressionRewriterWithInitialContext<object>
     {

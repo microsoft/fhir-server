@@ -118,6 +118,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     return ResourceTypeIdParameterQueryGenerator.Instance;
                 case SqlSearchParameters.ResourceSurrogateIdParameterName:
                     return ResourceSurrogateIdParameterQueryGenerator.Instance;
+#if DEBUG
+                case SearchParameterNames.LastUpdated:
+                    throw new InvalidOperationException($"Expression with {SearchParameterNames.LastUpdated} parameter should have been rewritten to use {SqlSearchParameters.ResourceSurrogateIdParameterName}.");
+#endif
                 default:
                     return null;
             }
