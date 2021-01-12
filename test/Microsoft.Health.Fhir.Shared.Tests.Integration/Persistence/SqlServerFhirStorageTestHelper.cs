@@ -127,8 +127,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             (string type, string name)[] deprecatedObjectToIgnore =
             {
                 ("Procedure", "[dbo].[UpsertResource]"),
+                ("Procedure", "[dbo].[UpsertResource_2]"),
                 ("TableType", "[dbo].[ReferenceSearchParamTableType_1]"),
                 ("TableType", "[dbo].[ReferenceTokenCompositeSearchParamTableType_1]"),
+                ("TableType", "[dbo].[StringSearchParamTableType_1]"),
             };
 
             var remainingDifferences = result.Differences.Where(
