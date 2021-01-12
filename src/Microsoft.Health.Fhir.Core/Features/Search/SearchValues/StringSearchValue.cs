@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Diagnostics.CodeAnalysis;
 using EnsureThat;
 
@@ -33,6 +34,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         /// <inheritdoc />
         public bool IsValidAsCompositeComponent => true;
 
+        /// <inheritdoc />
+        public bool IsMin { get; set; }
+
+        /// <inheritdoc />
+        public bool IsMax { get; set; }
+
         /// <summary>
         /// Parses the string value to an instance of <see cref="StringSearchValue"/>.
         /// </summary>
@@ -51,6 +58,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
             EnsureArg.IsNotNull(visitor, nameof(visitor));
 
             visitor.Visit(this);
+        }
+
+        /// <inheritdoc />
+        public int Compare(ISearchValue searchValue)
+        {
+            if (searchValue == null)
+            {
+                throw new ArgumentException("Value to be compared to cannot be null");
+            }
+
+            var otherValue = searchValue as StringSearchValue;
+            if (otherValue == null)
+            {
+                throw new ArgumentException($"Value to be compared should be of type {typeof(StringSearchValue)}");
+            }
+
+            return string.Compare(ToString(), otherValue.ToString(), StringComparison.CurrentCultureIgnoreCase);
         }
 
         public bool Equals([AllowNull] ISearchValue other)

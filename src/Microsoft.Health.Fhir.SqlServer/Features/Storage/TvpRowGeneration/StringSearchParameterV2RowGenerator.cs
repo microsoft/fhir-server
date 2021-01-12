@@ -33,7 +33,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
                 overflow = null;
             }
 
-            row = new StringSearchParamTableTypeV2Row(searchParamId, indexedPrefix, overflow, IsMin: false, IsMax: false);
+            row = new StringSearchParamTableTypeV2Row(searchParamId, indexedPrefix, overflow, IsMin: searchValue.IsMin, IsMax: searchValue.IsMax);
             return true;
         }
     }
