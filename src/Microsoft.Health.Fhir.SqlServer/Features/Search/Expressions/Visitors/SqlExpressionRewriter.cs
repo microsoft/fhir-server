@@ -12,30 +12,48 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     {
         public virtual Expression VisitSqlRoot(SqlRootExpression expression, TContext context)
         {
-            IReadOnlyList<Expression> denormalizedPredicates = VisitArray(expression.DenormalizedExpressions, context);
-            IReadOnlyList<TableExpression> normalizedPredicates = VisitArray(expression.TableExpressions, context);
+            IReadOnlyList<SearchParameterExpressionBase> visitedResourceExpressions = VisitArray(expression.ResourceTableExpressions, context);
+            IReadOnlyList<SearchParamTableExpression> visitedTableExpressions = VisitArray(expression.SearchParamTableExpressions, context);
 
-            if (ReferenceEquals(normalizedPredicates, expression.TableExpressions) &&
-                ReferenceEquals(denormalizedPredicates, expression.DenormalizedExpressions))
+            if (ReferenceEquals(visitedTableExpressions, expression.SearchParamTableExpressions) &&
+                ReferenceEquals(visitedResourceExpressions, expression.ResourceTableExpressions))
             {
                 return expression;
             }
 
-            return new SqlRootExpression(normalizedPredicates, denormalizedPredicates);
+            return new SqlRootExpression(visitedTableExpressions, visitedResourceExpressions);
         }
 
-        public virtual Expression VisitTable(TableExpression tableExpression, TContext context)
+        public virtual Expression VisitTable(SearchParamTableExpression searchParamTableExpression, TContext context)
         {
-            Expression denormalizedPredicate = tableExpression.DenormalizedPredicate?.AcceptVisitor(this, context);
-            Expression normalizedPredicate = tableExpression.NormalizedPredicate?.AcceptVisitor(this, context);
+            Expression rewrittenPredicate = searchParamTableExpression.Predicate?.AcceptVisitor(this, context);
 
-            if (ReferenceEquals(denormalizedPredicate, tableExpression.DenormalizedPredicate) &&
-                ReferenceEquals(normalizedPredicate, tableExpression.NormalizedPredicate))
+            if (ReferenceEquals(rewrittenPredicate, searchParamTableExpression.Predicate))
             {
-                return tableExpression;
+                return searchParamTableExpression;
             }
 
-            return new TableExpression(tableExpression.SearchParameterQueryGenerator, normalizedPredicate, denormalizedPredicate, tableExpression.Kind);
+            return new SearchParamTableExpression(searchParamTableExpression.QueryGenerator, rewrittenPredicate, searchParamTableExpression.Kind);
+        }
+
+        public virtual Expression VisitSqlChainLink(SqlChainLinkExpression sqlChainLinkExpression, TContext context)
+        {
+            Expression visitedExpressionOnSource = sqlChainLinkExpression.ExpressionOnSource?.AcceptVisitor(this, context);
+            Expression visitedExpressionOnTarget = sqlChainLinkExpression.ExpressionOnTarget?.AcceptVisitor(this, context);
+
+            if (ReferenceEquals(visitedExpressionOnSource, sqlChainLinkExpression.ExpressionOnSource) &&
+                ReferenceEquals(visitedExpressionOnTarget, sqlChainLinkExpression.ExpressionOnTarget))
+            {
+                return sqlChainLinkExpression;
+            }
+
+            return new SqlChainLinkExpression(
+                sqlChainLinkExpression.ResourceTypes,
+                sqlChainLinkExpression.ReferenceSearchParameter,
+                sqlChainLinkExpression.TargetResourceTypes,
+                sqlChainLinkExpression.Reversed,
+                visitedExpressionOnSource,
+                visitedExpressionOnTarget);
         }
     }
 }

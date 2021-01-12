@@ -3,9 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System;
 using System.Collections.Generic;
-using System.Linq;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators;
@@ -13,98 +11,35 @@ using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Query
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
     /// <summary>
-    /// Flattens chained expressions into <see cref="SqlRootExpression"/>'s <see cref="SqlRootExpression.TableExpressions"/> list.
+    /// Flattens chained expressions into <see cref="SqlRootExpression"/>'s <see cref="SqlRootExpression.SearchParamTableExpressions"/> list.
     /// The expression within a chained expression is promoted to a top-level table expression, but we keep track of the height
-    /// via the <see cref="TableExpression.ChainLevel"/>.
+    /// via the <see cref="SearchParamTableExpression.ChainLevel"/>.
     /// </summary>
-    internal class ChainFlatteningRewriter : SqlExpressionRewriterWithInitialContext<(TableExpression containingTableExpression, int chainLevel)>
+    internal class ChainFlatteningRewriter : SqlExpressionRewriterWithInitialContext<object>
     {
-        private readonly NormalizedSearchParameterQueryGeneratorFactory _normalizedSearchParameterQueryGeneratorFactory;
+        private readonly SearchParamTableExpressionQueryGeneratorFactory _searchParamTableExpressionQueryGeneratorFactory;
 
-        public ChainFlatteningRewriter(NormalizedSearchParameterQueryGeneratorFactory normalizedSearchParameterQueryGeneratorFactory)
+        public ChainFlatteningRewriter(SearchParamTableExpressionQueryGeneratorFactory searchParamTableExpressionQueryGeneratorFactory)
         {
-            EnsureArg.IsNotNull(normalizedSearchParameterQueryGeneratorFactory, nameof(normalizedSearchParameterQueryGeneratorFactory));
-            _normalizedSearchParameterQueryGeneratorFactory = normalizedSearchParameterQueryGeneratorFactory;
+            EnsureArg.IsNotNull(searchParamTableExpressionQueryGeneratorFactory, nameof(searchParamTableExpressionQueryGeneratorFactory));
+            _searchParamTableExpressionQueryGeneratorFactory = searchParamTableExpressionQueryGeneratorFactory;
         }
 
-        public override Expression VisitChained(ChainedExpression expression, (TableExpression containingTableExpression, int chainLevel) context)
+        public override Expression VisitSqlRoot(SqlRootExpression expression, object context)
         {
-            TableExpression thisTableExpression;
-            if (expression.Expression is ChainedExpression)
+            List<SearchParamTableExpression> newTableExpressions = null;
+            for (var i = 0; i < expression.SearchParamTableExpressions.Count; i++)
             {
-                thisTableExpression = context.containingTableExpression ??
-                                      new TableExpression(
-                                          ChainAnchorQueryGenerator.Instance,
-                                          expression,
-                                          null,
-                                          TableExpressionKind.Chain,
-                                          context.chainLevel);
-
-                Expression visitedExpression = expression.Expression.AcceptVisitor(this, (null, context.chainLevel + 1));
-
-                switch (visitedExpression)
+                SearchParamTableExpression searchParamTableExpression = expression.SearchParamTableExpressions[i];
+                if (searchParamTableExpression.Kind != SearchParamTableExpressionKind.Chain)
                 {
-                    case TableExpression child:
-                        return Expression.And(thisTableExpression, child);
-                    case MultiaryExpression multiary when multiary.MultiaryOperation == MultiaryOperator.And:
-                        var tableExpressions = new List<TableExpression> { thisTableExpression };
-                        tableExpressions.AddRange(multiary.Expressions.Cast<TableExpression>());
-                        return Expression.And(tableExpressions);
-                    default:
-                        throw new InvalidOperationException("Unexpected return type");
-                }
-            }
-
-            NormalizedSearchParameterQueryGenerator normalizedParameterQueryGenerator = expression.Expression.AcceptVisitor(_normalizedSearchParameterQueryGeneratorFactory);
-
-            thisTableExpression = context.containingTableExpression;
-
-            if (thisTableExpression == null || normalizedParameterQueryGenerator == null)
-            {
-                thisTableExpression = new TableExpression(
-                    ChainAnchorQueryGenerator.Instance,
-                    expression,
-                    denormalizedPredicate: normalizedParameterQueryGenerator == null ? expression.Expression : null,
-                    TableExpressionKind.Chain,
-                    context.chainLevel,
-                    thisTableExpression?.DenormalizedPredicateOnChainRoot);
-            }
-
-            if (normalizedParameterQueryGenerator == null)
-            {
-                return thisTableExpression;
-            }
-
-            var childTableExpression = new TableExpression(normalizedParameterQueryGenerator, expression.Expression, null, TableExpressionKind.Normal, context.chainLevel);
-
-            return Expression.And(thisTableExpression, childTableExpression);
-        }
-
-        public override Expression VisitSqlRoot(SqlRootExpression expression, (TableExpression containingTableExpression, int chainLevel) context)
-        {
-            List<TableExpression> newTableExpressions = null;
-            for (var i = 0; i < expression.TableExpressions.Count; i++)
-            {
-                TableExpression tableExpression = expression.TableExpressions[i];
-                if (tableExpression.Kind != TableExpressionKind.Chain)
-                {
-                    newTableExpressions?.Add(tableExpression);
+                    newTableExpressions?.Add(searchParamTableExpression);
                     continue;
                 }
 
-                Expression visitedNormalizedPredicate = tableExpression.NormalizedPredicate.AcceptVisitor(this, (tableExpression, tableExpression.ChainLevel));
-                switch (visitedNormalizedPredicate)
-                {
-                    case TableExpression convertedExpression:
-                        EnsureAllocatedAndPopulated(ref newTableExpressions, expression.TableExpressions, i);
-                        newTableExpressions.Add(convertedExpression);
-                        break;
-                    case MultiaryExpression multiary when multiary.MultiaryOperation == MultiaryOperator.And:
-                        EnsureAllocatedAndPopulated(ref newTableExpressions, expression.TableExpressions, i);
+                EnsureAllocatedAndPopulated(ref newTableExpressions, expression.SearchParamTableExpressions, i);
 
-                        newTableExpressions.AddRange(multiary.Expressions.Cast<TableExpression>());
-                        break;
-                }
+                ProcessChainedExpression((ChainedExpression)searchParamTableExpression.Predicate, newTableExpressions, 1);
             }
 
             if (newTableExpressions == null)
@@ -112,7 +47,42 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return expression;
             }
 
-            return new SqlRootExpression(newTableExpressions, expression.DenormalizedExpressions);
+            return new SqlRootExpression(newTableExpressions, expression.ResourceTableExpressions);
+        }
+
+        private void ProcessChainedExpression(ChainedExpression chainedExpression, List<SearchParamTableExpression> tableExpressions, int chainLevel)
+        {
+            SearchParamTableExpressionQueryGenerator queryGenerator = chainedExpression.Expression.AcceptVisitor(_searchParamTableExpressionQueryGeneratorFactory, null);
+
+            Expression expressionOnTarget = queryGenerator == null ? chainedExpression.Expression : null;
+
+            var sqlChainLinkExpression = new SqlChainLinkExpression(
+                chainedExpression.ResourceTypes,
+                chainedExpression.ReferenceSearchParameter,
+                chainedExpression.TargetResourceTypes,
+                chainedExpression.Reversed,
+                expressionOnTarget: expressionOnTarget);
+
+            tableExpressions.Add(
+                new SearchParamTableExpression(
+                    ChainLinkQueryGenerator.Instance,
+                    sqlChainLinkExpression,
+                    SearchParamTableExpressionKind.Chain,
+                    chainLevel));
+
+            if (chainedExpression.Expression is ChainedExpression nestedChainedExpression)
+            {
+                ProcessChainedExpression(nestedChainedExpression, tableExpressions, chainLevel + 1);
+            }
+            else if (queryGenerator != null)
+            {
+                tableExpressions.Add(
+                    new SearchParamTableExpression(
+                        queryGenerator,
+                        chainedExpression.Expression,
+                        SearchParamTableExpressionKind.Normal,
+                        chainLevel));
+            }
         }
     }
 }

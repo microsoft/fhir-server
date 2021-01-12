@@ -18,27 +18,27 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     {
         internal static readonly IncludeRewriter Instance = new IncludeRewriter();
 
-        private static readonly TableExpression IncludeUnionAllExpression = new TableExpression(null, null, null, TableExpressionKind.IncludeUnionAll);
-        private static readonly TableExpression IncludeLimitExpression = new TableExpression(null, null, null, TableExpressionKind.IncludeLimit);
+        private static readonly SearchParamTableExpression IncludeUnionAllExpression = new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.IncludeUnionAll);
+        private static readonly SearchParamTableExpression IncludeLimitExpression = new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.IncludeLimit);
 
         public override Expression VisitSqlRoot(SqlRootExpression expression, object context)
         {
-            if (expression.TableExpressions.Count == 1 || expression.TableExpressions.All(e => e.Kind != TableExpressionKind.Include))
+            if (expression.SearchParamTableExpressions.Count == 1 || expression.SearchParamTableExpressions.All(e => e.Kind != SearchParamTableExpressionKind.Include))
             {
                 return expression;
             }
 
-            // TableExpressions contains at least one Include expression
-            var nonIncludeExpressions = expression.TableExpressions.Where(e => e.Kind != TableExpressionKind.Include).ToList();
-            var includeExpressions = expression.TableExpressions.Where(e => e.Kind == TableExpressionKind.Include).ToList();
+            // SearchParamTableExpressions contains at least one Include expression
+            var nonIncludeExpressions = expression.SearchParamTableExpressions.Where(e => e.Kind != SearchParamTableExpressionKind.Include).ToList();
+            var includeExpressions = expression.SearchParamTableExpressions.Where(e => e.Kind == SearchParamTableExpressionKind.Include).ToList();
 
             // Sort include expressions if there is an include iterate expression
             // Order so that include iterate expression appear after the expressions they select from
-            IEnumerable<TableExpression> sortedIncludeExpressions = includeExpressions;
-            if (includeExpressions.Any(e => ((IncludeExpression)e.NormalizedPredicate).Iterate))
+            IEnumerable<SearchParamTableExpression> sortedIncludeExpressions = includeExpressions;
+            if (includeExpressions.Any(e => ((IncludeExpression)e.Predicate).Iterate))
             {
-                IEnumerable<TableExpression> nonIncludeIterateExpressions = includeExpressions.Where(e => !((IncludeExpression)e.NormalizedPredicate).Iterate);
-                List<TableExpression> includeIterateExpressions = includeExpressions.Where(e => ((IncludeExpression)e.NormalizedPredicate).Iterate).ToList();
+                IEnumerable<SearchParamTableExpression> nonIncludeIterateExpressions = includeExpressions.Where(e => !((IncludeExpression)e.Predicate).Iterate);
+                List<SearchParamTableExpression> includeIterateExpressions = includeExpressions.Where(e => ((IncludeExpression)e.Predicate).Iterate).ToList();
                 sortedIncludeExpressions = nonIncludeIterateExpressions.Concat(SortIncludeIterateExpressions(includeIterateExpressions));
             }
 
@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             // list from the end and add a limit expression after each include expression
             for (var i = reorderedExpressions.Count - 1; i >= 0; i--)
             {
-                switch (reorderedExpressions[i].SearchParameterQueryGenerator)
+                switch (reorderedExpressions[i].QueryGenerator)
                 {
                     case IncludeQueryGenerator _:
                         reorderedExpressions.Insert(i + 1, IncludeLimitExpression);
@@ -60,10 +60,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             }
 
             reorderedExpressions.Add(IncludeUnionAllExpression);
-            return new SqlRootExpression(reorderedExpressions, expression.DenormalizedExpressions);
+            return new SqlRootExpression(reorderedExpressions, expression.ResourceTableExpressions);
         }
 
-        private static IList<TableExpression> SortIncludeIterateExpressions(IList<TableExpression> expressions)
+        private static IList<SearchParamTableExpression> SortIncludeIterateExpressions(IList<SearchParamTableExpression> expressions)
         {
             // Based on Khan's algorithm. See https://en.wikipedia.org/wiki/Topological_sorting.
             // The search queries are acyclic.
@@ -73,7 +73,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             }
 
             var graph = new IncludeIterateExpressionDependencyGraph(expressions);
-            var sortedExpressions = new List<TableExpression>();
+            var sortedExpressions = new List<SearchParamTableExpression>();
 
             while (graph.NodesWithoutIncomingEdges.Any())
             {
@@ -97,15 +97,15 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
         private class IncludeIterateExpressionDependencyGraph
         {
             // private static readonly IncludeExpressionComparer Comparer = new IncludeExpressionComparer();
-            public IncludeIterateExpressionDependencyGraph(IEnumerable<TableExpression> includeIterateExpressions)
+            public IncludeIterateExpressionDependencyGraph(IEnumerable<SearchParamTableExpression> includeIterateExpressions)
             {
-                OutgoingEdges = new Dictionary<TableExpression, IList<TableExpression>>();
-                IncomingEdgesCount = new Dictionary<TableExpression, int>();
+                OutgoingEdges = new Dictionary<SearchParamTableExpression, IList<SearchParamTableExpression>>();
+                IncomingEdgesCount = new Dictionary<SearchParamTableExpression, int>();
 
                 // Add graph nodes (parameters) and edges (dependencies)
                 foreach (var v in includeIterateExpressions)
                 {
-                    OutgoingEdges.Add(v, new List<TableExpression>());
+                    OutgoingEdges.Add(v, new List<SearchParamTableExpression>());
                     IncomingEdgesCount.TryAdd(v, 0);
 
                     foreach (var u in includeIterateExpressions)
@@ -120,22 +120,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 }
             }
 
-            public IDictionary<TableExpression, IList<TableExpression>> OutgoingEdges { get; private set; }
+            public IDictionary<SearchParamTableExpression, IList<SearchParamTableExpression>> OutgoingEdges { get; private set; }
 
-            public IDictionary<TableExpression, int> IncomingEdgesCount { get; private set; }
+            public IDictionary<SearchParamTableExpression, int> IncomingEdgesCount { get; private set; }
 
-            public IEnumerable<TableExpression> NodesWithoutIncomingEdges
+            public IEnumerable<SearchParamTableExpression> NodesWithoutIncomingEdges
             {
                 get { return IncomingEdgesCount.Where(e => e.Value == 0).Select(e => e.Key); }
             }
 
             // Remove v and all v's edges and update incoming edge count accordingly
-            public void RemoveNodeAndAllOutgoingEdges(TableExpression v)
+            public void RemoveNodeAndAllOutgoingEdges(SearchParamTableExpression v)
             {
                 if (OutgoingEdges.ContainsKey(v))
                 {
                     // Remove all edges
-                    IList<TableExpression> edges;
+                    IList<SearchParamTableExpression> edges;
                     if (OutgoingEdges.TryGetValue(v, out edges))
                     {
                         while (edges.Any())
@@ -153,11 +153,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             }
 
             // (x, y) is a graph edge if x needs to appear before y in the sorted query. That is, y has dependency on x.
-            private static bool IsDependencyEdge(TableExpression x, TableExpression y)
+            private static bool IsDependencyEdge(SearchParamTableExpression x, SearchParamTableExpression y)
             {
                 // Assumes both expressions are include iterate expressions
-                var xInclude = (IncludeExpression)x.NormalizedPredicate;
-                var yInclude = (IncludeExpression)y.NormalizedPredicate;
+                var xInclude = (IncludeExpression)x.Predicate;
+                var yInclude = (IncludeExpression)y.Predicate;
 
                 return xInclude.Produces.Intersect(yInclude.Requires).Any();
             }

@@ -7,10 +7,8 @@ using Microsoft.Health.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
 {
-    internal class ChainAnchorQueryGenerator : NormalizedSearchParameterQueryGenerator
+    internal abstract class SearchParamTableExpressionQueryGenerator : SearchParameterQueryGenerator
     {
-        internal static readonly ChainAnchorQueryGenerator Instance = new ChainAnchorQueryGenerator();
-
-        public override Table Table => null;
+        public abstract Table Table { get; }
     }
 }

@@ -10,9 +10,9 @@ using Microsoft.Health.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
 {
-    internal class DateTimeSearchParameterQueryGenerator : NormalizedSearchParameterQueryGenerator
+    internal class DateTimeQueryGenerator : SearchParamTableExpressionQueryGenerator
     {
-        public static readonly DateTimeSearchParameterQueryGenerator Instance = new DateTimeSearchParameterQueryGenerator();
+        public static readonly DateTimeQueryGenerator Instance = new DateTimeQueryGenerator();
 
         public override Table Table => VLatest.DateTimeSearchParam;
 

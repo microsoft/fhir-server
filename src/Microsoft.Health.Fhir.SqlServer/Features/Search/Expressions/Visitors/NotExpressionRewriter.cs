@@ -18,34 +18,33 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public override Expression VisitSqlRoot(SqlRootExpression expression, object context)
         {
-            if (expression.TableExpressions.Count == 0)
+            if (expression.SearchParamTableExpressions.Count == 0)
             {
                 return expression;
             }
 
-            List<TableExpression> newTableExpressions = null;
-            for (var i = 0; i < expression.TableExpressions.Count; i++)
+            List<SearchParamTableExpression> newTableExpressions = null;
+            for (var i = 0; i < expression.SearchParamTableExpressions.Count; i++)
             {
-                TableExpression tableExpression = expression.TableExpressions[i];
+                SearchParamTableExpression tableExpression = expression.SearchParamTableExpressions[i];
 
                 // process only normalized predicates. Ignore Sort as it has its own visitor.
-                if (tableExpression.Kind != TableExpressionKind.Sort && tableExpression.NormalizedPredicate?.AcceptVisitor(Scout.Instance, context) == true)
+                if (tableExpression.Kind != SearchParamTableExpressionKind.Sort && tableExpression.Predicate?.AcceptVisitor(Scout.Instance, context) == true)
                 {
-                    EnsureAllocatedAndPopulated(ref newTableExpressions, expression.TableExpressions, i);
+                    EnsureAllocatedAndPopulated(ref newTableExpressions, expression.SearchParamTableExpressions, i);
 
                     // If this is the first expression, we need to add another expression before it
                     if (i == 0)
                     {
                         // seed with all resources so that we have something to restrict
                         newTableExpressions.Add(
-                            new TableExpression(
-                                tableExpression.SearchParameterQueryGenerator,
+                            new SearchParamTableExpression(
+                                tableExpression.QueryGenerator,
                                 null,
-                                tableExpression.DenormalizedPredicate,
-                                TableExpressionKind.All));
+                                SearchParamTableExpressionKind.All));
                     }
 
-                    newTableExpressions.Add((TableExpression)tableExpression.AcceptVisitor(this, context));
+                    newTableExpressions.Add((SearchParamTableExpression)tableExpression.AcceptVisitor(this, context));
                 }
                 else
                 {
@@ -58,18 +57,17 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return expression;
             }
 
-            return new SqlRootExpression(newTableExpressions, expression.DenormalizedExpressions);
+            return new SqlRootExpression(newTableExpressions, expression.ResourceTableExpressions);
         }
 
-        public override Expression VisitTable(TableExpression tableExpression, object context)
+        public override Expression VisitTable(SearchParamTableExpression tableExpression, object context)
         {
-            var normalizedPredicate = tableExpression.NormalizedPredicate.AcceptVisitor(this, context);
+            var visitedPredicate = tableExpression.Predicate.AcceptVisitor(this, context);
 
-            return new TableExpression(
-                tableExpression.SearchParameterQueryGenerator,
-                normalizedPredicate,
-                tableExpression.DenormalizedPredicate,
-                TableExpressionKind.NotExists);
+            return new SearchParamTableExpression(
+                tableExpression.QueryGenerator,
+                visitedPredicate,
+                SearchParamTableExpressionKind.NotExists);
         }
 
         public override Expression VisitNotExpression(NotExpression expression, object context)

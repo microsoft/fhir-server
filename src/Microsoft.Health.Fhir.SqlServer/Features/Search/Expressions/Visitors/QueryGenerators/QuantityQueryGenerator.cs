@@ -10,9 +10,9 @@ using Microsoft.Health.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
 {
-    internal class QuantitySearchParameterQueryGenerator : NormalizedSearchParameterQueryGenerator
+    internal class QuantityQueryGenerator : SearchParamTableExpressionQueryGenerator
     {
-        public static readonly QuantitySearchParameterQueryGenerator Instance = new QuantitySearchParameterQueryGenerator();
+        public static readonly QuantityQueryGenerator Instance = new QuantityQueryGenerator();
 
         public override Table Table => VLatest.QuantitySearchParam;
 

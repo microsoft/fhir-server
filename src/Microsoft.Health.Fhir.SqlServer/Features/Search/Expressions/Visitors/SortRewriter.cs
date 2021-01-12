@@ -11,15 +11,15 @@ using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 {
     /// <summary>
-    /// It creates the correct generator and populates the normalized predicates for sort parameters.
+    /// It creates the correct generator and populates the predicates for sort parameters.
     /// </summary>
     internal class SortRewriter : SqlExpressionRewriter<SearchOptions>
     {
-        private readonly NormalizedSearchParameterQueryGeneratorFactory _normalizedSearchParameterQueryGeneratorFactory;
+        private readonly SearchParamTableExpressionQueryGeneratorFactory _searchParamTableExpressionQueryGeneratorFactory;
 
-        public SortRewriter(NormalizedSearchParameterQueryGeneratorFactory normalizedSearchParameterQueryGeneratorFactory)
+        public SortRewriter(SearchParamTableExpressionQueryGeneratorFactory searchParamTableExpressionQueryGeneratorFactory)
         {
-            _normalizedSearchParameterQueryGeneratorFactory = normalizedSearchParameterQueryGeneratorFactory;
+            _searchParamTableExpressionQueryGeneratorFactory = searchParamTableExpressionQueryGeneratorFactory;
         }
 
         public override Expression VisitSqlRoot(SqlRootExpression expression, SearchOptions context)
@@ -42,14 +42,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return expression;
             }
 
-            var queryGenerator = _normalizedSearchParameterQueryGeneratorFactory.GetNormalizedSearchParameterQueryGenerator(context.Sort[0].searchParameterInfo);
+            var queryGenerator = _searchParamTableExpressionQueryGeneratorFactory.GetSearchParamTableExpressionQueryGenerator(context.Sort[0].searchParameterInfo);
 
-            var newNormalizedPredicates = new List<TableExpression>(expression.TableExpressions.Count + 1);
-            newNormalizedPredicates.AddRange(expression.TableExpressions);
+            var newTableExpressions = new List<SearchParamTableExpression>(expression.SearchParamTableExpressions.Count + 1);
+            newTableExpressions.AddRange(expression.SearchParamTableExpressions);
 
-            newNormalizedPredicates.Add(new TableExpression(queryGenerator, new SortExpression(context.Sort[0].searchParameterInfo), null, TableExpressionKind.Sort));
+            newTableExpressions.Add(new SearchParamTableExpression(queryGenerator, new SortExpression(context.Sort[0].searchParameterInfo), SearchParamTableExpressionKind.Sort));
 
-            return new SqlRootExpression(newNormalizedPredicates, expression.DenormalizedExpressions);
+            return new SqlRootExpression(newTableExpressions, expression.ResourceTableExpressions);
         }
     }
 }

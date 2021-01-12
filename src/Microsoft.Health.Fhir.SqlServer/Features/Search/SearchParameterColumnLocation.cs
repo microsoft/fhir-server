@@ -3,12 +3,17 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Microsoft.Health.SqlServer.Features.Schema.Model;
+using System;
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
+namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 {
-    internal abstract class NormalizedSearchParameterQueryGenerator : SearchParameterQueryGenerator
+    /// <summary>
+    /// Indicates where the column(s) of a search parameter are located.
+    /// </summary>
+    [Flags]
+    internal enum SearchParameterColumnLocation
     {
-        public abstract Table Table { get; }
+        ResourceTable = 1,
+        SearchParamTable = 1 << 1,
     }
 }

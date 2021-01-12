@@ -10,9 +10,9 @@ using Microsoft.Health.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
 {
-    internal class StringSearchParameterQueryGenerator : NormalizedSearchParameterQueryGenerator
+    internal class StringQueryGenerator : SearchParamTableExpressionQueryGenerator
     {
-        public static readonly StringSearchParameterQueryGenerator Instance = new StringSearchParameterQueryGenerator();
+        public static readonly StringQueryGenerator Instance = new StringQueryGenerator();
 
         public override Table Table => VLatest.StringSearchParam;
 

@@ -4,14 +4,19 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
 {
-    internal class DispatchingDenormalizedSearchParameterQueryGenerator : SearchParameterQueryGenerator
+    /// <summary>
+    /// A base class for <see cref="SearchParameterQueryGenerator"/>s that are for search parameters on the Resource table.
+    /// </summary>
+    internal class ResourceTableSearchParameterQueryGenerator : SearchParameterQueryGenerator
     {
-        public static readonly DispatchingDenormalizedSearchParameterQueryGenerator Instance = new DispatchingDenormalizedSearchParameterQueryGenerator();
+        /// <summary>
+        /// This instance is intended to be used for expressions that exclusively over search parameters on the Resource table or the Resource table and Search parameter tables
+        /// </summary>
+        public static readonly ResourceTableSearchParameterQueryGenerator Instance = new ResourceTableSearchParameterQueryGenerator();
 
         public override SearchParameterQueryGeneratorContext VisitSearchParameter(SearchParameterExpression expression, SearchParameterQueryGeneratorContext context)
         {
@@ -20,22 +25,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         public override SearchParameterQueryGeneratorContext VisitMissingSearchParameter(MissingSearchParameterExpression expression, SearchParameterQueryGeneratorContext context)
         {
-            return expression.AcceptVisitor(GetSearchParameterQueryGenerator(expression), context);
+            // Call this method but discard the result to ensure the search parameter is one we are expecting.
+            GetSearchParameterQueryGenerator(expression);
+
+            context.StringBuilder.Append(expression.IsMissing ? " 1 = 0 " : " 1 = 1 ");
+            return context;
         }
 
         private SearchParameterQueryGenerator GetSearchParameterQueryGenerator(SearchParameterExpressionBase searchParameter)
         {
-            switch (searchParameter.Parameter.Name)
-            {
-                case SearchParameterNames.Id:
-                    return ResourceIdParameterQueryGenerator.Instance;
-                case SearchParameterNames.ResourceType:
-                    return ResourceTypeIdParameterQueryGenerator.Instance;
-                case SqlSearchParameters.ResourceSurrogateIdParameterName:
-                    return ResourceSurrogateIdParameterQueryGenerator.Instance;
-                default:
-                    throw new NotSupportedException(searchParameter.Parameter.Name);
-            }
+            return GetSearchParameterQueryGeneratorIfResourceColumnSearchParameter(searchParameter) ?? throw new InvalidOperationException($"Unexpected search parameter {searchParameter.Parameter.Name}");
         }
     }
 }

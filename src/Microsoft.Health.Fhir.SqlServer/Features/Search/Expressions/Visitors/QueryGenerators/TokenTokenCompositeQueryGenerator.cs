@@ -3,21 +3,20 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
 {
-    internal class UriSearchParameterQueryGenerator : NormalizedSearchParameterQueryGenerator
+    internal class TokenTokenCompositeQueryGenerator : CompositeQueryGenerator
     {
-        public static readonly UriSearchParameterQueryGenerator Instance = new UriSearchParameterQueryGenerator();
+        public static readonly TokenTokenCompositeQueryGenerator Instance = new TokenTokenCompositeQueryGenerator();
 
-        public override Table Table => VLatest.UriSearchParam;
-
-        public override SearchParameterQueryGeneratorContext VisitString(StringExpression expression, SearchParameterQueryGeneratorContext context)
+        public TokenTokenCompositeQueryGenerator()
+            : base(TokenQueryGenerator.Instance, TokenQueryGenerator.Instance)
         {
-            return VisitSimpleString(expression, context, VLatest.UriSearchParam.Uri, expression.Value);
         }
+
+        public override Table Table => VLatest.TokenTokenCompositeSearchParam;
     }
 }
