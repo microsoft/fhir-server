@@ -9,8 +9,10 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -20,16 +22,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
     {
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly SearchParameterStatusManager _searchParameterStatusManager;
+        private IModelInfoProvider _modelInfoProvider;
 
         public SearchParameterUtilities(
             SearchParameterStatusManager searchParameterStatusManager,
-            ISearchParameterDefinitionManager searchParameterDefinitionManager)
+            ISearchParameterDefinitionManager searchParameterDefinitionManager,
+            IModelInfoProvider modelInfoProvider)
         {
             EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
+            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
 
             _searchParameterStatusManager = searchParameterStatusManager;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
+            _modelInfoProvider = modelInfoProvider;
         }
 
         public async Task AddSearchParameterAsync(ITypedElement searchParam)
@@ -62,10 +68,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
         }
 
-        public async Task DeleteSearchParameterAsync(ITypedElement searchParam)
+        public async Task DeleteSearchParameterAsync(RawResource searchParamResource)
         {
             try
             {
+                var searchParam = searchParamResource.ToITypedElement(_modelInfoProvider);
                 _searchParameterDefinitionManager.DeleteSearchParameter(searchParam);
 
                 var searchParameterWrapper = new SearchParameterWrapper(searchParam);

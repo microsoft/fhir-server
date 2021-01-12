@@ -106,7 +106,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 .IsSearchParameterSupported(Arg.Is(_searchParameterInfos[4]))
                 .Returns((true, false));
 
-            _searchParameterUtilties = new SearchParameterUtilities(_manager, _searchParameterDefinitionManager);
+            _searchParameterUtilties = new SearchParameterUtilities(_manager, _searchParameterDefinitionManager, ModelInfoProvider.Instance);
         }
 
         public async Task InitializeAsync()

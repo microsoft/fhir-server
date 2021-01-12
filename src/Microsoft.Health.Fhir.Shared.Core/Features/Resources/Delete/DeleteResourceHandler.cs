@@ -12,6 +12,7 @@ using MediatR;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
@@ -21,14 +22,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
 {
     public class DeleteResourceHandler : BaseResourceHandler, IRequestHandler<DeleteResourceRequest, DeleteResourceResponse>
     {
+        private ISearchParameterUtilities _searchParameterUtilities;
+
         public DeleteResourceHandler(
             IFhirDataStore fhirDataStore,
             Lazy<IConformanceProvider> conformanceProvider,
             IResourceWrapperFactory resourceWrapperFactory,
             ResourceIdProvider resourceIdProvider,
-            IFhirAuthorizationService authorizationService)
+            IFhirAuthorizationService authorizationService,
+            ISearchParameterUtilities searchParameterUtilities)
             : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
+            EnsureArg.IsNotNull(searchParameterUtilities, nameof(searchParameterUtilities));
+            _searchParameterUtilities = searchParameterUtilities;
         }
 
         public async Task<DeleteResourceResponse> Handle(DeleteResourceRequest message, CancellationToken cancellationToken)
@@ -49,6 +55,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
             }
 
             string version = null;
+
+            ResourceWrapper searchParamResource = null;
+
+            if (message.ResourceKey.ResourceType.Equals(KnownResourceTypes.SearchParameter, StringComparison.Ordinal))
+            {
+                searchParamResource = await FhirDataStore.GetAsync(message.ResourceKey, cancellationToken);
+            }
 
             if (message.HardDelete)
             {
@@ -77,8 +90,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
             {
                 // Once the SearchParameter resource is committed to the data store, we can update the in
                 // memory SearchParameterDefinitionManager, and persist the status to the data store
-                var searchParamResource = await FhirDataStore.GetAsync(message.ResourceKey, cancellationToken);
-                await _searchParameterUtitliies.Delete(message.Resource.Instance);
+                await _searchParameterUtilities.DeleteSearchParameterAsync(searchParamResource!.RawResource);
             }
 
             if (string.IsNullOrWhiteSpace(version))

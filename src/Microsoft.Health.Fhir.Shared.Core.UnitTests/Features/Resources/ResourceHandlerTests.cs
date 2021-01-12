@@ -105,7 +105,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             collection.Add(x => new ConditionalCreateResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, x.GetService<IMediator>(), _resourceIdProvider, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new ConditionalUpsertResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, x.GetService<IMediator>(), _resourceIdProvider, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new GetResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
-            collection.Add(x => new DeleteResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(x => new DeleteResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, _authorizationService, _searchParameterUtilities)).Singleton().AsSelf().AsImplementedInterfaces();
 
             ServiceProvider provider = collection.BuildServiceProvider();
             _mediator = new Mediator(type => provider.GetService(type));
@@ -412,6 +412,29 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             Assert.NotNull(result);
             Assert.Equal(patient.Scalar<string>(birthDateProp), result.Scalar<string>(birthDateProp));
             Assert.Equal(patient.Scalar<string>(genderDateProp), result.Scalar<string>(genderDateProp));
+        }
+
+        [Fact]
+        public async Task GivenAFhirMediator_WhenDeletingDeletingSearchParameter_ThenSearchParameterUtilitiesCalled()
+        {
+            _authorizationService.CheckAccess(Arg.Any<DataActions>()).Returns(DataActions.Delete | DataActions.HardDelete);
+
+            ResourceKey resourceKey = new ResourceKey<SearchParameter>("id1");
+
+            var searchParam = Samples.GetJsonSample("SearchParameter");
+
+            var searchParamWrapper = CreateResourceWrapper(searchParam, false);
+
+            _fhirDataStore.GetAsync(resourceKey, Arg.Any<CancellationToken>()).Returns(searchParamWrapper);
+
+            ResourceKey resultKey = (await _mediator.DeleteResourceAsync(resourceKey, true)).ResourceKey;
+
+            await _fhirDataStore.Received(1).GetAsync(resourceKey, Arg.Any<CancellationToken>());
+            await _searchParameterUtilities.Received(1).DeleteSearchParameterAsync(searchParamWrapper.RawResource);
+
+            Assert.NotNull(resultKey);
+            Assert.Equal(resourceKey.Id, resultKey.Id);
+            Assert.Null(resultKey.VersionId);
         }
 
         private ResourceWrapper CreateResourceWrapper(ResourceElement resource, bool isDeleted)

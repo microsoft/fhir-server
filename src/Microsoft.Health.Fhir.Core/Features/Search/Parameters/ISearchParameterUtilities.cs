@@ -5,6 +5,7 @@
 
 using System.Threading.Tasks;
 using Hl7.Fhir.ElementModel;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 {
@@ -12,6 +13,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
     {
         Task AddSearchParameterAsync(ITypedElement searchParam);
 
-        Task DeleteSearchParameterAsync(ITypedElement searchParam);
+        Task DeleteSearchParameterAsync(RawResource searchParam);
     }
 }
