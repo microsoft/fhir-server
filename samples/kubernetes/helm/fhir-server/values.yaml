@@ -5,9 +5,9 @@
 replicaCount: 1
 
 image:
-  registry: mcr.microsoft.com/healthcareapis/r4-fhir-server
-  repository: r4_fhir-server
-  tag: master
+  registry: mcr.microsoft.com/healthcareapis
+  repository: r4-fhir-server
+  tag: latest
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
