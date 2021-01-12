@@ -65,6 +65,7 @@ namespace Microsoft.Health.Fhir.Azure
             return configContent;
         }
 
+        // Should be updated in order to validate image size
         private async Task<ManifestWrapper> GetManifestAsync(CancellationToken cancellationToken = default)
         {
             var manifestInfo = await _artifactProvider.GetManifestAsync(cancellationToken);
