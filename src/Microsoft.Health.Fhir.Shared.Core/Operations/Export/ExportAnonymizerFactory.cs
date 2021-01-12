@@ -15,15 +15,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
     public class ExportAnonymizerFactory : IAnonymizerFactory
     {
-        private IArtifactProvider _artifactProvider;
+        private ArtifactProviderResolver _artifactProviderResolver;
         private ILogger<ExportJobTask> _logger;
 
-        public ExportAnonymizerFactory(IArtifactProvider artifactProvider, ILogger<ExportJobTask> logger)
+        public ExportAnonymizerFactory(ArtifactProviderResolver artifactProviderResolver, ILogger<ExportJobTask> logger)
         {
-            EnsureArg.IsNotNull(artifactProvider, nameof(artifactProvider));
+            EnsureArg.IsNotNull(artifactProviderResolver, nameof(artifactProviderResolver));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _artifactProvider = artifactProvider;
+            _artifactProviderResolver = artifactProviderResolver;
             _logger = logger;
         }
 
@@ -35,7 +35,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 try
                 {
-                    await _artifactProvider.FetchAsync(configurationLocation, stream, cancellationToken);
+                    string[] configLocation = configurationLocation.Split(':');
+                    string type = configLocation[0];
+                    await _artifactProviderResolver(type).FetchAsync(configLocation[1], stream, cancellationToken);
                     stream.Position = 0;
                 }
                 catch (FileNotFoundException ex)
