@@ -14,7 +14,7 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers
 {
-    internal class SearchParameterWrapper
+    public class SearchParameterWrapper
     {
         private readonly Lazy<string> _url;
         private readonly Lazy<IReadOnlyList<ITypedElement>> _component;

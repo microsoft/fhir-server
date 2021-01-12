@@ -11,5 +11,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
     public interface ISearchParameterUtilities
     {
         Task AddSearchParameterAsync(ITypedElement searchParam);
+
+        Task DeleteSearchParameterAsync(ITypedElement searchParam);
     }
 }

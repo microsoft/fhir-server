@@ -61,5 +61,35 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 throw customSearchException;
             }
         }
+
+        public async Task DeleteSearchParameterAsync(ITypedElement searchParam)
+        {
+            try
+            {
+                _searchParameterDefinitionManager.DeleteSearchParameter(searchParam);
+
+                var searchParameterWrapper = new SearchParameterWrapper(searchParam);
+                await _searchParameterStatusManager.DeleteSearchParameterStatusAsync(searchParameterWrapper.Url);
+            }
+            catch (FhirException fex)
+            {
+                fex.Issues.Add(new OperationOutcomeIssue(
+                    OperationOutcomeConstants.IssueSeverity.Error,
+                    OperationOutcomeConstants.IssueType.Exception,
+                    Core.Resources.CustomSearchDeleteError));
+
+                throw;
+            }
+            catch (Exception ex)
+            {
+                var customSearchException = new ConfigureCustomSearchException(Core.Resources.CustomSearchDeleteError);
+                customSearchException.Issues.Add(new OperationOutcomeIssue(
+                    OperationOutcomeConstants.IssueSeverity.Error,
+                    OperationOutcomeConstants.IssueType.Exception,
+                    ex.Message));
+
+                throw customSearchException;
+            }
+        }
     }
 }

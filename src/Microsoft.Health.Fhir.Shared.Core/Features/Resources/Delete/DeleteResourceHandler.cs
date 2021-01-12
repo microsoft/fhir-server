@@ -15,6 +15,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
+using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
 {
@@ -70,6 +71,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Delete
                     cancellationToken: cancellationToken);
 
                 version = result?.Wrapper.Version;
+            }
+
+            if (message.ResourceKey.ResourceType.Equals(KnownResourceTypes.SearchParameter, StringComparison.Ordinal))
+            {
+                // Once the SearchParameter resource is committed to the data store, we can update the in
+                // memory SearchParameterDefinitionManager, and persist the status to the data store
+                var searchParamResource = await FhirDataStore.GetAsync(message.ResourceKey, cancellationToken);
+                await _searchParameterUtitliies.Delete(message.Resource.Instance);
             }
 
             if (string.IsNullOrWhiteSpace(version))

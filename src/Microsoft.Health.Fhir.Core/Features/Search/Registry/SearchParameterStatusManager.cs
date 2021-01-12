@@ -55,7 +55,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 if (parameters.TryGetValue(p.Url, out ResourceSearchParameterStatus result))
                 {
                     bool isSearchable = result.Status == SearchParameterStatus.Enabled;
-                    bool isSupported = result.Status != SearchParameterStatus.Disabled;
+                    bool isSupported = result.Status == SearchParameterStatus.Supported || result.Status == SearchParameterStatus.Enabled;
                     bool isPartiallySupported = result.IsPartiallySupported;
 
                     if (result.Status == SearchParameterStatus.Disabled)
@@ -105,7 +105,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
                 var paramInfo = _searchParameterDefinitionManager.GetSearchParameter(searchParamUri);
                 updated.Add(paramInfo);
                 paramInfo.IsSearchable = status == SearchParameterStatus.Enabled;
-                paramInfo.IsSupported = status != SearchParameterStatus.Disabled;
+                paramInfo.IsSupported = status == SearchParameterStatus.Supported || status == SearchParameterStatus.Enabled;
 
                 searchParameterStatusList.Add(new ResourceSearchParameterStatus()
                 {
@@ -125,6 +125,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             // new search parameters are added as supported, until reindexing occurs, when
             // they will be fully enabled
             await UpdateSearchParameterStatusAsync(searchParamUris, SearchParameterStatus.Supported);
+        }
+
+        internal async Task DeleteSearchParameterStatusAsync(string url)
+        {
+            var searchParamUris = new List<string>() { url };
+            await UpdateSearchParameterStatusAsync(searchParamUris, SearchParameterStatus.Deleted);
         }
     }
 }

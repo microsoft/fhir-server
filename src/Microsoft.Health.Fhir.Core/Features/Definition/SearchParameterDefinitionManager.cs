@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -150,6 +151,28 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
                     searchParamHash,
                     (resourceType, existingValue) => searchParamHash);
             }
+        }
+
+        public void DeleteSearchParameter(ITypedElement searchParam)
+        {
+            var searchParamWrapper = new SearchParameterWrapper(searchParam);
+
+            if (!UrlLookup.Remove(new Uri(searchParamWrapper.Url)))
+            {
+                throw new Exception(string.Format(Resources.CustomSearchParameterNotfound, searchParamWrapper.Url));
+            }
+
+            var searchParameterInfo = TypeLookup[searchParamWrapper.Type][searchParamWrapper.Name];
+            var allResourceTypes = searchParameterInfo.TargetResourceTypes.Union(searchParameterInfo.BaseResourceTypes);
+            foreach (var resourceType in allResourceTypes)
+            {
+                if (TypeLookup.ContainsKey(resourceType))
+                {
+                    TypeLookup[resourceType].Remove(searchParameterInfo.Name);
+                }
+            }
+
+            CalculateSearchParameterHash();
         }
     }
 }

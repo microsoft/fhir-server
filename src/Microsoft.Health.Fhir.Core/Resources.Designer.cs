@@ -277,6 +277,24 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to An error occurred deleting the custom search parameter.  The issue must be resolved and the delete request resubmitted to remove the parameter..
+        /// </summary>
+        internal static string CustomSearchDeleteError {
+            get {
+                return ResourceManager.GetString("CustomSearchDeleteError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Custom Search parameter with Uri: {0} was not found..
+        /// </summary>
+        internal static string CustomSearchParameterNotfound {
+            get {
+                return ResourceManager.GetString("CustomSearchParameterNotfound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The date time string &apos;{0}&apos; is not in a correct format..
         /// </summary>
         internal static string DateTimeStringIsIncorrectlyFormatted {
