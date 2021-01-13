@@ -18,29 +18,29 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         public void GivenExpressionWithNotExpression_WhenVisited_AllExpressionPrependedToExpressionList()
         {
             var subExpression = Expression.StringEquals(FieldName.TokenCode, 0, "TestValue123", false);
-            var tableExpressions = new List<TableExpression>
+            var searchParamTableExpressions = new List<SearchParamTableExpression>
             {
-                new TableExpression(null, new SearchParameterExpression(new SearchParameterInfo("TestParam"), Expression.Not(subExpression)), null, TableExpressionKind.Normal),
+                new SearchParamTableExpression(null, new SearchParameterExpression(new SearchParameterInfo("TestParam"), Expression.Not(subExpression)), SearchParamTableExpressionKind.Normal),
             };
 
-            var inputExpression = SqlRootExpression.WithTableExpressions(tableExpressions);
+            var inputExpression = SqlRootExpression.WithSearchParamTableExpressions(searchParamTableExpressions);
             var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(NotExpressionRewriter.Instance);
             Assert.Collection(
-                visitedExpression.TableExpressions,
-                e => { Assert.Equal(TableExpressionKind.All, e.Kind); },
+                visitedExpression.SearchParamTableExpressions,
+                e => { Assert.Equal(SearchParamTableExpressionKind.All, e.Kind); },
                 e => { ValidateNotExpression(subExpression, e); });
-            Assert.Equal(tableExpressions.Count + 1, visitedExpression.TableExpressions.Count);
+            Assert.Equal(searchParamTableExpressions.Count + 1, visitedExpression.SearchParamTableExpressions.Count);
         }
 
         [Fact]
         public void GivenExpressionWithNoNotExpression_WhenVisited_OriginalExpressionReturned()
         {
-            var tableExpressions = new List<TableExpression>
+            var searchParamTableExpressions = new List<SearchParamTableExpression>
             {
-                new TableExpression(null, null, null, TableExpressionKind.Normal),
+                new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Normal),
             };
 
-            var inputExpression = SqlRootExpression.WithTableExpressions(tableExpressions);
+            var inputExpression = SqlRootExpression.WithSearchParamTableExpressions(searchParamTableExpressions);
             var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(NotExpressionRewriter.Instance);
             Assert.Equal(inputExpression, visitedExpression);
         }
@@ -49,25 +49,25 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         public void GivenExpressionWithNotExpressionLast_WhenVisited_NotExpressionUnwrapped()
         {
             var subExpression = Expression.StringEquals(FieldName.TokenCode, 0, "TestValue123", false);
-            var tableExpressions = new List<TableExpression>
+            var searchParamTableExpressions = new List<SearchParamTableExpression>
             {
-                new TableExpression(null, null, null, TableExpressionKind.Normal),
-                new TableExpression(null, new SearchParameterExpression(new SearchParameterInfo("TestParam"), Expression.Not(subExpression)), null, TableExpressionKind.Normal),
+                new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Normal),
+                new SearchParamTableExpression(null, new SearchParameterExpression(new SearchParameterInfo("TestParam"), Expression.Not(subExpression)), SearchParamTableExpressionKind.Normal),
             };
 
-            var inputExpression = SqlRootExpression.WithTableExpressions(tableExpressions);
+            var inputExpression = SqlRootExpression.WithSearchParamTableExpressions(searchParamTableExpressions);
             var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(NotExpressionRewriter.Instance);
             Assert.Collection(
-                visitedExpression.TableExpressions,
-                e => { Assert.Equal(tableExpressions[0], e); },
+                visitedExpression.SearchParamTableExpressions,
+                e => { Assert.Equal(searchParamTableExpressions[0], e); },
                 e => { ValidateNotExpression(subExpression, e); });
         }
 
-        private static void ValidateNotExpression(Expression subExpression, TableExpression expressionToValidate)
+        private static void ValidateNotExpression(Expression subExpression, SearchParamTableExpression expressionToValidate)
         {
-            Assert.Equal(TableExpressionKind.NotExists, expressionToValidate.Kind);
+            Assert.Equal(SearchParamTableExpressionKind.NotExists, expressionToValidate.Kind);
 
-            var spExpression = Assert.IsType<SearchParameterExpression>(expressionToValidate.NormalizedPredicate);
+            var spExpression = Assert.IsType<SearchParameterExpression>(expressionToValidate.Predicate);
             Assert.Equal(subExpression, spExpression.Expression);
         }
     }

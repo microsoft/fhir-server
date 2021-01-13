@@ -7,6 +7,7 @@ using System;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
 using Microsoft.Data.SqlClient;
+using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer;
@@ -23,6 +24,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         public override SearchParameterQueryGeneratorContext VisitSearchParameter(SearchParameterExpression expression, SearchParameterQueryGeneratorContext context)
         {
+            SearchParameterQueryGenerator delegatedGenerator = GetSearchParameterQueryGeneratorIfResourceColumnSearchParameter(expression);
+            if (delegatedGenerator != null)
+            {
+                // This is a search parameter over a column that exists on the Resource table or both the Resource table and search parameter tables.
+                // Delegate to the visitor specific to it.
+                return expression.Expression.AcceptVisitor(delegatedGenerator, context);
+            }
+
             short searchParamId = context.Model.GetSearchParamId(expression.Parameter.Url);
             SmallIntColumn searchParamIdColumn = VLatest.SearchParam.SearchParamId;
 
@@ -50,6 +59,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         public override SearchParameterQueryGeneratorContext VisitMissingSearchParameter(MissingSearchParameterExpression expression, SearchParameterQueryGeneratorContext context)
         {
+            SearchParameterQueryGenerator delegatedGenerator = GetSearchParameterQueryGeneratorIfResourceColumnSearchParameter(expression);
+            if (delegatedGenerator != null)
+            {
+                // This is a search parameter over a column that exists on the Resource table or both the Resource table and search parameter tables.
+                // Delegate to the visitor specific to it.
+                return expression.AcceptVisitor(delegatedGenerator, context);
+            }
+
             Debug.Assert(!expression.IsMissing, "IsMissing=true expressions should have been rewritten");
 
             short searchParamId = context.Model.GetSearchParamId(expression.Parameter.Url);
@@ -89,6 +106,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             context.StringBuilder.AppendLine();
 
             return context;
+        }
+
+        protected static SearchParameterQueryGenerator GetSearchParameterQueryGeneratorIfResourceColumnSearchParameter(SearchParameterExpressionBase searchParameter)
+        {
+            switch (searchParameter.Parameter.Name)
+            {
+                case SearchParameterNames.Id:
+                    return ResourceIdParameterQueryGenerator.Instance;
+                case SearchParameterNames.ResourceType:
+                    return ResourceTypeIdParameterQueryGenerator.Instance;
+                case SqlSearchParameters.ResourceSurrogateIdParameterName:
+                    return ResourceSurrogateIdParameterQueryGenerator.Instance;
+#if DEBUG
+                case SearchParameterNames.LastUpdated:
+                    throw new InvalidOperationException($"Expression with {SearchParameterNames.LastUpdated} parameter should have been rewritten to use {SqlSearchParameters.ResourceSurrogateIdParameterName}.");
+#endif
+                default:
+                    return null;
+            }
         }
 
         private static bool TryEscapeValueForLike(ref string value)

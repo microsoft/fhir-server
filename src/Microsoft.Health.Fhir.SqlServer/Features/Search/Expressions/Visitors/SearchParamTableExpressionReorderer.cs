@@ -13,41 +13,40 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     /// <summary>
     /// Reorders table expressions by expected selectivity. Most selective are moved to the front.
     /// </summary>
-    internal class NormalizedPredicateReorderer : SqlExpressionRewriterWithInitialContext<object>
+    internal class SearchParamTableExpressionReorderer : SqlExpressionRewriterWithInitialContext<object>
     {
-        public static readonly NormalizedPredicateReorderer Instance = new NormalizedPredicateReorderer();
+        public static readonly SearchParamTableExpressionReorderer Instance = new SearchParamTableExpressionReorderer();
 
         public override Expression VisitSqlRoot(SqlRootExpression expression, object context)
         {
-            if (expression.TableExpressions.Count == 1)
+            if (expression.SearchParamTableExpressions.Count == 1)
             {
                 return expression;
             }
 
-            List<TableExpression> reorderedExpressions = expression.TableExpressions.OrderByDescending(t =>
+            List<SearchParamTableExpression> reorderedExpressions = expression.SearchParamTableExpressions.OrderByDescending(t =>
             {
-                // Sort _id (denormalized) expression to the front
-                if (t.NormalizedPredicate == null && t.DenormalizedPredicate != null && t.Kind == TableExpressionKind.All)
+                if (t.Kind == SearchParamTableExpressionKind.All)
                 {
                     return 20;
                 }
 
-                if (t.NormalizedPredicate is MissingSearchParameterExpression)
+                if (t.Predicate is MissingSearchParameterExpression)
                 {
                     return -10;
                 }
 
-                var order = t.NormalizedPredicate?.AcceptVisitor(Scout.Instance, context);
+                var order = t.Predicate?.AcceptVisitor(Scout.Instance, context);
                 if (order != 0)
                 {
                     return order;
                 }
 
-                switch (t.SearchParameterQueryGenerator)
+                switch (t.QueryGenerator)
                 {
-                    case ReferenceSearchParameterQueryGenerator _:
+                    case ReferenceQueryGenerator _:
                         return 10;
-                    case CompartmentSearchParameterQueryGenerator _:
+                    case CompartmentQueryGenerator _:
                         return 10;
                     case IncludeQueryGenerator _:
                         return -20;
@@ -56,12 +55,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 }
             }).ToList();
 
-            return new SqlRootExpression(reorderedExpressions, expression.DenormalizedExpressions);
-        }
-
-        public override Expression VisitNotExpression(NotExpression expression, object context)
-        {
-            return base.VisitNotExpression(expression, context);
+            return new SqlRootExpression(reorderedExpressions, expression.ResourceTableExpressions);
         }
 
         private class Scout : DefaultExpressionVisitor<object, int>

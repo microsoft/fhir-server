@@ -8,11 +8,11 @@ using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
 {
-    internal abstract class CompositeSearchParameterQueryGenerator : NormalizedSearchParameterQueryGenerator
+    internal abstract class CompositeQueryGenerator : SearchParamTableExpressionQueryGenerator
     {
-        private readonly NormalizedSearchParameterQueryGenerator[] _componentHandlers;
+        private readonly SearchParamTableExpressionQueryGenerator[] _componentHandlers;
 
-        protected CompositeSearchParameterQueryGenerator(params NormalizedSearchParameterQueryGenerator[] componentHandlers)
+        protected CompositeQueryGenerator(params SearchParamTableExpressionQueryGenerator[] componentHandlers)
         {
             EnsureArg.IsNotNull(componentHandlers, nameof(componentHandlers));
             _componentHandlers = componentHandlers;

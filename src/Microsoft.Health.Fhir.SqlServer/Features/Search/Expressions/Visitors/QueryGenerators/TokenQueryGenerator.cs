@@ -11,9 +11,9 @@ using Microsoft.Health.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
 {
-    internal class TokenSearchParameterQueryGenerator : NormalizedSearchParameterQueryGenerator
+    internal class TokenQueryGenerator : SearchParamTableExpressionQueryGenerator
     {
-        public static readonly TokenSearchParameterQueryGenerator Instance = new TokenSearchParameterQueryGenerator();
+        public static readonly TokenQueryGenerator Instance = new TokenQueryGenerator();
 
         public override Table Table => VLatest.TokenSearchParam;
 

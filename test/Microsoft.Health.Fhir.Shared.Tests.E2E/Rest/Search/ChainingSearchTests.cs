@@ -131,7 +131,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
-        public async Task GivenANestedReverseChainSearchExpressionOverTheIdDenormalizedParameter_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        public async Task GivenANestedReverseChainSearchExpressionOverTheIdResourceParameter_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"_tag={Fixture.Tag}&_has:Group:member:_id={Fixture.PatientGroup.Id}";
 
@@ -141,7 +141,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
-        public async Task GivenANestedReverseChainSearchExpressionOverTheTypeDenormalizedParameter_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        public async Task GivenANestedReverseChainSearchExpressionOverTheTypeResourceParameter_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             Bundle bundle = await Client.SearchAsync(ResourceType.Patient, $"_tag={Fixture.Tag}&_has:Group:member:_type=Group");
 
@@ -217,7 +217,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
-        public async Task GivenACombinationOfChainingReverseChainSearchExpressionOverADenormalizedParameter_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        public async Task GivenACombinationOfChainingReverseChainSearchExpressionOverAResourceTableParameter_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"_tag={Fixture.Tag}&code=429858000&patient:Patient._has:Group:member:_id={Fixture.PatientGroup.Id}";
 
@@ -227,7 +227,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
-        public async Task GivenACombinationOfChainingReverseChainSearchExpressionOverADenormalizedParameter_WhenSearchedWithPaging_ThenCorrectBundleShouldBeReturned()
+        public async Task GivenACombinationOfChainingReverseChainSearchExpressionOverAResourceTableParameter_WhenSearchedWithPaging_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"_tag={Fixture.Tag}&code=429858000&patient:Patient._has:Group:member:_id={Fixture.PatientGroup.Id}&_count=1";
 

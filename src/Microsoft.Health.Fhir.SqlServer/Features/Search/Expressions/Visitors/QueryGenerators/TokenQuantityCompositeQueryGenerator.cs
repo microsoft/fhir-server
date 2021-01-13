@@ -8,12 +8,12 @@ using Microsoft.Health.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
 {
-    internal class TokenQuantityCompositeSearchParameterQueryGenerator : CompositeSearchParameterQueryGenerator
+    internal class TokenQuantityCompositeQueryGenerator : CompositeQueryGenerator
     {
-        public static readonly TokenQuantityCompositeSearchParameterQueryGenerator Instance = new TokenQuantityCompositeSearchParameterQueryGenerator();
+        public static readonly TokenQuantityCompositeQueryGenerator Instance = new TokenQuantityCompositeQueryGenerator();
 
-        public TokenQuantityCompositeSearchParameterQueryGenerator()
-            : base(TokenSearchParameterQueryGenerator.Instance, QuantitySearchParameterQueryGenerator.Instance)
+        public TokenQuantityCompositeQueryGenerator()
+            : base(TokenQueryGenerator.Instance, QuantityQueryGenerator.Instance)
         {
         }
 

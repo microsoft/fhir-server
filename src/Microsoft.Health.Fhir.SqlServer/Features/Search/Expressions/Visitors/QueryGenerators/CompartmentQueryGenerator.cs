@@ -9,9 +9,9 @@ using Microsoft.Health.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
 {
-    internal class CompartmentSearchParameterQueryGenerator : NormalizedSearchParameterQueryGenerator
+    internal class CompartmentQueryGenerator : SearchParamTableExpressionQueryGenerator
     {
-        public static readonly CompartmentSearchParameterQueryGenerator Instance = new CompartmentSearchParameterQueryGenerator();
+        public static readonly CompartmentQueryGenerator Instance = new CompartmentQueryGenerator();
 
         public override Table Table => VLatest.CompartmentAssignment;
 

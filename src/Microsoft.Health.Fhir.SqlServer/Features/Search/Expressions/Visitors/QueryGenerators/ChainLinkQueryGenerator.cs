@@ -7,9 +7,9 @@ using Microsoft.Health.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
 {
-    internal class IncludeQueryGenerator : SearchParamTableExpressionQueryGenerator
+    internal class ChainLinkQueryGenerator : SearchParamTableExpressionQueryGenerator
     {
-        internal static readonly IncludeQueryGenerator Instance = new IncludeQueryGenerator();
+        internal static readonly ChainLinkQueryGenerator Instance = new ChainLinkQueryGenerator();
 
         public override Table Table => null;
     }
