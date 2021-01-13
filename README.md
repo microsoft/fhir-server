@@ -39,7 +39,7 @@ To see what is releasing in the FHIR Server, please refer to the [releases](http
 - [Register a client application](docs/Register-Client-Application.md): Learn how to register a client application registration, which is an Azure Active Directory representation of an application that can be used to authenticate on behalf of a user and request access to resource applications.
 
 ## Core FHIR Capabilities
-- [Azure API for FHIR documentation](https://docs.microsoft.com/azure/healthcare-apis/)
+- [Azure API for FHIR documentation](https://docs.microsoft.com/azure/healthcare-apis/): Includes all Azure API for FHIR documentation which has many conceptual, how-to guides, and tutorials that can be leveraged in open-source as well.
 - [Features](https://docs.microsoft.com/en-us/azure/healthcare-apis/fhir-features-supported): This document lists the main features of the FHIR Server for Azure and Azure API for FHIR.
 - [Authentication](docs/Authentication.md): Describes the authentication settings for the FHIR server and how to make use of it in development and test scenarios.
 - [Roles](docs/Roles.md): Describes how the FHIR Server for Azure role-based access control (RBAC) system works.
