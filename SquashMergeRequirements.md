@@ -1,6 +1,6 @@
 # Squash/Merge Requirements
 
-When commiting your PR, please make sure to do these steps at Squash/Merge to assist with Release Note creation.
+When commiting your PR, please make sure to do these steps at Squash/Merge to assist with Release Note creation. Note that this does not apply to auto-generated PRs that have auto-generated titles (such as dependabot or MicrosoftHealthService PRs) - please leave these as-is.
 
 1. **Update the title** of your PR to be succinct and less than 50 characters
 1. **Add a milestone** to your PR for the sprint that it is merged (i.e. add S47)
@@ -19,7 +19,7 @@ Sometimes our changes will create breaking changes or may need a warning associa
 
 Squash/Merge commit heading:
 
-PR title + PR number (maximum 50 characters)
+PR title + PR number (both should add up to a total of maximum 50 characters)
 
 `Adds CMK option to deployment templates. (#1234)`
 
