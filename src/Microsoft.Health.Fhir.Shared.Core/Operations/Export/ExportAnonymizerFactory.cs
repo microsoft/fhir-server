@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Anonymizer.Core;
+using Microsoft.Health.Fhir.TemplateManagement.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
@@ -35,9 +36,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 try
                 {
-                    string[] configLocation = configurationLocation.Split(':');
-                    string type = configLocation[0];
-                    await _artifactProviderResolver(type).FetchAsync(configLocation[1], stream, cancellationToken);
+                    string type = ImageInfo.IsValidImageReference(configurationLocation) ? "acr" : "storage";
+                    await _artifactProviderResolver(type).FetchAsync(configurationLocation, stream, cancellationToken);
                     stream.Position = 0;
                 }
                 catch (FileNotFoundException ex)

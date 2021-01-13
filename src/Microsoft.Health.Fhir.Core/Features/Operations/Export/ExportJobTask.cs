@@ -454,9 +454,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         private async Task<IAnonymizer> CreateAnonymizerAsync(CancellationToken cancellationToken)
         {
-            string configurationWithEtag = $"{_exportJobRecord.AnonymizationConfigurationLocation}:{_exportJobRecord.AnonymizationConfigurationFileETag}";
+            string configurationLocation = _exportJobRecord.AnonymizationConfigurationLocation;
+            if (!string.IsNullOrEmpty(_exportJobRecord.AnonymizationConfigurationFileETag))
+            {
+                // configuration With Etag
+                configurationLocation += $":{_exportJobRecord.AnonymizationConfigurationFileETag}";
+            }
 
-            return await _anonymizerFactory.Value.CreateAnonymizerAsync(configurationWithEtag, cancellationToken);
+            return await _anonymizerFactory.Value.CreateAnonymizerAsync(configurationLocation, cancellationToken);
         }
 
         private async Task RunExportCompartmentSearch(
