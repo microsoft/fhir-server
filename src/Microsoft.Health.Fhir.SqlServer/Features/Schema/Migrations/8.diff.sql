@@ -16,7 +16,9 @@ CREATE TYPE dbo.StringSearchParamTableType_2 AS TABLE
 
 ALTER TABLE dbo.StringSearchParam
 ADD IsMin bit NOT NULL,
-    IsMax bit NOT NULL;
+    IsMax bit NOT NULL,
+    CONSTRAINT StringSearch_IsMin_Constraint DEFAULT 0 FOR IsMin,
+    CONSTRAINT StringSearch_IsMax_Constraint DEFAULT 0 FOR IsMax;
 
 GO
 
