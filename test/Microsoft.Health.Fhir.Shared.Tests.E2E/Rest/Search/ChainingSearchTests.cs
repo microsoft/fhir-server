@@ -121,6 +121,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
+        public async Task GivenAReverseChainSearchExpressionWithMultipleTargetTypes_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        {
+            string query = $"?_tag={Fixture.Tag}&_type=Patient,Device&_has:Observation:subject:code=429858000";
+
+            Bundle bundle = await Client.SearchAsync(query);
+
+            ValidateBundle(bundle, Fixture.SmithPatient, Fixture.TrumanPatient, Fixture.DeviceSnomedSubject);
+        }
+
+        [Fact]
         public async Task GivenANestedReverseChainSearchExpressionOverASimpleParameter_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             string query = $"_tag={Fixture.Tag}&_has:Observation:patient:_has:DiagnosticReport:result:code=429858000";
@@ -265,6 +275,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             public DiagnosticReport SmithLoincDiagnosticReport { get; private set; }
 
+            public Device DeviceLoincSubject { get; private set; }
+
+            public Device DeviceSnomedSubject { get; private set; }
+
             protected override async Task OnInitializedAsync()
             {
                 Tag = Guid.NewGuid().ToString();
@@ -287,11 +301,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 SmithPatient = (await TestFhirClient.CreateAsync(new Patient { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Smith" } }, ManagingOrganization = new ResourceReference($"Organization/{organization.Id}") })).Resource;
                 TrumanPatient = (await TestFhirClient.CreateAsync(new Patient { Meta = meta, Name = new List<HumanName> { new HumanName { Family = "Truman" } } })).Resource;
 
+                DeviceLoincSubject = (await TestFhirClient.CreateAsync(new Device { Meta = meta })).Resource;
+                DeviceSnomedSubject = (await TestFhirClient.CreateAsync(new Device { Meta = meta })).Resource;
+
                 var adamsLoincObservation = await CreateObservation(AdamsPatient, loincCode);
                 var smithLoincObservation = await CreateObservation(SmithPatient, loincCode);
                 var smithSnomedObservation = await CreateObservation(SmithPatient, snomedCode);
                 var trumanLoincObservation = await CreateObservation(TrumanPatient, loincCode);
                 var trumanSnomedObservation = await CreateObservation(TrumanPatient, snomedCode);
+                var deviceLoincObservation = await CreateObservation(DeviceLoincSubject, loincCode);
+                var deviceSnomedObservation = await CreateObservation(DeviceSnomedSubject, snomedCode);
 
                 SmithSnomedDiagnosticReport = await CreateDiagnosticReport(SmithPatient, smithSnomedObservation, snomedCode);
                 TrumanSnomedDiagnosticReport = await CreateDiagnosticReport(TrumanPatient, trumanSnomedObservation, snomedCode);
@@ -326,7 +345,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                         })).Resource;
                 }
 
-                async Task<Observation> CreateObservation(Patient patient, CodeableConcept code)
+                async Task<Observation> CreateObservation<T>(T subject, CodeableConcept code)
+                    where T : DomainResource
                 {
                     return (await TestFhirClient.CreateAsync(
                         new Observation()
@@ -334,7 +354,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                             Meta = meta,
                             Status = ObservationStatus.Final,
                             Code = code,
-                            Subject = new ResourceReference($"Patient/{patient.Id}"),
+                            Subject = new ResourceReference($"{subject.ResourceType}/{subject.Id}"),
                         })).Resource;
                 }
             }

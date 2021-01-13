@@ -257,6 +257,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 {
                     chainedExpression = expression;
                 }
+                else if (reversed)
+                {
+                    chainedExpression = Expression.Chained(
+                        resourceTypes,
+                        searchParameter,
+                        chainedExpression.TargetResourceTypes.Append(possibleTargetResourceType).ToArray(),
+                        reversed,
+                        ParseImpl(
+                            multipleChainType,
+                            remainingKey,
+                            value));
+                }
                 else
                 {
                     // If the target resource type is ambiguous, we throw an error.
