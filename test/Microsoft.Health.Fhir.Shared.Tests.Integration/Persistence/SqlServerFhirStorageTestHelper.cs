@@ -140,7 +140,36 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                         (d.TargetObject?.ObjectType.Name == i.type && d.TargetObject?.Name?.ToString() == i.name)))
                 .ToList();
 
-            return remainingDifferences.Count == 0;
+            // Some of the schema changes we are making to tables include addition of columns. In order to support
+            // upgrading older schemas to the newer ones we have to add default constraints to the upgrade script.
+            // These constraints will not be present in databases that were directly initialized with the latest schema.
+            // We need to exclude these constraints from the schema difference comparison.
+            bool unexpectedDifference = false;
+            foreach (SchemaDifference schemaDifference in remainingDifferences)
+            {
+                if (schemaDifference.TargetObject.ObjectType.Name == "Table")
+                {
+                    foreach (SchemaDifference child in schemaDifference.Children)
+                    {
+                        if (child.TargetObject.ObjectType.Name == "DefaultConstraint" &&
+                            (child.TargetObject.Name.ToString() == "[dbo].[IsMin_Constraint]" || child.TargetObject.Name.ToString() == "[dbo].[IsMax_Constraint]"))
+                        {
+                            // Expected
+                            continue;
+                        }
+                        else
+                        {
+                            unexpectedDifference = true;
+                        }
+                    }
+                }
+                else
+                {
+                    unexpectedDifference = true;
+                }
+            }
+
+            return !unexpectedDifference;
         }
 
         public async Task DeleteAllExportJobRecordsAsync(CancellationToken cancellationToken = default)
