@@ -38,6 +38,11 @@ https://test-fhir-server/$export
 
 ## What is supported
 
-For more details on Bulk Export, see the [Azure API for FHIR Export Data page](https://docs.microsoft.com/en-us/azure/healthcare-apis/export-data).
+For more details on Bulk Export, see the [Azure API for FHIR Export Data page](https://docs.microsoft.com/azure/healthcare-apis/export-data). This page includes details on support for Bulk Export in our managed service and all features in the managed service are available in open source.
 
-Exported data can be deidentified using the [FHIR Tools for Anonymization](https://github.com/microsoft/FHIR-Tools-for-Anonymization#how-to-perform-de-identified-export-operation-on-the-fhir-server)
+In addition, $export supports the _format_ parameter which allows a user to select a format for the file structure that the export job creates. Different formats can be defined in the appSettings by combining constants, folder level breaks ('/') and known tags. The tags will be replaced with data when the job is run. The three supported tags are **resourceType**, **dateTime**, and **ID**:
+* resouceType: Replaced with the resource type being exported (i.e. Patient)
+* dateTime: Replaced with a timestamp of the job's queried time
+* ID: Replaced with the GUID of the export job. 
+
+Adds a setting for configuring the file structure format for export jobs.
