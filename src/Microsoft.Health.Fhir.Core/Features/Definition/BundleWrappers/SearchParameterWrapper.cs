@@ -45,7 +45,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers
 
         public string Description => _description.Value;
 
+#pragma warning disable CA1056 // Uri properties should not be strings
         public string Url => _url.Value;
+#pragma warning restore CA1056 // Uri properties should not be strings
 
         public string Type => _type.Value;
 

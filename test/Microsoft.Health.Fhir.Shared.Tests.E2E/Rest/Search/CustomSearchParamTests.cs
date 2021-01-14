@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             _fixture = fixture;
         }
 
-        [Fact(Skip = "Failing intermittently due to known issue 1559")]
+        [Fact]
         public async Task GivenANewSearchParam_WhenReindexingComplete_ThenResourcesSearchedWithNewParamReturned()
         {
             var patientName = Guid.NewGuid().ToString().ComputeHash().Substring(28).ToLower();
@@ -44,7 +44,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await Client.CreateAsync(Samples.GetJsonSample<Patient>("Patient"));
 
             // POST a new Search parameter
-            await Client.CreateAsync(searchParam);
+            FhirResponse<SearchParameter> searchParamPosted = null;
+            try
+            {
+                searchParamPosted = await Client.CreateAsync(searchParam);
+            }
+            catch (Exception ex)
+            {
+                // if the SearchParameter exists, we should delete it and recreate it
+                var searchParamBundle = await Client.SearchAsync(ResourceType.SearchParameter, $"url={searchParam.Url}");
+                if (searchParamBundle.Resource?.Entry[0] != null && searchParamBundle.Resource?.Entry[0].Resource.ResourceType == ResourceType.SearchParameter)
+                {
+                    await DeleteSearchParameterAndVerify(searchParamBundle.Resource?.Entry[0].Resource as SearchParameter);
+                    searchParamPosted = await Client.CreateAsync(searchParam);
+                }
+                else
+                {
+                    throw ex;
+                }
+            }
 
             Uri reindexJobUri;
             try
@@ -69,6 +87,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
             // When job complete, search for resources using new parameter
             await ExecuteAndValidateBundle($"Patient?foo:exact={patientName}", expectedPatient.Resource);
+
+            // Clean up new SearchParameter
+            await DeleteSearchParameterAndVerify(searchParamPosted.Resource);
         }
 
         private async Task WaitForReindexStatus(System.Uri reindexJobUri, params string[] desiredStatus)
@@ -83,6 +104,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 await Task.Delay(1000);
             }
             while (!desiredStatus.Contains(currentStatus) && checkReindexCount < 20);
+        }
+
+        private async Task DeleteSearchParameterAndVerify(SearchParameter searchParam)
+        {
+            await Client.DeleteAsync(searchParam);
+            var searchParamBundle = await Client.SearchAsync(ResourceType.SearchParameter, $"url={searchParam.Url}");
+
+            Assert.Empty(searchParamBundle.Resource.Entry);
         }
     }
 }
