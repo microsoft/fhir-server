@@ -47,6 +47,7 @@ Below is a table that describes all of the parameters in the custom deployment t
 |Enable Export|No|Determines whether export will be enabled for this FHIR instance. If true, a storage account will be created as part of the deployment. If you set this to false, you can change it to true after deployment and add the storage account value. More info on the storage setting, check [Bulk Export](https://github.com/microsoft/fhir-server/blob/master/docs/BulkExport.md). Note that you will need owner or user-administrator permissions for this. If you encounter any storage permission or role assignment related issue, a quick workaround is that you set the option to false and ask your administrator to help update the setting later.|
 |Enable Convert Data|No|Determines whether the convert data operation will be enabled for this FHIR instance.|
 |Enable Reindex|No|Determines whether reindex will be enabled for this FHIR instance.|
+
 After filling in the details, you can start the deployment.
 
 ## Validate FHIR Server is running
