@@ -18,9 +18,9 @@ using Microsoft.Health.Fhir.Core.Features.ArtifactStore;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 
-namespace Microsoft.Health.Fhir.Azure
+namespace Microsoft.Health.Fhir.Azure.ExportArtifact
 {
-    public class ExportDestinationArtifactProvider : IArtifactProvider
+    public class ExportArtifactStorageProvider : IArtifactProvider
     {
         private const string AnonymizationContainer = "anonymization";
 
@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.Azure
         private ExportJobConfiguration _exportJobConfiguration;
         private CloudBlobClient _blobClient;
 
-        public ExportDestinationArtifactProvider(
+        public ExportArtifactStorageProvider(
             IExportClientInitializer<CloudBlobClient> exportClientInitializer,
             IOptions<ExportJobConfiguration> exportJobConfiguration)
         {

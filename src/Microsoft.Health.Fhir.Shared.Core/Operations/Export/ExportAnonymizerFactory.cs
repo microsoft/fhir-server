@@ -11,21 +11,20 @@ using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.Anonymizer.Core;
 using Microsoft.Health.Fhir.Core.Features.ArtifactStore;
-using Microsoft.Health.Fhir.TemplateManagement.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
     public class ExportAnonymizerFactory : IAnonymizerFactory
     {
-        private ArtifactProviderResolver _artifactProviderResolver;
+        private IArtifactProvider _exportArtifactProvider;
         private ILogger<ExportJobTask> _logger;
 
-        public ExportAnonymizerFactory(ArtifactProviderResolver artifactProviderResolver, ILogger<ExportJobTask> logger)
+        public ExportAnonymizerFactory(IArtifactProvider exportArtifactProvider, ILogger<ExportJobTask> logger)
         {
-            EnsureArg.IsNotNull(artifactProviderResolver, nameof(artifactProviderResolver));
+            EnsureArg.IsNotNull(exportArtifactProvider, nameof(exportArtifactProvider));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _artifactProviderResolver = artifactProviderResolver;
+            _exportArtifactProvider = exportArtifactProvider;
             _logger = logger;
         }
 
@@ -37,8 +36,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 try
                 {
-                    string type = ImageInfo.IsValidImageReference(configurationLocation) ? "acr" : "storage";
-                    await _artifactProviderResolver(type).FetchAsync(configurationLocation, stream, cancellationToken);
+                    await _exportArtifactProvider.FetchAsync(configurationLocation, stream, cancellationToken);
                     stream.Position = 0;
                 }
                 catch (FileNotFoundException ex)

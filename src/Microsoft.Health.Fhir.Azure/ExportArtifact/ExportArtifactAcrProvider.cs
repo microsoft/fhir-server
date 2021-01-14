@@ -22,11 +22,9 @@ using Microsoft.Health.Fhir.TemplateManagement.Exceptions;
 using Microsoft.Health.Fhir.TemplateManagement.Models;
 using Microsoft.Health.Fhir.TemplateManagement.Utilities;
 
-namespace Microsoft.Health.Fhir.Azure
+namespace Microsoft.Health.Fhir.Azure.ExportArtifact
 {
-#pragma warning disable CA1001 // Types that own disposable fields should be disposable
-    public class ExportDestinationArtifactAcrProvider : IArtifactProvider
-#pragma warning restore CA1001 // Types that own disposable fields should be disposable
+    public class ExportArtifactAcrProvider : IArtifactProvider
     {
         private IExportClientInitializer<ACRClient> _exportClientInitializer;
         private ExportJobConfiguration _exportJobConfiguration;
@@ -34,7 +32,7 @@ namespace Microsoft.Health.Fhir.Azure
         private ImageInfo _imageInfo;
         private OCIArtifactProvider _artifactProvider;
 
-        public ExportDestinationArtifactAcrProvider(
+        public ExportArtifactAcrProvider(
             IExportClientInitializer<ACRClient> exportClientInitializer,
             IOptions<ExportJobConfiguration> exportJobConfiguration)
         {

@@ -9,6 +9,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Azure.ContainerRegistry;
+using Microsoft.Health.Fhir.Azure.ExportArtifact;
 using Microsoft.Health.Fhir.Azure.ExportDestinationClient;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.ArtifactStore;
@@ -31,21 +32,11 @@ namespace Microsoft.Health.Fhir.Azure
                 .Transient()
                 .AsService<IExportDestinationClient>();
 
-            fhirServerBuilder.Services.AddTransient<ExportDestinationArtifactProvider>();
-            fhirServerBuilder.Services.AddTransient<ExportDestinationArtifactAcrProvider>();
-
-            fhirServerBuilder.Services.AddTransient<ArtifactProviderResolver>(serviceProvider => key =>
-            {
-                switch (key)
-                {
-                    case "acr":
-                        return serviceProvider.GetService<ExportDestinationArtifactAcrProvider>();
-                    case "storage":
-                        return serviceProvider.GetService<ExportDestinationArtifactProvider>();
-                    default:
-                        throw null;
-                }
-            });
+            fhirServerBuilder.Services.AddTransient<ExportArtifactStorageProvider>();
+            fhirServerBuilder.Services.AddTransient<ExportArtifactAcrProvider>();
+            fhirServerBuilder.Services.Add<AggregateArtifactProvider>()
+                .Transient()
+                .AsService<IArtifactProvider>();
 
             return fhirServerBuilder;
         }
