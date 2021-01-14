@@ -34,12 +34,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             string anonymizationConfigurationFileETag = null,
             uint maximumNumberOfResourcesPerQuery = 100,
             uint numberOfPagesPerCommit = 10,
-            string storageAccountContainerName = null)
+            string storageAccountContainerName = null,
+            int schemaVersion = 2)
         {
             EnsureArg.IsNotNull(requestUri, nameof(requestUri));
             EnsureArg.IsNotNullOrWhiteSpace(hash, nameof(hash));
             EnsureArg.IsNotNullOrWhiteSpace(exportFormat, nameof(exportFormat));
-            EnsureArg.IsGt(rollingFileSizeInMB, 0, nameof(rollingFileSizeInMB));
+            EnsureArg.IsGt(schemaVersion, 0, nameof(schemaVersion));
 
             Hash = hash;
             RequestUri = requestUri;
@@ -60,7 +61,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.Models
             AnonymizationConfigurationFileETag = anonymizationConfigurationFileETag;
 
             // Default values
-            SchemaVersion = 2;
+            SchemaVersion = schemaVersion;
             Id = Guid.NewGuid().ToString();
             Status = OperationStatus.Queued;
 

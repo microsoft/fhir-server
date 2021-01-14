@@ -24,18 +24,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private readonly ExportJobRecord _exportJobRecord;
         private readonly IExportDestinationClient _exportDestinationClient;
         private readonly IDictionary<string, ExportFileInfo> _resourceTypeToFileInfoMapping;
-        private readonly uint _maxFileSizeInBytes;
+        private readonly uint _approxMaxFileSizeInBytes;
         private bool _isInitialized = false;
 
         public ExportFileManager(ExportJobRecord exportJobRecord, IExportDestinationClient exportDestinationClient)
         {
             EnsureArg.IsNotNull(exportJobRecord, nameof(exportJobRecord));
             EnsureArg.IsNotNull(exportDestinationClient, nameof(exportDestinationClient));
-            EnsureArg.IsGt(exportJobRecord.RollingFileSizeInMB, 0, nameof(exportJobRecord.RollingFileSizeInMB));
 
             _exportJobRecord = exportJobRecord;
             _exportDestinationClient = exportDestinationClient;
-            _maxFileSizeInBytes = _exportJobRecord.RollingFileSizeInMB * 1024 * 1024;
+            _approxMaxFileSizeInBytes = _exportJobRecord.RollingFileSizeInMB * 1024 * 1024;
             _resourceTypeToFileInfoMapping = new Dictionary<string, ExportFileInfo>();
         }
 
@@ -44,7 +43,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             // Each resource type can have multiple files. We need to keep track of the latest file.
             foreach (KeyValuePair<string, List<ExportFileInfo>> output in _exportJobRecord.Output)
             {
-                // Find the most recent file for that resource type.
                 int maxSequence = 0;
                 ExportFileInfo latestFile = null;
                 foreach (ExportFileInfo file in output.Value)
@@ -82,7 +80,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             fileInfo.IncrementCount(data.Length);
 
             // We need to create a new file if the current file has exceeded a certain limit.
-            if (fileInfo.CommittedBytes >= _maxFileSizeInBytes)
+            // File size limits are valid only for schema versions starting from 2.
+            if (_exportJobRecord.SchemaVersion > 1 &&
+                _approxMaxFileSizeInBytes > 0 &&
+                fileInfo.CommittedBytes >= _approxMaxFileSizeInBytes)
             {
                 await CreateNewFileAndUpdateMappings(resourceType, fileInfo.Sequence + 1, cancellationToken);
             }
@@ -104,7 +105,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         private async Task<ExportFileInfo> CreateNewFileAndUpdateMappings(string resourceType, int fileSequence, CancellationToken cancellationToken)
         {
-            string fileName = $"{_exportJobRecord.ExportFormat}-{fileSequence}.ndjson";
+            string fileName;
+            if (_exportJobRecord.SchemaVersion == 1)
+            {
+                fileName = $"{_exportJobRecord.ExportFormat}.ndjson";
+            }
+            else
+            {
+                fileName = $"{_exportJobRecord.ExportFormat}-{fileSequence}.ndjson";
+            }
 
             string dateTime = _exportJobRecord.QueuedTime.UtcDateTime.ToString("s")
                     .Replace("-", string.Empty, StringComparison.OrdinalIgnoreCase)
