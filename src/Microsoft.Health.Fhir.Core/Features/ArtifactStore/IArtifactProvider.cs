@@ -7,7 +7,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations
+namespace Microsoft.Health.Fhir.Core.Features.ArtifactStore
 {
     public delegate IArtifactProvider ArtifactProviderResolver(string key);
 
