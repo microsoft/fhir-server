@@ -3,7 +3,6 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Collections.Generic;
 using Microsoft.Health.Api.Configuration;
 using Microsoft.Health.Api.Features.Cors;
 using Microsoft.Health.Core.Configs;
@@ -21,7 +20,7 @@ namespace Microsoft.Health.Fhir.Api.Configs
 
         public virtual CorsConfiguration Cors { get; } = new CorsConfiguration();
 
-        public IList<ArtifactStoreConfiguration> ArtifactStores { get; } = new List<ArtifactStoreConfiguration>();
+        public ArtifactStoreConfiguration ArtifactStore { get; } = new ArtifactStoreConfiguration();
 
         public OperationsConfiguration Operations { get; } = new OperationsConfiguration();
 

@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using Microsoft.Health.Fhir.TemplateManagement.Models;
 
 namespace Microsoft.Health.Fhir.Core.Configs
@@ -15,11 +14,6 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// Determines whether convertData is enabled or not.
         /// </summary>
         public bool Enabled { get; set; }
-
-        /// <summary>
-        /// Determines the registered container registry list.
-        /// </summary>
-        public List<string> ContainerRegistryServers { get; } = new List<string>();
 
         /// <summary>
         /// ArmResourceManagerId to aquire AAD token for ACR access token since ACR is not an AAD resource.

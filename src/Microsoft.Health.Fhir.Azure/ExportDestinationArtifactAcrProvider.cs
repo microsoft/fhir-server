@@ -30,14 +30,12 @@ namespace Microsoft.Health.Fhir.Azure
     {
         private IExportClientInitializer<ACRClient> _exportClientInitializer;
         private ExportJobConfiguration _exportJobConfiguration;
-        private IList<ArtifactStoreConfiguration> _artifactStoreConfigurations;
         private ACRClient _client;
         private ImageInfo _imageInfo;
         private OCIArtifactProvider _artifactProvider;
 
         public ExportDestinationArtifactAcrProvider(
             IExportClientInitializer<ACRClient> exportClientInitializer,
-            IOptions<IList<ArtifactStoreConfiguration>> artifactStoreConfigurations,
             IOptions<ExportJobConfiguration> exportJobConfiguration)
         {
             EnsureArg.IsNotNull(exportClientInitializer, nameof(exportClientInitializer));
@@ -45,7 +43,6 @@ namespace Microsoft.Health.Fhir.Azure
 
             _exportClientInitializer = exportClientInitializer;
             _exportJobConfiguration = exportJobConfiguration.Value;
-            _artifactStoreConfigurations = artifactStoreConfigurations.Value;
         }
 
         public async Task FetchAsync(string imageReference, Stream targetStream, CancellationToken cancellationToken)

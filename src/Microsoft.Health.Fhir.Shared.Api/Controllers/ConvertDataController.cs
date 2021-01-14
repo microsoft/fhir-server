@@ -35,7 +35,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     {
         private readonly IMediator _mediator;
         private readonly ILogger _logger;
-        private readonly ConvertDataConfiguration _config;
+        private readonly ConvertDataConfiguration _convertDataConfig;
+        private readonly ArtifactStoreConfiguration _artifactStoreConfig;
         private static HashSet<string> _supportedParams = GetSupportedParams();
 
         private const char ImageRegistryDelimiter = '/';
@@ -43,6 +44,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         public ConvertDataController(
             IMediator mediator,
             IOptions<OperationsConfiguration> operationsConfig,
+            IOptions<ArtifactStoreConfiguration> artifactStoreConfig,
             ILogger<ConvertDataController> logger)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
@@ -50,7 +52,8 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _mediator = mediator;
-            _config = operationsConfig.Value.ConvertData;
+            _convertDataConfig = operationsConfig.Value.ConvertData;
+            _artifactStoreConfig = artifactStoreConfig.Value;
             _logger = logger;
         }
 
@@ -177,8 +180,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         private void CheckIfRegistryIsConfigured(string registryServer)
         {
-            if (!_config.ContainerRegistryServers.Any(server =>
-                string.Equals(server, registryServer, StringComparison.OrdinalIgnoreCase)))
+            if (!_artifactStoreConfig.Instances.Any(instance =>
+                string.Equals(instance.Type, "acr", StringComparison.OrdinalIgnoreCase)
+                && string.Equals(instance.Location, registryServer, StringComparison.OrdinalIgnoreCase)))
             {
                 _logger.LogError("The requested ACR server is not configured.");
                 throw new ContainerRegistryNotConfiguredException(string.Format(Resources.ContainerRegistryNotConfigured, registryServer));
@@ -187,7 +191,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
 
         private void CheckIfConvertDataIsEnabled()
         {
-            if (!_config.Enabled)
+            if (!_convertDataConfig.Enabled)
             {
                 throw new RequestNotValidException(string.Format(Resources.OperationNotEnabled, OperationsConstants.ConvertData));
             }
