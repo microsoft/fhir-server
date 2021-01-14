@@ -54,19 +54,34 @@ namespace Microsoft.Health.Fhir.Azure
             _artifactProvider = new OCIArtifactProvider(_imageInfo, _client);
 
             // Pull
-            Stream rawStream = await Pull(cancellationToken);
-            rawStream.CopyTo(targetStream);
-        }
-
-        private async Task<Stream> Pull(CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var artifactLayers = await _artifactProvider.GetOCIArtifactAsync(cancellationToken);
+            var artifactLayers = await GetOCIArtifactAsync(cancellationToken);
 
             // Should be only 1 layer refer to the Anonymization config file
             var artifacts = StreamUtility.DecompressTarGzStream(new MemoryStream(artifactLayers[0].Content));
             Stream configContent = new MemoryStream(ParseToConfiguration(artifacts));
-            return configContent;
+            configContent.CopyTo(targetStream);
+        }
+
+        // To implement another OCIArtifactProvider.GetOCIArtifactAsync(cancellationToken) that can check image size by validating manifest;
+        private async Task<List<OCIArtifactLayer>> GetOCIArtifactAsync(CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var artifactsResult = new List<OCIArtifactLayer>();
+
+            // Get Manifest
+            ManifestWrapper manifest = await _artifactProvider.GetManifestAsync(cancellationToken);
+            ValidateImageSize(manifest, _exportJobConfiguration.MaximumConfigSize);
+
+            // Get Layers
+            var layersInfo = manifest.Layers;
+            foreach (var layer in layersInfo)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var artifactLayer = await _artifactProvider.GetLayerAsync(layer.Digest, cancellationToken);
+                artifactsResult.Add(artifactLayer);
+            }
+
+            return artifactsResult;
         }
 
         public static byte[] ParseToConfiguration(Dictionary<string, byte[]> content)
@@ -93,20 +108,6 @@ namespace Microsoft.Health.Fhir.Azure
             {
                 throw new TemplateParseException(TemplateManagementErrorCode.ParseTemplatesFailed, "Parse configuration from image failed.", ex);
             }
-        }
-
-        // Should be updated in order to validate image size
-        private async Task<ManifestWrapper> GetManifestAsync(CancellationToken cancellationToken = default)
-        {
-            var manifestInfo = await _artifactProvider.GetManifestAsync(cancellationToken);
-            ValidateImageSize(manifestInfo, _exportJobConfiguration.MaximumConfigSize);
-            return manifestInfo;
-        }
-
-        private async Task<OCIArtifactLayer> GetLayerAsync(string layerDigest, CancellationToken cancellationToken = default)
-        {
-            var artifactsLayer = await _artifactProvider.GetLayerAsync(layerDigest, cancellationToken);
-            return artifactsLayer;
         }
 
         private async Task ConnectAsync(CancellationToken cancellationToken)
