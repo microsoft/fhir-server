@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using EnsureThat;
+using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Health.Extensions.DependencyInjection;
@@ -19,6 +20,9 @@ using Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers;
 using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Messages.Create;
+using Microsoft.Health.Fhir.Core.Messages.Delete;
+using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters;
 
 namespace Microsoft.Health.Fhir.Api.Modules
@@ -135,6 +139,9 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton<ISearchParameterValidator, SearchParameterValidator>();
             services.AddSingleton<SearchParameterFilterAttribute>();
             services.AddSingleton<ISearchParameterUtilities, SearchParameterUtilities>();
+
+            services.AddTransient(typeof(IPipelineBehavior<,>), typeof(CreateSearchParameterBehavior<,>));
+            services.AddTransient(typeof(IPipelineBehavior<,>), typeof(DeleteSearchParameterBehavior<,>));
         }
     }
 }

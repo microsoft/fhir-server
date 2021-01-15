@@ -14,6 +14,7 @@ using Microsoft.Health.Fhir.Core.Models;
 namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 {
     public class CreateSearchParameterBehavior<TCreateResourceRequest, TUpsertResourceResponse> : IPipelineBehavior<TCreateResourceRequest, TUpsertResourceResponse>
+        where TCreateResourceRequest : CreateResourceRequest
     {
         private ISearchParameterUtilities _searchParameterUtitliies;
 
