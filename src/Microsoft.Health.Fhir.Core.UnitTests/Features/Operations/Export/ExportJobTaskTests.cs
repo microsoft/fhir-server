@@ -928,11 +928,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 _cancellationToken)
                 .Returns(x =>
                 {
-                    string[] types =
-                    {
-                        x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[3].Item2,
-                        x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[4].Item2,
-                    };
+                    string[] types = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(1)[3].Item2.Split(',');
                     SearchResultEntry[] entries = new SearchResultEntry[types.Length];
 
                     for (int index = 0; index < types.Length; index++)
@@ -1025,7 +1021,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 
                     bool typeParameterIncluded = false;
                     bool continuationTokenParameterIncluded = false;
-                    var types = new List<string>();
+                    var types = new string[0];
 
                     foreach (Tuple<string, string> parameter in queryParameterList)
                     {
@@ -1036,7 +1032,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                         else if (parameter.Item1 == Core.Features.KnownQueryParameterNames.Type)
                         {
                             typeParameterIncluded = true;
-                            types.Add(parameter.Item2);
+                            types = parameter.Item2.Split(',');
                         }
                     }
 
@@ -1048,9 +1044,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                         throw new Exception();
                     }
 
-                    SearchResultEntry[] entries = new SearchResultEntry[types.Count];
+                    SearchResultEntry[] entries = new SearchResultEntry[types.Length];
 
-                    for (int index = 0; index < types.Count; index++)
+                    for (int index = 0; index < types.Length; index++)
                     {
                         entries[index] = CreateSearchResultEntry(searchCallsMade.ToString(CultureInfo.InvariantCulture), types[index]);
                     }
@@ -1363,11 +1359,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 .Returns(x =>
                 {
                     string parentId = x.ArgAt<string>(1);
-                    string[] resourceTypes =
-                    {
-                        x.ArgAt<IReadOnlyList<Tuple<string, string>>>(3)[2].Item2,
-                        x.ArgAt<IReadOnlyList<Tuple<string, string>>>(3)[3].Item2,
-                    };
+                    string[] resourceTypes = x.ArgAt<IReadOnlyList<Tuple<string, string>>>(3)[2].Item2.Split(',');
 
                     SearchResultEntry[] entries = new SearchResultEntry[resourceTypes.Length];
 

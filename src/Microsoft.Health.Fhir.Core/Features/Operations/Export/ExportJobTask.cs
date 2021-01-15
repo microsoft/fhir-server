@@ -321,12 +321,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 }
                 else if (_exportJobRecord.ExportType == ExportJobType.All && requestedResourceTypes != null)
                 {
+                    List<string> resources = new List<string>();
+
                     foreach (var resource in requestedResourceTypes)
                     {
                         if (!filteredResources.Contains(resource))
                         {
-                            queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type, resource));
+                            resources.Add(resource);
                         }
+                    }
+
+                    if (resources.Count > 0)
+                    {
+                        queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type, resources.JoinByOrSeparator()));
                     }
                 }
 
@@ -511,12 +518,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 if (requestedResourceTypes != null)
                 {
+                    List<string> resources = new List<string>();
+
                     foreach (var resource in requestedResourceTypes)
                     {
                         if (!filteredResources.Contains(resource))
                         {
-                            queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type, resource));
+                            resources.Add(resource);
                         }
+                    }
+
+                    if (resources.Count > 0)
+                    {
+                        queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type, resources.JoinByOrSeparator()));
                     }
                 }
 

@@ -171,7 +171,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
-        public async Task GivenFhirServer_WhenGroupObervationDataIsExported_ThenExportedDataIsSameAsDataInFhirServer()
+        public async Task GivenFhirServer_WhenGroupDataIsExportedWithTypeParameter_ThenExportedDataIsSameAsDataInFhirServer()
         {
             // NOTE: Azure Storage Emulator is required to run these tests locally.
 
@@ -179,7 +179,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var (dataInFhirServer, groupId) = await CreateGroupWithPatient(false);
 
             // Trigger export request and check for export status
-            Uri contentLocation = await _testFhirClient.ExportAsync($"Group/{groupId}/", "_type=Encounter");
+            Uri contentLocation = await _testFhirClient.ExportAsync($"Group/{groupId}/", "_type=RelatedPerson,Encounter");
             IList<Uri> blobUris = await CheckExportStatus(contentLocation);
 
             // Download exported data from storage account
@@ -460,6 +460,14 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var patientResponse = await _testFhirClient.CreateAsync(patient);
             var patientId = patientResponse.Resource.Id;
 
+            var relative = new RelatedPerson()
+            {
+                Patient = new ResourceReference($"{KnownResourceTypes.Patient}/{patientId}"),
+            };
+
+            var relativeResponse = await _testFhirClient.CreateAsync(relative);
+            var relativeId = relativeResponse.Resource.Id;
+
             var encounter = new Encounter()
             {
                 Status = Encounter.EncounterStatus.InProgress,
@@ -509,6 +517,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var groupId = groupResponse.Resource.Id;
 
             var resourceDictionary = new Dictionary<(string resourceType, string resourceId), Resource>();
+            resourceDictionary.Add((KnownResourceTypes.RelatedPerson, relativeId), relativeResponse.Resource);
             resourceDictionary.Add((KnownResourceTypes.Encounter, encounterId), encounterResponse.Resource);
 
             if (includeAllResources)
