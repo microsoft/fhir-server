@@ -6,9 +6,7 @@ If you don't have an Azure subscription, create a [free account](https://azure.m
 
 ## GitHub Open Source repository
 
-Navigate to the [GitHub deployment page](https://github.com/Microsoft/fhir-server/blob/master/docs/DefaultDeployment.md) and locate the "Deploy to Azure" buttons:
-
->![Open Source Deployment Page](images/quickstart-oss-portal/deployment-page-oss.png)
+Navigate to the [GitHub deployment page](https://github.com/Microsoft/fhir-server/blob/master/docs/DefaultDeployment.md) and locate the "Deploy to Azure" buttons.
 
 Click the deployment button and the Azure portal opens. Note that this will deploy using a custom template. We have an option to deploy using a docker image. If you would like to use this, please find the templates [here](https://github.com/microsoft/fhir-server/tree/master/samples/templates).
 
