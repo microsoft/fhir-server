@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
@@ -52,7 +53,17 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
                 Enabled = true,
                 OperationTimeout = TimeSpan.FromSeconds(1),
             };
-            convertDataConfig.ContainerRegistryServers.Add("test.azurecr.io");
+            var artifactStoreConfig = new ArtifactStoreConfiguration
+            {
+                Instances = new List<ArtifactStoreInstanceConfiguration>(),
+            };
+            artifactStoreConfig.Instances.Add(new ArtifactStoreInstanceConfiguration()
+            {
+                Type = "acr",
+                Location = "test.azurecr.io",
+            });
+
+            // convertDataConfig.ContainerRegistryServers.Add("test.azurecr.io");
 
             IOptions<ConvertDataConfiguration> convertDataConfiguration = Options.Create(convertDataConfig);
 

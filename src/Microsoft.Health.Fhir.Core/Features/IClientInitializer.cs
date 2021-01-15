@@ -7,9 +7,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Core.Configs;
 
-namespace Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient
+namespace Microsoft.Health.Fhir.Core.Features
 {
-    public interface IExportClientInitializer<T>
+    public interface IClientInitializer<T>
     {
         /// <summary>
         /// Used to get a client that is authorized to talk to the export destination.

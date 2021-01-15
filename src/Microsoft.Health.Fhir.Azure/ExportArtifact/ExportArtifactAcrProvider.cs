@@ -14,8 +14,8 @@ using EnsureThat;
 using Microsoft.Azure.ContainerRegistry.Models;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.ArtifactStore;
-using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 using Microsoft.Health.Fhir.TemplateManagement.ArtifactProviders;
 using Microsoft.Health.Fhir.TemplateManagement.Client;
 using Microsoft.Health.Fhir.TemplateManagement.Exceptions;
@@ -26,14 +26,14 @@ namespace Microsoft.Health.Fhir.Azure.ExportArtifact
 {
     public class ExportArtifactAcrProvider : IArtifactProvider
     {
-        private IExportClientInitializer<ACRClient> _exportClientInitializer;
+        private IClientInitializer<ACRClient> _exportClientInitializer;
         private ExportJobConfiguration _exportJobConfiguration;
         private ACRClient _client;
         private ImageInfo _imageInfo;
         private OCIArtifactProvider _artifactProvider;
 
         public ExportArtifactAcrProvider(
-            IExportClientInitializer<ACRClient> exportClientInitializer,
+            IClientInitializer<ACRClient> exportClientInitializer,
             IOptions<ExportJobConfiguration> exportJobConfiguration)
         {
             EnsureArg.IsNotNull(exportClientInitializer, nameof(exportClientInitializer));

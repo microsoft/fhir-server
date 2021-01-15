@@ -49,7 +49,8 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
                 Enabled = true,
                 OperationTimeout = TimeSpan.FromSeconds(1),
             };
-            convertDataConfig.ContainerRegistryServers.Add("test.azurecr.io");
+
+            // convertDataConfig.ContainerRegistryServers.Add("test.azurecr.io");
 
             var config = Options.Create(convertDataConfig);
             return new ContainerRegistryTemplateProvider(tokenProvider, config, new NullLogger<ContainerRegistryTemplateProvider>());

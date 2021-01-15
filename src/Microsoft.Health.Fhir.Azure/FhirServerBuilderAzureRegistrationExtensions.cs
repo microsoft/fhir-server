@@ -12,6 +12,7 @@ using Microsoft.Health.Fhir.Azure.ContainerRegistry;
 using Microsoft.Health.Fhir.Azure.ExportArtifact;
 using Microsoft.Health.Fhir.Azure.ExportDestinationClient;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.ArtifactStore;
 using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
@@ -53,7 +54,7 @@ namespace Microsoft.Health.Fhir.Azure
             {
                 fhirServerBuilder.Services.Add<AzureAccessTokenClientInitializer>()
                     .Transient()
-                    .AsService<IExportClientInitializer<CloudBlobClient>>();
+                    .AsService<IClientInitializer<CloudBlobClient>>();
 
                 fhirServerBuilder.Services.Add<AzureAccessTokenProvider>()
                     .Transient()
@@ -63,14 +64,14 @@ namespace Microsoft.Health.Fhir.Azure
             {
                 fhirServerBuilder.Services.Add<AzureConnectionStringClientInitializer>()
                     .Transient()
-                    .AsService<IExportClientInitializer<CloudBlobClient>>();
+                    .AsService<IClientInitializer<CloudBlobClient>>();
             }
 
             if (!string.IsNullOrWhiteSpace(exportJobConfiguration.AcrServer))
             {
                 fhirServerBuilder.Services.Add<AzureContainerRegistryClientInitializer>()
                     .Transient()
-                    .AsService<IExportClientInitializer<ACRClient>>();
+                    .AsService<IClientInitializer<ACRClient>>();
             }
 
             return fhirServerBuilder;

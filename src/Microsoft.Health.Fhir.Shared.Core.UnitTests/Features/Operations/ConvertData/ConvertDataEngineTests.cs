@@ -26,16 +26,27 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
 {
     public class ConvertDataEngineTests
     {
-        private ConvertDataConfiguration _config;
+        private ConvertDataConfiguration _convertDataConfig;
+        private ArtifactStoreConfiguration _artifactStoreConfig;
 
         public ConvertDataEngineTests()
         {
-            _config = new ConvertDataConfiguration
+            _convertDataConfig = new ConvertDataConfiguration
             {
                 Enabled = true,
                 OperationTimeout = TimeSpan.FromSeconds(1),
             };
-            _config.ContainerRegistryServers.Add("test.azurecr.io");
+            _artifactStoreConfig = new ArtifactStoreConfiguration()
+            {
+                Instances = new List<ArtifactStoreInstanceConfiguration>(),
+            };
+            _artifactStoreConfig.Instances.Add(new ArtifactStoreInstanceConfiguration()
+            {
+                Type = "acr",
+                Location = "test.azurecr.io",
+            });
+
+            // _config.ContainerRegistryServers.Add("test.azurecr.io");
         }
 
         [Fact]
@@ -141,9 +152,9 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
 
         private IConvertDataEngine GetDefaultEngine()
         {
-            IOptions<ConvertDataConfiguration> convertDataConfiguration = Options.Create(_config);
+            IOptions<ConvertDataConfiguration> convertDataConfiguration = Options.Create(_convertDataConfig);
             IContainerRegistryTokenProvider tokenProvider = Substitute.For<IContainerRegistryTokenProvider>();
-            tokenProvider.GetTokenAsync(Arg.Any<string>(), default).ReturnsForAnyArgs(x => GetToken(x[0].ToString(), _config));
+            tokenProvider.GetTokenAsync(Arg.Any<string>(), default).ReturnsForAnyArgs(x => GetToken(x[0].ToString(), _artifactStoreConfig));
 
             ContainerRegistryTemplateProvider templateProvider = new ContainerRegistryTemplateProvider(tokenProvider, convertDataConfiguration, new NullLogger<ContainerRegistryTemplateProvider>());
 
@@ -157,13 +168,15 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
         {
             var templateProvider = Substitute.For<IConvertDataTemplateProvider>();
             templateProvider.GetTemplateCollectionAsync(default, default).ReturnsForAnyArgs(templateCollection);
-            return new ConvertDataEngine(templateProvider, Options.Create(_config), new NullLogger<ConvertDataEngine>());
+            return new ConvertDataEngine(templateProvider, Options.Create(_convertDataConfig), new NullLogger<ConvertDataEngine>());
         }
 
         // For unit tests, we only use the built-in templates and here returns an empty token.
-        private string GetToken(string registry, ConvertDataConfiguration config)
+        private string GetToken(string registry, ArtifactStoreConfiguration artifactStoreConfig)
         {
-            if (!config.ContainerRegistryServers.Any(server => string.Equals(server, registry, StringComparison.OrdinalIgnoreCase)))
+            if (!artifactStoreConfig.Instances.Any(instance =>
+                string.Equals(instance.Type, "acr", StringComparison.OrdinalIgnoreCase)
+                && string.Equals(instance.Location, registry, StringComparison.OrdinalIgnoreCase)))
             {
                 throw new ContainerRegistryNotConfiguredException("Container registry not configured.");
             }

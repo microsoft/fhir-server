@@ -11,13 +11,14 @@ using EnsureThat;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Operations.ConvertData;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 using Microsoft.Health.Fhir.TemplateManagement.Client;
 
 namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
 {
-    public class AzureContainerRegistryClientInitializer : IExportClientInitializer<ACRClient>
+    public class AzureContainerRegistryClientInitializer : IClientInitializer<ACRClient>
     {
         private readonly IContainerRegistryTokenProvider _containerRegistryTokenProvider;
         private readonly ExportJobConfiguration _exportJobConfiguration;

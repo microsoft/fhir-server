@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
 using System.Threading;
@@ -23,10 +24,19 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ContainerRegistry
     {
         private const string RegistryServer = "test.azurecr.io";
         private ConvertDataConfiguration _convertDataConfiguration = new ConvertDataConfiguration();
+        private ArtifactStoreConfiguration _artifactStoreConfiguration = new ArtifactStoreConfiguration()
+        {
+            Instances = new List<ArtifactStoreInstanceConfiguration>(),
+        };
 
         public AzureContainerRegistryAccessTokenProviderTests()
         {
-            _convertDataConfiguration.ContainerRegistryServers.Add(RegistryServer);
+            // _convertDataConfiguration.ContainerRegistryServers.Add(RegistryServer);
+            _artifactStoreConfiguration.Instances.Add(new ArtifactStoreInstanceConfiguration()
+            {
+                Type = "acr",
+                Location = RegistryServer,
+            });
         }
 
         [Fact]

@@ -11,6 +11,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Azure.ExportDestinationClient;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 using NSubstitute;
 using Xunit;
@@ -19,7 +20,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
 {
     public class AzureExportDestinationClientTests
     {
-        private IExportClientInitializer<CloudBlobClient> _exportClientInitializer;
+        private IClientInitializer<CloudBlobClient> _exportClientInitializer;
         private ExportJobConfiguration _exportJobConfiguration;
         private ILogger<AzureExportDestinationClient> _logger;
 
@@ -27,7 +28,7 @@ namespace Microsoft.Health.Fhir.Azure.UnitTests.ExportDestinationClient
 
         public AzureExportDestinationClientTests()
         {
-            _exportClientInitializer = Substitute.For<IExportClientInitializer<CloudBlobClient>>();
+            _exportClientInitializer = Substitute.For<IClientInitializer<CloudBlobClient>>();
             _logger = Substitute.For<ILogger<AzureExportDestinationClient>>();
 
             _exportJobConfiguration = new ExportJobConfiguration();

@@ -14,9 +14,9 @@ using Microsoft.Azure.Storage;
 using Microsoft.Azure.Storage.Blob;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.ArtifactStore;
 using Microsoft.Health.Fhir.Core.Features.Operations;
-using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 
 namespace Microsoft.Health.Fhir.Azure.ExportArtifact
 {
@@ -24,12 +24,12 @@ namespace Microsoft.Health.Fhir.Azure.ExportArtifact
     {
         private const string AnonymizationContainer = "anonymization";
 
-        private IExportClientInitializer<CloudBlobClient> _exportClientInitializer;
+        private IClientInitializer<CloudBlobClient> _exportClientInitializer;
         private ExportJobConfiguration _exportJobConfiguration;
         private CloudBlobClient _blobClient;
 
         public ExportArtifactStorageProvider(
-            IExportClientInitializer<CloudBlobClient> exportClientInitializer,
+            IClientInitializer<CloudBlobClient> exportClientInitializer,
             IOptions<ExportJobConfiguration> exportJobConfiguration)
         {
             EnsureArg.IsNotNull(exportClientInitializer, nameof(exportClientInitializer));

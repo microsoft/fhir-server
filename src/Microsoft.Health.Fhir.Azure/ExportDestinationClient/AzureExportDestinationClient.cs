@@ -17,6 +17,7 @@ using Microsoft.Azure.Storage.Blob;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 using Polly;
 
@@ -30,12 +31,12 @@ namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
         private Dictionary<Uri, CloudBlockBlobWrapper> _uriToBlobMapping = new Dictionary<Uri, CloudBlockBlobWrapper>();
         private Dictionary<(Uri FileUri, string PartId), Stream> _streamMappings = new Dictionary<(Uri FileUri, string PartId), Stream>();
 
-        private readonly IExportClientInitializer<CloudBlobClient> _exportClientInitializer;
+        private readonly IClientInitializer<CloudBlobClient> _exportClientInitializer;
         private readonly ExportJobConfiguration _exportJobConfiguration;
         private readonly ILogger _logger;
 
         public AzureExportDestinationClient(
-            IExportClientInitializer<CloudBlobClient> exportClientInitializer,
+            IClientInitializer<CloudBlobClient> exportClientInitializer,
             IOptions<ExportJobConfiguration> exportJobConfiguration,
             ILogger<AzureExportDestinationClient> logger)
         {

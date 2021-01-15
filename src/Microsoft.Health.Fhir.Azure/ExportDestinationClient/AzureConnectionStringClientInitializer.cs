@@ -13,11 +13,12 @@ using Microsoft.Azure.Storage.Blob;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 
 namespace Microsoft.Health.Fhir.Azure.ExportDestinationClient
 {
-    public class AzureConnectionStringClientInitializer : IExportClientInitializer<CloudBlobClient>
+    public class AzureConnectionStringClientInitializer : IClientInitializer<CloudBlobClient>
     {
         private readonly ExportJobConfiguration _exportJobConfiguration;
         private readonly ILogger<AzureConnectionStringClientInitializer> _logger;

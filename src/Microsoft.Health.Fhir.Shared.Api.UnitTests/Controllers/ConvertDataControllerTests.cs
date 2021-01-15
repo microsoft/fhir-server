@@ -28,11 +28,16 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Controllers
         private IMediator _mediator = Substitute.For<IMediator>();
         private HttpContext _httpContext = new DefaultHttpContext();
         private static ConvertDataConfiguration _convertDataJobConfig = new ConvertDataConfiguration() { Enabled = true };
+        private static ArtifactStoreConfiguration _artifactStoreConfiguration = new ArtifactStoreConfiguration() { Instances = new List<ArtifactStoreInstanceConfiguration>() };
 
         public ConvertDataControllerTests()
         {
-            _convertDataJobConfig.ContainerRegistryServers.Add("test.azurecr.io");
-            _convertDataeEnabledController = GetController(_convertDataJobConfig);
+            _artifactStoreConfiguration.Instances.Add(new ArtifactStoreInstanceConfiguration()
+            {
+                Type = "acr",
+                Location = "test.azurecr.io",
+            });
+            _convertDataeEnabledController = GetController(_convertDataJobConfig, _artifactStoreConfiguration);
             var controllerContext = new ControllerContext() { HttpContext = _httpContext };
             _convertDataeEnabledController.ControllerContext = controllerContext;
         }
@@ -94,19 +99,22 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Controllers
             return new ConvertDataResponse(GetSampleConvertDataResponse());
         }
 
-        private ConvertDataController GetController(ConvertDataConfiguration convertDataConfiguration)
+        private ConvertDataController GetController(ConvertDataConfiguration convertDataConfiguration, ArtifactStoreConfiguration artifactStoreConfiguration)
         {
             var operationConfig = new OperationsConfiguration()
             {
                 ConvertData = convertDataConfiguration,
             };
-
             IOptions<OperationsConfiguration> optionsOperationConfiguration = Substitute.For<IOptions<OperationsConfiguration>>();
             optionsOperationConfiguration.Value.Returns(operationConfig);
+
+            IOptions<ArtifactStoreConfiguration> optionsArtifactConfiguration = Substitute.For<IOptions<ArtifactStoreConfiguration>>();
+            optionsArtifactConfiguration.Value.Returns(artifactStoreConfiguration);
 
             return new ConvertDataController(
                 _mediator,
                 optionsOperationConfiguration,
+                optionsArtifactConfiguration,
                 NullLogger<ConvertDataController>.Instance);
         }
 
