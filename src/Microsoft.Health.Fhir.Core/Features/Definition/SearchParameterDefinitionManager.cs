@@ -156,13 +156,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         public void DeleteSearchParameter(ITypedElement searchParam)
         {
             var searchParamWrapper = new SearchParameterWrapper(searchParam);
+            var searchParameterInfo = GetSearchParameter(new Uri(searchParamWrapper.Url));
 
             if (!UrlLookup.Remove(new Uri(searchParamWrapper.Url)))
             {
                 throw new Exception(string.Format(Resources.CustomSearchParameterNotfound, searchParamWrapper.Url));
             }
 
-            var searchParameterInfo = TypeLookup[searchParamWrapper.Type][searchParamWrapper.Name];
             var allResourceTypes = searchParameterInfo.TargetResourceTypes.Union(searchParameterInfo.BaseResourceTypes);
             foreach (var resourceType in allResourceTypes)
             {

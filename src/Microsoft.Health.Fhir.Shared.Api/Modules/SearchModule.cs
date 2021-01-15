@@ -140,8 +140,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton<SearchParameterFilterAttribute>();
             services.AddSingleton<ISearchParameterUtilities, SearchParameterUtilities>();
 
-            services.AddTransient(typeof(IPipelineBehavior<,>), typeof(CreateSearchParameterBehavior<,>));
-            services.AddTransient(typeof(IPipelineBehavior<,>), typeof(DeleteSearchParameterBehavior<,>));
+            services.AddTransient(typeof(IPipelineBehavior<CreateResourceRequest, UpsertResourceResponse>), typeof(CreateSearchParameterBehavior<CreateResourceRequest, UpsertResourceResponse>));
+            services.AddTransient(typeof(IPipelineBehavior<DeleteResourceRequest, DeleteResourceResponse>), typeof(DeleteSearchParameterBehavior<DeleteResourceRequest, DeleteResourceResponse>));
         }
     }
 }

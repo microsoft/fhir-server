@@ -73,10 +73,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             try
             {
                 var searchParam = searchParamResource.ToITypedElement(_modelInfoProvider);
-                _searchParameterDefinitionManager.DeleteSearchParameter(searchParam);
-
                 var searchParameterWrapper = new SearchParameterWrapper(searchParam);
+
                 await _searchParameterStatusManager.DeleteSearchParameterStatusAsync(searchParameterWrapper.Url);
+                _searchParameterDefinitionManager.DeleteSearchParameter(searchParam);
             }
             catch (FhirException fex)
             {

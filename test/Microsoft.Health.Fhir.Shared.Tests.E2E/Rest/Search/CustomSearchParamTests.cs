@@ -109,9 +109,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         private async Task DeleteSearchParameterAndVerify(SearchParameter searchParam)
         {
             await Client.DeleteAsync(searchParam);
-            var searchParamBundle = await Client.SearchAsync(ResourceType.SearchParameter, $"url={searchParam.Url}");
-
-            Assert.Empty(searchParamBundle.Resource.Entry);
+            var ex = await Assert.ThrowsAsync<FhirException>(() => Client.ReadAsync<SearchParameter>(ResourceType.SearchParameter, searchParam.Id));
+            Assert.Contains("Gone", ex.Message);
         }
     }
 }
