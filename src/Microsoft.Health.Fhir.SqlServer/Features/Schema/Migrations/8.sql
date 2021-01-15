@@ -77,7 +77,8 @@ CREATE TABLE dbo.Resource
     IsDeleted bit NOT NULL,
     RequestMethod varchar(10) NULL,
     RawResource varbinary(max) NOT NULL,
-    IsRawResourceMetaSet bit NOT NULL DEFAULT 0
+    IsRawResourceMetaSet bit NOT NULL DEFAULT 0,
+    SearchParamHash varchar(64) COLLATE Latin1_General_100_CS_AS NULL -- TODO: Do we need Latin1?
 )
 
 CREATE UNIQUE CLUSTERED INDEX IXC_Resource ON dbo.Resource
@@ -110,6 +111,13 @@ CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceSurrgateId O
     ResourceSurrogateId
 )
 WHERE IsHistory = 0 AND IsDeleted = 0
+
+-- CREATE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_SearchParamHash ON dbo.Resource -- TODO: Add this in.
+-- (
+--     ResourceTypeId,
+--     SearchParamHash
+-- )
+-- WHERE IsDeleted = 0
 
 /*************************************************************
     Capture claims on write
@@ -1881,6 +1889,15 @@ CREATE TYPE dbo.SearchParamTableType_1 AS TABLE
     Uri varchar(128) COLLATE Latin1_General_100_CS_AS NOT NULL,
     Status varchar(10) NOT NULL,
     IsPartiallySupported bit NOT NULL
+)
+
+GO
+
+-- Create a type to be used when initializing hash values in the Resource table.
+CREATE TYPE dbo.SearchParamHashTableType_1 AS TABLE -- TODO: Does this live in the right place?
+(
+    ResourceTypeId smallint NOT NULL,
+    SearchParamHash varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL
 )
 
 GO
