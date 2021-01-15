@@ -20,6 +20,45 @@ ADD IsMin bit NOT NULL,
     CONSTRAINT IsMin_Constraint DEFAULT 0 FOR IsMin,
     CONSTRAINT IsMax_Constraint DEFAULT 0 FOR IsMax;
 
+CREATE NONCLUSTERED INDEX IX_StringSearchParam_SearchParamId_Text
+ON dbo.StringSearchParam
+(
+    SearchParamId,
+    Text
+)
+INCLUDE
+(
+    ResourceTypeId,
+    TextOverflow, -- workaround for https://support.microsoft.com/en-gb/help/3051225/a-filtered-index-that-you-create-together-with-the-is-null-predicate-i
+    IsMin,
+    IsMax
+)
+WHERE IsHistory = 0 AND TextOverflow IS NULL
+WITH 
+(
+    DATA_COMPRESSION = PAGE,
+    DROP_EXISTING = ON
+)
+
+CREATE NONCLUSTERED INDEX IX_StringSearchParam_SearchParamId_TextWithOverflow
+ON dbo.StringSearchParam
+(
+    SearchParamId,
+    Text
+)
+INCLUDE
+(
+    ResourceTypeId,
+    IsMin,
+    IsMax
+)
+WHERE IsHistory = 0 AND TextOverflow IS NOT NULL
+WITH 
+(
+    DATA_COMPRESSION = PAGE,
+    DROP_EXISTING = ON
+)
+
 GO
 
 /*************************************************************

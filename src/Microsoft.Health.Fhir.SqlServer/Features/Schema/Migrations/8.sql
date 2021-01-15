@@ -374,7 +374,9 @@ ON dbo.StringSearchParam
 INCLUDE
 (
     ResourceTypeId,
-    TextOverflow -- workaround for https://support.microsoft.com/en-gb/help/3051225/a-filtered-index-that-you-create-together-with-the-is-null-predicate-i
+    TextOverflow, -- workaround for https://support.microsoft.com/en-gb/help/3051225/a-filtered-index-that-you-create-together-with-the-is-null-predicate-i
+    IsMin,
+    IsMax
 )
 WHERE IsHistory = 0 AND TextOverflow IS NULL
 WITH (DATA_COMPRESSION = PAGE)
@@ -387,7 +389,9 @@ ON dbo.StringSearchParam
 )
 INCLUDE
 (
-    ResourceTypeId
+    ResourceTypeId,
+    IsMin,
+    IsMax
 )
 WHERE IsHistory = 0 AND TextOverflow IS NOT NULL
 WITH (DATA_COMPRESSION = PAGE)
