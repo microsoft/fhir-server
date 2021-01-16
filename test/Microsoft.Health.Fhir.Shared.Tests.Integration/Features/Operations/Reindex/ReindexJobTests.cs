@@ -247,8 +247,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 IsSearchable = false,
             };
 
-            _searchParameterDefinitionManager.UrlLookup.Add(searchParam.Url, searchParam);
-            _searchParameterDefinitionManager.TypeLookup["Patient"].Add(searchParamName, searchParam);
+            _searchParameterDefinitionManager.UrlLookup.TryAdd(searchParam.Url, searchParam);
+            _searchParameterDefinitionManager.TypeLookup["Patient"].TryAdd(searchParamName, searchParam);
 
             await UpsertPatientData("searchIndicesPatient1");
             await UpsertPatientData("searchIndicesPatient2");

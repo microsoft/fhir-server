@@ -164,7 +164,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             await _manager.EnsureInitialized();
             _fhirRequestContext.IncludePartiallyIndexedSearchParams = true;
             var searchableDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor);
-            var paramList = searchableDefinitionManager.AllSearchParameters;
+            var paramList = searchableDefinitionManager.AllSearchParameters.OrderBy(p => p.Name);
 
             Assert.Collection(
                 paramList,
