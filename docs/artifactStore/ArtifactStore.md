@@ -1,4 +1,4 @@
-An unified ACR artifact store that provides the objects used in Converter API (templates), de-id export (configurations), CDM export, and other potential operations in the future.
+An unified ACR artifact store that provides the objects used by de-id export (configurations), CDM export and other potential operations in the future.
 
 [[_TOC_]]
 
