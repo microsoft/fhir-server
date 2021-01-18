@@ -54,7 +54,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.UnitTests.Features.Operations.Conver
             var bundleResource = parser.Parse<Bundle>(response.Resource);
 
             var patient = bundleResource.Entry.ByResourceType<Patient>().First();
-            Assert.NotNull(patient.Id);
+            Assert.NotEmpty(patient.Id);
             Assert.Equal("Kinmonth", patient.Name.First().Family);
             Assert.Equal("1987-06-24", patient.BirthDate);
         }
