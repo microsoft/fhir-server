@@ -15,10 +15,12 @@ using EnsureThat;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Core;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.ExportDestinationClient;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
@@ -39,6 +41,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         private readonly IExportDestinationClient _exportDestinationClient;
         private readonly IResourceDeserializer _resourceDeserializer;
         private readonly IMediator _mediator;
+        private readonly IFhirRequestContextAccessor _contextAccessor;
         private readonly ILogger _logger;
 
         // Currently we will have only one file per resource type. In the future we will add the ability to split
@@ -59,6 +62,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             IResourceDeserializer resourceDeserializer,
             IScoped<IAnonymizerFactory> anonymizerFactory,
             IMediator mediator,
+            IFhirRequestContextAccessor contextAccessor,
             ILogger<ExportJobTask> logger)
         {
             EnsureArg.IsNotNull(fhirOperationDataStoreFactory, nameof(fhirOperationDataStoreFactory));
@@ -69,6 +73,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             EnsureArg.IsNotNull(exportDestinationClient, nameof(exportDestinationClient));
             EnsureArg.IsNotNull(resourceDeserializer, nameof(resourceDeserializer));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
+            EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
             _fhirOperationDataStoreFactory = fhirOperationDataStoreFactory;
@@ -80,6 +85,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             _exportDestinationClient = exportDestinationClient;
             _anonymizerFactory = anonymizerFactory;
             _mediator = mediator;
+            _contextAccessor = contextAccessor;
             _logger = logger;
         }
 
@@ -90,6 +96,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
             _exportJobRecord = exportJobRecord;
             _weakETag = weakETag;
+
+            var existingFhirRequestContext = _contextAccessor.FhirRequestContext;
 
             try
             {
@@ -122,6 +130,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 // Connect to export destination using appropriate client.
                 await _exportDestinationClient.ConnectAsync(exportJobConfiguration, cancellationToken, _exportJobRecord.StorageAccountContainerName);
+
+                // Add a request context so that bundle issues can be added by the SearchOptionFactory
+                var fhirRequestContext = new FhirRequestContext(
+                method: "Export",
+                uriString: "$export",
+                baseUriString: "$export",
+                correlationId: _exportJobRecord.Id,
+                requestHeaders: new Dictionary<string, StringValues>(),
+                responseHeaders: new Dictionary<string, StringValues>());
+
+                _contextAccessor.FhirRequestContext = fhirRequestContext;
 
                 // If we are resuming a job, we can detect that by checking the progress info from the job record.
                 // If it is null, then we know we are processing a new job.
@@ -201,6 +220,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 _exportJobRecord.FailureDetails = new JobFailureDetails(Resources.UnknownError, HttpStatusCode.InternalServerError);
                 await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
             }
+            finally
+            {
+                _contextAccessor.FhirRequestContext = existingFhirRequestContext;
+            }
         }
 
         private async Task CompleteJobAsync(OperationStatus completionStatus, CancellationToken cancellationToken)
@@ -216,12 +239,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
         private async Task UpdateJobRecordAsync(CancellationToken cancellationToken)
         {
+            foreach (OperationOutcomeIssue issue in _contextAccessor.FhirRequestContext.BundleIssues)
+            {
+                _exportJobRecord.Issues.Add(issue);
+            }
+
             using (IScoped<IFhirOperationDataStore> fhirOperationDataStore = _fhirOperationDataStoreFactory())
             {
                 ExportJobOutcome updatedExportJobOutcome = await fhirOperationDataStore.Value.UpdateExportJobAsync(_exportJobRecord, _weakETag, cancellationToken);
 
                 _exportJobRecord = updatedExportJobOutcome.JobRecord;
                 _weakETag = updatedExportJobOutcome.ETag;
+
+                _contextAccessor.FhirRequestContext.BundleIssues.Clear();
             }
         }
 
@@ -291,12 +321,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 }
                 else if (_exportJobRecord.ExportType == ExportJobType.All && requestedResourceTypes != null)
                 {
+                    List<string> resources = new List<string>();
+
                     foreach (var resource in requestedResourceTypes)
                     {
                         if (!filteredResources.Contains(resource))
                         {
-                            queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type, resource));
+                            resources.Add(resource);
                         }
+                    }
+
+                    if (resources.Count > 0)
+                    {
+                        queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type, resources.JoinByOrSeparator()));
                     }
                 }
 
@@ -481,12 +518,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 if (requestedResourceTypes != null)
                 {
+                    List<string> resources = new List<string>();
+
                     foreach (var resource in requestedResourceTypes)
                     {
                         if (!filteredResources.Contains(resource))
                         {
-                            queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type, resource));
+                            resources.Add(resource);
                         }
+                    }
+
+                    if (resources.Count > 0)
+                    {
+                        queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Type, resources.JoinByOrSeparator()));
                     }
                 }
 

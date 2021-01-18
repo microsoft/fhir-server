@@ -123,6 +123,13 @@
                 "description": "Use Cosmos DB free tier."
             }
         },
+        "cosmosDbCmkUrl": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Key url for the Cosmos DB customer managed key. If not provided a system managed key will be used. If an invalid value is provided the service will not start."
+            }
+        },
         "sqlAdminPassword": {
             "type": "securestring",
             "defaultValue": "",
@@ -332,7 +339,7 @@
         },
         {
             "condition": "[equals(parameters('solutionType'),'FhirServerCosmosDB')]",
-            "apiVersion": "2015-04-08",
+            "apiVersion": "2019-12-12",
             "type": "Microsoft.DocumentDB/databaseAccounts",
             "tags": {
                 "FhirServerSolution": "[parameters('solutionType')]"
@@ -343,13 +350,13 @@
                 "name": "[variables('serviceName')]",
                 "databaseAccountOfferType": "Standard",
                 "consistencyPolicy": "[parameters('cosmosDbAccountConsistencyPolicy')]",
+                "keyVaultKeyUri": "[parameters('cosmosDbCmkUrl')]",
                 "locations": [
                     {
                         "locationName": "[resourceGroup().location]",
                         "failoverPriority": 0
                     }
-                ],
-                "enableFreeTier": "[variables('isCosmosDbFreeTier')]"
+                ]
             }
         },
         {
@@ -518,15 +525,15 @@
             "comments": "Container registry for storing templates images",
             "condition": "[parameters('enableConvertData')]",
             "tags": {
-              "displayName": "Container Registry",
-              "container.registry": "[variables('azureContainerRegistryName')]"
+                "displayName": "Container Registry",
+                "container.registry": "[variables('azureContainerRegistryName')]"
             },
             "sku": {
-              "name": "Basic",
-              "tier": "Basic"
+                "name": "Basic",
+                "tier": "Basic"
             },
             "properties": {
-              "adminUserEnabled": "true"
+                "adminUserEnabled": "true"
             }
         },
         {

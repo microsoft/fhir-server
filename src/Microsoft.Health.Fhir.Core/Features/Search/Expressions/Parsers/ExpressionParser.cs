@@ -10,6 +10,7 @@ using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.Utility;
 using Microsoft.Health.Fhir.Core.Features.Definition;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
 
@@ -53,19 +54,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
         /// <summary>
         /// Parses the input into a corresponding search expression.
         /// </summary>
-        /// <param name="resourceType">The resource type.</param>
+        /// <param name="resourceTypes">The resource type.</param>
         /// <param name="key">The query key.</param>
         /// <param name="value">The query value.</param>
         /// <returns>An instance of search expression representing the search.</returns>
-        public Expression Parse(string resourceType, string key, string value)
+        public Expression Parse(string[] resourceTypes, string key, string value)
         {
             EnsureArg.IsNotNullOrWhiteSpace(key, nameof(key));
             EnsureArg.IsNotNullOrWhiteSpace(value, nameof(value));
 
-            return ParseImpl(resourceType, key.AsSpan(), value);
+            return ParseImpl(resourceTypes, key.AsSpan(), value);
         }
 
-        public IncludeExpression ParseInclude(string resourceType, string includeValue, bool isReversed, bool iterate)
+        public IncludeExpression ParseInclude(string[] resourceTypes, string includeValue, bool isReversed, bool iterate)
         {
             var valueSpan = includeValue.AsSpan();
             if (!TrySplit(SearchSplitChar, ref valueSpan, out ReadOnlySpan<char> originalType))
@@ -73,7 +74,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 throw new InvalidSearchOperationException(isReversed ? Core.Resources.RevIncludeMissingType : Core.Resources.IncludeMissingType);
             }
 
-            if (resourceType.Equals(KnownResourceTypes.DomainResource, StringComparison.InvariantCultureIgnoreCase))
+            if (resourceTypes.Length == 1 && resourceTypes[0].Equals(KnownResourceTypes.DomainResource, StringComparison.InvariantCultureIgnoreCase))
             {
                 throw new InvalidSearchOperationException(Core.Resources.IncludeCannotBeAgainstBase);
             }
@@ -105,7 +106,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             if (wildCard)
             {
                 referencedTypes = new List<string>();
-                var searchParameters = _searchParameterDefinitionManager.GetSearchParameters(resourceType)
+                var searchParameters = resourceTypes.SelectMany(t => _searchParameterDefinitionManager.GetSearchParameters(t))
                     .Where(p => p.Type == ValueSets.SearchParamType.Reference);
 
                 foreach (var p in searchParameters)
@@ -120,10 +121,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 }
             }
 
-            return new IncludeExpression(resourceType, refSearchParameter, originalType.ToString(), targetType, referencedTypes, wildCard, isReversed, iterate);
+            return new IncludeExpression(resourceTypes, refSearchParameter, originalType.ToString(), targetType, referencedTypes, wildCard, isReversed, iterate);
         }
 
-        private Expression ParseImpl(string resourceType, ReadOnlySpan<char> key, string value)
+        private Expression ParseImpl(string[] resourceTypes, ReadOnlySpan<char> key, string value)
         {
             if (TryConsume(ReverseChainParameter.AsSpan(), ref key))
             {
@@ -140,31 +141,37 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 string typeString = type.ToString();
                 SearchParameterInfo refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(typeString, refParam.ToString());
 
-                return ParseChainedExpression(typeString, refSearchParameter, resourceType, key, value, true);
+                return ParseChainedExpression(new[] { typeString }, refSearchParameter, resourceTypes, key, value, true);
             }
 
             if (TrySplit(ChainParameter, ref key, out ReadOnlySpan<char> chainedInput))
             {
-                ReadOnlySpan<char> targetTypeName;
+                string[] targetType = Array.Empty<string>();
 
                 if (TrySplit(SearchSplitChar, ref chainedInput, out ReadOnlySpan<char> refParamName))
                 {
-                    targetTypeName = chainedInput;
+                    targetType = new[] { chainedInput.ToString() };
                 }
                 else
                 {
                     refParamName = chainedInput;
-                    targetTypeName = ReadOnlySpan<char>.Empty;
                 }
 
                 if (refParamName.IsEmpty)
                 {
-                    throw new SearchParameterNotSupportedException(resourceType, key.ToString());
+                    throw new SearchParameterNotSupportedException(resourceTypes[0], key.ToString());
                 }
 
-                SearchParameterInfo refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(resourceType, refParamName.ToString());
+                SearchParameterInfo refSearchParameter = _searchParameterDefinitionManager.GetSearchParameter(resourceTypes[0], refParamName.ToString());
+                foreach (var resourceType in resourceTypes)
+                {
+                    if (refSearchParameter != _searchParameterDefinitionManager.GetSearchParameter(resourceType, refParamName.ToString()))
+                    {
+                        throw new BadRequestException(string.Format(Core.Resources.SearchParameterMustBeCommon, refParamName.ToString(), resourceTypes[0], resourceType));
+                    }
+                }
 
-                return ParseChainedExpression(resourceType, refSearchParameter, targetTypeName.ToString(), key, value, false);
+                return ParseChainedExpression(resourceTypes, refSearchParameter, targetType, key, value, false);
             }
 
             ReadOnlySpan<char> modifier;
@@ -180,12 +187,19 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             }
 
             // Check to see if the search parameter is supported for this type or not.
-            SearchParameterInfo searchParameter = _searchParameterDefinitionManager.GetSearchParameter(resourceType, paramName.ToString());
+            SearchParameterInfo searchParameter = _searchParameterDefinitionManager.GetSearchParameter(resourceTypes[0], paramName.ToString());
+            foreach (var resourceType in resourceTypes)
+            {
+                if (searchParameter != _searchParameterDefinitionManager.GetSearchParameter(resourceType, paramName.ToString()))
+                {
+                    throw new BadRequestException(string.Format(Core.Resources.SearchParameterMustBeCommon, paramName.ToString(), resourceTypes[0], resourceType));
+                }
+            }
 
             return ParseSearchValueExpression(searchParameter, modifier.ToString(), value);
         }
 
-        private Expression ParseChainedExpression(string resourceType, SearchParameterInfo searchParameter, string targetResourceType, ReadOnlySpan<char> remainingKey, string value, bool reversed)
+        private Expression ParseChainedExpression(string[] resourceTypes, SearchParameterInfo searchParameter, string[] targetResourceTypes, ReadOnlySpan<char> remainingKey, string value, bool reversed)
         {
             // We have more paths after this so this is a chained expression.
             // Since this is chained expression, the expression must be a reference type.
@@ -196,33 +210,36 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
             }
 
             // Check to see if the client has specifically specified the target resource type to scope to.
-            if (!string.IsNullOrEmpty(targetResourceType))
+            if (targetResourceTypes.Any())
             {
                 // A target resource type is specified.
-                if (!ModelInfoProvider.IsKnownResource(targetResourceType))
+                foreach (var targetResourceType in targetResourceTypes)
                 {
-                    throw new InvalidSearchOperationException(string.Format(Core.Resources.ResourceNotSupported, targetResourceType));
+                    if (!ModelInfoProvider.IsKnownResource(targetResourceType))
+                    {
+                        throw new InvalidSearchOperationException(string.Format(Core.Resources.ResourceNotSupported, targetResourceType));
+                    }
                 }
             }
 
+            var possibleTargetResourceTypes = targetResourceTypes.Any()
+                ? targetResourceTypes.Intersect(searchParameter.TargetResourceTypes)
+                : searchParameter.TargetResourceTypes;
+
             ChainedExpression chainedExpression = null;
 
-            foreach (var possibleTargetResourceType in searchParameter.TargetResourceTypes)
+            foreach (var possibleTargetResourceType in possibleTargetResourceTypes)
             {
-                if (!string.IsNullOrEmpty(targetResourceType) && targetResourceType != possibleTargetResourceType)
-                {
-                    continue;
-                }
-
-                var multipleChainType = reversed ? resourceType : possibleTargetResourceType;
+                var wrappedTargetResourceType = new[] { possibleTargetResourceType };
+                var multipleChainType = reversed ? resourceTypes : wrappedTargetResourceType;
 
                 ChainedExpression expression;
                 try
                 {
                     expression = Expression.Chained(
-                        resourceType,
+                        resourceTypes,
                         searchParameter,
-                        possibleTargetResourceType,
+                        wrappedTargetResourceType,
                         reversed,
                         ParseImpl(
                             multipleChainType,
@@ -239,6 +256,18 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 if (chainedExpression == null)
                 {
                     chainedExpression = expression;
+                }
+                else if (reversed)
+                {
+                    chainedExpression = Expression.Chained(
+                        resourceTypes,
+                        searchParameter,
+                        chainedExpression.TargetResourceTypes.Append(possibleTargetResourceType).ToArray(),
+                        reversed,
+                        ParseImpl(
+                            multipleChainType,
+                            remainingKey,
+                            value));
                 }
                 else
                 {
@@ -265,11 +294,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 
         private Expression ParseSearchValueExpression(SearchParameterInfo searchParameter, string modifier, string value)
         {
-            SearchModifierCode? parsedModifier = ParseSearchParamModifier();
-
+            SearchModifier parsedModifier = ParseSearchParamModifier();
             return _searchParameterExpressionParser.Parse(searchParameter, parsedModifier, value);
 
-            SearchModifierCode? ParseSearchParamModifier()
+            SearchModifier ParseSearchParamModifier()
             {
                 if (string.IsNullOrEmpty(modifier))
                 {
@@ -278,7 +306,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 
                 if (SearchParamModifierMapping.TryGetValue(modifier, out SearchModifierCode searchModifierCode))
                 {
-                    return searchModifierCode;
+                    return new SearchModifier(searchModifierCode);
+                }
+
+                // Modifier on a Reference Search Parameter can be used to restrict target type
+                if (searchParameter.Type == SearchParamType.Reference && searchParameter.TargetResourceTypes.Contains(modifier, StringComparer.OrdinalIgnoreCase))
+                {
+                    return new SearchModifier(SearchModifierCode.Type, modifier);
                 }
 
                 throw new InvalidSearchOperationException(

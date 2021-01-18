@@ -7,7 +7,7 @@ using Microsoft.Health.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
 {
-    internal class IncludeQueryGenerator : NormalizedSearchParameterQueryGenerator
+    internal class IncludeQueryGenerator : SearchParamTableExpressionQueryGenerator
     {
         internal static readonly IncludeQueryGenerator Instance = new IncludeQueryGenerator();
 

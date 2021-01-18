@@ -36,6 +36,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         }
 
         /// <summary>
+        /// Creates a <see cref="NotExpression"/> that represents logical NOT operation over <paramref name="expression"/>.
+        /// </summary>
+        /// <param name="expression">The expression.</param>
+        /// <returns>A <see cref="NotExpression"/> that has logical operator NOT over <paramref name="expression"/>.</returns>
+        public static NotExpression Not(Expression expression)
+        {
+            return new NotExpression(expression);
+        }
+
+        /// <summary>
         /// Creates a <see cref="MultiaryExpression"/> that represents logical AND operation over <paramref name="expressions"/>.
         /// </summary>
         /// <param name="expressions">The expressions.</param>
@@ -58,21 +68,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <summary>
         /// Creates a <see cref="ChainedExpression"/> that represents chained operation.
         /// </summary>
-        /// <param name="resourceType">The resource type.</param>
+        /// <param name="resourceTypes">The resource type.</param>
         /// <param name="referenceSearchParameter">The search parameter that establishes the reference between resources</param>
-        /// <param name="targetResourceType">The target resource type.</param>
+        /// <param name="targetResourceTypes">The target resource type.</param>
         /// <param name="reversed">If this is a reversed chained expression.</param>
         /// <param name="expression">The expression.</param>
         /// <returns>A <see cref="ChainedExpression"/> that represents chained operation on <paramref name="targetResourceType"/> through <paramref name="referenceSearchParameter"/>.</returns>
-        public static ChainedExpression Chained(string resourceType, SearchParameterInfo referenceSearchParameter, string targetResourceType, bool reversed, Expression expression)
+        public static ChainedExpression Chained(string[] resourceTypes, SearchParameterInfo referenceSearchParameter, string[] targetResourceTypes, bool reversed, Expression expression)
         {
-            return new ChainedExpression(resourceType, referenceSearchParameter, targetResourceType, reversed, expression);
+            return new ChainedExpression(resourceTypes, referenceSearchParameter, targetResourceTypes, reversed, expression);
         }
 
         /// <summary>
         /// Creates a <see cref="IncludeExpression"/> that represents an include operation.
         /// </summary>
-        /// <param name="resourceType">The resource that supports the reference.</param>
+        /// <param name="resourceTypes">The resource that supports the reference.</param>
         /// <param name="referenceSearchParameter">The search parameter that establishes the reference between resources</param>
         /// <param name="sourceResourceType">The source resource type (used in revinclude).</param>
         /// <param name="targetResourceType">The target resource type (used in include).</param>
@@ -81,9 +91,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         /// <param name="reversed">If this is a reversed include (revinclude) expression.</param>
         /// <param name="iterate">If this is include has :iterate (:recurse) modifier.</param>
         /// <returns>A <see cref="IncludeExpression"/> that represents an include on <param name="targetResourceType"> through <paramref name="referenceSearchParameter"/>.</param></returns>
-        public static IncludeExpression Include(string resourceType, SearchParameterInfo referenceSearchParameter, string sourceResourceType, string targetResourceType, IEnumerable<string> referencedTypes, bool wildCard, bool reversed, bool iterate)
+        public static IncludeExpression Include(string[] resourceTypes, SearchParameterInfo referenceSearchParameter, string sourceResourceType, string targetResourceType, IEnumerable<string> referencedTypes, bool wildCard, bool reversed, bool iterate)
         {
-            return new IncludeExpression(resourceType, referenceSearchParameter, sourceResourceType, targetResourceType, referencedTypes, wildCard, reversed, iterate);
+            return new IncludeExpression(resourceTypes, referenceSearchParameter, sourceResourceType, targetResourceType, referencedTypes, wildCard, reversed, iterate);
         }
 
         /// <summary>

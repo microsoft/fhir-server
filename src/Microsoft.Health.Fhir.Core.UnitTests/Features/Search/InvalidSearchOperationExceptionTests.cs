@@ -25,7 +25,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var issue = exception.Issues.First();
 
             Assert.Equal(OperationOutcomeConstants.IssueSeverity.Error, issue.Severity);
-            Assert.Equal(OperationOutcomeConstants.IssueType.Forbidden, issue.Code);
+            Assert.Equal(OperationOutcomeConstants.IssueType.Invalid, issue.Code);
             Assert.Equal(message, issue.Diagnostics);
         }
     }

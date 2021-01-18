@@ -2,6 +2,7 @@
   <PropertyGroup>
     <TargetFramework>netcoreapp3.1</TargetFramework>
     <IsPackable>true</IsPackable>
+    <RootNamespace>Microsoft.Health.Fhir.Tests.E2E</RootNamespace>
     <IncludeContentInPack>false</IncludeContentInPack>
     <DefineConstants>Stu3</DefineConstants>
   </PropertyGroup>

@@ -48,6 +48,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         TOutput VisitMissingSearchParameter(MissingSearchParameterExpression expression, TContext context);
 
         /// <summary>
+        /// Visits the <see cref="NotExpression"/>.
+        /// </summary>
+        /// <param name="expression">The expression to visit.</param>
+        /// <param name="context">The input</param>
+        TOutput VisitNotExpression(NotExpression expression, TContext context);
+
+        /// <summary>
         /// Visits the <see cref="MultiaryExpression"/>.
         /// </summary>
         /// <param name="expression">The expression to visit.</param>

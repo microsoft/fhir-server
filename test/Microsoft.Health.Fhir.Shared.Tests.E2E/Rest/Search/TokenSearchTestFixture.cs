@@ -19,12 +19,27 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         {
         }
 
+        public string Tag { get; private set; }
+
         public IReadOnlyList<Observation> Observations { get; private set; }
 
         protected override async Task OnInitializedAsync()
         {
+            Tag = Guid.NewGuid().ToString();
+
             // Prepare the resources used for number search tests.
             await TestFhirClient.DeleteAllResources(ResourceType.Observation);
+
+            await TestFhirClient.CreateResourcesAsync<Patient>(p =>
+            {
+                p.Meta = new Meta
+                {
+                    Tag = new List<Coding>
+                    {
+                        new Coding("testTag", Tag),
+                    },
+                };
+            });
 
             Observations = await TestFhirClient.CreateResourcesAsync<Observation>(
                 o => SetObservation(o, cc => cc.Coding.Add(new Coding("system1", "code1"))),
@@ -43,10 +58,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     cc.Coding.Add(new Coding("system2", "code1"));
                     cc.Coding.Add(new Coding("system3", "code3", "text2"));
                 }),
-                o => SetObservation(o, cc => cc.Coding.Add(new Coding(null, "code3"))));
+                o => SetObservation(o, cc => cc.Coding.Add(new Coding(null, "code3"))),
+                o =>
+                {
+                    SetObservation(o, cc => { });
+                    o.Category = new List<CodeableConcept>
+                    {
+                        new CodeableConcept("system", "test"),
+                    };
+                });
 
             void SetObservation(Observation observation, Action<CodeableConcept> codeableConceptCustomizer)
             {
+                observation.Meta = new Meta
+                {
+                    Tag = new List<Coding>
+                    {
+                        new Coding("testTag", Tag),
+                    },
+                };
                 observation.Code = new CodeableConcept("system", "code");
                 observation.Status = ObservationStatus.Registered;
 
