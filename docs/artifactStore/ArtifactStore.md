@@ -12,8 +12,11 @@ An unified ACR artifact store that provides the objects used by de-id export (co
 Some operations in fhir server need configuation to trigger or implement, customer can use Container Registry to store configurations or other artifacts. The customized configurations need to be pushed to Container Registry that registed in Artifact store, and for the PaaS solution, there will be default artifacts content for related operations.
 
 1. Push artifacts to Registry via [oras](https://github.com/deislabs/oras/releases).
+   
 2. Register the Registry in the Artifact Store.
-3. User can use image reference (```<registry>/<name>@<digest>``` or ```<registry>/<name>:<tag>```) to pull the target artifacts.
+
+3. In operation parameters, customer uses image reference to specify where to load the related artifacts.
+
 4. E.g. When we use Container Registry as the artifact store instance for de-id Export, the query parameter in request should be like ```GET [base]/$export?_anonymizationConfig=testacr.azurecr.io/configuration:default```.
 
 Target public review, we would support [Azure Conatiner Registry](https://azure.microsoft.com/en-us/services/container-registry/) as the instances of artifact store. We will try to provide similar user experience when customer use atirafct store in different operations.
@@ -27,9 +30,13 @@ Target public review, we would support [Azure Conatiner Registry](https://azure.
 
 
 # Design
-1. We recommand to use oras to push artifacts. Here is a [doc](https://docs.microsoft.com/en-us/azure/container-registry/container-registry-oci-artifacts) from Azure on how to push or pull an OCI artifact.
+1. We recommand to use [oras](https://github.com/deislabs/oras/releases) to push artifacts. Here is a [doc](https://docs.microsoft.com/en-us/azure/container-registry/container-registry-oci-artifacts) from Azure on how to push or pull an OCI artifact.
    1. While the operation may only need one configuration file, we recommand to push the entire folder to the registry as an image, so that the processes are unified. How to push artifacts with multiple files can be refer [here](https://github.com/deislabs/oras#pushing-artifacts-with-multiple-files).
-   2. When you already pushed your artifacts, you can check them on **Repositories** of target Container Registry. Here is an example of image manifest shown on Azure Container Registry. 
+   2. To push the folder "testFolder":
+   ```cmd
+   oras.exe push testacr.azurecr.io/configuration:1.0 --manifest-config NUL:application/vnd.unknown.config.v1+json ./testFolder/:application/vnd.acme.rocket.docs.layer.v1+tar
+   ```
+   3. When you already pushed your artifacts, you can check them on **Repositories** of target Container Registry. Here is an example of image manifest shown on Azure Container Registry. 
    ```json
       {
          "schemaVersion": 2,
@@ -52,16 +59,23 @@ Target public review, we would support [Azure Conatiner Registry](https://azure.
             ]
       }
    ```
-   
-2. A new "Artifact store" section in UI of FHIR API on Azure, all the artifact store instance need to be registered.
-   
-3. We will define a "FetchAsync" interface for operations to pull the artifacts.
+   4. Also you can directly pull it via oras like below, but our target is to download artifacts inside the fhir server.
+   ```cmd
+   oras.exe pull testacr.azurecr.io/configuration:1.0 -a 
+   ```
+
+2. A new "Artifact store" section will be in the UI of FHIR API on Azure, its purpose is to facilitate users to register the Container Registry as artifact stores, all the artifact store instances need to be registered than can be connected.
+
+3. We will define a "FetchAsync" interface for operations to pull the image as the artifacts from Container Registry, the image reference with tags or digests are both supported.
+   - With image tag ```<registry>/<name>:<tag>```
+   - With image digest ```<registry>/<name>@<digest>```
+   - If no tags or digests, will pull image with default ```latest``` tag. 
 
 4. Current API parameters of de-id export will not be changed, and if customer trigger de-id export in released way like ```GET [base]/$export?_anonymizationConfig=config-file.json```, we support storage in ACR artifact store, and still use destination blob storage account to store the configuration to grant the downword compatibility.
 
-5. The size of maximal artifacts to be pushed/pulled can be set in different operations. If larger artifacts provided, then 400 should be returned with error TooLargeArtifacts.
+5. The size of maximal artifacts to be pushed/pulled need to be set for different operations. If larger artifacts provided, then 400 should be returned with error TooLargeArtifacts.
 
-## Operations call artifact provider work flow
+## Operations use artifact store work flow
 ![Anonymized export work flow](./asserts/flow.png)
 
 ## Multiple configuration support
@@ -77,18 +91,20 @@ For PaaS solution, we want to add an "Artifact store" section in navigation bar.
 
 1. ArtifactStoreIsNotRegisted: when provided artifact store was not registed, then `400 Bad Request` with error code should be returned in operation result. 
 2. FailedToConnectToArtifactStore: when cannot to connect the provided artifact store, then `400 Bad Request` with error code should be returned in operation result. 
+3. TooLargeArtifacts: when provided artifact store was too large, then `400 Bad Request` with error code should be returned in operation result. 
+
 
 # Test Strategy
 
-- (reference to Converter API test strategy).
-- Artifact Provider from TemplateManagement Nuget package. 
-- E2E test to make sure the operations arw working correctly.
+- Unit tests and functional tests to make sure the artifact store is working correctly.
+- Will update the E2E and intergration test for de-id export to make sure it's still working as expected.
 
 # Security
 
-Use digest.
+- To protect original data, user use digest.
 
 
 # Other
 
 1. Converter API: Current behavior of Converter API will not be changed. But the settings will be re-organized, and "Conversation" section maybe will be replaced by "Artifact store".
+
