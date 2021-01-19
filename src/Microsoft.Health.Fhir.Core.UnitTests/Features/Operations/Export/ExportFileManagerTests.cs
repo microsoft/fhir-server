@@ -154,10 +154,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             InitializeManagerWithV1ExportJobRecord();
 
             string resourceType = "Patient";
-            ExportFileInfo file1 = new ExportFileInfo(resourceType, new Uri("https://localhost/Patient.ndjson"), sequence: 1);
+            ExportFileInfo file1 = new ExportFileInfo(resourceType, new Uri("https://localhost/Patient.ndjson"), sequence: 0);
 
             string resourceType2 = "Observation";
-            ExportFileInfo file2 = new ExportFileInfo(resourceType2, new Uri("https://localhost/Observation.ndjson"), sequence: 1);
+            ExportFileInfo file2 = new ExportFileInfo(resourceType2, new Uri("https://localhost/Observation.ndjson"), sequence: 0);
 
             _exportJobRecord.Output.Add(resourceType, new List<ExportFileInfo>() { file1 });
             _exportJobRecord.Output.Add(resourceType2, new List<ExportFileInfo>() { file2 });

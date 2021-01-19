@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             // Each resource type can have multiple files. We need to keep track of the latest file.
             foreach (KeyValuePair<string, List<ExportFileInfo>> output in _exportJobRecord.Output)
             {
-                int maxSequence = 0;
+                int maxSequence = -1;   // sequence can start with 0
                 ExportFileInfo latestFile = null;
                 foreach (ExportFileInfo file in output.Value)
                 {
