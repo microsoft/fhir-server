@@ -13,6 +13,19 @@ ADD
 -- )
 -- WHERE IsDeleted = 0
 
+-- TODO: comment
+CREATE PROCEDURE dbo.UpdateResourceHash
+    @resourceId varchar(64),
+    @searchParameterHash varchar(64)
+AS
+    SET NOCOUNT ON
+
+    UPDATE dbo.Resource
+    SET SearchParamHash = @searchParameterHash
+    WHERE ResourceId = @resourceId
+
+GO
+
 /*************************************************************
     Search Parameter Status Information
 **************************************************************/

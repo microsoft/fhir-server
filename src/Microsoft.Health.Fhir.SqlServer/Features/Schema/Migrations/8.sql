@@ -1639,6 +1639,19 @@ AS
     COMMIT TRANSACTION
 GO
 
+-- TODO: comment
+CREATE PROCEDURE dbo.UpdateResourceHash
+    @resourceId varchar(64),
+    @searchParameterHash varchar(64)
+AS
+    SET NOCOUNT ON
+
+    UPDATE dbo.Resource
+    SET SearchParamHash = @searchParameterHash
+    WHERE ResourceId = @resourceId
+
+GO
+
 /*************************************************************
     Export Job
 **************************************************************/

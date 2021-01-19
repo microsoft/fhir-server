@@ -355,9 +355,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             _logger.LogInformation(sb.ToString());
         }
 
-        protected override Task<SearchResult> SearchForReindexInternalAsync(SearchOptions searchOptions, string searchParameterHash, CancellationToken cancellationToken)
+        protected async override Task<SearchResult> SearchForReindexInternalAsync(SearchOptions searchOptions, string searchParameterHash, CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            // TODO: Update SearchImpl to search for both historical and non historical values at the same time (this implementation is not complete and will only look for non-historical resources).
+            return await SearchImpl(searchOptions, false, cancellationToken);
         }
     }
 }

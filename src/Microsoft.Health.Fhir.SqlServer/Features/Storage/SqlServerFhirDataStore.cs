@@ -20,6 +20,7 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.ValueSets;
 using Microsoft.Health.SqlServer.Configs;
@@ -122,6 +123,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     }
 
                     resource.Version = newVersion.ToString();
+
+                    // TODO: Remove this, merge with upsert. This might change version.
+                    await UpdateSearchParameterHash(resource.ResourceId, resource.SearchParameterHash, cancellationToken);
 
                     return new UpsertOutcome(resource, newVersion == 1 ? SaveOutcomeType.Created : SaveOutcomeType.Updated);
                 }
@@ -227,6 +231,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 VLatest.HardDeleteResource.PopulateCommand(sqlCommandWrapper, resourceTypeId: _model.GetResourceTypeId(key.ResourceType), resourceId: key.Id);
 
                 await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+            }
+        }
+
+        public async Task UpdateSearchParameterHash(string resourceId, string searchParameterHash, CancellationToken cancellationToken)
+        {
+            if (_schemaInformation.Current < SchemaVersionConstants.SearchParameterHashSchemaVersion)
+            {
+                return;
+            }
+
+            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
+            {
+                VLatest.UpdateResourceHash.PopulateCommand(
+                    sqlCommandWrapper,
+                    resourceId,
+                    searchParameterHash);
+
+                await sqlCommandWrapper.ExecuteScalarAsync(cancellationToken);
             }
         }
 
