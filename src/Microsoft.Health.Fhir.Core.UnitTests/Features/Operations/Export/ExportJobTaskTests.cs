@@ -36,9 +36,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
 {
     public class ExportJobTaskTests
     {
-        private const string PatientFileName = "Patient.ndjson";
-        private const string ObservationFileName = "Observation.ndjson";
-        private const string EncounterFileName = "Encounter.ndjson";
+        private const string PatientFileName = "Patient-1.ndjson";
+        private const string ObservationFileName = "Observation-1.ndjson";
+        private const string EncounterFileName = "Encounter-1.ndjson";
         private static readonly WeakETag _weakETag = WeakETag.FromVersionId("0");
 
         private ExportJobRecord _exportJobRecord;
@@ -1561,7 +1561,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
             string dateTime = _exportJobRecord.QueuedTime.UtcDateTime.ToString("s")
                 .Replace("-", string.Empty, StringComparison.OrdinalIgnoreCase)
                 .Replace(":", string.Empty, StringComparison.OrdinalIgnoreCase);
-            string uriSuffix = "/" + dateTime + "_" + _exportJobRecord.Id + ".ndjson";
+            string uriSuffix = "/" + dateTime + "_" + _exportJobRecord.Id + "-1.ndjson";
 
             string patientIds = _inMemoryDestinationClient.GetExportedData(new Uri(KnownResourceTypes.Patient + uriSuffix, UriKind.Relative));
             string observationIds = _inMemoryDestinationClient.GetExportedData(new Uri(KnownResourceTypes.Observation + uriSuffix, UriKind.Relative));
@@ -2041,6 +2041,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 resourceType,
                 filters,
                 hash,
+                _exportJobConfiguration.RollingFileSizeInMB,
                 since: since,
                 groupId: groupId,
                 storageAccountConnectionHash: storageAccountConnectionHash,
@@ -2111,6 +2112,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                 null,
                 null,
                 "hash",
+                _exportJobConfiguration.RollingFileSizeInMB,
                 storageAccountConnectionHash: string.Empty,
                 storageAccountUri: _exportJobConfiguration.StorageAccountUri,
                 maximumNumberOfResourcesPerQuery: _exportJobConfiguration.MaximumNumberOfResourcesPerQuery,

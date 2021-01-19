@@ -1,0 +1,322 @@
+{
+    "requestUri": "https://localhost:44348/$export",
+    "exportType": "All",
+    "exportFormat": "<resourcename>",
+    "filters": [],
+    "requestorClaims": [],
+    "hash": "hash",
+    "output": {
+        "Organization": [
+            {
+                "type": "Organization",
+                "url": "http://127.0.0.1:10000/devstoreaccount1/058f7fbf-bc3a-448b-b0ff-9f21d514e177/Organization-1.ndjson",
+                "sequence": 1,
+                "count": 42,
+                "committedBytes": 28990
+            }
+        ],
+        "Practitioner": [
+            {
+                "type": "Practitioner",
+                "url": "http://127.0.0.1:10000/devstoreaccount1/058f7fbf-bc3a-448b-b0ff-9f21d514e177/Practitioner-1.ndjson",
+                "sequence": 1,
+                "count": 35,
+                "committedBytes": 19941
+            }
+        ],
+        "Device": [
+            {
+                "type": "Device",
+                "url": "http://127.0.0.1:10000/devstoreaccount1/058f7fbf-bc3a-448b-b0ff-9f21d514e177/Device-1.ndjson",
+                "sequence": 1,
+                "count": 3,
+                "committedBytes": 3027
+            }
+        ],
+        "Claim": [
+            {
+                "type": "Claim",
+                "url": "http://127.0.0.1:10000/devstoreaccount1/058f7fbf-bc3a-448b-b0ff-9f21d514e177/Claim-1.ndjson",
+                "sequence": 1,
+                "count": 735,
+                "committedBytes": 1049706
+            },
+            {
+                "type": "Claim",
+                "url": "http://127.0.0.1:10000/devstoreaccount1/058f7fbf-bc3a-448b-b0ff-9f21d514e177/Claim-2.ndjson",
+                "sequence": 2,
+                "count": 861,
+                "committedBytes": 1048963
+            },
+            {
+                "type": "Claim",
+                "url": "http://127.0.0.1:10000/devstoreaccount1/058f7fbf-bc3a-448b-b0ff-9f21d514e177/Claim-3.ndjson",
+                "sequence": 3,
+                "count": 153,
+                "committedBytes": 245108
+            }
+        ],
+        "Condition": [
+            {
+                "type": "Condition",
+                "url": "http://127.0.0.1:10000/devstoreaccount1/058f7fbf-bc3a-448b-b0ff-9f21d514e177/Condition-1.ndjson",
+                "sequence": 1,
+                "count": 118,
+                "committedBytes": 95241
+            }
+        ],
+        "Encounter": [
+            {
+                "type": "Encounter",
+                "url": "http://127.0.0.1:10000/devstoreaccount1/058f7fbf-bc3a-448b-b0ff-9f21d514e177/Encounter-1.ndjson",
+                "sequence": 1,
+                "count": 927,
+                "committedBytes": 811755
+            }
+        ],
+        "MedicationRequest": [
+            {
+                "type": "MedicationRequest",
+                "url": "http://127.0.0.1:10000/devstoreaccount1/058f7fbf-bc3a-448b-b0ff-9f21d514e177/MedicationRequest-1.ndjson",
+                "sequence": 1,
+                "count": 828,
+                "committedBytes": 759262
+            }
+        ],
+        "Goal": [
+            {
+                "type": "Goal",
+                "url": "http://127.0.0.1:10000/devstoreaccount1/058f7fbf-bc3a-448b-b0ff-9f21d514e177/Goal-1.ndjson",
+                "sequence": 1,
+                "count": 41,
+                "committedBytes": 23805
+            }
+        ],
+        "ExplanationOfBenefit": [
+            {
+                "type": "ExplanationOfBenefit",
+                "url": "http://127.0.0.1:10000/devstoreaccount1/058f7fbf-bc3a-448b-b0ff-9f21d514e177/ExplanationOfBenefit-1.ndjson",
+                "sequence": 1,
+                "count": 227,
+                "committedBytes": 1056283
+            },
+            {
+                "type": "ExplanationOfBenefit",
+                "url": "http://127.0.0.1:10000/devstoreaccount1/058f7fbf-bc3a-448b-b0ff-9f21d514e177/ExplanationOfBenefit-2.ndjson",
+                "sequence": 2,
+                "count": 163,
+                "committedBytes": 1050915
+            },
+            {
+                "type": "ExplanationOfBenefit",
+                "url": "http://127.0.0.1:10000/devstoreaccount1/058f7fbf-bc3a-448b-b0ff-9f21d514e177/ExplanationOfBenefit-3.ndjson",
+                "sequence": 3,
+                "count": 341,
+                "committedBytes": 1050077
+            },
+            {
+                "type": "ExplanationOfBenefit",
+                "url": "http://127.0.0.1:10000/devstoreaccount1/058f7fbf-bc3a-448b-b0ff-9f21d514e177/ExplanationOfBenefit-4.ndjson",
+                "sequence": 4,
+                "count": 180,
+                "committedBytes": 1053192
+            },
+            {
+                "type": "ExplanationOfBenefit",
+                "url": "http://127.0.0.1:10000/devstoreaccount1/058f7fbf-bc3a-448b-b0ff-9f21d514e177/ExplanationOfBenefit-5.ndjson",
+                "sequence": 5,
+                "count": 12,
+                "committedBytes": 112702
+            }
+        ],
+        "CareTeam": [
+            {
+                "type": "CareTeam",
+                "url": "http://127.0.0.1:10000/devstoreaccount1/058f7fbf-bc3a-448b-b0ff-9f21d514e177/CareTeam-1.ndjson",
+                "sequence": 1,
+                "count": 50,
+                "committedBytes": 73832
+            }
+        ],
+        "CarePlan": [
+            {
+                "type": "CarePlan",
+                "url": "http://127.0.0.1:10000/devstoreaccount1/058f7fbf-bc3a-448b-b0ff-9f21d514e177/CarePlan-1.ndjson",
+                "sequence": 1,
+                "count": 49,
+                "committedBytes": 79182
+            }
+        ],
+        "Procedure": [
+            {
+                "type": "Procedure",
+                "url": "http://127.0.0.1:10000/devstoreaccount1/058f7fbf-bc3a-448b-b0ff-9f21d514e177/Procedure-1.ndjson",
+                "sequence": 1,
+                "count": 633,
+                "committedBytes": 437826
+            }
+        ],
+        "DiagnosticReport": [
+            {
+                "type": "DiagnosticReport",
+                "url": "http://127.0.0.1:10000/devstoreaccount1/058f7fbf-bc3a-448b-b0ff-9f21d514e177/DiagnosticReport-1.ndjson",
+                "sequence": 1,
+                "count": 321,
+                "committedBytes": 429482
+            }
+        ],
+        "Immunization": [
+            {
+                "type": "Immunization",
+                "url": "http://127.0.0.1:10000/devstoreaccount1/058f7fbf-bc3a-448b-b0ff-9f21d514e177/Immunization-1.ndjson",
+                "sequence": 1,
+                "count": 141,
+                "committedBytes": 80332
+            }
+        ],
+        "ImagingStudy": [
+            {
+                "type": "ImagingStudy",
+                "url": "http://127.0.0.1:10000/devstoreaccount1/058f7fbf-bc3a-448b-b0ff-9f21d514e177/ImagingStudy-1.ndjson",
+                "sequence": 1,
+                "count": 4,
+                "committedBytes": 4142
+            }
+        ],
+        "MedicationAdministration": [
+            {
+                "type": "MedicationAdministration",
+                "url": "http://127.0.0.1:10000/devstoreaccount1/058f7fbf-bc3a-448b-b0ff-9f21d514e177/MedicationAdministration-1.ndjson",
+                "sequence": 1,
+                "count": 6,
+                "committedBytes": 3513
+            }
+        ],
+        "RiskAssessment": [
+            {
+                "type": "RiskAssessment",
+                "url": "http://127.0.0.1:10000/devstoreaccount1/058f7fbf-bc3a-448b-b0ff-9f21d514e177/RiskAssessment-1.ndjson",
+                "sequence": 1,
+                "count": 5,
+                "committedBytes": 1222
+            }
+        ],
+        "DocumentReference": [
+            {
+                "type": "DocumentReference",
+                "url": "http://127.0.0.1:10000/devstoreaccount1/058f7fbf-bc3a-448b-b0ff-9f21d514e177/DocumentReference-1.ndjson",
+                "sequence": 1,
+                "count": 3,
+                "committedBytes": 15052
+            }
+        ],
+        "Medication": [
+            {
+                "type": "Medication",
+                "url": "http://127.0.0.1:10000/devstoreaccount1/058f7fbf-bc3a-448b-b0ff-9f21d514e177/Medication-1.ndjson",
+                "sequence": 1,
+                "count": 2,
+                "committedBytes": 662
+            }
+        ],
+        "MedicationDispense": [
+            {
+                "type": "MedicationDispense",
+                "url": "http://127.0.0.1:10000/devstoreaccount1/058f7fbf-bc3a-448b-b0ff-9f21d514e177/MedicationDispense-1.ndjson",
+                "sequence": 1,
+                "count": 3,
+                "committedBytes": 1854
+            }
+        ],
+        "Location": [
+            {
+                "type": "Location",
+                "url": "http://127.0.0.1:10000/devstoreaccount1/058f7fbf-bc3a-448b-b0ff-9f21d514e177/Location-1.ndjson",
+                "sequence": 1,
+                "count": 5,
+                "committedBytes": 2043
+            }
+        ],
+        "Group": [
+            {
+                "type": "Group",
+                "url": "http://127.0.0.1:10000/devstoreaccount1/058f7fbf-bc3a-448b-b0ff-9f21d514e177/Group-1.ndjson",
+                "sequence": 1,
+                "count": 4,
+                "committedBytes": 1231
+            }
+        ],
+        "ValueSet": [
+            {
+                "type": "ValueSet",
+                "url": "http://127.0.0.1:10000/devstoreaccount1/058f7fbf-bc3a-448b-b0ff-9f21d514e177/ValueSet-1.ndjson",
+                "sequence": 1,
+                "count": 2,
+                "committedBytes": 391
+            }
+        ],
+        "ObservationDefinition": [
+            {
+                "type": "ObservationDefinition",
+                "url": "http://127.0.0.1:10000/devstoreaccount1/058f7fbf-bc3a-448b-b0ff-9f21d514e177/ObservationDefinition-1.ndjson",
+                "sequence": 1,
+                "count": 1,
+                "committedBytes": 606
+            }
+        ],
+        "MedicinalProduct": [
+            {
+                "type": "MedicinalProduct",
+                "url": "http://127.0.0.1:10000/devstoreaccount1/058f7fbf-bc3a-448b-b0ff-9f21d514e177/MedicinalProduct-1.ndjson",
+                "sequence": 1,
+                "count": 1,
+                "committedBytes": 3727
+            }
+        ],
+        "Observation": [
+            {
+                "type": "Observation",
+                "url": "http://127.0.0.1:10000/devstoreaccount1/058f7fbf-bc3a-448b-b0ff-9f21d514e177/Observation-1.ndjson",
+                "sequence": 1,
+                "count": 16,
+                "committedBytes": 8634
+            }
+        ],
+        "NamingSystem": [
+            {
+                "type": "NamingSystem",
+                "url": "http://127.0.0.1:10000/devstoreaccount1/058f7fbf-bc3a-448b-b0ff-9f21d514e177/NamingSystem-1.ndjson",
+                "sequence": 1,
+                "count": 1,
+                "committedBytes": 366
+            }
+        ],
+        "Patient": [
+            {
+                "type": "Patient",
+                "url": "http://127.0.0.1:10000/devstoreaccount1/058f7fbf-bc3a-448b-b0ff-9f21d514e177/Patient-1.ndjson",
+                "sequence": 1,
+                "count": 4,
+                "committedBytes": 566
+            }
+        ]
+    },
+    "error": [],
+    "issues": [],
+    "progress": {
+        "query": "W3sidG9rZW4iOiIrUklEOn4rcFlHQUxZT20ySFZQZ0FBQUFBQUFBPT0jUlQ6NTkjVFJDOjU5MDAjSVNWOjIjSUVPOjY1NTUxI0ZQQzpBZ0VBQVFBU0FOSStZTTRCQUZ5QUlRREFBQ0VBd0FBWmdBRUVBQkVBRHdBPSIsInJhbmdlIjp7Im1pbiI6IiIsIm1heCI6IkZGIn19XQ==",
+        "page": 59,
+        "FilteredSearchesComplete": []
+    },
+    "storageAccountConnectionHash": "",
+    "storageAccountUri": "",
+    "maximumNumberOfResourcesPerQuery": 100,
+    "numberOfPagesPerCommit": 10,
+    "storageAccountContainerName": "058f7fbf-bc3a-448b-b0ff-9f21d514e177",
+    "rollingFileSizeInMB": 1,
+    "id": "058f7fbf-bc3a-448b-b0ff-9f21d514e177",
+    "queuedTime": "2021-01-11T19:00:10.8704397+00:00",
+    "schemaVersion": 2,
+    "status": "Completed",
+    "endTime": "2021-01-11T19:01:46.5547352+00:00"
+}
