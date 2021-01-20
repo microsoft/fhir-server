@@ -6,7 +6,9 @@
       "system": null,
       "code": "example",
       "text": null,
-      "isValidAsCompositeComponent": true
+      "isValidAsCompositeComponent": true,
+      "isMin": false,
+      "isMax": false
     }
   },
   {
@@ -17,7 +19,9 @@
       "baseUri": null,
       "resourceType": "Organization",
       "resourceId": "f001",
-      "isValidAsCompositeComponent": true
+      "isValidAsCompositeComponent": true,
+      "isMin": false,
+      "isMax": false
     }
   },
   {
@@ -28,7 +32,9 @@
       "baseUri": null,
       "resourceType": "Practitioner",
       "resourceId": "xcda1",
-      "isValidAsCompositeComponent": true
+      "isValidAsCompositeComponent": true,
+      "isMin": false,
+      "isMax": false
     }
   },
   {
@@ -38,7 +44,9 @@
       "system": "http://ihe.net/xds/connectathon/classCodes",
       "code": "History and Physical",
       "text": "History and Physical",
-      "isValidAsCompositeComponent": true
+      "isValidAsCompositeComponent": true,
+      "isMin": false,
+      "isMax": false
     }
   },
   {
@@ -48,7 +56,9 @@
       "system": null,
       "code": "application/hl7-v3+xml",
       "text": null,
-      "isValidAsCompositeComponent": true
+      "isValidAsCompositeComponent": true,
+      "isMin": false,
+      "isMax": false
     }
   },
   {
@@ -59,7 +69,9 @@
       "baseUri": null,
       "resourceType": "Organization",
       "resourceId": "f001",
-      "isValidAsCompositeComponent": true
+      "isValidAsCompositeComponent": true,
+      "isMin": false,
+      "isMax": false
     }
   },
   {
@@ -68,7 +80,9 @@
     "value": {
       "start": "2005-12-23T22:43:41+00:00",
       "end": "2005-12-23T22:43:41+00:00",
-      "isValidAsCompositeComponent": true
+      "isValidAsCompositeComponent": true,
+      "isMin": false,
+      "isMax": false
     }
   },
   {
@@ -76,7 +90,9 @@
     "type": "String",
     "value": {
       "string": "Physical",
-      "isValidAsCompositeComponent": true
+      "isValidAsCompositeComponent": true,
+      "isMin": false,
+      "isMax": false
     }
   },
   {
@@ -87,7 +103,9 @@
       "baseUri": null,
       "resourceType": "Encounter",
       "resourceId": "xcda",
-      "isValidAsCompositeComponent": true
+      "isValidAsCompositeComponent": true,
+      "isMin": false,
+      "isMax": false
     }
   },
   {
@@ -97,7 +115,9 @@
       "system": "http://ihe.net/xds/connectathon/eventCodes",
       "code": "T-D8200",
       "text": "Arm",
-      "isValidAsCompositeComponent": true
+      "isValidAsCompositeComponent": true,
+      "isMin": false,
+      "isMax": false
     }
   },
   {
@@ -107,7 +127,9 @@
       "system": "http://www.ihe.net/xds/connectathon/healthcareFacilityTypeCodes",
       "code": "Outpatient",
       "text": "Outpatient",
-      "isValidAsCompositeComponent": true
+      "isValidAsCompositeComponent": true,
+      "isMin": false,
+      "isMax": false
     }
   },
   {
@@ -117,7 +139,9 @@
       "system": "urn:oid:1.3.6.1.4.1.19376.1.2.3",
       "code": "urn:ihe:pcc:handp:2008",
       "text": "History and Physical Specification",
-      "isValidAsCompositeComponent": true
+      "isValidAsCompositeComponent": true,
+      "isMin": false,
+      "isMax": false
     }
   },
   {
@@ -127,7 +151,9 @@
       "system": "urn:ietf:rfc:3986",
       "code": "urn:oid:1.3.6.1.4.1.21367.2005.3.7",
       "text": null,
-      "isValidAsCompositeComponent": true
+      "isValidAsCompositeComponent": true,
+      "isMin": false,
+      "isMax": false
     }
   },
   {
@@ -137,7 +163,9 @@
       "system": "urn:ietf:rfc:3986",
       "code": "urn:oid:1.3.6.1.4.1.21367.2005.3.7.1234",
       "text": null,
-      "isValidAsCompositeComponent": true
+      "isValidAsCompositeComponent": true,
+      "isMin": false,
+      "isMax": false
     }
   },
   {
@@ -147,7 +175,9 @@
       "system": null,
       "code": "en-US",
       "text": null,
-      "isValidAsCompositeComponent": true
+      "isValidAsCompositeComponent": true,
+      "isMin": false,
+      "isMax": false
     }
   },
   {
@@ -158,7 +188,9 @@
       "baseUri": null,
       "resourceType": "Patient",
       "resourceId": "xcda",
-      "isValidAsCompositeComponent": true
+      "isValidAsCompositeComponent": true,
+      "isMin": false,
+      "isMax": false
     }
   },
   {
@@ -167,7 +199,9 @@
     "value": {
       "start": "2004-12-22T21:00:00+00:00",
       "end": "2004-12-22T21:01:00.9999999+00:00",
-      "isValidAsCompositeComponent": true
+      "isValidAsCompositeComponent": true,
+      "isMin": false,
+      "isMax": false
     }
   },
   {
@@ -178,7 +212,9 @@
       "baseUri": null,
       "resourceType": "Patient",
       "resourceId": "xcda",
-      "isValidAsCompositeComponent": true
+      "isValidAsCompositeComponent": true,
+      "isMin": false,
+      "isMax": false
     }
   },
   {
@@ -189,7 +225,9 @@
       "baseUri": null,
       "resourceType": "DocumentReference",
       "resourceId": "example-transforms",
-      "isValidAsCompositeComponent": true
+      "isValidAsCompositeComponent": true,
+      "isMin": false,
+      "isMax": false
     }
   },
   {
@@ -199,7 +237,9 @@
       "system": "http://hl7.org/fhir/document-relationship-type",
       "code": "transforms",
       "text": null,
-      "isValidAsCompositeComponent": true
+      "isValidAsCompositeComponent": true,
+      "isMin": false,
+      "isMax": false
     }
   },
   {
@@ -213,7 +253,9 @@
             "baseUri": null,
             "resourceType": "DocumentReference",
             "resourceId": "example-transforms",
-            "isValidAsCompositeComponent": true
+            "isValidAsCompositeComponent": true,
+            "isMin": false,
+            "isMax": false
           }
         ],
         [
@@ -221,11 +263,15 @@
             "system": "http://hl7.org/fhir/document-relationship-type",
             "code": "transforms",
             "text": null,
-            "isValidAsCompositeComponent": true
+            "isValidAsCompositeComponent": true,
+            "isMin": false,
+            "isMax": false
           }
         ]
       ],
-      "isValidAsCompositeComponent": false
+      "isValidAsCompositeComponent": false,
+      "isMin": false,
+      "isMax": false
     }
   },
   {
@@ -235,7 +281,9 @@
       "system": "http://terminology.hl7.org/CodeSystem/v3-Confidentiality",
       "code": "V",
       "text": "very restricted",
-      "isValidAsCompositeComponent": true
+      "isValidAsCompositeComponent": true,
+      "isMin": false,
+      "isMax": false
     }
   },
   {
@@ -245,7 +293,9 @@
       "system": "http://www.ihe.net/xds/connectathon/practiceSettingCodes",
       "code": "General Medicine",
       "text": "General Medicine",
-      "isValidAsCompositeComponent": true
+      "isValidAsCompositeComponent": true,
+      "isMin": false,
+      "isMax": false
     }
   },
   {
@@ -255,7 +305,9 @@
       "system": "http://hl7.org/fhir/document-reference-status",
       "code": "current",
       "text": null,
-      "isValidAsCompositeComponent": true
+      "isValidAsCompositeComponent": true,
+      "isMin": false,
+      "isMax": false
     }
   },
   {
@@ -266,7 +318,9 @@
       "baseUri": null,
       "resourceType": "Patient",
       "resourceId": "xcda",
-      "isValidAsCompositeComponent": true
+      "isValidAsCompositeComponent": true,
+      "isMin": false,
+      "isMax": false
     }
   },
   {
@@ -276,7 +330,9 @@
       "system": "http://loinc.org",
       "code": "34108-1",
       "text": "Outpatient Note",
-      "isValidAsCompositeComponent": true
+      "isValidAsCompositeComponent": true,
+      "isMin": false,
+      "isMax": false
     }
   }
 ]
