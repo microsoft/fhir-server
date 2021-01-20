@@ -6,6 +6,7 @@
 using System;
 using System.Numerics;
 using System.Threading.Tasks;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Xunit;
 
@@ -30,10 +31,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             try
             {
                 // Create two databases, one where we apply the the maximum supported version's snapshot SQL schema file
-                await _testHelper.CreateAndInitializeDatabase(snapshotDatabaseName, forceIncrementalSchemaUpgrade: false);
+                await _testHelper.CreateAndInitializeDatabase(snapshotDatabaseName, SchemaVersionConstants.Max, forceIncrementalSchemaUpgrade: false);
 
                 // And one where we apply .diff.sql files to upgrade the schema version to the maximum supported version.
-                await _testHelper.CreateAndInitializeDatabase(diffDatabaseName, forceIncrementalSchemaUpgrade: true);
+                await _testHelper.CreateAndInitializeDatabase(diffDatabaseName, SchemaVersionConstants.Max, forceIncrementalSchemaUpgrade: true);
 
                 bool isEqual = _testHelper.CompareDatabaseSchemas(snapshotDatabaseName, diffDatabaseName);
                 Assert.True(isEqual);
