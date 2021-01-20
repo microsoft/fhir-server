@@ -3,9 +3,9 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
@@ -33,7 +33,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         /// </summary>
         /// <param name="databaseName1">The name of the first database to compare.</param>
         /// <param name="databaseName2">The name of the second database to compare.</param>
+        /// <param name="log">Logger for changes</param>
         /// <returns>True if the schemas are equal, false otherwise.</returns>
-        bool CompareDatabaseSchemas(string databaseName1, string databaseName2);
+        bool CompareDatabaseSchemas(string databaseName1, string databaseName2, Action<string> log);
     }
 }

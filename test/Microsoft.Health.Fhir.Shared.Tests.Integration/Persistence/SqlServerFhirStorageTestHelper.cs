@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -110,7 +111,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             }
         }
 
-        public bool CompareDatabaseSchemas(string databaseName1, string databaseName2)
+        public bool CompareDatabaseSchemas(string databaseName1, string databaseName2, Action<string> log)
         {
             var testConnectionString1 = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = databaseName1 }.ToString();
             var testConnectionString2 = new SqlConnectionStringBuilder(_initialConnectionString) { InitialCatalog = databaseName2 }.ToString();
@@ -126,9 +127,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // Exclude them from the schema comparison differences.
             (string type, string name)[] deprecatedObjectToIgnore =
             {
+                ("Table", "[dbo].[UriSearchParam]"), // IX_UriSearchParam_SearchParamId_Uri
                 ("Procedure", "[dbo].[UpsertResource]"),
+                ("Procedure", "[dbo].[UpsertResource_2]"),
                 ("TableType", "[dbo].[ReferenceSearchParamTableType_1]"),
                 ("TableType", "[dbo].[ReferenceTokenCompositeSearchParamTableType_1]"),
+                ("TableType", "[dbo].[UriSearchParamTableType_1]"),
             };
 
             var remainingDifferences = result.Differences.Where(
@@ -137,6 +141,17 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                         (d.SourceObject?.ObjectType.Name == i.type && d.SourceObject?.Name?.ToString() == i.name) ||
                         (d.TargetObject?.ObjectType.Name == i.type && d.TargetObject?.Name?.ToString() == i.name)))
                 .ToList();
+
+            foreach (SchemaDifference diff in remainingDifferences)
+            {
+                log(string.Format(
+                    CultureInfo.InvariantCulture,
+                    "Source diff: {0}({1}) | Target diff: {2}({3})",
+                    diff.SourceObject?.Name,
+                    diff.SourceObject?.ObjectType.Name,
+                    diff.TargetObject?.Name,
+                    diff.TargetObject?.ObjectType.Name));
+            }
 
             return remainingDifferences.Count == 0;
         }

@@ -10,11 +10,11 @@
     <EmbeddedResource Include="Features\Schema\Migrations\5.diff.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\5.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\6.diff.sql" />
-    <EmbeddedResource Include="Features\Schema\Migrations\6.sql">
-      <InputToImmutableSqlGenerator>true</InputToImmutableSqlGenerator>
-    </EmbeddedResource>
+    <EmbeddedResource Include="Features\Schema\Migrations\6.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\7.diff.sql" />
-    <EmbeddedResource Include="Features\Schema\Migrations\7.sql">
+    <EmbeddedResource Include="Features\Schema\Migrations\7.sql" />
+    <EmbeddedResource Include="Features\Schema\Migrations\8.diff.sql" />
+    <EmbeddedResource Include="Features\Schema\Migrations\8.sql">
       <InputToImmutableSqlGenerator>true</InputToImmutableSqlGenerator>
       <InputToMutableSqlGenerator>true</InputToMutableSqlGenerator>
     </EmbeddedResource>

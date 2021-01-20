@@ -37,6 +37,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Resources\Upsert\UpsertResourceValidator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\BundleFactory.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\AddressToStringSearchValueConverter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\CanonicalToUriSearchValueTypeConverter.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\CodeableConceptToTokenSearchValueTypeConverter.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\CodeOfTToTokenSearchValueTypeConverter.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\CodeToTokenSearchValueTypeConverter.cs" />

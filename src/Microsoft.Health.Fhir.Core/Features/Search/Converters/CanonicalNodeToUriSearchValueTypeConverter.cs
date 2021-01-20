@@ -4,24 +4,29 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using Hl7.Fhir.Model;
+using Hl7.Fhir.ElementModel;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
 {
     /// <summary>
-    /// A converter used to convert from <see cref="FhirUri"/> to a list of <see cref="UriSearchValue"/>.
+    /// A converter used to convert from <see cref="Canonical"/> to a list of <see cref="UriSearchValue"/>.
     /// </summary>
-    public class FhirUriToUriSearchValueTypeConverter : FhirElementToSearchValueTypeConverter<FhirUri, UriSearchValue>
+    public class CanonicalNodeToUriSearchValueTypeConverter : FhirNodeToSearchValueTypeConverter<UriSearchValue>
     {
-        protected override IEnumerable<UriSearchValue> ConvertTo(FhirUri value)
+        public CanonicalNodeToUriSearchValueTypeConverter()
+            : base("canonical")
+        {
+        }
+
+        protected override IEnumerable<ISearchValue> Convert(ITypedElement value)
         {
             if (value.Value == null)
             {
                 yield break;
             }
 
-            yield return new UriSearchValue(value.Value, false);
+            yield return new UriSearchValue(value.Value.ToString(), true);
         }
     }
 }

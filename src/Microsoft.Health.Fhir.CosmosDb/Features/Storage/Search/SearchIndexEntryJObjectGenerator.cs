@@ -138,6 +138,19 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
         void ISearchValueVisitor.Visit(UriSearchValue uri)
         {
             AddProperty(SearchValueConstants.UriName, uri.Uri);
+
+            if (uri.IsCanonical)
+            {
+                if (!string.IsNullOrEmpty(uri.Version))
+                {
+                    AddProperty(SearchValueConstants.UriVersionName, uri.Version);
+                }
+
+                if (!string.IsNullOrEmpty(uri.Fragment))
+                {
+                    AddProperty(SearchValueConstants.UriFragmentName, uri.Fragment);
+                }
+            }
         }
 
         private void CreateEntry()

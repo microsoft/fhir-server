@@ -8,16 +8,19 @@ using System.Numerics;
 using System.Threading.Tasks;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 {
     [FhirStorageTestsFixtureArgumentSets(DataStore.SqlServer)]
     public class SqlServerSchemaUpgradeTests : IClassFixture<FhirStorageTestsFixture>
     {
+        private readonly ITestOutputHelper _outputHelper;
         private readonly ISqlServerFhirStorageTestHelper _testHelper;
 
-        public SqlServerSchemaUpgradeTests(FhirStorageTestsFixture fixture)
+        public SqlServerSchemaUpgradeTests(FhirStorageTestsFixture fixture, ITestOutputHelper outputHelper)
         {
+            _outputHelper = outputHelper;
             _testHelper = (SqlServerFhirStorageTestHelper)fixture.TestHelper;
         }
 
@@ -35,7 +38,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 // And one where we apply .diff.sql files to upgrade the schema version to the maximum supported version.
                 await _testHelper.CreateAndInitializeDatabase(diffDatabaseName, forceIncrementalSchemaUpgrade: true);
 
-                bool isEqual = _testHelper.CompareDatabaseSchemas(snapshotDatabaseName, diffDatabaseName);
+                bool isEqual = _testHelper.CompareDatabaseSchemas(snapshotDatabaseName, diffDatabaseName, _outputHelper.WriteLine);
                 Assert.True(isEqual);
             }
             finally

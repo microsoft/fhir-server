@@ -53,6 +53,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 
         public const string UriName = "u";
 
+        public const string UriVersionName = "v";
+
+        public const string UriFragmentName = "f";
+
         public const string LastModified = "lastModified";
 
         public const string SelectedFields = "r.id,r.isSystem,r.partitionKey,r.lastModified,r.rawResource,r.request,r.isDeleted,r.resourceId,r.resourceTypeName,r.isHistory,r.version,r._self,r._etag, r.searchParameterHash";

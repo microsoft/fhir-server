@@ -27,9 +27,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 
         private readonly Dictionary<SearchParamType, Func<string, ISearchValue>> _parserDictionary;
 
-        public SearchParameterExpressionParser(IReferenceSearchValueParser referenceSearchValueParser)
+        public SearchParameterExpressionParser(IReferenceSearchValueParser referenceSearchValueParser, IModelInfoProvider modelInfoProvider)
         {
             EnsureArg.IsNotNull(referenceSearchValueParser, nameof(referenceSearchValueParser));
+            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
 
             _parserDictionary = new (SearchParamType type, Func<string, ISearchValue> parser)[]
                 {
@@ -39,7 +40,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                     (SearchParamType.Reference, referenceSearchValueParser.Parse),
                     (SearchParamType.String, StringSearchValue.Parse),
                     (SearchParamType.Token, TokenSearchValue.Parse),
-                    (SearchParamType.Uri, UriSearchValue.Parse),
+                    (SearchParamType.Uri, str => UriSearchValue.Parse(str, true, modelInfoProvider)),
                 }
                 .ToDictionary(entry => entry.type, entry => CreateParserWithErrorHandling(entry.parser));
         }

@@ -22,6 +22,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\FhirStringToTokenSearchValueTypeConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\AddressNodeToStringSearchValueTypeConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\BooleanNodeToBooleanSearchValueTypeConverterTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\CanonicalNodeToUriSearchValueTypeConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\CodeableConceptNodeToTokenSearchValueTypeConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\CodeOfTNodeToTokenSearchValueTypeConverterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Features\Search\Converters\NodeConverterTests\CodeNodeToTokenSearchValueTypeConverterTests.cs" />

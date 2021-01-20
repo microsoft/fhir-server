@@ -8,16 +8,16 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.TvpRowGeneration
 {
-    internal class ReferenceSearchParameterV1RowGenerator : SearchParameterRowGenerator<ReferenceSearchValue, ReferenceSearchParamTableTypeV1Row>
+    internal class ReferenceSearchParameterV1RowGenerator : SearchParameterRowGenerator<ReferenceSearchValue, ReferenceSearchParamTableTypeV2Row>
     {
         public ReferenceSearchParameterV1RowGenerator(SqlServerFhirModel model)
             : base(model)
         {
         }
 
-        internal override bool TryGenerateRow(short searchParamId, ReferenceSearchValue searchValue, out ReferenceSearchParamTableTypeV1Row row)
+        internal override bool TryGenerateRow(short searchParamId, ReferenceSearchValue searchValue, out ReferenceSearchParamTableTypeV2Row row)
         {
-            row = new ReferenceSearchParamTableTypeV1Row(
+            row = new ReferenceSearchParamTableTypeV2Row(
                 searchParamId,
                 searchValue.BaseUri?.ToString(),
                 Model.GetResourceTypeId(searchValue.ResourceType.ToString()),

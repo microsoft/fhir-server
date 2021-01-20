@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using EnsureThat;
 using Microsoft.Health.Core;
 using Microsoft.Health.Core.Extensions;
@@ -295,24 +296,60 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         {
             EnsureArg.IsNotNull(uri, nameof(uri));
 
-            switch (_modifier?.SearchModifierCode)
+            // Query should be "(FieldName.Uri == uri.ToString() and FieldName.UriVersion == null and FieldName.UriFragment == null) or
+            // (FieldName.Uri == uri.Uri and FieldName.UriVersion == uri.Version and FieldName.UriFragment == uri.Fragment)"
+
+            // This if statement handles a URI search string input by the user, that looks like a canonical
+            if (uri.IsCanonical)
             {
-                case null:
-                    _outputExpression = Expression.StringEquals(FieldName.Uri, _componentIndex, uri.Uri, false);
-                    break;
-                case SearchModifierCode.Above:
-                    _outputExpression = Expression.And(
-                        Expression.EndsWith(FieldName.Uri, _componentIndex, uri.Uri, false),
-                        Expression.NotStartsWith(FieldName.Uri, _componentIndex, KnownUriSchemes.Urn, false));
-                    break;
-                case SearchModifierCode.Below:
-                    _outputExpression = Expression.And(
-                        Expression.StartsWith(FieldName.Uri, _componentIndex, uri.Uri, false),
-                        Expression.NotStartsWith(FieldName.Uri, _componentIndex, KnownUriSchemes.Urn, false));
-                    break;
-                default:
-                    ThrowModifierNotSupported();
-                    break;
+                var canonicalSearchExpressions = new List<Expression>();
+
+                canonicalSearchExpressions.Add(GetUriExpression(uri.Uri));
+
+                if (!string.IsNullOrEmpty(uri.Version))
+                {
+                    canonicalSearchExpressions.Add(Expression.StringEquals(FieldName.UriVersion, _componentIndex, uri.Version, false));
+                }
+
+                if (!string.IsNullOrEmpty(uri.Fragment))
+                {
+                    canonicalSearchExpressions.Add(Expression.StringEquals(FieldName.UriFragment, _componentIndex, uri.Fragment, false));
+                }
+
+                // Match on provided canonical components
+                var searchComponents = Expression.And(canonicalSearchExpressions.ToArray());
+
+                // Or match on entire URI when canonical components are not separated
+                var matchFullUri = Expression.And(
+                    GetUriExpression(uri.ToString()),
+                    Expression.Missing(FieldName.UriVersion, _componentIndex),
+                    Expression.Missing(FieldName.UriFragment, _componentIndex));
+
+                _outputExpression = Expression.Or(matchFullUri, searchComponents);
+            }
+            else
+            {
+                _outputExpression = GetUriExpression(uri.Uri);
+            }
+
+            Expression GetUriExpression(string comparisonValue)
+            {
+                switch (_modifier?.SearchModifierCode)
+                {
+                    case null:
+                        return Expression.StringEquals(FieldName.Uri, _componentIndex, comparisonValue, false);
+                    case SearchModifierCode.Above:
+                        return Expression.And(
+                            Expression.EndsWith(FieldName.Uri, _componentIndex, comparisonValue, false),
+                            Expression.NotStartsWith(FieldName.Uri, _componentIndex, KnownUriSchemes.Urn, false));
+                    case SearchModifierCode.Below:
+                        return Expression.And(
+                            Expression.StartsWith(FieldName.Uri, _componentIndex, comparisonValue, false),
+                            Expression.NotStartsWith(FieldName.Uri, _componentIndex, KnownUriSchemes.Urn, false));
+                    default:
+                        ThrowModifierNotSupported();
+                        return null;
+                }
             }
         }
 
