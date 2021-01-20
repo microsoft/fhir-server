@@ -43,14 +43,14 @@ For more details on Bulk Export, see the [Azure API for FHIR Export Data page](h
 In addition to the query parameters specified in the Azure API For FHIR documentation, users can also use the \_format in FHIR Server. \_format allows a user to select a format for the file structure that the export job creates. Different formats can be defined in the appSettings by combining constants, folder level breaks ('/'), and known tags. The tags will be replaced with data when the job is run. The three supported tags are: 
 * **resourcename**: replaces with the resource type being exported
 * **timestamp**: replaces with a timestamp of the job's queried time
-* **id**: replaces with the GUID of the export job)
+* **id**: replaces with the GUID of the export job
 
 To use the format, you will need to set the following settings in the appSettings:
 
 | appSetting | Description | Example Value|
 |------------|-------------|--------------|
-| FhirServer:Operations:Export:Formats:0:Name | Name of the format you plan to call | TestFormat |
-| FhirServer:Operations:Export:Formats:0:Format | Defines the format | test/\<resourcename>/\<id>/\<timestamp> |
+| FhirServer:Operations:Export:Formats:#:Name | Name of the format you plan to call. The # should be replaced as you can specify multiple formats. We provide default values for 0 and 1 so recommend starting with 2 | TestFormat |
+| FhirServer:Operations:Export:Formats:#:Format | Defines the format. The # should match the one used above. | test/\<resourcename>/\<id>/\<timestamp> |
 
 In the table above, you would use format in the following way `GET https://<<FHIR service base URL>>/$export?_format=TestFormat>>`. The result would be an export saved in a folder structure **test/\<resourcename>/\<id>** and the file name would be **\<timestamp>.ndjson**.
 
