@@ -49,7 +49,7 @@ To use the format, you will need to set the following settings in the appSetting
 
 | appSetting | Description | Example Value|
 |------------|-------------|--------------|
-| FhirServer:Operations:Export:Formats:#:Name | Name of the format you plan to call. The # should be replaced as you can specify multiple formats. We provide default values for 0 and 1 so recommend starting with 2 | TestFormat |
+| FhirServer:Operations:Export:Formats:#:Name | Name of the format you plan to call. The # should be replaced as you can specify multiple formats. We provide default values for 0 and 1 (for when a container is specified and when a container is not specified) so recommend starting with 2 | TestFormat |
 | FhirServer:Operations:Export:Formats:#:Format | Defines the format. The # should match the one used above. | test/\<resourcename>/\<id>/\<timestamp> |
 
 In the table above, you would use format in the following way `GET https://<<FHIR service base URL>>/$export?_format=TestFormat>>`. The result would be an export saved in a folder structure **test/\<resourcename>/\<id>** and the file name would be **\<timestamp>.ndjson**.
