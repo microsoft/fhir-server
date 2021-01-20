@@ -426,17 +426,17 @@ ON dbo.UriSearchParam
     SearchParamId
 )
 
-CREATE NONCLUSTERED INDEX IX_UriSearchParam_SearchParamId_UriVersionFragment
+CREATE NONCLUSTERED INDEX IX_UriSearchParam_SearchParamId_Uri
 ON dbo.UriSearchParam
 (
     SearchParamId,
-    Uri,
-    Version,
-    Fragment
+    Uri
 )
 INCLUDE
 (
-    ResourceTypeId
+    ResourceTypeId,
+    Version,
+    Fragment
 )
 WHERE IsHistory = 0
 WITH (DATA_COMPRESSION = PAGE)

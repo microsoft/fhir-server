@@ -43,25 +43,5 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     throw new NotSupportedException();
             }
         }
-
-        public override SearchParameterQueryGeneratorContext VisitBinary(BinaryExpression expression, SearchParameterQueryGeneratorContext context)
-        {
-            if (expression.BinaryOperator != BinaryOperator.Equal)
-            {
-                throw new NotSupportedException();
-            }
-
-            switch (expression.FieldName)
-            {
-                case FieldName.Uri:
-                    return VisitSimpleBinary(BinaryOperator.Equal, context, VLatest.UriSearchParam.Uri, null, expression.Value);
-                case FieldName.UriFragment:
-                    return VisitSimpleBinary(BinaryOperator.Equal, context, VLatest.UriSearchParam.Fragment, null, expression.Value);
-                case FieldName.UriVersion:
-                    return VisitSimpleBinary(BinaryOperator.Equal, context, VLatest.UriSearchParam.Version, null, expression.Value);
-                default:
-                    throw new NotSupportedException();
-            }
-        }
     }
 }

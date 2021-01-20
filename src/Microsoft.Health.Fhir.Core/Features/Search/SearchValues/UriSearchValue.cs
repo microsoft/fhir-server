@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         private const string FragmentGroupName = "fragment";
         private const string VersionGroupName = "version";
 
-        private static readonly Regex _canonicalFormat = new Regex($"^(?<{UrlGroupName}>http(s)?:\\/\\/[\\w.-]+[\\w\\-\\._~:/?[\\]@!\\$&'\\(\\)\\*\\+,;=.]+)(?<{VersionGroupName}>\\|[\\w\\-\\._:]+)?(?<{FragmentGroupName}>\\#[\\w\\-\\._:]+)?$", RegexOptions.Compiled);
+        private static readonly Regex _canonicalFormat = new Regex($"^(?<{UrlGroupName}>[\\w]+:[\\w\\-\\._~:/?[\\]@!\\$&'\\(\\)\\*\\+,;=.]+)(?<{VersionGroupName}>\\|[\\w\\-\\._:]+)?(?<{FragmentGroupName}>\\#[\\w\\-\\._:]+)?$", RegexOptions.Compiled);
 
         /// <summary>
         /// Initializes a new instance of the <see cref="UriSearchValue"/> class.

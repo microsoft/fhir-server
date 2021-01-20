@@ -296,9 +296,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         {
             EnsureArg.IsNotNull(uri, nameof(uri));
 
-            // Query should be "(FieldName.Uri == uri.ToString() and FieldName.UriVersion == null and FieldName.UriFragment == null) or
-            // (FieldName.Uri == uri.Uri and FieldName.UriVersion == uri.Version and FieldName.UriFragment == uri.Fragment)"
-
             // This if statement handles a URI search string input by the user, that looks like a canonical
             if (uri.IsCanonical)
             {
@@ -319,7 +316,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 // Match on provided canonical components
                 var searchComponents = Expression.And(canonicalSearchExpressions.ToArray());
 
-                // Or match on entire URI when canonical components are not separated
+                // Or match on entire URI when canonical components are not separated, this is the case when the model type is Uri or Url.
                 var matchFullUri = Expression.And(
                     GetUriExpression(uri.ToString()),
                     Expression.Missing(FieldName.UriVersion, _componentIndex),
@@ -329,6 +326,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             }
             else
             {
+                // The input did not look like a canonical, in this case only the Uri component and Column should be matched.
                 _outputExpression = GetUriExpression(uri.Uri);
             }
 

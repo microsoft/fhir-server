@@ -127,7 +127,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             // Exclude them from the schema comparison differences.
             (string type, string name)[] deprecatedObjectToIgnore =
             {
-                ("Table", "[dbo].[UriSearchParam]"), // IX_UriSearchParam_SearchParamId_Uri
                 ("Procedure", "[dbo].[UpsertResource]"),
                 ("Procedure", "[dbo].[UpsertResource_2]"),
                 ("TableType", "[dbo].[ReferenceSearchParamTableType_1]"),
