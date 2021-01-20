@@ -232,14 +232,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
         }
 
-        [Fact]
+        [SkippableFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAUserWithConvertDataPermissions_WhenConvertData_TheServerShouldReturnSuccess()
         {
-            if (!_convertDataEnabled)
-            {
-                return;
-            }
+            Skip.IfNot(_convertDataEnabled);
 
             TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ConvertDataUser, TestApplications.NativeClient);
             var parameters = Samples.GetDefaultConvertDataParameter().ToPoco<Parameters>();
