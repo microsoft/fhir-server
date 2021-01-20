@@ -125,7 +125,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                         _reindexJobRecord.Error.Add(new OperationOutcomeIssue(
                             OperationOutcomeConstants.IssueSeverity.Information,
                             OperationOutcomeConstants.IssueType.Informational,
-                            Resources.NoResourcesNeedbeReindexed));
+                            Resources.NoResourcesNeedToBeReindexed));
                         _reindexJobRecord.CanceledTime = DateTimeOffset.UtcNow;
                         await CompleteJobAsync(OperationStatus.Canceled, cancellationToken);
                         return;

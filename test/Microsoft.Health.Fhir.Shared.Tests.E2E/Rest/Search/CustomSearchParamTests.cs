@@ -49,7 +49,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             {
                 searchParamPosted = await Client.CreateAsync(searchParam);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 // if the SearchParameter exists, we should delete it and recreate it
                 var searchParamBundle = await Client.SearchAsync(ResourceType.SearchParameter, $"url={searchParam.Url}");
@@ -60,7 +60,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                 }
                 else
                 {
-                    throw ex;
+                    throw;
                 }
             }
 

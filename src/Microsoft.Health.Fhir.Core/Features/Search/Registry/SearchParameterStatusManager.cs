@@ -120,7 +120,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             await _mediator.Publish(new SearchParametersUpdated(updated));
         }
 
-        public async Task AddSearchParameterStatusAsync(IReadOnlyCollection<string> searchParamUris)
+        internal async Task AddSearchParameterStatusAsync(IReadOnlyCollection<string> searchParamUris)
         {
             // new search parameters are added as supported, until reindexing occurs, when
             // they will be fully enabled

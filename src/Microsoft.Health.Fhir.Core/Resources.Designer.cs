@@ -622,9 +622,9 @@ namespace Microsoft.Health.Fhir.Core {
         /// <summary>
         ///   Looks up a localized string similar to No resources were found matching the type of the updated search parameters needing to be reindexed.  ReindexJob cancelled..
         /// </summary>
-        internal static string NoResourcesNeedbeReindexed {
+        internal static string NoResourcesNeedToBeReindexed {
             get {
-                return ResourceManager.GetString("NoResourcesNeedbeReindexed", resourceCulture);
+                return ResourceManager.GetString("NoResourcesNeedToBeReindexed", resourceCulture);
             }
         }
         
