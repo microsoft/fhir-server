@@ -65,10 +65,10 @@ namespace Microsoft.Health.Fhir.Azure.ContainerRegistry
             {
                 aadToken = await _aadTokenProvider.GetAccessTokenForResourceAsync(aadResourceUri, cancellationToken);
             }
-            catch (Exception ex)
+            catch (AccessTokenProviderException ex)
             {
                 _logger.LogError(ex, "Failed to get AAD access token from managed identity.");
-                throw new AzureContainerRegistryTokenException(Resources.CannotGetAcrAccessToken, HttpStatusCode.Unauthorized);
+                throw new AzureContainerRegistryTokenException(Resources.CannotGetAcrAccessToken, HttpStatusCode.Unauthorized, ex);
             }
 
             try
