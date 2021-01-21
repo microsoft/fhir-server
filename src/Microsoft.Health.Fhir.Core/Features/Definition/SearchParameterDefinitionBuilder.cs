@@ -17,7 +17,6 @@ using Hl7.Fhir.Utility;
 using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Core.Data;
 using Microsoft.Health.Fhir.Core.Exceptions;
-using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -94,7 +93,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             var data = reader.ReadToEnd();
             var rawResource = new RawResource(data, FhirResourceFormat.Json, true);
 
-            return new BundleWrapper(rawResource.ToITypedElement(modelInfoProvider));
+            return new BundleWrapper(modelInfoProvider.ToTypedElement(rawResource));
         }
 
         private static List<(string ResourceType, SearchParameterInfo SearchParameter)> ValidateAndGetFlattenedList(
