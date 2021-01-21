@@ -74,6 +74,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 var searchParam = _modelInfoProvider.ToTypedElement(searchParamResource);
                 var searchParameterWrapper = new SearchParameterWrapper(searchParam);
 
+                // First we delete the status metadata from the data store as this fuction depends on the
+                // the in memory definition manager.  Once complete we remove the SearchParameter from
+                // the definition manager.
                 await _searchParameterStatusManager.DeleteSearchParameterStatusAsync(searchParameterWrapper.Url);
                 _searchParameterDefinitionManager.DeleteSearchParameter(searchParam);
             }
