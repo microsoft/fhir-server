@@ -6,14 +6,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using MediatR;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Abstractions.Features.Transactions;
 using Microsoft.Health.Core.Internal;
 using Microsoft.Health.Fhir.Core;
@@ -21,26 +18,13 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Resources;
-using Microsoft.Health.Fhir.Core.Features.Resources.Create;
-using Microsoft.Health.Fhir.Core.Features.Resources.Delete;
-using Microsoft.Health.Fhir.Core.Features.Resources.Get;
-using Microsoft.Health.Fhir.Core.Features.Resources.Upsert;
 using Microsoft.Health.Fhir.Core.Features.Search;
-using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
-using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
-using Microsoft.Health.Fhir.Core.Messages.Create;
-using Microsoft.Health.Fhir.Core.Messages.Delete;
-using Microsoft.Health.Fhir.Core.Messages.Get;
-using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
-using Microsoft.Health.Fhir.Tests.Common.Mocks;
 using Microsoft.Health.Test.Utilities;
-using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
 
@@ -53,65 +37,21 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
     public partial class FhirStorageTests : IClassFixture<FhirStorageTestsFixture>
     {
         private readonly FhirStorageTestsFixture _fixture;
-        private readonly CapabilityStatement _conformance;
-        private readonly ISearchService _searchService;
+        private readonly CapabilityStatement _capabilityStatement;
         private readonly ResourceDeserializer _deserializer;
-        private readonly FhirJsonParser _fhirJsonParser = new FhirJsonParser();
+        private readonly FhirJsonParser _fhirJsonParser;
         private readonly IFhirDataStore _dataStore;
-        private readonly ISearchParameterUtilities _searchParameterUtilities;
+        private ConformanceProviderBase _conformanceProvider;
 
         public FhirStorageTests(FhirStorageTestsFixture fixture)
         {
             _fixture = fixture;
-            _searchService = Substitute.For<ISearchService>();
+            _capabilityStatement = fixture.CapabilityStatement;
+            _deserializer = fixture.Deserializer;
             _dataStore = fixture.DataStore;
-
-            _conformance = CapabilityStatementMock.GetMockedCapabilityStatement();
-
-            CapabilityStatementMock.SetupMockResource(_conformance, ResourceType.Observation, null);
-            var observationResource = _conformance.Rest[0].Resource.Find(r => r.Type == ResourceType.Observation);
-            observationResource.UpdateCreate = true;
-            observationResource.Versioning = CapabilityStatement.ResourceVersionPolicy.Versioned;
-
-            CapabilityStatementMock.SetupMockResource(_conformance, ResourceType.Organization, null);
-            var organizationResource = _conformance.Rest[0].Resource.Find(r => r.Type == ResourceType.Organization);
-            organizationResource.UpdateCreate = true;
-            organizationResource.Versioning = CapabilityStatement.ResourceVersionPolicy.NoVersion;
-
-            var provider = Substitute.For<ConformanceProviderBase>();
-            provider.GetCapabilityStatementAsync().Returns(_conformance.ToTypedElement().ToResourceElement());
-
-            // TODO: FhirRepository instantiate ResourceDeserializer class directly
-            // which will try to deserialize the raw resource. We should mock it as well.
-            var rawResourceFactory = Substitute.For<RawResourceFactory>(new FhirJsonSerializer());
-
-            var resourceWrapperFactory = Substitute.For<IResourceWrapperFactory>();
-            resourceWrapperFactory
-                .Create(Arg.Any<ResourceElement>(), Arg.Any<bool>(), Arg.Any<bool>())
-                .Returns(x =>
-                {
-                    ResourceElement resource = x.ArgAt<ResourceElement>(0);
-
-                    return new ResourceWrapper(resource, rawResourceFactory.Create(resource, keepMeta: true), new ResourceRequest(HttpMethod.Post, "http://fhir"), x.ArgAt<bool>(1), null, null, null);
-                });
-
-            var collection = new ServiceCollection();
-
-            var resourceIdProvider = new ResourceIdProvider();
-
-            _searchParameterUtilities = Substitute.For<ISearchParameterUtilities>();
-
-            collection.AddSingleton(typeof(IRequestHandler<CreateResourceRequest, UpsertResourceResponse>), new CreateResourceHandler(_dataStore, new Lazy<IConformanceProvider>(() => provider), resourceWrapperFactory, resourceIdProvider, new ResourceReferenceResolver(_searchService, new TestQueryStringParser()), DisabledFhirAuthorizationService.Instance, _searchParameterUtilities));
-            collection.AddSingleton(typeof(IRequestHandler<UpsertResourceRequest, UpsertResourceResponse>), new UpsertResourceHandler(_dataStore, new Lazy<IConformanceProvider>(() => provider), resourceWrapperFactory, resourceIdProvider, DisabledFhirAuthorizationService.Instance, ModelInfoProvider.Instance));
-            collection.AddSingleton(typeof(IRequestHandler<GetResourceRequest, GetResourceResponse>), new GetResourceHandler(_dataStore, new Lazy<IConformanceProvider>(() => provider), resourceWrapperFactory, resourceIdProvider, DisabledFhirAuthorizationService.Instance));
-            collection.AddSingleton(typeof(IRequestHandler<DeleteResourceRequest, DeleteResourceResponse>), new DeleteResourceHandler(_dataStore, new Lazy<IConformanceProvider>(() => provider), resourceWrapperFactory, resourceIdProvider, DisabledFhirAuthorizationService.Instance));
-
-            ServiceProvider services = collection.BuildServiceProvider();
-
-            Mediator = new Mediator(type => services.GetService(type));
-
-            _deserializer = new ResourceDeserializer(
-                (FhirResourceFormat.Json, new Func<string, string, DateTimeOffset, ResourceElement>((str, version, lastUpdated) => _fhirJsonParser.Parse(str).ToResourceElement())));
+            _fhirJsonParser = fixture.JsonParser;
+            _conformanceProvider = fixture.ConformanceProvider;
+            Mediator = fixture.Mediator;
         }
 
         protected Mediator Mediator { get; }
@@ -236,8 +176,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [InlineData("InvalidVersion")]
         public async Task GivenANonexistentResource_WhenUpsertingWithCreateEnabledAndIntegerETagHeader_TheServerShouldReturnResourceNotFoundResponse(string versionId)
         {
-            SetAllowCreate(true);
-
             await Assert.ThrowsAsync<ResourceNotFoundException>(async () =>
                 await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"), WeakETag.FromVersionId(versionId)));
         }
@@ -249,10 +187,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [InlineData("InvalidVersion")]
         public async Task GivenANonexistentResource_WhenUpsertingWithCreateDisabledAndIntegerETagHeader_TheServerShouldReturnResourceNotFoundResponse(string versionId)
         {
-            SetAllowCreate(false);
-
-            await Assert.ThrowsAsync<ResourceNotFoundException>(async () =>
-                await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"), WeakETag.FromVersionId(versionId)));
+            await SetAllowCreateForOperation(
+                false,
+                async () =>
+                {
+                    await Assert.ThrowsAsync<ResourceNotFoundException>(async () =>
+                        await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"), WeakETag.FromVersionId(versionId)));
+                });
         }
 
         [Fact]
@@ -282,27 +223,29 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         [Fact]
         public async Task GivenANonexistentResource_WhenUpsertingWithCreateDisabled_ThenAMethodNotAllowedExceptionIsThrown()
         {
-            SetAllowCreate(false);
-            var ex = await Assert.ThrowsAsync<MethodNotAllowedException>(() => Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight")));
+            await SetAllowCreateForOperation(
+                false,
+                async () =>
+                {
+                    var ex = await Assert.ThrowsAsync<MethodNotAllowedException>(() => Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight")));
 
-            Assert.Equal(Resources.ResourceCreationNotAllowed, ex.Message);
+                    Assert.Equal(Resources.ResourceCreationNotAllowed, ex.Message);
+                });
         }
 
         [Fact]
         [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenANonexistentResourceAndCosmosDb_WhenUpsertingWithCreateDisabledAndInvalidETagHeader_ThenAResourceNotFoundIsThrown()
         {
-            SetAllowCreate(false);
-
-            await Assert.ThrowsAsync<ResourceNotFoundException>(() => Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"), WeakETag.FromVersionId("invalidVersion")));
+            await SetAllowCreateForOperation(
+                false,
+                async () => await Assert.ThrowsAsync<ResourceNotFoundException>(() => Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"), WeakETag.FromVersionId("invalidVersion"))));
         }
 
         [Fact]
         [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
         public async Task GivenANonexistentResourceAndCosmosDb_WhenUpsertingWithCreateEnabledAndInvalidETagHeader_ThenResourceNotFoundIsThrown()
         {
-            SetAllowCreate(true);
-
             await Assert.ThrowsAsync<ResourceNotFoundException>(() => Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"), WeakETag.FromVersionId("invalidVersion")));
         }
 
@@ -747,11 +690,23 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await Assert.ThrowsAsync<TException>(action);
         }
 
-        private void SetAllowCreate(bool allowCreate)
+        private async Task SetAllowCreateForOperation(bool allowCreate, Func<Task> operation)
         {
-            var observation = _conformance.Rest[0].Resource.Find(r => r.Type == ResourceType.Observation);
+            var observation = _capabilityStatement.Rest[0].Resource.Find(r => r.Type == ResourceType.Observation);
+            var originalValue = observation.UpdateCreate;
             observation.UpdateCreate = allowCreate;
             observation.Versioning = CapabilityStatement.ResourceVersionPolicy.Versioned;
+            _conformanceProvider.ClearCache();
+
+            try
+            {
+                await operation();
+            }
+            finally
+            {
+                observation.UpdateCreate = originalValue;
+                _conformanceProvider.ClearCache();
+            }
         }
     }
 }

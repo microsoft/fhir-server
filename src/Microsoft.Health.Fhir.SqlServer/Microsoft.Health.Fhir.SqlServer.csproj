@@ -12,11 +12,14 @@
     <EmbeddedResource Include="Features\Schema\Migrations\6.diff.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\6.sql">
       <InputToImmutableSqlGenerator>true</InputToImmutableSqlGenerator>
+      <InputToMutableSqlGenerator>true</InputToMutableSqlGenerator>
+      <MutableClassVersion>6</MutableClassVersion>
     </EmbeddedResource>
     <EmbeddedResource Include="Features\Schema\Migrations\7.diff.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\7.sql">
       <InputToImmutableSqlGenerator>true</InputToImmutableSqlGenerator>
       <InputToMutableSqlGenerator>true</InputToMutableSqlGenerator>
+      <MutableClassVersion>Latest</MutableClassVersion>
     </EmbeddedResource>
 
   </ItemGroup>
@@ -61,7 +64,7 @@
         <Namespace>Microsoft.Health.Fhir.SqlServer.Features.Schema.Model</Namespace>
         <Args>@(ImmutableSqlGeneratorInputs->'&quot;%(FullPath)&quot;', ' ')</Args>
       </Generated>
-      <Generated Include="Features\Schema\Model\VLatest.Generated.cs">
+      <Generated Include="Features\Schema\Model\V%(MutableSqlGeneratorInputs.MutableClassVersion).Generated.cs">
         <Generator>MutableSqlModelGenerator</Generator>
         <Namespace>Microsoft.Health.Fhir.SqlServer.Features.Schema.Model</Namespace>
         <Args>@(MutableSqlGeneratorInputs->'&quot;%(FullPath)&quot;', ' ')</Args>
