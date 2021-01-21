@@ -20,13 +20,13 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         /// <summary>
         /// A basic smoke test verifying that the code is compatible with schema versions
         /// all the way back to <see cref="SchemaVersionConstants.Min"/>. Ensures that the code can
-        /// insert insert a resource using every schema version, and that we can read resources
+        /// insert a resource using every schema version, and that we can read resources
         /// that were inserted into with earlier schemas.
         /// </summary>
         [Fact]
-        public async Task GivenADatabaseWithAnEarlierSupportedSchema_WhenUpserting_OperationSucceeds()
+        public async Task GivenADatabaseWithAnEarlierSupportedSchemaAndUpgraded_WhenUpsertingAfter_OperationSucceeds()
         {
-            string databaseName = $"FHIRCOMPATIBILITYTEST_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
+            string databaseName = $"FHIRCOMPATIBILITYTEST_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
             var insertedElements = new List<string>();
 
             FhirStorageTestsFixture fhirStorageTestsFixture = null;
@@ -67,6 +67,42 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             finally
             {
                 await fhirStorageTestsFixture?.DisposeAsync();
+            }
+        }
+
+        /// <summary>
+        /// A basic smoke test verifying that the code is compatible with schema versions
+        /// all the way back to <see cref="SchemaVersionConstants.Min"/>.
+        /// </summary>
+        [Fact]
+        public async Task GivenADatabaseWithAnEarlierSupportedSchema_WhenUpserting_OperationSucceeds()
+        {
+            for (int i = SchemaVersionConstants.Min; i <= SchemaVersionConstants.Max; i++)
+            {
+                string databaseName = $"FHIRCOMPATIBILITYTEST_V{i}_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
+
+                var fhirStorageTestsFixture = new FhirStorageTestsFixture(new SqlServerFhirStorageTestsFixture(i, databaseName));
+                try
+                {
+                    await fhirStorageTestsFixture.InitializeAsync();
+
+                    Mediator mediator = fhirStorageTestsFixture.Mediator;
+
+                    var saveResult = await mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
+                    var deserialized = saveResult.RawResourceElement.ToResourceElement(Deserializers.ResourceDeserializer);
+                    var result = (await mediator.GetResourceAsync(new ResourceKey(deserialized.InstanceType, deserialized.Id, deserialized.VersionId))).ToResourceElement(fhirStorageTestsFixture.Deserializer);
+
+                    Assert.NotNull(result);
+                    Assert.Equal(deserialized.Id, result.Id);
+                }
+                catch (Exception e)
+                {
+                    throw new InvalidOperationException($"Failure using schema version {i}", e);
+                }
+                finally
+                {
+                    await fhirStorageTestsFixture?.DisposeAsync();
+                }
             }
         }
     }
