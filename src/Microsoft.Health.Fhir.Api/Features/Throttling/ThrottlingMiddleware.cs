@@ -26,6 +26,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
     /// </summary>
     public sealed class ThrottlingMiddleware : IDisposable
     {
+        private const double TargetSuccessPercentage = 99;
         private const int MinRetryAfterMilliseconds = 20;
         private const int MaxRetryAfterMilliseconds = 60000;
         private const double RetryAfterGrowthRate = 1.2;
@@ -78,8 +79,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
         /// <summary>
         /// Samples the success rate (i.e. requests not throttled) over a period, and adjusts the value we return as the retry after header.
         /// This is an extremely simple approach that exponentially grows or decays the value depending on whether the success rate is
-        /// less than or greater than 99%, respectively.
-        /// The value as high as necessary to keep the success rate over 99%, but we want it to decrease when the request rate backs off,
+        /// less than or greater than TargetSuccessPercentage, respectively.
+        /// The value grows to be as high as necessary to keep the success rate over 99%, but we want it to decrease when the request rate backs off,
         /// so overall latency for clients is not unnecessarily high.
         /// </summary>
         public async Task SamplingLoop()
@@ -94,22 +95,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
                 var totalCount = successCount + failureCount;
                 double successRate = totalCount == 0 ? 100.0 : successCount * 100.0 / totalCount;
 
-                if (successRate >= 99)
-                {
-                    // see if we should lower the value
-                    if (_currentRetryAfterMilliseconds > MinRetryAfterMilliseconds)
-                    {
-                        _currentRetryAfterMilliseconds = (int)(_currentRetryAfterMilliseconds / RetryAfterDecayRate);
-                    }
-                }
-                else
-                {
-                    // see if we should raise the value.
-                    if (_currentRetryAfterMilliseconds < MaxRetryAfterMilliseconds)
-                    {
-                        _currentRetryAfterMilliseconds = (int)(_currentRetryAfterMilliseconds * RetryAfterGrowthRate);
-                    }
-                }
+                // see if we should raise of lower the value
+                _currentRetryAfterMilliseconds =
+                    successRate >= TargetSuccessPercentage
+                        ? Math.Max(MinRetryAfterMilliseconds, (int)(_currentRetryAfterMilliseconds / RetryAfterDecayRate))
+                        : Math.Min(MaxRetryAfterMilliseconds, (int)(_currentRetryAfterMilliseconds * RetryAfterGrowthRate));
             }
         }
 

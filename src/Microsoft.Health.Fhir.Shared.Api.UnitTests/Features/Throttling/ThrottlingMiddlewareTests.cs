@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
@@ -22,7 +23,7 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
 {
-    public class ThrottlingMiddlewareTests
+    public class ThrottlingMiddlewareTests : IDisposable
     {
         private HttpContext _httpContext = new DefaultHttpContext();
         private ThrottlingMiddleware _middleware;
@@ -159,5 +160,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
             _provider = _collection.BuildServiceProvider();
             _httpContext.RequestServices = _provider;
         }
+
+        public void Dispose() => _middleware?.Dispose();
     }
 }
