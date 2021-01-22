@@ -130,7 +130,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                     {
                         (short searchParamId, string searchParamUri) = sqlDataReader.ReadRow(VLatest.SearchParam.SearchParamId, VLatest.SearchParam.Uri);
 
-                        _fhirModel.SetSearchParamId(searchParamUri, searchParamId);
+                        // TODO: modify SQL to only return search parameters if $action indicates CREATE not UPDATE
+                        _fhirModel.TrySetSearchParamId(searchParamUri, searchParamId);
                     }
                 }
             }
