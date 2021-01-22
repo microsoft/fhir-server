@@ -16,6 +16,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.ActionResults;
+using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Core.Configs;
 
 namespace Microsoft.Health.Fhir.Api.Features.Throttling
@@ -23,8 +24,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
     /// <summary>
     /// Middleware to limit the number of concurrent requests that an instance of the server handles simultaneously.
     /// </summary>
-    public class ThrottlingMiddleware
+    public sealed class ThrottlingMiddleware : IDisposable
     {
+        private const int MinRetryAfterMilliseconds = 20;
+        private const int MaxRetryAfterMilliseconds = 60000;
+        private const double RetryAfterGrowthRate = 1.2;
+        private const double RetryAfterDecayRate = 1.1;
+        private const int SamplePeriodMilliseconds = 500;
+
         private readonly ILogger<ThrottlingMiddleware> _logger;
         private readonly ThrottlingConfiguration _configuration;
         private readonly HashSet<(string method, string path)> _excludedEndpoints;
@@ -32,6 +39,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
 
         private int _requestsInFlight = 0;
         private RequestDelegate _next;
+        private int _currentPeriodSuccessCount;
+        private int _currentPeriodRejectedCount;
+        private int _currentRetryAfterMilliseconds = MinRetryAfterMilliseconds;
+
+        private bool _disposed;
 
         public ThrottlingMiddleware(
             RequestDelegate next,
@@ -53,6 +65,50 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
                 foreach (var excludedEndpoint in _configuration.ExcludedEndpoints)
                 {
                     _excludedEndpoints.Add((excludedEndpoint.Method, excludedEndpoint.Path));
+                }
+            }
+
+#pragma warning disable 4014 // Intentional fire and forget behavior
+            SamplingLoop();
+#pragma warning restore 4014
+        }
+
+        public void Dispose() => _disposed = true;
+
+        /// <summary>
+        /// Samples the success rate (i.e. requests not throttled) over a period, and adjusts the value we return as the retry after header.
+        /// This is an extremely simple approach that exponentially grows or decays the value depending on whether the success rate is
+        /// less than or greater than 99%, respectively.
+        /// The value as high as necessary to keep the success rate over 99%, but we want it to decrease when the request rate backs off,
+        /// so overall latency for clients is not unnecessarily high.
+        /// </summary>
+        public async Task SamplingLoop()
+        {
+            while (!_disposed)
+            {
+                await Task.Delay(SamplePeriodMilliseconds);
+
+                var successCount = Interlocked.Exchange(ref _currentPeriodSuccessCount, 0);
+                var failureCount = Interlocked.Exchange(ref _currentPeriodRejectedCount, 0);
+
+                var totalCount = successCount + failureCount;
+                double successRate = totalCount == 0 ? 100.0 : successCount * 100.0 / totalCount;
+
+                if (successRate >= 99)
+                {
+                    // see if we should lower the value
+                    if (_currentRetryAfterMilliseconds > MinRetryAfterMilliseconds)
+                    {
+                        _currentRetryAfterMilliseconds = (int)(_currentRetryAfterMilliseconds / RetryAfterDecayRate);
+                    }
+                }
+                else
+                {
+                    // see if we should raise the value.
+                    if (_currentRetryAfterMilliseconds < MaxRetryAfterMilliseconds)
+                    {
+                        _currentRetryAfterMilliseconds = (int)(_currentRetryAfterMilliseconds * RetryAfterGrowthRate);
+                    }
                 }
             }
         }
@@ -78,13 +134,18 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
                 if (Interlocked.Increment(ref _requestsInFlight) <= _configuration.ConcurrentRequestLimit)
                 {
                     // Still within the concurrent request limit, let the request through.
+                    Interlocked.Increment(ref _currentPeriodSuccessCount);
                     await _next(context);
                 }
                 else
                 {
                     // Exceeded the concurrent request limit, return 429.
+                    Interlocked.Increment(ref _currentPeriodRejectedCount);
                     context.Response.StatusCode = (int)HttpStatusCode.TooManyRequests;
                     _logger.LogWarning($"{Resources.TooManyConcurrentRequests}. Limit is {_configuration.ConcurrentRequestLimit}.");
+
+                    // note we are aligning with Cosmos DB and not returning the standard header (which is in seconds)
+                    context.Response.Headers[KnownHeaders.RetryAfterMilliseconds] = _currentRetryAfterMilliseconds.ToString();
 
                     // Output an OperationOutcome in the body.
                     var result = TooManyRequestsActionResult.TooManyRequests;
