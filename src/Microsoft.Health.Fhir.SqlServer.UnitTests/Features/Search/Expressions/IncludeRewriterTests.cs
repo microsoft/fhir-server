@@ -1634,7 +1634,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             {
                 IModelInfoProvider modelInfoProvider = MockModelInfoProviderBuilder
                     .Create(FhirSpecification.R4)
-                    .AddKnownTypes("Device", "DiagnosticReport", "MedicationRequest", "MedicationDispense", "Location", "Practitioner", "Organization")
+                    .AddKnownTypes("Device", "DiagnosticReport", "MedicationRequest", "MedicationDispense", "Location", "Practitioner", "Organization", "Bundle")
                     .Build();
 
                 SearchParameterDefinitionManager = new SearchParameterDefinitionManager(modelInfoProvider);
