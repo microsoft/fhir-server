@@ -1158,7 +1158,7 @@ GO
 
 --
 -- STORED PROCEDURE
---     UpsertResource_2
+--     UpsertResource_3
 --
 -- DESCRIPTION
 --     Creates or updates (including marking deleted) a FHIR resource
@@ -1169,7 +1169,7 @@ GO
 --         * This value should be the current UTC datetime, truncated to millisecond precision, with its 100ns ticks component bitshifted left by 3.
 --     @resourceTypeId
 --         * The ID of the resource type (See ResourceType table)
---     @resourceid
+--     @resourceId
 --         * The resource ID (must be the same as the in the resource itself)
 --     @allowCreate
 --         * If false, an error is thrown if the resource does not already exist
@@ -1181,6 +1181,8 @@ GO
 --         * Whether the existing version of the resource should be preserved
 --     @requestMethod
 --         * The HTTP method/verb used for the request
+--     @searchParamHash
+--          * A hash of the resource's latest indexed search parameters
 --     @rawResource
 --         * A compressed UTF16-encoded JSON document
 --     @resourceWriteClaims
@@ -1219,7 +1221,7 @@ GO
 -- RETURN VALUE
 --         The version of the resource as a result set. Will be empty if no insertion was done.
 --
-CREATE PROCEDURE dbo.UpsertResource_2
+CREATE PROCEDURE dbo.UpsertResource_3
     @baseResourceSurrogateId bigint,
     @resourceTypeId smallint,
     @resourceId varchar(64),
@@ -1228,6 +1230,7 @@ CREATE PROCEDURE dbo.UpsertResource_2
     @isDeleted bit,
     @keepHistory bit,
     @requestMethod varchar(10),
+    @searchParamHash varchar(64),
     @rawResource varbinary(max),
     @resourceWriteClaims dbo.ResourceWriteClaimTableType_1 READONLY,
     @compartmentAssignments dbo.CompartmentAssignmentTableType_1 READONLY,
@@ -1433,9 +1436,9 @@ AS
     IF (@version = 1) BEGIN SET @isRawResourceMetaSet = 1 END ELSE BEGIN SET @isRawResourceMetaSet = 0 END
 
     INSERT INTO dbo.Resource
-        (ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet)
+        (ResourceTypeId, ResourceId, Version, IsHistory, ResourceSurrogateId, IsDeleted, RequestMethod, RawResource, IsRawResourceMetaSet, SearchParamHash)
     VALUES
-        (@resourceTypeId, @resourceId, @version, 0, @resourceSurrogateId, @isDeleted, @requestMethod, @rawResource, @isRawResourceMetaSet)
+        (@resourceTypeId, @resourceId, @version, 0, @resourceSurrogateId, @isDeleted, @requestMethod, @rawResource, @isRawResourceMetaSet, @searchParamHash)
 
     INSERT INTO dbo.ResourceWriteClaim
         (ResourceSurrogateId, ClaimTypeId, ClaimValue)
@@ -1547,12 +1550,12 @@ AS
     SET NOCOUNT ON
 
     IF (@version IS NULL) BEGIN
-        SELECT ResourceSurrogateId, Version, IsDeleted, IsHistory, RawResource, IsRawResourceMetaSet
+        SELECT ResourceSurrogateId, Version, IsDeleted, IsHistory, RawResource, IsRawResourceMetaSet, SearchParamHash
         FROM dbo.Resource
         WHERE ResourceTypeId = @resourceTypeId AND ResourceId = @resourceId AND IsHistory = 0
     END
     ELSE BEGIN
-        SELECT ResourceSurrogateId, Version, IsDeleted, IsHistory, RawResource, IsRawResourceMetaSet
+        SELECT ResourceSurrogateId, Version, IsDeleted, IsHistory, RawResource, IsRawResourceMetaSet, SearchParamHash
         FROM dbo.Resource
         WHERE ResourceTypeId = @resourceTypeId AND ResourceId = @resourceId AND Version = @version
     END
@@ -1637,19 +1640,6 @@ AS
     WHERE ResourceSurrogateId IN (SELECT ResourceSurrogateId FROM @resourceSurrogateIds)
 
     COMMIT TRANSACTION
-GO
-
--- TODO: comment
-CREATE PROCEDURE dbo.UpdateResourceHash
-    @resourceId varchar(64),
-    @searchParameterHash varchar(64)
-AS
-    SET NOCOUNT ON
-
-    UPDATE dbo.Resource
-    SET SearchParamHash = @searchParameterHash
-    WHERE ResourceId = @resourceId
-
 GO
 
 /*************************************************************
@@ -1946,6 +1936,9 @@ GO
 --     @searchParams
 --         * The updated existing search parameters or the new search parameters
 --
+-- RETURN VALUE
+--     The IDs and URIs of the upserted search parameters.
+--
 CREATE PROCEDURE dbo.UpsertSearchParams
     @searchParams dbo.SearchParamTableType_1 READONLY
 AS
@@ -1968,6 +1961,11 @@ AS
         INSERT
             (Uri, Status, LastUpdated, IsPartiallySupported)
             VALUES (source.Uri, source.Status, @lastUpdated, source.IsPartiallySupported);
+
+    SELECT SearchParamId, SearchParam.Uri
+    FROM dbo.SearchParam searchParam
+    INNER JOIN @searchParams upsertedSearchParam
+    ON searchParam.Uri = upsertedSearchParam.Uri
 
     COMMIT TRANSACTION
 GO

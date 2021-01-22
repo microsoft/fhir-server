@@ -122,7 +122,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     StringBuilder.Append("CAST(0 AS bit) AS IsRawResourceMetaSet, ");
                 }
 
+                StringBuilder.Append(VLatest.Resource.SearchParamHash, resourceTableAlias).Append(", ");
                 StringBuilder.Append(VLatest.Resource.RawResource, resourceTableAlias);
+
                 if (searchParamInfo != null && searchParamInfo.Name != KnownQueryParameterNames.LastUpdated)
                 {
                     StringBuilder.Append(", ").Append(TableExpressionName(_tableExpressionCounter)).Append(".SortValue");
