@@ -15,7 +15,6 @@ using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Create;
@@ -28,7 +27,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
     {
         private readonly ResourceReferenceResolver _referenceResolver;
         private readonly Dictionary<string, (string resourceId, string resourceType)> _referenceIdDictionary;
-        private ISearchParameterUtilities _searchParameterUtitliies;
 
         public CreateResourceHandler(
             IFhirDataStore fhirDataStore,
@@ -36,16 +34,13 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
             IResourceWrapperFactory resourceWrapperFactory,
             ResourceIdProvider resourceIdProvider,
             ResourceReferenceResolver referenceResolver,
-            IFhirAuthorizationService authorizationService,
-            ISearchParameterUtilities searchParameterUtitliies)
+            IFhirAuthorizationService authorizationService)
             : base(fhirDataStore, conformanceProvider, resourceWrapperFactory, resourceIdProvider, authorizationService)
         {
             EnsureArg.IsNotNull(referenceResolver, nameof(referenceResolver));
-            EnsureArg.IsNotNull(searchParameterUtitliies, nameof(searchParameterUtitliies));
 
             _referenceResolver = referenceResolver;
             _referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
-            _searchParameterUtitliies = searchParameterUtitliies;
         }
 
         public async Task<UpsertResourceResponse> Handle(CreateResourceRequest message, CancellationToken cancellationToken)
@@ -76,16 +71,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Resources.Create
 
             resource.VersionId = result.Wrapper.Version;
 
-            var response = new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(result.Wrapper), SaveOutcomeType.Created));
-
-            if (message.Resource.InstanceType.Equals(KnownResourceTypes.SearchParameter, StringComparison.Ordinal))
-            {
-                // Once the SearchParameter resource is committed to the data store, we can update the in
-                // memory SearchParameterDefinitionManager, and persist the status to the data store
-                await _searchParameterUtitliies.AddSearchParameterAsync(message.Resource.Instance);
-            }
-
-            return response;
+            return new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(result.Wrapper), SaveOutcomeType.Created));
         }
     }
 }

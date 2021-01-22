@@ -5,10 +5,14 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
+using Hl7.Fhir.Serialization;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Models;
+using Newtonsoft.Json;
 using NSubstitute;
 
 namespace Microsoft.Health.Fhir.Tests.Common
@@ -50,6 +54,15 @@ namespace Microsoft.Health.Fhir.Tests.Common
             // IStructureDefinitionSummaryProvider allows the execution of FHIRPath queries
             provider.ToTypedElement(Arg.Any<ISourceNode>())
                 .Returns(p => p.ArgAt<ISourceNode>(0).ToTypedElement(new MockStructureDefinitionSummaryProvider(p.ArgAt<ISourceNode>(0), seenTypes)));
+
+            provider.ToTypedElement(Arg.Any<RawResource>())
+                .Returns(r =>
+                {
+                    using TextReader reader = new StringReader(r.ArgAt<RawResource>(0).Data);
+                    using JsonReader jsonReader = new JsonTextReader(reader);
+                    ISourceNode sourceNode = FhirJsonNode.Read(jsonReader);
+                    return sourceNode.ToTypedElement(new MockStructureDefinitionSummaryProvider(sourceNode, seenTypes));
+                });
 
             return new MockModelInfoProviderBuilder(provider, seenTypes);
         }

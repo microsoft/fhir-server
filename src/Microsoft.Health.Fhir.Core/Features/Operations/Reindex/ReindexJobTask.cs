@@ -120,6 +120,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                     await CalculateTotalCount(cancellationToken);
 
+                    if (_reindexJobRecord.Count == 0)
+                    {
+                        _reindexJobRecord.Error.Add(new OperationOutcomeIssue(
+                            OperationOutcomeConstants.IssueSeverity.Information,
+                            OperationOutcomeConstants.IssueType.Informational,
+                            Resources.NoResourcesNeedToBeReindexed));
+                        _reindexJobRecord.CanceledTime = DateTimeOffset.UtcNow;
+                        await CompleteJobAsync(OperationStatus.Canceled, cancellationToken);
+                        return;
+                    }
+
                     // Generate separate queries for each resource type and add them to query list.
                     foreach (string resourceType in _reindexJobRecord.Resources)
                     {
@@ -280,7 +291,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     results = await ExecuteReindexQueryAsync(query, countOnly: false, cancellationToken);
 
                     // if continuation token then update next query
-                    if (!string.IsNullOrEmpty(results.ContinuationToken))
+                    if (!string.IsNullOrEmpty(results?.ContinuationToken))
                     {
                         var encodedContinuationToken = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(results.ContinuationToken));
                         var nextQuery = new ReindexJobQueryStatus(query.ResourceType, encodedContinuationToken)
