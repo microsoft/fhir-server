@@ -128,10 +128,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                 {
                     while (await sqlDataReader.ReadAsync())
                     {
+                        // The upsert procedure returns the search parameters that were new.
                         (short searchParamId, string searchParamUri) = sqlDataReader.ReadRow(VLatest.SearchParam.SearchParamId, VLatest.SearchParam.Uri);
 
-                        // TODO: modify SQL to only return search parameters if $action indicates CREATE not UPDATE
-                        _fhirModel.TrySetSearchParamId(searchParamUri, searchParamId);
+                        // Add the new search parameters to the FHIR model dictionary.
+                        _fhirModel.SetSearchParamId(searchParamUri, searchParamId);
                     }
                 }
             }
