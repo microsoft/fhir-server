@@ -79,7 +79,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                 }
             }
 
-            if (context.HttpContext.Request.Headers.TryGetValue(KnownFhirHeaders.PartiallyIndexedParamsHeaderName, out var headerValues))
+            if (context.HttpContext.Request.Headers.TryGetValue(KnownHeaders.PartiallyIndexedParamsHeaderName, out var headerValues))
             {
                 fhirRequestContext.IncludePartiallyIndexedSearchParams = true;
             }

@@ -292,7 +292,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             AddHeaderIfNeeded(HeaderNames.IfMatch, entry.Request.IfMatch, httpContext);
             AddHeaderIfNeeded(HeaderNames.IfModifiedSince, entry.Request.IfModifiedSince?.ToString(), httpContext);
             AddHeaderIfNeeded(HeaderNames.IfNoneMatch, entry.Request.IfNoneMatch, httpContext);
-            AddHeaderIfNeeded(KnownFhirHeaders.IfNoneExist, entry.Request.IfNoneExist, httpContext);
+            AddHeaderIfNeeded(KnownHeaders.IfNoneExist, entry.Request.IfNoneExist, httpContext);
 
             if (requestMethod == HTTPVerb.POST ||
                 requestMethod == HTTPVerb.PUT)

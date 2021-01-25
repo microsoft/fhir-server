@@ -5,9 +5,10 @@
 
 namespace Microsoft.Health.Fhir.Api.Features.Headers
 {
-    public static class KnownFhirHeaders
+    internal static class KnownHeaders
     {
         public const string IfNoneExist = "If-None-Exist";
         public const string PartiallyIndexedParamsHeaderName = "x-ms-use-partial-indices";
+        public const string RetryAfterMilliseconds = "x-ms-retry-after-ms";
     }
 }
