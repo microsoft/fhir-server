@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             }
         }
 
-        private class Scout : DefaultExpressionVisitor<object, bool>
+        private class Scout : DefaultSqlExpressionVisitor<object, bool>
         {
             internal Scout()
                 : base((accumulated, current) => accumulated || current)

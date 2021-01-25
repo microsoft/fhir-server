@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
 {
@@ -12,7 +11,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
     {
         Expression Parse(
             SearchParameterInfo searchParameter,
-            SearchModifierCode? modifier,
+            SearchModifier modifier,
             string value);
     }
 }

@@ -17,29 +17,29 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         [Fact]
         public void GivenExpressionWithMissingParameterExpression_WhenVisited_AllExpressionPrependedToExpressionList()
         {
-            var tableExpressions = new List<TableExpression>
+            var tableExpressions = new List<SearchParamTableExpression>
             {
-                new TableExpression(null, new MissingSearchParameterExpression(new SearchParameterInfo("TestParam"), true), null, TableExpressionKind.Normal),
+                new SearchParamTableExpression(null, new MissingSearchParameterExpression(new SearchParameterInfo("TestParam"), true), SearchParamTableExpressionKind.Normal),
             };
 
-            var inputExpression = SqlRootExpression.WithTableExpressions(tableExpressions);
+            var inputExpression = SqlRootExpression.WithSearchParamTableExpressions(tableExpressions);
             var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(MissingSearchParamVisitor.Instance);
             Assert.Collection(
-                visitedExpression.TableExpressions,
-                e => { Assert.Equal(TableExpressionKind.All, e.Kind); },
-                e => { Assert.NotNull(e.NormalizedPredicate as MissingSearchParameterExpression); });
-            Assert.Equal(tableExpressions.Count + 1, visitedExpression.TableExpressions.Count);
+                visitedExpression.SearchParamTableExpressions,
+                e => { Assert.Equal(SearchParamTableExpressionKind.All, e.Kind); },
+                e => { Assert.NotNull(e.Predicate as MissingSearchParameterExpression); });
+            Assert.Equal(tableExpressions.Count + 1, visitedExpression.SearchParamTableExpressions.Count);
         }
 
         [Fact]
         public void GivenExpressionWithNoMissingParameterExpression_WhenVisited_OriginalExpressionReturned()
         {
-            var tableExpressions = new List<TableExpression>
+            var tableExpressions = new List<SearchParamTableExpression>
             {
-                new TableExpression(null, null, null, TableExpressionKind.Normal),
+                new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Normal),
             };
 
-            var inputExpression = SqlRootExpression.WithTableExpressions(tableExpressions);
+            var inputExpression = SqlRootExpression.WithSearchParamTableExpressions(tableExpressions);
             var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(MissingSearchParamVisitor.Instance);
             Assert.Equal(inputExpression, visitedExpression);
         }
@@ -47,13 +47,13 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         [Fact]
         public void GivenExpressionWithMissingParameterExpressionFalseLast_WhenVisited_OriginalExpressionReturned()
         {
-            var tableExpressions = new List<TableExpression>
+            var tableExpressions = new List<SearchParamTableExpression>
             {
-                new TableExpression(null, null, null, TableExpressionKind.Normal),
-                new TableExpression(null, new MissingSearchParameterExpression(new SearchParameterInfo("TestParam"), false), null, TableExpressionKind.Normal),
+                new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Normal),
+                new SearchParamTableExpression(null, new MissingSearchParameterExpression(new SearchParameterInfo("TestParam"), false), SearchParamTableExpressionKind.Normal),
             };
 
-            var inputExpression = SqlRootExpression.WithTableExpressions(tableExpressions);
+            var inputExpression = SqlRootExpression.WithSearchParamTableExpressions(tableExpressions);
             var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(MissingSearchParamVisitor.Instance);
             Assert.Equal(inputExpression, visitedExpression);
         }
@@ -61,18 +61,18 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         [Fact]
         public void GivenExpressionWithMissingParameterExpressionLast_WhenVisited_MissingParameterExpressionNegated()
         {
-            var tableExpressions = new List<TableExpression>
+            var tableExpressions = new List<SearchParamTableExpression>
             {
-                new TableExpression(null, null, null, TableExpressionKind.Normal),
-                new TableExpression(null, new MissingSearchParameterExpression(new SearchParameterInfo("TestParam"), true), null, TableExpressionKind.Normal),
+                new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Normal),
+                new SearchParamTableExpression(null, new MissingSearchParameterExpression(new SearchParameterInfo("TestParam"), true), SearchParamTableExpressionKind.Normal),
             };
 
-            var inputExpression = SqlRootExpression.WithTableExpressions(tableExpressions);
+            var inputExpression = SqlRootExpression.WithSearchParamTableExpressions(tableExpressions);
             var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(MissingSearchParamVisitor.Instance);
             Assert.Collection(
-                visitedExpression.TableExpressions,
+                visitedExpression.SearchParamTableExpressions,
                 e => { Assert.Equal(tableExpressions[0], e); },
-                e => { Assert.Equal(TableExpressionKind.NotExists, e.Kind); });
+                e => { Assert.Equal(SearchParamTableExpressionKind.NotExists, e.Kind); });
         }
     }
 }

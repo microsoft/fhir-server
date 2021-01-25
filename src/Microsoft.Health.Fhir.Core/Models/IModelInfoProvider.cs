@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Specification;
 using Hl7.FhirPath;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 
 namespace Microsoft.Health.Fhir.Core.Models
 {
@@ -34,5 +35,7 @@ namespace Microsoft.Health.Fhir.Core.Models
         EvaluationContext GetEvaluationContext(Func<string, ITypedElement> elementResolver = null);
 
         ITypedElement ToTypedElement(ISourceNode sourceNode);
+
+        ITypedElement ToTypedElement(RawResource rawResource);
     }
 }

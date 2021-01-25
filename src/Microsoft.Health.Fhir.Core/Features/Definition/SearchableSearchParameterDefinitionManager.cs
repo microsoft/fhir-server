@@ -116,5 +116,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         {
             _inner.UpdateSearchParameterHashMap(updatedSearchParamHashMap);
         }
+
+        public void DeleteSearchParameter(ITypedElement searchParam)
+        {
+            _inner.DeleteSearchParameter(searchParam);
+        }
     }
 }

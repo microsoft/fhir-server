@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -12,16 +13,15 @@ using System.Linq;
 using System.Reflection;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
-using Hl7.Fhir.Serialization;
 using Hl7.Fhir.Utility;
 using Hl7.FhirPath;
 using Microsoft.Health.Fhir.Core.Data;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
-using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Definition
 {
@@ -40,8 +40,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         internal static void Build(
             IReadOnlyCollection<ITypedElement> searchParameters,
-            IDictionary<Uri, SearchParameterInfo> uriDictionary,
-            IDictionary<string, IDictionary<string, SearchParameterInfo>> resourceTypeDictionary,
+            ConcurrentDictionary<Uri, SearchParameterInfo> uriDictionary,
+            ConcurrentDictionary<string, ConcurrentDictionary<string, SearchParameterInfo>> resourceTypeDictionary,
             IModelInfoProvider modelInfoProvider)
         {
             EnsureArg.IsNotNull(searchParameters, nameof(searchParameters));
@@ -88,24 +88,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             Assembly assembly = null)
         {
             using Stream stream = modelInfoProvider.OpenVersionedFileStream(embeddedResourceName, embeddedResourceNamespace, assembly);
-            using TextReader reader = new StreamReader(stream);
-            using JsonReader jsonReader = new JsonTextReader(reader);
-            try
-            {
-                ISourceNode sourceNode = FhirJsonNode.Read(jsonReader);
-                return new BundleWrapper(modelInfoProvider.ToTypedElement(sourceNode));
-            }
-            catch (FormatException ex)
-            {
-                var issue = new OperationOutcomeIssue(
-                    OperationOutcomeConstants.IssueSeverity.Fatal,
-                    OperationOutcomeConstants.IssueType.Invalid,
-                    ex.Message);
 
-                throw new InvalidDefinitionException(
-                    Core.Resources.SearchParameterDefinitionContainsInvalidEntry,
-                    new OperationOutcomeIssue[] { issue });
-            }
+            using TextReader reader = new StreamReader(stream);
+            var data = reader.ReadToEnd();
+            var rawResource = new RawResource(data, FhirResourceFormat.Json, true);
+
+            return new BundleWrapper(modelInfoProvider.ToTypedElement(rawResource));
         }
 
         private static List<(string ResourceType, SearchParameterInfo SearchParameter)> ValidateAndGetFlattenedList(
@@ -299,11 +287,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         private static HashSet<SearchParameterInfo> BuildSearchParameterDefinition(
             ILookup<string, SearchParameterInfo> searchParametersLookup,
             string resourceType,
-            IDictionary<string, IDictionary<string, SearchParameterInfo>> resourceTypeDictionary,
+            ConcurrentDictionary<string, ConcurrentDictionary<string, SearchParameterInfo>> resourceTypeDictionary,
             IModelInfoProvider modelInfoProvider)
         {
             HashSet<SearchParameterInfo> results;
-            if (resourceTypeDictionary.TryGetValue(resourceType, out IDictionary<string, SearchParameterInfo> cachedSearchParameters))
+            if (resourceTypeDictionary.TryGetValue(resourceType, out ConcurrentDictionary<string, SearchParameterInfo> cachedSearchParameters))
             {
                 results = new HashSet<SearchParameterInfo>(cachedSearchParameters.Values);
             }
@@ -328,10 +316,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             results.UnionWith(searchParametersLookup[resourceType]);
 
-            Dictionary<string, SearchParameterInfo> searchParameterDictionary = results.ToDictionary(
+            var searchParameterDictionary = new ConcurrentDictionary<string, SearchParameterInfo>(
+                results.ToDictionary(
                 r => r.Name,
                 r => r,
-                StringComparer.Ordinal);
+                StringComparer.Ordinal));
 
             if (!resourceTypeDictionary.TryAdd(resourceType, searchParameterDictionary))
             {

@@ -46,6 +46,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private const string LocalConnectionString = "server=(local);Integrated Security=true";
         private const string MasterDatabaseName = "master";
 
+        private readonly int _maximumSupportedSchemaVersion;
         private readonly string _databaseName;
         private readonly IFhirDataStore _fhirDataStore;
         private readonly IFhirOperationDataStore _fhirOperationDataStore;
@@ -57,16 +58,22 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly SupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager;
 
         public SqlServerFhirStorageTestsFixture()
+            : this(SchemaVersionConstants.Max, $"FHIRINTEGRATIONTEST_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}")
+        {
+        }
+
+        internal SqlServerFhirStorageTestsFixture(int maximumSupportedSchemaVersion, string databaseName)
         {
             var initialConnectionString = Environment.GetEnvironmentVariable("SqlServer:ConnectionString") ?? LocalConnectionString;
 
-            _databaseName = $"FHIRINTEGRATIONTEST_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{BigInteger.Abs(new BigInteger(Guid.NewGuid().ToByteArray()))}";
+            _maximumSupportedSchemaVersion = maximumSupportedSchemaVersion;
+            _databaseName = databaseName;
             TestConnectionString = new SqlConnectionStringBuilder(initialConnectionString) { InitialCatalog = _databaseName }.ToString();
 
             var schemaOptions = new SqlServerSchemaOptions { AutomaticUpdatesEnabled = true };
             var config = new SqlServerDataStoreConfiguration { ConnectionString = TestConnectionString, Initialize = true, SchemaOptions = schemaOptions };
 
-            var schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, SchemaVersionConstants.Max);
+            var schemaInformation = new SchemaInformation(SchemaVersionConstants.Min, maximumSupportedSchemaVersion);
             var scriptProvider = new ScriptProvider<SchemaVersion>();
             var baseScriptProvider = new BaseScriptProvider();
             var mediator = Substitute.For<IMediator>();
@@ -95,7 +102,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             ServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
 
-            var upsertResourceTvpGenerator = serviceProvider.GetRequiredService<VLatest.UpsertResourceTvpGenerator<ResourceMetadata>>();
+            var upsertResourceTvpGeneratorV6 = serviceProvider.GetRequiredService<V6.UpsertResourceTvpGenerator<ResourceMetadata>>();
+            var upsertResourceTvpGeneratorV7 = serviceProvider.GetRequiredService<V7.UpsertResourceTvpGenerator<ResourceMetadata>>();
+            var upsertResourceTvpGeneratorVLatest = serviceProvider.GetRequiredService<VLatest.UpsertResourceTvpGenerator<ResourceMetadata>>();
             var upsertSearchParamsTvpGenerator = serviceProvider.GetRequiredService<VLatest.UpsertSearchParamsTvpGenerator<List<ResourceSearchParameterStatus>>>();
 
             _supportedSearchParameterDefinitionManager = new SupportedSearchParameterDefinitionManager(_searchParameterDefinitionManager);
@@ -113,7 +122,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             IOptions<CoreFeatureConfiguration> options = Options.Create(new CoreFeatureConfiguration());
 
-            _fhirDataStore = new SqlServerFhirDataStore(config, sqlServerFhirModel, searchParameterToSearchValueTypeMap, upsertResourceTvpGenerator, options, SqlConnectionWrapperFactory, NullLogger<SqlServerFhirDataStore>.Instance, schemaInformation);
+            _fhirDataStore = new SqlServerFhirDataStore(
+                sqlServerFhirModel,
+                searchParameterToSearchValueTypeMap,
+                upsertResourceTvpGeneratorV6,
+                upsertResourceTvpGeneratorV7,
+                upsertResourceTvpGeneratorVLatest,
+                options,
+                SqlConnectionWrapperFactory,
+                NullLogger<SqlServerFhirDataStore>.Instance,
+                schemaInformation);
 
             _fhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, NullLogger<SqlServerFhirOperationDataStore>.Instance);
 
@@ -134,10 +152,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 Substitute.For<ISortingValidator>(),
                 NullLogger<SearchOptionsFactory>.Instance);
 
-            var normalizedSearchParameterQueryGeneratorFactory = new NormalizedSearchParameterQueryGeneratorFactory(searchParameterToSearchValueTypeMap);
-            var sqlRootExpressionRewriter = new SqlRootExpressionRewriter(normalizedSearchParameterQueryGeneratorFactory);
-            var chainFlatteningRewriter = new ChainFlatteningRewriter(normalizedSearchParameterQueryGeneratorFactory);
-            var sortRewriter = new SortRewriter(normalizedSearchParameterQueryGeneratorFactory);
+            var searchParamTableExpressionQueryGeneratorFactory = new SearchParamTableExpressionQueryGeneratorFactory(searchParameterToSearchValueTypeMap);
+            var sqlRootExpressionRewriter = new SqlRootExpressionRewriter(searchParamTableExpressionQueryGeneratorFactory);
+            var chainFlatteningRewriter = new ChainFlatteningRewriter(searchParamTableExpressionQueryGeneratorFactory);
+            var sortRewriter = new SortRewriter(searchParamTableExpressionQueryGeneratorFactory);
 
             _searchService = new SqlServerSearchService(
                 searchOptionsFactory,
@@ -165,7 +183,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
         public async Task InitializeAsync()
         {
-            await _testHelper.CreateAndInitializeDatabase(_databaseName, forceIncrementalSchemaUpgrade: false, _schemaInitializer, CancellationToken.None);
+            await _testHelper.CreateAndInitializeDatabase(_databaseName, _maximumSupportedSchemaVersion, forceIncrementalSchemaUpgrade: false, _schemaInitializer, CancellationToken.None);
         }
 
         public async Task DisposeAsync()
