@@ -23,7 +23,7 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
 {
-    public class ThrottlingMiddlewareTests : IDisposable
+    public class ThrottlingMiddlewareTests : IAsyncLifetime
     {
         private HttpContext _httpContext = new DefaultHttpContext();
         private ThrottlingMiddleware _middleware;
@@ -161,6 +161,8 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
             _httpContext.RequestServices = _provider;
         }
 
-        public void Dispose() => _middleware?.Dispose();
+        public Task InitializeAsync() => Task.CompletedTask;
+
+        async Task IAsyncLifetime.DisposeAsync() => await _middleware.DisposeAsync();
     }
 }

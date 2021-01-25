@@ -24,7 +24,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
     /// <summary>
     /// Middleware to limit the number of concurrent requests that an instance of the server handles simultaneously.
     /// </summary>
-    public sealed class ThrottlingMiddleware : IDisposable
+    public sealed class ThrottlingMiddleware : IAsyncDisposable, IDisposable
     {
         private const double TargetSuccessPercentage = 99;
         private const int MinRetryAfterMilliseconds = 20;
@@ -37,6 +37,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
         private readonly ThrottlingConfiguration _configuration;
         private readonly HashSet<(string method, string path)> _excludedEndpoints;
         private readonly bool _securityEnabled;
+        private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
 
         private int _requestsInFlight = 0;
         private RequestDelegate _next;
@@ -44,7 +45,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
         private int _currentPeriodRejectedCount;
         private int _currentRetryAfterMilliseconds = MinRetryAfterMilliseconds;
 
-        private bool _disposed;
+        private readonly Task _samplingLoopTask;
 
         public ThrottlingMiddleware(
             RequestDelegate next,
@@ -69,12 +70,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
                 }
             }
 
-#pragma warning disable 4014 // Intentional fire and forget behavior
-            SamplingLoop();
-#pragma warning restore 4014
+            _samplingLoopTask = SamplingLoop();
         }
-
-        public void Dispose() => _disposed = true;
 
         /// <summary>
         /// Samples the success rate (i.e. requests not throttled) over a period, and adjusts the value we return as the retry after header.
@@ -85,21 +82,32 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
         /// </summary>
         public async Task SamplingLoop()
         {
-            while (!_disposed)
+            while (true)
             {
-                await Task.Delay(SamplePeriodMilliseconds);
+                try
+                {
+                    await Task.Delay(SamplePeriodMilliseconds, _cancellationTokenSource.Token);
 
-                var successCount = Interlocked.Exchange(ref _currentPeriodSuccessCount, 0);
-                var failureCount = Interlocked.Exchange(ref _currentPeriodRejectedCount, 0);
+                    var successCount = Interlocked.Exchange(ref _currentPeriodSuccessCount, 0);
+                    var failureCount = Interlocked.Exchange(ref _currentPeriodRejectedCount, 0);
 
-                var totalCount = successCount + failureCount;
-                double successRate = totalCount == 0 ? 100.0 : successCount * 100.0 / totalCount;
+                    var totalCount = successCount + failureCount;
+                    double successRate = totalCount == 0 ? 100.0 : successCount * 100.0 / totalCount;
 
-                // see if we should raise of lower the value
-                _currentRetryAfterMilliseconds =
-                    successRate >= TargetSuccessPercentage
-                        ? Math.Max(MinRetryAfterMilliseconds, (int)(_currentRetryAfterMilliseconds / RetryAfterDecayRate))
-                        : Math.Min(MaxRetryAfterMilliseconds, (int)(_currentRetryAfterMilliseconds * RetryAfterGrowthRate));
+                    // see if we should raise of lower the value
+                    _currentRetryAfterMilliseconds =
+                        successRate >= TargetSuccessPercentage
+                            ? Math.Max(MinRetryAfterMilliseconds, (int)(_currentRetryAfterMilliseconds / RetryAfterDecayRate))
+                            : Math.Min(MaxRetryAfterMilliseconds, (int)(_currentRetryAfterMilliseconds * RetryAfterGrowthRate));
+                }
+                catch (TaskCanceledException) when (_cancellationTokenSource.IsCancellationRequested)
+                {
+                    return;
+                }
+                catch (Exception e)
+                {
+                    _logger.LogError(e, "Unexpected failure in background sampling loop");
+                }
             }
         }
 
@@ -147,6 +155,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
                 Interlocked.Decrement(ref _requestsInFlight);
             }
         }
+
+        public async ValueTask DisposeAsync()
+        {
+            _cancellationTokenSource.Cancel();
+            await _samplingLoopTask;
+            _cancellationTokenSource.Dispose();
+            _samplingLoopTask.Dispose();
+        }
+
+        public void Dispose() => DisposeAsync().GetAwaiter().GetResult();
 
         private class StringTupleOrdinalIgnoreCaseEqualityComparer : IEqualityComparer<ValueTuple<string, string>>
         {
