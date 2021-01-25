@@ -77,8 +77,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         public async Task GivenSupportedParams_WhenExecuted_ThenCorrectSearchIsPerformed()
         {
             // Add one parameter that needs to be indexed
-            var param = (await _fixture.GetSearchDefinitionManagerAsync()).AllSearchParameters.FirstOrDefault(p => p.Name == "status");
+            var param = (await _fixture.GetSearchDefinitionManagerAsync()).
+                AllSearchParameters.FirstOrDefault(p => p.Url == new Uri("http://hl7.org/fhir/SearchParameter/Account-status"));
             param.IsSearchable = false;
+            var expectedResourceType = param.BaseResourceTypes.FirstOrDefault();
 
             ReindexJobRecord job = CreateReindexJobRecord();
 
@@ -97,15 +99,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             // verify search for results
             await _searchService.Received().SearchForReindexAsync(
-                Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Where(t => t.Item1 == "_type" && t.Item2 == "Account").Any()),
+                Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Where(t => t.Item1 == "_type" && t.Item2 == expectedResourceType).Any()),
                 Arg.Any<string>(),
                 false,
                 Arg.Any<CancellationToken>());
 
             Assert.Equal(OperationStatus.Completed, job.Status);
             Assert.Equal(5, job.Count);
-            Assert.Equal("Account", job.ResourceList);
-            Assert.Equal("http://hl7.org/fhir/SearchParameter/Account-status", job.SearchParamList);
+            Assert.Equal(expectedResourceType, job.ResourceList);
+            Assert.Equal(param.Url.ToString(), job.SearchParamList);
             Assert.Collection<ReindexJobQueryStatus>(
                 job.QueryList,
                 item => Assert.True(item.ContinuationToken == null && item.Status == OperationStatus.Completed));
@@ -119,6 +121,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             // Add one parameter that needs to be indexed
             var param = (await _fixture.GetSearchDefinitionManagerAsync()).AllSearchParameters.FirstOrDefault(p => p.Name == "identifier");
             param.IsSearchable = false;
+            var expectedResourceType = param.BaseResourceTypes.FirstOrDefault();
 
             ReindexJobRecord job = CreateReindexJobRecord();
 
@@ -139,15 +142,15 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             // verify search for results
             await _searchService.Received().SearchForReindexAsync(
-                Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Any(t => t.Item1 == "_type" && t.Item2 == "Account")),
+                Arg.Is<IReadOnlyList<Tuple<string, string>>>(l => l.Any(t => t.Item1 == "_type" && t.Item2 == expectedResourceType)),
                 Arg.Any<string>(),
                 false,
                 Arg.Any<CancellationToken>());
 
             Assert.Equal(OperationStatus.Completed, job.Status);
             Assert.Equal(5, job.Count);
-            Assert.Equal("Account", job.ResourceList);
-            Assert.Equal("http://hl7.org/fhir/SearchParameter/Account-identifier", job.SearchParamList);
+            Assert.Equal(expectedResourceType, job.ResourceList);
+            Assert.Equal(param.Url.ToString(), job.SearchParamList);
             Assert.Collection<ReindexJobQueryStatus>(
                 job.QueryList,
                 item => Assert.True(item.ContinuationToken == Base64EncodedToken && item.Status == OperationStatus.Completed),
@@ -160,7 +163,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         public async Task GivenRunningJob_WhenExecuted_ThenQueuedQueryCompleted()
         {
             // Add one parameter that needs to be indexed
-            var param = (await _fixture.GetSearchDefinitionManagerAsync()).AllSearchParameters.FirstOrDefault(p => p.Name == "appointment");
+            var param = (await _fixture.GetSearchDefinitionManagerAsync()).
+                AllSearchParameters.FirstOrDefault(p => p.Url == new Uri("http://hl7.org/fhir/SearchParameter/AppointmentResponse-appointment"));
             param.IsSearchable = false;
 
             var resourceTypeSearchParamHashMap = new Dictionary<string, string>();

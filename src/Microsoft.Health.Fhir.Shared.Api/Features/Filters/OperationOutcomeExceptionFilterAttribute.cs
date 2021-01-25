@@ -135,7 +135,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     case FhirTransactionFailedException fhirTransactionFailedException:
                         operationOutcomeResult.StatusCode = fhirTransactionFailedException.ResponseStatusCode;
                         break;
-                    case AzureContainerRegistryTokenException _:
+                    case AzureContainerRegistryTokenException azureContainerRegistryTokenException:
+                        operationOutcomeResult.StatusCode = azureContainerRegistryTokenException.StatusCode;
+                        break;
                     case FetchTemplateCollectionFailedException _:
                     case ConvertDataUnhandledException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.InternalServerError;

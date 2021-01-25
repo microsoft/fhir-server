@@ -6,7 +6,7 @@ The following instructions detail how to build and run the FHIR Server in Docker
 
 ## Use CI image
 
-If it is not desirable to clone this repository and build locally an image of the most recent CI build is available from the Azure Container Repository HealthPlatformRegistry. Both of the following methods will generate a R4 server, but a STU3 or R5 server can be created by changing which image is pulled.
+If it is not desirable to clone this repository and build locally an image of the most recent CI build is available from the Microsoft Container Registry(mcr.microsoft.com/healthcareapis). Both of the following methods will generate a R4 server, but a STU3 or R5 server can be created by changing which image is pulled.
 
 Using docker-compose this image can be started with the following steps:
 1. Open a terminal window.
@@ -39,7 +39,7 @@ docker run --net fhir_network --name fhir_sql -e SA_PASSWORD=<SA_PASSWORD> -e AC
 5. Run the command: 
 
 ```bash
-docker run --net fhir_network -e FhirServer__Security__Enabled="false" -e SqlServer__ConnectionString="Server=tcp:fhir_sql,1433;Initial Catalog=FHIR;Persist Security Info=False;User ID=sa;Password=<SA_PASSWORD>;MultipleActiveResultSets=False;Connection Timeout=30;" -e SqlServer__AllowDatabaseCreation="true" -e SqlServer__Initialize="true" -e SqlServer__SchemaOptions__AutomaticUpdatesEnabled="true" -e DataStore="SqlServer" -p 8080:8080 -d healthplatformregistry.azurecr.io/r4_fhir-server azure-fhir-api
+docker run --net fhir_network -e FhirServer__Security__Enabled="false" -e SqlServer__ConnectionString="Server=tcp:fhir_sql,1433;Initial Catalog=FHIR;Persist Security Info=False;User ID=sa;Password=<SA_PASSWORD>;MultipleActiveResultSets=False;Connection Timeout=30;" -e SqlServer__AllowDatabaseCreation="true" -e SqlServer__Initialize="true" -e SqlServer__SchemaOptions__AutomaticUpdatesEnabled="true" -e DataStore="SqlServer" -p 8080:8080 -d mcr.microsoft.com/healthcareapis/r4-fhir-server azure-fhir-api
 ```
 
 6. After giving the container a minute to start up it should be accessible at http://localhost:8080/metadata.
@@ -80,6 +80,7 @@ docker run -d \
     -e SqlServer__ConnectionString="Server=tcp:<sql-server-fqdn>,1433;Initial Catalog=FHIR;Persist Security Info=False;User ID=sa;Password=<sql-sa-password>;MultipleActiveResultSets=False;Connection Timeout=30;" \
     -e SqlServer__AllowDatabaseCreation="true" \
     -e SqlServer__Initialize="true" \
+    -e SqlServer__SchemaOptions__AutomaticUpdatesEnabled="true" \
     -e DataStore="SqlServer" \
     -p 8080:8080
     azure-fhir-api azure-fhir-api

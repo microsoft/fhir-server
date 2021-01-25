@@ -52,17 +52,14 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             _convertDataConfiguration = ((IOptions<ConvertDataConfiguration>)(fixture.TestFhirServer as InProcTestFhirServer)?.Server?.Services?.GetService(typeof(IOptions<ConvertDataConfiguration>)))?.Value;
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenAValidRequestWithCustomizedTemplateSet_WhenConvertData_CorrectResponseShouldReturn()
         {
             var registry = GetTestContainerRegistryInfo();
 
             // Here we skip local E2E test since we need Managed Identity for container registry token.
             // We also skip the case when environmental variable is not provided (not able to upload templates)
-            if (_convertDataConfiguration != null || registry == null)
-            {
-                return;
-            }
+            Skip.If(_convertDataConfiguration != null || registry == null);
 
             await PushTemplateSet(registry, TestRepositoryName, TestRepositoryTag);
 
@@ -80,10 +77,10 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             };
             var parser = new FhirJsonParser(setting);
             var bundleResource = parser.Parse<Bundle>(bundleContent);
-            Assert.Equal("urn:uuid:9d697ec3-48c3-3e17-db6a-29a1765e22c6", bundleResource.Entry.First().FullUrl);
+            Assert.NotEmpty(bundleResource.Entry.ByResourceType<Patient>().First().Id);
         }
 
-        [Theory]
+        [SkippableTheory]
         [InlineData("template:1234567890")]
         [InlineData("wrongtemplate:default")]
         [InlineData("template@sha256:592535ef52d742f81e35f4d87b43d9b535ed56cf58c90a14fc5fd7ea0fbb8695")]
@@ -93,10 +90,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
             // Here we skip local E2E test since we need Managed Identity for container registry token.
             // We also skip the case when environmental variable is not provided (not able to upload templates)
-            if (_convertDataConfiguration != null || registry == null)
-            {
-                return;
-            }
+            Skip.If(_convertDataConfiguration != null || registry == null);
 
             await PushTemplateSet(registry, TestRepositoryName, TestRepositoryTag);
 

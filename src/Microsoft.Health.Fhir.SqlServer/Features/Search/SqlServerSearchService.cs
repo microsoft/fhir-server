@@ -175,17 +175,18 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                                                .AcceptVisitor(UntypedReferenceRewriter.Instance)
                                                .AcceptVisitor(_sqlRootExpressionRewriter)
                                                .AcceptVisitor(_sortRewriter, searchOptions)
-                                               .AcceptVisitor(DenormalizedPredicateRewriter.Instance)
-                                               .AcceptVisitor(NormalizedPredicateReorderer.Instance)
+                                               .AcceptVisitor(SearchParamTableExpressionReorderer.Instance)
+                                               .AcceptVisitor(MissingSearchParamVisitor.Instance)
+                                               .AcceptVisitor(NotExpressionRewriter.Instance)
                                                .AcceptVisitor(_chainFlatteningRewriter)
+                                               .AcceptVisitor(ResourceColumnPredicatePushdownRewriter.Instance)
                                                .AcceptVisitor(DateTimeBoundedRangeRewriter.Instance)
                                                .AcceptVisitor(StringOverflowRewriter.Instance)
                                                .AcceptVisitor(NumericRangeRewriter.Instance)
-                                               .AcceptVisitor(MissingSearchParamVisitor.Instance)
-                                               .AcceptVisitor(IncludeDenormalizedRewriter.Instance)
+                                               .AcceptVisitor(IncludeMatchSeedRewriter.Instance)
                                                .AcceptVisitor(TopRewriter.Instance, searchOptions)
                                                .AcceptVisitor(IncludeRewriter.Instance)
-                                           ?? SqlRootExpression.WithDenormalizedExpressions();
+                                           ?? SqlRootExpression.WithResourceTableExpressions();
 
             using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
             using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
@@ -207,7 +208,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     if (searchOptions.CountOnly)
                     {
                         await reader.ReadAsync(cancellationToken);
-                        return new SearchResult(reader.GetInt32(0), searchOptions.UnsupportedSearchParams);
+                        var searchResult = new SearchResult(reader.GetInt32(0), searchOptions.UnsupportedSearchParams);
+
+                        // call NextResultAsync to get the info messages
+                        await reader.NextResultAsync(cancellationToken);
+
+                        return searchResult;
                     }
 
                     var resources = new List<SearchResultEntry>(searchOptions.MaxItemCount);
