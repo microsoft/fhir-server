@@ -201,24 +201,40 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                         var resourceTable = VLatest.Resource;
 
-                        (long resourceSurrogateId, int version, bool isDeleted, bool isHistory, Stream rawResourceStream) = sqlDataReader.ReadRow(
-                            resourceTable.ResourceSurrogateId,
-                            resourceTable.Version,
-                            resourceTable.IsDeleted,
-                            resourceTable.IsHistory,
-                            resourceTable.RawResource);
+                        long resourceSurrogateId;
+                        int version;
+                        bool isDeleted;
+                        bool isHistory;
+                        bool isRawResourceMetaSet;
+                        string searchParamHash = null;
+                        Stream rawResourceStream;
+
+                        if (_schemaInformation.Current >= SchemaVersionConstants.SearchParameterHashSchemaVersion)
+                        {
+                            (resourceSurrogateId, version, isDeleted, isHistory, isRawResourceMetaSet, rawResourceStream) = sqlDataReader.ReadRow(
+                                resourceTable.ResourceSurrogateId,
+                                resourceTable.Version,
+                                resourceTable.IsDeleted,
+                                resourceTable.IsHistory,
+                                resourceTable.IsRawResourceMetaSet,
+                                resourceTable.RawResource);
+                        }
+                        else
+                        {
+                            (resourceSurrogateId, version, isDeleted, isHistory, isRawResourceMetaSet, searchParamHash, rawResourceStream) = sqlDataReader.ReadRow(
+                                resourceTable.ResourceSurrogateId,
+                                resourceTable.Version,
+                                resourceTable.IsDeleted,
+                                resourceTable.IsHistory,
+                                resourceTable.IsRawResourceMetaSet,
+                                resourceTable.SearchParamHash,
+                                resourceTable.RawResource);
+                        }
 
                         string rawResource;
                         using (rawResourceStream)
                         {
                             rawResource = await CompressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
-                        }
-
-                        bool isRawResourceMetaSet = false;
-
-                        if (_schemaInformation.Current >= 4)
-                        {
-                            isRawResourceMetaSet = sqlDataReader.Read(resourceTable.IsRawResourceMetaSet, 5);
                         }
 
                         return new ResourceWrapper(
@@ -231,7 +247,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                             isDeleted,
                             searchIndices: null,
                             compartmentIndices: null,
-                            lastModifiedClaims: null)
+                            lastModifiedClaims: null,
+                            searchParamHash)
                             {
                                 IsHistory = isHistory,
                             };

@@ -21,6 +21,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions;
 using Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors;
@@ -222,18 +223,47 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                     while (await reader.ReadAsync(cancellationToken))
                     {
-                        (short resourceTypeId, string resourceId, int version, bool isDeleted, long resourceSurrogateId, string requestMethod, bool isMatch, bool isPartialEntry, bool isRawResourceMetaSet, string searchParameterHash, Stream rawResourceStream) = reader.ReadRow(
-                            VLatest.Resource.ResourceTypeId,
-                            VLatest.Resource.ResourceId,
-                            VLatest.Resource.Version,
-                            VLatest.Resource.IsDeleted,
-                            VLatest.Resource.ResourceSurrogateId,
-                            VLatest.Resource.RequestMethod,
-                            _isMatch,
-                            _isPartial,
-                            VLatest.Resource.IsRawResourceMetaSet,
-                            VLatest.Resource.SearchParamHash,
-                            VLatest.Resource.RawResource);
+                        short resourceTypeId;
+                        string resourceId;
+                        int version;
+                        bool isDeleted;
+                        long resourceSurrogateId;
+                        string requestMethod;
+                        bool isMatch;
+                        bool isPartialEntry;
+                        bool isRawResourceMetaSet;
+                        string searchParameterHash = null;
+                        Stream rawResourceStream;
+
+                        if (_schemaInformation.Current >= SchemaVersionConstants.SearchParameterHashSchemaVersion)
+                        {
+                            (resourceTypeId, resourceId, version, isDeleted, resourceSurrogateId, requestMethod, isMatch, isPartialEntry, isRawResourceMetaSet, searchParameterHash, rawResourceStream) = reader.ReadRow(
+                                VLatest.Resource.ResourceTypeId,
+                                VLatest.Resource.ResourceId,
+                                VLatest.Resource.Version,
+                                VLatest.Resource.IsDeleted,
+                                VLatest.Resource.ResourceSurrogateId,
+                                VLatest.Resource.RequestMethod,
+                                _isMatch,
+                                _isPartial,
+                                VLatest.Resource.IsRawResourceMetaSet,
+                                VLatest.Resource.SearchParamHash,
+                                VLatest.Resource.RawResource);
+                        }
+                        else
+                        {
+                            (resourceTypeId, resourceId, version, isDeleted, resourceSurrogateId, requestMethod, isMatch, isPartialEntry, isRawResourceMetaSet, rawResourceStream) = reader.ReadRow(
+                                VLatest.Resource.ResourceTypeId,
+                                VLatest.Resource.ResourceId,
+                                VLatest.Resource.Version,
+                                VLatest.Resource.IsDeleted,
+                                VLatest.Resource.ResourceSurrogateId,
+                                VLatest.Resource.RequestMethod,
+                                _isMatch,
+                                _isPartial,
+                                VLatest.Resource.IsRawResourceMetaSet,
+                                VLatest.Resource.RawResource);
+                        }
 
                         // If we get to this point, we know there are more results so we need a continuation token
                         // Additionally, this resource shouldn't be included in the results
