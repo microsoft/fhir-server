@@ -17,7 +17,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ActionConstraints
 
         public bool Accept(ActionConstraintContext context)
         {
-            StringValues conditionalCreateHeader = context.RouteContext.HttpContext.Request.Headers[KnownFhirHeaders.IfNoneExist];
+            StringValues conditionalCreateHeader = context.RouteContext.HttpContext.Request.Headers[KnownHeaders.IfNoneExist];
 
             if (!string.IsNullOrEmpty(conditionalCreateHeader))
             {

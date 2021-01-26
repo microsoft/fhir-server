@@ -24,6 +24,9 @@ using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 {
+    /// <summary>
+    /// MediatR request handler. Called when the ExportController creates an export job.
+    /// </summary>
     public class CreateExportRequestHandler : IRequestHandler<CreateExportRequest, CreateExportResponse>
     {
         private readonly IClaimsExtractor _claimsExtractor;
@@ -117,48 +120,40 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         {
             var filters = new List<ExportJobFilter>();
 
-            try
+            if (!string.IsNullOrWhiteSpace(filterString))
             {
-                if (!string.IsNullOrWhiteSpace(filterString))
+                var filterArray = filterString.Split(",");
+                foreach (string filter in filterArray)
                 {
-                    var filterArray = filterString.Split(",");
-                    foreach (string filter in filterArray)
-                    {
-                        var parameterIndex = filter.IndexOf("?", StringComparison.Ordinal);
+                    var parameterIndex = filter.IndexOf("?", StringComparison.Ordinal);
 
-                        if (parameterIndex < 0)
+                    if (parameterIndex < 0 || parameterIndex == filter.Length - 1)
+                    {
+                        throw new BadRequestException(string.Format(Resources.TypeFilterUnparseable, filter));
+                    }
+
+                    var filterType = filter.Substring(0, parameterIndex);
+
+                    var filterParameters = filter.Substring(parameterIndex + 1).Split("&");
+                    var parameterTupleList = new List<Tuple<string, string>>();
+
+                    foreach (string parameter in filterParameters)
+                    {
+                        var keyValue = parameter.Split("=");
+
+                        if (keyValue.Count() != 2)
                         {
                             throw new BadRequestException(string.Format(Resources.TypeFilterUnparseable, filter));
                         }
 
-                        var filterType = filter.Substring(0, parameterIndex);
-
-                        var filterParameters = filter.Substring(parameterIndex + 1).Split("&");
-                        var parameterTupleList = new List<Tuple<string, string>>();
-
-                        foreach (string parameter in filterParameters)
-                        {
-                            var keyValue = parameter.Split("=");
-
-                            if (keyValue.Count() < 2)
-                            {
-                                throw new BadRequestException(string.Format(Resources.TypeFilterUnparseable, filter));
-                            }
-
-                            parameterTupleList.Add(new Tuple<string, string>(keyValue[0], keyValue[1]));
-                        }
-
-                        filters.Add(new ExportJobFilter(filterType, parameterTupleList));
+                        parameterTupleList.Add(new Tuple<string, string>(keyValue[0], keyValue[1]));
                     }
-                }
 
-                return filters;
+                    filters.Add(new ExportJobFilter(filterType, parameterTupleList));
+                }
             }
-            catch
-            {
-                // TODO: Replace message
-                throw new BadRequestException(Resources.ExportFormatNotFound);
-            }
+
+            return filters;
         }
 
         private ExportJobFormatConfiguration ParseFormat(string formatName, bool useContainer)
@@ -172,7 +167,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 if (formatConfiguration == null)
                 {
-                    throw new BadRequestException(Resources.ExportFormatNotFound);
+                    throw new BadRequestException(string.Format(Resources.ExportFormatNotFound, formatName));
                 }
             }
 
