@@ -112,13 +112,6 @@ CREATE UNIQUE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_ResourceSurrgateId O
 )
 WHERE IsHistory = 0 AND IsDeleted = 0
 
--- CREATE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_SearchParamHash ON dbo.Resource -- TODO: Add this in.
--- (
---     ResourceTypeId,
---     SearchParamHash
--- )
--- WHERE IsDeleted = 0
-
 /*************************************************************
     Capture claims on write
 **************************************************************/
@@ -1897,7 +1890,7 @@ CREATE TYPE dbo.SearchParamTableType_1 AS TABLE
 GO
 
 -- Create a type to be used when initializing hash values in the Resource table.
-CREATE TYPE dbo.SearchParamHashTableType_1 AS TABLE -- TODO: Does this live in the right place?
+CREATE TYPE dbo.SearchParamHashTableType_1 AS TABLE -- TODO: Remove this when we remove initialization.
 (
     ResourceTypeId smallint NOT NULL,
     SearchParamHash varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL

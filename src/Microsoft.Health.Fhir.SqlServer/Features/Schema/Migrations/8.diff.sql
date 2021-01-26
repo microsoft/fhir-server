@@ -6,12 +6,7 @@ ALTER TABLE dbo.Resource
 ADD
     SearchParamHash varchar(64) COLLATE Latin1_General_100_CS_AS NULL -- TODO: Do we need Latin1?
 
--- CREATE NONCLUSTERED INDEX IX_Resource_ResourceTypeId_SearchParamHash ON dbo.Resource -- TODO: Add this in.
--- (
---     ResourceTypeId,
---     SearchParamHash
--- )
--- WHERE IsDeleted = 0
+GO
 
 /*************************************************************
     Stored procedures for creating and deleting
@@ -429,7 +424,7 @@ GO
 **************************************************************/
 
 -- Create a type to be used when initializing hash values in the Resource table.
-CREATE TYPE dbo.SearchParamHashTableType_1 AS TABLE -- TODO: Does this live in the right place?
+CREATE TYPE dbo.SearchParamHashTableType_1 AS TABLE -- TODO: Remove this when we remove initialization.
 (
     ResourceTypeId smallint NOT NULL,
     SearchParamHash varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL

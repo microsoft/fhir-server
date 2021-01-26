@@ -224,21 +224,26 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
                         var resourceTable = VLatest.Resource;
 
-                        PopulateReadRow(
-                            sqlDataReader,
-                            resourceTable,
-                            out long resourceSurrogateId,
-                            out int version,
-                            out bool isDeleted,
-                            out bool isHistory,
-                            out bool isRawResourceMetaSet,
-                            out string searchParamHash,
-                            out Stream rawResourceStream);
+                        (long resourceSurrogateId, int version, bool isDeleted, bool isHistory, Stream rawResourceStream) = sqlDataReader.ReadRow(
+                            resourceTable.ResourceSurrogateId,
+                            resourceTable.Version,
+                            resourceTable.IsDeleted,
+                            resourceTable.IsHistory,
+                            resourceTable.RawResource);
 
                         string rawResource;
                         using (rawResourceStream)
                         {
                             rawResource = await CompressedRawResourceConverter.ReadCompressedRawResource(rawResourceStream);
+                        }
+
+                        var isRawResourceMetaSet = sqlDataReader.Read(resourceTable.IsRawResourceMetaSet, 5);
+
+                        string searchParamHash = null;
+
+                        if (_schemaInformation.Current >= SchemaVersionConstants.SearchParameterHashSchemaVersion)
+                        {
+                            searchParamHash = sqlDataReader.Read(resourceTable.SearchParamHash, 6);
                         }
 
                         return new ResourceWrapper(
@@ -258,42 +263,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         };
                     }
                 }
-            }
-        }
-
-        private void PopulateReadRow(
-            SqlDataReader sqlDataReader,
-            VLatest.ResourceTable resourceTable,
-            out long resourceSurrogateId,
-            out int version,
-            out bool isDeleted,
-            out bool isHistory,
-            out bool isRawResourceMetaSet,
-            out string searchParamHash,
-            out Stream rawResourceStream)
-        {
-            searchParamHash = null;
-
-            if (_schemaInformation.Current >= SchemaVersionConstants.SearchParameterHashSchemaVersion)
-            {
-                (resourceSurrogateId, version, isDeleted, isHistory, isRawResourceMetaSet, searchParamHash, rawResourceStream) = sqlDataReader.ReadRow(
-                        resourceTable.ResourceSurrogateId,
-                        resourceTable.Version,
-                        resourceTable.IsDeleted,
-                        resourceTable.IsHistory,
-                        resourceTable.IsRawResourceMetaSet,
-                        resourceTable.SearchParamHash,
-                        resourceTable.RawResource);
-            }
-            else
-            {
-                (resourceSurrogateId, version, isDeleted, isHistory, isRawResourceMetaSet, rawResourceStream) = sqlDataReader.ReadRow(
-                        resourceTable.ResourceSurrogateId,
-                        resourceTable.Version,
-                        resourceTable.IsDeleted,
-                        resourceTable.IsHistory,
-                        resourceTable.IsRawResourceMetaSet,
-                        resourceTable.RawResource);
             }
         }
 

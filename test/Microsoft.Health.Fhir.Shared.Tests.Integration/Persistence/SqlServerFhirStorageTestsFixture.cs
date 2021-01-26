@@ -54,7 +54,6 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         private readonly SchemaInitializer _schemaInitializer;
         private readonly FilebasedSearchParameterStatusDataStore _filebasedSearchParameterStatusDataStore;
         private readonly ISearchService _searchService;
-        private readonly SearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly SupportedSearchParameterDefinitionManager _supportedSearchParameterDefinitionManager;
 
         public SqlServerFhirStorageTestsFixture()
@@ -82,16 +81,16 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var schemaUpgradeRunner = new SchemaUpgradeRunner(scriptProvider, baseScriptProvider, mediator, NullLogger<SchemaUpgradeRunner>.Instance, sqlConnectionFactory);
             _schemaInitializer = new SchemaInitializer(config, schemaUpgradeRunner, schemaInformation, sqlConnectionFactory, NullLogger<SchemaInitializer>.Instance);
 
-            _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance);
+            SearchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance);
 
-            _filebasedSearchParameterStatusDataStore = new FilebasedSearchParameterStatusDataStore(_searchParameterDefinitionManager, ModelInfoProvider.Instance);
+            _filebasedSearchParameterStatusDataStore = new FilebasedSearchParameterStatusDataStore(SearchParameterDefinitionManager, ModelInfoProvider.Instance);
 
             var securityConfiguration = new SecurityConfiguration { PrincipalClaims = { "oid" } };
 
             var sqlServerFhirModel = new SqlServerFhirModel(
                 config,
                 schemaInformation,
-                _searchParameterDefinitionManager,
+                SearchParameterDefinitionManager,
                 () => _filebasedSearchParameterStatusDataStore,
                 Options.Create(securityConfiguration),
                 NullLogger<SqlServerFhirModel>.Instance);
@@ -107,7 +106,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var upsertResourceTvpGeneratorVLatest = serviceProvider.GetRequiredService<VLatest.UpsertResourceTvpGenerator<ResourceMetadata>>();
             var upsertSearchParamsTvpGenerator = serviceProvider.GetRequiredService<VLatest.UpsertSearchParamsTvpGenerator<List<ResourceSearchParameterStatus>>>();
 
-            _supportedSearchParameterDefinitionManager = new SupportedSearchParameterDefinitionManager(_searchParameterDefinitionManager);
+            _supportedSearchParameterDefinitionManager = new SupportedSearchParameterDefinitionManager(SearchParameterDefinitionManager);
             var searchParameterToSearchValueTypeMap = new SearchParameterToSearchValueTypeMap();
 
             SqlTransactionHandler = new SqlTransactionHandler();
@@ -138,11 +137,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
             fhirRequestContextAccessor.FhirRequestContext.CorrelationId.Returns(Guid.NewGuid().ToString());
 
-            var searchableSearchParameterDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, fhirRequestContextAccessor);
+            var searchableSearchParameterDefinitionManager = new SearchableSearchParameterDefinitionManager(SearchParameterDefinitionManager, fhirRequestContextAccessor);
             var searchParameterExpressionParser = new SearchParameterExpressionParser(new ReferenceSearchValueParser(fhirRequestContextAccessor));
             var expressionParser = new ExpressionParser(() => searchableSearchParameterDefinitionManager, searchParameterExpressionParser);
 
-            _searchParameterDefinitionManager.StartAsync(CancellationToken.None);
+            SearchParameterDefinitionManager.StartAsync(CancellationToken.None);
 
             var searchOptionsFactory = new SearchOptionsFactory(
                 expressionParser,
@@ -178,6 +177,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         internal SqlTransactionHandler SqlTransactionHandler { get; }
 
         internal SqlConnectionWrapperFactory SqlConnectionWrapperFactory { get; }
+
+        internal SearchParameterDefinitionManager SearchParameterDefinitionManager { get; }
 
         internal SqlServerSearchParameterStatusDataStore SqlServerSearchParameterStatusDataStore { get; }
 
@@ -235,7 +236,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             if (serviceType == typeof(SearchParameterDefinitionManager))
             {
-                return _searchParameterDefinitionManager;
+                return SearchParameterDefinitionManager;
             }
 
             if (serviceType == typeof(SupportedSearchParameterDefinitionManager))
