@@ -35,7 +35,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 {
-    [FhirStorageTestsFixtureArgumentSets(DataStore.CosmosDb)]
+    [FhirStorageTestsFixtureArgumentSets(DataStore.All)]
     public class ReindexJobTests : IClassFixture<FhirStorageTestsFixture>, IAsyncLifetime
     {
         private readonly FhirStorageTestsFixture _fixture;
@@ -234,6 +234,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
 
             _searchParameterDefinitionManager.UrlLookup.TryAdd(searchParam.Url, searchParam);
             _searchParameterDefinitionManager.TypeLookup["Patient"].TryAdd(searchParamName, searchParam);
+
+            await _searchParameterStatusManager.UpdateSearchParameterStatusAsync(new List<string> { searchParam.Url.ToString() }, SearchParameterStatus.Supported);
 
             await UpsertPatientData("searchIndicesPatient1");
             await UpsertPatientData("searchIndicesPatient2");
