@@ -100,5 +100,43 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
                 throw customSearchException;
             }
         }
+
+        public async Task UpdateSearchParameterAsync(ITypedElement searchParam, RawResource prevSearchParamRaw)
+        {
+            try
+            {
+                var searchParameterWrapper = new SearchParameterWrapper(searchParam);
+
+                var prevSearchParam = _modelInfoProvider.ToTypedElement(prevSearchParamRaw);
+                var prevSearchParamWrapper = new SearchParameterWrapper(prevSearchParam);
+
+                // As any part of the SearchParameter may have been changed, including the URL
+                // the most reliable method of updating the SearchParameter is to delete the previous
+                // data and insert the updated version
+                await _searchParameterStatusManager.DeleteSearchParameterStatusAsync(prevSearchParamWrapper.Url);
+                _searchParameterDefinitionManager.DeleteSearchParameter(prevSearchParam);
+                _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement>() { searchParam });
+                await _searchParameterStatusManager.AddSearchParameterStatusAsync(new List<string>() { searchParameterWrapper.Url });
+            }
+            catch (FhirException fex)
+            {
+                fex.Issues.Add(new OperationOutcomeIssue(
+                    OperationOutcomeConstants.IssueSeverity.Error,
+                    OperationOutcomeConstants.IssueType.Exception,
+                    Core.Resources.CustomSearchUpdateError));
+
+                throw;
+            }
+            catch (Exception ex)
+            {
+                var customSearchException = new ConfigureCustomSearchException(Core.Resources.CustomSearchUpdateError);
+                customSearchException.Issues.Add(new OperationOutcomeIssue(
+                    OperationOutcomeConstants.IssueSeverity.Error,
+                    OperationOutcomeConstants.IssueType.Exception,
+                    ex.Message));
+
+                throw customSearchException;
+            }
+        }
     }
 }

@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var response = new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Created));
 
-            var behavior = new CreateSearchParameterBehavior<CreateResourceRequest, UpsertResourceResponse>(_searchParameterUtilities);
+            var behavior = new CreateSearchParameterBehavior<CreateResourceRequest, UpsertResourceResponse>(_searchParameterUtilities, _fhirDataStore);
             await behavior.Handle(request, CancellationToken.None, async () => await Task.Run(() => response));
 
             // Ensure for non-SearchParameter, that we do not call Add SearchParameter
@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             var response = new UpsertResourceResponse(new SaveOutcome(new RawResourceElement(wrapper), SaveOutcomeType.Created));
 
-            var behavior = new CreateSearchParameterBehavior<CreateResourceRequest, UpsertResourceResponse>(_searchParameterUtilities);
+            var behavior = new CreateSearchParameterBehavior<CreateResourceRequest, UpsertResourceResponse>(_searchParameterUtilities, _fhirDataStore);
             await behavior.Handle(request, CancellationToken.None, async () => await Task.Run(() => response));
 
             await _searchParameterUtilities.Received().AddSearchParameterAsync(Arg.Any<ITypedElement>());

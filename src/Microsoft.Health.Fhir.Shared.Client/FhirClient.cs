@@ -242,13 +242,23 @@ namespace Microsoft.Health.Fhir.Client
                 sb.Append("_count=").Append(count.Value);
             }
 
-            return SearchAsync(sb.ToString(), cancellationToken);
+            return SearchAsync(sb.ToString(), null, cancellationToken);
         }
 
         public async Task<FhirResponse<Bundle>> SearchAsync(string url, CancellationToken cancellationToken = default)
         {
+            return await SearchAsync(url, null, cancellationToken);
+        }
+
+        public async Task<FhirResponse<Bundle>> SearchAsync(string url, Tuple<string, string> customHeader, CancellationToken cancellationToken = default)
+        {
             var message = new HttpRequestMessage(HttpMethod.Get, url);
             message.Headers.Accept.Add(_mediaType);
+
+            if (customHeader != null)
+            {
+                message.Headers.Add(customHeader.Item1, customHeader.Item2);
+            }
 
             HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
@@ -347,9 +357,12 @@ namespace Microsoft.Health.Fhir.Client
             return await CreateResponseAsync<Bundle>(response);
         }
 
-        public async Task<(FhirResponse<Parameters>, Uri)> PostReindexJobAsync(Parameters parameters, CancellationToken cancellationToken = default)
+        public async Task<(FhirResponse<Parameters>, Uri)> PostReindexJobAsync(
+            Parameters parameters,
+            string uniqueResource = null,
+            CancellationToken cancellationToken = default)
         {
-            var message = new HttpRequestMessage(HttpMethod.Post, "$reindex")
+            var message = new HttpRequestMessage(HttpMethod.Post, $"{uniqueResource}$reindex")
             {
                 Content = CreateStringContent(parameters),
             };
