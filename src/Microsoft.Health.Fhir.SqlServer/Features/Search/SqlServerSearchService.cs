@@ -229,47 +229,19 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                     while (await reader.ReadAsync(cancellationToken))
                     {
-                        short resourceTypeId;
-                        string resourceId;
-                        int version;
-                        bool isDeleted;
-                        long resourceSurrogateId;
-                        string requestMethod;
-                        bool isMatch;
-                        bool isPartialEntry;
-                        bool isRawResourceMetaSet;
-                        string searchParameterHash = null;
-                        Stream rawResourceStream;
-
-                        if (_schemaInformation.Current >= SchemaVersionConstants.SearchParameterHashSchemaVersion)
-                        {
-                            (resourceTypeId, resourceId, version, isDeleted, resourceSurrogateId, requestMethod, isMatch, isPartialEntry, isRawResourceMetaSet, searchParameterHash, rawResourceStream) = reader.ReadRow(
-                                VLatest.Resource.ResourceTypeId,
-                                VLatest.Resource.ResourceId,
-                                VLatest.Resource.Version,
-                                VLatest.Resource.IsDeleted,
-                                VLatest.Resource.ResourceSurrogateId,
-                                VLatest.Resource.RequestMethod,
-                                _isMatch,
-                                _isPartial,
-                                VLatest.Resource.IsRawResourceMetaSet,
-                                VLatest.Resource.SearchParamHash,
-                                VLatest.Resource.RawResource);
-                        }
-                        else
-                        {
-                            (resourceTypeId, resourceId, version, isDeleted, resourceSurrogateId, requestMethod, isMatch, isPartialEntry, isRawResourceMetaSet, rawResourceStream) = reader.ReadRow(
-                                VLatest.Resource.ResourceTypeId,
-                                VLatest.Resource.ResourceId,
-                                VLatest.Resource.Version,
-                                VLatest.Resource.IsDeleted,
-                                VLatest.Resource.ResourceSurrogateId,
-                                VLatest.Resource.RequestMethod,
-                                _isMatch,
-                                _isPartial,
-                                VLatest.Resource.IsRawResourceMetaSet,
-                                VLatest.Resource.RawResource);
-                        }
+                        PopulateResourceTableColumnsToRead(
+                            reader,
+                            out short resourceTypeId,
+                            out string resourceId,
+                            out int version,
+                            out bool isDeleted,
+                            out long resourceSurrogateId,
+                            out string requestMethod,
+                            out bool isMatch,
+                            out bool isPartialEntry,
+                            out bool isRawResourceMetaSet,
+                            out string searchParameterHash,
+                            out Stream rawResourceStream);
 
                         // If we get to this point, we know there are more results so we need a continuation token
                         // Additionally, this resource shouldn't be included in the results
@@ -355,6 +327,55 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                     return new SearchResult(resources, continuationToken?.ToJson(), searchOptions.Sort, searchOptions.UnsupportedSearchParams);
                 }
+            }
+        }
+
+        private void PopulateResourceTableColumnsToRead(
+            SqlDataReader reader,
+            out short resourceTypeId,
+            out string resourceId,
+            out int version,
+            out bool isDeleted,
+            out long resourceSurrogateId,
+            out string requestMethod,
+            out bool isMatch,
+            out bool isPartialEntry,
+            out bool isRawResourceMetaSet,
+            out string searchParameterHash,
+            out Stream rawResourceStream)
+        {
+            searchParameterHash = null;
+
+            if (_schemaInformation.Current >= SchemaVersionConstants.SearchParameterHashSchemaVersion)
+            {
+                (resourceTypeId, resourceId, version, isDeleted, resourceSurrogateId, requestMethod, isMatch, isPartialEntry,
+                    isRawResourceMetaSet, searchParameterHash, rawResourceStream) = reader.ReadRow(
+                    VLatest.Resource.ResourceTypeId,
+                    VLatest.Resource.ResourceId,
+                    VLatest.Resource.Version,
+                    VLatest.Resource.IsDeleted,
+                    VLatest.Resource.ResourceSurrogateId,
+                    VLatest.Resource.RequestMethod,
+                    _isMatch,
+                    _isPartial,
+                    VLatest.Resource.IsRawResourceMetaSet,
+                    VLatest.Resource.SearchParamHash,
+                    VLatest.Resource.RawResource);
+            }
+            else
+            {
+                (resourceTypeId, resourceId, version, isDeleted, resourceSurrogateId, requestMethod, isMatch, isPartialEntry,
+                    isRawResourceMetaSet, rawResourceStream) = reader.ReadRow(
+                    VLatest.Resource.ResourceTypeId,
+                    VLatest.Resource.ResourceId,
+                    VLatest.Resource.Version,
+                    VLatest.Resource.IsDeleted,
+                    VLatest.Resource.ResourceSurrogateId,
+                    VLatest.Resource.RequestMethod,
+                    _isMatch,
+                    _isPartial,
+                    VLatest.Resource.IsRawResourceMetaSet,
+                    VLatest.Resource.RawResource);
             }
         }
 
