@@ -155,6 +155,9 @@
         "type": "Uri",
         "value": {
             "uri": "http://example.org/xds/mhd/Binary/07a6483f-732b-461e-86b6-edb665c45510",
+            "version": null,
+            "fragment": null,
+            "isCanonical": false,
             "isValidAsCompositeComponent": true
         }
     },

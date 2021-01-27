@@ -398,7 +398,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage.Search
         {
             const string uri = "http://uri";
 
-            var value = new UriSearchValue(uri);
+            var value = new UriSearchValue(uri, false);
 
             TestAndValidateOutput(
                 "uri",

@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
                 yield break;
             }
 
-            var reference = new UriSearchValue(value.Value);
+            var reference = new UriSearchValue(value.Value, false);
 
             // Contained resources will not be searchable.
             if (reference.Uri.StartsWith("#", StringComparison.Ordinal)

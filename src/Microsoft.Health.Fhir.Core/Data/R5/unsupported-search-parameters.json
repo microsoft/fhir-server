@@ -1,6 +1,5 @@
 {
     "Unsupported": [
-        "http://hl7.org/fhir/SearchParameter/Resource-profile",
         "http://hl7.org/fhir/SearchParameter/ActivityDefinition-composed-of",
         "http://hl7.org/fhir/SearchParameter/ActivityDefinition-depends-on",
         "http://hl7.org/fhir/SearchParameter/ActivityDefinition-derived-from",
