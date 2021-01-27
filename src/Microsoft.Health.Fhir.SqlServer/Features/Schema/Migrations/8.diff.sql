@@ -4,7 +4,7 @@
 
 ALTER TABLE dbo.Resource
 ADD
-    SearchParamHash varchar(64) COLLATE Latin1_General_100_CS_AS NULL -- TODO: Do we need Latin1?
+    SearchParamHash varchar(64) NULL
 
 GO
 
