@@ -177,11 +177,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     InitializeSearchParameterStatuses();
                 }
-
-                if (version >= SchemaVersionConstants.SearchParameterHashSchemaVersion)
-                {
-                    InitializeSearchParameterHashes();
-                }
             }
             else
             {
@@ -189,10 +184,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 if (version == SchemaVersionConstants.SearchParameterStatusSchemaVersion)
                 {
                     InitializeSearchParameterStatuses();
-                }
-                else if (version == SchemaVersionConstants.SearchParameterHashSchemaVersion)
-                {
-                    InitializeSearchParameterHashes();
                 }
             }
 
@@ -368,54 +359,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                         Value = collection,
                         Direction = ParameterDirection.Input,
                         TypeName = "dbo.SearchParamTableType_1",
-                    };
-
-                    sqlCommand.Parameters.Add(tableValuedParameter);
-                    sqlCommand.ExecuteNonQuery();
-                }
-            }
-        }
-
-        private void InitializeSearchParameterHashes()
-        {
-            using (var connection = new SqlConnection(_configuration.ConnectionString))
-            {
-                connection.Open();
-
-                using (SqlCommand sqlCommand = connection.CreateCommand())
-                {
-                    sqlCommand.CommandText = @"
-                        SET XACT_ABORT ON
-                        BEGIN TRANSACTION
-    
-                        UPDATE dbo.Resource
-                        SET SearchParamHash = sph.SearchParamHash
-                        FROM dbo.Resource INNER JOIN @searchParamHashes as sph
-                        ON dbo.Resource.ResourceTypeId = sph.ResourceTypeId
-                        COMMIT TRANSACTION";
-
-                    IReadOnlyDictionary<string, string> searchParameterHashMap = _searchParameterDefinitionManager.SearchParameterHashMap;
-
-                    var hashMapWithResourceTypeId = new List<KeyValuePair<short, string>>();
-                    foreach ((string resourceTypeName, string hash) in searchParameterHashMap)
-                    {
-                        // TODO: Why does the count of searchParameterHashMap = 148 and the _resourceTypeToId = 146
-                        if (_resourceTypeToId.TryGetValue(resourceTypeName, out short resourceTypeId))
-                        {
-                            hashMapWithResourceTypeId.Add(new KeyValuePair<short, string>(resourceTypeId, hash));
-                        }
-                    }
-
-                    var collection = new SearchParameterHashCollection();
-                    collection.AddRange(hashMapWithResourceTypeId);
-
-                    var tableValuedParameter = new SqlParameter
-                    {
-                        ParameterName = "searchParamHashes",
-                        SqlDbType = SqlDbType.Structured,
-                        Value = collection,
-                        Direction = ParameterDirection.Input,
-                        TypeName = "dbo.SearchParamHashTableType_1",
                     };
 
                     sqlCommand.Parameters.Add(tableValuedParameter);

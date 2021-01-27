@@ -420,18 +420,8 @@ GO
 
 
 /*************************************************************
-    Search Parameter Status Information
+    Stored procedures for search parameter information
 **************************************************************/
-
--- Create a type to be used when initializing hash values in the Resource table.
-CREATE TYPE dbo.SearchParamHashTableType_1 AS TABLE -- TODO: Remove this when we remove initialization.
-(
-    ResourceTypeId smallint NOT NULL,
-    SearchParamHash varchar(64) COLLATE Latin1_General_100_CS_AS NOT NULL
-)
-
-GO
-
 --
 -- STORED PROCEDURE
 --     UpsertSearchParams
