@@ -526,8 +526,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
 
             using (ITransactionScope transactionScope = _fixture.TransactionHandler.BeginTransaction())
             {
-                ResourceElement resource = Samples.GetJsonSample("Weight");
-                SaveOutcome saveResult = await Mediator.UpsertResourceAsync(resource);
+                SaveOutcome saveResult = await Mediator.UpsertResourceAsync(Samples.GetJsonSample("Weight"));
                 createdId1 = saveResult.RawResourceElement.Id;
 
                 Assert.NotEqual(string.Empty, createdId1);
