@@ -8,9 +8,9 @@ using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 
 namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.QueryGenerators
 {
-    internal class ResourceIdParameterQueryGenerator : DenormalizedSearchParameterQueryGenerator
+    internal class ResourceIdParameterQueryGenerator : ResourceTableSearchParameterQueryGenerator
     {
-        public static readonly ResourceIdParameterQueryGenerator Instance = new ResourceIdParameterQueryGenerator();
+        public static new readonly ResourceIdParameterQueryGenerator Instance = new ResourceIdParameterQueryGenerator();
 
         public override SearchParameterQueryGeneratorContext VisitString(StringExpression expression, SearchParameterQueryGeneratorContext context)
         {

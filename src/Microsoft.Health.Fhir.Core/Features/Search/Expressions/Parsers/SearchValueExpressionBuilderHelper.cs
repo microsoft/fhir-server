@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         private const decimal ApproximateMultiplier = .1M;
 
         private string _searchParameterName;
-        private SearchModifierCode? _modifier;
+        private SearchModifier _modifier;
         private SearchComparator _comparator;
         private int? _componentIndex;
 
@@ -27,15 +27,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
         public Expression Build(
             string searchParameterName,
-            SearchModifierCode? modifier,
+            SearchModifier modifier,
             SearchComparator comparator,
             int? componentIndex,
             ISearchValue searchValue)
         {
             EnsureArg.IsNotNullOrWhiteSpace(searchParameterName, nameof(searchParameterName));
-            Debug.Assert(
-                modifier == null || Enum.IsDefined(typeof(SearchModifierCode), modifier.Value),
-                "Invalid modifier.");
             Debug.Assert(
                 Enum.IsDefined(typeof(SearchComparator), comparator),
                 "Invalid comparator.");
@@ -172,7 +169,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
         {
             EnsureArg.IsNotNull(reference, nameof(reference));
 
-            if (_modifier != null)
+            if (_modifier != null && _modifier.SearchModifierCode != SearchModifierCode.Type)
             {
                 ThrowModifierNotSupported();
             }
@@ -221,11 +218,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 // is case-insensitive search so we will normalize into lower case for search.
                 _outputExpression = Expression.StartsWith(FieldName.String, _componentIndex, s.String, true);
             }
-            else if (_modifier == SearchModifierCode.Exact)
+            else if (_modifier.SearchModifierCode == SearchModifierCode.Exact)
             {
                 _outputExpression = Expression.StringEquals(FieldName.String, _componentIndex, s.String, false);
             }
-            else if (_modifier == SearchModifierCode.Contains)
+            else if (_modifier.SearchModifierCode == SearchModifierCode.Contains)
             {
                 // Based on spec http://hl7.org/fhir/STU3/search.html#modifiers,
                 // contains is case-insensitive search so we will normalize into lower case for search.
@@ -245,36 +242,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
             if (_modifier == null)
             {
-                // Based on spec http://hl7.org/fhir/search.html#token,
-                // we need to make sure to test if system is missing or not based on how it is supplied.
-                if (token.System == null)
-                {
-                    // If the system is not supplied, then the token code is matched irrespective of the value of system.
-                    _outputExpression = Expression.StringEquals(FieldName.TokenCode, _componentIndex, token.Code, false);
-                }
-                else if (token.System.Length == 0)
-                {
-                    // If the system is empty, then the token is matched if there is no system property.
-                    _outputExpression = Expression.And(
-                        Expression.Missing(FieldName.TokenSystem, _componentIndex),
-                        Expression.StringEquals(FieldName.TokenCode, _componentIndex, token.Code, false));
-                }
-                else if (string.IsNullOrWhiteSpace(token.Code))
-                {
-                    // If the code is empty, then the token is matched if system is matched.
-                    _outputExpression = Expression.StringEquals(FieldName.TokenSystem, _componentIndex, token.System, false);
-                }
-                else
-                {
-                    _outputExpression = Expression.And(
-                        Expression.StringEquals(FieldName.TokenSystem, _componentIndex, token.System, false),
-                        Expression.StringEquals(FieldName.TokenCode, _componentIndex, token.Code, false));
-                }
+                _outputExpression = BuildEqualityExpression();
             }
-            else if (_modifier == SearchModifierCode.Above ||
-                     _modifier == SearchModifierCode.Below ||
-                     _modifier == SearchModifierCode.In ||
-                     _modifier == SearchModifierCode.NotIn)
+            else if (_modifier.SearchModifierCode == SearchModifierCode.Not)
+            {
+                _outputExpression = Expression.Not(BuildEqualityExpression());
+            }
+            else if (_modifier.SearchModifierCode == SearchModifierCode.Above ||
+                     _modifier.SearchModifierCode == SearchModifierCode.Below ||
+                     _modifier.SearchModifierCode == SearchModifierCode.In ||
+                     _modifier.SearchModifierCode == SearchModifierCode.NotIn)
             {
                 // These modifiers are not supported yet but will be supported eventually.
                 ThrowModifierNotSupported();
@@ -283,13 +260,42 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             {
                 ThrowModifierNotSupported();
             }
+
+            Expression BuildEqualityExpression()
+            {
+                // Based on spec http://hl7.org/fhir/search.html#token,
+                // we need to make sure to test if system is missing or not based on how it is supplied.
+                if (token.System == null)
+                {
+                    // If the system is not supplied, then the token code is matched irrespective of the value of system.
+                    return Expression.StringEquals(FieldName.TokenCode, _componentIndex, token.Code, false);
+                }
+                else if (token.System.Length == 0)
+                {
+                    // If the system is empty, then the token is matched if there is no system property.
+                    return Expression.And(
+                        Expression.Missing(FieldName.TokenSystem, _componentIndex),
+                        Expression.StringEquals(FieldName.TokenCode, _componentIndex, token.Code, false));
+                }
+                else if (string.IsNullOrWhiteSpace(token.Code))
+                {
+                    // If the code is empty, then the token is matched if system is matched.
+                    return Expression.StringEquals(FieldName.TokenSystem, _componentIndex, token.System, false);
+                }
+                else
+                {
+                    return Expression.And(
+                        Expression.StringEquals(FieldName.TokenSystem, _componentIndex, token.System, false),
+                        Expression.StringEquals(FieldName.TokenCode, _componentIndex, token.Code, false));
+                }
+            }
         }
 
         void ISearchValueVisitor.Visit(UriSearchValue uri)
         {
             EnsureArg.IsNotNull(uri, nameof(uri));
 
-            switch (_modifier)
+            switch (_modifier?.SearchModifierCode)
             {
                 case null:
                     _outputExpression = Expression.StringEquals(FieldName.Uri, _componentIndex, uri.Uri, false);

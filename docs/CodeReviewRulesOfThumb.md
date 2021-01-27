@@ -74,6 +74,15 @@ External contributor authors:
 - Longer discussions with external contributors will be handled on a case-by-case basis
 - The FHIR team will reach out to you if we believe it would be helpful to move discussions to a different platform
 
+## Advocate for useful documentation
+ 
+- Don't be afraid to ask the author to add comments for additional clarity
+    - This will help pass on knowledge
+    - If you need to ask a clarifying question on a PR, it could indicate that a comment would be useful
+- Check that the classes you are reviewing have a class-level comment
+    - Ensure that the documentation adds value (sometimes, this involves explaining why something is needed or when it is used, rather than what it does)
+    - Suggest moving lengthy `///<summary></summary>` comments to the `///<remarks></remarks>` section
+
 ## Positive reinforcement is important!
 
 - If you think it is appropriate and would like to add an emoji, the team has expressed that we like them 🙂

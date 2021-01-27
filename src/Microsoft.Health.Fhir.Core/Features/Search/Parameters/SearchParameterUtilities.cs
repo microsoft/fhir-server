@@ -11,6 +11,7 @@ using Hl7.Fhir.ElementModel;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 
@@ -20,16 +21,20 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
     {
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly SearchParameterStatusManager _searchParameterStatusManager;
+        private IModelInfoProvider _modelInfoProvider;
 
         public SearchParameterUtilities(
             SearchParameterStatusManager searchParameterStatusManager,
-            ISearchParameterDefinitionManager searchParameterDefinitionManager)
+            ISearchParameterDefinitionManager searchParameterDefinitionManager,
+            IModelInfoProvider modelInfoProvider)
         {
             EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
+            EnsureArg.IsNotNull(modelInfoProvider, nameof(modelInfoProvider));
 
             _searchParameterStatusManager = searchParameterStatusManager;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
+            _modelInfoProvider = modelInfoProvider;
         }
 
         public async Task AddSearchParameterAsync(ITypedElement searchParam)
@@ -53,6 +58,40 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             catch (Exception ex)
             {
                 var customSearchException = new ConfigureCustomSearchException(Core.Resources.CustomSearchCreateError);
+                customSearchException.Issues.Add(new OperationOutcomeIssue(
+                    OperationOutcomeConstants.IssueSeverity.Error,
+                    OperationOutcomeConstants.IssueType.Exception,
+                    ex.Message));
+
+                throw customSearchException;
+            }
+        }
+
+        public async Task DeleteSearchParameterAsync(RawResource searchParamResource)
+        {
+            try
+            {
+                var searchParam = _modelInfoProvider.ToTypedElement(searchParamResource);
+                var searchParameterWrapper = new SearchParameterWrapper(searchParam);
+
+                // First we delete the status metadata from the data store as this fuction depends on the
+                // the in memory definition manager.  Once complete we remove the SearchParameter from
+                // the definition manager.
+                await _searchParameterStatusManager.DeleteSearchParameterStatusAsync(searchParameterWrapper.Url);
+                _searchParameterDefinitionManager.DeleteSearchParameter(searchParam);
+            }
+            catch (FhirException fex)
+            {
+                fex.Issues.Add(new OperationOutcomeIssue(
+                    OperationOutcomeConstants.IssueSeverity.Error,
+                    OperationOutcomeConstants.IssueType.Exception,
+                    Core.Resources.CustomSearchDeleteError));
+
+                throw;
+            }
+            catch (Exception ex)
+            {
+                var customSearchException = new ConfigureCustomSearchException(Core.Resources.CustomSearchDeleteError);
                 customSearchException.Issues.Add(new OperationOutcomeIssue(
                     OperationOutcomeConstants.IssueSeverity.Error,
                     OperationOutcomeConstants.IssueType.Exception,

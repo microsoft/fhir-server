@@ -59,6 +59,7 @@ Note that when you deploy from our templates, it is set to deploy with $export e
 To deploy the backend SQL Server, Azure Web App, and FHIR server code, use the buttons below to deploy through the Azure Portal. If you would like to protect the FHIR API with token authorization, you will need to supply application registration details as described above.
 
 The FHIR server can be deployed using all free Azure resources. When deploying select 'F1' as the App Service Plan Sku, 'Yes' to use the Cosmos DB Free Tier, and FhirServerCosmosDB as the Solution Type. The free app service plan and Cosmos Db account have restrictions that can be seen on their respective doc pages: [App Service plan overview](https://docs.microsoft.com/en-us/azure/app-service/overview-hosting-plans), [Cosmos DB free tier](https://docs.microsoft.com/en-us/azure/cosmos-db/optimize-dev-test#azure-cosmos-db-free-tier)
+
 <a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FMicrosoft%2Ffhir-server%2Fmaster%2Fsamples%2Ftemplates%2Fdefault-azuredeploy.json" target="_blank">
     <img src="https://azuredeploy.net/deploybutton.png"/>
 </a>

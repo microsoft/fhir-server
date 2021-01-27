@@ -106,7 +106,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 .IsSearchParameterSupported(Arg.Is(_searchParameterInfos[4]))
                 .Returns((true, false));
 
-            _searchParameterUtilties = new SearchParameterUtilities(_manager, _searchParameterDefinitionManager);
+            _searchParameterUtilties = new SearchParameterUtilities(_manager, _searchParameterDefinitionManager, ModelInfoProvider.Instance);
         }
 
         public async Task InitializeAsync()
@@ -164,7 +164,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             await _manager.EnsureInitialized();
             _fhirRequestContext.IncludePartiallyIndexedSearchParams = true;
             var searchableDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, _fhirRequestContextAccessor);
-            var paramList = searchableDefinitionManager.AllSearchParameters;
+            var paramList = searchableDefinitionManager.AllSearchParameters.OrderBy(p => p.Name);
 
             Assert.Collection(
                 paramList,

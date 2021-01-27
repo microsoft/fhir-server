@@ -5,14 +5,19 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Serialization;
 using Hl7.Fhir.Specification;
 using Hl7.FhirPath;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Models;
+using Newtonsoft.Json;
 
 namespace Microsoft.Health.Fhir.Core
 {
@@ -75,6 +80,28 @@ namespace Microsoft.Health.Fhir.Core
             EnsureArg.IsNotNull(sourceNode);
 
             return sourceNode.ToTypedElement(StructureDefinitionSummaryProvider);
+        }
+
+        public ITypedElement ToTypedElement(RawResource rawResource)
+        {
+            EnsureArg.IsNotNull(rawResource, nameof(rawResource));
+
+            using TextReader reader = new StringReader(rawResource.Data);
+            using JsonReader jsonReader = new JsonTextReader(reader);
+            try
+            {
+                ISourceNode sourceNode = FhirJsonNode.Read(jsonReader);
+                return sourceNode.ToTypedElement(StructureDefinitionSummaryProvider);
+            }
+            catch (FormatException ex)
+            {
+                var issue = new OperationOutcomeIssue(
+                    OperationOutcomeConstants.IssueSeverity.Fatal,
+                    OperationOutcomeConstants.IssueType.Invalid,
+                    ex.Message);
+
+                throw new ResourceNotValidException(new List<OperationOutcomeIssue>() { issue });
+            }
         }
     }
 }

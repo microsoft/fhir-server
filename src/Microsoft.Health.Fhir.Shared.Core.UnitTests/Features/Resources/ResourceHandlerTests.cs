@@ -24,7 +24,6 @@ using Microsoft.Health.Fhir.Core.Features.Resources.Delete;
 using Microsoft.Health.Fhir.Core.Features.Resources.Get;
 using Microsoft.Health.Fhir.Core.Features.Resources.Upsert;
 using Microsoft.Health.Fhir.Core.Features.Search;
-using Microsoft.Health.Fhir.Core.Features.Search.Parameters;
 using Microsoft.Health.Fhir.Core.Features.Security;
 using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Models;
@@ -53,7 +52,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
         private readonly ResourceDeserializer _deserializer;
         private readonly FhirJsonParser _fhirJsonParser = new FhirJsonParser();
         private IFhirAuthorizationService _authorizationService;
-        private readonly ISearchParameterUtilities _searchParameterUtilities;
 
         public ResourceHandlerTests()
         {
@@ -95,12 +93,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
             _authorizationService = Substitute.For<IFhirAuthorizationService>();
             _authorizationService.CheckAccess(Arg.Any<DataActions>()).Returns(ci => ci.Arg<DataActions>());
 
-            _searchParameterUtilities = Substitute.For<ISearchParameterUtilities>();
-
             var referenceResolver = new ResourceReferenceResolver(_searchService, new TestQueryStringParser());
             _resourceIdProvider = new ResourceIdProvider();
             collection.Add(x => _mediator).Singleton().AsSelf();
-            collection.Add(x => new CreateResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, referenceResolver, _authorizationService, _searchParameterUtilities)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection.Add(x => new CreateResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, referenceResolver, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new UpsertResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _resourceIdProvider, _authorizationService, ModelInfoProvider.Instance)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new ConditionalCreateResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, x.GetService<IMediator>(), _resourceIdProvider, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
             collection.Add(x => new ConditionalUpsertResourceHandler(_fhirDataStore, lazyConformanceProvider, _resourceWrapperFactory, _searchService, x.GetService<IMediator>(), _resourceIdProvider, _authorizationService)).Singleton().AsSelf().AsImplementedInterfaces();
@@ -129,24 +125,6 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Resources
 
             Assert.NotNull(deserializedResource.Id);
             Assert.NotEqual("id1", deserializedResource.Id);
-
-            // Ensure for non-SearchParameter, that we do not call Add SearchParameter
-            await _searchParameterUtilities.DidNotReceive().AddSearchParameterAsync(Arg.Any<ITypedElement>());
-        }
-
-        [Fact]
-        public async Task GivenAFhirMediator_WhenCreatingASearchParameterResource_ThenAddNewSearchParameterShouldBeCalled()
-        {
-            var searchParameter = new SearchParameter() { Id = "Id" };
-            var resource = searchParameter.ToTypedElement().ToResourceElement();
-
-            var wrapper = CreateResourceWrapper(resource, false);
-
-            _fhirDataStore.UpsertAsync(Arg.Any<ResourceWrapper>(), Arg.Any<WeakETag>(), Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(x => new UpsertOutcome(x.Arg<ResourceWrapper>(), SaveOutcomeType.Created));
-
-            await _mediator.CreateResourceAsync(resource);
-
-            await _searchParameterUtilities.Received().AddSearchParameterAsync(Arg.Any<ITypedElement>());
         }
 
         [Fact]

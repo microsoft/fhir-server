@@ -10,5 +10,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
         Disabled = 1,
         Supported = 2,
         Enabled = 3,
+        Deleted = 4,
     }
 }

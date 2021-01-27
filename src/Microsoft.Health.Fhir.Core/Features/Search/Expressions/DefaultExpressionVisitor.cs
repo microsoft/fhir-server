@@ -43,6 +43,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return result;
         }
 
+        public virtual TOutput VisitNotExpression(NotExpression expression, TContext context) => expression.Expression.AcceptVisitor(this, context);
+
         public virtual TOutput VisitSearchParameter(SearchParameterExpression expression, TContext context) => expression.Expression.AcceptVisitor(this, context);
 
         public virtual TOutput VisitBinary(BinaryExpression expression, TContext context) => default;
