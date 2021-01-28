@@ -6,7 +6,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Security.Claims;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using AngleSharp.Io;
@@ -26,14 +28,20 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
     public class ThrottlingMiddlewareTests : IAsyncLifetime
     {
         private HttpContext _httpContext = new DefaultHttpContext();
-        private ThrottlingMiddleware _middleware;
+        private Lazy<ThrottlingMiddleware> _middleware;
         private CancellationTokenSource _cts;
         private IActionResultExecutor<ObjectResult> _executor;
         private ServiceCollection _collection = new ServiceCollection();
         private ServiceProvider _provider;
+        private ThrottlingConfiguration _throttlingConfiguration;
 
         public ThrottlingMiddlewareTests()
         {
+            _throttlingConfiguration = new ThrottlingConfiguration
+            {
+                ConcurrentRequestLimit = 5,
+            };
+
             Init(securityEnabled: true);
         }
 
@@ -45,7 +53,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
         {
             var tasks = SetupPreexistingRequests(numberOfConcurrentRequests);
 
-            tasks.Add((_middleware.Invoke(_httpContext), _httpContext));
+            tasks.Add((_middleware.Value.Invoke(_httpContext), _httpContext, _cts));
 
             Assert.Equal(200, _httpContext.Response.StatusCode);
             _cts.Cancel();
@@ -59,7 +67,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
         {
             _ = SetupPreexistingRequests(numberOfConcurrentRequests);
 
-            await _middleware.Invoke(_httpContext);
+            await _middleware.Value.Invoke(_httpContext);
 
             Assert.Equal(429, _httpContext.Response.StatusCode);
             _cts.Cancel();
@@ -72,7 +80,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
             Init(securityEnabled: false);
             var mapping = SetupPreexistingRequests(numberOfConcurrentRequests: 10);
 
-            await _middleware.Invoke(_httpContext);
+            await _middleware.Value.Invoke(_httpContext);
             Assert.Equal(429, _httpContext.Response.StatusCode);
             _cts.Cancel();
             Assert.Contains(429, mapping.Select(x => x.httpContext.Response.StatusCode));
@@ -100,7 +108,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
 
             _httpContext.Request.Path = "/health/check";
             _httpContext.Request.Method = HttpMethod.Get.ToString();
-            var task = _middleware.Invoke(_httpContext);
+            var task = _middleware.Value.Invoke(_httpContext);
             _cts.Cancel();
             Assert.Equal(200, _httpContext.Response.StatusCode);
 
@@ -109,18 +117,59 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
             Assert.Contains(mapping, x => x.httpContext.Response.StatusCode == 429);
         }
 
-        private List<(Task task, HttpContext httpContext)> SetupPreexistingRequests(int numberOfConcurrentRequests, string path = "")
+        [Fact]
+        public async Task GivenARequestWhenMaxRequestsAlreadyInFlightAndQueueingEnabled_WhenExistingRequestCompletes_TheQueuedRequestCompletes()
         {
-            List<(Task, HttpContext)> output = new List<(Task, HttpContext)>();
+            _throttlingConfiguration.MaxMillisecondsInQueue = 5000000;
+            _throttlingConfiguration.MaxQueueSize = 10;
+
+            // fill up to max
+            var existingRequests = SetupPreexistingRequests(5);
+
+            // make this a short request
+            _httpContext.Request.Path = "/duration/1";
+            Task requestTask = _middleware.Value.Invoke(_httpContext);
+
+            // cancel one of the existing requests. This should allow the request above to go through
+            existingRequests[0].cancellationTokenSource.Cancel();
+
+            await requestTask;
+            Assert.Equal(200, _httpContext.Response.StatusCode);
+            Assert.All(existingRequests.Skip(1), tuple => Assert.False(tuple.task.IsCompleted));
+        }
+
+        [Fact]
+        public async Task GivenARequestWhenMaxRequestsAlreadyInFlightAndQueueingEnabled_WhenMaxQueueTimeElapses_TheQueuedRequestReturns429()
+        {
+            _throttlingConfiguration.MaxMillisecondsInQueue = 1;
+            _throttlingConfiguration.MaxQueueSize = 10;
+
+            // fill up to max
+            var existingRequests = SetupPreexistingRequests(5);
+
+            // make this a short request
+            _httpContext.Request.Path = "/duration/1";
+            Task requestTask = _middleware.Value.Invoke(_httpContext);
+
+            await requestTask;
+            Assert.Equal(429, _httpContext.Response.StatusCode);
+            Assert.All(existingRequests, tuple => Assert.False(tuple.task.IsCompleted));
+        }
+
+        private List<(Task task, HttpContext httpContext, CancellationTokenSource cancellationTokenSource)> SetupPreexistingRequests(int numberOfConcurrentRequests, string path = "")
+        {
+            var output = new List<(Task, HttpContext, CancellationTokenSource cancellationTokenSource)>();
 
             for (int count = 0; count < numberOfConcurrentRequests; count++)
             {
+                var cts = new CancellationTokenSource();
                 var context = new DefaultHttpContext();
+                context.RequestAborted = cts.Token;
                 context.User = new ClaimsPrincipal(new ClaimsIdentity("authenticationType", "nametype", "roletype"));
                 context.Request.Path = $"/{path}";
                 context.Request.Method = HttpMethod.Get.ToString();
                 context.RequestServices = _provider;
-                output.Add((_middleware.Invoke(context), context));
+                output.Add((_middleware.Value.Invoke(context), context, cts));
             }
 
             return output;
@@ -132,27 +181,34 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
             _httpContext.RequestAborted = _cts.Token;
             _httpContext.User = new ClaimsPrincipal(new ClaimsIdentity("authenticationType", "nametype", "roletype"));
 
-            var throttlingConfiguration = new ThrottlingConfiguration
-            {
-                ConcurrentRequestLimit = 5,
-            };
-            throttlingConfiguration.ExcludedEndpoints.Add(new ExcludedEndpoint { Method = "get", Path = "/health/check" });
+            _throttlingConfiguration.ExcludedEndpoints.Add(new ExcludedEndpoint { Method = "get", Path = "/health/check" });
 
-            _middleware = new ThrottlingMiddleware(
-                async x =>
-                {
-                    x.Response.StatusCode = 200;
-                    try
+            _middleware = new Lazy<ThrottlingMiddleware>(
+                () => new ThrottlingMiddleware(
+                    async x =>
                     {
-                        await Task.Delay(5000, _cts.Token);
-                    }
-                    catch (TaskCanceledException) when (_cts.Token.IsCancellationRequested)
-                    {
-                    }
-                },
-                Options.Create(throttlingConfiguration),
-                Options.Create(new Microsoft.Health.Fhir.Core.Configs.SecurityConfiguration { Enabled = securityEnabled }),
-                NullLogger<ThrottlingMiddleware>.Instance);
+                        x.Response.StatusCode = 200;
+                        try
+                        {
+                            if (!int.TryParse(Regex.Match(x.Request.Path, "/duration/(\\d+)").Groups[1].Value, out var duration))
+                            {
+                                duration = 5000;
+                            }
+
+                            var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token, x.RequestAborted);
+                            await Task.Delay(duration, linkedTokenSource.Token);
+                        }
+                        catch (TaskCanceledException) when (_cts.Token.IsCancellationRequested)
+                        {
+                        }
+                        catch (TaskCanceledException) when (x.RequestAborted.IsCancellationRequested)
+                        {
+                            x.Response.StatusCode = StatusCodes.Status408RequestTimeout;
+                        }
+                    },
+                    Options.Create(_throttlingConfiguration),
+                    Options.Create(new Microsoft.Health.Fhir.Core.Configs.SecurityConfiguration { Enabled = securityEnabled }),
+                    NullLogger<ThrottlingMiddleware>.Instance));
 
             _executor = Substitute.For<IActionResultExecutor<ObjectResult>>();
             _executor.ExecuteAsync(Arg.Any<ActionContext>(), Arg.Any<ObjectResult>()).ReturnsForAnyArgs(Task.CompletedTask);
@@ -163,6 +219,6 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
 
         public Task InitializeAsync() => Task.CompletedTask;
 
-        async Task IAsyncLifetime.DisposeAsync() => await _middleware.DisposeAsync();
+        async Task IAsyncLifetime.DisposeAsync() => await _middleware.Value.DisposeAsync();
     }
 }

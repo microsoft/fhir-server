@@ -15,5 +15,9 @@ namespace Microsoft.Health.Fhir.Api.Configs
         public int ConcurrentRequestLimit { get; set; }
 
         public HashSet<ExcludedEndpoint> ExcludedEndpoints { get; } = new HashSet<ExcludedEndpoint>();
+
+        public int MaxQueueSize { get; set; }
+
+        public int MaxMillisecondsInQueue { get; set; }
     }
 }
