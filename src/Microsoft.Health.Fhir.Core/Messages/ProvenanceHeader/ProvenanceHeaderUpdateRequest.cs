@@ -28,6 +28,5 @@ namespace Microsoft.Health.Fhir.Core.Messages.ProvenanceHeader
         public WeakETag WeakETag { get; }
 
         public string ProvenanceHeader { get; }
-
     }
 }

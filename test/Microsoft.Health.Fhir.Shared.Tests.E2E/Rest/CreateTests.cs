@@ -76,6 +76,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             var exception = await Assert.ThrowsAsync<FhirException>(() => _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>(), provenanceHeader: "Jibberish"));
             Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
+
+            exception = await Assert.ThrowsAsync<FhirException>(() => _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>(), provenanceHeader: string.Empty));
+            Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
         }
 
         [Theory]
