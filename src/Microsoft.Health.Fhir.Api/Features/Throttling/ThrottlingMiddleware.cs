@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
         private const string ThrottledContentType = "application/json; charset=utf-8";
         private static readonly ReadOnlyMemory<byte> _throttledBody = Encoding.UTF8.GetBytes($@"{{""severity"":""Error"",""code"":""Throttled"",""diagnostics"":""{Resources.TooManyConcurrentRequests}"",""location"":null}}").AsMemory();
 
-        private static readonly Action<object> _queueTimeElapsedDelegate = QueueTimeElapsed;
+        private static readonly Action<object> _queueTimeoutElapsedDelegate = QueueTimeoutElapsed;
 
         private readonly RequestDelegate _next;
         private readonly ILogger<ThrottlingMiddleware> _logger;
@@ -143,7 +143,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
 
             for (int i = 0; i < 2; i++)
             {
-                // we only do two loop iterations when we queue up the request.
+                // we do two loop iterations only when we need to queue up the request.
                 lock (_queue)
                 {
                     if (_requestsInFlight < _concurrentRequestLimit)
@@ -173,7 +173,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
                     : CancellationTokenSource.CreateLinkedTokenSource(new CancellationTokenSource(_maxMillisecondsInQueue).Token, context.RequestAborted).Token;
 
                 queueNode = new LinkedListNode<TaskCompletionSource<bool>>(completionSource);
-                cancellationToken.Register(_queueTimeElapsedDelegate, state: queueNode, useSynchronizationContext: false);
+                cancellationToken.Register(_queueTimeoutElapsedDelegate, state: queueNode, useSynchronizationContext: false);
             }
 
             if (queueSizeExceeded)
@@ -195,7 +195,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
                 }
                 else
                 {
-                    // canceled/timed out
+                    // canceled/timed out sitting in the queue
                     await Return429(context);
                 }
             }
@@ -251,7 +251,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
             await context.Response.Body.WriteAsync(_throttledBody);
         }
 
-        private static void QueueTimeElapsed(object state)
+        private static void QueueTimeoutElapsed(object state)
         {
             var queueNode = (LinkedListNode<TaskCompletionSource<bool>>)state;
 
