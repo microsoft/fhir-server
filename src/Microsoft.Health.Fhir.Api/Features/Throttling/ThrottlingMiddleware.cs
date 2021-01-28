@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
         private const int SamplePeriodMilliseconds = 500;
 
         // hard-coding these to minimize resource consumption when throttling
-        private const string ThrottledContentType = "application/fhir+json; charset=utf-8";
+        private const string ThrottledContentType = "application/json; charset=utf-8";
         private static readonly ReadOnlyMemory<byte> _throttledBody = Encoding.UTF8.GetBytes($@"{{""severity"":""Error"",""code"":""Throttled"",""diagnostics"":""{Resources.TooManyConcurrentRequests}"",""location"":null}}").AsMemory();
 
         private static readonly Action<object> _queueTimeElapsedDelegate = QueueTimeElapsed;
