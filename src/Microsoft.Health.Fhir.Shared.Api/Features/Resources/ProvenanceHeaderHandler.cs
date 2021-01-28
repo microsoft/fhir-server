@@ -64,6 +64,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
             };
 
             // Create Provenance resource.
+            // TODO: It should probaby go through controller to trigger audit events, but it's quite tricky to do now.
             await _mediator.Send<UpsertResourceResponse>(new CreateResourceRequest(provenance.ToResourceElement()), cancellationToken);
             return targetResource.Outcome.RawResourceElement;
         }

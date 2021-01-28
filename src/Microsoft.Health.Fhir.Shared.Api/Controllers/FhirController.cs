@@ -33,6 +33,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Routing;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Delete;
+using Microsoft.Health.Fhir.Core.Messages.ProvenanceHeader;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.ValueSets;
@@ -142,13 +143,22 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// Creates a new resource
         /// </summary>
         /// <param name="resource">The resource.</param>
+        /// <param name="provenanceHeader">Content of "X-Provenance" header.</param>
         [HttpPost]
         [Route(KnownRoutes.ResourceType)]
         [AuditEventType(AuditEventSubType.Create)]
         [ServiceFilter(typeof(SearchParameterFilterAttribute))]
-        public async Task<IActionResult> Create([FromBody] Resource resource)
+        public async Task<IActionResult> Create([FromBody] Resource resource, [FromHeader(Name = KnownHeaders.ProvenanceHeader)] string provenanceHeader = null)
         {
-            RawResourceElement response = await _mediator.CreateResourceAsync(resource.ToResourceElement(), HttpContext.RequestAborted);
+            RawResourceElement response;
+            if (provenanceHeader != null)
+            {
+                response = await _mediator.Send<RawResourceElement>(new ProvenanceHeaderRequest(resource.ToResourceElement(), provenanceHeader), HttpContext.RequestAborted);
+            }
+            else
+            {
+                response = await _mediator.CreateResourceAsync(resource.ToResourceElement(), HttpContext.RequestAborted);
+            }
 
             return FhirResult.Create(response, HttpStatusCode.Created)
                 .SetETagHeader()
@@ -359,7 +369,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpDelete]
         [Route(KnownRoutes.ResourceTypeById)]
         [AuditEventType(AuditEventSubType.Delete)]
-        public async Task<IActionResult> Delete(string typeParameter, string idParameter, [FromQuery]bool hardDelete)
+        public async Task<IActionResult> Delete(string typeParameter, string idParameter, [FromQuery] bool hardDelete)
         {
             DeleteResourceResponse response = await _mediator.DeleteResourceAsync(new ResourceKey(typeParameter, idParameter), hardDelete, HttpContext.RequestAborted);
 
