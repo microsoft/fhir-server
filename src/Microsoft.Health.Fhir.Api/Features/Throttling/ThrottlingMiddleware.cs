@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -138,6 +139,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
                 return;
             }
 
+            bool canRun = false;
             bool queueSizeExceeded = false;
             LinkedListNode<TaskCompletionSource<bool>> queueNode = null;
 
@@ -149,6 +151,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
                     if (_requestsInFlight < _concurrentRequestLimit)
                     {
                         _requestsInFlight++;
+                        canRun = true;
                         break;
                     }
 
@@ -165,29 +168,33 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
                     }
                 }
 
-                // allocate all this stuff outside of the lock
-                var completionSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                // allocate outside of the lock
+                queueNode = new LinkedListNode<TaskCompletionSource<bool>>(new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously));
+            }
+
+            if (canRun)
+            {
+                // No throttling, no queueing. Execute the request.
+                await RunRequest(context);
+            }
+            else if (queueSizeExceeded)
+            {
+                await Return429(context);
+            }
+            else
+            {
+                Debug.Assert(queueNode != null);
 
                 CancellationToken cancellationToken = _maxMillisecondsInQueue == Timeout.Infinite
                     ? context.RequestAborted
                     : CancellationTokenSource.CreateLinkedTokenSource(new CancellationTokenSource(_maxMillisecondsInQueue).Token, context.RequestAborted).Token;
 
-                queueNode = new LinkedListNode<TaskCompletionSource<bool>>(completionSource);
-                cancellationToken.Register(_queueTimeoutElapsedDelegate, state: queueNode, useSynchronizationContext: false);
-            }
+                bool success;
+                await using (cancellationToken.Register(_queueTimeoutElapsedDelegate, state: queueNode, useSynchronizationContext: false))
+                {
+                    success = await queueNode.Value.Task;
+                }
 
-            if (queueSizeExceeded)
-            {
-                await Return429(context);
-            }
-            else if (queueNode == null)
-            {
-                // No throttling, no queueing. Execute the request.
-                await RunRequest(context);
-            }
-            else
-            {
-                bool success = await queueNode.Value.Task;
                 if (success)
                 {
                     // the request has been dequeued successfully and we can now execute it.
@@ -217,11 +224,15 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
                     {
                         // with this request done, take the next item off the queue
                         completionSource = _queue.First.Value;
+                        Debug.Assert(!completionSource.Task.IsCompleted, "Broken invariant: completion source should not be set if in the queue.");
                         _queue.RemoveFirst();
                     }
                     else
                     {
                         // there are no requests in the queue, so just decrement the number of executing requests.
+
+                        Debug.Assert(_requestsInFlight != 0, "_requestsInFlight will reach a negative number");
+
                         _requestsInFlight--;
                     }
                 }
@@ -229,8 +240,37 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
                 if (completionSource != null)
                 {
                     // complete the task so that the request proceeds.
-                    completionSource.SetResult(true);
+                    completionSource?.SetResult(true);
                 }
+            }
+        }
+
+        private static void QueueTimeoutElapsed(object state)
+        {
+            var queueNode = (LinkedListNode<TaskCompletionSource<bool>>)state;
+
+            LinkedList<TaskCompletionSource<bool>> queueSnapshot = queueNode.List;
+            bool removed = false;
+            if (queueSnapshot != null)
+            {
+                lock (queueSnapshot)
+                {
+                    if (queueNode.List != null)
+                    {
+                        Debug.Assert(!queueNode.Value.Task.IsCompleted, "Broken invariant: completion source should not be set if it is in the queue.");
+                        queueSnapshot.Remove(queueNode);
+                        removed = true;
+                    }
+                }
+            }
+
+            if (removed)
+            {
+                queueNode.Value.SetResult(false);
+            }
+            else
+            {
+                Debug.Assert(queueNode.Value.Task.IsCompleted && queueNode.Value.Task.Result, $"Completion source should have been set to true since timed out queue entry was not present in the queue. IsCompleted={queueNode.Value.Task.IsCompleted}.");
             }
         }
 
@@ -249,32 +289,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
             context.Response.ContentType = ThrottledContentType;
 
             await context.Response.Body.WriteAsync(_throttledBody);
-        }
-
-        private static void QueueTimeoutElapsed(object state)
-        {
-            var queueNode = (LinkedListNode<TaskCompletionSource<bool>>)state;
-
-            LinkedList<TaskCompletionSource<bool>> queueSnapshot = queueNode.List;
-            if (queueSnapshot == null)
-            {
-                // We have already started executing the request or the request was canceled before it was added to the queue.
-                return;
-            }
-
-            lock (queueSnapshot)
-            {
-                if (queueNode.List == null)
-                {
-                    // We have already started executing the request or the request was canceled before it was added to the queue.
-                    return;
-                }
-
-                queueSnapshot.Remove(queueNode);
-            }
-
-            TaskCompletionSource<bool> completionSource = queueNode.Value;
-            completionSource.SetResult(false);
         }
 
         public async ValueTask DisposeAsync()
