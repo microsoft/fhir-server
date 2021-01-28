@@ -417,11 +417,6 @@ AS
     END
 GO
 
-
-
-/*************************************************************
-    Stored procedures for search parameter information
-**************************************************************/
 --
 -- STORED PROCEDURE
 --     UpsertSearchParams
@@ -443,7 +438,7 @@ AS
     SET XACT_ABORT ON
 
     SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
-BEGIN TRANSACTION
+    BEGIN TRANSACTION
 
     DECLARE @lastUpdated datetimeoffset(7) = SYSDATETIMEOFFSET()
 

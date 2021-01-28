@@ -7,6 +7,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
+using Microsoft.Health.Core.Extensions;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.SqlServer.Features.Client;
 using Xunit;
@@ -30,7 +31,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public async Task GivenATransactionScope_WhenReading_TheUncommittedValuesShouldOnlyBeAvailableWithTheTransactionAndWithHints()
         {
             var newId = Guid.NewGuid().ToString();
-            var searchParamHash = _fixture.SearchParameterDefinitionManager.GetSearchParameterHashForResourceType("ObservationDefinition");
+            var searchParamHash = new string("RandomSearchParam").ComputeHash();
 
             using (var transactionScope = _fixture.SqlTransactionHandler.BeginTransaction())
             {
@@ -83,7 +84,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
         public async Task GivenATransactionScope_WhenReadingAfterComplete_TheValuesShouldBeAvailable()
         {
             var newId = Guid.NewGuid().ToString();
-            var searchParamHash = _fixture.SearchParameterDefinitionManager.GetSearchParameterHashForResourceType("ObservationDefinition");
+            var searchParamHash = new string("RandomSearchParam").ComputeHash();
 
             using (var transactionScope = _fixture.SqlTransactionHandler.BeginTransaction())
             {
