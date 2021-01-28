@@ -153,7 +153,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             RawResourceElement response;
             if (provenanceHeader != null)
             {
-                response = await _mediator.Send<RawResourceElement>(new ProvenanceHeaderRequest(resource.ToResourceElement(), provenanceHeader), HttpContext.RequestAborted);
+                response = await _mediator.Send<RawResourceElement>(new ProvenanceHeaderCreateRequest(resource.ToResourceElement(), provenanceHeader), HttpContext.RequestAborted);
             }
             else
             {
@@ -170,18 +170,26 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// Conditionally creates a new resource
         /// </summary>
         /// <param name="resource">The resource.</param>
+        /// <param name="provenanceHeader">Content of "X-Provenance" header.</param>
         [HttpPost]
         [ConditionalConstraint]
         [Route(KnownRoutes.ResourceType)]
         [AuditEventType(AuditEventSubType.Create)]
-        public async Task<IActionResult> ConditionalCreate([FromBody] Resource resource)
+        public async Task<IActionResult> ConditionalCreate([FromBody] Resource resource, [FromHeader(Name = KnownHeaders.ProvenanceHeader)] string provenanceHeader = null)
         {
             StringValues conditionalCreateHeader = HttpContext.Request.Headers[KnownHeaders.IfNoneExist];
 
             Tuple<string, string>[] conditionalParameters = QueryHelpers.ParseQuery(conditionalCreateHeader)
                 .SelectMany(query => query.Value, (query, value) => Tuple.Create(query.Key, value)).ToArray();
-
-            UpsertResourceResponse createResponse = await _mediator.Send<UpsertResourceResponse>(new ConditionalCreateResourceRequest(resource.ToResourceElement(), conditionalParameters), HttpContext.RequestAborted);
+            UpsertResourceResponse createResponse;
+            if (provenanceHeader != null)
+            {
+                createResponse = await _mediator.Send<UpsertResourceResponse>(new ProvenanceHeaderConditionalCreateRequest(resource.ToResourceElement(), conditionalParameters, provenanceHeader), HttpContext.RequestAborted);
+            }
+            else
+            {
+                createResponse = await _mediator.Send<UpsertResourceResponse>(new ConditionalCreateResourceRequest(resource.ToResourceElement(), conditionalParameters), HttpContext.RequestAborted);
+            }
 
             if (createResponse == null)
             {
@@ -201,31 +209,50 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         /// </summary>
         /// <param name="resource">The resource.</param>
         /// <param name="ifMatchHeader">Optional If-Match header</param>
+        /// <param name="provenanceHeader">Content of "X-Provenance" header.</param>
         [HttpPut]
         [ValidateResourceIdFilter]
         [Route(KnownRoutes.ResourceTypeById)]
         [AuditEventType(AuditEventSubType.Update)]
-        public async Task<IActionResult> Update([FromBody] Resource resource, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader)
+        public async Task<IActionResult> Update([FromBody] Resource resource, [ModelBinder(typeof(WeakETagBinder))] WeakETag ifMatchHeader, [FromHeader(Name = KnownHeaders.ProvenanceHeader)] string provenanceHeader = null)
         {
-            SaveOutcome response = await _mediator.UpsertResourceAsync(resource.ToResourceElement(), ifMatchHeader, HttpContext.RequestAborted);
+            SaveOutcome outcomeResponse;
+            if (provenanceHeader != null)
+            {
+                var response = await _mediator.Send<UpsertResourceResponse>(new ProvenanceHeaderUpdateRequest(resource.ToResourceElement(), provenanceHeader, ifMatchHeader), HttpContext.RequestAborted);
+                outcomeResponse = response.Outcome;
+            }
+            else
+            {
+                outcomeResponse = await _mediator.UpsertResourceAsync(resource.ToResourceElement(), ifMatchHeader, HttpContext.RequestAborted);
+            }
 
-            return ToSaveOutcomeResult(response);
+            return ToSaveOutcomeResult(outcomeResponse);
         }
 
         /// <summary>
         /// Updates or creates a new resource
         /// </summary>
         /// <param name="resource">The resource.</param>
+        /// <param name="provenanceHeader">Content of "X-Provenance" header.</param>
         [HttpPut]
         [Route(KnownRoutes.ResourceType)]
         [AuditEventType(AuditEventSubType.Update)]
-        public async Task<IActionResult> ConditionalUpdate([FromBody] Resource resource)
+        public async Task<IActionResult> ConditionalUpdate([FromBody] Resource resource, [FromHeader(Name = KnownHeaders.ProvenanceHeader)] string provenanceHeader = null)
         {
             IReadOnlyList<Tuple<string, string>> conditionalParameters = GetQueriesForSearch();
 
-            UpsertResourceResponse response = await _mediator.Send<UpsertResourceResponse>(
+            UpsertResourceResponse response;
+            if (provenanceHeader != null)
+            {
+                response = await _mediator.Send<UpsertResourceResponse>(new ProvenanceHeaderConditionalUpsertRequest(resource.ToResourceElement(), conditionalParameters, provenanceHeader), HttpContext.RequestAborted);
+            }
+            else
+            {
+                response = await _mediator.Send<UpsertResourceResponse>(
                 new ConditionalUpsertResourceRequest(resource.ToResourceElement(), conditionalParameters),
                 HttpContext.RequestAborted);
+            }
 
             SaveOutcome saveOutcome = response.Outcome;
 

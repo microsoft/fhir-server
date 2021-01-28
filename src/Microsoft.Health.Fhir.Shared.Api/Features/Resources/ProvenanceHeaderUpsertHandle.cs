@@ -14,20 +14,19 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.ProvenanceHeader;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
-using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Api.Features.Resources
 {
     /// <summary>
-    /// Handler for request with "X-Provenance header".
-    /// Creates resource and Provenance resource provided in "X-Provenance" header with it's target as resource.
+    /// Handler for update request with "X-Provenance header".
+    /// Updates resource and creates Provenance resource provided in "X-Provenance" header with it's target as updated resource.
     /// </summary>
-    public sealed class ProvenanceHeaderHandler : IRequestHandler<ProvenanceHeaderRequest, RawResourceElement>
+    public sealed class ProvenanceHeaderUpsertHandle : IRequestHandler<ProvenanceHeaderUpdateRequest, UpsertResourceResponse>
     {
         private readonly FhirJsonParser _fhirJsonParser;
         private readonly IMediator _mediator;
 
-        public ProvenanceHeaderHandler(FhirJsonParser fhirJsonParser, IMediator mediator)
+        public ProvenanceHeaderUpsertHandle(FhirJsonParser fhirJsonParser, IMediator mediator)
         {
             EnsureArg.IsNotNull(fhirJsonParser, nameof(fhirJsonParser));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
@@ -36,7 +35,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
             _mediator = mediator;
         }
 
-        public async Task<RawResourceElement> Handle(ProvenanceHeaderRequest request, CancellationToken cancellationToken)
+        public async Task<UpsertResourceResponse> Handle(ProvenanceHeaderUpdateRequest request, CancellationToken cancellationToken)
         {
             EnsureArg.IsNotNull(request, nameof(request));
             Provenance provenance;
@@ -54,19 +53,20 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
                 throw new ProvenanceHeaderException(Core.Resources.ProvenanceHeaderShouldntHaveTarget);
             }
 
-            // Create target resource first.
-            UpsertResourceResponse targetResource = await _mediator.Send<UpsertResourceResponse>(new CreateResourceRequest(request.Target), cancellationToken);
+            // upsert target resource first.
+            UpsertResourceResponse targetResource = await _mediator.Send<UpsertResourceResponse>(new UpsertResourceRequest(request.Target, request.WeakETag), cancellationToken);
 
             // Set target to provided resource.
             provenance.Target = new System.Collections.Generic.List<ResourceReference>()
             {
+                // TODO: Is this enought or it should contain version as well?
                 new ResourceReference($"{targetResource.Outcome.RawResourceElement.InstanceType}/{targetResource.Outcome.RawResourceElement.Id}"),
             };
 
             // Create Provenance resource.
             // TODO: It should probaby go through controller to trigger audit events, but it's quite tricky to do now.
             await _mediator.Send<UpsertResourceResponse>(new CreateResourceRequest(provenance.ToResourceElement()), cancellationToken);
-            return targetResource.Outcome.RawResourceElement;
+            return targetResource;
         }
     }
 }
