@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text;
@@ -121,7 +122,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                 return false;
             }
 
-            return ToString() == uriSearchValueOther.ToString();
+            // URLs are always considered to be case-sensitive (https://www.hl7.org/fhir/references.html#literal)
+            return string.Equals(ToString(), uriSearchValueOther.ToString(), StringComparison.Ordinal);
         }
 
         /// <inheritdoc />
