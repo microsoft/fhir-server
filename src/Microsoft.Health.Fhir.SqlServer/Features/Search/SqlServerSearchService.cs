@@ -52,6 +52,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         private readonly SchemaInformation _schemaInformation;
         private readonly ISortingValidator _sortingValidator;
         private readonly IFhirRequestContextAccessor _requestContextAccessor;
+        private const int _resourceTableColumnCount = 11;
 
         public SqlServerSearchService(
             ISearchOptionsFactory searchOptionsFactory,
@@ -251,7 +252,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
                             // At this point we are at the last row.
                             // if we have more columns, it means sort expressions were added.
-                            if (reader.FieldCount > 10)
+                            if (reader.FieldCount > _resourceTableColumnCount)
                             {
                                 sortValue = reader.GetValue(SortValueColumnName) as DateTime?;
                             }
