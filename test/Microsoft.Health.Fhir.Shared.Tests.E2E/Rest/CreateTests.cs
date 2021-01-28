@@ -58,6 +58,26 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             DotNetAttributeValidation.Validate(observation, true);
         }
 
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAResourceAndProvenanceHeader_WhenPostingToHttp_TheServerShouldRespondSuccessfully()
+        {
+            using FhirResponse<Observation> response = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>(), provenanceHeader: Samples.GetProvenanceHeader());
+
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+            Observation observation = response.Resource;
+            using var provenanceResponse = await _client.SearchAsync(ResourceType.Provenance, $"target={observation.Id}");
+            Assert.Equal(HttpStatusCode.OK, provenanceResponse.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAResourceAndMalformedProvenanceHeader_WhenPostingToHttp_TheServerShouldRespondSuccessfully()
+        {
+            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>(), provenanceHeader: "Jibberish"));
+            Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
+        }
+
         [Theory]
         [InlineData(2)]
         [InlineData(5)]

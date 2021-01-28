@@ -104,6 +104,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     case BadRequestException _:
                     case RequestNotValidException _:
                     case BundleEntryLimitExceededException _:
+                    case ProvenanceHeaderException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.BadRequest;
                         break;
                     case ResourceConflictException _:

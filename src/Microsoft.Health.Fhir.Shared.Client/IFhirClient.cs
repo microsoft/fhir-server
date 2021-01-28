@@ -23,10 +23,10 @@ namespace Microsoft.Health.Fhir.Client
         Task<FhirResponse<T>> ConditionalUpdateAsync<T>(T resource, string searchCriteria, string ifMatchVersion = null, CancellationToken cancellationToken = default)
             where T : Resource;
 
-        Task<FhirResponse<T>> CreateAsync<T>(string uri, T resource, string conditionalCreateCriteria = null, CancellationToken cancellationToken = default)
+        Task<FhirResponse<T>> CreateAsync<T>(string uri, T resource, string conditionalCreateCriteria = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
             where T : Resource;
 
-        Task<FhirResponse<T>> CreateAsync<T>(T resource, string conditionalCreateCriteria = null, CancellationToken cancellationToken = default)
+        Task<FhirResponse<T>> CreateAsync<T>(T resource, string conditionalCreateCriteria = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
             where T : Resource;
 
         Task<FhirResponse> DeleteAsync(string uri, CancellationToken cancellationToken = default);

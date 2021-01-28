@@ -22,6 +22,7 @@ namespace Microsoft.Health.Fhir.Client
     public class FhirClient : IFhirClient
     {
         private const string IfNoneExistHeaderName = "If-None-Exist";
+        private const string ProvenanceHeader = "X-Provenance";
         private const string IfMatchHeaderName = "If-Match";
 
         private readonly string _contentType;
@@ -97,13 +98,13 @@ namespace Microsoft.Health.Fhir.Client
 
         public HttpClient HttpClient { get; }
 
-        public Task<FhirResponse<T>> CreateAsync<T>(T resource, string conditionalCreateCriteria = null, CancellationToken cancellationToken = default)
+        public Task<FhirResponse<T>> CreateAsync<T>(T resource, string conditionalCreateCriteria = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
             where T : Resource
         {
-            return CreateAsync(resource.ResourceType.ToString(), resource, conditionalCreateCriteria, cancellationToken);
+            return CreateAsync(resource.ResourceType.ToString(), resource, conditionalCreateCriteria, provenanceHeader, cancellationToken);
         }
 
-        public async Task<FhirResponse<T>> CreateAsync<T>(string uri, T resource, string conditionalCreateCriteria = null, CancellationToken cancellationToken = default)
+        public async Task<FhirResponse<T>> CreateAsync<T>(string uri, T resource, string conditionalCreateCriteria = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
             where T : Resource
         {
             var message = new HttpRequestMessage(HttpMethod.Post, uri);
@@ -113,6 +114,11 @@ namespace Microsoft.Health.Fhir.Client
             if (!string.IsNullOrEmpty(conditionalCreateCriteria))
             {
                 message.Headers.TryAddWithoutValidation(IfNoneExistHeaderName, conditionalCreateCriteria);
+            }
+
+            if (!string.IsNullOrEmpty(provenanceHeader))
+            {
+                message.Headers.TryAddWithoutValidation(ProvenanceHeader, provenanceHeader);
             }
 
             using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
