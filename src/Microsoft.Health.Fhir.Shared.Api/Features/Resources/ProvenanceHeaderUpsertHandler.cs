@@ -21,12 +21,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
     /// Handler for update request with "X-Provenance header".
     /// Updates resource and creates Provenance resource provided in "X-Provenance" header with it's target as updated resource.
     /// </summary>
-    public sealed class ProvenanceHeaderUpsertHandle : IRequestHandler<ProvenanceHeaderUpdateRequest, UpsertResourceResponse>
+    public sealed class ProvenanceHeaderUpsertHandler : IRequestHandler<ProvenanceHeaderUpdateRequest, UpsertResourceResponse>
     {
         private readonly FhirJsonParser _fhirJsonParser;
         private readonly IMediator _mediator;
 
-        public ProvenanceHeaderUpsertHandle(FhirJsonParser fhirJsonParser, IMediator mediator)
+        public ProvenanceHeaderUpsertHandler(FhirJsonParser fhirJsonParser, IMediator mediator)
         {
             EnsureArg.IsNotNull(fhirJsonParser, nameof(fhirJsonParser));
             EnsureArg.IsNotNull(mediator, nameof(mediator));
