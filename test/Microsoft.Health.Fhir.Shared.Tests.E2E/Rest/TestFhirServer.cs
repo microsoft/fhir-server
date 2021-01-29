@@ -18,6 +18,8 @@ using Hl7.Fhir.Rest;
 using Hl7.Fhir.Serialization;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Client;
+using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
 using Polly;
 using Polly.Retry;
@@ -54,6 +56,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         protected internal Uri AuthorizeUri { get; set; }
 
         public Uri BaseAddress { get; }
+
+        public ResourceElement Metadata { get; set; }
 
         public TestFhirClient GetTestFhirClient(ResourceFormat format, bool reusable = true, AuthenticationHttpMessageHandler authenticationHandler = null)
         {
@@ -174,6 +178,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             response.EnsureSuccessStatusCode();
 
             CapabilityStatement metadata = new FhirJsonParser().Parse<CapabilityStatement>(content);
+            Metadata = metadata.ToResourceElement();
 
             foreach (var rest in metadata.Rest.Where(r => r.Mode == RestfulCapabilityMode.Server))
             {

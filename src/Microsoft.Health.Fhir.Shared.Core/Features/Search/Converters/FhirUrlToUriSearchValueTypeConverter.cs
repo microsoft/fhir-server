@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+#if !Stu3
 using System.Collections.Generic;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
@@ -10,11 +11,11 @@ using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
 {
     /// <summary>
-    /// A converter used to convert from <see cref="FhirUri"/> to a list of <see cref="UriSearchValue"/>.
+    /// A converter used to convert from <see cref="Hl7.Fhir.Model.FhirUrl"/> to a list of <see cref="Microsoft.Health.Fhir.Core.Features.Search.SearchValues.UriSearchValue"/>.
     /// </summary>
-    public class FhirUriToUriSearchValueTypeConverter : FhirElementToSearchValueTypeConverter<FhirUri, UriSearchValue>
+    public class FhirUrlToUriSearchValueTypeConverter : FhirElementToSearchValueTypeConverter<FhirUrl, UriSearchValue>
     {
-        protected override IEnumerable<UriSearchValue> ConvertTo(FhirUri value)
+        protected override IEnumerable<UriSearchValue> ConvertTo(FhirUrl value)
         {
             if (value.Value == null)
             {
@@ -25,3 +26,4 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Converters
         }
     }
 }
+#endif
