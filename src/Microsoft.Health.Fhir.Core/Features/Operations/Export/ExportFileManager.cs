@@ -82,7 +82,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 _approxMaxFileSizeInBytes > 0 &&
                 fileInfo.CommittedBytes >= _approxMaxFileSizeInBytes)
             {
-                await CreateNewFileAndUpdateMappings(resourceType, fileInfo.Sequence + 1, cancellationToken);
+                fileInfo = await CreateNewFileAndUpdateMappings(resourceType, fileInfo.Sequence + 1, cancellationToken);
             }
 
             await _exportDestinationClient.WriteFilePartAsync(fileInfo.FileUri, partId, data, cancellationToken);
