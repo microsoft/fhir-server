@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
 
         // hard-coding these to minimize resource consumption when throttling
         private const string ThrottledContentType = "application/json; charset=utf-8";
-        private static readonly ReadOnlyMemory<byte> _throttledBody = Encoding.UTF8.GetBytes($@"{{""severity"":""Error"",""code"":""Throttled"",""diagnostics"":""{Resources.TooManyConcurrentRequests}"",""location"":null}}").AsMemory();
+        private static readonly ReadOnlyMemory<byte> _throttledBody = Encoding.UTF8.GetBytes($@"{{""severity"":""Error"",""code"":""Throttled"",""diagnostics"":""{Resources.TooManyConcurrentRequests}""}}").AsMemory();
 
         private readonly RequestDelegate _next;
         private readonly ILogger<ThrottlingMiddleware> _logger;
