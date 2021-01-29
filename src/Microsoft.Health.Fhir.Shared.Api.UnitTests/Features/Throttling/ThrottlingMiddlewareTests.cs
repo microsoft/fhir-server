@@ -192,6 +192,28 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Throttling
             Assert.All(existingRequests, tuple => Assert.False(tuple.task.IsCompleted));
         }
 
+        [Fact]
+        public async Task GivenARequestWhenMaxRequestsAlreadyInFlightAndQueueingEnabled_WhenQueueIsSaturated_RequestsAreRejected()
+        {
+            _throttlingConfiguration.MaxMillisecondsInQueue = 5000000;
+            _throttlingConfiguration.MaxQueueSize = 1;
+
+            // fill up to max
+            var existingRequests = SetupPreexistingRequests(6);
+
+            // make this a short request
+            _httpContext.Request.Path = "/duration/1";
+            await _middleware.Value.Invoke(_httpContext);
+            Assert.Equal(429, _httpContext.Response.StatusCode);
+
+            // cancel one of the existing requests. This should allow the request above to go through
+            existingRequests[0].cancellationTokenSource.Cancel();
+
+            // try the request again
+            await _middleware.Value.Invoke(_httpContext);
+            Assert.Equal(200, _httpContext.Response.StatusCode);
+        }
+
         private List<(Task task, HttpContext httpContext, CancellationTokenSource cancellationTokenSource)> SetupPreexistingRequests(int numberOfConcurrentRequests, string path = "")
         {
             var output = new List<(Task, HttpContext, CancellationTokenSource cancellationTokenSource)>();
