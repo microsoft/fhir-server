@@ -106,7 +106,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return _searchParamUriToId[searchParamUri];
         }
 
-        public void SetSearchParamId(string searchParamUri, short searchParamId)
+        public void AddSearchParamIdToUriMapping(string searchParamUri, short searchParamId)
         {
             ThrowIfNotInitialized();
 

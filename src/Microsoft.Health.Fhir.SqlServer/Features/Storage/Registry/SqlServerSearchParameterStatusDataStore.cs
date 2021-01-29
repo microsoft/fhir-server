@@ -132,7 +132,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
                         (short searchParamId, string searchParamUri) = sqlDataReader.ReadRow(VLatest.SearchParam.SearchParamId, VLatest.SearchParam.Uri);
 
                         // Add the new search parameters to the FHIR model dictionary.
-                        _fhirModel.SetSearchParamId(searchParamUri, searchParamId);
+                        _fhirModel.AddSearchParamIdToUriMapping(searchParamUri, searchParamId);
                     }
                 }
             }
