@@ -110,13 +110,30 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         }
 
         [Fact]
-        public async Task GivenDataExceedsFileSizeLimit_WhenWriteToFile_ThenCreatesNewFileAfterWriting()
+        public async Task GivenDataExceedsFileSizeLimit_WhenWriteToFile_ThenDoesNotCreateNewFileAfterWriting()
         {
             byte[] data = new byte[2 * 1024 * 1024];
             await _exportFileManager.WriteToFile("Patient", "partId", data, _cancellationTokenNone);
 
             await _exportDestinationClient.Received(1).CreateFileAsync(Arg.Is("Patient-1.ndjson"), Arg.Is(_cancellationTokenNone));
             await _exportDestinationClient.Received(1).WriteFilePartAsync(Arg.Any<Uri>(), Arg.Is("partId"), Arg.Is(data), Arg.Is(_cancellationTokenNone));
+            await _exportDestinationClient.DidNotReceive().CreateFileAsync(Arg.Is("Patient-2.ndjson"), Arg.Is(_cancellationTokenNone));
+
+            Assert.Single(_exportJobRecord.Output["Patient"]);
+        }
+
+        [Fact]
+        public async Task GivenDataExceedsFileSizeLimit_WhenWriteToFile_ThenCreatesNewFileAfterNextWriteCall()
+        {
+            byte[] data = new byte[2 * 1024 * 1024];
+            byte[] data2 = new byte[1];
+
+            await _exportFileManager.WriteToFile("Patient", "partId", data, _cancellationTokenNone);
+            await _exportFileManager.WriteToFile("Patient", "partId2", data2, _cancellationTokenNone);
+
+            await _exportDestinationClient.Received(1).CreateFileAsync(Arg.Is("Patient-1.ndjson"), Arg.Is(_cancellationTokenNone));
+            await _exportDestinationClient.Received(1).WriteFilePartAsync(Arg.Any<Uri>(), Arg.Is("partId"), Arg.Is(data), Arg.Is(_cancellationTokenNone));
+            await _exportDestinationClient.Received(1).WriteFilePartAsync(Arg.Any<Uri>(), Arg.Is("partId2"), Arg.Is(data2), Arg.Is(_cancellationTokenNone));
             await _exportDestinationClient.Received(1).CreateFileAsync(Arg.Is("Patient-2.ndjson"), Arg.Is(_cancellationTokenNone));
 
             Assert.Equal(2, _exportJobRecord.Output["Patient"].Count);

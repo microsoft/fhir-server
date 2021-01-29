@@ -75,9 +75,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
 
             ExportFileInfo fileInfo = await GetFile(resourceType, cancellationToken);
-            await _exportDestinationClient.WriteFilePartAsync(fileInfo.FileUri, partId, data, cancellationToken);
-
-            fileInfo.IncrementCount(data.Length);
 
             // We need to create a new file if the current file has exceeded a certain limit.
             // File size limits are valid only for schema versions starting from 2.
@@ -87,6 +84,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             {
                 await CreateNewFileAndUpdateMappings(resourceType, fileInfo.Sequence + 1, cancellationToken);
             }
+
+            await _exportDestinationClient.WriteFilePartAsync(fileInfo.FileUri, partId, data, cancellationToken);
+            fileInfo.IncrementCount(data.Length);
         }
 
         private async Task<ExportFileInfo> GetFile(string resourceType, CancellationToken cancellationToken)
