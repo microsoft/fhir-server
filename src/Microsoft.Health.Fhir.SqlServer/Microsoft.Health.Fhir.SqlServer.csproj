@@ -16,7 +16,11 @@
       <MutableClassVersion>6</MutableClassVersion>
     </EmbeddedResource>
     <EmbeddedResource Include="Features\Schema\Migrations\7.diff.sql" />
-    <EmbeddedResource Include="Features\Schema\Migrations\7.sql" />
+    <EmbeddedResource Include="Features\Schema\Migrations\7.sql">
+      <InputToImmutableSqlGenerator>true</InputToImmutableSqlGenerator>
+      <InputToMutableSqlGenerator>true</InputToMutableSqlGenerator>
+      <MutableClassVersion>7</MutableClassVersion>
+    </EmbeddedResource>
     <EmbeddedResource Include="Features\Schema\Migrations\8.diff.sql" />
     <EmbeddedResource Include="Features\Schema\Migrations\8.sql">
       <InputToImmutableSqlGenerator>true</InputToImmutableSqlGenerator>
