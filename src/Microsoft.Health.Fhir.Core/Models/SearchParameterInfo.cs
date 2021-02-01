@@ -17,6 +17,7 @@ namespace Microsoft.Health.Fhir.Core.Models
     {
         public SearchParameterInfo(
             string name,
+            string code,
             string searchParamType,
             Uri url = null,
             IReadOnlyList<SearchParameterComponentInfo> components = null,
@@ -26,6 +27,7 @@ namespace Microsoft.Health.Fhir.Core.Models
             string description = null)
             : this(
                 name,
+                code,
                 Enum.Parse<SearchParamType>(searchParamType),
                 url,
                 components,
@@ -38,6 +40,7 @@ namespace Microsoft.Health.Fhir.Core.Models
 
         public SearchParameterInfo(
             string name,
+            string code,
             SearchParamType searchParamType,
             Uri url = null,
             IReadOnlyList<SearchParameterComponentInfo> components = null,
@@ -45,7 +48,7 @@ namespace Microsoft.Health.Fhir.Core.Models
             IReadOnlyList<string> targetResourceTypes = null,
             IReadOnlyList<string> baseResourceTypes = null,
             string description = null)
-            : this(name)
+            : this(name, code)
         {
             Url = url;
             Type = searchParamType;
@@ -56,11 +59,13 @@ namespace Microsoft.Health.Fhir.Core.Models
             Description = description;
         }
 
-        public SearchParameterInfo(string name)
+        public SearchParameterInfo(string name, string code)
         {
             EnsureArg.IsNotNullOrWhiteSpace(name, nameof(name));
+            EnsureArg.IsNotNullOrWhiteSpace(code, nameof(code));
 
             Name = name;
+            Code = code;
         }
 
         public string Name { get; }
@@ -119,7 +124,7 @@ namespace Microsoft.Health.Fhir.Core.Models
 
             if (Url == null)
             {
-                if (!Name.Equals(other.Name, StringComparison.OrdinalIgnoreCase) ||
+                if (!Code.Equals(other.Code, StringComparison.OrdinalIgnoreCase) ||
                     Type != other.Type ||
                     Expression != other.Expression)
                 {
@@ -139,7 +144,7 @@ namespace Microsoft.Health.Fhir.Core.Models
         {
             return HashCode.Combine(
                 Url?.GetHashCode(),
-                Name?.GetHashCode(StringComparison.OrdinalIgnoreCase),
+                Code?.GetHashCode(StringComparison.OrdinalIgnoreCase),
                 Type.GetHashCode(),
                 Expression?.GetHashCode(StringComparison.OrdinalIgnoreCase));
         }

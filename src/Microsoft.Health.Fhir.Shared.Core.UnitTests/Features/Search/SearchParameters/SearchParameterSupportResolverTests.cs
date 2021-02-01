@@ -33,6 +33,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             var sp = new SearchParameterInfo(
                 "Condition-abatement-age",
+                "Condition-abatement-age",
                 SearchParamType.Quantity,
                 new Uri("http://hl7.org/fhir/SearchParameter/Condition-abatement-age"),
                 expression: "Condition.abatement.as(Range)",
@@ -48,6 +49,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public void GivenAnUnsupportedSearchParameter_WhenResolvingSupport_ThenFalseIsReturned()
         {
             var sp = new SearchParameterInfo(
+                "Condition-abatement-age",
                 "Condition-abatement-age",
                 SearchParamType.Uri,
                 new Uri("http://hl7.org/fhir/SearchParameter/Condition-abatement-age"),
@@ -65,6 +67,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public void GivenAPartiallySupportedSearchParameter_WhenResolvingSupport_ThenTrueIsReturned()
         {
             var sp = new SearchParameterInfo(
+                "Condition-abatement-age",
                 "Condition-abatement-age",
                 SearchParamType.Quantity,
                 new Uri("http://hl7.org/fhir/SearchParameter/Condition-abatement-age"),
@@ -84,6 +87,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             var sp = new SearchParameterInfo(
                 "Condition-abatement-age",
+                "Condition-abatement-age",
                 SearchParamType.Quantity,
                 new Uri("http://hl7.org/fhir/SearchParameter/Condition-abatement-age"),
                 expression: "Condition.asserter | Condition.abatement.as(Range)",
@@ -99,6 +103,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public void GivenASearchParameterWithNoBaseTypes_WhenResolvingSupport_ThenAnExceptionIsThrown()
         {
             var sp = new SearchParameterInfo(
+                "Condition-abatement-age",
                 "Condition-abatement-age",
                 SearchParamType.Quantity,
                 new Uri("http://hl7.org/fhir/SearchParameter/Condition-abatement-age"),

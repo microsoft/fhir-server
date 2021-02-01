@@ -17,7 +17,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 {
     public class SearchParamTableExpressionReordererTests
     {
-        private static readonly SearchParameterExpression NormalExpression = new SearchParameterExpression(new SearchParameterInfo("TestParam"), Expression.Equals(FieldName.TokenCode, null, "TestValue"));
+        private static readonly SearchParameterExpression NormalExpression = new SearchParameterExpression(new SearchParameterInfo("TestParam", "TestParam"), Expression.Equals(FieldName.TokenCode, null, "TestValue"));
         private static readonly SearchParameterExpression NotExpression = new SearchParameterExpression(NormalExpression.Parameter, Expression.Not(NormalExpression.Expression));
 
         [Fact]
@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             var tableExpressions = new List<SearchParamTableExpression>
             {
                 new SearchParamTableExpression(null, NotExpression, SearchParamTableExpressionKind.Normal),
-                new SearchParamTableExpression(null, new MissingSearchParameterExpression(new SearchParameterInfo("TestParam"), true), SearchParamTableExpressionKind.Normal),
+                new SearchParamTableExpression(null, new MissingSearchParameterExpression(new SearchParameterInfo("TestParam", "TestParam"), true), SearchParamTableExpressionKind.Normal),
             };
 
             var inputExpression = SqlRootExpression.WithSearchParamTableExpressions(tableExpressions);

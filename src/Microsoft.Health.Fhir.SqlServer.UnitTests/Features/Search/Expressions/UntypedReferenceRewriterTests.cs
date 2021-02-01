@@ -13,14 +13,15 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
 {
     public class UntypedReferenceRewriterTests
     {
-        private static readonly SearchParameterInfo ReferenceSearchParameterWithOneTargetType = new SearchParameterInfo("p", SearchParamType.Reference, targetResourceTypes: new[] { "Organization" });
+        private static readonly SearchParameterInfo ReferenceSearchParameterWithOneTargetType = new SearchParameterInfo("p", "p", SearchParamType.Reference, targetResourceTypes: new[] { "Organization" });
 
-        private static readonly SearchParameterInfo ReferenceSearchParameterWithTwoTargetTypes = new SearchParameterInfo("p2", SearchParamType.Reference, targetResourceTypes: new[] { "Patient", "Practitioner" });
+        private static readonly SearchParameterInfo ReferenceSearchParameterWithTwoTargetTypes = new SearchParameterInfo("p2", "p2", SearchParamType.Reference, targetResourceTypes: new[] { "Patient", "Practitioner" });
 
         private static readonly SearchParameterInfo CompositeParameter = new SearchParameterInfo(
             "c",
+            "c",
             SearchParamType.Composite,
-            components: new[] { new SearchParameterComponentInfo { ResolvedSearchParameter = ReferenceSearchParameterWithTwoTargetTypes }, new SearchParameterComponentInfo() { ResolvedSearchParameter = ReferenceSearchParameterWithOneTargetType }, new SearchParameterComponentInfo() { ResolvedSearchParameter = new SearchParameterInfo("number", SearchParamType.Number) } });
+            components: new[] { new SearchParameterComponentInfo { ResolvedSearchParameter = ReferenceSearchParameterWithTwoTargetTypes }, new SearchParameterComponentInfo() { ResolvedSearchParameter = ReferenceSearchParameterWithOneTargetType }, new SearchParameterComponentInfo() { ResolvedSearchParameter = new SearchParameterInfo("number", "number", SearchParamType.Number) } });
 
         [Fact]
         public void GivenAnUntypedReferenceExpressionWithOneTargetType_WhenRewritten_ExpressionIncludesType()

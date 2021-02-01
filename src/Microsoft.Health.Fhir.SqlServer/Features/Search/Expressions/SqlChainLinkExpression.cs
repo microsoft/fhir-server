@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
 
         public override string ToString()
         {
-            return $"({(Reversed ? "Reverse " : string.Empty)}SqlChainLink {ReferenceSearchParameter.Name}:{string.Join(", ", TargetResourceTypes)} {(ExpressionOnSource == null ? string.Empty : $" Source:{ExpressionOnSource}")}{(ExpressionOnTarget == null ? string.Empty : $" Target:{ExpressionOnTarget}")})";
+            return $"({(Reversed ? "Reverse " : string.Empty)}SqlChainLink {ReferenceSearchParameter.Code}:{string.Join(", ", TargetResourceTypes)} {(ExpressionOnSource == null ? string.Empty : $" Source:{ExpressionOnSource}")}{(ExpressionOnTarget == null ? string.Empty : $" Target:{ExpressionOnTarget}")})";
         }
     }
 }

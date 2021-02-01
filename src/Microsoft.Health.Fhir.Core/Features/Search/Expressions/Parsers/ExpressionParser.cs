@@ -279,7 +279,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                             CultureInfo.CurrentCulture,
                             Core.Resources.ChainedParameterSpecifyType,
                             searchParameter.Name,
-                            string.Join(Core.Resources.OrDelimiter, searchParameter.TargetResourceTypes.Select(c => $"{searchParameter.Name}:{c}"))));
+                            string.Join(Core.Resources.OrDelimiter, searchParameter.TargetResourceTypes.Select(c => $"{searchParameter.Code}:{c}"))));
                 }
             }
 
@@ -316,7 +316,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 }
 
                 throw new InvalidSearchOperationException(
-                    string.Format(Core.Resources.ModifierNotSupported, modifier, searchParameter.Name));
+                    string.Format(Core.Resources.ModifierNotSupported, modifier, searchParameter.Code));
             }
         }
 

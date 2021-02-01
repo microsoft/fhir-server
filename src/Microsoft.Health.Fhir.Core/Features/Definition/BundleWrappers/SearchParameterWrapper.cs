@@ -21,6 +21,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers
         private readonly Lazy<string> _expression;
         private readonly Lazy<IReadOnlyList<string>> _base;
         private readonly Lazy<string> _name;
+        private readonly Lazy<string> _code;
         private readonly Lazy<IReadOnlyList<string>> _target;
         private readonly Lazy<string> _description;
         private Lazy<string> _type;
@@ -31,6 +32,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers
             EnsureArg.Is(KnownResourceTypes.SearchParameter, searchParameter.InstanceType, StringComparison.Ordinal, nameof(searchParameter));
 
             _name = new Lazy<string>(() => searchParameter.Scalar("name")?.ToString());
+            _code = new Lazy<string>(() => searchParameter.Scalar("code")?.ToString());
             _description = new Lazy<string>(() => searchParameter.Scalar("description")?.ToString());
             _url = new Lazy<string>(() => searchParameter.Scalar("url")?.ToString());
             _expression = new Lazy<string>(() => searchParameter.Scalar("expression")?.ToString());
@@ -42,6 +44,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition.BundleWrappers
         }
 
         public string Name => _name.Value;
+
+        public string Code => _code.Value;
 
         public string Description => _description.Value;
 

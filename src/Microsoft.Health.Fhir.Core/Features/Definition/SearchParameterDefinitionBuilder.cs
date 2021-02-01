@@ -140,7 +140,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             var validatedSearchParameters = new List<(string ResourceType, SearchParameterInfo SearchParameter)>
             {
                 // _type is currently missing from the search params definition bundle, so we inject it in here.
-                (KnownResourceTypes.Resource, new SearchParameterInfo(SearchParameterNames.ResourceType, SearchParamType.Token, SearchParameterNames.ResourceTypeUri, null, "Resource.type().name", null)),
+                (KnownResourceTypes.Resource, new SearchParameterInfo(SearchParameterNames.ResourceType, SearchParameterNames.ResourceType, SearchParamType.Token, SearchParameterNames.ResourceTypeUri, null, "Resource.type().name", null)),
             };
 
             // Do the second pass to make sure the definition is valid.
@@ -273,6 +273,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             var sp = new SearchParameterInfo(
                 searchParameter.Name,
+                searchParameter.Code,
                 searchParamType,
                 new Uri(searchParameter.Url),
                 expression: searchParameter.Expression,
@@ -318,7 +319,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
             var searchParameterDictionary = new ConcurrentDictionary<string, SearchParameterInfo>(
                 results.ToDictionary(
-                r => r.Name,
+                r => r.Code,
                 r => r,
                 StringComparer.Ordinal));
 

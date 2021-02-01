@@ -22,11 +22,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             switch (sorting)
             {
                 case { Count: 0 }:
-                case { Count: 1 } when sorting[0] is { searchParameter: { Name: KnownQueryParameterNames.LastUpdated } }:
+                case { Count: 1 } when sorting[0] is { searchParameter: { Code: KnownQueryParameterNames.LastUpdated } }:
                     errorMessages = Array.Empty<string>();
                     return true;
                 case { Count: 1 }:
-                    errorMessages = new[] { string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchSortParameterNotSupported, sorting[0].searchParameter.Name) };
+                    errorMessages = new[] { string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchSortParameterNotSupported, sorting[0].searchParameter.Code) };
                     return false;
                 default:
                     errorMessages = new[] { Core.Resources.MultiSortParameterNotSupported };

@@ -36,6 +36,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             var patientName = Guid.NewGuid().ToString().ComputeHash().Substring(28).ToLower();
             var patient = new Patient { Name = new List<HumanName> { new HumanName { Family = patientName } } };
             var searchParam = Samples.GetJsonSample<SearchParameter>("SearchParameter");
+            searchParam.Code = "fooCode";
 
             // POST a new patient
             FhirResponse<Patient> expectedPatient = await Client.CreateAsync(patient);
@@ -86,7 +87,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await WaitForReindexStatus(reindexJobUri, "Completed");
 
             // When job complete, search for resources using new parameter
-            await ExecuteAndValidateBundle($"Patient?foo:exact={patientName}", expectedPatient.Resource);
+            await ExecuteAndValidateBundle($"Patient?fooCode:exact={patientName}", expectedPatient.Resource);
 
             // Clean up new SearchParameter
             await DeleteSearchParameterAndVerify(searchParamPosted.Resource);
