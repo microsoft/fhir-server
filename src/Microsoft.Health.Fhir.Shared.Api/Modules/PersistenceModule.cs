@@ -36,6 +36,10 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.AddScoped<TransactionBundleValidator>();
             services.AddScoped<ResourceReferenceResolver>();
+
+            services.Add<ConditionalCreateConcurrencyBehavior>()
+                .Transient()
+                .AsImplementedInterfaces();
         }
     }
 }

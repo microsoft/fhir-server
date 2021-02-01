@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.Core {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "4.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     internal class Resources {
@@ -706,6 +706,15 @@ namespace Microsoft.Health.Fhir.Core {
         internal static string RequestedActionNotAllowed {
             get {
                 return ResourceManager.GetString("RequestedActionNotAllowed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to A conditional create or update is currently being attempted with the same parameters..
+        /// </summary>
+        internal static string ResourceConflict {
+            get {
+                return ResourceManager.GetString("ResourceConflict", resourceCulture);
             }
         }
         

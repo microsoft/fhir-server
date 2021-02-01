@@ -515,4 +515,7 @@
     <value>Search parameter '{0}' is not common for '{1}' and '{2}'.</value>
     <comment>{0}: the invalid search parameter. {1}: first resource type. {2} other resource type.</comment>
   </data>
+  <data name="ResourceConflict" xml:space="preserve">
+    <value>A conditional create or update is currently being attempted with the same parameters.</value>
+  </data>
 </root>
