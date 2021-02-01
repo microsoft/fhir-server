@@ -15,13 +15,13 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 {
-    public class CreateSearchParameterBehavior<TCreateResourceRequest, TUpsertResourceResponse> : IPipelineBehavior<CreateResourceRequest, UpsertResourceResponse>,
+    public class CreateOrUpdateSearchParameterBehavior<TCreateResourceRequest, TUpsertResourceResponse> : IPipelineBehavior<CreateResourceRequest, UpsertResourceResponse>,
         IPipelineBehavior<UpsertResourceRequest, UpsertResourceResponse>
     {
         private ISearchParameterUtilities _searchParameterUtitliies;
         private IFhirDataStore _fhirDataStore;
 
-        public CreateSearchParameterBehavior(ISearchParameterUtilities searchParameterUtilities, IFhirDataStore fhirDataStore)
+        public CreateOrUpdateSearchParameterBehavior(ISearchParameterUtilities searchParameterUtilities, IFhirDataStore fhirDataStore)
         {
             EnsureArg.IsNotNull(searchParameterUtilities, nameof(searchParameterUtilities));
             EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
@@ -32,6 +32,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
         public async Task<UpsertResourceResponse> Handle(CreateResourceRequest request, CancellationToken cancellationToken, RequestHandlerDelegate<UpsertResourceResponse> next)
         {
+            // Allow the resource to be updated with the normal handler
             var response = await next();
 
             if (request.Resource.InstanceType.Equals(KnownResourceTypes.SearchParameter, StringComparison.Ordinal))
@@ -46,17 +47,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
         public async Task<UpsertResourceResponse> Handle(UpsertResourceRequest request, CancellationToken cancellationToken, RequestHandlerDelegate<UpsertResourceResponse> next)
         {
-            var resourceKey = new ResourceKey(request.Resource.InstanceType, request.Resource.Id, request.Resource.VersionId);
             ResourceWrapper prevSearchParamResource = null;
+            bool isSearchParameter = false;
 
+            // if the resource type being updated is a SearchParaemter, then we want to query the previous version before it is changed
+            // because we will need to the Url property to update the definition in the SearchParameterDefinitionManager
+            // and the user could be changing the Url as part of this update
             if (request.Resource.InstanceType.Equals(KnownResourceTypes.SearchParameter, StringComparison.Ordinal))
             {
+                isSearchParameter = true;
+                var resourceKey = new ResourceKey(request.Resource.InstanceType, request.Resource.Id, request.Resource.VersionId);
                 prevSearchParamResource = await _fhirDataStore.GetAsync(resourceKey, cancellationToken);
             }
 
+            // Now allow the resource to updated per the normal behavior
             var response = await next();
 
-            if (request.Resource.InstanceType.Equals(KnownResourceTypes.SearchParameter, StringComparison.Ordinal))
+            if (isSearchParameter)
             {
                 // Once the SearchParameter resource is update in the data store, we will update
                 // the metadata in the SearchParameterDefinitionManager
