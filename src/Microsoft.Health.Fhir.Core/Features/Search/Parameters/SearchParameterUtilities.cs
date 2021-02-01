@@ -44,8 +44,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             {
                 _searchParameterDefinitionManager.AddNewSearchParameters(new List<ITypedElement>() { searchParam });
 
-                var searchParameterWrapper = new SearchParameterWrapper(searchParam);
-                await _searchParameterStatusManager.AddSearchParameterStatusAsync(new List<string>() { searchParameterWrapper.Url });
+                var searchParameterUrl = searchParam.GetStringScalar("url");
+                await _searchParameterStatusManager.AddSearchParameterStatusAsync(new List<string>() { searchParameterUrl });
             }
             catch (FhirException fex)
             {
@@ -73,12 +73,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             try
             {
                 var searchParam = _modelInfoProvider.ToTypedElement(searchParamResource);
-                var searchParameterWrapper = new SearchParameterWrapper(searchParam);
+                var searchParameterUrl = searchParam.GetStringScalar("url");
 
                 // First we delete the status metadata from the data store as this fuction depends on the
                 // the in memory definition manager.  Once complete we remove the SearchParameter from
                 // the definition manager.
-                await _searchParameterStatusManager.DeleteSearchParameterStatusAsync(searchParameterWrapper.Url);
+                await _searchParameterStatusManager.DeleteSearchParameterStatusAsync(searchParameterUrl);
                 _searchParameterDefinitionManager.DeleteSearchParameter(searchParam);
             }
             catch (FhirException fex)

@@ -102,20 +102,13 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             // POST a new patient
             FhirResponse<Patient> expectedPatient = await Client.CreateAsync(patient);
 
-            // POST a second patient to show it is filtered and not returned when using the new search parameter
-            await Client.CreateAsync(Samples.GetJsonSample<Patient>("Patient"));
-
             // POST a new Search parameter
             FhirResponse<SearchParameter> searchParamPosted = null;
             try
             {
                 searchParamPosted = await Client.CreateAsync(searchParam);
-                searchParamPosted.Resource.Name = "foo2";
-                searchParamPosted.Resource.Url = "http://hl7.org/fhir/SearchParameter/Patient-foo2";
-                searchParamPosted.Resource.Code = "foo2";
-                searchParamPosted = await Client.UpdateAsync(searchParamPosted.Resource);
             }
-            catch (Exception)
+            catch (FhirException)
             {
                 // if the SearchParameter exists, we should delete it and recreate it
                 var searchParamBundle = await Client.SearchAsync(ResourceType.SearchParameter, $"url={searchParam.Url}");
@@ -129,6 +122,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
                     throw;
                 }
             }
+
+            // now update the new search parameter
+            searchParamPosted.Resource.Name = "foo2";
+            searchParamPosted.Resource.Url = "http://hl7.org/fhir/SearchParameter/Patient-foo2";
+            searchParamPosted.Resource.Code = "foo2";
+            searchParamPosted = await Client.UpdateAsync(searchParamPosted.Resource);
 
             Uri reindexJobUri;
             FhirResponse<Parameters> reindexJobResult;
