@@ -39,12 +39,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
             else
             {
-                // Canonical components stripped from indexing and in search request
-                Assert.Collection(
-                    result.Resource.Entry,
-                    x => Assert.Equal(Fixture.ObservationProfileV1, x.Resource.Meta.Profile.First()),
-                    x => Assert.Equal(Fixture.ObservationProfileV2, x.Resource.Meta.Profile.First()),
-                    x => Assert.Equal(Fixture.ObservationProfileUriAlternate, x.Resource.Meta.Profile.First()));
+                // Canonical components stripped from indexing (Canonical => Uri)
+                Assert.Empty(result.Resource.Entry);
             }
         }
 
@@ -87,12 +83,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
             else
             {
-                // Canonical components stripped from indexing and in search request
-                Assert.Collection(
-                    result.Resource.Entry,
-                    x => Assert.Equal(Fixture.ObservationProfileV1, x.Resource.Meta.Profile.First()),
-                    x => Assert.Equal(Fixture.ObservationProfileV2, x.Resource.Meta.Profile.First()),
-                    x => Assert.Equal(Fixture.ObservationProfileUriAlternate, x.Resource.Meta.Profile.First()));
+                // Canonical components stripped from indexing
+                Assert.Empty(result.Resource.Entry);
             }
         }
 
