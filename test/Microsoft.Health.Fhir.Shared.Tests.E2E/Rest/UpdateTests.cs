@@ -55,15 +55,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Observation createdResource = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
 
             var exception = await Assert.ThrowsAsync<FhirException>(() => _client.UpdateAsync(
-              createdResource,
-              string.Empty,
-              "Jibberish"));
-
-            Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
-            exception = await Assert.ThrowsAsync<FhirException>(() => _client.UpdateAsync(
-              createdResource,
-              string.Empty,
-              string.Empty));
+                createdResource,
+                null,
+                "Jibberish"));
 
             Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
         }
@@ -75,9 +69,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
             observation.Id = null;
             var exception = await Assert.ThrowsAsync<FhirException>(() => _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>(), $"identifier={Guid.NewGuid().ToString()}", "Jibberish"));
-            Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
-
-            exception = await Assert.ThrowsAsync<FhirException>(() => _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>(), $"identifier={Guid.NewGuid().ToString()}", string.Empty));
             Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
         }
 

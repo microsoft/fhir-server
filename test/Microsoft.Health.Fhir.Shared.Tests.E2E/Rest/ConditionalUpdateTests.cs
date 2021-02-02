@@ -92,14 +92,8 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             var exception = await Assert.ThrowsAsync<FhirException>(() => _client.ConditionalUpdateAsync(
                 observation,
-                string.Empty,
+                null,
                 "Jibberish"));
-
-            Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
-            exception = await Assert.ThrowsAsync<FhirException>(() => _client.ConditionalUpdateAsync(
-                observation,
-                string.Empty,
-                string.Empty));
 
             Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
         }
