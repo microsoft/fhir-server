@@ -103,6 +103,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             ServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
 
             var upsertResourceTvpGeneratorV6 = serviceProvider.GetRequiredService<V6.UpsertResourceTvpGenerator<ResourceMetadata>>();
+            var upsertResourceTvpGeneratorV7 = serviceProvider.GetRequiredService<V7.UpsertResourceTvpGenerator<ResourceMetadata>>();
             var upsertResourceTvpGeneratorVLatest = serviceProvider.GetRequiredService<VLatest.UpsertResourceTvpGenerator<ResourceMetadata>>();
             var upsertSearchParamsTvpGenerator = serviceProvider.GetRequiredService<VLatest.UpsertSearchParamsTvpGenerator<List<ResourceSearchParameterStatus>>>();
 
@@ -116,11 +117,21 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 () => SqlConnectionWrapperFactory.CreateMockScope(),
                 upsertSearchParamsTvpGenerator,
                 () => _filebasedSearchParameterStatusDataStore,
-                schemaInformation);
+                schemaInformation,
+                sqlServerFhirModel);
 
             IOptions<CoreFeatureConfiguration> options = Options.Create(new CoreFeatureConfiguration());
 
-            _fhirDataStore = new SqlServerFhirDataStore(config, sqlServerFhirModel, searchParameterToSearchValueTypeMap, upsertResourceTvpGeneratorV6, upsertResourceTvpGeneratorVLatest, options, SqlConnectionWrapperFactory, NullLogger<SqlServerFhirDataStore>.Instance, schemaInformation);
+            _fhirDataStore = new SqlServerFhirDataStore(
+                sqlServerFhirModel,
+                searchParameterToSearchValueTypeMap,
+                upsertResourceTvpGeneratorV6,
+                upsertResourceTvpGeneratorV7,
+                upsertResourceTvpGeneratorVLatest,
+                options,
+                SqlConnectionWrapperFactory,
+                NullLogger<SqlServerFhirDataStore>.Instance,
+                schemaInformation);
 
             _fhirOperationDataStore = new SqlServerFhirOperationDataStore(SqlConnectionWrapperFactory, NullLogger<SqlServerFhirOperationDataStore>.Instance);
 

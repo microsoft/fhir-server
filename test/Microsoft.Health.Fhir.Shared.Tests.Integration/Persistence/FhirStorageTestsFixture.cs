@@ -129,8 +129,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 .Returns(x =>
                 {
                     ResourceElement resource = x.ArgAt<ResourceElement>(0);
+                    var searchParamHash = SearchParameterDefinitionManager.GetSearchParameterHashForResourceType(resource.InstanceType);
 
-                    return new ResourceWrapper(resource, rawResourceFactory.Create(resource, keepMeta: true), new ResourceRequest(HttpMethod.Post, "http://fhir"), x.ArgAt<bool>(1), null, null, null);
+                    return new ResourceWrapper(resource, rawResourceFactory.Create(resource, keepMeta: true), new ResourceRequest(HttpMethod.Post, "http://fhir"), x.ArgAt<bool>(1), null, null, null, searchParamHash);
                 });
 
             var collection = new ServiceCollection();
