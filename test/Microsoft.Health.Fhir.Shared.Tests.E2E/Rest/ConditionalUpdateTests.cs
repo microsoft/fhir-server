@@ -71,7 +71,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             using FhirResponse<Observation> updateResponse = await _client.ConditionalUpdateAsync(
                 observation,
                 $"identifier={Guid.NewGuid().ToString()}",
-                Samples.GetProvenanceHeader());
+                provenanceHeader: Samples.GetProvenanceHeader());
 
             Assert.Equal(HttpStatusCode.Created, updateResponse.StatusCode);
 
