@@ -55,6 +55,7 @@
         "http://hl7.org/fhir/SearchParameter/OperationDefinition-output-profile",
         "http://hl7.org/fhir/SearchParameter/PlanDefinition-composed-of",
         "http://hl7.org/fhir/SearchParameter/PlanDefinition-depends-on",
+        "http://hl7.org/fhir/SearchParameter/PlanDefinition-definition",
         "http://hl7.org/fhir/SearchParameter/PlanDefinition-derived-from",
         "http://hl7.org/fhir/SearchParameter/PlanDefinition-predecessor",
         "http://hl7.org/fhir/SearchParameter/PlanDefinition-successor",
@@ -91,7 +92,6 @@
         "http://hl7.org/fhir/SearchParameter/Observation-component-value-quantity",
         "http://hl7.org/fhir/SearchParameter/Observation-value-quantity",
         "http://hl7.org/fhir/SearchParameter/Patient-deceased",
-        "http://hl7.org/fhir/SearchParameter/PlanDefinition-definition",
         "http://hl7.org/fhir/SearchParameter/ServiceRequest-occurrence"
     ]
 }
