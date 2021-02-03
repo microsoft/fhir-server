@@ -43,10 +43,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
         private CancellationToken _cancellationToken;
 
-        public ReindexJobTaskTests(SearchParameterFixtureData fixture) => _fixture = fixture;
-
-        public async Task InitializeAsync()
+        public ReindexJobTaskTests(SearchParameterFixtureData fixture)
         {
+            _fixture = fixture;
+
             _cancellationToken = _cancellationTokenSource.Token;
 
             var job = CreateReindexJobRecord();
@@ -58,17 +58,21 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
                     Arg.Any<string>(),
                     true,
                     Arg.Any<CancellationToken>()).
-                Returns(new SearchResult(5, new List<Tuple<string, string>>()));
-
-            _reindexJobTask = new ReindexJobTask(
-                () => _fhirOperationDataStore.CreateMockScope(),
-                Options.Create(_reindexJobConfiguration),
-                () => _searchService.CreateMockScope(),
-                await _fixture.GetSupportedSearchDefinitionManagerAsync(),
-                _reindexUtilities,
-                NullLogger<ReindexJobTask>.Instance);
+                Returns(
+                x => new SearchResult(5, new List<Tuple<string, string>>()));
 
             _reindexUtilities.UpdateSearchParameterStatus(Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<CancellationToken>()).Returns(x => (true, null));
+        }
+
+        public async Task InitializeAsync()
+        {
+            _reindexJobTask = new ReindexJobTask(
+               () => _fhirOperationDataStore.CreateMockScope(),
+               Options.Create(_reindexJobConfiguration),
+               () => _searchService.CreateMockScope(),
+               await _fixture.GetSupportedSearchDefinitionManagerAsync(),
+               _reindexUtilities,
+               NullLogger<ReindexJobTask>.Instance);
         }
 
         public Task DisposeAsync() => Task.CompletedTask;
