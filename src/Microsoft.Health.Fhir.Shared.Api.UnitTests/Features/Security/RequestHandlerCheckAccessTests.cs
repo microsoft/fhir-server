@@ -11,7 +11,6 @@ using System.Runtime.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
-using Microsoft.Health.Fhir.Api.Features.Resources;
 using Microsoft.Health.Fhir.Api.Features.Security;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
@@ -30,10 +29,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Security
             typeof(GetCapabilitiesHandler),
             typeof(GetOperationVersionsHandler),
             typeof(OperationDefinitionRequestHandler),
-            typeof(ProvenanceHeaderConditionalCreateHandler),
-            typeof(ProvenanceHeaderConditionalUpsertHandler),
-            typeof(ProvenanceHeaderCreateHandler),
-            typeof(ProvenanceHeaderUpsertHandler),
         };
 
         public static IEnumerable<object[]> GetHandlerTypes()
