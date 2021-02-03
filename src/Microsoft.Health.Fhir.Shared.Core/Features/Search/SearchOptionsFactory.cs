@@ -108,6 +108,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 }
                 else if (string.Equals(query.Item1, KnownQueryParameterNames.Type, StringComparison.OrdinalIgnoreCase))
                 {
+                    if (string.IsNullOrWhiteSpace(query.Item2))
+                    {
+                        throw new BadRequestException(string.Format(Core.Resources.InvalidTypeParameter, query.Item2));
+                    }
+
                     var types = query.Item2.SplitByOrSeparator();
                     var badTypes = types.Where(type => !ModelInfoProvider.IsKnownResource(type)).ToHashSet();
 

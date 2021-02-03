@@ -222,6 +222,15 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenEmptyTypeOfResource_WhenSearching_ThenBadRequestShouldBeReturned()
+        {
+            using FhirException ex = await Assert.ThrowsAsync<FhirException>(() => Client.SearchAsync($"?_type="));
+
+            Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
         public async Task GivenSomeInvalidTypeOfResources_WhenSearchingAcrossAllResourceTypes_ThenSearchHasProperOutcome()
         {
             Patient[] patients = await Client.CreateResourcesAsync<Patient>(3);
