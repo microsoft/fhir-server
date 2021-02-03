@@ -112,14 +112,5 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
 
             Assert.Throws<ArgumentException>(() => value.Compare(null));
         }
-
-        [Fact]
-        public void GivenAStringSearchValue_WhenCompareWithNonStringSearchValue_ThenArgumentExceptionIsThrown()
-        {
-            StringSearchValue value = new StringSearchValue("string");
-            NumberSearchValue numberValue = new NumberSearchValue(1);
-
-            Assert.Throws<ArgumentException>(() => value.Compare(numberValue));
-        }
     }
 }

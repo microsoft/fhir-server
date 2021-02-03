@@ -36,23 +36,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         public bool IsValidAsCompositeComponent => false;
 
         /// <inheritdoc />
-        public bool IsMin { get; set; }
-
-        /// <inheritdoc />
-        public bool IsMax { get; set; }
-
-        /// <inheritdoc />
         public void AcceptVisitor(ISearchValueVisitor visitor)
         {
             EnsureArg.IsNotNull(visitor, nameof(visitor));
 
             visitor.Visit(this);
-        }
-
-        /// <inheritdoc />
-        public int Compare(ISearchValue searchValue)
-        {
-            throw new System.NotImplementedException();
         }
 
         public bool Equals([AllowNull] ISearchValue other)

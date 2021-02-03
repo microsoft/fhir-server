@@ -85,19 +85,20 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
 
             foreach (SearchIndexEntry searchEntry in resourceWrapper.SearchIndices)
             {
+                ISearchMinMaxValue searchEntryValue = searchEntry.Value as ISearchMinMaxValue;
                 switch (searchEntry.Value.ToString())
                 {
                     case "alpha":
-                        Assert.True(searchEntry.Value.IsMin);
-                        Assert.False(searchEntry.Value.IsMax);
+                        Assert.True(searchEntryValue.IsMin);
+                        Assert.False(searchEntryValue.IsMax);
                         break;
                     case "beta":
-                        Assert.False(searchEntry.Value.IsMin);
-                        Assert.False(searchEntry.Value.IsMax);
+                        Assert.False(searchEntryValue.IsMin);
+                        Assert.False(searchEntryValue.IsMax);
                         break;
                     case "gamma":
-                        Assert.False(searchEntry.Value.IsMin);
-                        Assert.True(searchEntry.Value.IsMax);
+                        Assert.False(searchEntryValue.IsMin);
+                        Assert.True(searchEntryValue.IsMax);
                         break;
                     default:
                         throw new Exception("Unexpected value");
@@ -119,45 +120,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
 
             foreach (SearchIndexEntry searchEntry in resourceWrapper.SearchIndices)
             {
+                ISearchMinMaxValue searchEntryValue = searchEntry.Value as ISearchMinMaxValue;
                 switch (searchEntry.Value.ToString())
                 {
                     case "alpha":
-                        Assert.True(searchEntry.Value.IsMin);
-                        Assert.True(searchEntry.Value.IsMax);
+                        Assert.True(searchEntryValue.IsMin);
+                        Assert.True(searchEntryValue.IsMax);
                         break;
                     case "redmond":
-                        Assert.True(searchEntry.Value.IsMin);
-                        Assert.True(searchEntry.Value.IsMax);
-                        break;
-                    default:
-                        throw new Exception("Unexpected value");
-                }
-            }
-        }
-
-        [Fact]
-        public void GivenNonStringSearchValue_WhenCreate_ThenMinMaxValuesAreNotSet()
-        {
-            var searchIndexEntry1 = new SearchIndexEntry(_nameSearchParameterInfo, new StringSearchValue("alpha"));
-            var searchIndexEntry2 = new SearchIndexEntry(_ageSearchParameterInfo, new NumberSearchValue(25));
-            _searchIndexer
-                .Extract(Arg.Any<ResourceElement>())
-                .Returns(new List<SearchIndexEntry>() { searchIndexEntry1, searchIndexEntry2 });
-
-            ResourceElement resource = Samples.GetDefaultPatient(); // Resource does not matter for this test.
-            ResourceWrapper resourceWrapper = _resourceWrapperFactory.Create(resource, deleted: false, keepMeta: false);
-
-            foreach (SearchIndexEntry searchEntry in resourceWrapper.SearchIndices)
-            {
-                switch (searchEntry.Value.ToString())
-                {
-                    case "alpha":
-                        Assert.True(searchEntry.Value.IsMin);
-                        Assert.True(searchEntry.Value.IsMax);
-                        break;
-                    case "25":
-                        Assert.False(searchEntry.Value.IsMin);
-                        Assert.False(searchEntry.Value.IsMax);
+                        Assert.True(searchEntryValue.IsMin);
+                        Assert.True(searchEntryValue.IsMax);
                         break;
                     default:
                         throw new Exception("Unexpected value");

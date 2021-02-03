@@ -53,12 +53,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         public bool IsValidAsCompositeComponent =>
             !string.IsNullOrWhiteSpace(System) || !string.IsNullOrWhiteSpace(Code);
 
-        /// <inheritdoc />
-        public bool IsMin { get; set; }
-
-        /// <inheritdoc />
-        public bool IsMax { get; set; }
-
         /// <summary>
         /// Parses the string value to an instance of <see cref="TokenSearchValue"/>.
         /// </summary>
@@ -97,12 +91,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
             EnsureArg.IsNotNull(visitor, nameof(visitor));
 
             visitor.Visit(this);
-        }
-
-        /// <inheritdoc />
-        public int Compare(ISearchValue searchValue)
-        {
-            throw new NotImplementedException();
         }
 
         public bool Equals([AllowNull] ISearchValue other)
