@@ -22,7 +22,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
     /// Intercepts create/update requests and checks presence of "X-Provenance" header.
     /// If header present it proceed normal work with target request and then create provenance object with provenance.target equal to that object.
     /// </summary>
-    public sealed class ProvenanceHeaderBehaviour :
+    public sealed class ProvenanceHeaderBehavior :
         IPipelineBehavior<CreateResourceRequest, UpsertResourceResponse>,
         IPipelineBehavior<UpsertResourceRequest, UpsertResourceResponse>,
         IPipelineBehavior<ConditionalCreateResourceRequest, UpsertResourceResponse>,
@@ -31,9 +31,9 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
         private readonly FhirJsonParser _fhirJsonParser;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IMediator _mediator;
-        private bool _intercepted;
+        private IProvenanceHeaderState _state;
 
-        public ProvenanceHeaderBehaviour(FhirJsonParser fhirJsonParser, IHttpContextAccessor httpContextAccessor, IMediator mediator)
+        public ProvenanceHeaderBehavior(FhirJsonParser fhirJsonParser, IHttpContextAccessor httpContextAccessor, IMediator mediator, IProvenanceHeaderState state)
         {
             EnsureArg.IsNotNull(fhirJsonParser, nameof(fhirJsonParser));
             EnsureArg.IsNotNull(httpContextAccessor, nameof(httpContextAccessor));
@@ -42,6 +42,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
             _fhirJsonParser = fhirJsonParser;
             _httpContextAccessor = httpContextAccessor;
             _mediator = mediator;
+            _state = state;
         }
 
         public async Task<UpsertResourceResponse> Handle(ConditionalUpsertResourceRequest request, CancellationToken cancellationToken, RequestHandlerDelegate<UpsertResourceResponse> next)
@@ -58,12 +59,12 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
 
         private async Task<UpsertResourceResponse> GenericHandle(RequestHandlerDelegate<UpsertResourceResponse> next, CancellationToken cancellationToken)
         {
-            if (_intercepted)
+            if (_state.Intercepted)
             {
                 return await next();
             }
 
-            _intercepted = true;
+            _state.Intercepted = true;
             Provenance provenance = GetProvenanceFromHeader();
             var response = await next();
 

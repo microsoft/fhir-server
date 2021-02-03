@@ -156,7 +156,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddFactory<IScoped<IEnumerable<IProvideCapability>>>();
 
             // Register pipeline behavior to intercept create/update requests and check presence of provenace header.
-            services.Add<ProvenanceHeaderBehaviour>().Scoped().AsSelf().AsImplementedInterfaces();
+            services.Add<ProvenanceHeaderBehavior>().Scoped().AsSelf().AsImplementedInterfaces();
+            services.Add<ProvenanceHeaderState>().Scoped().AsSelf().AsImplementedInterfaces();
 
             services.AddLazy();
             services.AddScoped();
