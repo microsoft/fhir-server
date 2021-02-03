@@ -32,40 +32,40 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public override Expression VisitSqlRoot(SqlRootExpression expression, object context)
         {
-            if (expression.TableExpressions.Count == 0)
+            if (expression.SearchParamTableExpressions.Count == 0)
             {
                 return expression;
             }
 
-            List<TableExpression> newTableExpressions = null;
-            for (var i = 0; i < expression.TableExpressions.Count; i++)
+            List<SearchParamTableExpression> newTableExpressions = null;
+            for (var i = 0; i < expression.SearchParamTableExpressions.Count; i++)
             {
-                TableExpression tableExpression = expression.TableExpressions[i];
+                SearchParamTableExpression searchParamTableExpression = expression.SearchParamTableExpressions[i];
                 bool found = false;
 
-                switch (tableExpression.Kind)
+                switch (searchParamTableExpression.Kind)
                 {
-                    case TableExpressionKind.Chain:
-                    case TableExpressionKind.Include:
-                    case TableExpressionKind.Sort:
-                    case TableExpressionKind.All:
+                    case SearchParamTableExpressionKind.Chain:
+                    case SearchParamTableExpressionKind.Include:
+                    case SearchParamTableExpressionKind.Sort:
+                    case SearchParamTableExpressionKind.All:
                         // The expressions contained within a ChainExpression, IncludeExpression, SortExpression, AllExpression
-                        // have been promoted to TableExpressions in this list and are not considered.
+                        // have been promoted to SearchParamTableExpressions in this list and are not considered.
                         break;
 
                     default:
                         if (_rewritingScout != null)
                         {
-                            var newNormalizedPredicate = tableExpression.NormalizedPredicate.AcceptVisitor(_rewritingScout, null);
-                            if (!ReferenceEquals(newNormalizedPredicate, tableExpression.NormalizedPredicate))
+                            var newPredicate = searchParamTableExpression.Predicate.AcceptVisitor(_rewritingScout, null);
+                            if (!ReferenceEquals(newPredicate, searchParamTableExpression.Predicate))
                             {
                                 found = true;
-                                tableExpression = new TableExpression(tableExpression.SearchParameterQueryGenerator, newNormalizedPredicate, tableExpression.DenormalizedPredicate, tableExpression.Kind, tableExpression.ChainLevel);
+                                searchParamTableExpression = new SearchParamTableExpression(searchParamTableExpression.QueryGenerator, newPredicate, searchParamTableExpression.Kind, searchParamTableExpression.ChainLevel);
                             }
                         }
                         else
                         {
-                            found = tableExpression.NormalizedPredicate.AcceptVisitor(_booleanScout, null);
+                            found = searchParamTableExpression.Predicate.AcceptVisitor(_booleanScout, null);
                         }
 
                         break;
@@ -73,14 +73,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
                 if (found)
                 {
-                    EnsureAllocatedAndPopulated(ref newTableExpressions, expression.TableExpressions, i);
+                    EnsureAllocatedAndPopulated(ref newTableExpressions, expression.SearchParamTableExpressions, i);
 
-                    newTableExpressions.Add(tableExpression);
-                    newTableExpressions.Add((TableExpression)tableExpression.AcceptVisitor(this, context));
+                    newTableExpressions.Add(searchParamTableExpression);
+                    newTableExpressions.Add((SearchParamTableExpression)searchParamTableExpression.AcceptVisitor(this, context));
                 }
                 else
                 {
-                    newTableExpressions?.Add(tableExpression);
+                    newTableExpressions?.Add(searchParamTableExpression);
                 }
             }
 
@@ -89,21 +89,20 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 return expression;
             }
 
-            return new SqlRootExpression(newTableExpressions, expression.DenormalizedExpressions);
+            return new SqlRootExpression(newTableExpressions, expression.ResourceTableExpressions);
         }
 
-        public override Expression VisitTable(TableExpression tableExpression, object context)
+        public override Expression VisitTable(SearchParamTableExpression searchParamTableExpression, object context)
         {
-            var normalizedPredicate = tableExpression.NormalizedPredicate.AcceptVisitor(this, context);
+            var predicate = searchParamTableExpression.Predicate.AcceptVisitor(this, context);
 
-            Debug.Assert(normalizedPredicate != tableExpression.NormalizedPredicate, "expecting table expression to have been rewritten for concatenation");
+            Debug.Assert(predicate != searchParamTableExpression.Predicate, "expecting table expression to have been rewritten for concatenation");
 
-            return new TableExpression(
-                tableExpression.SearchParameterQueryGenerator,
-                normalizedPredicate,
-                tableExpression.DenormalizedPredicate,
-                TableExpressionKind.Concatenation,
-                tableExpression.ChainLevel);
+            return new SearchParamTableExpression(
+                searchParamTableExpression.QueryGenerator,
+                predicate,
+                SearchParamTableExpressionKind.Concatenation,
+                searchParamTableExpression.ChainLevel);
         }
     }
 }

@@ -214,7 +214,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
 
             Expression expression = Substitute.For<Expression>();
 
-            _searchParameterExpressionParser.Parse(searchParameter, SearchModifierCode.Missing, value).Returns(expression);
+            _searchParameterExpressionParser.Parse(searchParameter, new SearchModifier(SearchModifierCode.Missing), value).Returns(expression);
 
             // Parse the expression.
             Expression actualExpression = _expressionParser.Parse(new[] { resourceType.ToString() }, key, value);

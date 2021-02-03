@@ -232,14 +232,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.Forbidden, fhirException.StatusCode);
         }
 
-        [Fact]
+        [SkippableFact]
         [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAUserWithConvertDataPermissions_WhenConvertData_TheServerShouldReturnSuccess()
         {
-            if (!_convertDataEnabled)
-            {
-                return;
-            }
+            Skip.IfNot(_convertDataEnabled);
 
             TestFhirClient tempClient = _client.CreateClientForUser(TestUsers.ConvertDataUser, TestApplications.NativeClient);
             var parameters = Samples.GetDefaultConvertDataParameter().ToPoco<Parameters>();
@@ -252,12 +249,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             };
             var parser = new FhirJsonParser(setting);
             var bundleResource = parser.Parse<Bundle>(result);
-            Assert.Equal("urn:uuid:9d697ec3-48c3-3e17-db6a-29a1765e22c6", bundleResource.Entry.First().FullUrl);
-            Assert.Equal(4, bundleResource.Entry.Count);
-
-            var patient = bundleResource.Entry.First().Resource as Patient;
-            Assert.Equal("Kinmonth", patient.Name.First().Family);
-            Assert.Equal("1987-06-24", patient.BirthDate);
+            Assert.NotEmpty(bundleResource.Entry.ByResourceType<Patient>().First().Id);
         }
     }
 }

@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
-        public async Task GivenAnIncludeSearchExpressionWithOnlyDenormalizedPredicates_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        public async Task GivenAnIncludeSearchExpressionWithOnlyResourceTablePredicates_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             string lastUpdatedString = Uri.EscapeDataString(Fixture.PatientGroup.Meta.LastUpdated.Value.ToString("o"));
 
@@ -102,7 +102,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
-        public async Task GivenAnIncludeSearchExpressionWithMultipleDenormalizedParameters_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        public async Task GivenAnIncludeSearchExpressionWithMultipleResourceTableParameters_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             var guid = Guid.NewGuid().ToString();
             var organizationResponse = await Client.CreateAsync(new Organization());
@@ -239,7 +239,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
-        public async Task GivenAnIncludeSearchExpressionWithMultipleDenormalizedParametersAndTableParameters_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        public async Task GivenAnIncludeSearchExpressionWithMultipleResourceTableParametersAndTableParameters_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             var newDiagnosticReportResponse = await Fixture.TestFhirClient.CreateAsync(
                 new DiagnosticReport
@@ -460,7 +460,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         }
 
         [Fact]
-        public async Task GivenARevIncludeSearchExpressionWithMultipleDenormalizedParametersAndTableParameters_WhenSearched_ThenCorrectBundleShouldBeReturned()
+        public async Task GivenARevIncludeSearchExpressionWithMultipleResourceTableParametersAndTableParameters_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
             var newDiagnosticReportResponse = await Fixture.TestFhirClient.CreateAsync(
                 new DiagnosticReport

@@ -79,5 +79,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
         /// </summary>
         /// <param name="searchParameters">An collection containing SearchParameter resources.</param>
         void AddNewSearchParameters(IReadOnlyCollection<ITypedElement> searchParameters);
+
+        /// <summary>
+        /// Allows removal of a custom search parameter.
+        /// </summary>
+        /// <param name="searchParam">The custom search parameter to remove.</param>
+        void DeleteSearchParameter(ITypedElement searchParam);
     }
 }

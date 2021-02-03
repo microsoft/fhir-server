@@ -29,9 +29,11 @@ There are a few different kinds of release assets, both Webdeploy zip files and 
 
 Here are the tags for Docker images that should be noted:
 
-* healthplatformregistry.azurecr.io/${version}_fhir-server:**master** - The latest code that has been merged to the main branch and passed all tests.
-* healthplatformregistry.azurecr.io/${version}_fhir-server:**release** - The latest release, this is the tag we will focus on.
-* healthplatformregistry.azurecr.io/${version}_fhir-server:**build-[release number]** - Allows you to pin or access a specific release.
+1. mcr.microsoft.com/healthcareapis/${version}-fhir-server:**latest** - This is the image we will focus on.
+2. healthplatformregistry.azurecr.io/${version}_fhir-server:**release** - The latest release, if the mcr latest image as mentioned above has issues, consider this.
+3. healthplatformregistry.azurecr.io/${version}_fhir-server:**master** - The latest code that has been merged to the main branch and passed all tests.
+4. healthplatformregistry.azurecr.io/${version}_fhir-server:**build-[release number]** - Allows you to pin or access a specific release.
+
 
 The current data store used by Azure API for FHIR is Cosmos DB, the following steps will walk through creating a test environment using Containers targeting the "release" label above.
 

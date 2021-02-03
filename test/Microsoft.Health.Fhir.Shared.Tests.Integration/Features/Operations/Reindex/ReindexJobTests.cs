@@ -188,7 +188,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         }
 
         [Fact]
-        public async Task GivenNoMatchingResources_WhenRunningReindexJob_ThenJobIsCompleted()
+        public async Task GivenNoMatchingResources_WhenRunningReindexJob_ThenJobIsCanceled()
         {
             var searchParam = _supportedSearchParameterDefinitionManager.GetSearchParameter(new Uri("http://hl7.org/fhir/SearchParameter/Measure-name"));
             searchParam.IsSearchable = false;
@@ -213,7 +213,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 var reindexJobWrapper = await _fhirOperationDataStore.GetReindexJobByIdAsync(response.Job.JobRecord.Id, cancellationTokenSource.Token);
 
                 int delayCount = 0;
-                while (reindexJobWrapper.JobRecord.Status != OperationStatus.Completed
+                while (reindexJobWrapper.JobRecord.Status != OperationStatus.Canceled
                     && delayCount < 10)
                 {
                     await Task.Delay(1000);
@@ -247,8 +247,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 IsSearchable = false,
             };
 
-            _searchParameterDefinitionManager.UrlLookup.Add(searchParam.Url, searchParam);
-            _searchParameterDefinitionManager.TypeLookup["Patient"].Add(searchParamName, searchParam);
+            _searchParameterDefinitionManager.UrlLookup.TryAdd(searchParam.Url, searchParam);
+            _searchParameterDefinitionManager.TypeLookup["Patient"].TryAdd(searchParamName, searchParam);
 
             await UpsertPatientData("searchIndicesPatient1");
             await UpsertPatientData("searchIndicesPatient2");

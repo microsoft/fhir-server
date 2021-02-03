@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Core.Features.Security;
+using Microsoft.Health.Fhir.Core;
 using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Features.Operations;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
@@ -288,8 +289,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
         [Fact]
         public async Task GivenARequestWithANonexistantFormatName_WhenConverted_ThenABadRequestIsReturned()
         {
-            var request = new CreateExportRequest(RequestUrl, ExportJobType.All, formatName: "invalid");
-            await Assert.ThrowsAsync<BadRequestException>(() => _createExportRequestHandler.Handle(request, _cancellationToken));
+            var formatName = "invalid";
+            var request = new CreateExportRequest(RequestUrl, ExportJobType.All, formatName: formatName);
+            var exception = await Assert.ThrowsAsync<BadRequestException>(() => _createExportRequestHandler.Handle(request, _cancellationToken));
+            Assert.Equal(string.Format(Resources.ExportFormatNotFound, formatName), exception.Message);
         }
 
         [Theory]
@@ -316,13 +319,14 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
         }
 
         [Theory]
-        [InlineData("bad")]
-        [InlineData("Observation?code=a,b,Observation?status=final")] // Doesn't support nested 'or' currently
-        [InlineData("Observation?status:final")] // Incorrect divider
-        public async Task GivenARequestWithIncorectFilters_WhenConverted_ThenABadRequestIsReturned(string filters)
+        [InlineData("bad", "bad")]
+        [InlineData("Observation?code=a,b,Observation?status=final", "b")] // Doesn't support nested 'or' currently
+        [InlineData("Observation?status:final", "Observation?status:final")] // Incorrect divider
+        public async Task GivenARequestWithIncorectFilters_WhenConverted_ThenABadRequestIsReturned(string filters, string errorMessage)
         {
             var request = new CreateExportRequest(RequestUrl, ExportJobType.All, filters: filters);
-            await Assert.ThrowsAsync<BadRequestException>(() => _createExportRequestHandler.Handle(request, _cancellationToken));
+            var exception = await Assert.ThrowsAsync<BadRequestException>(() => _createExportRequestHandler.Handle(request, _cancellationToken));
+            Assert.Equal(string.Format(Resources.TypeFilterUnparseable, errorMessage), exception.Message);
         }
 
         /// <summary>

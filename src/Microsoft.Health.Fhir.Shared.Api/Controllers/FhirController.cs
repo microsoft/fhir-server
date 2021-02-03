@@ -166,7 +166,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [AuditEventType(AuditEventSubType.Create)]
         public async Task<IActionResult> ConditionalCreate([FromBody] Resource resource)
         {
-            StringValues conditionalCreateHeader = HttpContext.Request.Headers[KnownFhirHeaders.IfNoneExist];
+            StringValues conditionalCreateHeader = HttpContext.Request.Headers[KnownHeaders.IfNoneExist];
 
             Tuple<string, string>[] conditionalParameters = QueryHelpers.ParseQuery(conditionalCreateHeader)
                 .SelectMany(query => query.Value, (query, value) => Tuple.Create(query.Key, value)).ToArray();

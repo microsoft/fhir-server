@@ -51,6 +51,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             return expression;
         }
 
+        public virtual Expression VisitNotExpression(NotExpression expression, TContext context)
+        {
+            Expression visitedExpression = expression.Expression.AcceptVisitor(visitor: this, context: context);
+            if (ReferenceEquals(visitedExpression, expression.Expression))
+            {
+                return expression;
+            }
+
+            return new NotExpression(visitedExpression);
+        }
+
         public virtual Expression VisitMultiary(MultiaryExpression expression, TContext context)
         {
             IReadOnlyList<Expression> rewrittenExpressions = VisitArray(expression.Expressions, context);
@@ -123,6 +134,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
                 for (int j = 0; j < count; j++)
                 {
                     destination.Add(source[j]);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Like <see cref="EnsureAllocatedAndPopulated{TExpression}(ref TExpression[],System.Collections.Generic.IReadOnlyList{TExpression},int)"/>,
+        /// but where the destination list if is of a derived type
+        /// </summary>
+        /// <typeparam name="TDestination">The destination list type</typeparam>
+        /// <typeparam name="TSource">The source list type</typeparam>
+        /// <param name="destination">The destination list to allocate and populate</param>
+        /// <param name="source">The source list</param>
+        /// <param name="count">The number of elements from source to copy to destination</param>
+        protected static void EnsureAllocatedAndPopulatedChangeType<TDestination, TSource>(ref List<TDestination> destination, IReadOnlyList<TSource> source, int count)
+            where TSource : Expression
+            where TDestination : TSource
+        {
+            if (destination == null)
+            {
+                destination = new List<TDestination>();
+                for (int j = 0; j < count; j++)
+                {
+                    destination.Add((TDestination)source[j]);
                 }
             }
         }

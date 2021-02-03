@@ -37,7 +37,8 @@ WHERE IsHistory = 0 AND TextOverflow IS NULL
 WITH 
 (
     DATA_COMPRESSION = PAGE,
-    DROP_EXISTING = ON
+    DROP_EXISTING = ON,
+    ONLINE = ON
 )
 
 CREATE NONCLUSTERED INDEX IX_StringSearchParam_SearchParamId_TextWithOverflow
@@ -56,7 +57,8 @@ WHERE IsHistory = 0 AND TextOverflow IS NOT NULL
 WITH 
 (
     DATA_COMPRESSION = PAGE,
-    DROP_EXISTING = ON
+    DROP_EXISTING = ON,
+    ONLINE = ON
 )
 
 GO

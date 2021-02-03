@@ -52,5 +52,10 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// </summary>
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA2227:Collection properties should be read only", Justification = "This is a configuration class")]
         public IList<ExportJobFormatConfiguration> Formats { get; set; }
+
+        /// <summary>
+        /// Determines the approximate file size for a single exported file.
+        /// </summary>
+        public uint RollingFileSizeInMB { get; set; } = 64;
     }
 }

@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             return new StringExpression(expression.StringOperator, SqlFieldName.TextOverflow, expression.ComponentIndex, expression.Value, expression.IgnoreCase);
         }
 
-        private class Scout : DefaultExpressionVisitor<object, bool>
+        private class Scout : DefaultSqlExpressionVisitor<object, bool>
         {
             internal Scout()
                 : base((accumulated, current) => accumulated || current)
