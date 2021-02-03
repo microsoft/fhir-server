@@ -5,6 +5,10 @@
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
 {
+    /// <summary>
+    /// Companion interface to <see cref="ISearchValue"/>. Represents properties of a search
+    /// value that determine its sort order amongst other search values.
+    /// </summary>
     public interface ISearchMinMaxValue
     {
         /// <summary>

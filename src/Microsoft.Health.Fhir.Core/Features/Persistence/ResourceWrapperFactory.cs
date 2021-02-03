@@ -92,6 +92,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
             foreach (SearchIndexEntry currentEntry in searchIndices)
             {
+                // Currently we are tracking the min/max values only for string type parameters.
                 ISearchMinMaxValue currentValue = currentEntry.Value as ISearchMinMaxValue;
                 if (currentValue == null)
                 {

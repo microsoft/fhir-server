@@ -76,7 +76,9 @@
     "type": "String",
     "value": {
       "string": "Physical",
-      "isValidAsCompositeComponent": true
+      "isValidAsCompositeComponent": true,
+      "isMin": false,
+      "isMax": false
     }
   },
   {
