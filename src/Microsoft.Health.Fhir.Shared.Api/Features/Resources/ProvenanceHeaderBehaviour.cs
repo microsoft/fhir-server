@@ -15,10 +15,13 @@ using Microsoft.Health.Fhir.Api.Features.Headers;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Messages.Create;
 using Microsoft.Health.Fhir.Core.Messages.Upsert;
-using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Api.Features.Resources
 {
+    /// <summary>
+    /// Intercepts create/update requests and checks presence of "X-Provenance" header.
+    /// If header present it proceed normal work with target request and then create provenance object with provenance.target equal to that object.
+    /// </summary>
     public sealed class ProvenanceHeaderBehaviour :
         IPipelineBehavior<CreateResourceRequest, UpsertResourceResponse>,
         IPipelineBehavior<UpsertResourceRequest, UpsertResourceResponse>,
