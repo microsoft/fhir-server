@@ -9,7 +9,7 @@ using Microsoft.Health.Fhir.Core.Features.Persistence;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 {
-    public interface ISearchParameterUtilities
+    public interface ISearchParameterOperations
     {
         Task AddSearchParameterAsync(ITypedElement searchParam);
 

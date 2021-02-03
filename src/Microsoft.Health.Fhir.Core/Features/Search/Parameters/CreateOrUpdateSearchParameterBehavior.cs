@@ -18,15 +18,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
     public class CreateOrUpdateSearchParameterBehavior<TCreateResourceRequest, TUpsertResourceResponse> : IPipelineBehavior<CreateResourceRequest, UpsertResourceResponse>,
         IPipelineBehavior<UpsertResourceRequest, UpsertResourceResponse>
     {
-        private ISearchParameterUtilities _searchParameterUtitliies;
+        private ISearchParameterOperations _searchParameterOperations;
         private IFhirDataStore _fhirDataStore;
 
-        public CreateOrUpdateSearchParameterBehavior(ISearchParameterUtilities searchParameterUtilities, IFhirDataStore fhirDataStore)
+        public CreateOrUpdateSearchParameterBehavior(ISearchParameterOperations searchParameterOperations, IFhirDataStore fhirDataStore)
         {
-            EnsureArg.IsNotNull(searchParameterUtilities, nameof(searchParameterUtilities));
+            EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
             EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
 
-            _searchParameterUtitliies = searchParameterUtilities;
+            _searchParameterOperations = searchParameterOperations;
             _fhirDataStore = fhirDataStore;
         }
 
@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             {
                 // Once the SearchParameter resource is committed to the data store, we can update the in
                 // memory SearchParameterDefinitionManager, and persist the status to the data store
-                await _searchParameterUtitliies.AddSearchParameterAsync(request.Resource.Instance);
+                await _searchParameterOperations.AddSearchParameterAsync(request.Resource.Instance);
             }
 
             return response;
@@ -67,7 +67,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             {
                 // Once the SearchParameter resource is update in the data store, we will update
                 // the metadata in the SearchParameterDefinitionManager
-                await _searchParameterUtitliies.UpdateSearchParameterAsync(request.Resource.Instance, prevSearchParamResource.RawResource);
+                await _searchParameterOperations.UpdateSearchParameterAsync(request.Resource.Instance, prevSearchParamResource.RawResource);
             }
 
             return response;

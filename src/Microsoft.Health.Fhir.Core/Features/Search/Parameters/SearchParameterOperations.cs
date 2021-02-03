@@ -18,13 +18,13 @@ using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 {
-    public class SearchParameterUtilities : ISearchParameterUtilities
+    public class SearchParameterOperations : ISearchParameterOperations
     {
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly SearchParameterStatusManager _searchParameterStatusManager;
         private IModelInfoProvider _modelInfoProvider;
 
-        public SearchParameterUtilities(
+        public SearchParameterOperations(
             SearchParameterStatusManager searchParameterStatusManager,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
             IModelInfoProvider modelInfoProvider)
