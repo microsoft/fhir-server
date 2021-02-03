@@ -2,8 +2,6 @@
     "Unsupported": [
         "http://hl7.org/fhir/SearchParameter/Bundle-composition",
         "http://hl7.org/fhir/SearchParameter/Bundle-message",
-        "http://hl7.org/fhir/SearchParameter/ConceptMap-source-uri",
-        "http://hl7.org/fhir/SearchParameter/ConceptMap-target-uri",
         "http://hl7.org/fhir/SearchParameter/Encounter-length",
         "http://hl7.org/fhir/SearchParameter/Location-near",
         "http://hl7.org/fhir/SearchParameter/Location-near-distance"
@@ -17,9 +15,6 @@
         "http://hl7.org/fhir/SearchParameter/Device-udi-carrier",
         "http://hl7.org/fhir/SearchParameter/Group-characteristic-value",
         "http://hl7.org/fhir/SearchParameter/Group-value",
-        "http://hl7.org/fhir/SearchParameter/ImplementationGuide-resource",
-        "http://hl7.org/fhir/SearchParameter/ProcedureRequest-occurrence",
-        "http://hl7.org/fhir/SearchParameter/Provenance-agent",
-        "http://hl7.org/fhir/SearchParameter/StructureDefinition-valueset"
+        "http://hl7.org/fhir/SearchParameter/ProcedureRequest-occurrence"
     ]
 }

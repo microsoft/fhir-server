@@ -5,6 +5,8 @@
 
 using System;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.Tests.Common;
 using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
@@ -14,10 +16,17 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
         private const string ParamNameUri = "uri";
         private const string ParamNameS = "s";
 
+        private readonly IModelInfoProvider _modelInfoProvider;
+
+        public UriSearchValueTests()
+        {
+            _modelInfoProvider = MockModelInfoProviderBuilder.Create(FhirSpecification.R4).Build();
+        }
+
         [Fact]
         public void GivenANullUri_WhenInitializing_ThenExceptionShouldBeThrown()
         {
-            Assert.Throws<ArgumentNullException>(ParamNameUri, () => new UriSearchValue(null));
+            Assert.Throws<ArgumentNullException>(ParamNameUri, () => new UriSearchValue(null, false));
         }
 
         [Theory]
@@ -25,13 +34,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
         [InlineData("    ")]
         public void GivenAnInvalidUri_WhenInitializing_ThenExceptionShouldBeThrown(string s)
         {
-            Assert.Throws<ArgumentException>(ParamNameUri, () => new UriSearchValue(s));
+            Assert.Throws<ArgumentException>(ParamNameUri, () => new UriSearchValue(s, false));
         }
 
         [Fact]
         public void GivenANullString_WhenParsing_ThenExceptionShouldBeThrown()
         {
-            Assert.Throws<ArgumentNullException>(ParamNameS, () => UriSearchValue.Parse(null));
+            Assert.Throws<ArgumentNullException>(ParamNameS, () => UriSearchValue.Parse(null, false, _modelInfoProvider));
         }
 
         [Theory]
@@ -39,7 +48,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
         [InlineData("    ")]
         public void GivenAnInvalidString_WhenParsing_ThenExceptionShouldBeThrown(string s)
         {
-            Assert.Throws<ArgumentException>(ParamNameS, () => UriSearchValue.Parse(s));
+            Assert.Throws<ArgumentException>(ParamNameS, () => UriSearchValue.Parse(s, false, _modelInfoProvider));
         }
 
         [Fact]
@@ -47,7 +56,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
         {
             string expected = "http://uri2";
 
-            UriSearchValue value = UriSearchValue.Parse(expected);
+            UriSearchValue value = UriSearchValue.Parse(expected, false, _modelInfoProvider);
 
             Assert.NotNull(value);
             Assert.Equal(expected, value.Uri);
@@ -56,7 +65,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
         [Fact]
         public void GivenASearchValue_WhenIsValidCompositeComponentIsCalled_ThenTrueShouldBeReturned()
         {
-            var value = new UriSearchValue("http://uri");
+            var value = new UriSearchValue("http://uri", false);
 
             Assert.True(value.IsValidAsCompositeComponent);
         }
@@ -66,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
         {
             string expected = "http://uri3";
 
-            UriSearchValue value = new UriSearchValue(expected);
+            UriSearchValue value = new UriSearchValue(expected, false);
 
             Assert.Equal(expected, value.ToString());
         }

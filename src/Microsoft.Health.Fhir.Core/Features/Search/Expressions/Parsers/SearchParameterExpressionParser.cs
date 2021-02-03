@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                     (SearchParamType.Reference, referenceSearchValueParser.Parse),
                     (SearchParamType.String, StringSearchValue.Parse),
                     (SearchParamType.Token, TokenSearchValue.Parse),
-                    (SearchParamType.Uri, UriSearchValue.Parse),
+                    (SearchParamType.Uri, str => UriSearchValue.Parse(str, true, ModelInfoProvider.Instance)),
                 }
                 .ToDictionary(entry => entry.type, entry => CreateParserWithErrorHandling(entry.parser));
         }
