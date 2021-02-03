@@ -53,6 +53,8 @@ namespace Microsoft.Health.Fhir.Client
 
         Task<FhirResponse<Bundle>> SearchAsync(string url, CancellationToken cancellationToken = default);
 
+        Task<FhirResponse<Bundle>> SearchAsync(string url, Tuple<string, string> customHeader, CancellationToken cancellationToken = default);
+
         Task<FhirResponse<Bundle>> SearchPostAsync(string resourceType, CancellationToken cancellationToken = default, params (string key, string value)[] body);
 
         Task<FhirResponse<T>> UpdateAsync<T>(string uri, T resource, string ifMatchVersion = null, CancellationToken cancellationToken = default)

@@ -31,29 +31,34 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
 
         protected TestFhirClient Client => Fixture.TestFhirClient;
 
+        protected async Task<Bundle> ExecuteAndValidateBundle(string searchUrl, Tuple<string, string> customHeader, params Resource[] expectedResources)
+        {
+            return await ExecuteAndValidateBundle(searchUrl, searchUrl, true, customHeader, expectedResources);
+        }
+
         protected async Task<Bundle> ExecuteAndValidateBundle(string searchUrl, params Resource[] expectedResources)
         {
-            return await ExecuteAndValidateBundle(searchUrl, searchUrl, true, expectedResources);
+            return await ExecuteAndValidateBundle(searchUrl, searchUrl, true, null, expectedResources);
         }
 
         protected async Task<Bundle> ExecuteAndValidateBundle(string searchUrl, bool sort, params Resource[] expectedResources)
         {
             var actualDecodedUrl = WebUtility.UrlDecode(searchUrl);
-            return await ExecuteAndValidateBundle(searchUrl, actualDecodedUrl, sort, expectedResources);
+            return await ExecuteAndValidateBundle(searchUrl, actualDecodedUrl, sort, null, expectedResources);
         }
 
-        protected async Task<Bundle> ExecuteAndValidateBundle(string searchUrl, string selfLink, params Resource[] expectedResources)
+        protected async Task<Bundle> ExecuteAndValidateBundle(string searchUrl, string selfLink, Tuple<string, string> customHeader, params Resource[] expectedResources)
         {
-            Bundle bundle = await Client.SearchAsync(searchUrl);
+            Bundle bundle = await Client.SearchAsync(searchUrl, customHeader);
 
             ValidateBundle(bundle, selfLink, true, expectedResources);
 
             return bundle;
         }
 
-        protected async Task<Bundle> ExecuteAndValidateBundle(string searchUrl, string selfLink, bool sort, params Resource[] expectedResources)
+        protected async Task<Bundle> ExecuteAndValidateBundle(string searchUrl, string selfLink, bool sort, Tuple<string, string> customHeader = null, params Resource[] expectedResources)
         {
-            Bundle firstBundle = await Client.SearchAsync(searchUrl);
+            Bundle firstBundle = await Client.SearchAsync(searchUrl, customHeader);
 
             var pageSize = 10;
             var expectedFirstBundle = expectedResources.Length > pageSize ? expectedResources.ToList().GetRange(0, pageSize).ToArray() : expectedResources;

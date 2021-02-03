@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver;
         private readonly IFhirRequestContextAccessor _fhirRequestContextAccessor;
         private readonly IFhirRequestContext _fhirRequestContext = new DefaultFhirRequestContext();
-        private readonly ISearchParameterUtilities _searchParameterUtilties;
+        private readonly ISearchParameterOperations _searchParameterOperations;
 
         public SearchParameterDefinitionManagerTests()
         {
@@ -106,7 +106,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 .IsSearchParameterSupported(Arg.Is(_searchParameterInfos[4]))
                 .Returns((true, false));
 
-            _searchParameterUtilties = new SearchParameterUtilities(_manager, _searchParameterDefinitionManager, ModelInfoProvider.Instance);
+            _searchParameterOperations = new SearchParameterOperations(_manager, _searchParameterDefinitionManager, ModelInfoProvider.Instance);
         }
 
         public async Task InitializeAsync()
@@ -286,7 +286,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 Name = "test",
             };
 
-            await _searchParameterUtilties.AddSearchParameterAsync(searchParam.ToTypedElement());
+            await _searchParameterOperations.AddSearchParameterAsync(searchParam.ToTypedElement());
 
             var searchParamHash = _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient");
             Assert.NotNull(searchParamHash);
@@ -324,7 +324,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
                 Name = "test",
             };
 
-            await _searchParameterUtilties.AddSearchParameterAsync(searchParam.ToTypedElement());
+            await _searchParameterOperations.AddSearchParameterAsync(searchParam.ToTypedElement());
 
             var patientParamsWithNew = _searchParameterDefinitionManager.GetSearchParameters("Patient");
             Assert.Equal(patientParamCount + 1, patientParamsWithNew.Count());
