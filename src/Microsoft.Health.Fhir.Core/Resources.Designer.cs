@@ -295,6 +295,15 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to An error occurred updating the custom search parameter.  The issue must be resolved and the update resubmitted to be applied..
+        /// </summary>
+        internal static string CustomSearchUpdateError {
+            get {
+                return ResourceManager.GetString("CustomSearchUpdateError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The date time string &apos;{0}&apos; is not in a correct format..
         /// </summary>
         internal static string DateTimeStringIsIncorrectlyFormatted {

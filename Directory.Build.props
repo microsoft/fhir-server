@@ -13,7 +13,7 @@
     <!--This will target the latest patch release of the runtime released with the current SDK.  -->
     <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
     <SdkPackageVersion>3.1.11</SdkPackageVersion>
-    <HealthcareSharedPackageVersion>1.1.1</HealthcareSharedPackageVersion>
+    <HealthcareSharedPackageVersion>1.1.3</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>1.9.0</Hl7FhirVersion>
   </PropertyGroup>
 

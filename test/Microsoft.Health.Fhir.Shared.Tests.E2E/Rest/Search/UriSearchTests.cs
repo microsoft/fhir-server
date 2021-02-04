@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Linq;
+using System.Web;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Xunit;
@@ -22,16 +23,17 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Theory]
         [InlineData("", "http://somewhere.com/test/system", 0)]
         [InlineData("", "http://somewhere.COM/test/system")]
+        [InlineData("", "http://example.org/rdf#54135-9", 2)]
         [InlineData("", "urn://localhost/test", 1)]
         [InlineData(":above", "system", 0)]
         [InlineData(":above", "test")]
         [InlineData(":above", "urn://localhost/test")]
-        [InlineData(":below", "http", 0)]
+        [InlineData(":below", "http", 0, 2)]
         [InlineData(":below", "test")]
         [InlineData(":below", "urn")]
         public async Task GivenAUriSearchParam_WhenSearched_ThenCorrectBundleShouldBeReturned(string modifier, string queryValue, params int[] expectedIndices)
         {
-            Bundle bundle = await Client.SearchAsync(ResourceType.ValueSet, $"url{modifier}={queryValue}");
+            Bundle bundle = await Client.SearchAsync(ResourceType.ValueSet, $"url{modifier}={HttpUtility.UrlEncode(queryValue)}&_tag={Fixture.FixtureTag}");
 
             ValueSet[] expected = expectedIndices.Select(i => Fixture.ValueSets[i]).ToArray();
 
