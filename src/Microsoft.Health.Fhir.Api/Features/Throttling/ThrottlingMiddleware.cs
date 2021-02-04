@@ -259,8 +259,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
 
             context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
 
-            // note we are aligning with Cosmos DB and not returning the standard header (which is in seconds)
-            context.Response.Headers[KnownHeaders.RetryAfterMilliseconds] = _currentRetryAfterMilliseconds.ToString();
+            context.Response.Headers.AddRetryAfterHeaders(TimeSpan.FromMilliseconds(_currentRetryAfterMilliseconds));
 
             context.Response.ContentLength = _throttledBody.Length;
             context.Response.ContentType = ThrottledContentType;
