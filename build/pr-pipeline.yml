@@ -19,7 +19,8 @@ stages:
     steps:
     - template: ./jobs/update-semver.yml  
     - powershell: |
-        $buildNumber = "$(semVer)" -replace "\.", "" 
+        $buildNumber = "$(semVer)".replace(".", "").replace("-", "")
+        $buildNumber = $buildNumber.subString(0, [System.Math]::Min(15, $buildNumber.Length))
         Write-Host "##vso[build.updatebuildnumber]$buildNumber" 
         Write-Host "Updated  build number to '$buildNumber"
       name: SetBuildVersion
