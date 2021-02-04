@@ -87,7 +87,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await WaitForReindexStatus(reindexJobUri, "Completed");
 
             // When job complete, search for resources using new parameter
-            await ExecuteAndValidateBundle($"Patient?fooCode:exact={patientName}", expectedPatient.Resource);
+            await ExecuteAndValidateBundle($"Patient?{searchParam.Code}:exact={patientName}", expectedPatient.Resource);
 
             // Clean up new SearchParameter
             await DeleteSearchParameterAndVerify(searchParamPosted.Resource);

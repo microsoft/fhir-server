@@ -84,7 +84,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
             var searchParam = new SearchParameterInfo(
                 "test",
                 "test",
-                "String",
+                ValueSets.SearchParamType.String,
                 new Uri("http://searchParam"));
 
             _searchParameterDefinitionManager.GetSearchParameter(Arg.Any<Uri>()).Returns(searchParam);
