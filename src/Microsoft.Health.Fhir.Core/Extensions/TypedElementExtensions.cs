@@ -41,5 +41,12 @@ namespace Microsoft.Health.Fhir.Core.Extensions
 
             return elements.Select(x => x.Value as string).Where(x => !string.IsNullOrWhiteSpace(x));
         }
+
+        public static string GetStringScalar(this ITypedElement resource, string propertyName)
+        {
+            EnsureArg.IsNotNull(propertyName, nameof(propertyName));
+
+            return resource.Scalar(propertyName)?.ToString();
+        }
     }
 }

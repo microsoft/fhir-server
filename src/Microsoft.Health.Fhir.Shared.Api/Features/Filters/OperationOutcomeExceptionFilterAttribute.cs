@@ -164,9 +164,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
                         if (ex.RetryAfter != null)
                         {
-                            healthExceptionResult.Headers.Add(
-                                KnownHeaders.RetryAfterMilliseconds,
-                                ex.RetryAfter.Value.TotalMilliseconds.ToString(CultureInfo.InvariantCulture));
+                            healthExceptionResult.Headers.AddRetryAfterHeaders(ex.RetryAfter.Value);
                         }
 
                         break;
