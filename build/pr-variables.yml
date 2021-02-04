@@ -1,8 +1,8 @@
 variables:
     ResourceGroupRegion: 'westus2'
     resourceGroupRoot: 'msh-fhir-pr'
+    prNumber: 'hotfix'
     appServicePlanName: '$(resourceGroupRoot)-$(prNumber)-asp'
-    prNumber: $(system.pullRequest.pullRequestNumber)
     ResourceGroupName: '$(resourceGroupRoot)-$(prNumber)'
     DeploymentEnvironmentName: 'f$(build.BuildNumber)'
     CrucibleEnvironmentUrl: ''
