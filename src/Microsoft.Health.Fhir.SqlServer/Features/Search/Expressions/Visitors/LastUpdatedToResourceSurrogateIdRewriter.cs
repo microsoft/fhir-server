@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public override Expression VisitMissingSearchParameter(MissingSearchParameterExpression expression, object context)
         {
-            if (expression.Parameter.Name == SearchParameterNames.LastUpdated)
+            if (expression.Parameter.Code == SearchParameterNames.LastUpdated)
             {
                 return Expression.MissingSearchParameter(SqlSearchParameters.ResourceSurrogateIdParameter, expression.IsMissing);
             }
@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
         public override Expression VisitSearchParameter(SearchParameterExpression expression, object context)
         {
-            if (expression.Parameter.Name == SearchParameterNames.LastUpdated)
+            if (expression.Parameter.Code == SearchParameterNames.LastUpdated)
             {
                 return Expression.SearchParameter(SqlSearchParameters.ResourceSurrogateIdParameter, expression.Expression.AcceptVisitor(this, context));
             }

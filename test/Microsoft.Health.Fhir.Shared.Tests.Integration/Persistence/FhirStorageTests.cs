@@ -625,7 +625,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             UpsertOutcome upsertOutcome = await _dataStore.UpsertAsync(updatedWrapper, WeakETag.FromVersionId(originalWrapper.Version), allowCreate: false, keepHistory: false, CancellationToken.None);
 
             // Let's update the resource again with new information.
-            var searchParamInfo = new SearchParameterInfo("newSearchParam2");
+            var searchParamInfo = new SearchParameterInfo("newSearchParam2", "newSearchParam2");
             var searchIndex = new SearchIndexEntry(searchParamInfo, new TokenSearchValue("system", "code", "text"));
             var searchIndices = new List<SearchIndexEntry>() { searchIndex };
 
@@ -665,7 +665,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             FhirCosmosResourceWrapper originalWrapper = (FhirCosmosResourceWrapper)await _dataStore.GetAsync(resourceKey, CancellationToken.None);
 
             // Add new search index entry to existing wrapper.
-            SearchParameterInfo searchParamInfo = new SearchParameterInfo("newSearchParam");
+            SearchParameterInfo searchParamInfo = new SearchParameterInfo("newSearchParam", "newSearchParam");
             SearchIndexEntry searchIndex = new SearchIndexEntry(searchParamInfo, new NumberSearchValue(12));
             List<SearchIndexEntry> searchIndices = new List<SearchIndexEntry>() { searchIndex };
 

@@ -124,6 +124,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             SearchParameterComponentInfo[] components = new[] { new SearchParameterComponentInfo() };
             var searchParameter1 = new SearchParameterInfo(
                 DefaultParamName,
+                DefaultParamName,
                 Microsoft.Health.Fhir.ValueSets.SearchParamType.Composite,
                 components: components);
             SearchParameterInfo searchParameter = searchParameter1;
@@ -145,11 +146,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
 
             SearchParameterComponentInfo[] components =
             {
-                new SearchParameterComponentInfo(codeUri) { ResolvedSearchParameter = new SearchParameterInfo("code", ValueSets.SearchParamType.Token) },
-                new SearchParameterComponentInfo(quantityUri) { ResolvedSearchParameter = new SearchParameterInfo("quantity", ValueSets.SearchParamType.Quantity) },
+                new SearchParameterComponentInfo(codeUri) { ResolvedSearchParameter = new SearchParameterInfo("code", "code", ValueSets.SearchParamType.Token) },
+                new SearchParameterComponentInfo(quantityUri) { ResolvedSearchParameter = new SearchParameterInfo("quantity", "quantity", ValueSets.SearchParamType.Quantity) },
             };
 
             SearchParameterInfo searchParameter = new SearchParameterInfo(
+                DefaultParamName,
                 DefaultParamName,
                 Microsoft.Health.Fhir.ValueSets.SearchParamType.Composite,
                 components: components);
@@ -192,11 +194,12 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
 
             SearchParameterComponentInfo[] components =
             {
-                new SearchParameterComponentInfo(quantityUri) { ResolvedSearchParameter = new SearchParameterInfo("quantity", ValueSets.SearchParamType.Quantity) },
-                new SearchParameterComponentInfo(quantityUri) { ResolvedSearchParameter = new SearchParameterInfo("quantity", ValueSets.SearchParamType.Quantity) },
+                new SearchParameterComponentInfo(quantityUri) { ResolvedSearchParameter = new SearchParameterInfo("quantity", "quantity", ValueSets.SearchParamType.Quantity) },
+                new SearchParameterComponentInfo(quantityUri) { ResolvedSearchParameter = new SearchParameterInfo("quantity", "quantity", ValueSets.SearchParamType.Quantity) },
             };
 
             SearchParameterInfo searchParameter = new SearchParameterInfo(
+                DefaultParamName,
                 DefaultParamName,
                 Microsoft.Health.Fhir.ValueSets.SearchParamType.Composite,
                 components: components);
@@ -231,6 +234,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             SearchParameterComponentInfo[] components = new[] { new SearchParameterComponentInfo(quantityUri), new SearchParameterComponentInfo(quantityUri) };
             var searchParameter1 = new SearchParameterInfo(
                 DefaultParamName,
+                DefaultParamName,
                 Microsoft.Health.Fhir.ValueSets.SearchParamType.Composite,
                 components: components);
             SearchParameterInfo searchParameter = searchParameter1;
@@ -239,6 +243,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
                 new SearchParameter
                 {
                     Name = "quantity",
+                    Code = "quantity",
                     Type = SearchParamType.Quantity,
                 }.ToInfo());
 
@@ -788,6 +793,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             var searchParameter = new SearchParameter
             {
                 Name = "test",
+                Code = "test",
                 Type = searchParameterType,
             };
 
@@ -929,6 +935,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             return new SearchParameter
             {
                 Name = DefaultParamName,
+                Code = DefaultParamName,
                 Type = searchParameterType,
             }.ToInfo();
         }

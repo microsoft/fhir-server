@@ -15,6 +15,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         public static readonly Uri ResourceSurrogateIdUri = new Uri("http://fhirserverforazure.microsoft.com/fhir/SearchParameter/Resource-surrogateid");
 
-        public static readonly SearchParameterInfo ResourceSurrogateIdParameter = new SearchParameterInfo(ResourceSurrogateIdParameterName, SearchParamType.Number, ResourceSurrogateIdUri, null);
+        public static readonly SearchParameterInfo ResourceSurrogateIdParameter = new SearchParameterInfo(ResourceSurrogateIdParameterName, ResourceSurrogateIdParameterName, SearchParamType.Number, ResourceSurrogateIdUri, null);
     }
 }

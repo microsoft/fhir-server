@@ -18,7 +18,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         internal static void ValidateSearchParameterExpression(Expression expression, string paramName, Action<Expression> valueValidator)
         {
             SearchParameterExpression parameterExpression = Assert.IsType<SearchParameterExpression>(expression);
-            Assert.Equal(paramName, parameterExpression.Parameter.Name);
+            Assert.Equal(paramName, parameterExpression.Parameter.Code);
             valueValidator(parameterExpression.Expression);
         }
 
@@ -142,7 +142,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             MissingSearchParameterExpression mpExpression = Assert.IsType<MissingSearchParameterExpression>(expression);
 
-            Assert.Equal(expectedParamName, mpExpression.Parameter.Name);
+            Assert.Equal(expectedParamName, mpExpression.Parameter.Code);
             Assert.Equal(expectedIsMissing, mpExpression.IsMissing);
         }
 

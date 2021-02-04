@@ -19,10 +19,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Compartment
 {
     public class CompartmentIndexerTests
     {
-        private readonly SearchParameterInfo _referenceSearchTestParam = new SearchParameterInfo("referenceSearchTestParam");
-        private readonly SearchParameterInfo _anotherReferenceSearchTestParam = new SearchParameterInfo("referenceSearchTestParam2");
-        private readonly SearchParameterInfo _yetAnotherReferenceSearchTestParam = new SearchParameterInfo("referenceSearchTestParam3");
-        private readonly SearchParameterInfo _nonReferenceReferenceSearchTestParam = new SearchParameterInfo("nonReferenceSearchTestParam");
+        private readonly SearchParameterInfo _referenceSearchTestParam = new SearchParameterInfo("referenceSearchTestParam", "referenceSearchTestParam");
+        private readonly SearchParameterInfo _anotherReferenceSearchTestParam = new SearchParameterInfo("referenceSearchTestParam2", "referenceSearchTestParam2");
+        private readonly SearchParameterInfo _yetAnotherReferenceSearchTestParam = new SearchParameterInfo("referenceSearchTestParam3", "referenceSearchTestParam3");
+        private readonly SearchParameterInfo _nonReferenceReferenceSearchTestParam = new SearchParameterInfo("nonReferenceSearchTestParam", "nonReferenceSearchTestParam");
 
         private readonly ICompartmentDefinitionManager _compartmentManager = Substitute.For<ICompartmentDefinitionManager>();
         private readonly CompartmentIndexer _compartmentIndexer;
@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Compartment
             _compartmentManager.TryGetSearchParams(resourceType.ToString(), compartmentType, out compParams)
                 .Returns(x =>
                 {
-                    x[2] = new HashSet<string> { _referenceSearchTestParam.Name, _nonReferenceReferenceSearchTestParam.Name };
+                    x[2] = new HashSet<string> { _referenceSearchTestParam.Code, _nonReferenceReferenceSearchTestParam.Code };
                     return true;
                 });
             var searchIndexEntries = new List<SearchIndexEntry>
@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Compartment
             _compartmentManager.TryGetSearchParams(resourceType.ToString(), compartmentType, out compParams)
                 .Returns(x =>
                 {
-                    x[2] = new HashSet<string> { _referenceSearchTestParam.Name };
+                    x[2] = new HashSet<string> { _referenceSearchTestParam.Code };
                     return true;
                 });
             var searchIndexEntries = new List<SearchIndexEntry>
@@ -101,19 +101,19 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Compartment
             _compartmentManager.TryGetSearchParams(expectedCareTeamResource, expectedCompartmentType1, out compParams)
                 .Returns(x =>
                 {
-                    x[2] = new HashSet<string> { _referenceSearchTestParam.Name };
+                    x[2] = new HashSet<string> { _referenceSearchTestParam.Code };
                     return true;
                 });
             _compartmentManager.TryGetSearchParams(expectedCareTeamResource, expectedCompartmentType2, out compParams)
                 .Returns(x =>
                 {
-                    x[2] = new HashSet<string> { _anotherReferenceSearchTestParam.Name };
+                    x[2] = new HashSet<string> { _anotherReferenceSearchTestParam.Code };
                     return true;
                 });
             _compartmentManager.TryGetSearchParams(expectedCareTeamResource, expectedCompartmentType3, out compParams)
                 .Returns(x =>
                 {
-                    x[2] = new HashSet<string> { _yetAnotherReferenceSearchTestParam.Name };
+                    x[2] = new HashSet<string> { _yetAnotherReferenceSearchTestParam.Code };
                     return true;
                 });
             const string ExpectedResourceIdR1 = "r1";

@@ -83,7 +83,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                     var hasOrderBy = false;
                     foreach (var sortOptions in searchOptions.Sort)
                     {
-                        if (string.Equals(sortOptions.searchParameterInfo.Name, KnownQueryParameterNames.LastUpdated, StringComparison.OrdinalIgnoreCase))
+                        if (string.Equals(sortOptions.searchParameterInfo.Code, KnownQueryParameterNames.LastUpdated, StringComparison.OrdinalIgnoreCase))
                         {
                             if (!hasOrderBy)
                             {
@@ -97,7 +97,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                         }
                         else
                         {
-                            throw new SearchParameterNotSupportedException(string.Format(Core.Resources.SearchSortParameterNotSupported, sortOptions.searchParameterInfo.Name));
+                            throw new SearchParameterNotSupportedException(string.Format(Core.Resources.SearchSortParameterNotSupported, sortOptions.searchParameterInfo.Code));
                         }
                     }
                 }
@@ -214,7 +214,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                                 .Append("p.")
                                 .Append(SearchValueConstants.ParamName)
                                 .Append(" = '")
-                                .Append(includeExpression.ReferenceSearchParameter.Name)
+                                .Append(includeExpression.ReferenceSearchParameter.Code)
                                 .Append("'");
                         }
 

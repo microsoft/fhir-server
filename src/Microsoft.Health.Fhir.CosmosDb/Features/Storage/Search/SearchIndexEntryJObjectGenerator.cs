@@ -144,7 +144,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
         {
             CurrentEntry = new JObject
             {
-                new JProperty(SearchValueConstants.ParamName, Entry.SearchParameter.Name),
+                new JProperty(SearchValueConstants.ParamName, Entry.SearchParameter.Code),
             };
 
             _generatedObjects.Add(CurrentEntry);

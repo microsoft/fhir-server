@@ -167,11 +167,11 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Definition
         {
             Assert.Equal(expectedEntries.Length, searchParametersDictionary.Count);
 
-            foreach ((string name, SearchParamType searchParameterType, string expression) in expectedEntries)
+            foreach ((string code, SearchParamType searchParameterType, string expression) in expectedEntries)
             {
-                Assert.True(searchParametersDictionary.TryGetValue(name, out SearchParameterInfo searchParameter));
+                Assert.True(searchParametersDictionary.TryGetValue(code, out SearchParameterInfo searchParameter));
 
-                Assert.Equal(name, searchParameter.Name);
+                Assert.Equal(code, searchParameter.Code);
                 Assert.Equal(searchParameterType.ToValueSet(), searchParameter.Type);
                 Assert.Equal(expression, searchParameter.Expression);
             }
