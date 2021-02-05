@@ -13,6 +13,7 @@ using Microsoft.Azure.Cosmos;
 using Microsoft.Azure.Cosmos.Fluent;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search;
 using Microsoft.IO;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
@@ -162,6 +163,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 // where the fraction is actually 971140. Because the ordering is done as string,
                 // if the values don't always have complete 7 digits, the comparison might not work properly.
                 serializerSettings.Converters.Add(new IsoDateTimeConverter { DateTimeFormat = "o" });
+
+                serializerSettings.Converters.Add(new SortEntryConverter());
 
                 return JsonSerializer.Create(serializerSettings);
             }

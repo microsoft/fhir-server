@@ -90,6 +90,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
                 }
             }
 
+            entries.SetMinMaxValues();
+
             return entries;
         }
 

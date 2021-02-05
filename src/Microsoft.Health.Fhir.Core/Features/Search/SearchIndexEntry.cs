@@ -39,6 +39,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         /// </summary>
         public ISearchValue Value { get; }
 
+        public bool? IsMin { get; set; }
+
+        public bool? IsMax { get; set; }
+
         public static bool operator ==(SearchIndexEntry left, SearchIndexEntry right)
         {
             if (((object)left) == null && ((object)right) == null)

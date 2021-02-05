@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
@@ -48,6 +49,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             : base(resourceId, versionId, resourceTypeName, rawResource, request, lastModified, deleted, searchIndices, compartmentIndices, lastModifiedClaims, searchParameterHash)
         {
             IsHistory = history;
+
+            SortValues = searchIndices
+                .Where(x => x.IsMax.GetValueOrDefault() || x.IsMin.GetValueOrDefault())
+                .GroupBy(x => x.SearchParameter.Name)
+                .ToDictionary(
+                    x => x.Key,
+                    x => new SortValue(
+                        x.First(y => y.IsMin.GetValueOrDefault()).Value,
+                        x.First(y => y.IsMax.GetValueOrDefault()).Value));
         }
 
         [JsonConstructor]
@@ -93,6 +103,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         [JsonProperty(KnownDocumentProperties.ReferencesToInclude)]
         public IReadOnlyList<ResourceTypeAndId> ReferencesToInclude { get; set; }
+
+        [JsonProperty("sort")]
+        public IDictionary<string, SortValue> SortValues { get; set; }
 
         internal string GetETagOrVersion()
         {

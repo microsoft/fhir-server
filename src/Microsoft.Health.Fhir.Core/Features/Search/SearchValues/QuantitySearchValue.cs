@@ -16,7 +16,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
     /// <summary>
     /// Represents a quantity search value.
     /// </summary>
-    public class QuantitySearchValue : ISearchValue
+    public class QuantitySearchValue : ISearchValue, IHighLowValues
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="QuantitySearchValue"/> class.

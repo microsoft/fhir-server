@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
     /// <summary>
     /// Represents a number search value.
     /// </summary>
-    public class NumberSearchValue : ISearchValue
+    public class NumberSearchValue : ISearchValue, IHighLowValues
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="NumberSearchValue"/> class.

@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -92,6 +93,33 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(resource, nameof(resource));
 
             var cosmosWrapper = new FhirCosmosResourceWrapper(resource);
+
+            if (_cosmosDataStoreConfiguration.SortFields.Any())
+            {
+                if (_cosmosDataStoreConfiguration.SortFields.TryGetValue(resource.ResourceTypeName, out var fields))
+                {
+                    foreach (var key in cosmosWrapper.SortValues.Where(x => !fields.Contains(x.Key)).ToArray())
+                    {
+                        cosmosWrapper.SortValues.Remove(key);
+                    }
+
+                    foreach (var field in fields)
+                    {
+                        if (!cosmosWrapper.SortValues.ContainsKey(field))
+                        {
+                            cosmosWrapper.SortValues.Add(field, new SortValue());
+                        }
+                    }
+                }
+                else
+                {
+                    cosmosWrapper.SortValues.Clear();
+                }
+            }
+            else
+            {
+                cosmosWrapper.SortValues.Clear();
+            }
 
             try
             {
