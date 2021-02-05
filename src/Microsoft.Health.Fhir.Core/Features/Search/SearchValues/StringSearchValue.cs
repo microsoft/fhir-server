@@ -12,7 +12,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
     /// <summary>
     /// Represents a string search value.
     /// </summary>
-    public class StringSearchValue : ISearchValue, ISearchMinMaxValue
+#pragma warning disable CA1036 // Override methods on comparable types
+    public class StringSearchValue : ISearchValue, ISupportSortSearchValue
+#pragma warning restore CA1036 // Override methods on comparable types
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="StringSearchValue"/> class.
@@ -61,14 +63,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         }
 
         /// <inheritdoc />
-        public int Compare(ISearchMinMaxValue searchMinMaxValue)
+        public int CompareTo(ISupportSortSearchValue supportSortSearchValue)
         {
-            if (searchMinMaxValue == null)
+            if (supportSortSearchValue == null)
             {
                 throw new ArgumentException("Value to be compared to cannot be null");
             }
 
-            var otherValue = searchMinMaxValue as StringSearchValue;
+            var otherValue = supportSortSearchValue as StringSearchValue;
             if (otherValue == null)
             {
                 throw new ArgumentException($"Value to be compared should be of type {typeof(StringSearchValue)}");

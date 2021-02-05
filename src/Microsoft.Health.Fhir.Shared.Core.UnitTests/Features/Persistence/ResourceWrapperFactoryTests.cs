@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
 
             foreach (SearchIndexEntry searchEntry in resourceWrapper.SearchIndices)
             {
-                ISearchMinMaxValue searchEntryValue = searchEntry.Value as ISearchMinMaxValue;
+                ISupportSortSearchValue searchEntryValue = searchEntry.Value as ISupportSortSearchValue;
                 switch (searchEntry.Value.ToString())
                 {
                     case "alpha":
@@ -120,7 +120,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
 
             foreach (SearchIndexEntry searchEntry in resourceWrapper.SearchIndices)
             {
-                ISearchMinMaxValue searchEntryValue = searchEntry.Value as ISearchMinMaxValue;
+                ISupportSortSearchValue searchEntryValue = searchEntry.Value as ISupportSortSearchValue;
                 switch (searchEntry.Value.ToString())
                 {
                     case "alpha":

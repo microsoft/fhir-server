@@ -87,21 +87,21 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         // SearchValue object appropriately.
         private void ExtractMinAndMaxValues(IReadOnlyCollection<SearchIndexEntry> searchIndices)
         {
-            var minValues = new Dictionary<Uri, ISearchMinMaxValue>();
-            var maxValues = new Dictionary<Uri, ISearchMinMaxValue>();
+            var minValues = new Dictionary<Uri, ISupportSortSearchValue>();
+            var maxValues = new Dictionary<Uri, ISupportSortSearchValue>();
 
             foreach (SearchIndexEntry currentEntry in searchIndices)
             {
                 // Currently we are tracking the min/max values only for string type parameters.
-                ISearchMinMaxValue currentValue = currentEntry.Value as ISearchMinMaxValue;
+                ISupportSortSearchValue currentValue = currentEntry.Value as ISupportSortSearchValue;
                 if (currentValue == null)
                 {
                     continue;
                 }
 
-                if (minValues.TryGetValue(currentEntry.SearchParameter.Url, out ISearchMinMaxValue existingMinValue))
+                if (minValues.TryGetValue(currentEntry.SearchParameter.Url, out ISupportSortSearchValue existingMinValue))
                 {
-                    if (currentValue.Compare(existingMinValue) < 0)
+                    if (currentValue.CompareTo(existingMinValue) < 0)
                     {
                         minValues[currentEntry.SearchParameter.Url] = currentValue;
                     }
@@ -111,9 +111,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     minValues.Add(currentEntry.SearchParameter.Url, currentValue);
                 }
 
-                if (maxValues.TryGetValue(currentEntry.SearchParameter.Url, out ISearchMinMaxValue existingMaxValue))
+                if (maxValues.TryGetValue(currentEntry.SearchParameter.Url, out ISupportSortSearchValue existingMaxValue))
                 {
-                    if (currentValue.Compare(existingMaxValue) > 0)
+                    if (currentValue.CompareTo(existingMaxValue) > 0)
                     {
                         maxValues[currentEntry.SearchParameter.Url] = currentValue;
                     }
@@ -125,12 +125,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             }
 
             // Update the actual StringSearchValue objects with the appropriate IsMin/IsMax value
-            foreach (KeyValuePair<Uri, ISearchMinMaxValue> kvp in minValues)
+            foreach (KeyValuePair<Uri, ISupportSortSearchValue> kvp in minValues)
             {
                 kvp.Value.IsMin = true;
             }
 
-            foreach (KeyValuePair<Uri, ISearchMinMaxValue> kvp in maxValues)
+            foreach (KeyValuePair<Uri, ISupportSortSearchValue> kvp in maxValues)
             {
                 kvp.Value.IsMax = true;
             }
