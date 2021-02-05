@@ -52,12 +52,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             SortValues = searchIndices
                 .Where(x => x.IsMax.GetValueOrDefault() || x.IsMin.GetValueOrDefault())
-                .GroupBy(x => x.SearchParameter.Name)
+                .GroupBy(x => x.SearchParameter.Code)
                 .ToDictionary(
                     x => x.Key,
                     x => new SortValue(
                         x.First(y => y.IsMin.GetValueOrDefault()).Value,
-                        x.First(y => y.IsMax.GetValueOrDefault()).Value));
+                        x.First(y => y.IsMax.GetValueOrDefault()).Value,
+                        x.First().SearchParameter.Url));
         }
 
         [JsonConstructor]

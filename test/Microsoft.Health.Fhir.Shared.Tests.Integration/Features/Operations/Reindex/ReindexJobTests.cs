@@ -26,6 +26,7 @@ using Microsoft.Health.Fhir.Core.Features.Security.Authorization;
 using Microsoft.Health.Fhir.Core.Messages.Reindex;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Core.UnitTests.Extensions;
+using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
@@ -59,7 +60,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
         private SearchParameterStatusManager _searchParameterStatusManager;
         private readonly ISearchParameterSupportResolver _searchParameterSupportResolver = Substitute.For<ISearchParameterSupportResolver>();
         private readonly IMediator _mediator = Substitute.For<IMediator>();
-        private readonly ISortingValidator _sortingValidator = new CosmosDbSortingValidator();
+        private readonly ISortingValidator _sortingValidator = new CosmosDbSortingValidator(new CosmosDataStoreConfiguration());
 
         private ReindexJobWorker _reindexJobWorker;
         private IScoped<ISearchService> _searchService;

@@ -16,6 +16,7 @@ using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Internal;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
@@ -41,7 +42,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
                 _cosmosQueryFactory,
                 new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration),
                 NullLogger<CosmosFhirDataStore>.Instance,
-                Options.Create(new CoreFeatureConfiguration()));
+                Options.Create(new CoreFeatureConfiguration()),
+                new Lazy<ISupportedSearchParameterDefinitionManager>(Substitute.For<ISupportedSearchParameterDefinitionManager>()));
         }
 
         [Fact]

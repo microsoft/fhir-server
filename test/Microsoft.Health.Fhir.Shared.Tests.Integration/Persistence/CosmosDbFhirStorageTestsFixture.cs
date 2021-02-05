@@ -136,7 +136,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 cosmosDocumentQueryFactory,
                 new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration),
                 NullLogger<CosmosFhirDataStore>.Instance,
-                Options.Create(new CoreFeatureConfiguration()));
+                Options.Create(new CoreFeatureConfiguration()),
+                new Lazy<ISupportedSearchParameterDefinitionManager>(Substitute.For<ISupportedSearchParameterDefinitionManager>()));
 
             _fhirOperationDataStore = new CosmosFhirOperationDataStore(
                 documentClient,

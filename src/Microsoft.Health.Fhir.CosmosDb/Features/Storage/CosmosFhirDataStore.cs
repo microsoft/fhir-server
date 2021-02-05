@@ -21,7 +21,9 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.HardDelete;
@@ -39,6 +41,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private readonly ICosmosQueryFactory _cosmosQueryFactory;
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
         private readonly ILogger<CosmosFhirDataStore> _logger;
+        private readonly Lazy<ISupportedSearchParameterDefinitionManager> _supportedSearchParameters;
 
         private static readonly UpsertWithHistory _upsertWithHistoryProc = new UpsertWithHistory();
         private static readonly HardDelete _hardDelete = new HardDelete();
@@ -58,6 +61,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <param name="retryExceptionPolicyFactory">The retry exception policy factory.</param>
         /// <param name="logger">The logger instance.</param>
         /// <param name="coreFeatures">The core feature configuration</param>
+        /// <param name="supportedSearchParameters">The supported search parameters</param>
         public CosmosFhirDataStore(
             IScoped<Container> containerScope,
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
@@ -65,7 +69,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             ICosmosQueryFactory cosmosQueryFactory,
             RetryExceptionPolicyFactory retryExceptionPolicyFactory,
             ILogger<CosmosFhirDataStore> logger,
-            IOptions<CoreFeatureConfiguration> coreFeatures)
+            IOptions<CoreFeatureConfiguration> coreFeatures,
+            Lazy<ISupportedSearchParameterDefinitionManager> supportedSearchParameters)
         {
             EnsureArg.IsNotNull(containerScope, nameof(containerScope));
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
@@ -74,12 +79,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(retryExceptionPolicyFactory, nameof(retryExceptionPolicyFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(coreFeatures, nameof(coreFeatures));
+            EnsureArg.IsNotNull(supportedSearchParameters, nameof(supportedSearchParameters));
 
             _containerScope = containerScope;
             _cosmosDataStoreConfiguration = cosmosDataStoreConfiguration;
             _cosmosQueryFactory = cosmosQueryFactory;
             _retryExceptionPolicyFactory = retryExceptionPolicyFactory;
             _logger = logger;
+            _supportedSearchParameters = supportedSearchParameters;
             _coreFeatures = coreFeatures.Value;
         }
 
@@ -96,24 +103,21 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             if (_cosmosDataStoreConfiguration.SortFields.Any())
             {
-                if (_cosmosDataStoreConfiguration.SortFields.TryGetValue(resource.ResourceTypeName, out var fields))
+                foreach (var key in cosmosWrapper.SortValues.Where(x => !_cosmosDataStoreConfiguration.SortFields.Contains(x.Value.SearchParameterUri.ToString())).ToArray())
                 {
-                    foreach (var key in cosmosWrapper.SortValues.Where(x => !fields.Contains(x.Key)).ToArray())
-                    {
-                        cosmosWrapper.SortValues.Remove(key);
-                    }
+                    cosmosWrapper.SortValues.Remove(key);
+                }
 
-                    foreach (var field in fields)
+                IEnumerable<SearchParameterInfo> searchParameters = _supportedSearchParameters.Value.GetSearchParameters(resource.ResourceTypeName);
+                if (searchParameters != null)
+                {
+                    foreach (SearchParameterInfo field in searchParameters.Where(x => _cosmosDataStoreConfiguration.SortFields.Contains(x.Url.ToString())))
                     {
-                        if (!cosmosWrapper.SortValues.ContainsKey(field))
+                        if (cosmosWrapper.SortValues.All(x => x.Value.SearchParameterUri != field.Url))
                         {
-                            cosmosWrapper.SortValues.Add(field, new SortValue());
+                            cosmosWrapper.SortValues.Add(field.Code, new SortValue());
                         }
                     }
-                }
-                else
-                {
-                    cosmosWrapper.SortValues.Clear();
                 }
             }
             else

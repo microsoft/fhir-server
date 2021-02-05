@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
@@ -80,24 +81,23 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
                 if (!searchOptions.CountOnly)
                 {
-                    var hasOrderBy = false;
-                    foreach (var sortOptions in searchOptions.Sort)
+                    if (searchOptions.Sort.Any())
                     {
-                        if (string.Equals(sortOptions.searchParameterInfo.Code, KnownQueryParameterNames.LastUpdated, StringComparison.OrdinalIgnoreCase))
-                        {
-                            if (!hasOrderBy)
-                            {
-                                _queryBuilder.Append("ORDER BY ");
-                                hasOrderBy = true;
-                            }
+                        var sortOption = searchOptions.Sort[0];
+                        _queryBuilder.Append("ORDER BY ");
 
+                        if (string.Equals(sortOption.searchParameterInfo.Code, KnownQueryParameterNames.LastUpdated, StringComparison.OrdinalIgnoreCase))
+                        {
                             _queryBuilder.Append(SearchValueConstants.RootAliasName).Append(".")
                                 .Append(KnownResourceWrapperProperties.LastModified).Append(" ")
-                                .AppendLine(sortOptions.sortOrder == SortOrder.Ascending ? "ASC" : "DESC");
+                                .AppendLine(sortOption.sortOrder == SortOrder.Ascending ? "ASC" : "DESC");
                         }
                         else
                         {
-                            throw new SearchParameterNotSupportedException(string.Format(Core.Resources.SearchSortParameterNotSupported, sortOptions.searchParameterInfo.Code));
+                            _queryBuilder.Append(SearchValueConstants.RootAliasName)
+                                .Append(".sort[\"").Append(sortOption.searchParameterInfo.Code).Append("\"].")
+                                .Append(sortOption.sortOrder == SortOrder.Ascending ? "l" : "h")
+                                .Append(" ").AppendLine(sortOption.sortOrder == SortOrder.Ascending ? "ASC" : "DESC");
                         }
                     }
                 }

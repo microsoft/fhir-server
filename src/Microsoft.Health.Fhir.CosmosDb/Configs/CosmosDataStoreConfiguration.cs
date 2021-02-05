@@ -39,6 +39,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Configs
         /// </summary>
         public int SearchEnumerationTimeoutInSeconds { get; set; } = 30;
 
-        public Dictionary<string, HashSet<string>> SortFields { get; } = new Dictionary<string, HashSet<string>>();
+        public HashSet<string> SortFields { get; } = new HashSet<string>();
     }
 }
