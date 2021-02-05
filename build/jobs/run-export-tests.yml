@@ -1,0 +1,130 @@
+parameters:
+- name: version
+  type: string
+- name: keyVaultName
+  type: string
+
+jobs:
+- job: 'cosmosE2eTests'
+  dependsOn: []
+  pool:
+    vmImage: $(WindowsVmImage)
+  steps:
+  - template: e2e-setup.yml
+    
+  - task: AzurePowerShell@4
+    displayName: 'Set Variables'
+    inputs:
+      azureSubscription: $(ConnectedServiceName)
+      azurePowerShellVersion: latestVersion
+      ScriptType: inlineScript
+      Inline: |
+        $keyVault = "$(DeploymentEnvironmentName)-ts"
+        $secrets = Get-AzKeyVaultSecret -VaultName $keyVault
+        
+        foreach($secret in $secrets)
+        {
+            $environmentVariableName = $secret.Name.Replace("--","_")
+
+            $secretValue = Get-AzKeyVaultSecret -VaultName $keyVault -Name $secret.Name
+            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($secretValue.SecretValueText)"
+        }
+
+        $storageAccounts = Get-AzStorageAccount -ResourceGroupName $(ResourceGroupName)
+        foreach ($storageAccount in $storageAccounts) {
+            $accKey = Get-AzStorageAccountKey -ResourceGroupName $(ResourceGroupName) -Name $storageAccount.StorageAccountName | Where-Object {$_.KeyName -eq "key1"}
+
+            $storageSecretName = "$($storageAccount.StorageAccountName)_secret"
+            Write-Host "##vso[task.setvariable variable=$($storageSecretName)]$($accKey.Value)"
+        }
+
+        Write-Host "##vso[task.setvariable variable=Resource]$(TestEnvironmentUrl)"
+        
+        $secrets = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info
+ 
+        foreach($secret in $secrets)
+        {
+            $environmentVariableName = $secret.Name.Replace("--","_")
+
+            $secretValue = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info -Name $secret.Name
+            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($secretValue.SecretValueText)"
+        }
+        # ----------------------------------------
+
+        dotnet dev-certs https
+
+  - task: VSTest@2
+    displayName: 'Run Export E2E Tests'
+    inputs:
+      testSelector: testAssemblies
+      testAssemblyVer2: |
+        **\*${{ parameters.version }}.Tests.E2E*.dll
+      testFiltercriteria: "FullyQualifiedName~CosmosDb&Category=ExportLongRunning"
+      searchFolder: '$(System.ArtifactsDirectory)'
+      rerunFailedTests: true
+      rerunType: 'basedOnTestFailurePercentage'
+      rerunFailedThreshold: '95'
+      rerunMaxAttempts: 3
+      testRunTitle: '${{ parameters.version }} CosmosDB'
+
+- job: 'sqlE2eTests'
+  dependsOn: []
+  pool:
+    vmImage: $(WindowsVmImage)
+  steps:
+  - template: e2e-setup.yml
+    
+  - task: AzurePowerShell@4
+    displayName: 'Set Variables'
+    inputs:
+      azureSubscription: $(ConnectedServiceName)
+      azurePowerShellVersion: latestVersion
+      ScriptType: inlineScript
+      Inline: |
+        $keyVault = "$(DeploymentEnvironmentName)-ts"
+        $secrets = Get-AzKeyVaultSecret -VaultName $keyVault
+        
+        foreach($secret in $secrets)
+        {
+            $environmentVariableName = $secret.Name.Replace("--","_")
+
+            $secretValue = Get-AzKeyVaultSecret -VaultName $keyVault -Name $secret.Name
+            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($secretValue.SecretValueText)"
+        }
+
+        $storageAccounts = Get-AzStorageAccount -ResourceGroupName $(ResourceGroupName)
+        foreach ($storageAccount in $storageAccounts) {
+            $accKey = Get-AzStorageAccountKey -ResourceGroupName $(ResourceGroupName) -Name $storageAccount.StorageAccountName | Where-Object {$_.KeyName -eq "key1"}
+
+            $storageSecretName = "$($storageAccount.StorageAccountName)_secret"
+            Write-Host "##vso[task.setvariable variable=$($storageSecretName)]$($accKey.Value)"
+        }
+
+        Write-Host "##vso[task.setvariable variable=Resource]$(TestEnvironmentUrl)"
+        
+        $secrets = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info
+ 
+        foreach($secret in $secrets)
+        {
+            $environmentVariableName = $secret.Name.Replace("--","_")
+
+            $secretValue = Get-AzKeyVaultSecret -VaultName resolute-oss-tenant-info -Name $secret.Name
+            Write-Host "##vso[task.setvariable variable=$($environmentVariableName)]$($secretValue.SecretValueText)"
+        }
+        # ----------------------------------------
+
+        dotnet dev-certs https
+
+  - task: VSTest@2
+    displayName: 'Run Export E2E Tests'
+    inputs:
+      testSelector: testAssemblies
+      testAssemblyVer2: |
+        **\*${{ parameters.version }}.Tests.E2E*.dll
+      testFiltercriteria: "FullyQualifiedName~SqlServer&Category=ExportLongRunning"
+      searchFolder: '$(System.ArtifactsDirectory)'
+      rerunFailedTests: true
+      rerunType: 'basedOnTestFailurePercentage'
+      rerunFailedThreshold: '95'
+      rerunMaxAttempts: 3
+      testRunTitle: '${{ parameters.version }} SQL'

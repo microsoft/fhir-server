@@ -1,11 +1,11 @@
 # DESCRIPTION: 	
-# Builds, tests, and packages the solution for the main branch.	
+# Builds and tests export for main branch.	
 
 name: $(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:-r)
 trigger: none
 
 variables:
-- template: ci-variables.yml
+- template: export-variables.yml
 - template: build-variables.yml
 
 stages:
@@ -18,31 +18,6 @@ stages:
       vmImage: $(WindowsVmImage)
     steps:
     - template: ./jobs/update-semver.yml
-
-- stage: BuildUnitTests
-  displayName: 'Build and run unit tests'
-  dependsOn:
-  - UpdateVersion
-  variables:
-    assemblySemVer: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.assemblySemVer']]
-    assemblySemFileVer: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.assemblySemFileVer']]
-    informationalVersion: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.informationalVersion']]
-    majorMinorPatch: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.majorMinorPatch']]
-    nuGetVersion: $[stageDependencies.UpdateVersion.Semver.outputs['SetVariablesFromGitVersion.nuGetVersion']]
-  jobs:
-  - job: Windows
-    pool:
-      vmImage: $(WindowsVmImage)
-    steps:
-    - template: ./jobs/build.yml
-
-  - job: Linux
-    pool:
-      vmImage: 'ubuntu-latest'
-    steps:
-    - template: ./jobs/build.yml
-      parameters:
-        packageArtifacts: false
 
 - stage: DockerBuild  
   displayName: 'Build images'
@@ -128,11 +103,10 @@ stages:
 - stage: testStu3
   displayName: 'Run Stu3 Tests'
   dependsOn:
-  - BuildUnitTests
   - redeployStu3
   - redeployStu3Sql
   jobs:
-  - template: ./jobs/run-tests.yml
+  - template: ./jobs/run-export-tests.yml
     parameters:
       version: Stu3
       keyVaultName: $(DeploymentEnvironmentName)
@@ -140,11 +114,10 @@ stages:
 - stage: testR4
   displayName: 'Run R4 Tests'
   dependsOn:
-  - BuildUnitTests
   - redeployR4
   - redeployR4Sql
   jobs:
-  - template: ./jobs/run-tests.yml
+  - template: ./jobs/run-export-tests.yml
     parameters:
       version: R4
       keyVaultName: $(DeploymentEnvironmentNameR4)
@@ -152,26 +125,13 @@ stages:
 - stage: testR5
   displayName: 'Run R5 Tests'
   dependsOn:
-  - BuildUnitTests
   - redeployR5
   - redeployR5Sql
   jobs:
-  - template: ./jobs/run-tests.yml
+  - template: ./jobs/run-export-tests.yml
     parameters:
       version: R5
       keyVaultName: $(DeploymentEnvironmentNameR5)
-
-- stage: DockerAddTag
-  displayName: 'Docker add master tag'
-  dependsOn:
-  - testStu3
-  - testR4
-  - testR5
-  jobs:
-  - template: ./jobs/docker-add-tag.yml
-    parameters:
-      sourceTag: $(ImageTag)
-      targetTag: 'master'
 
 - stage: cleanStorageAccounts
   displayName: 'Clean Storage Accounts'
@@ -180,19 +140,3 @@ stages:
   - template: ./jobs/clean-storage-accounts.yml
     parameters:
       environmentName: $(DeploymentEnvironmentName)
-
-- stage: securityScan
-  displayName: Security Scan
-  dependsOn: []
-  jobs:
-  - job: runScan
-    pool:
-      vmImage: $(WindowsVmImage)
-    steps:
-    - task: securedevelopmentteam.vss-secure-development-tools.build-task-antimalware.AntiMalware@3
-      displayName: 'Run MpCmdRun.exe'
-      inputs:
-        FileDirPath: '$(System.ArtifactsDirectory)'
-        EnableServices: true
-        SignatureFreshness: OneDay
-        TreatStaleSignatureAs: Warning

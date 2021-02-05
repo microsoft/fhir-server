@@ -1,0 +1,8 @@
+variables:
+    ResourceGroupRegion: 'southcentralus'
+    resourceGroupRoot: 'msh-fhir-export'
+    appServicePlanName: '$(resourceGroupRoot)-linux'
+    DeploymentEnvironmentName: '$(resourceGroupRoot)'
+    ResourceGroupName: '$(resourceGroupRoot)'
+    TestEnvironmentName: 'OSS Export'
+    ImageTag: '$(build.BuildNumber)'
