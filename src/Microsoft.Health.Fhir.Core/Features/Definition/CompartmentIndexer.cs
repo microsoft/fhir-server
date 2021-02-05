@@ -39,7 +39,7 @@
 
                 if (_compartmentDefinitionManager.TryGetSearchParams(resourceType, compartmentType, out HashSet<string> searchParams) && searchIndicesByCompartmentType.TryGetValue(compartmentTypeLiteral, out List<SearchIndexEntry> searchIndicesForCompartment))
                 {
-                    var searchEntries = searchIndicesForCompartment.Where(si => searchParams.Contains(si.SearchParameter.Name));
+                    var searchEntries = searchIndicesForCompartment.Where(si => searchParams.Contains(si.SearchParameter.Code));
 
                     var resourceIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                     string compartmentResourceType = CompartmentDefinitionManager.CompartmentTypeToResourceType(compartmentTypeLiteral);

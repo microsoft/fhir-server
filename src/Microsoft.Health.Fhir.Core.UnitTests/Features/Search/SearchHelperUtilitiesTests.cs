@@ -74,7 +74,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             return new SearchParameterInfo(
                 name: uri.Segments.LastOrDefault(),
-                searchParamType: ValueSets.SearchParamType.String.ToString(),
+                code: uri.Segments.LastOrDefault(),
+                searchParamType: ValueSets.SearchParamType.String,
                 url: uri,
                 components: null,
                 expression: "expression",

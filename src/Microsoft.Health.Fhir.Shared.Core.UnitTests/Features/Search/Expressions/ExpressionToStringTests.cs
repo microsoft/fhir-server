@@ -23,10 +23,10 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions
             VerifyExpression("(StringEqualsIgnoreCase TokenText 'a')", Expression.StringEquals(FieldName.TokenText, null, "a", true));
             VerifyExpression("(StringEqualsIgnoreCase [0].TokenText 'a')", Expression.StringEquals(FieldName.TokenText, 0, "a", true));
 
-            VerifyExpression("(Param my-param (FieldEqual Quantity 'a'))", Expression.SearchParameter(new SearchParameterInfo("my-param"), Expression.Equals(FieldName.Quantity, null, "a")));
+            VerifyExpression("(Param my-param (FieldEqual Quantity 'a'))", Expression.SearchParameter(new SearchParameterInfo("my-param", "my-param"), Expression.Equals(FieldName.Quantity, null, "a")));
 
-            VerifyExpression("(MissingParam my-param)", Expression.MissingSearchParameter(new SearchParameterInfo("my-param"), true));
-            VerifyExpression("(NotMissingParam my-param)", Expression.MissingSearchParameter(new SearchParameterInfo("my-param"), false));
+            VerifyExpression("(MissingParam my-param)", Expression.MissingSearchParameter(new SearchParameterInfo("my-param", "my-param"), true));
+            VerifyExpression("(NotMissingParam my-param)", Expression.MissingSearchParameter(new SearchParameterInfo("my-param", "my-param"), false));
 
             VerifyExpression("(And (FieldGreaterThan Quantity 1) (FieldLessThan Quantity 10))", Expression.And(Expression.GreaterThan(FieldName.Quantity, null, 1), Expression.LessThan(FieldName.Quantity, null, 10)));
 
@@ -35,9 +35,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions
 
             VerifyExpression("(Compartment Patient 'x')", Expression.CompartmentSearch("Patient", "x"));
 
-            VerifyExpression("(Chain subject:Patient (FieldGreaterThan DateTimeEnd 2000-01-01T00:00:00.0000000))", Expression.Chained(new[] { "Observation" }, new SearchParameterInfo("subject"), new[] { "Patient" }, false, Expression.GreaterThan(FieldName.DateTimeEnd, null, new DateTime(2000, 1, 1))));
+            VerifyExpression("(Chain subject:Patient (FieldGreaterThan DateTimeEnd 2000-01-01T00:00:00.0000000))", Expression.Chained(new[] { "Observation" }, new SearchParameterInfo("subject", "subject"), new[] { "Patient" }, false, Expression.GreaterThan(FieldName.DateTimeEnd, null, new DateTime(2000, 1, 1))));
 
-            VerifyExpression("(Reverse Chain subject:Observation (FieldGreaterThan DateTimeEnd 2000-01-01T00:00:00.0000000))", Expression.Chained(new[] { "Patient" }, new SearchParameterInfo("subject"), new[] { "Observation" }, true, Expression.GreaterThan(FieldName.DateTimeEnd, null, new DateTime(2000, 1, 1))));
+            VerifyExpression("(Reverse Chain subject:Observation (FieldGreaterThan DateTimeEnd 2000-01-01T00:00:00.0000000))", Expression.Chained(new[] { "Patient" }, new SearchParameterInfo("subject", "subject"), new[] { "Observation" }, true, Expression.GreaterThan(FieldName.DateTimeEnd, null, new DateTime(2000, 1, 1))));
         }
 
         private static void VerifyExpression(string expected, Expression expression)

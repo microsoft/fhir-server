@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         {
             _searchParameterDefinitionManager.When(s => s.GetSearchParameter(Arg.Is<Uri>(uri => uri != new Uri("http://duplicate")))).
                 Do(x => throw new SearchParameterNotSupportedException("message"));
-            _searchParameterDefinitionManager.GetSearchParameter(new Uri("http://duplicate")).Returns(new SearchParameterInfo("duplicate"));
+            _searchParameterDefinitionManager.GetSearchParameter(new Uri("http://duplicate")).Returns(new SearchParameterInfo("duplicate", "duplicate"));
 
             _fhirOperationDataStore.CheckActiveReindexJobsAsync(CancellationToken.None).Returns((false, string.Empty));
         }

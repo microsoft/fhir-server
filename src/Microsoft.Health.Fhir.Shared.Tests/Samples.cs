@@ -49,6 +49,8 @@ namespace Microsoft.Health.Fhir.Tests.Common
             return GetJsonSample("Organization");
         }
 
+        public static string GetProvenanceHeader() => GetJson("ProvenanceHeader");
+
         public static ResourceElement GetDefaultBatch()
         {
             var batch = GetJsonSample("Bundle-Batch").ToPoco<Bundle>();

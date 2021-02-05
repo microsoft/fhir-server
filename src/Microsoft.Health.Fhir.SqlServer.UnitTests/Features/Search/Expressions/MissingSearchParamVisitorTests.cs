@@ -19,7 +19,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         {
             var tableExpressions = new List<SearchParamTableExpression>
             {
-                new SearchParamTableExpression(null, new MissingSearchParameterExpression(new SearchParameterInfo("TestParam"), true), SearchParamTableExpressionKind.Normal),
+                new SearchParamTableExpression(null, new MissingSearchParameterExpression(new SearchParameterInfo("TestParam", "TestParam"), true), SearchParamTableExpressionKind.Normal),
             };
 
             var inputExpression = SqlRootExpression.WithSearchParamTableExpressions(tableExpressions);
@@ -50,7 +50,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             var tableExpressions = new List<SearchParamTableExpression>
             {
                 new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Normal),
-                new SearchParamTableExpression(null, new MissingSearchParameterExpression(new SearchParameterInfo("TestParam"), false), SearchParamTableExpressionKind.Normal),
+                new SearchParamTableExpression(null, new MissingSearchParameterExpression(new SearchParameterInfo("TestParam", "TestParam"), false), SearchParamTableExpressionKind.Normal),
             };
 
             var inputExpression = SqlRootExpression.WithSearchParamTableExpressions(tableExpressions);
@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             var tableExpressions = new List<SearchParamTableExpression>
             {
                 new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Normal),
-                new SearchParamTableExpression(null, new MissingSearchParameterExpression(new SearchParameterInfo("TestParam"), true), SearchParamTableExpressionKind.Normal),
+                new SearchParamTableExpression(null, new MissingSearchParameterExpression(new SearchParameterInfo("TestParam", "TestParam"), true), SearchParamTableExpressionKind.Normal),
             };
 
             var inputExpression = SqlRootExpression.WithSearchParamTableExpressions(tableExpressions);

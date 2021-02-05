@@ -124,7 +124,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             var iterate = Iterate ? " Iterate" : string.Empty;
             var reversed = Reversed ? "Reversed " : string.Empty;
             var wildcard = WildCard ? " Wildcard" : string.Empty;
-            var paramName = ReferenceSearchParameter != null ? $" {ReferenceSearchParameter.Name}" : string.Empty;
+            var paramName = ReferenceSearchParameter != null ? $" {ReferenceSearchParameter.Code}" : string.Empty;
             return $"({reversed}Include{iterate}{wildcard}{paramName}{targetType})";
         }
 

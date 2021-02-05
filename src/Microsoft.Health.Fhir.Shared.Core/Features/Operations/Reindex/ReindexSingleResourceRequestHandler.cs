@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             foreach (SearchIndexEntry searchIndex in newIndices)
             {
-                parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = searchIndex.SearchParameter.Name.ToString(), Value = new FhirString(searchIndex.Value.ToString()) });
+                parametersResource.Parameter.Add(new Parameters.ParameterComponent() { Name = searchIndex.SearchParameter.Code.ToString(), Value = new FhirString(searchIndex.Value.ToString()) });
             }
 
             return new ReindexSingleResourceResponse(parametersResource.ToResourceElement());
