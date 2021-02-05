@@ -710,6 +710,24 @@ namespace Microsoft.Health.Fhir.Core {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to X-Provenance header is malformed and can&apos;t be parsed.
+        /// </summary>
+        internal static string ProvenanceHeaderMalformed {
+            get {
+                return ResourceManager.GetString("ProvenanceHeaderMalformed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to X-Provenance header shall not have a specified `Provenance.target`.
+        /// </summary>
+        internal static string ProvenanceHeaderShouldntHaveTarget {
+            get {
+                return ResourceManager.GetString("ProvenanceHeaderShouldntHaveTarget", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to ReadHistory is disabled for resources of type &apos;{0}&apos;..
         /// </summary>
         internal static string ReadHistoryDisabled {
