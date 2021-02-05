@@ -9,102 +9,97 @@ variables:
 - template: build-variables.yml
 
 stages:
-- stage: UpdateVersion
-  displayName: 'Determine Semver'
+- stage: Build
+  displayName: 'Build and publish packages'
   dependsOn: []
   jobs:
-  - job: Semver
+  - job: Windows
     pool:
       vmImage: $(WindowsVmImage)
     steps:
-    - template: ./jobs/update-semver.yml
+    - task: UseDotNet@2
+      displayName: 'Use .NET Core sdk'
+      inputs:
+        useGlobalJson: true
+    - task: DotNetCoreCLI@2
+      displayName: 'dotnet build $(buildConfiguration)'
+      inputs:
+        command: build
+        arguments: '--configuration $(buildConfiguration) /warnaserror'
+    - template: ./jobs/package.yml
 
-- stage: DockerBuild  
-  displayName: 'Build images'
-  dependsOn:
-  - UpdateVersion
-  jobs:
-  - template: ./jobs/docker-build-all.yml
-    parameters: 
-      tag: $(ImageTag)
+# - stage: redeployStu3
+#   displayName: 'Redeploy STU3 Site'
+#   dependsOn: []
+#   jobs:
+#   - template: ./jobs/redeploy-webapp.yml
+#     parameters: 
+#       version: Stu3
+#       webAppName: $(DeploymentEnvironmentName)
+#       subscription: $(ConnectedServiceName)
+#       imageTag: $(ImageTag)
 
-- stage: redeployStu3
-  displayName: 'Redeploy STU3 Site'
-  dependsOn:
-  - DockerBuild
-  jobs:
-  - template: ./jobs/redeploy-webapp.yml
-    parameters: 
-      version: Stu3
-      webAppName: $(DeploymentEnvironmentName)
-      subscription: $(ConnectedServiceName)
-      imageTag: $(ImageTag)
+# - stage: redeployStu3Sql
+#   displayName: 'Redeploy STU3 SQL Site'
+#   dependsOn: []
+#   jobs:
+#   - template: ./jobs/redeploy-webapp.yml
+#     parameters: 
+#       version: Stu3
+#       webAppName: $(DeploymentEnvironmentNameSql)
+#       subscription: $(ConnectedServiceName)
+#       imageTag: $(ImageTag)
 
-- stage: redeployStu3Sql
-  displayName: 'Redeploy STU3 SQL Site'
-  dependsOn:
-  - DockerBuild
-  jobs:
-  - template: ./jobs/redeploy-webapp.yml
-    parameters: 
-      version: Stu3
-      webAppName: $(DeploymentEnvironmentNameSql)
-      subscription: $(ConnectedServiceName)
-      imageTag: $(ImageTag)
+# - stage: redeployR4
+#   displayName: 'Redeploy R4 Site'
+#   dependsOn: []
+#   jobs:
+#   - template: ./jobs/redeploy-webapp.yml
+#     parameters: 
+#       version: R4
+#       webAppName: $(DeploymentEnvironmentNameR4)
+#       subscription: $(ConnectedServiceName)
+#       imageTag: $(ImageTag)
 
-- stage: redeployR4
-  displayName: 'Redeploy R4 Site'
-  dependsOn:
-  - DockerBuild
-  jobs:
-  - template: ./jobs/redeploy-webapp.yml
-    parameters: 
-      version: R4
-      webAppName: $(DeploymentEnvironmentNameR4)
-      subscription: $(ConnectedServiceName)
-      imageTag: $(ImageTag)
+# - stage: redeployR4Sql
+#   displayName: 'Redeploy R4 SQL Site'
+#   dependsOn: []
+#   jobs:
+#   - template: ./jobs/redeploy-webapp.yml
+#     parameters: 
+#       version: R4
+#       webAppName: $(DeploymentEnvironmentNameR4Sql)
+#       subscription: $(ConnectedServiceName)
+#       imageTag: $(ImageTag)
 
-- stage: redeployR4Sql
-  displayName: 'Redeploy R4 SQL Site'
-  dependsOn:
-  - DockerBuild
-  jobs:
-  - template: ./jobs/redeploy-webapp.yml
-    parameters: 
-      version: R4
-      webAppName: $(DeploymentEnvironmentNameR4Sql)
-      subscription: $(ConnectedServiceName)
-      imageTag: $(ImageTag)
+# - stage: redeployR5
+#   displayName: 'Redeploy R5 Site'
+#   dependsOn: []
+#   jobs:
+#   - template: ./jobs/redeploy-webapp.yml
+#     parameters: 
+#       version: R5
+#       webAppName: $(DeploymentEnvironmentNameR5)
+#       subscription: $(ConnectedServiceName)
+#       imageTag: $(ImageTag)
 
-- stage: redeployR5
-  displayName: 'Redeploy R5 Site'
-  dependsOn:
-  - DockerBuild
-  jobs:
-  - template: ./jobs/redeploy-webapp.yml
-    parameters: 
-      version: R5
-      webAppName: $(DeploymentEnvironmentNameR5)
-      subscription: $(ConnectedServiceName)
-      imageTag: $(ImageTag)
-
-- stage: redeployR5Sql
-  displayName: 'Redeploy R5 SQL Site'
-  dependsOn:
-  - DockerBuild
-  jobs:
-  - template: ./jobs/redeploy-webapp.yml
-    parameters: 
-      version: R5
-      webAppName: $(DeploymentEnvironmentNameR5Sql)
-      subscription: $(ConnectedServiceName)
-      imageTag: $(ImageTag)
+# - stage: redeployR5Sql
+#   displayName: 'Redeploy R5 SQL Site'
+#   dependsOn: []
+#   jobs:
+#   - template: ./jobs/redeploy-webapp.yml
+#     parameters: 
+#       version: R5
+#       webAppName: $(DeploymentEnvironmentNameR5Sql)
+#       subscription: $(ConnectedServiceName)
+#       imageTag: $(ImageTag)
 
 - stage: testStu3
   displayName: 'Run Stu3 Tests'
   dependsOn:
-  - redeployStu3
-  - redeployStu3Sql
+  - Build
+  # - redeployStu3
+  # - redeployStu3Sql
   jobs:
   - template: ./jobs/run-export-tests.yml
     parameters:
@@ -114,8 +109,9 @@ stages:
 - stage: testR4
   displayName: 'Run R4 Tests'
   dependsOn:
-  - redeployR4
-  - redeployR4Sql
+  - Build
+  # - redeployR4
+  # - redeployR4Sql
   jobs:
   - template: ./jobs/run-export-tests.yml
     parameters:
@@ -125,8 +121,9 @@ stages:
 - stage: testR5
   displayName: 'Run R5 Tests'
   dependsOn:
-  - redeployR5
-  - redeployR5Sql
+  - Build
+  # - redeployR5
+  # - redeployR5Sql
   jobs:
   - template: ./jobs/run-export-tests.yml
     parameters:

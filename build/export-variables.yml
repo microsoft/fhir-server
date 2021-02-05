@@ -5,4 +5,5 @@ variables:
     DeploymentEnvironmentName: '$(resourceGroupRoot)'
     ResourceGroupName: '$(resourceGroupRoot)'
     TestEnvironmentName: 'OSS Export'
-    ImageTag: '$(build.BuildNumber)'
+    ImageTag: 'master'
+    nuGetVersion: '5.8.1'
