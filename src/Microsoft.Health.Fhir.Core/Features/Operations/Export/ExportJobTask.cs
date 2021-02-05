@@ -682,12 +682,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
                 if (patientIds.Count == 0)
                 {
                     _logger.LogInformation($"Group {groupId} does not have any patient ids as members.");
-                    SearchResult emptySearchResult = new SearchResult(
-                        results: new List<SearchResultEntry>(),
-                        continuationToken: null,
-                        sortOrder: null,
-                        unsupportedSearchParameters: new List<Tuple<string, string>>());
-                    return emptySearchResult;
+                    return SearchResult.Empty();
                 }
 
                 queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Id, string.Join(',', patientIds)));

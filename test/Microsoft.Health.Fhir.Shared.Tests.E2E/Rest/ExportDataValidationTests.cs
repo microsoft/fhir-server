@@ -202,6 +202,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             IList<Uri> blobUris = await CheckExportStatus(contentLocation);
 
             Assert.Empty(blobUris);
+
+            async Task<string> CreateGroupWithoutPatientIds()
+            {
+                var group = new FhirGroup()
+                {
+                    Type = FhirGroup.GroupType.Person,
+                    Actual = true,
+                };
+
+                var groupResponse = await _testFhirClient.CreateAsync(group);
+                return groupResponse.Resource.Id;
+            }
         }
 
         [Fact(Skip = "Failing CI build")]
@@ -543,18 +555,6 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             }
 
             return (resourceDictionary, groupId);
-        }
-
-        private async Task<string> CreateGroupWithoutPatientIds()
-        {
-            var group = new FhirGroup()
-            {
-                Type = FhirGroup.GroupType.Person,
-                Actual = true,
-            };
-
-            var groupResponse = await _testFhirClient.CreateAsync(group);
-            return groupResponse.Resource.Id;
         }
     }
 }
