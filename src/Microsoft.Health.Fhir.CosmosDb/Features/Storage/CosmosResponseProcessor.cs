@@ -66,8 +66,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             if (statusCode == HttpStatusCode.TooManyRequests)
             {
-                string retryHeader = headers["Retry-After"];
-                throw new RequestRateExceededException(TimeSpan.TryParse(retryHeader, out TimeSpan timeSpan) ? timeSpan : (TimeSpan?)null);
+                string retryHeader = headers["x-ms-retry-after-ms"];
+                throw new RequestRateExceededException(int.TryParse(retryHeader, out int milliseconds) ? TimeSpan.FromMilliseconds(milliseconds) : (TimeSpan?)null);
             }
             else if (errorMessage.Contains("Invalid Continuation Token", StringComparison.OrdinalIgnoreCase) || errorMessage.Contains("Malformed Continuation Token", StringComparison.OrdinalIgnoreCase))
             {
