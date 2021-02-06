@@ -21,6 +21,7 @@
     <PackageReference Include="Microsoft.Health.Extensions.BuildTimeCodeGenerator" Version="$(HealthcareSharedPackageVersion)" />
     <PackageReference Include="Microsoft.Health.Extensions.DependencyInjection" Version="$(HealthcareSharedPackageVersion)" />
     <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" Version="1.4.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="5.0.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
