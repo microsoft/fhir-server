@@ -4,6 +4,14 @@
 name: $(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:-r)
 trigger: none
 
+schedules:
+- cron: "0 8 * * *"
+  displayName: Daily midnight Pacific time build
+  branches:
+    include:
+    - main
+    - personal/namadabu/export-pipeline
+
 variables:
 - template: export-variables.yml
 - template: build-variables.yml
