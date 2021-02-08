@@ -5,6 +5,7 @@
 
 using System;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using EnsureThat;
 
 namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
@@ -75,7 +76,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
                 throw new ArgumentException($"Value to be compared should be of type {typeof(StringSearchValue)}");
             }
 
-            return string.Compare(ToString(), otherValue.ToString(), StringComparison.InvariantCultureIgnoreCase);
+            return string.Compare(ToString(), otherValue.ToString(), CultureInfo.InvariantCulture, CompareOptions.IgnoreNonSpace | CompareOptions.IgnoreCase);
         }
 
         public bool Equals([AllowNull] ISearchValue other)
