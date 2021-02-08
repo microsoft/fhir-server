@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:5.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:5.0.102-1-alpine3.12-amd64 AS build
 
 ARG FHIR_VERSION
 
