@@ -5,6 +5,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Text.RegularExpressions;
 using EnsureThat;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Filters;
@@ -29,10 +31,17 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             "ndjson",
         };
 
+        // Support anonymization for basic and patient/group export.
+        // The regex of <id> in group export is [A-Za-z0-9\-\.]{1,64}, from HL7 website https://www.hl7.org/fhir/datatypes.html#id.
+        private static readonly List<string> AnonymizedExportRequestPathRegexs = new List<string>()
+        {
+            @"^/[$]export",
+            @"^/Patient/[$]export",
+            @"^/Group/[A-Za-z0-9\-\.]{1,64}/[$]export",
+        };
+
         private const string PreferHeaderName = "Prefer";
         private const string PreferHeaderExpectedValue = "respond-async";
-        private const string DefaultExportRequestPath = "/$export";
-
         private readonly HashSet<string> _supportedQueryParams;
         private readonly HashSet<string> _supportedQueryParamsForAnonymizedExport;
 
@@ -111,7 +120,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
         private bool IsValidAnonymizedExportRequestParam(HttpRequest request, string paramName)
         {
-            if (request.Path.StartsWithSegments(DefaultExportRequestPath, StringComparison.InvariantCultureIgnoreCase))
+            if (AnonymizedExportRequestPathRegexs.Any(pathRegex => Regex.IsMatch(request.Path, pathRegex)))
             {
                 return _supportedQueryParamsForAnonymizedExport.Contains(paramName);
             }
