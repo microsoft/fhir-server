@@ -95,6 +95,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
         [InlineData("Country", "country", 0)]
         [InlineData("Country", "city", 1)]
         [InlineData("123433", "798012", -1)]
+        [InlineData("Muller", "Müller", 0)]
         public void GivenASearchValue_WhenCompareWithStringSearchValue_ThenCorrectResultIsReturned(string original, string given, int expectedResult)
         {
             StringSearchValue originalValue = new StringSearchValue(original);
