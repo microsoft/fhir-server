@@ -31,7 +31,7 @@
     <PackageReference Include="Microsoft.Health.Extensions.BuildTimeCodeGenerator" Version="$(HealthcareSharedPackageVersion)" />
     <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" Version="1.4.0" />
     <PackageReference Include="Microsoft.SqlServer.SqlManagementObjects" Version="161.46041.41" />
-    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions" Version="$(SdkPackageVersion)" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions" Version="$(AspPackageVersion)" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="2.1.1" />
   </ItemGroup>
   <ItemGroup>
