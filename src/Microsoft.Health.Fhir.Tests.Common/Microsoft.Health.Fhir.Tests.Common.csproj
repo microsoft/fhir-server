@@ -37,6 +37,7 @@
     <None Remove="TestFiles\DeviceComponent-For-Device-d1.json" />
     <None Remove="TestFiles\Encounter-For-Patient-f001.json" />
     <None Remove="TestFiles\Normative\MoneyWithWrongDecimal.json" />
+    <None Remove="TestFiles\Normative\ProvenanceHeader.json" />
     <None Remove="TestFiles\Normative\SearchParameter.json" />
     <None Remove="TestFiles\Observation-For-Patient-f001.json" />
     <None Remove="TestFiles\ObservationWith1MinuteApgarScore.json" />
@@ -173,6 +174,7 @@
     <None Remove="TestFiles\Stu3\ObservationWithLongEyeColor.json" />
     <None Remove="TestFiles\Stu3\Parameter-Convert-Data.json" />
     <None Remove="TestFiles\Stu3\PatientWithMinimalData.json" />
+    <None Remove="TestFiles\Stu3\ProvenanceHeader.json" />
     <None Remove="TestFiles\ValidCompartmentDefinition.json" />
     <None Remove="TestFiles\Weight.json" />
     <None Remove="TestFiles\WeightInGrams.json" />
@@ -235,6 +237,7 @@
     <EmbeddedResource Include="TestFiles\Normative\Patient.json" />
     <EmbeddedResource Include="TestFiles\Normative\MoneyWithWrongDecimal.json" />
     <EmbeddedResource Include="TestFiles\Normative\Patient.xml" />
+    <EmbeddedResource Include="TestFiles\Normative\ProvenanceHeader.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameter.json" />
     <EmbeddedResource Include="TestFiles\Normative\Weight.json" />
     <EmbeddedResource Include="TestFiles\Normative\WeightInGrams.json" />
@@ -331,6 +334,7 @@
     <EmbeddedResource Include="TestFiles\Stu3\Patient.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Patient.xml" />
     <EmbeddedResource Include="TestFiles\R4\ResourceWrapperNoVersion.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\ProvenanceHeader.json" />
     <EmbeddedResource Include="TestFiles\Stu3\ValidCompartmentDefinition.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Weight.json" />
     <EmbeddedResource Include="TestFiles\Stu3\WeightInGrams.json" />

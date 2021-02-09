@@ -119,6 +119,22 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
             await _cosmosResponseProcessor.ProcessErrorResponse(response);
         }
 
+        [Fact]
+        public void GivenAThrottlingResponseWithRetryAfterHeader_WhenProcessed_ThrowsWithRetryAfter()
+        {
+            var retryAfter = TimeSpan.FromMilliseconds(200);
+
+            RequestRateExceededException exception = Assert.Throws<RequestRateExceededException>(() => _cosmosResponseProcessor.ProcessErrorResponse(HttpStatusCode.TooManyRequests, new Headers { { "x-ms-retry-after-ms", ((int)retryAfter.TotalMilliseconds).ToString() } }, "too many requests"));
+            Assert.Equal(retryAfter, exception.RetryAfter);
+        }
+
+        [Fact]
+        public void GivenAThrottlingResponseWithoutRetryAfterHeader_WhenProcessed_ThrowsWithoutRetryAfter()
+        {
+            RequestRateExceededException exception = Assert.Throws<RequestRateExceededException>(() => _cosmosResponseProcessor.ProcessErrorResponse(HttpStatusCode.TooManyRequests, new Headers(), "too many requests"));
+            Assert.Null(exception.RetryAfter);
+        }
+
         private static ResponseMessage CreateResponseException(string exceptionMessage, HttpStatusCode httpStatusCode, string subStatus = null)
         {
             var message = new ResponseMessage(httpStatusCode, errorMessage: exceptionMessage);

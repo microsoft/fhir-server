@@ -52,8 +52,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         [Fact]
         public async Task GivenResourcesWithUnchangedOrChangedIndices_WhenResultsProcessed_ThenCorrectResourcesHaveIndicesUpdated()
         {
-            var searchIndexEntry1 = new SearchIndexEntry(new Core.Models.SearchParameterInfo("param1"), new StringSearchValue("value1"));
-            var searchIndexEntry2 = new SearchIndexEntry(new Core.Models.SearchParameterInfo("param2"), new StringSearchValue("value2"));
+            var searchIndexEntry1 = new SearchIndexEntry(new Core.Models.SearchParameterInfo("param1", "param1"), new StringSearchValue("value1"));
+            var searchIndexEntry2 = new SearchIndexEntry(new Core.Models.SearchParameterInfo("param2", "param2"), new StringSearchValue("value2"));
 
             var searchIndices1 = new List<SearchIndexEntry>() { searchIndexEntry1 };
             var searchIndices2 = new List<SearchIndexEntry>() { searchIndexEntry2 };
@@ -83,7 +83,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
 
             var searchParam = new SearchParameterInfo(
                 "test",
-                "String",
+                "test",
+                ValueSets.SearchParamType.String,
                 new Uri("http://searchParam"));
 
             _searchParameterDefinitionManager.GetSearchParameter(Arg.Any<Uri>()).Returns(searchParam);

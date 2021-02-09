@@ -68,7 +68,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             }
 
             if (other.SearchParameter.Url == SearchParameter.Url &&
-                other.SearchParameter.Name.Equals(SearchParameter.Name, StringComparison.OrdinalIgnoreCase) &&
+                other.SearchParameter.Code.Equals(SearchParameter.Code, StringComparison.OrdinalIgnoreCase) &&
                 other.Value == Value)
             {
                 return true;
@@ -98,7 +98,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         public override int GetHashCode()
         {
             return HashCode.Combine(
-                SearchParameter.Name.GetHashCode(System.StringComparison.OrdinalIgnoreCase),
+                SearchParameter.Code.GetHashCode(System.StringComparison.OrdinalIgnoreCase),
                 SearchParameter.Url?.GetHashCode(),
                 Value.GetHashCode());
         }

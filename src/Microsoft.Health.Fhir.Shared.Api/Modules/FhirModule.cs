@@ -10,6 +10,7 @@ using Hl7.Fhir.FhirPath;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Hl7.FhirPath;
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,6 +22,7 @@ using Microsoft.Health.Fhir.Api.Features.ContentTypes;
 using Microsoft.Health.Fhir.Api.Features.Context;
 using Microsoft.Health.Fhir.Api.Features.Filters;
 using Microsoft.Health.Fhir.Api.Features.Formatters;
+using Microsoft.Health.Fhir.Api.Features.Resources;
 using Microsoft.Health.Fhir.Api.Features.Resources.Bundle;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features;
@@ -28,6 +30,8 @@ using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Security;
+using Microsoft.Health.Fhir.Core.Messages.Create;
+using Microsoft.Health.Fhir.Core.Messages.Upsert;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Api.Modules
@@ -150,6 +154,10 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             // Register a factory to resolve a scope that returns all components that provide capabilities
             services.AddFactory<IScoped<IEnumerable<IProvideCapability>>>();
+
+            // Register pipeline behavior to intercept create/update requests and check presence of provenace header.
+            services.Add<ProvenanceHeaderBehavior>().Scoped().AsSelf().AsImplementedInterfaces();
+            services.Add<ProvenanceHeaderState>().Scoped().AsSelf().AsImplementedInterfaces();
 
             services.AddLazy();
             services.AddScoped();

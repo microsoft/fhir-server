@@ -20,7 +20,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             var subExpression = Expression.StringEquals(FieldName.TokenCode, 0, "TestValue123", false);
             var searchParamTableExpressions = new List<SearchParamTableExpression>
             {
-                new SearchParamTableExpression(null, new SearchParameterExpression(new SearchParameterInfo("TestParam"), Expression.Not(subExpression)), SearchParamTableExpressionKind.Normal),
+                new SearchParamTableExpression(null, new SearchParameterExpression(new SearchParameterInfo("TestParam", "TestParam"), Expression.Not(subExpression)), SearchParamTableExpressionKind.Normal),
             };
 
             var inputExpression = SqlRootExpression.WithSearchParamTableExpressions(searchParamTableExpressions);
@@ -52,7 +52,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             var searchParamTableExpressions = new List<SearchParamTableExpression>
             {
                 new SearchParamTableExpression(null, null, SearchParamTableExpressionKind.Normal),
-                new SearchParamTableExpression(null, new SearchParameterExpression(new SearchParameterInfo("TestParam"), Expression.Not(subExpression)), SearchParamTableExpressionKind.Normal),
+                new SearchParamTableExpression(null, new SearchParameterExpression(new SearchParameterInfo("TestParam", "TestParam"), Expression.Not(subExpression)), SearchParamTableExpressionKind.Normal),
             };
 
             var inputExpression = SqlRootExpression.WithSearchParamTableExpressions(searchParamTableExpressions);

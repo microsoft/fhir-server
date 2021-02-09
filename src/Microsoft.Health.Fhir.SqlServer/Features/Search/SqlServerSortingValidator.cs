@@ -27,11 +27,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             switch (sorting)
             {
                 case { Count: 0 }:
-                case { Count: 1 } when _supportedParameterNames.Contains(sorting[0].searchParameter.Name):
+                case { Count: 1 } when _supportedParameterNames.Contains(sorting[0].searchParameter.Code):
                     errorMessages = Array.Empty<string>();
                     return true;
                 case { Count: 1 }:
-                    errorMessages = new[] { string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchSortParameterNotSupported, sorting[0].searchParameter.Name) };
+                    errorMessages = new[] { string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchSortParameterNotSupported, sorting[0].searchParameter.Code) };
                     return false;
                 default:
                     errorMessages = new[] { Core.Resources.MultiSortParameterNotSupported };

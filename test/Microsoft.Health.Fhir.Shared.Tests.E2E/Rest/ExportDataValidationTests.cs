@@ -87,6 +87,33 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         }
 
         [Fact]
+        public async Task GivenFhirServer_WhenGroupDataWithNoMemberPatientIdIsExported_ThenNoDataIsExported()
+        {
+            // NOTE: Azure Storage Emulator is required to run these tests locally.
+
+            // Add data for test
+            string groupId = await CreateGroupWithoutPatientIds();
+
+            // Trigger export request and check for export status
+            Uri contentLocation = await _testFhirClient.ExportAsync($"Group/{groupId}/");
+            IList<Uri> blobUris = await CheckExportStatus(contentLocation);
+
+            Assert.Empty(blobUris);
+
+            async Task<string> CreateGroupWithoutPatientIds()
+            {
+                var group = new FhirGroup()
+                {
+                    Type = FhirGroup.GroupType.Person,
+                    Actual = true,
+                };
+
+                var groupResponse = await _testFhirClient.CreateAsync(group);
+                return groupResponse.Resource.Id;
+            }
+        }
+
+        [Fact]
         public async Task GivenFhirServer_WhenDataIsExported_ThenExportTaskMetricsNotificationShouldBePosted()
         {
             // NOTE: Azure Storage Emulator is required to run these tests locally.

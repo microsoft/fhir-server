@@ -80,8 +80,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         {
             SetupDataStoreToReturnDummyResourceWrapper();
 
-            var searchIndex = new SearchIndexEntry(new SearchParameterInfo("newSearchParam"), new NumberSearchValue(1));
-            var searchIndex2 = new SearchIndexEntry(new SearchParameterInfo("newSearchParam2"), new StringSearchValue("paramValue"));
+            var searchIndex = new SearchIndexEntry(new SearchParameterInfo("newSearchParam", "newSearchParam"), new NumberSearchValue(1));
+            var searchIndex2 = new SearchIndexEntry(new SearchParameterInfo("newSearchParam2", "newSearchParam2"), new StringSearchValue("paramValue"));
 
             var searchIndices = new List<SearchIndexEntry>() { searchIndex, searchIndex2 };
 
@@ -123,7 +123,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Reindex
         {
             SetupDataStoreToReturnDummyResourceWrapper();
 
-            var searchParamInfo = new SearchParameterInfo("newSearchParam");
+            var searchParamInfo = new SearchParameterInfo("newSearchParam", "newSearchParam");
             var searchIndex = new SearchIndexEntry(searchParamInfo, new StringSearchValue("name1"));
             var searchIndex2 = new SearchIndexEntry(searchParamInfo, new StringSearchValue("name2"));
             var searchIndices = new List<SearchIndexEntry>() { searchIndex, searchIndex2 };

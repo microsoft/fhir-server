@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
         public void GivenExpressionWithNoTableExpressions_WhenRewritten_ReturnsOriginalExpression()
         {
             var inputExpression = SqlRootExpression.WithResourceTableExpressions(
-                Expression.SearchParameter(new SearchParameterInfo("abc"), Expression.Equals(FieldName.Number, null, 1)));
+                Expression.SearchParameter(new SearchParameterInfo("abc", "abc"), Expression.Equals(FieldName.Number, null, 1)));
             var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(ResourceColumnPredicatePushdownRewriter.Instance);
             Assert.Equal(inputExpression, visitedExpression);
         }
@@ -43,11 +43,11 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             var inputExpression = new SqlRootExpression(
                 new List<SearchParamTableExpression>
                 {
-                    new SearchParamTableExpression(null, new SearchParameterExpression(new SearchParameterInfo("myParam"), Expression.Equals(FieldName.String, null, "foo")), SearchParamTableExpressionKind.Normal),
+                    new SearchParamTableExpression(null, new SearchParameterExpression(new SearchParameterInfo("myParam", "myParam"), Expression.Equals(FieldName.String, null, "foo")), SearchParamTableExpressionKind.Normal),
                 },
                 new List<SearchParameterExpressionBase>
                 {
-                    new SearchParameterExpression(new SearchParameterInfo(paramName), Expression.Equals(FieldName.String, null, "TestParamValue")),
+                    new SearchParameterExpression(new SearchParameterInfo(paramName, paramName), Expression.Equals(FieldName.String, null, "TestParamValue")),
                 });
             var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(ResourceColumnPredicatePushdownRewriter.Instance);
 
@@ -66,8 +66,8 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 },
                 new List<SearchParameterExpressionBase>
                 {
-                    new SearchParameterExpression(new SearchParameterInfo(SearchParameterNames.ResourceType), Expression.Equals(FieldName.String, null, "TestParamValue1")),
-                    new SearchParameterExpression(new SearchParameterInfo(SqlSearchParameters.ResourceSurrogateIdParameterName), Expression.Equals(FieldName.String, null, "TestParamValue2")),
+                    new SearchParameterExpression(new SearchParameterInfo(SearchParameterNames.ResourceType, SearchParameterNames.ResourceType), Expression.Equals(FieldName.String, null, "TestParamValue1")),
+                    new SearchParameterExpression(new SearchParameterInfo(SqlSearchParameters.ResourceSurrogateIdParameterName, SqlSearchParameters.ResourceSurrogateIdParameterName), Expression.Equals(FieldName.String, null, "TestParamValue2")),
                 });
             var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(ResourceColumnPredicatePushdownRewriter.Instance);
             Assert.Equal(Expression.And(inputExpression.ResourceTableExpressions).ToString(), visitedExpression.SearchParamTableExpressions[0].Predicate.ToString());
@@ -81,12 +81,12 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
             var inputExpression = new SqlRootExpression(
                 new List<SearchParamTableExpression>
                 {
-                    new SearchParamTableExpression(null, new SearchParameterExpression(new SearchParameterInfo("myParam"), Expression.Equals(FieldName.String, null, "foo")), SearchParamTableExpressionKind.Normal),
+                    new SearchParamTableExpression(null, new SearchParameterExpression(new SearchParameterInfo("myParam", "myParam"), Expression.Equals(FieldName.String, null, "foo")), SearchParamTableExpressionKind.Normal),
                 },
                 new List<SearchParameterExpressionBase>
                 {
-                    new SearchParameterExpression(new SearchParameterInfo(paramName), Expression.Equals(FieldName.String, null, "ExtractableTestParamValue")),
-                    new SearchParameterExpression(new SearchParameterInfo(SearchParameterNames.Id), Expression.Equals(FieldName.String, null, "myid")),
+                    new SearchParameterExpression(new SearchParameterInfo(paramName, paramName), Expression.Equals(FieldName.String, null, "ExtractableTestParamValue")),
+                    new SearchParameterExpression(new SearchParameterInfo(SearchParameterNames.Id, SearchParameterNames.Id), Expression.Equals(FieldName.String, null, "myid")),
                 });
             var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(ResourceColumnPredicatePushdownRewriter.Instance);
             Assert.Empty(visitedExpression.ResourceTableExpressions);
@@ -103,7 +103,7 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 },
                 new List<SearchParameterExpressionBase>
                 {
-                    new SearchParameterExpression(new SearchParameterInfo(SearchParameterNames.ResourceType), Expression.Equals(FieldName.String, null, "TestParamValue1")),
+                    new SearchParameterExpression(new SearchParameterInfo(SearchParameterNames.ResourceType, SearchParameterNames.ResourceType), Expression.Equals(FieldName.String, null, "TestParamValue1")),
                 });
             var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(ResourceColumnPredicatePushdownRewriter.Instance);
             Assert.Same(inputExpression.ResourceTableExpressions, visitedExpression.ResourceTableExpressions);
@@ -119,18 +119,18 @@ namespace Microsoft.Health.Fhir.SqlServer.UnitTests.Features.Search.Expressions
                 {
                     new SearchParamTableExpression(
                         ChainLinkQueryGenerator.Instance,
-                        new SqlChainLinkExpression(new[] { "Observation" }, new SearchParameterInfo("myref"), new[] { "Patient" }, false),
+                        new SqlChainLinkExpression(new[] { "Observation" }, new SearchParameterInfo("myref", "myref"), new[] { "Patient" }, false),
                         SearchParamTableExpressionKind.Chain,
                         1),
                     new SearchParamTableExpression(
                         null,
-                        new SearchParameterExpression(new SearchParameterInfo("myParam"), Expression.Equals(FieldName.String, null, "foo")),
+                        new SearchParameterExpression(new SearchParameterInfo("myParam", "myParam"), Expression.Equals(FieldName.String, null, "foo")),
                         SearchParamTableExpressionKind.Normal,
                         1),
                 },
                 new List<SearchParameterExpressionBase>
                 {
-                    new SearchParameterExpression(new SearchParameterInfo(paramName), Expression.Equals(FieldName.String, null, "ExtractableTestParamValue")),
+                    new SearchParameterExpression(new SearchParameterInfo(paramName, paramName), Expression.Equals(FieldName.String, null, "ExtractableTestParamValue")),
                 });
             var visitedExpression = (SqlRootExpression)inputExpression.AcceptVisitor(ResourceColumnPredicatePushdownRewriter.Instance);
             Assert.Equal(inputExpression.ResourceTableExpressions[0], ((SqlChainLinkExpression)visitedExpression.SearchParamTableExpressions[0].Predicate).ExpressionOnSource);
