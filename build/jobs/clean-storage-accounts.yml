@@ -23,7 +23,7 @@ jobs:
             $storageContainers = Get-AzStorageContainer -Name * -Context $storageAccount.Context
             foreach ($container in $storageContainers) {
                 $ageDiff = $currentUtcTime - $container.CloudBlobContainer.Properties.LastModified.UtcDateTime
-                if($ageDiff.TotalDays -ge 1) {
+                if($ageDiff.TotalDays -ge 3) {
                     Write-Host "Deleting container $($container.Name)"
                     $container.CloudBlobContainer.Delete()
                 }

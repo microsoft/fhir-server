@@ -1,5 +1,5 @@
 # DESCRIPTION: 	
-# Builds and tests export for main branch.	
+# Builds and runs e2e export tests for main branch.	
 
 name: $(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:-r)
 trigger: none
@@ -10,7 +10,6 @@ schedules:
   branches:
     include:
     - main
-    - personal/namadabu/export-pipeline
 
 variables:
 - template: export-variables.yml
@@ -36,78 +35,56 @@ stages:
         arguments: '--configuration $(buildConfiguration) /warnaserror'
     - template: ./jobs/package.yml
 
-# - stage: redeployStu3
-#   displayName: 'Redeploy STU3 Site'
-#   dependsOn: []
-#   jobs:
-#   - template: ./jobs/redeploy-webapp.yml
-#     parameters: 
-#       version: Stu3
-#       webAppName: $(DeploymentEnvironmentName)
-#       subscription: $(ConnectedServiceName)
-#       imageTag: $(ImageTag)
+- stage: redeployStu3
+  displayName: 'Redeploy STU3 Site'
+  dependsOn: []
+  jobs:
+  - template: ./jobs/redeploy-webapp.yml
+    parameters: 
+      version: Stu3
+      webAppName: $(DeploymentEnvironmentName)
+      subscription: $(ConnectedServiceName)
+      imageTag: $(ImageTag)
 
-# - stage: redeployStu3Sql
-#   displayName: 'Redeploy STU3 SQL Site'
-#   dependsOn: []
-#   jobs:
-#   - template: ./jobs/redeploy-webapp.yml
-#     parameters: 
-#       version: Stu3
-#       webAppName: $(DeploymentEnvironmentNameSql)
-#       subscription: $(ConnectedServiceName)
-#       imageTag: $(ImageTag)
+- stage: redeployStu3Sql
+  displayName: 'Redeploy STU3 SQL Site'
+  dependsOn: []
+  jobs:
+  - template: ./jobs/redeploy-webapp.yml
+    parameters: 
+      version: Stu3
+      webAppName: $(DeploymentEnvironmentNameSql)
+      subscription: $(ConnectedServiceName)
+      imageTag: $(ImageTag)
 
-# - stage: redeployR4
-#   displayName: 'Redeploy R4 Site'
-#   dependsOn: []
-#   jobs:
-#   - template: ./jobs/redeploy-webapp.yml
-#     parameters: 
-#       version: R4
-#       webAppName: $(DeploymentEnvironmentNameR4)
-#       subscription: $(ConnectedServiceName)
-#       imageTag: $(ImageTag)
+- stage: redeployR4
+  displayName: 'Redeploy R4 Site'
+  dependsOn: []
+  jobs:
+  - template: ./jobs/redeploy-webapp.yml
+    parameters: 
+      version: R4
+      webAppName: $(DeploymentEnvironmentNameR4)
+      subscription: $(ConnectedServiceName)
+      imageTag: $(ImageTag)
 
-# - stage: redeployR4Sql
-#   displayName: 'Redeploy R4 SQL Site'
-#   dependsOn: []
-#   jobs:
-#   - template: ./jobs/redeploy-webapp.yml
-#     parameters: 
-#       version: R4
-#       webAppName: $(DeploymentEnvironmentNameR4Sql)
-#       subscription: $(ConnectedServiceName)
-#       imageTag: $(ImageTag)
-
-# - stage: redeployR5
-#   displayName: 'Redeploy R5 Site'
-#   dependsOn: []
-#   jobs:
-#   - template: ./jobs/redeploy-webapp.yml
-#     parameters: 
-#       version: R5
-#       webAppName: $(DeploymentEnvironmentNameR5)
-#       subscription: $(ConnectedServiceName)
-#       imageTag: $(ImageTag)
-
-# - stage: redeployR5Sql
-#   displayName: 'Redeploy R5 SQL Site'
-#   dependsOn: []
-#   jobs:
-#   - template: ./jobs/redeploy-webapp.yml
-#     parameters: 
-#       version: R5
-#       webAppName: $(DeploymentEnvironmentNameR5Sql)
-#       subscription: $(ConnectedServiceName)
-#       imageTag: $(ImageTag)
+- stage: redeployR4Sql
+  displayName: 'Redeploy R4 SQL Site'
+  dependsOn: []
+  jobs:
+  - template: ./jobs/redeploy-webapp.yml
+    parameters: 
+      version: R4
+      webAppName: $(DeploymentEnvironmentNameR4Sql)
+      subscription: $(ConnectedServiceName)
+      imageTag: $(ImageTag)
 
 - stage: testStu3
   displayName: 'Run Stu3 Tests'
   dependsOn:
   - Build
-  # - redeployStu3
-  # - redeployStu3Sql
+  - redeployStu3
+  - redeployStu3Sql
   jobs:
   - template: ./jobs/run-export-tests.yml
     parameters:
@@ -118,25 +95,13 @@ stages:
   displayName: 'Run R4 Tests'
   dependsOn:
   - Build
-  # - redeployR4
-  # - redeployR4Sql
+  - redeployR4
+  - redeployR4Sql
   jobs:
   - template: ./jobs/run-export-tests.yml
     parameters:
       version: R4
       keyVaultName: $(DeploymentEnvironmentNameR4)
-
-- stage: testR5
-  displayName: 'Run R5 Tests'
-  dependsOn:
-  - Build
-  # - redeployR5
-  # - redeployR5Sql
-  jobs:
-  - template: ./jobs/run-export-tests.yml
-    parameters:
-      version: R5
-      keyVaultName: $(DeploymentEnvironmentNameR5)
 
 - stage: cleanStorageAccounts
   displayName: 'Clean Storage Accounts'

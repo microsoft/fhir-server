@@ -99,7 +99,7 @@ jobs:
       testSelector: testAssemblies
       testAssemblyVer2: |
         **\*${{ parameters.version }}.Tests.E2E*.dll
-      testFiltercriteria: "FullyQualifiedName~CosmosDb"
+      testFiltercriteria: "FullyQualifiedName~CosmosDb&Category!=ExportLongRunning"
       searchFolder: '$(System.ArtifactsDirectory)'
       rerunFailedTests: true
       rerunType: 'basedOnTestFailurePercentage'
@@ -161,7 +161,7 @@ jobs:
       testSelector: testAssemblies
       testAssemblyVer2: |
         **\*${{ parameters.version }}.Tests.E2E*.dll
-      testFiltercriteria: "FullyQualifiedName~SqlServer"
+      testFiltercriteria: "FullyQualifiedName~SqlServer&Category!=ExportLongRunning"
       searchFolder: '$(System.ArtifactsDirectory)'
       rerunFailedTests: true
       rerunType: 'basedOnTestFailurePercentage'
