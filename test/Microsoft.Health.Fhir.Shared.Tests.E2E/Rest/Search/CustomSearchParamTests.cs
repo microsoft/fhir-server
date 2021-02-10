@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             _fixture = fixture;
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenANewSearchParam_WhenReindexingComplete_ThenResourcesSearchedWithNewParamReturned()
         {
             var patientName = Guid.NewGuid().ToString().ComputeHash().Substring(28).ToLower();
@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
             catch (FhirException ex) when (ex.StatusCode == HttpStatusCode.BadRequest && ex.Message.Contains("not enabled"))
             {
-                // This test case won't run if reindex is not enabled
+                Skip.If(!_fixture.IsUsingInProcTestServer, "Reindex is not enabled on this server.");
                 return;
             }
 
@@ -92,7 +92,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await DeleteSearchParameterAndVerify(searchParamPosted.Resource);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenASearchParam_WhenUpdatingParam_ThenResourcesIndexedWithUpdatedParam()
         {
             var patientName = Guid.NewGuid().ToString().ComputeHash().Substring(28).ToLower();
@@ -141,7 +141,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             }
             catch (FhirException ex) when (ex.StatusCode == HttpStatusCode.BadRequest && ex.Message.Contains("not enabled"))
             {
-                // This test case won't run if Reindex is disabled
+                Skip.If(!_fixture.IsUsingInProcTestServer, "Reindex is not enabled on this server.");
                 return;
             }
 
