@@ -10,7 +10,6 @@ using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.ContentTypes;
-using Microsoft.Health.Fhir.Core.Exceptions;
 
 namespace Microsoft.Health.Fhir.Api.Features.Formatters
 {

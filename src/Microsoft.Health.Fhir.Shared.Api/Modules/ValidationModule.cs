@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
+using Microsoft.Health.Fhir.Shared.Core.Features.Validation;
 
 namespace Microsoft.Health.Fhir.Api.Modules
 {
@@ -38,6 +39,8 @@ namespace Microsoft.Health.Fhir.Api.Modules
 
             services.AddSingleton<INarrativeHtmlSanitizer, NarrativeHtmlSanitizer>();
             services.AddSingleton<IModelAttributeValidator, ModelAttributeValidator>();
+            services.AddSingleton<IProvideProfilesForValidation, NoopProvideProfileValidation>();
+            services.AddSingleton<IProfileValidator, ProfileValidator>();
         }
     }
 }

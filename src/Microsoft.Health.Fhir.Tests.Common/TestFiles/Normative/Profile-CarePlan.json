@@ -1,0 +1,29 @@
+{
+  "resourceType": "CarePlan",
+  "id": "colonoscopy",
+  "meta": {
+    "profile": [
+      "http://hl7.org/fhir/us/core/StructureDefinition/us-core-careplan"
+    ]
+  },
+  "text": {
+    "status": "additional",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">\n\t\t\t<strong>Assessment</strong>\n\t\t\t<ol>\n\t\t\t\t<li>Recurrent GI bleed of unknown etiology; hypotension perhaps secondary to this but as likely secondary to polypharmacy.</li>\n\t\t\t\t<li>Acute on chronic anemia secondary to #1.</li>\n\t\t\t\t<li>Azotemia, acute renal failure with volume loss secondary to #1.</li>\n\t\t\t\t<li>Hyperkalemia secondary to #3 and on ACE and K+ supplement.</li>\n\t\t\t\t<li>Other chronic diagnoses as noted above, currently stable.</li>\n\t\t\t</ol>\n\t\t\t<table>\n\t\t\t\t<thead>\n\t\t\t\t\t<tr>\n\t\t\t\t\t\t<th>Planned Activity</th>\n\t\t\t\t\t\t<th>Planned Date</th>\n\t\t\t\t\t</tr>\n\t\t\t\t</thead>\n\t\t\t\t<tbody>\n\t\t\t\t\t<tr>\n\t\t\t\t\t\t<td>Colonoscopy</td>\n\t\t\t\t\t\t<td>April 21, 2000</td>\n\t\t\t\t\t</tr>\n\t\t\t\t</tbody>\n\t\t\t</table>\n\t\t</div>"
+  },
+  "status": "active",
+  "intent": "order",
+  "category": [
+    {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/us/core/CodeSystem/careplan-category",
+          "code": "assess-plan"
+        }
+      ]
+    }
+  ],
+  "subject": {
+    "reference": "Patient/example",
+    "display": "Amy Shaw"
+  }
+}
