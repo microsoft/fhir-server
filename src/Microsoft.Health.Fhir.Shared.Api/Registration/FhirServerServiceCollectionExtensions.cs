@@ -19,6 +19,7 @@ using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Api.Configs;
 using Microsoft.Health.Fhir.Api.Features.ApiNotifications;
 using Microsoft.Health.Fhir.Api.Features.Context;
+using Microsoft.Health.Fhir.Api.Features.ExceptionNotifications;
 using Microsoft.Health.Fhir.Api.Features.Exceptions;
 using Microsoft.Health.Fhir.Api.Features.Operations.Export;
 using Microsoft.Health.Fhir.Api.Features.Operations.Reindex;
@@ -150,6 +151,9 @@ namespace Microsoft.Extensions.DependencyInjection
                     }
                     else
                     {
+                        // This middleware creates notifications for each exception that is encountered with the context of the current request.
+                        app.UseExceptionNotificationMiddleware();
+
                         // This middleware will capture issues within other middleware that prevent the ExceptionHandler from completing.
                         // This should be the first middleware added because they execute in order.
                         app.UseBaseException();
