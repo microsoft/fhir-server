@@ -127,7 +127,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                             OperationOutcomeConstants.IssueSeverity.Information,
                             OperationOutcomeConstants.IssueType.Informational,
                             Resources.NoResourcesNeedToBeReindexed));
-                        _reindexJobRecord.CanceledTime = DateTimeOffset.UtcNow;
                         await UpdateParametersAndCompleteJob(cancellationToken);
                         return;
                     }
