@@ -77,7 +77,7 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Exceptions
 
         private ExceptionNotificationMiddleware CreateExceptionNotificationMiddleware(RequestDelegate nextDelegate)
         {
-            return Substitute.ForPartsOf<ExceptionNotificationMiddleware>(nextDelegate, NullLogger<ExceptionNotificationMiddleware>.Instance, _fhirRequestContextAccessor, _mediator);
+            return new ExceptionNotificationMiddleware(nextDelegate, NullLogger<ExceptionNotificationMiddleware>.Instance, _fhirRequestContextAccessor, _mediator);
         }
     }
 }
