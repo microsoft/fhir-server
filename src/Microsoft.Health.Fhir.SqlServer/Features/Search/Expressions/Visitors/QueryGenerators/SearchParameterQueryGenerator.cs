@@ -110,7 +110,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         protected static SearchParameterQueryGenerator GetSearchParameterQueryGeneratorIfResourceColumnSearchParameter(SearchParameterExpressionBase searchParameter)
         {
-            switch (searchParameter.Parameter.Name)
+            switch (searchParameter.Parameter.Code)
             {
                 case SearchParameterNames.Id:
                     return ResourceIdParameterQueryGenerator.Instance;

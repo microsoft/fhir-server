@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Net;
 using Hl7.Fhir.Model;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -45,6 +46,30 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             Assert.Contains(updatedResource.Meta.VersionId, updateResponse.Headers.ETag.Tag);
             TestHelper.AssertLastUpdatedAndLastModifiedAreEqual(updatedResource.Meta.LastUpdated, updateResponse.Content.Headers.LastModified);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenTheResourceAndMalformedHeader_WhenUpdatingAnExistingResource_ThenAnErrorShouldBeReturned()
+        {
+            Observation createdResource = await _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>());
+
+            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.UpdateAsync(
+                createdResource,
+                null,
+                "Jibberish"));
+
+            Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAResourceAndMalformedProvenanceHeader_WhenPostingToHttp_TheServerShouldRespondSuccessfully()
+        {
+            var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
+            observation.Id = null;
+            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>(), $"identifier={Guid.NewGuid().ToString()}", "Jibberish"));
+            Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
         }
 
         [Fact]

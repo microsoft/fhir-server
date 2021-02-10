@@ -3,16 +3,10 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
-using System.Threading.Tasks;
-using Hl7.Fhir.ElementModel;
-using Microsoft.Health.Fhir.Core.Features.Persistence;
-
-namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
+namespace Microsoft.Health.Fhir.Api.Features.Resources
 {
-    public interface ISearchParameterUtilities
+    public class ProvenanceHeaderState : IProvenanceHeaderState
     {
-        Task AddSearchParameterAsync(ITypedElement searchParam);
-
-        Task DeleteSearchParameterAsync(RawResource searchParam);
+        public bool Intercepted { get; set; }
     }
 }

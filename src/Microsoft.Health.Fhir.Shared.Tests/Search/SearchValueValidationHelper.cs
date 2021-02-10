@@ -90,6 +90,14 @@ namespace Microsoft.Health.Fhir.Tests.Common.Search
             Assert.Equal(expected, usv.Uri);
         }
 
+        public static void ValidateCanonical(string expected, ISearchValue sv)
+        {
+            UriSearchValue usv = Assert.IsType<UriSearchValue>(sv);
+            Assert.True(usv.IsCanonical);
+
+            Assert.Equal(expected, usv.ToString());
+        }
+
         public class Token
         {
             public Token(string system = null, string code = null, string text = null)

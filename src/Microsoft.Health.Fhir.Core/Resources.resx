@@ -503,6 +503,9 @@
   <data name="CustomSearchCreateError" xml:space="preserve">
     <value>An error occurred creating the custom search parameter.  The issue must be resolved and the parameter resubmitted to become functional.</value>
   </data>
+  <data name="CustomSearchUpdateError" xml:space="preserve">
+    <value>An error occurred updating the custom search parameter.  The issue must be resolved and the update resubmitted to be applied.</value>
+  </data>
   <data name="TypeFilterUnparseable" xml:space="preserve">
     <value>The _typeFilter segment '{0}' could not be parsed.</value>
     <comment>Error message for a bad _typeFilter parameter on an export job. {0} is the segment that couldn't be parsed.</comment>
@@ -524,5 +527,11 @@
   </data>
   <data name="NoResourcesNeedToBeReindexed" xml:space="preserve">
     <value>No resources were found matching the type of the updated search parameters needing to be reindexed.  ReindexJob cancelled.</value>
+  </data>
+  <data name="ProvenanceHeaderMalformed" xml:space="preserve">
+    <value>X-Provenance header is malformed and can't be parsed</value>
+  </data>
+  <data name="ProvenanceHeaderShouldntHaveTarget" xml:space="preserve">
+    <value>X-Provenance header shall not have a specified `Provenance.target`</value>
   </data>
 </root>

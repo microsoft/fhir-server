@@ -37,7 +37,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
 
             // _lastUpdated sort param is handled differently than others, because it can be
             // inferred directly from the resource table itself.
-            if (context.Sort[0].searchParameterInfo.Name == KnownQueryParameterNames.LastUpdated)
+            if (context.Sort[0].searchParameterInfo.Code == KnownQueryParameterNames.LastUpdated)
             {
                 return expression;
             }

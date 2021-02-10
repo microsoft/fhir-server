@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.Model;
@@ -60,8 +61,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
             var indexDocument = Samples.GetJson($"{resourceFile}.indexes");
 
             var indices = _indexer.Extract(document)
-                .Select(x => new { x.SearchParameter.Name, x.SearchParameter.Type, x.Value })
-                .OrderBy(x => x.Name)
+                .Select(x => new { x.SearchParameter.Code, x.SearchParameter.Type, x.Value })
+                .OrderBy(x => x.Code)
                 .ToArray();
 
             var extractedIndices = new List<JToken>();
@@ -74,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             for (var i = 0; i < expectedJObjects.Count; i++)
             {
-                Assert.True(JToken.DeepEquals(expectedJObjects[i], extractedIndices[i]));
+                Assert.True(JToken.DeepEquals(expectedJObjects[i], extractedIndices[i]), "Expected: " + Environment.NewLine + JsonConvert.SerializeObject(indices, Formatting.Indented, _settings));
             }
         }
     }

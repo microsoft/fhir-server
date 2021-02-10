@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         internal ConcurrentDictionary<Uri, SearchParameterInfo> UrlLookup { get; set; }
 
-        // TypeLookup key is: Resource type, the inner dictionary key is the Search Parameter name.
+        // TypeLookup key is: Resource type, the inner dictionary key is the Search Parameter code.
         internal ConcurrentDictionary<string, ConcurrentDictionary<string, SearchParameterInfo>> TypeLookup { get; }
 
         public IEnumerable<SearchParameterInfo> AllSearchParameters => UrlLookup.Values;
@@ -76,23 +76,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             throw new ResourceNotSupportedException(resourceType);
         }
 
-        public SearchParameterInfo GetSearchParameter(string resourceType, string name)
+        public SearchParameterInfo GetSearchParameter(string resourceType, string code)
         {
             if (TypeLookup.TryGetValue(resourceType, out ConcurrentDictionary<string, SearchParameterInfo> lookup) &&
-                lookup.TryGetValue(name, out SearchParameterInfo searchParameter))
+                lookup.TryGetValue(code, out SearchParameterInfo searchParameter))
             {
                 return searchParameter;
             }
 
-            throw new SearchParameterNotSupportedException(resourceType, name);
+            throw new SearchParameterNotSupportedException(resourceType, code);
         }
 
-        public bool TryGetSearchParameter(string resourceType, string name, out SearchParameterInfo searchParameter)
+        public bool TryGetSearchParameter(string resourceType, string code, out SearchParameterInfo searchParameter)
         {
             searchParameter = null;
 
             return TypeLookup.TryGetValue(resourceType, out ConcurrentDictionary<string, SearchParameterInfo> searchParameters) &&
-                searchParameters.TryGetValue(name, out searchParameter);
+                searchParameters.TryGetValue(code, out searchParameter);
         }
 
         public SearchParameterInfo GetSearchParameter(Uri definitionUri)
@@ -166,7 +166,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             var allResourceTypes = searchParameterInfo.TargetResourceTypes.Union(searchParameterInfo.BaseResourceTypes);
             foreach (var resourceType in allResourceTypes)
             {
-                TypeLookup[resourceType].TryRemove(searchParameterInfo.Name, out var removedParam);
+                TypeLookup[resourceType].TryRemove(searchParameterInfo.Code, out var removedParam);
             }
 
             CalculateSearchParameterHash();

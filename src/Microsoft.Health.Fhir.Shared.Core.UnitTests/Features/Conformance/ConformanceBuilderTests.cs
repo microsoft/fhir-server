@@ -57,7 +57,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
             string description = "Logical id of this artifact";
 
             _searchParameterDefinitionManager.GetSearchParameters("Account")
-                .Returns(new[] { new SearchParameterInfo("_id", SearchParamType.Token, description: description),  });
+                .Returns(new[] { new SearchParameterInfo("_id", "_id", SearchParamType.Token, description: description),  });
 
             _builder.AddDefaultSearchParameters();
 
@@ -112,7 +112,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Conformance
         public void GivenAConformanceBuilder_WhenAddingResourceSearchParam_ThenTypeSearchParamIsNotAddedUnderResource()
         {
             _searchParameterDefinitionManager.GetSearchParameters("Account")
-               .Returns(new[] { new SearchParameterInfo("_type", SearchParamType.Token, description: "description"), });
+               .Returns(new[] { new SearchParameterInfo("_type", "_type", SearchParamType.Token, description: "description"), });
 
             _builder.AddDefaultSearchParameters();
 

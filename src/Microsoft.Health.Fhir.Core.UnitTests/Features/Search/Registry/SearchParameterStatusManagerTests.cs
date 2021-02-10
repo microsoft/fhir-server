@@ -84,13 +84,13 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Registry
 
             List<string> baseResourceTypes = new List<string>() { "Resource" };
             List<string> targetResourceTypes = new List<string>() { "Patient" };
-            _queryParameter = new SearchParameterInfo("_query", SearchParamType.Token, new Uri(ResourceQuery));
+            _queryParameter = new SearchParameterInfo("_query", "_query", SearchParamType.Token, new Uri(ResourceQuery));
             _searchParameterInfos = new[]
             {
-                new SearchParameterInfo("_id", SearchParamType.Token, new Uri(ResourceId), targetResourceTypes: targetResourceTypes, baseResourceTypes: baseResourceTypes),
-                new SearchParameterInfo("_lastUpdated", SearchParamType.Token, new Uri(ResourceLastupdated), targetResourceTypes: targetResourceTypes, baseResourceTypes: baseResourceTypes),
-                new SearchParameterInfo("_profile", SearchParamType.Token, new Uri(ResourceProfile), targetResourceTypes: targetResourceTypes),
-                new SearchParameterInfo("_security", SearchParamType.Token, new Uri(ResourceSecurity), targetResourceTypes: targetResourceTypes),
+                new SearchParameterInfo("_id", "_id", SearchParamType.Token, new Uri(ResourceId), targetResourceTypes: targetResourceTypes, baseResourceTypes: baseResourceTypes),
+                new SearchParameterInfo("_lastUpdated", "_lastUpdated", SearchParamType.Token, new Uri(ResourceLastupdated), targetResourceTypes: targetResourceTypes, baseResourceTypes: baseResourceTypes),
+                new SearchParameterInfo("_profile", "_profile", SearchParamType.Token, new Uri(ResourceProfile), targetResourceTypes: targetResourceTypes),
+                new SearchParameterInfo("_security", "_security", SearchParamType.Token, new Uri(ResourceSecurity), targetResourceTypes: targetResourceTypes),
                 _queryParameter,
             };
 

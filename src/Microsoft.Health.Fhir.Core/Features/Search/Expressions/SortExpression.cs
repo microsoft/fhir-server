@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 
         public override string ToString()
         {
-            return $"(Sort Param: {Parameter.Name})";
+            return $"(Sort Param: {Parameter.Code})";
         }
     }
 }

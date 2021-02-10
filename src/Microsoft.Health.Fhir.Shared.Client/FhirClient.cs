@@ -22,6 +22,7 @@ namespace Microsoft.Health.Fhir.Client
     public class FhirClient : IFhirClient
     {
         private const string IfNoneExistHeaderName = "If-None-Exist";
+        private const string ProvenanceHeader = "X-Provenance";
         private const string IfMatchHeaderName = "If-Match";
 
         private readonly string _contentType;
@@ -97,13 +98,13 @@ namespace Microsoft.Health.Fhir.Client
 
         public HttpClient HttpClient { get; }
 
-        public Task<FhirResponse<T>> CreateAsync<T>(T resource, string conditionalCreateCriteria = null, CancellationToken cancellationToken = default)
+        public Task<FhirResponse<T>> CreateAsync<T>(T resource, string conditionalCreateCriteria = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
             where T : Resource
         {
-            return CreateAsync(resource.ResourceType.ToString(), resource, conditionalCreateCriteria, cancellationToken);
+            return CreateAsync(resource.ResourceType.ToString(), resource, conditionalCreateCriteria, provenanceHeader, cancellationToken);
         }
 
-        public async Task<FhirResponse<T>> CreateAsync<T>(string uri, T resource, string conditionalCreateCriteria = null, CancellationToken cancellationToken = default)
+        public async Task<FhirResponse<T>> CreateAsync<T>(string uri, T resource, string conditionalCreateCriteria = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
             where T : Resource
         {
             var message = new HttpRequestMessage(HttpMethod.Post, uri);
@@ -113,6 +114,11 @@ namespace Microsoft.Health.Fhir.Client
             if (!string.IsNullOrEmpty(conditionalCreateCriteria))
             {
                 message.Headers.TryAddWithoutValidation(IfNoneExistHeaderName, conditionalCreateCriteria);
+            }
+
+            if (!string.IsNullOrEmpty(provenanceHeader))
+            {
+                message.Headers.TryAddWithoutValidation(ProvenanceHeader, provenanceHeader);
             }
 
             using HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
@@ -147,19 +153,19 @@ namespace Microsoft.Health.Fhir.Client
             return ReadAsync<T>($"{resourceType}/{resourceId}/_history/{versionId}", cancellationToken);
         }
 
-        public Task<FhirResponse<T>> UpdateAsync<T>(T resource, string ifMatchVersion = null, CancellationToken cancellationToken = default)
+        public Task<FhirResponse<T>> UpdateAsync<T>(T resource, string ifMatchVersion = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
             where T : Resource
         {
-            return UpdateAsync($"{resource.ResourceType}/{resource.Id}", resource, ifMatchVersion, cancellationToken);
+            return UpdateAsync($"{resource.ResourceType}/{resource.Id}", resource, ifMatchVersion, provenanceHeader, cancellationToken);
         }
 
-        public Task<FhirResponse<T>> ConditionalUpdateAsync<T>(T resource, string searchCriteria, string ifMatchVersion = null, CancellationToken cancellationToken = default)
+        public Task<FhirResponse<T>> ConditionalUpdateAsync<T>(T resource, string searchCriteria, string ifMatchVersion = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
             where T : Resource
         {
-            return UpdateAsync($"{resource.ResourceType}?{searchCriteria}", resource, ifMatchVersion, cancellationToken);
+            return UpdateAsync($"{resource.ResourceType}?{searchCriteria}", resource, ifMatchVersion, provenanceHeader, cancellationToken);
         }
 
-        public async Task<FhirResponse<T>> UpdateAsync<T>(string uri, T resource, string ifMatchVersion = null, CancellationToken cancellationToken = default)
+        public async Task<FhirResponse<T>> UpdateAsync<T>(string uri, T resource, string ifMatchVersion = null, string provenanceHeader = null, CancellationToken cancellationToken = default)
             where T : Resource
         {
             HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Put, uri)
@@ -173,6 +179,11 @@ namespace Microsoft.Health.Fhir.Client
                 var weakETag = $"W/\"{ifMatchVersion}\"";
 
                 request.Headers.Add(IfMatchHeaderName, weakETag);
+            }
+
+            if (provenanceHeader != null)
+            {
+                request.Headers.Add(ProvenanceHeader, provenanceHeader);
             }
 
             HttpResponseMessage response = await HttpClient.SendAsync(request, cancellationToken);
@@ -242,13 +253,23 @@ namespace Microsoft.Health.Fhir.Client
                 sb.Append("_count=").Append(count.Value);
             }
 
-            return SearchAsync(sb.ToString(), cancellationToken);
+            return SearchAsync(sb.ToString(), null, cancellationToken);
         }
 
         public async Task<FhirResponse<Bundle>> SearchAsync(string url, CancellationToken cancellationToken = default)
         {
+            return await SearchAsync(url, null, cancellationToken);
+        }
+
+        public async Task<FhirResponse<Bundle>> SearchAsync(string url, Tuple<string, string> customHeader, CancellationToken cancellationToken = default)
+        {
             var message = new HttpRequestMessage(HttpMethod.Get, url);
             message.Headers.Accept.Add(_mediaType);
+
+            if (customHeader != null)
+            {
+                message.Headers.Add(customHeader.Item1, customHeader.Item2);
+            }
 
             HttpResponseMessage response = await HttpClient.SendAsync(message, cancellationToken);
 
@@ -347,9 +368,12 @@ namespace Microsoft.Health.Fhir.Client
             return await CreateResponseAsync<Bundle>(response);
         }
 
-        public async Task<(FhirResponse<Parameters>, Uri)> PostReindexJobAsync(Parameters parameters, CancellationToken cancellationToken = default)
+        public async Task<(FhirResponse<Parameters>, Uri)> PostReindexJobAsync(
+            Parameters parameters,
+            string uniqueResource = null,
+            CancellationToken cancellationToken = default)
         {
-            var message = new HttpRequestMessage(HttpMethod.Post, "$reindex")
+            var message = new HttpRequestMessage(HttpMethod.Post, $"{uniqueResource}$reindex")
             {
                 Content = CreateStringContent(parameters),
             };

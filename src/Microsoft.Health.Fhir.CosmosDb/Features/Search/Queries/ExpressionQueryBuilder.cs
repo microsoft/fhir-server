@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
         public object VisitSearchParameter(SearchParameterExpression expression, Context context)
         {
-            switch (expression.Parameter.Name)
+            switch (expression.Parameter.Code)
             {
                 case SearchParameterNames.ResourceType:
                     // We do not currently support specifying the system for the _type parameter value.
@@ -121,11 +121,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                 default:
                     if (expression.Expression is NotExpression notExpression)
                     {
-                        AppendSubquery(expression.Parameter.Name, notExpression.Expression, context, true);
+                        AppendSubquery(expression.Parameter.Code, notExpression.Expression, context, true);
                     }
                     else
                     {
-                        AppendSubquery(expression.Parameter.Name, expression.Expression, context);
+                        AppendSubquery(expression.Parameter.Code, expression.Expression, context);
                     }
 
                     break;
@@ -138,14 +138,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
         public object VisitMissingSearchParameter(MissingSearchParameterExpression expression, Context context)
         {
-            if (expression.Parameter.Name == SearchParameterNames.ResourceType)
+            if (expression.Parameter.Code == SearchParameterNames.ResourceType)
             {
                 // this will always be present
                 _queryBuilder.Append(expression.IsMissing ? "false" : "true");
             }
             else
             {
-                AppendSubquery(expression.Parameter.Name, null, negate: expression.IsMissing, context: context);
+                AppendSubquery(expression.Parameter.Code, null, negate: expression.IsMissing, context: context);
             }
 
             _queryBuilder.AppendLine();

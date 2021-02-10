@@ -39,7 +39,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                     (SearchParamType.Reference, referenceSearchValueParser.Parse),
                     (SearchParamType.String, StringSearchValue.Parse),
                     (SearchParamType.Token, TokenSearchValue.Parse),
-                    (SearchParamType.Uri, UriSearchValue.Parse),
+                    (SearchParamType.Uri, str => UriSearchValue.Parse(str, false, ModelInfoProvider.Instance)),
                 }
                 .ToDictionary(entry => entry.type, entry => CreateParserWithErrorHandling(entry.parser));
         }
@@ -76,7 +76,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 if (searchParameter.Type != SearchParamType.Token)
                 {
                     throw new InvalidSearchOperationException(
-                        string.Format(CultureInfo.InvariantCulture, Resources.ModifierNotSupported, modifier, searchParameter.Name));
+                        string.Format(CultureInfo.InvariantCulture, Resources.ModifierNotSupported, modifier, searchParameter.Code));
                 }
 
                 outputExpression = Expression.StartsWith(FieldName.TokenText, null, value, true);
@@ -89,7 +89,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                     if (modifier != null)
                     {
                         throw new InvalidSearchOperationException(
-                            string.Format(CultureInfo.InvariantCulture, Resources.ModifierNotSupported, modifier, searchParameter.Name));
+                            string.Format(CultureInfo.InvariantCulture, Resources.ModifierNotSupported, modifier, searchParameter.Code));
                     }
 
                     IReadOnlyList<string> orParts = value.SplitByOrSeparator();
@@ -101,7 +101,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                         if (compositeValueParts.Count > searchParameter.Component.Count)
                         {
                             throw new InvalidSearchOperationException(
-                                string.Format(CultureInfo.InvariantCulture, Resources.NumberOfCompositeComponentsExceeded, searchParameter.Name));
+                                string.Format(CultureInfo.InvariantCulture, Resources.NumberOfCompositeComponentsExceeded, searchParameter.Code));
                         }
 
                         var compositeExpressions = new Expression[compositeValueParts.Count];
@@ -181,7 +181,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 searchValue = ApplyTargetTypeModifier(modifier, searchValue);
 
                 return helper.Build(
-                    searchParameter.Name,
+                    searchParameter.Code,
                     modifier,
                     comparator,
                     componentIndex,
@@ -202,7 +202,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                         ISearchValue searchValue = parser(part);
 
                         return helper.Build(
-                            searchParameter.Name,
+                            searchParameter.Code,
                             null,
                             comparator,
                             componentIndex,
@@ -219,7 +219,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                         searchValue = ApplyTargetTypeModifier(modifier, searchValue);
 
                         return helper.Build(
-                            searchParameter.Name,
+                            searchParameter.Code,
                             modifier,
                             comparator,
                             componentIndex,
@@ -246,7 +246,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                     }
 
                     throw new InvalidSearchOperationException(
-                        string.Format(Core.Resources.ModifierNotSupported, modifier, searchParameter.Name));
+                        string.Format(Core.Resources.ModifierNotSupported, modifier, searchParameter.Code));
                 }
 
                 try
@@ -260,7 +260,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions.Parsers
                 catch (ArgumentException)
                 {
                     throw new InvalidSearchOperationException(
-                        string.Format(Core.Resources.ModifierNotSupported, modifier, searchParameter.Name));
+                        string.Format(Core.Resources.ModifierNotSupported, modifier, searchParameter.Code));
                 }
             }
         }

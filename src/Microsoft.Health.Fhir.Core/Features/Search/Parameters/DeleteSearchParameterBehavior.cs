@@ -17,15 +17,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
     public class DeleteSearchParameterBehavior<TDeleteResourceRequest, TDeleteResourceResponse> : IPipelineBehavior<TDeleteResourceRequest, TDeleteResourceResponse>
         where TDeleteResourceRequest : DeleteResourceRequest
     {
-        private ISearchParameterUtilities _searchParameterUtilities;
+        private ISearchParameterOperations _searchParameterOperations;
         private IFhirDataStore _fhirDataStore;
 
-        public DeleteSearchParameterBehavior(ISearchParameterUtilities searchParameterUtilities, IFhirDataStore fhirDataStore)
+        public DeleteSearchParameterBehavior(ISearchParameterOperations searchParameterOperations, IFhirDataStore fhirDataStore)
         {
-            EnsureArg.IsNotNull(searchParameterUtilities, nameof(searchParameterUtilities));
+            EnsureArg.IsNotNull(searchParameterOperations, nameof(searchParameterOperations));
             EnsureArg.IsNotNull(fhirDataStore, nameof(fhirDataStore));
 
-            _searchParameterUtilities = searchParameterUtilities;
+            _searchParameterOperations = searchParameterOperations;
             _fhirDataStore = fhirDataStore;
         }
 
@@ -45,7 +45,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             {
                 // Once the SearchParameter resource is removed from the data store, we can update the in
                 // memory SearchParameterDefinitionManager, and remove the status metadata from the data store
-                await _searchParameterUtilities.DeleteSearchParameterAsync(searchParamResource.RawResource);
+                await _searchParameterOperations.DeleteSearchParameterAsync(searchParamResource.RawResource);
             }
 
             return response;

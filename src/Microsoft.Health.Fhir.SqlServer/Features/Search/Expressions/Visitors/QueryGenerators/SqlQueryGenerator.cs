@@ -141,8 +141,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 }
 
                 StringBuilder.Append(VLatest.Resource.RawResource, resourceTableAlias);
-
-                if (searchParamInfo != null && searchParamInfo.Name != KnownQueryParameterNames.LastUpdated)
+                if (searchParamInfo != null && searchParamInfo.Code != KnownQueryParameterNames.LastUpdated)
                 {
                     StringBuilder.Append(", ").Append(TableExpressionName(_tableExpressionCounter)).Append(".SortValue");
                 }
@@ -192,7 +191,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 if (!searchOptions.CountOnly)
                 {
                     StringBuilder.Append("ORDER BY ");
-                    if (searchParamInfo == null || searchParamInfo.Name == KnownQueryParameterNames.LastUpdated)
+                    if (searchParamInfo == null || searchParamInfo.Code == KnownQueryParameterNames.LastUpdated)
                     {
                         StringBuilder
                             .Append(VLatest.Resource.ResourceSurrogateId, resourceTableAlias).Append(" ")
@@ -335,7 +334,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 case SearchParamTableExpressionKind.Top:
                     var (paramInfo, sortOrder) = context.Sort.Count == 0 ? default : context.Sort[0];
                     var tableExpressionName = TableExpressionName(_tableExpressionCounter - 1);
-                    var sortExpression = (paramInfo == null || paramInfo.Name == KnownQueryParameterNames.LastUpdated) ? null : $"{tableExpressionName}.SortValue";
+                    var sortExpression = (paramInfo == null || paramInfo.Code == KnownQueryParameterNames.LastUpdated) ? null : $"{tableExpressionName}.SortValue";
 
                     // Everything in the top expression is considered a match
                     StringBuilder.Append("SELECT DISTINCT TOP (").Append(Parameters.AddParameter(context.MaxItemCount + 1)).Append(") Sid1, 1 AS IsMatch, 0 AS IsPartial ")
@@ -667,7 +666,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     var (supportedSortParam, _) = context.Sort.Count == 0 ? default : context.Sort[0];
 
                     // In union, any valid sort param is ok, except _lastUpdated, which gets a special treatment.
-                    bool supportedSortParamExists = supportedSortParam != null && supportedSortParam.Name != KnownQueryParameterNames.LastUpdated;
+                    bool supportedSortParamExists = supportedSortParam != null && supportedSortParam.Code != KnownQueryParameterNames.LastUpdated;
                     if (supportedSortParamExists)
                     {
                         StringBuilder.AppendLine(", SortValue");
@@ -884,7 +883,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             {
             }
 
-            public override bool VisitSearchParameter(SearchParameterExpression expression, string context) => string.Equals(expression.Parameter.Name, context, StringComparison.Ordinal);
+            public override bool VisitSearchParameter(SearchParameterExpression expression, string context) => string.Equals(expression.Parameter.Code, context, StringComparison.Ordinal);
         }
     }
 }

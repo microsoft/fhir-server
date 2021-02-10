@@ -36,6 +36,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             var patientName = Guid.NewGuid().ToString().ComputeHash().Substring(28).ToLower();
             var patient = new Patient { Name = new List<HumanName> { new HumanName { Family = patientName } } };
             var searchParam = Samples.GetJsonSample<SearchParameter>("SearchParameter");
+            searchParam.Code = "fooCode";
 
             // POST a new patient
             FhirResponse<Patient> expectedPatient = await Client.CreateAsync(patient);
@@ -86,7 +87,67 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             await WaitForReindexStatus(reindexJobUri, "Completed");
 
             // When job complete, search for resources using new parameter
-            await ExecuteAndValidateBundle($"Patient?foo:exact={patientName}", expectedPatient.Resource);
+            await ExecuteAndValidateBundle($"Patient?{searchParam.Code}:exact={patientName}", expectedPatient.Resource);
+
+            // Clean up new SearchParameter
+            await DeleteSearchParameterAndVerify(searchParamPosted.Resource);
+        }
+
+        [Fact]
+        public async Task GivenASearchParam_WhenUpdatingParam_ThenResourcesIndexedWithUpdatedParam()
+        {
+            var patientName = Guid.NewGuid().ToString().ComputeHash().Substring(28).ToLower();
+            var patient = new Patient { Name = new List<HumanName> { new HumanName { Family = patientName } } };
+            var searchParam = Samples.GetJsonSample<SearchParameter>("SearchParameter");
+
+            // POST a new patient
+            FhirResponse<Patient> expectedPatient = await Client.CreateAsync(patient);
+
+            // POST a new Search parameter
+            FhirResponse<SearchParameter> searchParamPosted = null;
+            try
+            {
+                searchParamPosted = await Client.CreateAsync(searchParam);
+            }
+            catch (FhirException)
+            {
+                // if the SearchParameter exists, we should delete it and recreate it
+                var searchParamBundle = await Client.SearchAsync(ResourceType.SearchParameter, $"url={searchParam.Url}");
+                if (searchParamBundle.Resource?.Entry[0] != null && searchParamBundle.Resource?.Entry[0].Resource.ResourceType == ResourceType.SearchParameter)
+                {
+                    await DeleteSearchParameterAndVerify(searchParamBundle.Resource?.Entry[0].Resource as SearchParameter);
+                    searchParamPosted = await Client.CreateAsync(searchParam);
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
+            // now update the new search parameter
+            searchParamPosted.Resource.Name = "foo2";
+            searchParamPosted.Resource.Url = "http://hl7.org/fhir/SearchParameter/Patient-foo2";
+            searchParamPosted.Resource.Code = "foo2";
+            searchParamPosted = await Client.UpdateAsync(searchParamPosted.Resource);
+
+            Uri reindexJobUri;
+            FhirResponse<Parameters> reindexJobResult;
+            try
+            {
+                // Reindex just a single patient, so we can try searching with a partially indexed search param
+                (reindexJobResult, reindexJobUri) = await Client.PostReindexJobAsync(new Parameters(), $"Patient/{expectedPatient.Resource.Id}/");
+                Parameters.ParameterComponent param = reindexJobResult.Resource.Parameter.FirstOrDefault(p => p.Name == "foo2");
+
+                Assert.Equal(patientName, param.Value.ToString());
+            }
+            catch (FhirException ex) when (ex.StatusCode == HttpStatusCode.BadRequest && ex.Message.Contains("not enabled"))
+            {
+                Skip.If(!_fixture.IsUsingInProcTestServer, "Reindex is not enabled on this server.");
+                return;
+            }
+
+            // When job complete, search for resources using new parameter
+            await ExecuteAndValidateBundle($"Patient?foo2:exact={patientName}", Tuple.Create("x-ms-use-partial-indices", "true"), expectedPatient.Resource);
 
             // Clean up new SearchParameter
             await DeleteSearchParameterAndVerify(searchParamPosted.Resource);

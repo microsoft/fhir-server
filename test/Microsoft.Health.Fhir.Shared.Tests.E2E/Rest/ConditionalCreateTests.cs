@@ -71,6 +71,39 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         [Fact]
         [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAResourceAndProvenanceHeader_WhenCreatingConditionallyWithNoIdAndNoExisting_TheServerShouldRespondSuccessfully()
+        {
+            var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
+            observation.Id = null;
+
+            using FhirResponse<Observation> updateResponse = await _client.CreateAsync(
+                observation,
+                $"identifier={Guid.NewGuid().ToString()}",
+                Samples.GetProvenanceHeader());
+
+            Assert.Equal(HttpStatusCode.Created, updateResponse.StatusCode);
+
+            Observation updatedResource = updateResponse.Resource;
+
+            Assert.NotNull(updatedResource);
+            Assert.NotNull(updatedResource.Id);
+
+            using var provenanceResponse = await _client.SearchAsync(ResourceType.Provenance, $"target={observation.Id}");
+            Assert.Equal(HttpStatusCode.OK, provenanceResponse.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
+        public async Task GivenAResourceAndMalformedProvenanceHeader_WhenPostingToHttp_TheServerShouldRespondSuccessfully()
+        {
+            var observation = Samples.GetDefaultObservation().ToPoco<Observation>();
+            observation.Id = null;
+            var exception = await Assert.ThrowsAsync<FhirException>(() => _client.CreateAsync(Samples.GetDefaultObservation().ToPoco<Observation>(), $"identifier={Guid.NewGuid().ToString()}", "Jibberish"));
+            Assert.Equal(HttpStatusCode.BadRequest, exception.StatusCode);
+        }
+
+        [Fact]
+        [Trait(Traits.Priority, Priority.One)]
         public async Task GivenAResource_WhenCreatingConditionallyWithMultipleMatches_TheServerShouldFail()
         {
             var observation = Samples.GetDefaultObservation().ToPoco<Observation>();

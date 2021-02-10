@@ -301,6 +301,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             SearchParameterInfo searchParameter = new SearchParameter
             {
                 Name = paramName,
+                Code = paramName,
                 Type = SearchParamType.String,
                 Url = $"http://testparameter/{resourceType}-{paramName}",
             }.ToInfo();
@@ -315,6 +316,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.Expressions.Parse
             SearchParameterInfo referenceSearchParam = new SearchParameter
             {
                 Name = paramName,
+                Code = paramName,
                 Type = SearchParamType.Reference,
                 Target = targetResourceTypes.Cast<ResourceType?>(),
             }.ToInfo();

@@ -49,6 +49,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\CustomSearchParamTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\RequiresIsolatedDatabaseAttribute.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\BasicSearchTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\CanonicalSearchTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\CanonicalSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\ChainingSearchTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\CompositeSearchTestFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\Search\CompositeSearchTests.cs" />

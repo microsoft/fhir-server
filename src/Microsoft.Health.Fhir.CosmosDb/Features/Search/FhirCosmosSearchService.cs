@@ -26,8 +26,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 {
     public class FhirCosmosSearchService : SearchService
     {
-        private static readonly SearchParameterInfo _typeIdCompositeSearchParameter = new SearchParameterInfo(SearchValueConstants.TypeIdCompositeSearchParameterName);
-        private static readonly SearchParameterInfo _wildcardReferenceSearchParameter = new SearchParameterInfo(SearchValueConstants.WildcardReferenceSearchParameterName);
+        private static readonly SearchParameterInfo _typeIdCompositeSearchParameter = new SearchParameterInfo(SearchValueConstants.TypeIdCompositeSearchParameterName, SearchValueConstants.TypeIdCompositeSearchParameterName);
+        private static readonly SearchParameterInfo _wildcardReferenceSearchParameter = new SearchParameterInfo(SearchValueConstants.WildcardReferenceSearchParameterName, SearchValueConstants.WildcardReferenceSearchParameterName);
 
         private readonly CosmosFhirDataStore _fhirDataStore;
         private readonly IQueryBuilder _queryBuilder;
