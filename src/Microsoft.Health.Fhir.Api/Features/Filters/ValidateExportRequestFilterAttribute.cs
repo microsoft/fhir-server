@@ -120,7 +120,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
 
         private bool IsValidAnonymizedExportRequestParam(HttpRequest request, string paramName)
         {
-            if (AnonymizedExportRequestPathRegexs.Any(pathRegex => Regex.IsMatch(request.Path, pathRegex)))
+            if (AnonymizedExportRequestPathRegexs.Any(pathRegex => Regex.IsMatch(
+                input: request.Path,
+                pattern: pathRegex,
+                options: RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)))
             {
                 return _supportedQueryParamsForAnonymizedExport.Contains(paramName);
             }

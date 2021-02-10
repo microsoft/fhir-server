@@ -123,6 +123,28 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             _filter.OnActionExecuting(context);
         }
 
+        [InlineData("/export")]
+        [InlineData("/Location/$export")]
+        [InlineData("/Group/$export")]
+        [InlineData("/Group/!@#/$export")]
+        [Theory]
+        public void GivenARequestWithUnsupportedAnonymizedExportRequestPath_WhenGettingAnExportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown(string queryPath)
+        {
+            var context = CreateContext();
+            context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
+            context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
+
+            var queryParams = new Dictionary<string, StringValues>()
+            {
+                { KnownQueryParameterNames.AnonymizationConfigurationLocation, "paramValue" },
+            };
+
+            context.HttpContext.Request.Query = new QueryCollection(queryParams);
+            context.HttpContext.Request.Path = new PathString(queryPath);
+
+            Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
+        }
+
         [InlineData(KnownQueryParameterNames.Since)]
         [InlineData(KnownQueryParameterNames.Type)]
         [InlineData(KnownQueryParameterNames.Since, KnownQueryParameterNames.Type)]
