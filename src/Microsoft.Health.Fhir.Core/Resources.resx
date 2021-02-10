@@ -526,7 +526,7 @@
     <comment>{0} the uri identifying the custom search parameter.</comment>
   </data>
   <data name="NoResourcesNeedToBeReindexed" xml:space="preserve">
-    <value>No resources were found matching the type of the updated search parameters needing to be reindexed.  ReindexJob cancelled.</value>
+    <value>No resources were found matching the type of the updated search parameters needing to be reindexed.  ReindexJob marked completed.</value>
   </data>
   <data name="ProvenanceHeaderMalformed" xml:space="preserve">
     <value>X-Provenance header is malformed and can't be parsed</value>
