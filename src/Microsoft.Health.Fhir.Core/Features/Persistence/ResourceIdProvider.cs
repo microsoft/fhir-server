@@ -4,29 +4,28 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.Threading;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
 {
     public class ResourceIdProvider
     {
-        private readonly AsyncLocal<Func<string>> _resourceId = new AsyncLocal<Func<string>>();
+        private Func<string> _resourceId;
 
         public ResourceIdProvider()
         {
-            _resourceId.Value = () => Guid.NewGuid().ToString();
+            _resourceId = () => Guid.NewGuid().ToString();
         }
 
         public Func<string> Create
         {
             get
             {
-                return _resourceId.Value;
+                return _resourceId;
             }
 
             set
             {
-                _resourceId.Value = value;
+                _resourceId = value;
             }
         }
     }

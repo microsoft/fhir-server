@@ -677,7 +677,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         {
             if (!queryParametersList.Exists((Tuple<string, string> parameter) => parameter.Item1 == KnownQueryParameterNames.Id || parameter.Item1 == KnownQueryParameterNames.ContinuationToken))
             {
-                var patientIds = await _groupMemberExtractor.GetGroupPatientIds(groupId, groupMembershipTime, cancellationToken);
+                HashSet<string> patientIds = await _groupMemberExtractor.GetGroupPatientIds(groupId, groupMembershipTime, cancellationToken);
+
+                if (patientIds.Count == 0)
+                {
+                    _logger.LogInformation($"Group {groupId} does not have any patient ids as members.");
+                    return SearchResult.Empty();
+                }
+
                 queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Id, string.Join(',', patientIds)));
             }
 

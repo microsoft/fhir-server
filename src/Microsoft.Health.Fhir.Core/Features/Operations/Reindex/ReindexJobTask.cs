@@ -71,7 +71,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
             try
             {
-                if (_reindexJobRecord.Status != OperationStatus.Running)
+                if (_reindexJobRecord.Status != OperationStatus.Running ||
+                    _reindexJobRecord.StartTime == null)
                 {
                     // update job record to running
                     _reindexJobRecord.Status = OperationStatus.Running;
@@ -126,8 +127,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                             OperationOutcomeConstants.IssueSeverity.Information,
                             OperationOutcomeConstants.IssueType.Informational,
                             Resources.NoResourcesNeedToBeReindexed));
-                        _reindexJobRecord.CanceledTime = DateTimeOffset.UtcNow;
-                        await CompleteJobAsync(OperationStatus.Canceled, cancellationToken);
+                        await UpdateParametersAndCompleteJob(cancellationToken);
                         return;
                     }
 
@@ -263,6 +263,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                     {
                         await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
                     }
+                    else
+                    {
+                        _reindexJobRecord.Status = OperationStatus.Queued;
+                        await UpdateJobAsync(cancellationToken);
+                    }
                 }
                 finally
                 {
@@ -372,24 +377,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 // all queries marked as complete, reindex job is done, check success or failure
                 if (_reindexJobRecord.QueryList.All(q => q.Status == OperationStatus.Completed))
                 {
-                    (bool success, string error) = await _reindexUtilities.UpdateSearchParameterStatus(_reindexJobRecord.SearchParams, cancellationToken);
-
-                    if (success)
-                    {
-                        await CompleteJobAsync(OperationStatus.Completed, cancellationToken);
-                        _logger.LogInformation($"Reindex job successfully completed, id {_reindexJobRecord.Id}.");
-                    }
-                    else
-                    {
-                        var issue = new OperationOutcomeIssue(
-                            OperationOutcomeConstants.IssueSeverity.Error,
-                            OperationOutcomeConstants.IssueType.Exception,
-                            error);
-                        _reindexJobRecord.Error.Add(issue);
-                        _logger.LogError(error);
-
-                        await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
-                    }
+                    await UpdateParametersAndCompleteJob(cancellationToken);
                 }
                 else
                 {
@@ -464,10 +452,35 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
 
                 // update the complete total
                 SearchResult countOnlyResults = await ExecuteReindexQueryAsync(queryForCount, countOnly: true, cancellationToken);
-                totalCount += countOnlyResults.TotalCount.Value;
+                if (countOnlyResults != null)
+                {
+                    totalCount += countOnlyResults.TotalCount.Value;
+                }
             }
 
             _reindexJobRecord.Count = totalCount;
+        }
+
+        private async Task UpdateParametersAndCompleteJob(CancellationToken cancellationToken)
+        {
+            (bool success, string error) = await _reindexUtilities.UpdateSearchParameterStatus(_reindexJobRecord.SearchParams, cancellationToken);
+
+            if (success)
+            {
+                await CompleteJobAsync(OperationStatus.Completed, cancellationToken);
+                _logger.LogInformation($"Reindex job successfully completed, id {_reindexJobRecord.Id}.");
+            }
+            else
+            {
+                var issue = new OperationOutcomeIssue(
+                    OperationOutcomeConstants.IssueSeverity.Error,
+                    OperationOutcomeConstants.IssueType.Exception,
+                    error);
+                _reindexJobRecord.Error.Add(issue);
+                _logger.LogError(error);
+
+                await CompleteJobAsync(OperationStatus.Failed, cancellationToken);
+            }
         }
     }
 }

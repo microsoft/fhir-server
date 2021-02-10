@@ -68,5 +68,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
         public string ContinuationToken { get; }
 
         public IReadOnlyList<(SearchParameterInfo searchParameterInfo, SortOrder sortOrder)> SortOrder { get; }
+
+        public static SearchResult Empty(IReadOnlyList<Tuple<string, string>> unsupportedSearchParams = null)
+        {
+            return new SearchResult(totalCount: 0, unsupportedSearchParams ?? new List<Tuple<string, string>>());
+        }
     }
 }
