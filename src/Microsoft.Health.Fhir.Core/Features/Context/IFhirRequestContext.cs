@@ -19,5 +19,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Context
         IList<OperationOutcomeIssue> BundleIssues { get; }
 
         bool IncludePartiallyIndexedSearchParams { get; set; }
+
+        /// <summary>
+        /// Indicates whether this request is part of the execution of a batch or transaction request.
+        /// </summary>
+        bool ExecutingBatchOrTransaction { get; set; }
     }
 }

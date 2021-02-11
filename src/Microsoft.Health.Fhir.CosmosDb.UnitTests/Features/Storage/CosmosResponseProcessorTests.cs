@@ -111,15 +111,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
         }
 
         [Fact]
-        public async Task GivenANullFhirRequestContext_WhenProcessing_ThenNothingAdditionalShouldOccur()
-        {
-            _fhirRequestContextAccessor.FhirRequestContext.Returns((IFhirRequestContext)null);
-            ResponseMessage response = CreateResponseException("fail", HttpStatusCode.TooManyRequests);
-
-            await _cosmosResponseProcessor.ProcessErrorResponse(response);
-        }
-
-        [Fact]
         public void GivenAThrottlingResponseWithRetryAfterHeader_WhenProcessed_ThrowsWithRetryAfter()
         {
             var retryAfter = TimeSpan.FromMilliseconds(200);
