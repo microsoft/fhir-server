@@ -1,0 +1,28 @@
+# DESCRIPTION: 	
+# Cleans up resource groups created by pull requests
+
+trigger: none
+pr: none
+
+schedules:
+- cron: "0 8 * * 6"
+  displayName: Weekly Saturday midnight Pacific time build
+  branches:
+    include:
+    - main
+
+varaibles:
+- template: pr-variables.yml
+
+jobs:
+- job: Delete Resource Groups
+  pool:
+    vmImage: $(WindowsVmImage)
+  steps: 
+  - task: AzurePowerShell@4
+    displayName: 'Delete resource groups'
+    inputs:
+      azureSubscription: $(ConnectedServiceName)
+      azurePowerShellVersion: latestVersion
+      ScriptType: InlineScript
+      Inline: 'Get-AzResourceGroup -Name "$(resource-group-root)-*" | Remove-AzResourceGroup -Verbose -Force'
