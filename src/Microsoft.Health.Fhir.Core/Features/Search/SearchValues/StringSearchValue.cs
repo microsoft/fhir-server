@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Diagnostics.CodeAnalysis;
 using EnsureThat;
 
@@ -11,7 +12,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
     /// <summary>
     /// Represents a string search value.
     /// </summary>
-    public class StringSearchValue : ISearchValue
+    [SuppressMessage("ReSharper", "CA1036", Justification = "Used for sort comparison.")]
+    public class StringSearchValue : ISearchValue, ISupportSortSearchValue
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="StringSearchValue"/> class.
@@ -33,6 +35,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         /// <inheritdoc />
         public bool IsValidAsCompositeComponent => true;
 
+        /// <inheritdoc />
+        public bool IsMin { get; set; }
+
+        /// <inheritdoc />
+        public bool IsMax { get; set; }
+
         /// <summary>
         /// Parses the string value to an instance of <see cref="StringSearchValue"/>.
         /// </summary>
@@ -51,6 +59,23 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
             EnsureArg.IsNotNull(visitor, nameof(visitor));
 
             visitor.Visit(this);
+        }
+
+        /// <inheritdoc />
+        public int CompareTo(ISupportSortSearchValue supportSortSearchValue, ComparisonRange range)
+        {
+            if (supportSortSearchValue == null)
+            {
+                throw new ArgumentException("Value to be compared to cannot be null");
+            }
+
+            var otherValue = supportSortSearchValue as StringSearchValue;
+            if (otherValue == null)
+            {
+                throw new ArgumentException($"Value to be compared should be of type {typeof(StringSearchValue)}");
+            }
+
+            return string.Compare(ToString(), otherValue.ToString(), StringComparison.InvariantCultureIgnoreCase);
         }
 
         public bool Equals([AllowNull] ISearchValue other)

@@ -104,7 +104,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 _searchIndexer,
                 Deserializers.ResourceDeserializer,
                 _supportedSearchParameterDefinitionManager,
-                _searchParameterStatusManager);
+                _searchParameterStatusManager,
+                Substitute.For<IResourceWrapperFactory>());
 
             coreOptions.Value.Returns(new CoreFeatureConfiguration());
 
