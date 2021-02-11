@@ -28,6 +28,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ExportDataValidationTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ExportLongRunningTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ExportTestFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Rest\ExportTestHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\ObservationResolveReferenceTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\CreateTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Rest\DeleteTests.cs" />
