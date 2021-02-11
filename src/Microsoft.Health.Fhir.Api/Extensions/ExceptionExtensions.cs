@@ -8,7 +8,7 @@ using EnsureThat;
 
 namespace Microsoft.Health.Fhir.Api.Extensions
 {
-    public static class ExceptionExtensions
+    internal static class ExceptionExtensions
     {
         public static Exception GetInnerMostException(this Exception input)
         {
