@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -32,6 +33,7 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.Integration.Persistence;
+using Microsoft.Health.Test.Utilities;
 using NSubstitute;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
@@ -88,6 +90,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             var fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
             _searchableSearchParameterDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, fhirRequestContextAccessor);
 
+            ResourceWrapperFactory wrapperFactory = Mock.TypeWithArguments<ResourceWrapperFactory>(
+                new RawResourceFactory(new FhirJsonSerializer()),
+                _searchIndexer,
+                _searchableSearchParameterDefinitionManager,
+                Deserializers.ResourceDeserializer);
+
             _searchParameterStatusManager = new SearchParameterStatusManager(
                 _searchParameterStatusDataStore,
                 _searchParameterDefinitionManager,
@@ -105,7 +113,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 Deserializers.ResourceDeserializer,
                 _supportedSearchParameterDefinitionManager,
                 _searchParameterStatusManager,
-                Substitute.For<IResourceWrapperFactory>());
+                wrapperFactory);
 
             coreOptions.Value.Returns(new CoreFeatureConfiguration());
 
