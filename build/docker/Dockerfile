@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/core/sdk:3.1.405-bionic AS build
+FROM mcr.microsoft.com/dotnet/sdk:5.0.102-1-alpine3.12@sha256:fb1a43b50c7047e5f28e309268a8f5425abc9cb852124f6828dcb0e4f859a4a1 AS build
 
 ARG FHIR_VERSION
 
@@ -63,7 +63,7 @@ COPY . .
 
 RUN dotnet publish /repo/src/Microsoft.Health.Fhir.${FHIR_VERSION}.Web/Microsoft.Health.Fhir.${FHIR_VERSION}.Web.csproj -c Release -o "/build" --no-restore
 
-FROM mcr.microsoft.com/dotnet/core/aspnet:3.1-alpine AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:5.0.2-alpine3.12@sha256:efd03222416e60b50eb86183a6018c698eebcf496dfa427711ebd7d5c50b427f AS runtime
 
 ARG FHIR_VERSION
 
