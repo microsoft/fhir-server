@@ -22,9 +22,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         ResourceWrapper Create(ResourceElement resource, bool deleted, bool keepMeta);
 
         /// <summary>
-        /// Updates the search index on a resource wrapper.
+        /// Updates the search index on <see cref="ResourceWrapper"/>.
         /// </summary>
-        /// <param name="resourceWrapper">The resource wrapper.</param>
+        /// <param name="resourceWrapper">An instance of <see cref="ResourceWrapper"/></param>
         void Update(ResourceWrapper resourceWrapper);
     }
 }

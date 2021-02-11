@@ -88,6 +88,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 searchParamHash);
         }
 
+        /// <inheritdoc />
         public void Update(ResourceWrapper resourceWrapper)
         {
             var resourceElement = _resourceDeserializer.Deserialize(resourceWrapper);
