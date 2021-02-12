@@ -281,7 +281,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
         {
             public bool Equals((string method, string path) x, (string method, string path) y)
             {
-                return StringComparer.OrdinalIgnoreCase.Equals(x.method, y.method) && StringComparer.OrdinalIgnoreCase.Equals(x.method, y.path);
+                return StringComparer.OrdinalIgnoreCase.Equals(x.method, y.method) && StringComparer.OrdinalIgnoreCase.Equals(x.path, y.path);
             }
 
             public int GetHashCode((string method, string path) obj)
