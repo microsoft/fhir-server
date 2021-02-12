@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Hl7.Fhir.Model;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -75,7 +76,20 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 
             for (var i = 0; i < expectedJObjects.Count; i++)
             {
-                Assert.True(JToken.DeepEquals(expectedJObjects[i], extractedIndices[i]), "Expected: " + Environment.NewLine + JsonConvert.SerializeObject(indices, Formatting.Indented, _settings));
+                bool deepEquals = JToken.DeepEquals(expectedJObjects[i], extractedIndices[i]);
+
+                if (!deepEquals)
+                {
+                    var changePath = Path.GetFullPath(Environment.CurrentDirectory + "../../../../../Microsoft.Health.Fhir.Tests.Common/TestFiles/" + ModelInfoProvider.Version)
+                                     + $"/{resourceFile}.indexes.json";
+                    if (File.Exists(changePath))
+                    {
+                        File.WriteAllText(changePath, JsonConvert.SerializeObject(indices, Formatting.Indented, _settings));
+                        Assert.True(deepEquals, "File was updated, please review changes.");
+                    }
+                }
+
+                Assert.True(deepEquals);
             }
         }
     }
