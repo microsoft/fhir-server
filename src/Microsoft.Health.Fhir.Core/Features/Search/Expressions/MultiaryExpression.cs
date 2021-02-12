@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     /// <summary>
     /// Represents a multiary expression where <see cref="Expressions"/> are grouped by <see cref="MultiaryOperation"/>.
     /// </summary>
-    public class MultiaryExpression : Expression
+    public record MultiaryExpression : Expression
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="MultiaryExpression"/> class.

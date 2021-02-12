@@ -10,7 +10,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     /// <summary>
     /// Represents an string expression.
     /// </summary>
-    public class StringExpression : Expression, IFieldExpression
+    public record StringExpression : Expression, IFieldExpression
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="StringExpression"/> class.

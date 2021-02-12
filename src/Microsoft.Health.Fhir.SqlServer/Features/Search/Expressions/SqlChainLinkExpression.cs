@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
     /// <summary>
     /// An expression type used to represent a non-leaf chaining expression. Used by the SQL layer, created from <see cref="ChainedExpression"/>.
     /// </summary>
-    internal class SqlChainLinkExpression : Expression
+    internal record SqlChainLinkExpression : Expression
     {
         public SqlChainLinkExpression(
             string[] resourceTypes,

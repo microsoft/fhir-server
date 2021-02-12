@@ -11,7 +11,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     /// <summary>
     /// Represents an expression for search performed for a compartment.
     /// </summary>
-    public class CompartmentSearchExpression : Expression
+    public record CompartmentSearchExpression : Expression
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="CompartmentSearchExpression"/> class.

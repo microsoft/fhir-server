@@ -11,7 +11,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     /// <summary>
     /// Represents an expression that indicates the search parameter should be missing.
     /// </summary>
-    public class MissingSearchParameterExpression : SearchParameterExpressionBase
+    public record MissingSearchParameterExpression : SearchParameterExpressionBase
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="MissingSearchParameterExpression"/> class.

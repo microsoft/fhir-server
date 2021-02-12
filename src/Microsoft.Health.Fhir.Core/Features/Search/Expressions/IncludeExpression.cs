@@ -13,7 +13,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     /// <summary>
     /// Represents an include expression (where an additional resource is included based on a reference)
     /// </summary>
-    public class IncludeExpression : Expression
+    public record IncludeExpression : Expression
     {
         private IReadOnlyCollection<string> _requires;
         private IReadOnlyCollection<string> _produces;

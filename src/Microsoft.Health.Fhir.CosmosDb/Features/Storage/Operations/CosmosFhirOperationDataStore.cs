@@ -308,7 +308,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Operations
             }
         }
 
-        public async Task<(bool, string)> CheckActiveReindexJobsAsync(CancellationToken cancellationToken)
+        public async Task<(bool found, string id)> CheckActiveReindexJobsAsync(CancellationToken cancellationToken)
         {
             try
             {
