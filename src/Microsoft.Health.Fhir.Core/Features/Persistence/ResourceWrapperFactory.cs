@@ -107,7 +107,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
 
             foreach (SearchIndexEntry currentEntry in searchIndices)
             {
-                // Currently we are tracking the min/max values only for string type parameters.
                 var currentValue = currentEntry.Value as ISupportSortSearchValue;
                 if (currentValue == null)
                 {
@@ -139,7 +138,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 }
             }
 
-            // Update the actual StringSearchValue objects with the appropriate IsMin/IsMax value
             foreach (KeyValuePair<Uri, ISupportSortSearchValue> kvp in minValues)
             {
                 kvp.Value.IsMin = true;
