@@ -9,7 +9,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Shared.Core.Features.Validation;
-using Xunit;
 
 namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 {
@@ -30,8 +29,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         {
             base.ConfigureServices(services);
             var path = Path.GetDirectoryName(GetType().Assembly.Location);
-            var pathToZip = Path.Combine(path, "Profiles", $"{ModelInfoProvider.Version}", $"{ModelInfoProvider.Version}.zip");
-            Assert.True(File.Exists(pathToZip), $"{pathToZip} doesn't exist");
             var profileReader = new ProfileReaderFromZip(Path.Combine(path, "Profiles", $"{ModelInfoProvider.Version}", $"{ModelInfoProvider.Version}.zip"));
             services.Replace(new ServiceDescriptor(typeof(IProvideProfilesForValidation), profileReader));
         }
