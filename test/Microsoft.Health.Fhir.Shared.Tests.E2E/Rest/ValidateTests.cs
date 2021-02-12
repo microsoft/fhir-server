@@ -4,6 +4,7 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.IO;
 using System.Linq;
 using System.Net;
 using Hl7.Fhir.ElementModel;
@@ -11,6 +12,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Shared.Tests.E2E.Rest;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -39,6 +41,12 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("Patient/$validate", "Profile-Patient", null)]
         public async void GivenAValidateRequest_WhenTheResourceIsValid_ThenAnOkMessageIsReturned(string path, string filename, string profile)
         {
+            var location = Path.GetDirectoryName(GetType().Assembly.Location);
+            var pathToZip = Path.Combine(location, "Profiles", $"{ModelInfoProvider.Version}", $"{ModelInfoProvider.Version}.zip");
+            Assert.True(File.Exists(pathToZip), $"{pathToZip} doesn't exist");
+            var profileReader = new ProfileReaderFromZip(pathToZip);
+            Assert.NotEmpty(profileReader.ListSummaries());
+            Assert.NotNull(profileReader.ResolveByCanonicalUri("http://hl7.org/fhir/us/core/StructureDefinition/us-core-careplan"));
             OperationOutcome outcome = await _client.ValidateAsync(path, Samples.GetJson(filename), profile);
 
             Assert.Empty(outcome.Issue.Where(x => x.Severity == OperationOutcome.IssueSeverity.Error));
