@@ -149,9 +149,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     case ConfigureCustomSearchException _:
                         operationOutcomeResult.StatusCode = HttpStatusCode.FailedDependency;
                         break;
-                    case ProfileValidationFailedException _:
-                        operationOutcomeResult.StatusCode = HttpStatusCode.BadRequest;
-                        break;
                 }
 
                 context.Result = operationOutcomeResult;

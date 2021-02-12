@@ -10,7 +10,10 @@ using Microsoft.Health.Fhir.Shared.Core.Features.Validation;
 
 namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 {
-    public class ProfileReaderFromZip : IProvideProfilesForValidation
+    /// <summary>
+    /// Extract profiles from specified zip folder.
+    /// </summary>
+    internal sealed class ProfileReaderFromZip : IProvideProfilesForValidation
     {
         private ZipSource _source;
 

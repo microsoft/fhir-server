@@ -8,7 +8,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using EnsureThat;
 using Hl7.Fhir.Model;
-using Hl7.Fhir.Serialization;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Health.Api.Features.Audit;
@@ -31,12 +30,14 @@ namespace Microsoft.Health.Fhir.Api.Controllers
     public class ValidateController : Controller
     {
         private readonly IMediator _mediator;
+        private readonly ResourceDeserializer _resourceDeserializer;
 
-        public ValidateController(IMediator mediator)
+        public ValidateController(IMediator mediator, ResourceDeserializer resourceDeserializer)
         {
             EnsureArg.IsNotNull(mediator, nameof(mediator));
 
             _mediator = mediator;
+            _resourceDeserializer = resourceDeserializer;
         }
 
         [HttpPost]
@@ -73,7 +74,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 resource = parameterResource.Parameter.Find(param => param.Name.Equals("resource", StringComparison.OrdinalIgnoreCase)).Resource;
             }
 
-            return await RunValidationAsync(resource, profile);
+            return await RunValidationAsync(resource.ToResourceElement(), profile);
         }
 
         [HttpGet]
@@ -85,15 +86,13 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             RawResourceElement response = await _mediator.GetResourceAsync(new ResourceKey(typeParameter, idParameter), HttpContext.RequestAborted);
 
             // Convert it to fhir object.
-            FhirJsonParser parser = new FhirJsonParser();
-            var convertedResource = parser.Parse<Resource>(response.RawResource.Data);
-
-            return await RunValidationAsync(convertedResource, profile);
+            var resource = _resourceDeserializer.Deserialize(response);
+            return await RunValidationAsync(resource, profile);
         }
 
-        private async Task<IActionResult> RunValidationAsync(Resource resource, Uri profile)
+        private async Task<IActionResult> RunValidationAsync(ResourceElement resource, Uri profile)
         {
-            var response = await _mediator.Send<ValidateOperationResponse>(new ValidateOperationRequest(resource.ToResourceElement(), profile));
+            var response = await _mediator.Send<ValidateOperationResponse>(new ValidateOperationRequest(resource, profile));
 
             return FhirResult.Create(new OperationOutcome
             {

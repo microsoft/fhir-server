@@ -11,10 +11,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
     public interface IProfileValidator
     {
         /// <summary>
-        /// Validate element to profile and return collection of issues.
+        /// Validate resource to profile and return collection of issues.
         /// </summary>
-        /// <param name="element">Element to validate.</param>
-        /// <param name="profile">Profile url to check. If <see langword="null"/>> we will validate according to meta profiles in element.</param>
-        OperationOutcomeIssue[] TryValidate(ITypedElement element, string profile = null);
+        /// <param name="resource">Resource to validate.</param>
+        /// <param name="profile">Profile url to check. If <see langword="null"/>> we will validate according to meta profiles in resource.</param>
+        OperationOutcomeIssue[] TryValidate(ITypedElement resource, string profile = null);
     }
 }

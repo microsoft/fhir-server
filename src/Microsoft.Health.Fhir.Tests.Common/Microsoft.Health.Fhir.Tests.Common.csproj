@@ -8,11 +8,6 @@
     <IsTestProject>false</IsTestProject>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Remove="Profiles\UsCore\**" />
-    <EmbeddedResource Remove="Profiles\UsCore\**" />
-    <None Remove="Profiles\UsCore\**" />
-  </ItemGroup>
-  <ItemGroup>
     <None Remove="DefinitionFiles\R5\SearchParameters.json" />
     <None Remove="DefinitionFiles\R5\SearchParametersWithInvalidBase.json" />
     <None Remove="DefinitionFiles\R5\SearchParametersWithInvalidDefinitions.json" />
@@ -357,9 +352,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
-  </ItemGroup>
-  <ItemGroup>
-    <Folder Include="Profiles\R4\" />
   </ItemGroup>
   <ItemGroup>
     <None Update="Profiles\R4\R4.zip">

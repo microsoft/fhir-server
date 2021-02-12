@@ -40,7 +40,7 @@ namespace Microsoft.Health.Fhir.Api.Modules
             services.AddSingleton<INarrativeHtmlSanitizer, NarrativeHtmlSanitizer>();
             services.AddSingleton<IModelAttributeValidator, ModelAttributeValidator>();
 
-            // This is Noop is temporary and should be replaced as soon as we start keeping profiles on server.
+            // This Noop is temporary and should be replaced as soon as we start keeping profiles on server.
             services.AddSingleton<IProvideProfilesForValidation, NoopProvideProfileValidation>();
             services.AddSingleton<IProfileValidator, ProfileValidator>();
         }

@@ -30,14 +30,14 @@ namespace Microsoft.Health.Fhir.Core.Extensions
             EnsureArg.IsNotNull(issue, nameof(issue));
 
             CodeableConcept details = null;
-            if (issue.DetailsCodes != null && issue.DetailsText != null)
+            var coding = new List<Coding>();
+            if (issue.DetailsCodes != null)
             {
-                var coding = new List<Coding>();
-                if (issue.DetailsCodes != null)
-                {
-                    coding = issue.DetailsCodes.Coding.Select(x => new Coding(x.System, x.Code, x.Display)).ToList();
-                }
+                coding = issue.DetailsCodes.Coding.Select(x => new Coding(x.System, x.Code, x.Display)).ToList();
+            }
 
+            if (coding.Count != 0 || issue.DetailsText != null)
+            {
                 details = new CodeableConcept()
                 {
                     Coding = coding,

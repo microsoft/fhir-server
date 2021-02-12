@@ -24,6 +24,7 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Validation
         public ProfileValidator(IProvideProfilesForValidation profilesResolver, IOptions<ValidateOperationConfiguration> options)
         {
             EnsureArg.IsNotNull(profilesResolver, nameof(profilesResolver));
+            EnsureArg.IsNotNull(options?.Value, nameof(options));
             try
             {
                 _resolver = new CachedResolver(

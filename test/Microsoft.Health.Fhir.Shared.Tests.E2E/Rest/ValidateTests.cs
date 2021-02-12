@@ -42,6 +42,18 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             OperationOutcome outcome = await _client.ValidateAsync(path, Samples.GetJson(filename), profile);
 
             Assert.Empty(outcome.Issue.Where(x => x.Severity == OperationOutcome.IssueSeverity.Error));
+            Parameters parameters = new Parameters();
+            if (!string.IsNullOrEmpty(profile))
+            {
+                parameters.Parameter.Add(new Parameters.ParameterComponent() { Name = "profile", Value = new FhirString(profile) });
+            }
+
+            var parser = new FhirJsonParser();
+            parameters.Parameter.Add(new Parameters.ParameterComponent() { Name = "resource", Resource = parser.Parse<Resource>(Samples.GetJson(filename)) });
+
+            outcome = await _client.ValidateAsync(path, parameters.ToJson());
+
+            Assert.Empty(outcome.Issue.Where(x => x.Severity == OperationOutcome.IssueSeverity.Error));
         }
 
         [Theory]
@@ -53,6 +65,19 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async void GivenAValidateRequest_WhenTheResourceIsNonConformToProfile_ThenAnErrorShouldBeReturned(string path, string filename, string profile)
         {
             OperationOutcome outcome = await _client.ValidateAsync(path, Samples.GetJson(filename), profile);
+
+            Assert.NotEmpty(outcome.Issue.Where(x => x.Severity == OperationOutcome.IssueSeverity.Error));
+
+            Parameters parameters = new Parameters();
+            if (!string.IsNullOrEmpty(profile))
+            {
+                parameters.Parameter.Add(new Parameters.ParameterComponent() { Name = "profile", Value = new FhirString(profile) });
+            }
+
+            var parser = new FhirJsonParser();
+            parameters.Parameter.Add(new Parameters.ParameterComponent() { Name = "resource", Resource = parser.Parse<Resource>(Samples.GetJson(filename)) });
+
+            outcome = await _client.ValidateAsync(path, parameters.ToJson());
 
             Assert.NotEmpty(outcome.Issue.Where(x => x.Severity == OperationOutcome.IssueSeverity.Error));
         }
