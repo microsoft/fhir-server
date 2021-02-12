@@ -16,6 +16,7 @@ using Microsoft.Health.Abstractions.Exceptions;
 using Microsoft.Health.Core.Internal;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage;
@@ -39,7 +40,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.UnitTests.Features.Storage
                 _cosmosDataStoreConfiguration,
                 Substitute.For<IOptionsMonitor<CosmosCollectionConfiguration>>(),
                 _cosmosQueryFactory,
-                new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration),
+                new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration, Substitute.For<IFhirRequestContextAccessor>()),
                 NullLogger<CosmosFhirDataStore>.Instance,
                 Options.Create(new CoreFeatureConfiguration()));
         }
