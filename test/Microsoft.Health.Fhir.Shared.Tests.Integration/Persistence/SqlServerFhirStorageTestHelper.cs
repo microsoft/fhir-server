@@ -252,8 +252,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var scriptProvider = new ScriptProvider<SchemaVersion>();
             var baseScriptProvider = new BaseScriptProvider();
             var mediator = Substitute.For<IMediator>();
-            var schemaManagerDataStore = Substitute.For<ISchemaManagerDataStore>();
             var sqlConnectionFactory = new DefaultSqlConnectionFactory(config);
+            var schemaManagerDataStore = new SchemaManagerDataStore(sqlConnectionFactory);
             var schemaUpgradeRunner = new SchemaUpgradeRunner(scriptProvider, baseScriptProvider, mediator, NullLogger<SchemaUpgradeRunner>.Instance, sqlConnectionFactory, schemaManagerDataStore);
 
             return new SchemaInitializer(config, schemaUpgradeRunner, schemaInformation, sqlConnectionFactory, NullLogger<SchemaInitializer>.Instance);
