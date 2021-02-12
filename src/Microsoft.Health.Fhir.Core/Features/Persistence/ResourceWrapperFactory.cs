@@ -3,6 +3,7 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using EnsureThat;
 using Microsoft.Health.Core.Features.Security;
@@ -10,6 +11,7 @@ using Microsoft.Health.Fhir.Core.Features.Compartment;
 using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Persistence
@@ -65,6 +67,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
             IReadOnlyCollection<SearchIndexEntry> searchIndices = _searchIndexer.Extract(resource);
             string searchParamHash = _searchParameterDefinitionManager.GetSearchParameterHashForResourceType(resource.InstanceType);
 
+            ExtractMinAndMaxValues(searchIndices);
+
             IFhirRequestContext fhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
 
             return new ResourceWrapper(
@@ -76,6 +80,60 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                 _compartmentIndexer.Extract(resource.InstanceType, searchIndices),
                 _claimsExtractor.Extract(),
                 searchParamHash);
+        }
+
+        // A given search parameter can have multiple values. We want to keep track of which
+        // of these values are the min and max for each parameter and mark the corresponding
+        // SearchValue object appropriately.
+        private void ExtractMinAndMaxValues(IReadOnlyCollection<SearchIndexEntry> searchIndices)
+        {
+            var minValues = new Dictionary<Uri, ISupportSortSearchValue>();
+            var maxValues = new Dictionary<Uri, ISupportSortSearchValue>();
+
+            foreach (SearchIndexEntry currentEntry in searchIndices)
+            {
+                // Currently we are tracking the min/max values only for string type parameters.
+                ISupportSortSearchValue currentValue = currentEntry.Value as ISupportSortSearchValue;
+                if (currentValue == null)
+                {
+                    continue;
+                }
+
+                if (minValues.TryGetValue(currentEntry.SearchParameter.Url, out ISupportSortSearchValue existingMinValue))
+                {
+                    if (currentValue.CompareTo(existingMinValue) < 0)
+                    {
+                        minValues[currentEntry.SearchParameter.Url] = currentValue;
+                    }
+                }
+                else
+                {
+                    minValues.Add(currentEntry.SearchParameter.Url, currentValue);
+                }
+
+                if (maxValues.TryGetValue(currentEntry.SearchParameter.Url, out ISupportSortSearchValue existingMaxValue))
+                {
+                    if (currentValue.CompareTo(existingMaxValue) > 0)
+                    {
+                        maxValues[currentEntry.SearchParameter.Url] = currentValue;
+                    }
+                }
+                else
+                {
+                    maxValues.Add(currentEntry.SearchParameter.Url, currentValue);
+                }
+            }
+
+            // Update the actual StringSearchValue objects with the appropriate IsMin/IsMax value
+            foreach (KeyValuePair<Uri, ISupportSortSearchValue> kvp in minValues)
+            {
+                kvp.Value.IsMin = true;
+            }
+
+            foreach (KeyValuePair<Uri, ISupportSortSearchValue> kvp in maxValues)
+            {
+                kvp.Value.IsMax = true;
+            }
         }
     }
 }
