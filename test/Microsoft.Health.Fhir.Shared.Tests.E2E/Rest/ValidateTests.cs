@@ -4,7 +4,6 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
-using System.IO;
 using System.Linq;
 using System.Net;
 using Hl7.Fhir.ElementModel;
@@ -44,7 +43,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             // Here we skip local E2E test since we need to point to zip folder in current implementation
             // Should be removed as soon as we move profiles  to be stored on server.
-            Skip.If(_isUsingInProcTestServer);
+            Skip.If(!_isUsingInProcTestServer);
 
             OperationOutcome outcome = await _client.ValidateAsync(path, Samples.GetJson(filename), profile);
 
@@ -73,7 +72,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             // Here we skip local E2E test since we need to point to zip folder in current implementation
             // Should be removed as soon as we move profiles  to be stored on server.
-            Skip.If(_isUsingInProcTestServer);
+            Skip.If(!_isUsingInProcTestServer);
 
             OperationOutcome outcome = await _client.ValidateAsync(path, Samples.GetJson(filename), profile);
 
@@ -148,7 +147,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             // Here we skip local E2E test since we need to point to zip folder in current implementation
             // Should be removed as soon as we move profiles  to be stored on server.
-            Skip.If(_isUsingInProcTestServer);
+            Skip.If(!_isUsingInProcTestServer);
 
             var fhirSource = Samples.GetJson("Profile-Patient");
             var parser = new FhirJsonParser();
@@ -173,7 +172,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         {
             // Here we skip local E2E test since we need to point to zip folder in current implementation
             // Should be removed as soon as we move profiles  to be stored on server.
-            Skip.If(_isUsingInProcTestServer);
+            Skip.If(!_isUsingInProcTestServer);
 
             Patient createdResource = await _client.CreateAsync(Samples.GetDefaultPatient().ToPoco<Patient>());
             OperationOutcome outcome = await _client.ValidateByIdAsync(ResourceType.Patient, createdResource.Id, "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient");
