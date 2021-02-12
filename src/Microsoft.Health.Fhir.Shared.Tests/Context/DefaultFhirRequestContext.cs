@@ -39,5 +39,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Context
         public bool IncludePartiallyIndexedSearchParams { get; set; }
 
         public bool ExecutingBatchOrTransaction { get; set; }
+
+        public bool IsBackgroundTask { get; set; }
     }
 }
