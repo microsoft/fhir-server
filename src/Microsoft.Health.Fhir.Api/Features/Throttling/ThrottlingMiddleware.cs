@@ -277,14 +277,14 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
 
         public void Dispose() => DisposeAsync().GetAwaiter().GetResult();
 
-        private class StringTupleOrdinalIgnoreCaseEqualityComparer : IEqualityComparer<ValueTuple<string, string>>
+        private class StringTupleOrdinalIgnoreCaseEqualityComparer : IEqualityComparer<(string, string)>
         {
-            public bool Equals(ValueTuple<string, string> x, ValueTuple<string, string> y)
+            public bool Equals((string, string) x, (string, string) y)
             {
                 return StringComparer.OrdinalIgnoreCase.Equals(x.Item1, y.Item1) && StringComparer.OrdinalIgnoreCase.Equals(x.Item2, y.Item2);
             }
 
-            public int GetHashCode(ValueTuple<string, string> obj)
+            public int GetHashCode((string, string) obj)
             {
                 return HashCode.Combine(obj.Item1.GetHashCode(StringComparison.OrdinalIgnoreCase), obj.Item2.GetHashCode(StringComparison.OrdinalIgnoreCase));
             }

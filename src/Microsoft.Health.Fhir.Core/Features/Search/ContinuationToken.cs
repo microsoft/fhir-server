@@ -84,7 +84,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search
             {
                 JsonTokenType.String => reader.GetString(),
                 JsonTokenType.Number => reader.GetInt64(),
-                _ => throw new NotSupportedException()
+                _ => throw new NotSupportedException(),
             };
 
             public override void Write(Utf8JsonWriter writer, object value, JsonSerializerOptions options) => throw new NotImplementedException();
