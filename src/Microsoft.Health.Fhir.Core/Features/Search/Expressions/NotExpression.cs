@@ -10,7 +10,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     /// <summary>
     /// Represents a not expression where <see cref="Expression"/> is negated.
     /// </summary>
-    public record NotExpression : Expression
+    public class NotExpression : Expression
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="NotExpression"/> class.

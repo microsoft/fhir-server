@@ -11,7 +11,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     /// <summary>
     /// Represents a set of ANDed expressions over a search parameter.
     /// </summary>
-    public record SearchParameterExpression : SearchParameterExpressionBase
+    public class SearchParameterExpression : SearchParameterExpressionBase
     {
         public SearchParameterExpression(SearchParameterInfo searchParameter, Expression expression)
             : base(searchParameter)

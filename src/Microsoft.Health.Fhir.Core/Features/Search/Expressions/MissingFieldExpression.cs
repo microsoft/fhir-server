@@ -10,7 +10,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     /// <summary>
     /// Represents an expression that indicates the field should be missing.
     /// </summary>
-    public record MissingFieldExpression : Expression, IFieldExpression
+    public class MissingFieldExpression : Expression, IFieldExpression
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="MissingFieldExpression"/> class.

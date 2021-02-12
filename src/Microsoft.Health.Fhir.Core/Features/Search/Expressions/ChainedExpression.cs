@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     /// <summary>
     /// Represents a chained expression (where the child expression is chained to another resource.)
     /// </summary>
-    public record ChainedExpression : Expression
+    public class ChainedExpression : Expression
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="ChainedExpression"/> class.

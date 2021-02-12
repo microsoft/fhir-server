@@ -11,7 +11,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     /// <summary>
     /// Represents an expression.
     /// </summary>
-    public abstract record Expression
+    public abstract class Expression
     {
         /// <summary>
         /// Creates a <see cref="SearchParameterExpression"/> that represents a set of ANDed expressions over a search parameter.

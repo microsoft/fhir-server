@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     /// <summary>
     /// Represents an expression that has a binary operator.
     /// </summary>
-    public record BinaryExpression : Expression, IFieldExpression
+    public class BinaryExpression : Expression, IFieldExpression
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="BinaryExpression"/> class.

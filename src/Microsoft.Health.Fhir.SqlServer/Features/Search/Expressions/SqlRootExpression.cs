@@ -17,7 +17,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
     /// It is organized as a set of expressions that are over search parameter tables (<see cref="SearchParamTableExpressions"/>) and a set
     /// of expressions over the columns on the Resource table (<see cref="ResourceTableExpressions"/>).
     /// </summary>
-    internal record SqlRootExpression : Expression
+    internal class SqlRootExpression : Expression
     {
         public SqlRootExpression(IReadOnlyList<SearchParamTableExpression> searchParamTableExpressions, IReadOnlyList<SearchParameterExpressionBase> resourceTableExpressions)
         {

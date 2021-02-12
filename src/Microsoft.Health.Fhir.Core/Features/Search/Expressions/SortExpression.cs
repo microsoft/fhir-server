@@ -11,7 +11,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
     /// <summary>
     /// Represents a sort parameter expression.
     /// </summary>
-    public record SortExpression : SearchParameterExpressionBase
+    public class SortExpression : SearchParameterExpressionBase
     {
         public SortExpression(SearchParameterInfo searchParameter)
             : base(searchParameter)

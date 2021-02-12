@@ -12,7 +12,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions
     /// <summary>
     /// An expression over a search param or compartment table.
     /// </summary>
-    internal record SearchParamTableExpression : Expression
+    internal class SearchParamTableExpression : Expression
     {
         /// <summary>
         /// Creates a new instance of the <see cref="SearchParamTableExpression"/> class.
