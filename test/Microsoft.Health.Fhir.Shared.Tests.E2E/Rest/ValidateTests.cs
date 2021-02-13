@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             _isUsingInProcTestServer = fixture.IsUsingInProcTestServer;
         }
 
-        [Theory]
+        [SkippableTheory]
         [InlineData("CarePlan/$validate", "Profile-CarePlan", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-careplan")]
         [InlineData("Patient/$validate", "Profile-Patient", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient")]
         [InlineData("CarePlan/$validate", "Profile-CarePlan", null)]
@@ -42,7 +42,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         public async void GivenAValidateRequest_WhenTheResourceIsValid_ThenAnOkMessageIsReturned(string path, string filename, string profile)
         {
             // Here we skip local E2E test since we need to point to zip folder in current implementation
-            // Should be removed as soon as we move profiles  to be stored on server.
+            // Should be removed as soon as we move profiles to be stored on server.
             Skip.If(!_isUsingInProcTestServer);
 
             OperationOutcome outcome = await _client.ValidateAsync(path, Samples.GetJson(filename), profile);
@@ -62,7 +62,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Empty(outcome.Issue.Where(x => x.Severity == OperationOutcome.IssueSeverity.Error));
         }
 
-        [Theory]
+        [SkippableTheory]
         [InlineData("Observation/$validate", "Observation-For-Patient-f001", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-observation-lab")]
         [InlineData("Observation/$validate", "Observation-For-Patient-f001", "http://hl7.org/fhir/us/core/StructureDefinition/pediatric-bmi-for-age")]
         [InlineData("Observation/$validate", "Observation-For-Patient-f001", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-smokingstatus")]
@@ -142,7 +142,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     location);
         }
 
-        [Fact]
+        [SkippableFact]
         public async void GivenAValidateByIdRequest_WhenTheResourceIsValid_ThenAnOkMessageIsReturned()
         {
             // Here we skip local E2E test since we need to point to zip folder in current implementation
@@ -167,7 +167,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.NotFound, exception.Response.StatusCode);
         }
 
-        [Fact]
+        [SkippableFact]
         public async void GivenAValidateByIdRequestWithStricterProfile_WhenRunningValidate_ThenAnErrorShouldBeReturned()
         {
             // Here we skip local E2E test since we need to point to zip folder in current implementation
