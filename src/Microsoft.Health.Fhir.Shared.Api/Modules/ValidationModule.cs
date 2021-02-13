@@ -10,7 +10,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Features.Validation.Narratives;
-using Microsoft.Health.Fhir.Shared.Core.Features.Validation;
 
 namespace Microsoft.Health.Fhir.Api.Modules
 {

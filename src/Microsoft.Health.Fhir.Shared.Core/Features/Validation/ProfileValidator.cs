@@ -12,10 +12,9 @@ using Hl7.Fhir.Specification.Source;
 using Hl7.Fhir.Validation;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
-using Microsoft.Health.Fhir.Core.Features.Validation;
 using Microsoft.Health.Fhir.Core.Models;
 
-namespace Microsoft.Health.Fhir.Shared.Core.Features.Validation
+namespace Microsoft.Health.Fhir.Core.Features.Validation
 {
     public class ProfileValidator : IProfileValidator
     {

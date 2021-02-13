@@ -6,7 +6,7 @@
 using System.Collections.Generic;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Specification.Source;
-using Microsoft.Health.Fhir.Shared.Core.Features.Validation;
+using Microsoft.Health.Fhir.Core.Features.Validation;
 
 namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 {

@@ -7,7 +7,7 @@ using System.Collections.Generic;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Specification.Source;
 
-namespace Microsoft.Health.Fhir.Shared.Core.Features.Validation
+namespace Microsoft.Health.Fhir.Core.Features.Validation
 {
     public sealed class NoopProvideProfileValidation : IProvideProfilesForValidation
     {
