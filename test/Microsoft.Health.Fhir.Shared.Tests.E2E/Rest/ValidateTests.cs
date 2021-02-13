@@ -211,6 +211,26 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 "TypeName");
         }
 
+        [Fact]
+        public async void GivenInvalidProfile_WhenValidateCalled_ThenBadRequestReturned()
+        {
+            var patient = Samples.GetJson("Patient");
+            var profile = "abc";
+
+            var exception = await Assert.ThrowsAsync<FhirException>(async () => await _client.ValidateAsync("Patient/$validate", patient, profile));
+            Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
+
+            Parameters parameters = new Parameters();
+            parameters.Parameter.Add(new Parameters.ParameterComponent() { Name = "profile", Value = new FhirString(profile) });
+
+            var parser = new FhirJsonParser();
+            parameters.Parameter.Add(new Parameters.ParameterComponent() { Name = "resource", Resource = Samples.GetDefaultPatient().ToPoco<Patient>() });
+
+            exception = await Assert.ThrowsAsync<FhirException>(async () => await _client.ValidateAsync("Patient/$validate", parameters.ToJson()));
+
+            Assert.Equal(HttpStatusCode.BadRequest, exception.Response.StatusCode);
+        }
+
         private void CheckOperationOutcomeIssue(
             OperationOutcome.IssueComponent issue,
             OperationOutcome.IssueSeverity? expectedSeverity,

@@ -43,8 +43,9 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpPost]
         [Route(KnownRoutes.ValidateResourceType)]
         [AuditEventType(AuditEventSubType.Read)]
-        public async Task<IActionResult> Validate([FromBody] Resource resource, [FromQuery(Name = "profile")] Uri profile)
+        public async Task<IActionResult> Validate([FromBody] Resource resource, [FromQuery(Name = "profile")] string profile)
         {
+            Uri profileUri = null;
             if (resource.ResourceType == ResourceType.Parameters)
             {
                 var parameterResource = (Parameters)resource;
@@ -56,25 +57,28 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                         throw new BadRequestException(Api.Resources.MultipleProfilesProvided);
                     }
 
-                    if (profileFromParameters.Value == null)
+                    if (profileFromParameters.Value != null)
                     {
-                        throw new BadRequestException("Profile parameter is empty");
-                    }
-
-                    try
-                    {
-                        profile = new Uri(profileFromParameters.Value.ToString());
-                    }
-                    catch
-                    {
-                        throw new BadRequestException("Profile is invalid.");
+                        profile = profileFromParameters.Value.ToString();
                     }
                 }
 
                 resource = parameterResource.Parameter.Find(param => param.Name.Equals("resource", StringComparison.OrdinalIgnoreCase)).Resource;
             }
 
-            return await RunValidationAsync(resource.ToResourceElement(), profile);
+            if (!string.IsNullOrEmpty(profile))
+            {
+                try
+                {
+                    profileUri = new Uri(profile);
+                }
+                catch
+                {
+                    throw new BadRequestException(string.Format(Resources.ProfileIsInvalid, profile));
+                }
+            }
+
+            return await RunValidationAsync(resource.ToResourceElement(), profileUri);
         }
 
         [HttpGet]
