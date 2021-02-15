@@ -424,7 +424,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         protected async override Task<SearchResult> SearchForReindexInternalAsync(SearchOptions searchOptions, string searchParameterHash, CancellationToken cancellationToken)
         {
-            // TODO: Update SearchImpl to search for both historical and non historical values at the same time (this implementation is not complete and will only look for non-historical resources).
             return await SearchImpl(searchOptions, false, true, searchParameterHash, cancellationToken);
         }
     }
