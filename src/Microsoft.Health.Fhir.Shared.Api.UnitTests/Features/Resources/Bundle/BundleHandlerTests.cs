@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using Hl7.Fhir.Model;
@@ -15,6 +16,7 @@ using Microsoft.AspNetCore.Http.Features.Authentication;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Abstractions.Features.Transactions;
 using Microsoft.Health.Api.Features.Audit;
 using Microsoft.Health.Fhir.Api.Configs;
@@ -44,19 +46,21 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
         private readonly BundleHandler _bundleHandler;
         private readonly IRouter _router;
         private readonly BundleConfiguration _bundleConfiguration;
+        private DefaultFhirRequestContext _fhirRequestContext;
 
         public BundleHandlerTests()
         {
             _router = Substitute.For<IRouter>();
 
-            var fhirRequestContext = new DefaultFhirRequestContext
+            _fhirRequestContext = new DefaultFhirRequestContext
             {
                 BaseUri = new Uri("https://localhost/"),
                 CorrelationId = Guid.NewGuid().ToString(),
+                ResponseHeaders = new HeaderDictionary(),
             };
 
             IFhirRequestContextAccessor fhirRequestContextAccessor = Substitute.For<IFhirRequestContextAccessor>();
-            fhirRequestContextAccessor.FhirRequestContext.Returns(fhirRequestContext);
+            fhirRequestContextAccessor.FhirRequestContext.Returns(_fhirRequestContext);
 
             IHttpContextAccessor httpContextAccessor = Substitute.For<IHttpContextAccessor>();
 
@@ -217,6 +221,73 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Resources.Bundle
             Assert.Equal("403", bundleResource.Entry[0].Response.Status);
             Assert.Equal("404", bundleResource.Entry[1].Response.Status);
             Assert.Equal("200", bundleResource.Entry[2].Response.Status);
+        }
+
+        [Fact]
+        public async Task GivenABundle_WhenProcessed_CertainResponseHeadersArePropagatedToOuterResponse()
+        {
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = BundleType.Batch,
+                Entry = new List<EntryComponent>
+                {
+                    new EntryComponent { Request = new RequestComponent { Method = HTTPVerb.GET, Url = "/Patient" } },
+                    new EntryComponent { Request = new RequestComponent { Method = HTTPVerb.GET, Url = "/Patient" } },
+                },
+            };
+
+            string headerName = "x-ms-request-charge";
+
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
+                .Do(info =>
+                {
+                    info.Arg<RouteContext>().Handler = context =>
+                    {
+                        IHeaderDictionary headers = context.Response.Headers;
+                        headers.TryGetValue(headerName, out StringValues existing);
+                        headers[headerName] = (existing == default(StringValues) ? 2.0 : double.Parse(existing.ToString()) + 2.0).ToString(CultureInfo.InvariantCulture);
+                        return Task.CompletedTask;
+                    };
+                });
+
+            var bundleRequest = new BundleRequest(bundle.ToResourceElement());
+            await _bundleHandler.Handle(bundleRequest, default);
+            Assert.Equal("4", _fhirRequestContext.ResponseHeaders[headerName].ToString());
+        }
+
+        [Fact]
+        public async Task GivenABundle_WhenOneRequestProducesA429_SubsequentRequestAreSkipped()
+        {
+            var bundle = new Hl7.Fhir.Model.Bundle
+            {
+                Type = BundleType.Batch,
+                Entry = new List<EntryComponent>
+                {
+                    new EntryComponent { Request = new RequestComponent { Method = HTTPVerb.GET, Url = "/Patient" } },
+                    new EntryComponent { Request = new RequestComponent { Method = HTTPVerb.GET, Url = "/Patient" } },
+                },
+            };
+
+            int callCount = 0;
+
+            _router.When(r => r.RouteAsync(Arg.Any<RouteContext>()))
+                .Do(info =>
+                {
+                    info.Arg<RouteContext>().Handler = context =>
+                    {
+                        callCount++;
+                        context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+                        return Task.CompletedTask;
+                    };
+                });
+
+            var bundleRequest = new BundleRequest(bundle.ToResourceElement());
+            BundleResponse bundleResponse = await _bundleHandler.Handle(bundleRequest, default);
+
+            Assert.Equal(1, callCount);
+            var bundleResource = bundleResponse.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
+            Assert.Equal(2, bundleResource.Entry.Count);
+            Assert.All(bundleResource.Entry, e => Assert.Equal("429", e.Response.Status));
         }
 
         [Fact]

@@ -188,5 +188,40 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
             Assert.NotNull(value);
             Assert.Equal("2017-01-01T00:00:00.0000000+00:00-2017-12-31T23:59:59.9999999+00:00", value.ToString());
         }
+
+        [Theory]
+        [InlineData("2017", "2018", -1, -1)]
+        [InlineData("2016-01", "2017", -1, -1)]
+        [InlineData("2016-12-31", "2017", -1, -1)]
+        [InlineData("2016-05-03T12:34:20.594Z", "2017", -1, -1)]
+        [InlineData("2017", "2017-01", 0, 1)]
+        [InlineData("2017", "2017-12", -1, 0)]
+        [InlineData("2017", "2017-01-10", -1, 1)]
+        [InlineData("2016", "2016-05-03T12:34:20.594Z", -1, 1)]
+        [InlineData("2017-12-31T23:58:23.493+01:00", "2017-12-31T23:58:23.493Z", -1, -1)]
+        [InlineData("2017-12-31T23:58:23.493Z", "2017-12-31T23:58:23.493-01:00", -1, -1)]
+        [InlineData("2017-01-10", "2017", 1, -1)]
+        [InlineData("2016-05-03T12:34:20.594Z", "2016", 1, -1)]
+        [InlineData("2017-12-31T23:58:23.493Z", "2017-12-31T23:58:23.493+01:00", 1, 1)]
+        [InlineData("2017-12-31T23:58:23.493-01:00", "2017-12-31T23:58:23.493Z", 1, 1)]
+        public void GivenASearchValue_WhenCompareWithDateSearchValue_ThenCorrectResultIsReturned(string original, string given, int expectedMinResult, int expectedMaxResult)
+        {
+            DateTimeSearchValue originalValue = DateTimeSearchValue.Parse(original);
+            DateTimeSearchValue givenValue = DateTimeSearchValue.Parse(given);
+
+            int minResult = originalValue.CompareTo(givenValue, ComparisonRange.Min);
+            int maxResult = originalValue.CompareTo(givenValue, ComparisonRange.Max);
+
+            Assert.Equal(expectedMinResult, minResult);
+            Assert.Equal(expectedMaxResult, maxResult);
+        }
+
+        [Fact]
+        public void GivenAStringSearchValue_WhenCompareWithNull_ThenArgumentExceptionIsThrown()
+        {
+            DateTimeSearchValue value = DateTimeSearchValue.Parse("2020");
+
+            Assert.Throws<ArgumentException>(() => value.CompareTo(null, ComparisonRange.Max));
+        }
     }
 }

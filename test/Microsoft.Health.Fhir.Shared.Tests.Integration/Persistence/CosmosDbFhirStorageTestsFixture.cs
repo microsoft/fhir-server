@@ -155,7 +155,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 _cosmosDataStoreConfiguration,
                 optionsMonitor,
                 cosmosDocumentQueryFactory,
-                new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration),
+                new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration, Substitute.For<IFhirRequestContextAccessor>()),
                 NullLogger<CosmosFhirDataStore>.Instance,
                 options);
 
@@ -163,7 +163,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 documentClient,
                 _cosmosDataStoreConfiguration,
                 optionsMonitor,
-                new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration),
+                new RetryExceptionPolicyFactory(_cosmosDataStoreConfiguration, Substitute.For<IFhirRequestContextAccessor>()),
                 new CosmosQueryFactory(responseProcessor, new NullFhirCosmosQueryLogger()),
                 NullLogger<CosmosFhirOperationDataStore>.Instance);
 

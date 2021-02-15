@@ -29,7 +29,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Configs
 
         public int DataMigrationBatchSize { get; set; } = 100;
 
-        public CosmosDataStoreRetryOptions RetryOptions { get; } = new CosmosDataStoreRetryOptions();
+        /// <summary>
+        /// Retry options that are fed into the Cosmos DB sdk for individual database calls.
+        /// </summary>
+        public CosmosDataStoreRetryOptions RetryOptions { get; } = new CosmosDataStoreRetryOptions { MaxNumberOfRetries = 3, MaxWaitTimeInSeconds = 5 };
+
+        /// <summary>
+        /// Allows more generous retry options when processing batches to avoid actions with 429 response codes.
+        /// </summary>
+        public CosmosDataStoreRetryOptions IndividualBatchActionRetryOptions { get; } = new CosmosDataStoreRetryOptions { MaxNumberOfRetries = 18, MaxWaitTimeInSeconds = 90 };
 
         public int? ContinuationTokenSizeLimitInKb { get; set; }
 
