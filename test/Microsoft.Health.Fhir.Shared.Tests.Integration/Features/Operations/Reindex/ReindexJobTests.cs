@@ -85,7 +85,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             ResourceWrapperFactory wrapperFactory = Mock.TypeWithArguments<ResourceWrapperFactory>(
                 new RawResourceFactory(new FhirJsonSerializer()),
                 _searchIndexer,
-                _searchableSearchParameterDefinitionManager,
+                _searchParameterDefinitionManager,
                 Deserializers.ResourceDeserializer);
 
             _searchParameterStatusManager = new SearchParameterStatusManager(
