@@ -31,13 +31,22 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private int _curFromCteIndex = -1;
         private readonly bool _isHistorySearch;
+        private readonly bool _isReindexSearch;
+        private readonly string _searchParameterHash;
         private int _tableExpressionCounter = -1;
         private SqlRootExpression _rootExpression;
         private readonly SchemaInformation _schemaInfo;
         private bool _sortVisited = false;
         private HashSet<int> _cteToLimit = new HashSet<int>();
 
-        public SqlQueryGenerator(IndentedStringBuilder sb, SqlQueryParameterManager parameters, SqlServerFhirModel model, bool isHistorySearch, SchemaInformation schemaInfo)
+        public SqlQueryGenerator(
+            IndentedStringBuilder sb,
+            SqlQueryParameterManager parameters,
+            SqlServerFhirModel model,
+            bool isHistorySearch,
+            SchemaInformation schemaInfo,
+            bool isReindexSearch,
+            string searchParameterHash)
         {
             EnsureArg.IsNotNull(sb, nameof(sb));
             EnsureArg.IsNotNull(parameters, nameof(parameters));
@@ -49,6 +58,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             Model = model;
             _isHistorySearch = isHistorySearch;
             _schemaInfo = schemaInfo;
+            _isReindexSearch = isReindexSearch;
+            _searchParameterHash = searchParameterHash;
         }
 
         public IndentedStringBuilder StringBuilder { get; }
@@ -185,6 +196,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                     {
                         AppendHistoryClause(delimitedClause);
                         AppendDeletedClause(delimitedClause);
+                        AppendSearchParameterHashClause(delimitedClause);
                     }
                 }
 
@@ -841,6 +853,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 delimited.BeginDelimitedElement();
 
                 StringBuilder.Append(VLatest.Resource.IsHistory, tableAlias).Append(" = 0");
+            }
+        }
+
+        private void AppendSearchParameterHashClause(in IndentedStringBuilder.DelimitedScope delimited, string tableAlias = null)
+        {
+            if (_isReindexSearch)
+            {
+                delimited.BeginDelimitedElement();
+
+                StringBuilder.Append(VLatest.Resource.SearchParamHash, tableAlias).Append(" != ").Append(Parameters.AddParameter(_searchParameterHash));
             }
         }
 
