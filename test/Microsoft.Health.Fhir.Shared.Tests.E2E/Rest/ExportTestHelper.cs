@@ -25,16 +25,16 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
     internal static class ExportTestHelper
     {
         // Check export status and return output once we get 200
-        internal static async Task<IList<Uri>> CheckExportStatus(TestFhirClient testFhirClient, Uri contentLocation)
+        internal static async Task<IList<Uri>> CheckExportStatus(TestFhirClient testFhirClient, Uri contentLocation, int timeToWaitInMinutes = 5)
         {
             HttpStatusCode resultCode = HttpStatusCode.Accepted;
             HttpResponseMessage response = null;
             int retryCount = 0;
 
-            // Wait until status change or 5 minutes
-            while (resultCode == HttpStatusCode.Accepted && retryCount < 60)
+            // Wait until status change or timeout
+            while ((resultCode == HttpStatusCode.Accepted || resultCode == HttpStatusCode.ServiceUnavailable) && retryCount < 60)
             {
-                await Task.Delay(5000);
+                await Task.Delay(timeToWaitInMinutes * 1000);
 
                 response = await testFhirClient.CheckExportAsync(contentLocation);
 

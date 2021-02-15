@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             // Trigger export request and check for export status
             Uri contentLocation = await _testFhirClient.ExportAsync();
-            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation);
+            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation, timeToWaitInMinutes: 15);
 
             // Download exported data from storage account
             Dictionary<(string resourceType, string resourceId), Resource> dataFromExport =
@@ -64,7 +64,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             // Trigger export request and check for export status
             Uri contentLocation = await _testFhirClient.ExportAsync("Patient/");
-            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation);
+            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation, timeToWaitInMinutes: 15);
 
             // Download exported data from storage account
             Dictionary<(string resourceType, string resourceId), Resource> dataFromExport =
@@ -99,7 +99,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             // Trigger export request and check for export status
             Uri contentLocation = await _testFhirClient.ExportAsync(string.Empty, "_type=Observation,Patient");
-            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation);
+            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation, timeToWaitInMinutes: 15);
 
             // Download exported data from storage account
             Dictionary<(string resourceType, string resourceId), Resource> dataFromExport =
@@ -121,7 +121,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             // Trigger export request and check for export status
             Uri contentLocation = await _testFhirClient.ExportAsync("Patient/", "_type=Observation");
-            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation);
+            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation, timeToWaitInMinutes: 15);
 
             // Download exported data from storage account
             Dictionary<(string resourceType, string resourceId), Resource> dataFromExport =
@@ -159,7 +159,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
             // Trigger export request and check for export status
             Uri contentLocation = await _testFhirClient.ExportAsync(parameters: $"_container={testContainer}");
-            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation);
+            IList<Uri> blobUris = await ExportTestHelper.CheckExportStatus(_testFhirClient, contentLocation, timeToWaitInMinutes: 15);
 
             // Download exported data from storage account
             Dictionary<(string resourceType, string resourceId), Resource> dataFromExport =
