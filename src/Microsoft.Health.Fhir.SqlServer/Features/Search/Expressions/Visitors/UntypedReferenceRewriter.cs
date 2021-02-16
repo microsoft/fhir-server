@@ -36,7 +36,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                             (index: 1, flags: 0),
                             (acc, c) => (index: acc.index + 1, flags: acc.flags | (c.ResolvedSearchParameter.Type == SearchParamType.Reference && c.ResolvedSearchParameter.TargetResourceTypes?.Count == 1 ? 1 << acc.index : 0)))
                         .flags,
-                _ => 0
+                _ => 0,
             };
 
             if (componentCandidates == 0)

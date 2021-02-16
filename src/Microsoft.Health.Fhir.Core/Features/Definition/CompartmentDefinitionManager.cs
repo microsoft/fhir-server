@@ -91,7 +91,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
             _compartmentSearchParamsLookup = BuildResourceTypeLookup(compartmentLookup.Values);
         }
 
-        private static Dictionary<CompartmentType, (CompartmentType, Uri, IList<(string, IList<string>)>)> ValidateAndGetCompartmentDict(BundleWrapper bundle)
+        private static Dictionary<CompartmentType, (CompartmentType Code, Uri Url, IList<(string Resource, IList<string> Params)> Resources)> ValidateAndGetCompartmentDict(BundleWrapper bundle)
         {
             EnsureArg.IsNotNull(bundle, nameof(bundle));
 

@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <TargetFramework>net5.0</TargetFramework>
     <RootNamespace>Microsoft.Health.Fhir.Core</RootNamespace>
   </PropertyGroup>
   <PropertyGroup>
@@ -16,9 +16,9 @@
     <PackageReference Include="Ensure.That" Version="9.2.0" />
     <PackageReference Include="FluentValidation" Version="9.5.0" />
     <PackageReference Include="MediatR" Version="9.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="$(SdkPackageVersion)" />
-    <PackageReference Include="Microsoft.Extensions.Http" Version="$(SdkPackageVersion)" />
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="$(SdkPackageVersion)" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="$(RuntimePackageVersion)" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="$(RuntimePackageVersion)" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="$(RuntimePackageVersion)" />
     <PackageReference Include="Hl7.Fhir.R4" Version="$(Hl7FhirVersion)" />
     <PackageReference Include="Microsoft.Health.Fhir.Anonymizer.R4.Core" Version="2.1.0-20200813.1" />
     <PackageReference Include="System.Collections.Immutable" Version="5.0.0" />

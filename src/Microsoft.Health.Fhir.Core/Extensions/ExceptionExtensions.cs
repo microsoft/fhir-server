@@ -18,7 +18,16 @@ namespace Microsoft.Health.Fhir.Core.Extensions
         /// <param name="e">The exception</param>
         public static bool IsRequestRateExceeded(this Exception e)
         {
-            return e is RequestRateExceededException || e?.InnerException is RequestRateExceededException;
+            return e.AsRequestRateExceeded() != null;
+        }
+
+        /// <summary>
+        /// Attempts to return the given exception or its inner exception to a <see cref="RequestRateExceededException"/>.
+        /// </summary>
+        /// <param name="e">The exception</param>
+        public static RequestRateExceededException AsRequestRateExceeded(this Exception e)
+        {
+            return e as RequestRateExceededException ?? e?.InnerException as RequestRateExceededException;
         }
 
         /// <summary>

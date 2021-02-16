@@ -256,9 +256,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
             ExportJobRecord actualRecord = null;
             await _fhirOperationDataStore.CreateExportJobAsync(
                 Arg.Do<ExportJobRecord>(record =>
-            {
-                actualRecord = record;
-            }), Arg.Any<CancellationToken>());
+                {
+                    actualRecord = record;
+                }),
+                Arg.Any<CancellationToken>());
 
             var request = new CreateExportRequest(RequestUrl, ExportJobType.All, null, formatName: formatName);
             CreateExportResponse response = await _createExportRequestHandler.Handle(request, _cancellationToken);
@@ -278,7 +279,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                 Arg.Do<ExportJobRecord>(record =>
                 {
                     actualRecord = record;
-                }), Arg.Any<CancellationToken>());
+                }),
+                Arg.Any<CancellationToken>());
 
             var request = new CreateExportRequest(RequestUrl, ExportJobType.All, containerName: containerSpecified ? "test" : null);
             CreateExportResponse response = await _createExportRequestHandler.Handle(request, _cancellationToken);
@@ -304,7 +306,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Export
                 Arg.Do<ExportJobRecord>(record =>
                 {
                     actualRecord = record;
-                }), Arg.Any<CancellationToken>());
+                }),
+                Arg.Any<CancellationToken>());
 
             var request = new CreateExportRequest(RequestUrl, ExportJobType.All, filters: filters);
             CreateExportResponse response = await _createExportRequestHandler.Handle(request, _cancellationToken);

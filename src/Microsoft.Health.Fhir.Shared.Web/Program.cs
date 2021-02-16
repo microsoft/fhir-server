@@ -4,12 +4,10 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.IO;
+using Azure.Identity;
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.Azure.KeyVault;
-using Microsoft.Azure.Services.AppAuthentication;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Configuration.AzureKeyVault;
 
 namespace Microsoft.Health.Fhir.Web
 {
@@ -26,9 +24,8 @@ namespace Microsoft.Health.Fhir.Web
                     var keyVaultEndpoint = builtConfig["KeyVault:Endpoint"];
                     if (!string.IsNullOrEmpty(keyVaultEndpoint))
                     {
-                        var azureServiceTokenProvider = new AzureServiceTokenProvider();
-                        var keyVaultClient = new KeyVaultClient(new KeyVaultClient.AuthenticationCallback(azureServiceTokenProvider.KeyVaultTokenCallback));
-                        builder.AddAzureKeyVault(keyVaultEndpoint, keyVaultClient, new DefaultKeyVaultSecretManager());
+                        var credential = new DefaultAzureCredential();
+                        builder.AddAzureKeyVault(new System.Uri(keyVaultEndpoint), credential);
                     }
 
                     builder.AddDevelopmentAuthEnvironmentIfConfigured(builtConfig);

@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.Net;
 using EnsureThat;
@@ -60,7 +59,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                     {
                         Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,
                         Issue = fhirException.Issues.Select(x => x.ToPoco()).ToList(),
-                    }, HttpStatusCode.BadRequest);
+                    },
+                    HttpStatusCode.BadRequest);
 
                 switch (fhirException)
                 {
@@ -190,7 +190,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                             new OperationOutcome
                             {
                                 Id = _fhirRequestContextAccessor.FhirRequestContext.CorrelationId,
-                            }, HttpStatusCode.InternalServerError);
+                            },
+                            HttpStatusCode.InternalServerError);
                         break;
                 }
 
@@ -231,7 +232,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
                             Diagnostics = message,
                         },
                     },
-                }, httpStatusCode);
+                },
+                httpStatusCode);
         }
     }
 }

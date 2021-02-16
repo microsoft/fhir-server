@@ -80,7 +80,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
 
             string resourceType = null;
-            StringValues conditionalQueries;
+            StringValues conditionalQueries = string.Empty;
 
             if (entry.Request.Method == HTTPVerb.PUT)
             {
