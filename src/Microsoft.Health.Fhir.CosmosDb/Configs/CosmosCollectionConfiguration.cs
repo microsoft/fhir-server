@@ -10,5 +10,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Configs
         public string CollectionId { get; set; }
 
         public int? InitialCollectionThroughput { get; set; }
+
+        public bool AutoscaleThroughput { get; set; }
     }
 }

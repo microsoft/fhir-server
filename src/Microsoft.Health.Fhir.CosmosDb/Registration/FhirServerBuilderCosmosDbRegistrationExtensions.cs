@@ -147,6 +147,7 @@ namespace Microsoft.Extensions.DependencyInjection
                         cosmosCollectionConfiguration.CollectionId,
                         config,
                         cosmosCollectionConfiguration.InitialCollectionThroughput,
+                        cosmosCollectionConfiguration.AutoscaleThroughput,
                         upgradeManager,
                         loggerFactory.CreateLogger<CollectionInitializer>());
                 })

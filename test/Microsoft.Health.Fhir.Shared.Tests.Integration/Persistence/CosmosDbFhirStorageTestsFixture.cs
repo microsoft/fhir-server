@@ -61,6 +61,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _cosmosCollectionConfiguration = new CosmosCollectionConfiguration
             {
                 CollectionId = Guid.NewGuid().ToString(),
+                InitialCollectionThroughput = 4000,
+                AutoscaleThroughput = true,
             };
         }
 
@@ -104,7 +106,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             var handler = new FhirCosmosResponseHandler(() => new NonDisposingScope(_container), _cosmosDataStoreConfiguration, fhirRequestContextAccessor, responseProcessor);
             var documentClientInitializer = new FhirCosmosClientInitializer(testProvider, () => new[] { handler }, NullLogger<FhirCosmosClientInitializer>.Instance);
             _cosmosClient = documentClientInitializer.CreateCosmosClient(_cosmosDataStoreConfiguration);
-            var fhirCollectionInitializer = new CollectionInitializer(_cosmosCollectionConfiguration.CollectionId, _cosmosDataStoreConfiguration, _cosmosCollectionConfiguration.InitialCollectionThroughput, upgradeManager, NullLogger<CollectionInitializer>.Instance);
+            var fhirCollectionInitializer = new CollectionInitializer(_cosmosCollectionConfiguration.CollectionId, _cosmosDataStoreConfiguration, _cosmosCollectionConfiguration.InitialCollectionThroughput, _cosmosCollectionConfiguration.AutoscaleThroughput, upgradeManager, NullLogger<CollectionInitializer>.Instance);
 
             // Cosmos DB emulators throws errors when multiple collections are initialized concurrently.
             // Use the semaphore to only allow one initialization at a time.

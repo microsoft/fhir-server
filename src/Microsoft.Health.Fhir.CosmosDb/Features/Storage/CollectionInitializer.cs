@@ -17,10 +17,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private readonly string _collectionId;
         private readonly CosmosDataStoreConfiguration _cosmosDataStoreConfiguration;
         private readonly int? _initialCollectionThroughput;
+        private readonly bool _autoscaleThroughput;
         private readonly IUpgradeManager _upgradeManager;
         private readonly ILogger<CollectionInitializer> _logger;
 
-        public CollectionInitializer(string collectionId, CosmosDataStoreConfiguration cosmosDataStoreConfiguration, int? initialCollectionThroughput, IUpgradeManager upgradeManager, ILogger<CollectionInitializer> logger)
+        public CollectionInitializer(string collectionId, CosmosDataStoreConfiguration cosmosDataStoreConfiguration, int? initialCollectionThroughput, bool autoscaleThroughput, IUpgradeManager upgradeManager, ILogger<CollectionInitializer> logger)
         {
             EnsureArg.IsNotNull(collectionId, nameof(collectionId));
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
@@ -30,6 +31,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             _collectionId = collectionId;
             _cosmosDataStoreConfiguration = cosmosDataStoreConfiguration;
             _initialCollectionThroughput = initialCollectionThroughput;
+            _autoscaleThroughput = autoscaleThroughput;
             _upgradeManager = upgradeManager;
             _logger = logger;
         }
@@ -46,20 +48,24 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 _logger.LogInformation("Creating Cosmos Container if not exits: {collectionId}", _collectionId);
 
-                var containerResponse = await database.CreateContainerIfNotExistsAsync(
-                    _collectionId,
-                    $"/{KnownDocumentProperties.PartitionKey}",
-                    _initialCollectionThroughput);
+                ThroughputProperties throughputProperties = null;
+
+                if (_initialCollectionThroughput.HasValue && _autoscaleThroughput)
+                {
+                    throughputProperties = ThroughputProperties.CreateAutoscaleThroughput(_initialCollectionThroughput.Value);
+                }
+                else if (_initialCollectionThroughput.HasValue)
+                {
+                    throughputProperties = ThroughputProperties.CreateManualThroughput(_initialCollectionThroughput.Value);
+                }
+
+                ContainerResponse containerResponse = await database.CreateContainerIfNotExistsAsync(
+                    new ContainerProperties(_collectionId, $"/{KnownDocumentProperties.PartitionKey}"),
+                    throughputProperties);
 
                 containerResponse.Resource.DefaultTimeToLive = -1;
 
                 existingContainer = await containerClient.ReplaceContainerAsync(containerResponse);
-
-                if (_initialCollectionThroughput.HasValue)
-                {
-                    ThroughputProperties throughputProperties = ThroughputProperties.CreateManualThroughput(_initialCollectionThroughput.Value);
-                    await containerClient.ReplaceThroughputAsync(throughputProperties);
-                }
             }
 
             await _upgradeManager.SetupContainerAsync(containerClient);
