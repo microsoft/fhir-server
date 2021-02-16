@@ -27,7 +27,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources
         IPipelineBehavior<DeleteResourceRequest, DeleteResourceResponse>
     {
         private IFhirAuthorizationService _authorizationService;
-        private static IEnumerable<string> _supportedTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "ValueSet", "StructureDefinition", "CodeSystem", "ConceptMap" };
+        private static IEnumerable<string> _supportedTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "ValueSet", "StructureDefinition", "CodeSystem", "ConceptMap", "NamingSystem",
+        };
 
         public ProfileResourcesBehaviour(IFhirAuthorizationService authorizationService)
         {
