@@ -24,25 +24,29 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
         private ResourceDeserializer _deserializer;
         private readonly ISupportedSearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly SearchParameterStatusManager _searchParameterStatusManager;
+        private readonly IResourceWrapperFactory _resourceWrapperFactory;
 
         public ReindexUtilities(
             Func<IScoped<IFhirDataStore>> fhirDataStoreFactory,
             ISearchIndexer searchIndexer,
             ResourceDeserializer deserializer,
             ISupportedSearchParameterDefinitionManager searchParameterDefinitionManager,
-            SearchParameterStatusManager searchParameterStatusManager)
+            SearchParameterStatusManager searchParameterStatusManager,
+            IResourceWrapperFactory resourceWrapperFactory)
         {
             EnsureArg.IsNotNull(fhirDataStoreFactory, nameof(fhirDataStoreFactory));
             EnsureArg.IsNotNull(searchIndexer, nameof(searchIndexer));
             EnsureArg.IsNotNull(deserializer, nameof(deserializer));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(searchParameterStatusManager, nameof(searchParameterStatusManager));
+            EnsureArg.IsNotNull(resourceWrapperFactory, nameof(resourceWrapperFactory));
 
             _fhirDataStoreFactory = fhirDataStoreFactory;
             _searchIndexer = searchIndexer;
             _deserializer = deserializer;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _searchParameterStatusManager = searchParameterStatusManager;
+            _resourceWrapperFactory = resourceWrapperFactory;
         }
 
         /// <summary>
@@ -69,13 +73,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Reindex
                 }
 
                 entry.Resource.SearchParameterHash = searchParamHash;
-                var resourceElement = _deserializer.Deserialize(entry.Resource);
-                var newIndices = _searchIndexer.Extract(resourceElement);
-
-                // TODO: If it reasonable to do so, we can compare
-                // old and new search indices to avoid unnecessarily updating search indices
-                // when not changes have been made.
-                entry.Resource.UpdateSearchIndices(newIndices);
+                _resourceWrapperFactory.Update(entry.Resource);
                 updateSearchIndices.Add(entry.Resource);
 
                 if (cancellationToken.IsCancellationRequested)

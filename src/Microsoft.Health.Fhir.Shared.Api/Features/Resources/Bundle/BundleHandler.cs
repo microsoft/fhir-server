@@ -73,6 +73,13 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
         private readonly BundleConfiguration _bundleConfiguration;
         private readonly string _originalRequestBase;
 
+        /// <summary>
+        /// Headers to propagate the the from the inner actions to the outer HTTP request.
+        /// </summary>
+        private static readonly string[] HeadersToAccumulate = new[] { KnownHeaders.RetryAfter, KnownHeaders.RetryAfterMilliseconds, "x-ms-session-token", "x-ms-request-charge" };
+
+        private IFhirRequestContext _originalFhirRequestContext;
+
         public BundleHandler(
             IHttpContextAccessor httpContextAccessor,
             IFhirRequestContextAccessor fhirRequestContextAccessor,
@@ -119,10 +126,11 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             // Not all versions support the same enum values, so do the dictionary creation in the version specific partial.
             _requests = _verbExecutionOrder.ToDictionary(verb => verb, _ => new List<(RouteContext, int, string)>());
 
-            _httpAuthenticationFeature = httpContextAccessor.HttpContext.Features.Get<IHttpAuthenticationFeature>();
-            _router = httpContextAccessor.HttpContext.GetRouteData().Routers.First();
-            _requestServices = httpContextAccessor.HttpContext.RequestServices;
-            _originalRequestBase = httpContextAccessor.HttpContext.Request.PathBase;
+            HttpContext outerHttpContext = httpContextAccessor.HttpContext;
+            _httpAuthenticationFeature = outerHttpContext.Features.Get<IHttpAuthenticationFeature>();
+            _router = outerHttpContext.GetRouteData().Routers.First();
+            _requestServices = outerHttpContext.RequestServices;
+            _originalRequestBase = outerHttpContext.Request.PathBase;
             _emptyRequestsOrder = new List<int>();
             _referenceIdDictionary = new Dictionary<string, (string resourceId, string resourceType)>();
         }
@@ -147,9 +155,10 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 responseBundle.Entry[emptyRequestOrder] = entryComponent;
             }
 
+            EntryComponent throttledEntryComponent = null;
             foreach (HTTPVerb verb in _verbExecutionOrder)
             {
-                await ExecuteRequests(responseBundle, verb);
+                throttledEntryComponent = await ExecuteRequests(responseBundle, verb, throttledEntryComponent);
             }
         }
 
@@ -172,38 +181,46 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
                 throw new UnauthorizedFhirActionException();
             }
 
-            var bundleResource = bundleRequest.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
-            _bundleType = bundleResource.Type;
-
-            if (_bundleType == BundleType.Batch)
+            _originalFhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
+            try
             {
-                await FillRequestLists(bundleResource.Entry, cancellationToken);
+                var bundleResource = bundleRequest.Bundle.ToPoco<Hl7.Fhir.Model.Bundle>();
+                _bundleType = bundleResource.Type;
 
-                var responseBundle = new Hl7.Fhir.Model.Bundle
+                if (_bundleType == BundleType.Batch)
                 {
-                    Type = BundleType.BatchResponse,
-                };
+                    await FillRequestLists(bundleResource.Entry, cancellationToken);
 
-                await ExecuteAllRequests(responseBundle);
-                return new BundleResponse(responseBundle.ToResourceElement());
+                    var responseBundle = new Hl7.Fhir.Model.Bundle
+                    {
+                        Type = BundleType.BatchResponse,
+                    };
+
+                    await ExecuteAllRequests(responseBundle);
+                    return new BundleResponse(responseBundle.ToResourceElement());
+                }
+
+                if (_bundleType == BundleType.Transaction)
+                {
+                    // For resources within a transaction, we need to validate if they are referring to each other and throw an exception in such case.
+                    await _transactionBundleValidator.ValidateBundle(bundleResource, _referenceIdDictionary, cancellationToken);
+
+                    await FillRequestLists(bundleResource.Entry, cancellationToken);
+
+                    var responseBundle = new Hl7.Fhir.Model.Bundle
+                    {
+                        Type = BundleType.TransactionResponse,
+                    };
+
+                    return await ExecuteTransactionForAllRequests(responseBundle);
+                }
+
+                throw new MethodNotAllowedException(string.Format(Api.Resources.InvalidBundleType, _bundleType));
             }
-
-            if (_bundleType == BundleType.Transaction)
+            finally
             {
-                // For resources within a transaction, we need to validate if they are referring to each other and throw an exception in such case.
-                await _transactionBundleValidator.ValidateBundle(bundleResource, _referenceIdDictionary, cancellationToken);
-
-                await FillRequestLists(bundleResource.Entry, cancellationToken);
-
-                var responseBundle = new Hl7.Fhir.Model.Bundle
-                {
-                    Type = BundleType.TransactionResponse,
-                };
-
-                return await ExecuteTransactionForAllRequests(responseBundle);
+                _fhirRequestContextAccessor.FhirRequestContext = _originalFhirRequestContext;
             }
-
-            throw new MethodNotAllowedException(string.Format(Api.Resources.InvalidBundleType, _bundleType));
         }
 
         private async Task<BundleResponse> ExecuteTransactionForAllRequests(Hl7.Fhir.Model.Bundle responseBundle)
@@ -324,7 +341,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
             }
         }
 
-        private async Task ExecuteRequests(Hl7.Fhir.Model.Bundle responseBundle, HTTPVerb httpVerb)
+        private async Task<EntryComponent> ExecuteRequests(Hl7.Fhir.Model.Bundle responseBundle, HTTPVerb httpVerb, EntryComponent throttledEntryComponent)
         {
             foreach ((RouteContext request, int entryIndex, string persistedId) in _requests[httpVerb])
             {
@@ -332,22 +349,45 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                 if (request.Handler != null)
                 {
-                    HttpContext httpContext = request.HttpContext;
-
-                    SetupContexts(request, httpContext);
-
-                    Func<string> originalResourceIdProvider = _resourceIdProvider.Create;
-
-                    if (!string.IsNullOrWhiteSpace(persistedId))
+                    if (throttledEntryComponent != null)
                     {
-                        _resourceIdProvider.Create = () => persistedId;
+                        // A previous action was throttled.
+                        // Skip executing subsequent actions and include the 429 response.
+                        entryComponent = throttledEntryComponent;
                     }
+                    else
+                    {
+                        HttpContext httpContext = request.HttpContext;
 
-                    await request.Handler.Invoke(httpContext);
+                        SetupContexts(request, httpContext);
 
-                    _resourceIdProvider.Create = originalResourceIdProvider;
+                        Func<string> originalResourceIdProvider = _resourceIdProvider.Create;
 
-                    entryComponent = CreateEntryComponent(httpContext);
+                        if (!string.IsNullOrWhiteSpace(persistedId))
+                        {
+                            _resourceIdProvider.Create = () => persistedId;
+                        }
+
+                        await request.Handler.Invoke(httpContext);
+
+                        _resourceIdProvider.Create = originalResourceIdProvider;
+
+                        entryComponent = CreateEntryComponent(httpContext);
+
+                        foreach (string headerName in HeadersToAccumulate)
+                        {
+                            if (httpContext.Response.Headers.TryGetValue(headerName, out var values))
+                            {
+                                _originalFhirRequestContext.ResponseHeaders[headerName] = values;
+                            }
+                        }
+
+                        if (_bundleType == BundleType.Batch && entryComponent.Response.Status == "429")
+                        {
+                            // this action was throttled. Capture the entry and reuse it for subsequent actions.
+                            throttledEntryComponent = entryComponent;
+                        }
+                    }
                 }
                 else
                 {
@@ -378,6 +418,8 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
                 responseBundle.Entry[entryIndex] = entryComponent;
             }
+
+            return throttledEntryComponent;
         }
 
         private EntryComponent CreateEntryComponent(HttpContext httpContext)
@@ -427,29 +469,36 @@ namespace Microsoft.Health.Fhir.Api.Features.Resources.Bundle
 
         private void SetupContexts(RouteContext request, HttpContext httpContext)
         {
-            IFhirRequestContext originalFhirRequestContext = _fhirRequestContextAccessor.FhirRequestContext;
-
             request.RouteData.Values.TryGetValue("controller", out object controllerName);
             request.RouteData.Values.TryGetValue("action", out object actionName);
             request.RouteData.Values.TryGetValue(KnownActionParameterNames.ResourceType, out object resourceType);
             var newFhirRequestContext = new FhirRequestContext(
                 httpContext.Request.Method,
                 httpContext.Request.GetDisplayUrl(),
-                originalFhirRequestContext.BaseUri.OriginalString,
-                originalFhirRequestContext.CorrelationId,
+                _originalFhirRequestContext.BaseUri.OriginalString,
+                _originalFhirRequestContext.CorrelationId,
                 httpContext.Request.Headers,
                 httpContext.Response.Headers)
             {
-                Principal = originalFhirRequestContext.Principal,
+                Principal = _originalFhirRequestContext.Principal,
                 ResourceType = resourceType?.ToString(),
                 AuditEventType = _auditEventTypeMapping.GetAuditEventType(
                     controllerName?.ToString(),
                     actionName?.ToString()),
+                ExecutingBatchOrTransaction = true,
             };
 
             _fhirRequestContextAccessor.FhirRequestContext = newFhirRequestContext;
 
             _bundleHttpContextAccessor.HttpContext = httpContext;
+
+            foreach (string headerName in HeadersToAccumulate)
+            {
+                if (_originalFhirRequestContext.ResponseHeaders.TryGetValue(headerName, out var values))
+                {
+                    newFhirRequestContext.ResponseHeaders.Add(headerName, values);
+                }
+            }
         }
 
         private void PopulateReferenceIdDictionary(IEnumerable<EntryComponent> bundleEntries, IDictionary<string, (string resourceId, string resourceType)> idDictionary)

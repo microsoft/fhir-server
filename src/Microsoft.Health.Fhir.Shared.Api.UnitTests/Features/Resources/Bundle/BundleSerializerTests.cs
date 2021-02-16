@@ -46,7 +46,8 @@ namespace Microsoft.Health.Fhir.Shared.Api.UnitTests.Features.Resources.Bundle
                                      Substitute.For<ISearchIndexer>(),
                                      Substitute.For<IClaimsExtractor>(),
                                      Substitute.For<ICompartmentIndexer>(),
-                                     Substitute.For<ISearchParameterDefinitionManager>());
+                                     Substitute.For<ISearchParameterDefinitionManager>(),
+                                     Deserializers.ResourceDeserializer);
         }
 
         [Fact]

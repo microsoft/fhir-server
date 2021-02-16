@@ -84,11 +84,34 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search.SearchValues
         [InlineData(@"testing", "testing")]
         [InlineData(@"t\e|s$t,i|\ng", @"t\\e\|s\$t\,i\|\\ng")]
         [InlineData(@"a\\b\,c\$d\|", @"a\\b\,c\$d\|")]
-        public void GiveASearchValue_WhenToStringIsCalled_ThenEscapedStringShouldBeReturned(string s, string expected)
+        public void GivenASearchValue_WhenToStringIsCalled_ThenEscapedStringShouldBeReturned(string s, string expected)
         {
             StringSearchValue value = new StringSearchValue(s);
 
             Assert.Equal(expected, value.ToString());
+        }
+
+        [Theory]
+        [InlineData("Country", "country", 0)]
+        [InlineData("Country", "city", 1)]
+        [InlineData("123433", "798012", -1)]
+        [InlineData("Muller", "Müller", 0)]
+        public void GivenASearchValue_WhenCompareWithStringSearchValue_ThenCorrectResultIsReturned(string original, string given, int expectedResult)
+        {
+            StringSearchValue originalValue = new StringSearchValue(original);
+            StringSearchValue givenValue = new StringSearchValue(given);
+
+            int result = originalValue.CompareTo(givenValue, ComparisonRange.Max);
+
+            Assert.Equal(expectedResult, result);
+        }
+
+        [Fact]
+        public void GivenAStringSearchValue_WhenCompareWithNull_ThenArgumentExceptionIsThrown()
+        {
+            StringSearchValue value = new StringSearchValue("string");
+
+            Assert.Throws<ArgumentException>(() => value.CompareTo(null, ComparisonRange.Max));
         }
     }
 }

@@ -130,12 +130,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 // Add a request context so that bundle issues can be added by the SearchOptionFactory
                 var fhirRequestContext = new FhirRequestContext(
-                method: "Export",
-                uriString: "$export",
-                baseUriString: "$export",
-                correlationId: _exportJobRecord.Id,
-                requestHeaders: new Dictionary<string, StringValues>(),
-                responseHeaders: new Dictionary<string, StringValues>());
+                    method: "Export",
+                    uriString: "$export",
+                    baseUriString: "$export",
+                    correlationId: _exportJobRecord.Id,
+                    requestHeaders: new Dictionary<string, StringValues>(),
+                    responseHeaders: new Dictionary<string, StringValues>())
+                {
+                    IsBackgroundTask = true,
+                };
 
                 _contextAccessor.FhirRequestContext = fhirRequestContext;
 

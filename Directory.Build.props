@@ -6,14 +6,14 @@
     <!-- allow pre-release dependencies -->
     <NoWarn>$(NoWarn);NU5104</NoWarn>
     <DebugType>Portable</DebugType>
-    <LangVersion>8.0</LangVersion>
+    <LangVersion>9.0</LangVersion>
     <HighEntropyVA>true</HighEntropyVA>
     <EnableSourceLink Condition="$([MSBuild]::IsOSPlatform('osx'))">false</EnableSourceLink>
     <EnableSourceControlManagerQueries>$(EnableSourceLink)</EnableSourceControlManagerQueries>
     <!--This will target the latest patch release of the runtime released with the current SDK.  -->
     <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
     <RuntimePackageVersion>5.0.0</RuntimePackageVersion>
-    <AspNetPackageVersion>5.0.2</AspNetPackageVersion>
+    <AspNetPackageVersion>5.0.3</AspNetPackageVersion>
     <HealthcareSharedPackageVersion>1.1.7</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>1.9.0</Hl7FhirVersion>
   </PropertyGroup>

@@ -20,5 +20,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
         /// <param name="keepMeta">A flag indicating whether to keep the metadata section or clear it.</param>
         /// <returns>An instance of <see cref="ResourceWrapper"/>.</returns>
         ResourceWrapper Create(ResourceElement resource, bool deleted, bool keepMeta);
+
+        /// <summary>
+        /// Updates the search index on <see cref="ResourceWrapper"/>.
+        /// </summary>
+        /// <param name="resourceWrapper">An instance of <see cref="ResourceWrapper"/></param>
+        void Update(ResourceWrapper resourceWrapper);
     }
 }
