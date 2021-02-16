@@ -218,6 +218,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             const string sampleName1 = "searchIndicesPatient1";
             const string sampleName2 = "searchIndicesPatient2";
 
+            // Set up the values that the search index extraction should return on resource creation
+            MockSearchIndexExtraction(sampleName1, sampleName2, searchParam);
+
             UpsertOutcome sample1 = await CreatePatientResource(sampleName1);
             UpsertOutcome sample2 = await CreatePatientResource(sampleName2);
 
@@ -232,7 +235,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             // Confirm that "foo" is dropped from the query string and all patients are returned
             Assert.Equal(2, searchResults.Results.Count());
 
-            CreateReindexResponse response = await SetUpForReindexing(searchParam, sampleName1, sampleName2);
+            CreateReindexResponse response = await SetUpForReindexing();
 
             var cancellationTokenSource = new CancellationTokenSource();
 
@@ -286,7 +289,10 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             // Confirm that "foo" is dropped from the query string and all patients are returned
             Assert.Equal(2, searchResults.Results.Count());
 
-            CreateReindexResponse response = await SetUpForReindexing(searchParam, sampleName1, sampleName2);
+            // Set up the values that the search index extraction should return during reindexing
+            MockSearchIndexExtraction(sampleName1, sampleName2, searchParam);
+
+            CreateReindexResponse response = await SetUpForReindexing();
 
             var cancellationTokenSource = new CancellationTokenSource();
 
@@ -332,20 +338,8 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
             Assert.InRange(delayCount, 0, 20);
         }
 
-        private async Task<CreateReindexResponse> SetUpForReindexing(SearchParameter searchParam, string sampleName1, string sampleName2)
+        private async Task<CreateReindexResponse> SetUpForReindexing()
         {
-            var searchParamInfo = searchParam.ToInfo();
-
-            // When reindexing is run, the resource's search indices will be calculated
-            // Set up the values that the search index extraction should return
-            var searchIndexValues1 = new List<SearchIndexEntry>();
-            searchIndexValues1.Add(new SearchIndexEntry(searchParamInfo, new StringSearchValue(sampleName1)));
-            _searchIndexer.Extract(Arg.Is<ResourceElement>(r => r.Id.Equals(sampleName1))).Returns(searchIndexValues1);
-
-            var searchIndexValues2 = new List<SearchIndexEntry>();
-            searchIndexValues2.Add(new SearchIndexEntry(searchParamInfo, new StringSearchValue(sampleName2)));
-            _searchIndexer.Extract(Arg.Is<ResourceElement>(r => r.Id.Equals(sampleName2))).Returns(searchIndexValues2);
-
             var request = new CreateReindexRequest();
 
             CreateReindexResponse response = await _createReindexRequestHandler.Handle(request, CancellationToken.None);
@@ -359,6 +353,19 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 InitializeReindexJobTask,
                 NullLogger<ReindexJobWorker>.Instance);
             return response;
+        }
+
+        private void MockSearchIndexExtraction(string sampleName1, string sampleName2, SearchParameter searchParam)
+        {
+            SearchParameterInfo searchParamInfo = searchParam.ToInfo();
+
+            var searchIndexValues1 = new List<SearchIndexEntry>();
+            searchIndexValues1.Add(new SearchIndexEntry(searchParamInfo, new StringSearchValue(sampleName1)));
+            _searchIndexer.Extract(Arg.Is<ResourceElement>(r => r.Id.Equals(sampleName1))).Returns(searchIndexValues1);
+
+            var searchIndexValues2 = new List<SearchIndexEntry>();
+            searchIndexValues2.Add(new SearchIndexEntry(searchParamInfo, new StringSearchValue(sampleName2)));
+            _searchIndexer.Extract(Arg.Is<ResourceElement>(r => r.Id.Equals(sampleName2))).Returns(searchIndexValues2);
         }
 
         private async Task<SearchParameter> CreateSearchParam(string searchParamName, string searchParamCode)
