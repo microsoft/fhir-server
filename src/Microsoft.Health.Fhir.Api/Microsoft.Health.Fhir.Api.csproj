@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFrameworks>$(SupportedFrameworks);</TargetFrameworks>
     <DocumentationFile>bin\$(Configuration)\$(TargetFramework)\Microsoft.Health.Fhir.Api.xml</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup>

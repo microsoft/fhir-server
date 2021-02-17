@@ -16,10 +16,16 @@
     <EnableSourceControlManagerQueries>$(EnableSourceLink)</EnableSourceControlManagerQueries>
     <!--This will target the latest patch release of the runtime released with the current SDK.  -->
     <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
+    <SupportedFrameworks>netcoreapp3.1;net5.0</SupportedFrameworks>
     <RuntimePackageVersion>5.0.0</RuntimePackageVersion>
     <AspNetPackageVersion>5.0.3</AspNetPackageVersion>
     <HealthcareSharedPackageVersion>1.1.7</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>1.9.0</Hl7FhirVersion>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="$(TargetFramework.StartsWith('netcoreapp3'))">
+    <RuntimePackageVersion>3.1.12</RuntimePackageVersion>
+    <AspNetPackageVersion>3.1.12</AspNetPackageVersion>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(EnableSourceLink)' == 'true' ">
