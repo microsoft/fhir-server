@@ -97,6 +97,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         /// </summary>
         /// <param name="cancellationToken">The cancellation token</param>
         /// <returns>True if any found, along with id of the job</returns>
-        Task<(bool, string)> CheckActiveReindexJobsAsync(CancellationToken cancellationToken);
+        Task<(bool found, string id)> CheckActiveReindexJobsAsync(CancellationToken cancellationToken);
     }
 }

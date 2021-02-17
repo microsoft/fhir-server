@@ -89,6 +89,13 @@ namespace Microsoft.Health.Fhir.Shared.Core.Features.Search.Parameters
                                 string.Format(Resources.SearchParameterDefinitionDuplicatedEntry, searchParam.Url)));
                     }
                 }
+                catch (FormatException)
+                {
+                    validationFailures.Add(
+                          new ValidationFailure(
+                              nameof(searchParam.Url),
+                              string.Format(Resources.SearchParameterDefinitionInvalidDefinitionUri, searchParam.Url)));
+                }
                 catch (SearchParameterNotSupportedException)
                 {
                     // if thrown, then the search parameter is not found

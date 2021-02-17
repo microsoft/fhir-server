@@ -17,7 +17,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
     /// The date time value is expressed in range. An instance of time can be
     /// thought as a range with the start and end time being the same. The start
     /// and end datetimeoffsets are always in UTC. </remarks>
-    public class DateTimeSearchValue : ISearchValue
+    [SuppressMessage("ReSharper", "CA1036", Justification = "Used for search value comparison.")]
+    public class DateTimeSearchValue : ISearchValue, ISupportSortSearchValue, IRangedComparable
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="DateTimeSearchValue"/> class.
@@ -81,6 +82,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         /// <inheritdoc />
         public bool IsValidAsCompositeComponent => true;
 
+        public bool IsMin { get; set; }
+
+        public bool IsMax { get; set; }
+
         /// <summary>
         /// Parses the string value to an instance of <see cref="DateTimeSearchValue"/>.
         /// </summary>
@@ -135,6 +140,30 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
             }
 
             return Start == dateTimeSearchValueOther.Start && End == dateTimeSearchValueOther.End;
+        }
+
+        public int CompareTo(ISupportSortSearchValue other, ComparisonRange range)
+        {
+            if (other == null)
+            {
+                throw new ArgumentException("Value to be compared to cannot be null");
+            }
+
+            var otherValue = other as DateTimeSearchValue;
+            if (otherValue == null)
+            {
+                throw new ArgumentException($"Value to be compared should be of type {typeof(DateTimeSearchValue)}");
+            }
+
+            switch (range)
+            {
+                case ComparisonRange.Min:
+                    return DateTimeOffset.Compare(Start, otherValue.Start);
+                case ComparisonRange.Max:
+                    return DateTimeOffset.Compare(End, otherValue.End);
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(range));
+            }
         }
 
         /// <inheritdoc />

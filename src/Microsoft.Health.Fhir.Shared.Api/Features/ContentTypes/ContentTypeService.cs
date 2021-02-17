@@ -100,7 +100,7 @@ namespace Microsoft.Health.Fhir.Api.Features.ContentTypes
             var previous = context.Features.Get<IStatusCodeReExecuteFeature>()?.OriginalQueryString;
             var previousQuery = QueryHelpers.ParseNullableQuery(previous);
 
-            if (previousQuery?.TryGetValue(parameterName, out var originValues) == true)
+            if (previousQuery != null && previousQuery.TryGetValue(parameterName, out var originValues) == true)
             {
                 return originValues.FirstOrDefault();
             }

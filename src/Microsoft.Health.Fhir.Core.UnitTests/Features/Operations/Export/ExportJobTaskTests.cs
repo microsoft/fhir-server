@@ -1866,7 +1866,8 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
                         new[]
                         {
                             CreateSearchResultEntry("1", type),
-                        }, type == KnownResourceTypes.Encounter ? "ct" : null);
+                        },
+                        type == KnownResourceTypes.Encounter ? "ct" : null);
                 });
 
             await _exportJobTask.ExecuteAsync(_exportJobRecord, _weakETag, _cancellationToken);

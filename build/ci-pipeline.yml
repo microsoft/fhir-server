@@ -15,9 +15,10 @@ stages:
   jobs:
   - job: Semver
     pool:
-      vmImage: $(WindowsVmImage)
+      name: '$(DefaultLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
     steps:
-    - template: ./jobs/update-semver.yml
+    - template: ./jobs/update-semver.yml  
 
 - stage: BuildUnitTests
   displayName: 'Build and run unit tests'
@@ -35,14 +36,15 @@ stages:
       vmImage: $(WindowsVmImage)
     steps:
     - template: ./jobs/build.yml
-
-  - job: Linux
-    pool:
-      vmImage: 'ubuntu-latest'
-    steps:
-    - template: ./jobs/build.yml
       parameters:
         packageArtifacts: false
+  
+  - job: Linux
+    pool:
+      name: '$(DefaultLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
+    steps:
+    - template: ./jobs/build.yml
 
 - stage: DockerBuild  
   displayName: 'Build images'

@@ -23,18 +23,9 @@ steps:
       zipAfterPublish: false
 
   # Package nugets
-  - task: DotNetCoreCLI@2
-    displayName: 'dotnet pack nugets'
-    inputs:
-      command: pack
-      configuration: '$(buildConfiguration)'
-      packDirectory: '$(build.artifactStagingDirectory)/nupkgs'
-      nobuild: true
-      versioningScheme: byEnvVar
-      versionEnvVar: 'nuget_version'
-      zipAfterPublish: true
-    env:	
-      nuget_version: $(nuGetVersion)
+  - powershell: |
+      & dotnet pack $(Build.SourcesDirectory) --output $(Build.ArtifactStagingDirectory)/nupkgs --no-build --configuration=Release -p:PackageVersion=$(nuGetVersion)
+    name: PackNugets
 
   # Publish artifacts
   - task: PublishBuildArtifacts@1
@@ -68,7 +59,7 @@ steps:
   - task: PublishBuildArtifacts@1
     displayName: 'publish test configuration jsons'
     inputs:
-      pathToPublish: './test/configuration/'
+      pathToPublish: './test/Configuration/'
       artifactName: 'deploy'
       artifactType: 'container'
 

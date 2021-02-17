@@ -22,6 +22,7 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
+using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.HardDelete;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Replace;
@@ -97,7 +98,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 _logger.LogDebug($"Upserting {resource.ResourceTypeName}/{resource.ResourceId}, ETag: \"{weakETag?.VersionId}\", AllowCreate: {allowCreate}, KeepHistory: {keepHistory}");
 
-                UpsertWithHistoryModel response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
+                UpsertWithHistoryModel response = await _retryExceptionPolicyFactory.GetRetryPolicy().ExecuteAsync(
                     async ct => await _upsertWithHistoryProc.Execute(
                         _containerScope.Value.Scripts,
                         cosmosWrapper,
@@ -154,10 +155,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                     .WithParameter("@resourceId", key.Id)
                     .WithParameter("@version", key.VersionId);
 
-                (IReadOnlyList<FhirCosmosResourceWrapper> results, _) = await ExecuteDocumentQueryAsync<FhirCosmosResourceWrapper>(
-                    sqlQuerySpec,
-                    new QueryRequestOptions { PartitionKey = new PartitionKey(key.ToPartitionKey()) },
-                    cancellationToken: cancellationToken);
+                (IReadOnlyList<FhirCosmosResourceWrapper> results, _) = await _retryExceptionPolicyFactory.GetRetryPolicy().ExecuteAsync(() =>
+                    ExecuteDocumentQueryAsync<FhirCosmosResourceWrapper>(
+                        sqlQuerySpec,
+                        new QueryRequestOptions { PartitionKey = new PartitionKey(key.ToPartitionKey()) },
+                        cancellationToken: cancellationToken));
 
                 return results.Count == 0 ? null : results[0];
             }
@@ -181,7 +183,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 _logger.LogDebug($"Obliterating {key.ResourceType}/{key.Id}");
 
-                StoredProcedureExecuteResponse<IList<string>> response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
+                StoredProcedureExecuteResponse<IList<string>> response = await _retryExceptionPolicyFactory.GetRetryPolicy().ExecuteAsync(
                     async ct => await _hardDelete.Execute(
                         _containerScope.Value.Scripts,
                         key,
@@ -234,7 +236,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             {
                 _logger.LogDebug($"Replacing {resourceWrapper.ResourceTypeName}/{resourceWrapper.ResourceId}, ETag: \"{weakETag.VersionId}\"");
 
-                FhirCosmosResourceWrapper response = await _retryExceptionPolicyFactory.CreateRetryPolicy().ExecuteAsync(
+                FhirCosmosResourceWrapper response = await _retryExceptionPolicyFactory.GetRetryPolicy().ExecuteAsync(
                     async ct => await _replaceSingleResource.Execute(
                         _containerScope.Value.Scripts,
                         cosmosWrapper,
@@ -285,10 +287,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(sqlQuerySpec, nameof(sqlQuerySpec));
 
             var context = new CosmosQueryContext(sqlQuerySpec, feedOptions, continuationToken);
-            var cosmosQuery = _cosmosQueryFactory.Create<T>(_containerScope.Value, context);
+            ICosmosQuery<T> cosmosQuery = null;
             var startTime = Clock.UtcNow;
 
-            FeedResponse<T> page = await cosmosQuery.ExecuteNextAsync(cancellationToken);
+            FeedResponse<T> page = await _retryExceptionPolicyFactory.GetRetryPolicy().ExecuteAsync(() =>
+            {
+                cosmosQuery = _cosmosQueryFactory.Create<T>(_containerScope.Value, context); // SDK throws if we don't recreate this on retry
+                return cosmosQuery.ExecuteNextAsync(cancellationToken);
+            });
 
             if (!cosmosQuery.HasMoreResults || !feedOptions.MaxItemCount.HasValue || page.Count == feedOptions.MaxItemCount)
             {
@@ -306,11 +312,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             // try to obtain at least half of the requested results
 
-            using var timeoutTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(_cosmosDataStoreConfiguration.SearchEnumerationTimeoutInSeconds) - (Clock.UtcNow - startTime));
-            using var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutTokenSource.Token);
-
             var results = new List<T>(totalDesiredCount);
             results.AddRange(page);
+
+            TimeSpan timeout = TimeSpan.FromSeconds(_cosmosDataStoreConfiguration.SearchEnumerationTimeoutInSeconds) - (Clock.UtcNow - startTime);
+            if (timeout <= TimeSpan.Zero)
+            {
+                return (results, page.ContinuationToken);
+            }
+
+            using var timeoutTokenSource = new CancellationTokenSource(timeout);
+            using var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutTokenSource.Token);
 
             while (cosmosQuery.HasMoreResults && results.Count < totalDesiredCount / 2)
             {

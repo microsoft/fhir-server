@@ -10,11 +10,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Configs
         /// <summary>
         /// Gets the maximum number of retries allowed.
         /// </summary>
-        public int MaxNumberOfRetries { get; set; } = 3;
+        public int MaxNumberOfRetries { get; set; }
 
         /// <summary>
         /// Gets the maximum number of seconds to wait while the retries are happening.
         /// </summary>
-        public int MaxWaitTimeInSeconds { get; set; } = 5;
+        public int MaxWaitTimeInSeconds { get; set; }
     }
 }

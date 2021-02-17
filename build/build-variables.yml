@@ -23,6 +23,9 @@ variables:
   TestClientUrl: 'https://$(DeploymentEnvironmentName)-client/'
   ConnectedServiceName: 'Microsoft Health Open Source Subscription'
   WindowsVmImage: 'windows-latest'
+  LinuxVmImage: 'ubuntu-latest'
+  # The following is set by a build Pipeline variable:
+  # DefaultLinuxPool: 'Azure Pipelines'
   #-----------------------------------------------------------------------------------------
   # AKS details
   clusterName: "mshealth-oss-aks-cluster"

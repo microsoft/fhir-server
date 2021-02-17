@@ -273,7 +273,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             await Assert.ThrowsAsync<FhirException>(() => _testFhirClient.AnonymizedExportAsync(fileName, containerName));
         }
 
-        private async Task<(string, string)> UploadConfigurationAsync(string configurationContent, string blobName = null)
+        private async Task<(string name, string eTag)> UploadConfigurationAsync(string configurationContent, string blobName = null)
         {
             blobName = blobName ?? $"{Guid.NewGuid()}.json";
             CloudStorageAccount cloudAccount = GetCloudStorageAccountHelper();
