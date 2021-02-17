@@ -30,7 +30,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                     new MultiResolver(
                         profilesResolver,
                         ZipSource.CreateValidationSource()),
-                    options.Value.CacheDuration);
+                    options.Value.CacheDurationInSeconds);
             }
             catch (Exception)
             {
