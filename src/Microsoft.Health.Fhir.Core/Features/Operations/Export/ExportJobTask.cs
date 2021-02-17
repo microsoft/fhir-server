@@ -130,12 +130,15 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
 
                 // Add a request context so that bundle issues can be added by the SearchOptionFactory
                 var fhirRequestContext = new FhirRequestContext(
-                method: "Export",
-                uriString: "$export",
-                baseUriString: "$export",
-                correlationId: _exportJobRecord.Id,
-                requestHeaders: new Dictionary<string, StringValues>(),
-                responseHeaders: new Dictionary<string, StringValues>());
+                    method: "Export",
+                    uriString: "$export",
+                    baseUriString: "$export",
+                    correlationId: _exportJobRecord.Id,
+                    requestHeaders: new Dictionary<string, StringValues>(),
+                    responseHeaders: new Dictionary<string, StringValues>())
+                {
+                    IsBackgroundTask = true,
+                };
 
                 _contextAccessor.FhirRequestContext = fhirRequestContext;
 
@@ -677,7 +680,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
         {
             if (!queryParametersList.Exists((Tuple<string, string> parameter) => parameter.Item1 == KnownQueryParameterNames.Id || parameter.Item1 == KnownQueryParameterNames.ContinuationToken))
             {
-                var patientIds = await _groupMemberExtractor.GetGroupPatientIds(groupId, groupMembershipTime, cancellationToken);
+                HashSet<string> patientIds = await _groupMemberExtractor.GetGroupPatientIds(groupId, groupMembershipTime, cancellationToken);
+
+                if (patientIds.Count == 0)
+                {
+                    _logger.LogInformation($"Group {groupId} does not have any patient ids as members.");
+                    return SearchResult.Empty();
+                }
+
                 queryParametersList.Add(Tuple.Create(KnownQueryParameterNames.Id, string.Join(',', patientIds)));
             }
 

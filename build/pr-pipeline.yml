@@ -14,11 +14,12 @@ stages:
   jobs:
   - job: Semver
     pool:
-      vmImage: $(WindowsVmImage)
+      name: '$(DefaultLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
     steps:
     - template: ./jobs/update-semver.yml  
     - powershell: |
-        $buildNumber = "$(GitVersion.semVer)" -replace "\.", "" 
+        $buildNumber = "$(semVer)" -replace "\.", "" 
         Write-Host "##vso[build.updatebuildnumber]$buildNumber" 
         Write-Host "Updated  build number to '$buildNumber"
       name: SetBuildVersion
@@ -39,14 +40,16 @@ stages:
       vmImage: $(WindowsVmImage)
     steps:
     - template: ./jobs/build.yml
+      parameters:
+        packageArtifacts: false
 
   - job: Linux
     pool:
-      vmImage: 'ubuntu-latest'
+      name: '$(DefaultLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
     steps:
     - template: ./jobs/build.yml
-      parameters:
-        packageArtifacts: false
+    
 
 - stage: DockerBuild  
   displayName: 'Build images'
@@ -62,6 +65,9 @@ stages:
   dependsOn: []
   jobs:
   - job: provision
+    pool:
+      name: '$(DefaultLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
     steps:
     - task: AzurePowerShell@4
       displayName: Provision Resource Group

@@ -4,8 +4,13 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Runtime.ExceptionServices;
+using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
+using Microsoft.Health.Abstractions.Exceptions;
+using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Polly;
 using Polly.Retry;
@@ -14,25 +19,68 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 {
     public class RetryExceptionPolicyFactory
     {
-        private readonly int _maxNumberOfRetries;
+        private const string RetryEndTimeContextKey = "RetryEndTime";
+        private readonly IFhirRequestContextAccessor _requestContextAccessor;
+        private readonly AsyncPolicy _sdkOnlyRetryPolicy;
+        private readonly AsyncPolicy _bundleActionRetryPolicy;
+        private readonly AsyncPolicy _backgroundJobRetryPolicy;
 
-        public RetryExceptionPolicyFactory(CosmosDataStoreConfiguration configuration)
+        public RetryExceptionPolicyFactory(CosmosDataStoreConfiguration configuration, IFhirRequestContextAccessor requestContextAccessor)
         {
+            _requestContextAccessor = requestContextAccessor;
             EnsureArg.IsNotNull(configuration, nameof(configuration));
+            EnsureArg.IsNotNull(requestContextAccessor, nameof(requestContextAccessor));
 
-            _maxNumberOfRetries = configuration.RetryOptions.MaxNumberOfRetries;
+            _sdkOnlyRetryPolicy = Policy.NoOpAsync();
+
+            _bundleActionRetryPolicy = configuration.IndividualBatchActionRetryOptions.MaxNumberOfRetries > 0
+                ? CreateExtendedRetryPolicy(configuration.IndividualBatchActionRetryOptions.MaxNumberOfRetries / configuration.RetryOptions.MaxNumberOfRetries, configuration.IndividualBatchActionRetryOptions.MaxWaitTimeInSeconds)
+                : (AsyncPolicy)Policy.NoOpAsync();
+
+            _backgroundJobRetryPolicy = CreateExtendedRetryPolicy(3, configuration.RetryOptions.MaxWaitTimeInSeconds * 3);
         }
 
-        public AsyncRetryPolicy CreateRetryPolicy()
+        public AsyncPolicy GetRetryPolicy()
         {
-            var policy = Policy
-                .Handle<CosmosException>(RetryExceptionPolicy.IsTransient)
-                .WaitAndRetryAsync(
-                    _maxNumberOfRetries,
-                    retryAttempt =>
-                        TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
+            return _requestContextAccessor.FhirRequestContext switch
+            {
+                null or { IsBackgroundTask: true } => _backgroundJobRetryPolicy,
+                { ExecutingBatchOrTransaction: true } => _bundleActionRetryPolicy,
+                _ => _sdkOnlyRetryPolicy,
+            };
+        }
 
-            return policy;
+        private static AsyncRetryPolicy CreateExtendedRetryPolicy(int maxRetries, int maxWaitTimeInSeconds)
+        {
+            return Policy.Handle<RequestRateExceededException>()
+                .Or<CosmosException>(e => e.IsRequestRateExceeded())
+                .WaitAndRetryAsync(
+                    retryCount: maxRetries,
+                    sleepDurationProvider: (_, e, _) => e.AsRequestRateExceeded()?.RetryAfter ?? TimeSpan.FromSeconds(2),
+                    onRetryAsync: (e, _, _, ctx) =>
+                    {
+                        if (maxWaitTimeInSeconds == -1)
+                        {
+                            // no timeout
+                            return Task.CompletedTask;
+                        }
+
+                        if (ctx.TryGetValue(RetryEndTimeContextKey, out var endTimeObj))
+                        {
+                            if (DateTime.UtcNow >= (DateTime)endTimeObj)
+                            {
+                                ExceptionDispatchInfo.Throw(e);
+                            }
+
+                            // otherwise, we have enough time to retry
+                        }
+                        else
+                        {
+                            ctx.Add(RetryEndTimeContextKey, DateTime.UtcNow.AddSeconds(maxWaitTimeInSeconds));
+                        }
+
+                        return Task.CompletedTask;
+                    });
         }
     }
 }

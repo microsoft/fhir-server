@@ -7,7 +7,9 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+#if Stu3
 using System.Reflection;
+#endif
 using System.Text;
 using Hl7.Fhir.Introspection;
 using Hl7.Fhir.Model;
@@ -191,14 +193,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
             }
             else
             {
-                var pathBuilder = new StringBuilder(ctx.Path.First().Item1);
+                var pathBuilder = new StringBuilder(ctx.Path.First().propertyName);
 
                 var skipResourceElement = true;
-                ClassMapping mapping = ctx.Path.First().Item2;
+                ClassMapping mapping = ctx.Path.First().knownMapping;
 
-                if (mapping == null && ModelInfoProvider.Instance.GetTypeForFhirType(ctx.Path.First().Item1) != null)
+                if (mapping == null && ModelInfoProvider.Instance.GetTypeForFhirType(ctx.Path.First().propertyName) != null)
                 {
-                    mapping = GetMapping(ctx.Path.First().Item1);
+                    mapping = GetMapping(ctx.Path.First().propertyName);
                 }
 
                 // Default to parent resource
@@ -330,7 +332,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Parameters
 
         private class Context
         {
-            public Stack<(string, ClassMapping)> Path { get; set; } = new Stack<(string, ClassMapping)>();
+            public Stack<(string propertyName, ClassMapping knownMapping)> Path { get; set; } = new();
 
             public ClassMapping ParentTypeMapping { get; set; }
 

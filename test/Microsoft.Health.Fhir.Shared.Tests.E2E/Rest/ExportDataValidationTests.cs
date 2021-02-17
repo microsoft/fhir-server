@@ -189,6 +189,33 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.True(ValidateDataFromBothSources(dataInFhirServer, dataFromExport));
         }
 
+        [Fact]
+        public async Task GivenFhirServer_WhenGroupDataWithNoMemberPatientIdIsExported_ThenNoDataIsExported()
+        {
+            // NOTE: Azure Storage Emulator is required to run these tests locally.
+
+            // Add data for test
+            string groupId = await CreateGroupWithoutPatientIds();
+
+            // Trigger export request and check for export status
+            Uri contentLocation = await _testFhirClient.ExportAsync($"Group/{groupId}/");
+            IList<Uri> blobUris = await CheckExportStatus(contentLocation);
+
+            Assert.Empty(blobUris);
+
+            async Task<string> CreateGroupWithoutPatientIds()
+            {
+                var group = new FhirGroup()
+                {
+                    Type = FhirGroup.GroupType.Person,
+                    Actual = true,
+                };
+
+                var groupResponse = await _testFhirClient.CreateAsync(group);
+                return groupResponse.Resource.Id;
+            }
+        }
+
         [Fact(Skip = "Failing CI build")]
         public async Task GivenFhirServer_WhenAllDataIsExportedToASpecificContainer_ThenExportedDataIsInTheSpecifiedContianer()
         {
@@ -438,9 +465,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             else
             {
                 string storageSecret = Environment.GetEnvironmentVariable(storageAccountName + "_secret");
+                string allAccounts = Environment.GetEnvironmentVariable("AllStorageAccounts");
+
                 if (!string.IsNullOrWhiteSpace(storageSecret))
                 {
                     StorageCredentials storageCredentials = new StorageCredentials(storageAccountName, storageSecret);
+                    cloudAccount = new CloudStorageAccount(storageCredentials, useHttps: true);
+                }
+                else if (!string.IsNullOrWhiteSpace(allAccounts))
+                {
+                    var splitAccounts = allAccounts.Split('|').ToList();
+                    var nameIndex = splitAccounts.IndexOf(storageAccountName + "_secret");
+
+                    if (nameIndex < 0)
+                    {
+                        throw new Exception("Unable to create a cloud storage account, key not provided.");
+                    }
+
+                    StorageCredentials storageCredentials = new StorageCredentials(storageAccountName, splitAccounts[nameIndex + 1].Trim());
                     cloudAccount = new CloudStorageAccount(storageCredentials, useHttps: true);
                 }
             }

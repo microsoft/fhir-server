@@ -47,7 +47,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 null => expression,
                 { Count: 0 } => null,
                 { Count: 1 } => newChildExpressions[0],
-                _ => new MultiaryExpression(expression.MultiaryOperation, newChildExpressions)
+                _ => new MultiaryExpression(expression.MultiaryOperation, newChildExpressions),
             };
         }
     }

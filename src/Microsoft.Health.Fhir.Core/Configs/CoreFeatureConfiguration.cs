@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.Configs
         /// <summary>
         /// Gets or sets the default value for maximum value for _count in search.
         /// </summary>
-        public int MaxItemCountPerSearch { get; set; } = 100;
+        public int MaxItemCountPerSearch { get; set; } = 1000;
 
         /// <summary>
         /// Gets or sets the default value for _count in search.

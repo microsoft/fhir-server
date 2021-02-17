@@ -112,5 +112,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations
         public const string RollingFileSizeInMB = "rollingFileSizeInMB";
 
         public const string Issues = "issues";
+
+        public const string TotalResourcesToReindex = "totalResourcesToReindex";
+
+        public const string ResourcesSuccessfullyReindexed = "resourcesSuccessfullyReindexed";
     }
 }
