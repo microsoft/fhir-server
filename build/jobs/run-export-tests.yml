@@ -8,7 +8,8 @@ jobs:
 - job: 'cosmosE2eTests'
   dependsOn: []
   pool:
-    vmImage: $(WindowsVmImage)
+    name: '$(DefaultLinuxPool)'
+    vmImage: '$(LinuxVmImage)'
   steps:
   - template: e2e-setup.yml
 
@@ -31,12 +32,15 @@ jobs:
         }
 
         $storageAccounts = Get-AzStorageAccount -ResourceGroupName $(ResourceGroupName)
+        $allStorageAccounts = ""
         foreach ($storageAccount in $storageAccounts) {
             $accKey = Get-AzStorageAccountKey -ResourceGroupName $(ResourceGroupName) -Name $storageAccount.StorageAccountName | Where-Object {$_.KeyName -eq "key1"}
 
             $storageSecretName = "$($storageAccount.StorageAccountName)_secret"
             Write-Host "##vso[task.setvariable variable=$($storageSecretName)]$($accKey.Value)"
+            $allStorageAccounts += "$($storageSecretName)|$($accKey.Value)|"
         }
+        Write-Host "##vso[task.setvariable variable=AllStorageAccounts]$($allStorageAccounts)"
 
         Write-Host "##vso[task.setvariable variable=Resource]$(TestEnvironmentUrl)"
         
@@ -53,24 +57,45 @@ jobs:
 
         dotnet dev-certs https
 
-  - task: VSTest@2
-    displayName: 'Run Export E2E Tests'
+  - task: DotNetCoreCLI@2
+    displayName: 'Export E2E ${{ parameters.version }} CosmosDB'
     inputs:
-      testSelector: testAssemblies
-      testAssemblyVer2: |
-        **\*${{ parameters.version }}.Tests.E2E*.dll
-      testFiltercriteria: "FullyQualifiedName~CosmosDb&Category=ExportLongRunning"
-      searchFolder: '$(System.ArtifactsDirectory)'
-      rerunFailedTests: true
-      rerunType: 'basedOnTestFailurePercentage'
-      rerunFailedThreshold: '95'
-      rerunMaxAttempts: 3
-      testRunTitle: '${{ parameters.version }} CosmosDB'
+      command: test
+      arguments: '"**\*${{ parameters.version }}.Tests.E2E*.dll" --filter "FullyQualifiedName~CosmosDb&Category=ExportLongRunning"'
+      workingDirectory: "$(System.ArtifactsDirectory)"
+      testRunTitle: 'Export ${{ parameters.version }} CosmosDB'
+    env:
+      'TestEnvironmentUrl': $(TestEnvironmentUrl)
+      'TestEnvironmentUrl_${{ parameters.version }}': $(TestEnvironmentUrl_${{ parameters.version }})
+      'Resource': $(Resource)
+      'AllStorageAccounts': $(AllStorageAccounts)
+      'tenant-admin-service-principal-name': $(tenant-admin-service-principal-name)
+      'tenant-admin-service-principal-password': $(tenant-admin-service-principal-password)
+      'tenant-admin-user-name': $(tenant-admin-user-name)
+      'tenant-admin-user-password': $(tenant-admin-user-password)
+      'tenant-id': $(tenant-id)
+      'app_globalAdminServicePrincipal_id': $(app_globalAdminServicePrincipal_id)
+      'app_globalAdminServicePrincipal_secret': $(app_globalAdminServicePrincipal_secret)
+      'app_nativeClient_id': $(app_nativeClient_id)
+      'app_nativeClient_secret': $(app_nativeClient_secret)
+      'app_wrongAudienceClient_id': $(app_wrongAudienceClient_id)
+      'app_wrongAudienceClient_secret': $(app_wrongAudienceClient_secret)
+      'user_globalAdminUser_id': $(user_globalAdminUser_id)
+      'user_globalAdminUser_secret': $(user_globalAdminUser_secret)
+      'user_globalConverterUser_id': $(user_globalConverterUser_id)
+      'user_globalConverterUser_secret': $(user_globalConverterUser_secret)
+      'user_globalExporterUser_id': $(user_globalExporterUser_id)
+      'user_globalExporterUser_secret': $(user_globalExporterUser_secret)
+      'user_globalReaderUser_id': $(user_globalReaderUser_id)
+      'user_globalReaderUser_secret': $(user_globalReaderUser_secret)
+      'user_globalWriterUser_id': $(user_globalWriterUser_id)
+      'user_globalWriterUser_secret': $(user_globalWriterUser_secret)
 
 - job: 'sqlE2eTests'
   dependsOn: []
   pool:
-    vmImage: $(WindowsVmImage)
+    name: '$(DefaultLinuxPool)'
+    vmImage: '$(LinuxVmImage)'
   steps:
   - template: e2e-setup.yml
   
@@ -93,12 +118,15 @@ jobs:
         }
 
         $storageAccounts = Get-AzStorageAccount -ResourceGroupName $(ResourceGroupName)
+        $allStorageAccounts = ""
         foreach ($storageAccount in $storageAccounts) {
             $accKey = Get-AzStorageAccountKey -ResourceGroupName $(ResourceGroupName) -Name $storageAccount.StorageAccountName | Where-Object {$_.KeyName -eq "key1"}
 
             $storageSecretName = "$($storageAccount.StorageAccountName)_secret"
             Write-Host "##vso[task.setvariable variable=$($storageSecretName)]$($accKey.Value)"
+            $allStorageAccounts += "|$($storageSecretName)|$($accKey.Value)"
         }
+        Write-Host "##vso[task.setvariable variable=AllStorageAccounts]$($allStorageAccounts)"
 
         Write-Host "##vso[task.setvariable variable=Resource]$(TestEnvironmentUrl)"
         
@@ -115,16 +143,37 @@ jobs:
 
         dotnet dev-certs https
 
-  - task: VSTest@2
-    displayName: 'Run Export E2E Tests'
+  - task: DotNetCoreCLI@2
+    displayName: 'Export E2E ${{ parameters.version }} SQL'
     inputs:
-      testSelector: testAssemblies
-      testAssemblyVer2: |
-        **\*${{ parameters.version }}.Tests.E2E*.dll
-      testFiltercriteria: "FullyQualifiedName~SqlServer&Category=ExportLongRunning"
-      searchFolder: '$(System.ArtifactsDirectory)'
-      rerunFailedTests: true
-      rerunType: 'basedOnTestFailurePercentage'
-      rerunFailedThreshold: '95'
-      rerunMaxAttempts: 3
-      testRunTitle: '${{ parameters.version }} SQL'
+      command: test
+      arguments: '"**\*${{ parameters.version }}.Tests.E2E*.dll" --filter "FullyQualifiedName~SqlServer&Category=ExportLongRunning"'
+      workingDirectory: "$(System.ArtifactsDirectory)"
+      testRunTitle: 'Export ${{ parameters.version }} SQL'
+    env:
+      'TestEnvironmentUrl_Sql': $(TestEnvironmentUrl_Sql)
+      'TestEnvironmentUrl_${{ parameters.version }}_Sql': $(TestEnvironmentUrl_${{ parameters.version }}_Sql)
+      'Resource': $(Resource)
+      'AllStorageAccounts': $(AllStorageAccounts)
+      'tenant-admin-service-principal-name': $(tenant-admin-service-principal-name)
+      'tenant-admin-service-principal-password': $(tenant-admin-service-principal-password)
+      'tenant-admin-user-name': $(tenant-admin-user-name)
+      'tenant-admin-user-password': $(tenant-admin-user-password)
+      'tenant-id': $(tenant-id)
+      'app_globalAdminServicePrincipal_id': $(app_globalAdminServicePrincipal_id)
+      'app_globalAdminServicePrincipal_secret': $(app_globalAdminServicePrincipal_secret)
+      'app_nativeClient_id': $(app_nativeClient_id)
+      'app_nativeClient_secret': $(app_nativeClient_secret)
+      'app_wrongAudienceClient_id': $(app_wrongAudienceClient_id)
+      'app_wrongAudienceClient_secret': $(app_wrongAudienceClient_secret)
+      'user_globalAdminUser_id': $(user_globalAdminUser_id)
+      'user_globalAdminUser_secret': $(user_globalAdminUser_secret)
+      'user_globalConverterUser_id': $(user_globalConverterUser_id)
+      'user_globalConverterUser_secret': $(user_globalConverterUser_secret)
+      'user_globalExporterUser_id': $(user_globalExporterUser_id)
+      'user_globalExporterUser_secret': $(user_globalExporterUser_secret)
+      'user_globalReaderUser_id': $(user_globalReaderUser_id)
+      'user_globalReaderUser_secret': $(user_globalReaderUser_secret)
+      'user_globalWriterUser_id': $(user_globalWriterUser_id)
+      'user_globalWriterUser_secret': $(user_globalWriterUser_secret)
+      

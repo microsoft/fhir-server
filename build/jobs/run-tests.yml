@@ -101,7 +101,7 @@ jobs:
     displayName: 'E2E ${{ parameters.version }} CosmosDB'
     inputs:
       command: test
-      arguments: '"**\*${{ parameters.version }}.Tests.E2E*.dll" --filter "FullyQualifiedName~CosmosDb"'
+      arguments: '"**\*${{ parameters.version }}.Tests.E2E*.dll" --filter "FullyQualifiedName~CosmosDb&Category!=ExportLongRunning"'
       workingDirectory: "$(System.ArtifactsDirectory)"
       testRunTitle: '${{ parameters.version }} CosmosDB'
     env:
@@ -187,7 +187,7 @@ jobs:
     displayName: 'E2E ${{ parameters.version }} SQL'
     inputs:
       command: test
-      arguments: '"**\*${{ parameters.version }}.Tests.E2E*.dll" --filter "FullyQualifiedName~SqlServer"'
+      arguments: '"**\*${{ parameters.version }}.Tests.E2E*.dll" --filter "FullyQualifiedName~SqlServer&Category!=ExportLongRunning"'
       workingDirectory: "$(System.ArtifactsDirectory)"
       testRunTitle: '${{ parameters.version }} SQL'
     env:

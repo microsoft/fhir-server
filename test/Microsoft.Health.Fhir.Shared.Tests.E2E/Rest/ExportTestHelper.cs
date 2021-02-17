@@ -122,9 +122,24 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             else
             {
                 string storageSecret = Environment.GetEnvironmentVariable(storageAccountName + "_secret");
+                string allAccounts = Environment.GetEnvironmentVariable("AllStorageAccounts");
+
                 if (!string.IsNullOrWhiteSpace(storageSecret))
                 {
                     StorageCredentials storageCredentials = new StorageCredentials(storageAccountName, storageSecret);
+                    cloudAccount = new CloudStorageAccount(storageCredentials, useHttps: true);
+                }
+                else if (!string.IsNullOrWhiteSpace(allAccounts))
+                {
+                    var splitAccounts = allAccounts.Split('|').ToList();
+                    var nameIndex = splitAccounts.IndexOf(storageAccountName + "_secret");
+
+                    if (nameIndex < 0)
+                    {
+                        throw new Exception("Unable to create a cloud storage account, key not provided.");
+                    }
+
+                    StorageCredentials storageCredentials = new StorageCredentials(storageAccountName, splitAccounts[nameIndex + 1].Trim());
                     cloudAccount = new CloudStorageAccount(storageCredentials, useHttps: true);
                 }
             }
