@@ -8,6 +8,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Data.SqlClient;
@@ -22,7 +23,7 @@ using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema;
 using Microsoft.Health.Fhir.SqlServer.Features.Schema.Model;
 using Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry;
-using Microsoft.Health.SqlServer.Configs;
+using Microsoft.Health.SqlServer;
 using Microsoft.Health.SqlServer.Features.Schema;
 using Microsoft.Health.SqlServer.Features.Schema.Model;
 using Microsoft.Health.SqlServer.Features.Storage;
@@ -38,11 +39,11 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
     /// </summary>
     public sealed class SqlServerFhirModel : IRequireInitializationOnFirstRequest
     {
-        private readonly SqlServerDataStoreConfiguration _configuration;
         private readonly SchemaInformation _schemaInformation;
         private readonly ISearchParameterDefinitionManager _searchParameterDefinitionManager;
         private readonly ISearchParameterStatusDataStore _filebasedSearchParameterStatusDataStore;
         private readonly SecurityConfiguration _securityConfiguration;
+        private readonly ISqlConnectionStringProvider _sqlConnectionStringProvider;
         private readonly ILogger<SqlServerFhirModel> _logger;
         private Dictionary<string, short> _resourceTypeToId;
         private Dictionary<short, string> _resourceTypeIdToTypeName;
@@ -54,25 +55,25 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private int _highestInitializedVersion;
 
         public SqlServerFhirModel(
-            SqlServerDataStoreConfiguration configuration,
             SchemaInformation schemaInformation,
             ISearchParameterDefinitionManager searchParameterDefinitionManager,
             FilebasedSearchParameterStatusDataStore.Resolver filebasedRegistry,
             IOptions<SecurityConfiguration> securityConfiguration,
+            ISqlConnectionStringProvider sqlConnectionStringProvider,
             ILogger<SqlServerFhirModel> logger)
         {
-            EnsureArg.IsNotNull(configuration, nameof(configuration));
             EnsureArg.IsNotNull(schemaInformation, nameof(schemaInformation));
             EnsureArg.IsNotNull(searchParameterDefinitionManager, nameof(searchParameterDefinitionManager));
             EnsureArg.IsNotNull(filebasedRegistry, nameof(filebasedRegistry));
             EnsureArg.IsNotNull(securityConfiguration?.Value, nameof(securityConfiguration));
+            EnsureArg.IsNotNull(sqlConnectionStringProvider, nameof(sqlConnectionStringProvider));
             EnsureArg.IsNotNull(logger, nameof(logger));
 
-            _configuration = configuration;
             _schemaInformation = schemaInformation;
             _searchParameterDefinitionManager = searchParameterDefinitionManager;
             _filebasedSearchParameterStatusDataStore = filebasedRegistry.Invoke();
             _securityConfiguration = securityConfiguration.Value;
+            _sqlConnectionStringProvider = sqlConnectionStringProvider;
             _logger = logger;
         }
 
@@ -140,35 +141,33 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             return _quantityCodeToId.TryGetValue(code, out quantityCodeId);
         }
 
-        public Task EnsureInitialized()
+        public async Task EnsureInitialized()
         {
             ThrowIfCurrentSchemaVersionIsNull();
 
             // If the fhir-server is just starting up, synchronize the fhir-server dictionaries with the SQL database
-            Initialize((int)_schemaInformation.Current, true);
-
-            return Task.CompletedTask;
+            await Initialize((int)_schemaInformation.Current, true, CancellationToken.None);
         }
 
-        public void Initialize(int version, bool runAllInitialization)
+        public async Task Initialize(int version, bool runAllInitialization, CancellationToken cancellationToken)
         {
             if (_highestInitializedVersion == version)
             {
                 return;
             }
 
-            var connectionStringBuilder = new SqlConnectionStringBuilder(_configuration.ConnectionString);
+            var connectionStringBuilder = new SqlConnectionStringBuilder(await _sqlConnectionStringProvider.GetSqlConnectionString(cancellationToken));
             _logger.LogInformation("Initializing {Server} {Database} to version {Version}", connectionStringBuilder.DataSource, connectionStringBuilder.InitialCatalog, version);
 
             // If we are applying a full snap shot schema file, or if the server is just starting up
             if (runAllInitialization || _highestInitializedVersion == 0)
             {
                 // Run the schema initialization required for all schema versions, from the minimum version to the current version.
-                InitializeBase();
+                await InitializeBase(cancellationToken);
 
                 if (version >= SchemaVersionConstants.SearchParameterStatusSchemaVersion)
                 {
-                    InitializeSearchParameterStatuses();
+                    await InitializeSearchParameterStatuses(cancellationToken);
                 }
             }
             else
@@ -176,16 +175,16 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 // Only run the schema initialization required for the current version
                 if (version == SchemaVersionConstants.SearchParameterStatusSchemaVersion)
                 {
-                    InitializeSearchParameterStatuses();
+                    await InitializeSearchParameterStatuses(cancellationToken);
                 }
             }
 
             _highestInitializedVersion = version;
         }
 
-        private void InitializeBase()
+        private async Task InitializeBase(CancellationToken cancellationToken)
         {
-            using (var connection = new SqlConnection(_configuration.ConnectionString))
+            using (var connection = new SqlConnection(await _sqlConnectionStringProvider.GetSqlConnectionString(cancellationToken)))
             {
                 connection.Open();
 
@@ -320,9 +319,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        private void InitializeSearchParameterStatuses()
+        private async Task InitializeSearchParameterStatuses(CancellationToken cancellationToken)
         {
-            using (var connection = new SqlConnection(_configuration.ConnectionString))
+            using (var connection = new SqlConnection(await _sqlConnectionStringProvider.GetSqlConnectionString(cancellationToken)))
             {
                 connection.Open();
 
@@ -369,7 +368,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
             _logger.LogInformation("Cache miss for string ID on {table}", table);
 
-            using (var connection = new SqlConnection(_configuration.ConnectionString))
+            using (var connection = new SqlConnection(_sqlConnectionStringProvider.GetSqlConnectionString(CancellationToken.None).GetAwaiter().GetResult()))
             {
                 connection.Open();
 

@@ -72,7 +72,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 SearchParamType.Reference => typeof(ReferenceSearchValue),
                 SearchParamType.Quantity => typeof(QuantitySearchValue),
                 SearchParamType.Uri => typeof(UriSearchValue),
-                _ => throw new ArgumentOutOfRangeException(nameof(searchParameterType))
+                _ => throw new ArgumentOutOfRangeException(nameof(searchParameterType)),
             };
     }
 }

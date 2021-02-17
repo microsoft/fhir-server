@@ -65,7 +65,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
 
             _securityEnabled = securityConfiguration.Value.Enabled;
 
-            _excludedEndpoints = new HashSet<(string method, string path)>(new StringTupleOrdinalIgnoreCaseEqualityComparer());
+            _excludedEndpoints = new HashSet<(string method, string path)>(new MethodPathTupleOrdinalIgnoreCaseEqualityComparer());
 
             if (configuration?.ExcludedEndpoints != null)
             {
@@ -277,16 +277,16 @@ namespace Microsoft.Health.Fhir.Api.Features.Throttling
 
         public void Dispose() => DisposeAsync().GetAwaiter().GetResult();
 
-        private class StringTupleOrdinalIgnoreCaseEqualityComparer : IEqualityComparer<ValueTuple<string, string>>
+        private class MethodPathTupleOrdinalIgnoreCaseEqualityComparer : IEqualityComparer<(string method, string path)>
         {
-            public bool Equals(ValueTuple<string, string> x, ValueTuple<string, string> y)
+            public bool Equals((string method, string path) x, (string method, string path) y)
             {
-                return StringComparer.OrdinalIgnoreCase.Equals(x.Item1, y.Item1) && StringComparer.OrdinalIgnoreCase.Equals(x.Item2, y.Item2);
+                return StringComparer.OrdinalIgnoreCase.Equals(x.method, y.method) && StringComparer.OrdinalIgnoreCase.Equals(x.path, y.path);
             }
 
-            public int GetHashCode(ValueTuple<string, string> obj)
+            public int GetHashCode((string method, string path) obj)
             {
-                return HashCode.Combine(obj.Item1.GetHashCode(StringComparison.OrdinalIgnoreCase), obj.Item2.GetHashCode(StringComparison.OrdinalIgnoreCase));
+                return HashCode.Combine(obj.method.GetHashCode(StringComparison.OrdinalIgnoreCase), obj.path.GetHashCode(StringComparison.OrdinalIgnoreCase));
             }
         }
     }
