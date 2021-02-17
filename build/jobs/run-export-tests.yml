@@ -5,46 +5,6 @@ parameters:
   type: string
 
 jobs:
-- job: "integrationTests"
-  pool:
-    name: '$(DefaultLinuxPool)'
-    vmImage: '$(LinuxVmImage)'
-  steps:
-  - task: DownloadBuildArtifacts@0
-    inputs:
-      buildType: 'current'
-      downloadType: 'single'
-      downloadPath: '$(System.ArtifactsDirectory)'
-      artifactName: 'IntegrationTests'
-
-  - task: UseDotNet@2
-    inputs:
-      useGlobalJson: true
-
-  - task: AzureKeyVault@1
-    displayName: 'Azure Key Vault: ${{ parameters.keyVaultName }}'
-    inputs:
-      azureSubscription: $(ConnectedServiceName)
-      KeyVaultName: '${{ parameters.keyVaultName }}'
-
-  - task: AzureKeyVault@1
-    displayName: 'Azure Key Vault: ${{ parameters.keyVaultName }}-sql'
-    inputs:
-      azureSubscription: $(ConnectedServiceName)
-      KeyVaultName: '${{ parameters.keyVaultName }}-sql'
-
-  - task: DotNetCoreCLI@2
-    displayName: 'Run Integration Tests'
-    inputs:
-      command: test
-      arguments: '"**\*${{ parameters.version }}.Tests.Integration*.dll"'
-      workingDirectory: "$(System.ArtifactsDirectory)"
-      testRunTitle: '${{ parameters.version }} Integration'
-    env:
-      'CosmosDb:Host': $(CosmosDb--Host)
-      'CosmosDb:Key': $(CosmosDb--Key)
-      'SqlServer:ConnectionString': $(SqlServer--ConnectionString)
-
 - job: 'cosmosE2eTests'
   dependsOn: []
   pool:
@@ -52,7 +12,7 @@ jobs:
     vmImage: '$(LinuxVmImage)'
   steps:
   - template: e2e-setup.yml
-    
+
   - task: AzurePowerShell@4
     displayName: 'Set Variables'
     inputs:
@@ -98,12 +58,12 @@ jobs:
         dotnet dev-certs https
 
   - task: DotNetCoreCLI@2
-    displayName: 'E2E ${{ parameters.version }} CosmosDB'
+    displayName: 'Export E2E ${{ parameters.version }} CosmosDB'
     inputs:
       command: test
-      arguments: '"**\*${{ parameters.version }}.Tests.E2E*.dll" --filter "FullyQualifiedName~CosmosDb&Category!=ExportLongRunning"'
+      arguments: '"**\*${{ parameters.version }}.Tests.E2E*.dll" --filter "FullyQualifiedName~CosmosDb&Category=ExportLongRunning"'
       workingDirectory: "$(System.ArtifactsDirectory)"
-      testRunTitle: '${{ parameters.version }} CosmosDB'
+      testRunTitle: 'Export ${{ parameters.version }} CosmosDB'
     env:
       'TestEnvironmentUrl': $(TestEnvironmentUrl)
       'TestEnvironmentUrl_${{ parameters.version }}': $(TestEnvironmentUrl_${{ parameters.version }})
@@ -138,7 +98,7 @@ jobs:
     vmImage: '$(LinuxVmImage)'
   steps:
   - template: e2e-setup.yml
-    
+  
   - task: AzurePowerShell@4
     displayName: 'Set Variables'
     inputs:
@@ -184,12 +144,12 @@ jobs:
         dotnet dev-certs https
 
   - task: DotNetCoreCLI@2
-    displayName: 'E2E ${{ parameters.version }} SQL'
+    displayName: 'Export E2E ${{ parameters.version }} SQL'
     inputs:
       command: test
-      arguments: '"**\*${{ parameters.version }}.Tests.E2E*.dll" --filter "FullyQualifiedName~SqlServer&Category!=ExportLongRunning"'
+      arguments: '"**\*${{ parameters.version }}.Tests.E2E*.dll" --filter "FullyQualifiedName~SqlServer&Category=ExportLongRunning"'
       workingDirectory: "$(System.ArtifactsDirectory)"
-      testRunTitle: '${{ parameters.version }} SQL'
+      testRunTitle: 'Export ${{ parameters.version }} SQL'
     env:
       'TestEnvironmentUrl_Sql': $(TestEnvironmentUrl_Sql)
       'TestEnvironmentUrl_${{ parameters.version }}_Sql': $(TestEnvironmentUrl_${{ parameters.version }}_Sql)
@@ -216,3 +176,4 @@ jobs:
       'user_globalReaderUser_secret': $(user_globalReaderUser_secret)
       'user_globalWriterUser_id': $(user_globalWriterUser_id)
       'user_globalWriterUser_secret': $(user_globalWriterUser_secret)
+      
