@@ -17,8 +17,10 @@ using Microsoft.Azure.Storage.Blob;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Configs;
+using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export;
 using Microsoft.Health.Fhir.Core.Features.Operations.Export.Models;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.Shared.Tests.E2E.Rest.Metric;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
@@ -27,6 +29,7 @@ using Microsoft.Health.Fhir.Tests.E2E.Rest;
 using Microsoft.Health.Test.Utilities;
 using Newtonsoft.Json;
 using Xunit;
+using FhirGroup = Hl7.Fhir.Model.Group;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
@@ -41,6 +44,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         private readonly MetricHandler _metricHandler;
         private const string RedactResourceIdAnonymizationConfiguration = @"
 {
+    ""fhirVersion"": ""R4"",
     ""fhirPathRules"": [
         {""path"": ""Resource.nodesByName('id')"", ""method"": ""redact""},
         {""path"": ""nodesByType('Human').name"", ""method"": ""redact""}
@@ -55,8 +59,10 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             _exportConfiguration = ((IOptions<ExportJobConfiguration>)(fixture.TestFhirServer as InProcTestFhirServer)?.Server?.Services?.GetService(typeof(IOptions<ExportJobConfiguration>)))?.Value;
         }
 
-        [Fact]
-        public async Task GivenAValidConfigurationWithETag_WhenExportingAnonymizedData_ResourceShouldBeAnonymized()
+        [Theory]
+        [InlineData("")]
+        [InlineData("Patient/")]
+        public async Task GivenAValidConfigurationWithETag_WhenExportingAnonymizedData_ResourceShouldBeAnonymized(string path)
         {
             if (!_isUsingInProcTestServer)
             {
@@ -65,10 +71,13 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
 
             _metricHandler.ResetCount();
 
-            (string fileName, string etag) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
+            var resourceToCreate = Samples.GetDefaultPatient().ToPoco<Patient>();
+            resourceToCreate.Id = Guid.NewGuid().ToString();
+            await _testFhirClient.UpdateAsync(resourceToCreate);
 
+            (string fileName, string etag) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
             string containerName = Guid.NewGuid().ToString("N");
-            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, containerName, etag);
+            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, containerName, etag, path);
             HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
             IList<Uri> blobUris = await CheckExportStatus(response);
 
@@ -86,6 +95,57 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         }
 
         [Fact]
+        public async Task GivenAValidConfigurationWithETag_WhenExportingGroupAnonymizedData_ResourceShouldBeAnonymized()
+        {
+            if (!_isUsingInProcTestServer)
+            {
+                return;
+            }
+
+            _metricHandler.ResetCount();
+
+            var patientToCreate = Samples.GetDefaultPatient().ToPoco<Patient>();
+            patientToCreate.Id = Guid.NewGuid().ToString();
+            var patientReponse = await _testFhirClient.UpdateAsync(patientToCreate);
+            var patientId = patientReponse.Resource.Id;
+
+            var group = new FhirGroup()
+            {
+                Type = FhirGroup.GroupType.Person,
+                Actual = true,
+                Id = Guid.NewGuid().ToString(),
+                Member = new List<FhirGroup.MemberComponent>()
+                {
+                    new FhirGroup.MemberComponent()
+                    {
+                        Entity = new ResourceReference($"{KnownResourceTypes.Patient}/{patientId}"),
+                    },
+                },
+            };
+            var groupReponse = await _testFhirClient.UpdateAsync(group);
+            var groupId = groupReponse.Resource.Id;
+
+            (string fileName, string etag) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
+            string containerName = Guid.NewGuid().ToString("N");
+            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, containerName, etag, $"Group/{groupId}/");
+            HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
+            IList<Uri> blobUris = await CheckExportStatus(response);
+
+            IEnumerable<string> dataFromExport = await DownloadBlobAndParse(blobUris);
+            FhirJsonParser parser = new FhirJsonParser();
+
+            foreach (string content in dataFromExport)
+            {
+                Resource result = parser.Parse<Resource>(content);
+
+                Assert.Contains(result.Meta.Security, c => "REDACTED".Equals(c.Code));
+            }
+
+            Assert.Equal(2, dataFromExport.Count());
+            Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
+        }
+
+        [Fact]
         public async Task GivenAValidConfigurationWithETagNoQuotes_WhenExportingAnonymizedData_ResourceShouldBeAnonymized()
         {
             if (!_isUsingInProcTestServer)
@@ -94,6 +154,10 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             }
 
             _metricHandler.ResetCount();
+
+            var resourceToCreate = Samples.GetDefaultPatient().ToPoco<Patient>();
+            resourceToCreate.Id = Guid.NewGuid().ToString();
+            await _testFhirClient.UpdateAsync(resourceToCreate);
 
             (string fileName, string etag) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
             etag = etag.Substring(1, 17);
@@ -124,6 +188,10 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             }
 
             _metricHandler.ResetCount();
+
+            var resourceToCreate = Samples.GetDefaultPatient().ToPoco<Patient>();
+            resourceToCreate.Id = Guid.NewGuid().ToString();
+            await _testFhirClient.UpdateAsync(resourceToCreate);
 
             (string fileName, string _) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
 
