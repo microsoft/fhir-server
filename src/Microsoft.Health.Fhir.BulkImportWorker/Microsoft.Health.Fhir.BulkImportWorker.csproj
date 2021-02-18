@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="search-parameters.json" />
+    <None Remove="unsupported-search-parameters.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="search-parameters.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </EmbeddedResource>
+    <EmbeddedResource Include="unsupported-search-parameters.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Hl7.Fhir.R4" Version="1.9.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="5.0.0" />
+    <PackageReference Include="System.CommandLine" Version="2.0.0-beta1.20574.7" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
+    <ProjectReference Include="..\Microsoft.Health.Fhir.R4.Core\Microsoft.Health.Fhir.R4.Core.csproj" />
+  </ItemGroup>
+  
+</Project>
