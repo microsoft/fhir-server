@@ -20,9 +20,9 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
         None = 0,
 
         // Set if we are including previous resource versions or deleted resources
-        History = 1,
+        History = 1 << 0,
 
         // Set if the search parameter hash value needs to be considered in a search
-        Reindex = 2,
+        Reindex = 1 << 1,
     }
 }
