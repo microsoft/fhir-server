@@ -237,6 +237,30 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         }
 
         [Fact]
+        public async Task GivenAGroupIdNotExisted_WhenExportingGroupAnonymizedData_ThenBadRequestShouldBeReturned()
+        {
+            if (!_isUsingInProcTestServer)
+            {
+                return;
+            }
+
+            _metricHandler.ResetCount();
+
+            (string fileName, string etag) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
+
+            string groupId = "not-exist-id";
+            string containerName = Guid.NewGuid().ToString("N");
+            Uri contentLocation = await _testFhirClient.AnonymizedExportAsync(fileName, containerName, etag, $"Group/{groupId}/");
+            HttpResponseMessage response = await WaitForCompleteAsync(contentLocation);
+            string responseContent = await response.Content.ReadAsStringAsync();
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Contains($"Group {groupId} was not found", responseContent);
+
+            Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
+        }
+
+        [Fact]
         public async Task GivenInvalidEtagProvided_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
         {
             if (!_isUsingInProcTestServer)
