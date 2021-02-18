@@ -88,7 +88,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Operations.Export
             }
             catch (Exception ex)
             {
-                _logger.LogWarning($"Unable to cancel export job {request.JobId}. Exception: {ex}");
+                _logger.LogError(ex, $"Unable to cancel export job {request.JobId}");
                 throw;
             }
 
