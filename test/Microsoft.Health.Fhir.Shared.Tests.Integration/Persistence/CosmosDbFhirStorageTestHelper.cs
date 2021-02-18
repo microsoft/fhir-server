@@ -46,6 +46,11 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             await DeleteAllRecordsAsync(ReindexJobPartitionKey, cancellationToken);
         }
 
+        public async Task DeleteReindexJobRecordAsync(string id, CancellationToken cancellationToken = default)
+        {
+            await _documentClient.DeleteItemStreamAsync(id, new PartitionKey(ReindexJobPartitionKey), cancellationToken: cancellationToken);
+        }
+
         private async Task DeleteAllRecordsAsync(string partitionKey, CancellationToken cancellationToken)
         {
             var query = _documentClient.GetItemQueryIterator<JObject>(
