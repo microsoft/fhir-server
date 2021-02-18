@@ -30,8 +30,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
         private List<string> _includeFromCteIds;
 
         private int _curFromCteIndex = -1;
-        private readonly bool _isHistorySearch;
-        private readonly bool _isReindexSearch;
+        private readonly SqlSearchType _searchType;
         private readonly string _searchParameterHash;
         private int _tableExpressionCounter = -1;
         private SqlRootExpression _rootExpression;
@@ -43,9 +42,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             IndentedStringBuilder sb,
             SqlQueryParameterManager parameters,
             SqlServerFhirModel model,
-            bool isHistorySearch,
+            SqlSearchType searchType,
             SchemaInformation schemaInfo,
-            bool isReindexSearch,
             string searchParameterHash)
         {
             EnsureArg.IsNotNull(sb, nameof(sb));
@@ -56,9 +54,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
             StringBuilder = sb;
             Parameters = parameters;
             Model = model;
-            _isHistorySearch = isHistorySearch;
+            _searchType = searchType;
             _schemaInfo = schemaInfo;
-            _isReindexSearch = isReindexSearch;
             _searchParameterHash = searchParameterHash;
         }
 
@@ -165,7 +162,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
                 StringBuilder.Append("FROM ").Append(VLatest.Resource).Append(" ").Append(resourceTableAlias);
 
                 if (expression.SearchParamTableExpressions.Count == 0 &&
-                    !_isHistorySearch &&
+                    !_searchType.HasFlag(SqlSearchType.History) &&
                     expression.ResourceTableExpressions.Any(e => e.AcceptVisitor(ExpressionContainsParameterVisitor.Instance, SearchParameterNames.ResourceType)) &&
                     !expression.ResourceTableExpressions.Any(e => e.AcceptVisitor(ExpressionContainsParameterVisitor.Instance, SearchParameterNames.Id)))
                 {
@@ -840,7 +837,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void AppendDeletedClause(in IndentedStringBuilder.DelimitedScope delimited, string tableAlias = null)
         {
-            if (!_isHistorySearch)
+            if (!_searchType.HasFlag(SqlSearchType.History))
             {
                 delimited.BeginDelimitedElement().Append(VLatest.Resource.IsDeleted, tableAlias).Append(" = 0");
             }
@@ -848,7 +845,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void AppendHistoryClause(in IndentedStringBuilder.DelimitedScope delimited, string tableAlias = null)
         {
-            if (!_isHistorySearch)
+            if (!_searchType.HasFlag(SqlSearchType.History))
             {
                 delimited.BeginDelimitedElement();
 
@@ -858,7 +855,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors.Q
 
         private void AppendSearchParameterHashClause(in IndentedStringBuilder.DelimitedScope delimited, string tableAlias = null)
         {
-            if (_isReindexSearch)
+            if (_searchType.HasFlag(SqlSearchType.Reindex))
             {
                 delimited.BeginDelimitedElement();
 

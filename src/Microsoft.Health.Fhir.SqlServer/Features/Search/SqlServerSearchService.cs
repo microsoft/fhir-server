@@ -95,7 +95,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             // If we should include the total count of matching search results
             if (searchOptions.IncludeTotal == TotalType.Accurate && !searchOptions.CountOnly)
             {
-                searchResult = await SearchImpl(searchOptions, false, false, null, cancellationToken);
+                searchResult = await SearchImpl(searchOptions, SqlSearchType.None, null, cancellationToken);
 
                 // If this is the first page and there aren't any more pages
                 if (searchOptions.ContinuationToken == null && searchResult.ContinuationToken == null)
@@ -111,7 +111,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                         searchOptions.CountOnly = true;
 
                         // And perform a second read.
-                        var countOnlySearchResult = await SearchImpl(searchOptions, false, false, null, cancellationToken);
+                        var countOnlySearchResult = await SearchImpl(searchOptions, SqlSearchType.None, null, cancellationToken);
 
                         searchResult.TotalCount = countOnlySearchResult.TotalCount;
                     }
@@ -124,7 +124,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
             }
             else
             {
-                searchResult = await SearchImpl(searchOptions, false, false, null, cancellationToken);
+                searchResult = await SearchImpl(searchOptions, SqlSearchType.None, null, cancellationToken);
             }
 
             return searchResult;
@@ -132,10 +132,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         protected override async Task<SearchResult> SearchHistoryInternalAsync(SearchOptions searchOptions, CancellationToken cancellationToken)
         {
-            return await SearchImpl(searchOptions, true, false, null, cancellationToken);
+            return await SearchImpl(searchOptions, SqlSearchType.History, null, cancellationToken);
         }
 
-        private async Task<SearchResult> SearchImpl(SearchOptions searchOptions, bool isHistorySearch, bool isReindexSearch, string currentSearchParameterHash, CancellationToken cancellationToken)
+        private async Task<SearchResult> SearchImpl(SearchOptions searchOptions, SqlSearchType searchType, string currentSearchParameterHash, CancellationToken cancellationToken)
         {
             Expression searchExpression = searchOptions.Expression;
 
@@ -201,9 +201,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
                     stringBuilder,
                     new SqlQueryParameterManager(sqlCommandWrapper.Parameters),
                     _model,
-                    isHistorySearch,
+                    searchType,
                     _schemaInformation,
-                    isReindexSearch,
                     currentSearchParameterHash);
 
                 expression.AcceptVisitor(queryGenerator, searchOptions);
@@ -424,7 +423,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search
 
         protected async override Task<SearchResult> SearchForReindexInternalAsync(SearchOptions searchOptions, string searchParameterHash, CancellationToken cancellationToken)
         {
-            return await SearchImpl(searchOptions, false, true, searchParameterHash, cancellationToken);
+            return await SearchImpl(searchOptions, SqlSearchType.Reindex, searchParameterHash, cancellationToken);
         }
     }
 }
