@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Health.Core.Internal;
 using Microsoft.Health.Extensions.DependencyInjection;
 using Microsoft.Health.Fhir.Core.Extensions;
@@ -39,7 +40,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Operations.Export
         public CancelExportRequestHandlerTests()
         {
             var collection = new ServiceCollection();
-            collection.Add(sp => new CancelExportRequestHandler(_fhirOperationDataStore, DisabledFhirAuthorizationService.Instance, _retryCount, _sleepDurationProvider)).Singleton().AsSelf().AsImplementedInterfaces();
+            collection
+                .Add(sp => new CancelExportRequestHandler(
+                    _fhirOperationDataStore,
+                    DisabledFhirAuthorizationService.Instance,
+                    _retryCount,
+                    _sleepDurationProvider,
+                    NullLogger<CancelExportRequestHandler>.Instance))
+                .Singleton()
+                .AsSelf()
+                .AsImplementedInterfaces();
 
             ServiceProvider provider = collection.BuildServiceProvider();
             _mediator = new Mediator(type => provider.GetService(type));
