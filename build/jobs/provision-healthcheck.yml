@@ -1,0 +1,25 @@
+parameters:
+- name: webAppName
+  type: string
+
+steps:
+- powershell: |
+    $healthCheckUrl = "https://${{ parameters.webAppName }}.azurewebsites.net/health/check"
+    $healthStatus = 0
+    Do {
+      Start-Sleep -s 5
+      Write-Host "Checking: $healthCheckUrl"
+
+      try {
+        $healthStatus = (Invoke-WebRequest -URI $healthCheckUrl).statuscode
+        Write-Host "Result: $healthStatus"
+      }
+      catch {
+        Write-Host $PSItem.Exception.Message
+      }
+      finally {
+        $Error.Clear()
+      }
+
+    } While ($healthStatus -ne 200)
+  name: PingHealthCheckEndpoint

@@ -34,7 +34,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             {
                 Format.Json => ResourceFormat.Json,
                 Format.Xml => ResourceFormat.Xml,
-                _ => throw new ArgumentOutOfRangeException(nameof(format), format, null)
+                _ => throw new ArgumentOutOfRangeException(nameof(format), format, null),
             };
         }
 

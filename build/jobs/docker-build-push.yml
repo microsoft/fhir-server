@@ -10,7 +10,8 @@ parameters:
 jobs:
 - job: '${{parameters.version}}_Docker'
   pool:
-    vmImage: 'ubuntu-latest'
+    name: '$(DefaultLinuxPool)'
+    vmImage: '$(LinuxVmImage)'
   steps:
   - task: DockerCompose@0
     displayName: 'Build FHIR ${{parameters.version}} Server Image'

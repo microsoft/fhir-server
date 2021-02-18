@@ -368,7 +368,7 @@ namespace Microsoft.Health.Fhir.Client
             return await CreateResponseAsync<Bundle>(response);
         }
 
-        public async Task<(FhirResponse<Parameters>, Uri)> PostReindexJobAsync(
+        public async Task<(FhirResponse<Parameters> reponse, Uri uri)> PostReindexJobAsync(
             Parameters parameters,
             string uniqueResource = null,
             CancellationToken cancellationToken = default)

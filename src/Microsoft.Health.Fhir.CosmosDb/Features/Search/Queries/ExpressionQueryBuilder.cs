@@ -110,7 +110,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                                 {
                                     0 => SearchValueConstants.RootResourceTypeName,
                                     1 => KnownResourceWrapperProperties.ResourceId,
-                                    _ => throw new InvalidOperationException("unexpected component index")
+                                    _ => throw new InvalidOperationException("unexpected component index"),
                                 }));
                     break;
                 case SearchValueConstants.WildcardReferenceSearchParameterName:

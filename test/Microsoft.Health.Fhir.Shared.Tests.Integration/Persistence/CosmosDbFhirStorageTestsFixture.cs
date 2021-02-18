@@ -69,6 +69,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             _cosmosCollectionConfiguration = new CosmosCollectionConfiguration
             {
                 CollectionId = Guid.NewGuid().ToString(),
+                InitialCollectionThroughput = 1000,
             };
         }
 
@@ -88,18 +89,12 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
             fhirRequestContextAccessor.FhirRequestContext.CorrelationId.Returns(Guid.NewGuid().ToString());
 
             _searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance);
-
             await _searchParameterDefinitionManager.StartAsync(CancellationToken.None);
 
             _supportedSearchParameterDefinitionManager = new SupportedSearchParameterDefinitionManager(_searchParameterDefinitionManager);
             var searchableSearchParameterDefinitionManager = new SearchableSearchParameterDefinitionManager(_searchParameterDefinitionManager, fhirRequestContextAccessor);
 
             _filebasedSearchParameterStatusDataStore = new FilebasedSearchParameterStatusDataStore(_searchParameterDefinitionManager, ModelInfoProvider.Instance);
-
-            var searchParameterDefinitionManager = new SearchParameterDefinitionManager(ModelInfoProvider.Instance);
-            await searchParameterDefinitionManager.StartAsync(CancellationToken.None);
-
-            _filebasedSearchParameterStatusDataStore = new FilebasedSearchParameterStatusDataStore(searchParameterDefinitionManager, ModelInfoProvider.Instance);
 
             var updaters = new ICollectionUpdater[]
             {
@@ -148,7 +143,7 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Persistence
                 _cosmosDataStoreConfiguration,
                 cosmosDocumentQueryFactory);
 
-            var options = Options.Create(new CoreFeatureConfiguration());
+            IOptions<CoreFeatureConfiguration> options = Options.Create(new CoreFeatureConfiguration());
 
             _fhirDataStore = new CosmosFhirDataStore(
                 documentClient,
