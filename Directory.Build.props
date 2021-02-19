@@ -19,7 +19,6 @@
     <Company>Microsoft Corporation</Company>
     <Copyright>Copyright © Microsoft Corporation. All rights reserved.</Copyright>
     <Deterministic>true</Deterministic>
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <!--This will target the latest patch release of the runtime released with the current SDK.  -->
     <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
     <RuntimePackageVersion>5.0.0</RuntimePackageVersion>
