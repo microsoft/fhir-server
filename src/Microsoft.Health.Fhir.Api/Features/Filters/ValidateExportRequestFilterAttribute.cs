@@ -29,9 +29,6 @@ namespace Microsoft.Health.Fhir.Api.Features.Filters
             "ndjson",
         };
 
-        // Support anonymization for basic and patient/group export.
-        // The regex of <id> in group export is [A-Za-z0-9\-\.]{1,64}, from HL7 website https://www.hl7.org/fhir/datatypes.html#id.
-
         private const string PreferHeaderName = "Prefer";
         private const string PreferHeaderExpectedValue = "respond-async";
         private readonly HashSet<string> _supportedQueryParams;
