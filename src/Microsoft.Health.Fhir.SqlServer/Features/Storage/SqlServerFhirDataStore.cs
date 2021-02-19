@@ -281,16 +281,6 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             }
         }
 
-        public async Task UpdateSearchParameterHashBatchAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken)
-        {
-            // TODO: use bach command to update only hash values for list updateHashValueOnly
-            // this is a place holder update until we batch update resources
-            foreach (var resource in resources)
-            {
-                await UpsertAsync(resource, WeakETag.FromVersionId(resource.Version), false, true, cancellationToken);
-            }
-        }
-
         public async Task UpdateSearchParameterIndicesBatchAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken)
         {
             // TODO: use batch command to update both hash values and search index values for list updateSearchIndices
@@ -325,8 +315,10 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task<ResourceWrapper> UpdateSearchIndexForResourceAsync(ResourceWrapper resource, WeakETag weakETag, CancellationToken cancellationToken)
         {
-            // TODO: What should the weakETag be used for? Do We need a version check in the stored proc?
-            // TODO: Is the search parameter hash part of the raw resource / do we need to update that too? Will we then need to update the IsRawResourceMetaSet?
+            int? eTag = weakETag == null
+                ? (int?)null
+                : (int.TryParse(weakETag.VersionId, out var parsedETag) ? parsedETag : -1); // Set the etag to a sentinel value to enable expected failure paths when updating with both existing and nonexistent resources.
+
             var resourceMetadata = new ResourceMetadata(
                 resource.CompartmentIndices,
                 resource.SearchIndices?.ToLookup(e => _searchParameterTypeMap.GetSearchValueType(e)),
@@ -339,6 +331,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                     sqlCommandWrapper,
                     resourceTypeId: _model.GetResourceTypeId(resource.ResourceTypeName),
                     resourceId: resource.ResourceId,
+                    eTag,
                     searchParamHash: resource.SearchParameterHash,
                     tableValuedParameters: _reindexResourceTvpGeneratorVLatest.Generate(resourceMetadata));
 

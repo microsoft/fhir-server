@@ -27,6 +27,8 @@ GO
 --         * The ID of the resource type (See ResourceType table)
 --     @resourceId
 --         * The resource ID (must be the same as the in the resource itself)
+--     @etag
+--         * If specified, the version of the resource to update
 --     @allowCreate
 --         * If false, an error is thrown if the resource does not already exist
 --     @isDeleted
@@ -703,6 +705,8 @@ GO
 --         * The ID of the resource type (See ResourceType table)
 --     @resourceId
 --         * The resource ID (must be the same as the in the resource itself)
+--     @etag
+--         * If specified, the version of the resource to update
 --     @searchParamHash
 --          * A hash of the resource's latest indexed search parameters
 --     @resourceWriteClaims
@@ -741,6 +745,7 @@ GO
 CREATE PROCEDURE dbo.ReindexResource
     @resourceTypeId smallint,
     @resourceId varchar(64),
+    @eTag int = NULL,
     @searchParamHash varchar(64),
     @resourceWriteClaims dbo.ResourceWriteClaimTableType_1 READONLY,
     @compartmentAssignments dbo.CompartmentAssignmentTableType_1 READONLY,
@@ -765,16 +770,21 @@ AS
     BEGIN TRANSACTION
 
     DECLARE @resourceSurrogateId bigint
+    DECLARE @version bigint
 
     -- This should place a range lock on a row in the IX_Resource_ResourceTypeId_ResourceId nonclustered filtered index
     -- TODO: Should we be locking all index tables too?
-    SELECT @resourceSurrogateId = ResourceSurrogateId
+    SELECT @resourceSurrogateId = ResourceSurrogateId, @version = Version
     FROM dbo.Resource WITH (UPDLOCK, HOLDLOCK)
     WHERE ResourceTypeId = @resourceTypeId AND ResourceId = @resourceId AND IsHistory = 0
 
+    IF (@etag IS NOT NULL AND @etag <> @version) BEGIN
+        THROW 50412, 'Precondition failed', 1;
+    END
+
     IF (@resourceSurrogateId IS NULL) BEGIN
         -- You can't reindex a resource if the resource does not exist
-        THROW 50404, 'Resource with not found', 1;
+        THROW 50404, 'Resource not found', 1;
     END
 
     UPDATE dbo.Resource
