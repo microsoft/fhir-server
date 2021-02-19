@@ -59,15 +59,12 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             _exportConfiguration = ((IOptions<ExportJobConfiguration>)(fixture.TestFhirServer as InProcTestFhirServer)?.Server?.Services?.GetService(typeof(IOptions<ExportJobConfiguration>)))?.Value;
         }
 
-        [Theory]
+        [SkippableTheory]
         [InlineData("")]
         [InlineData("Patient/")]
         public async Task GivenAValidConfigurationWithETag_WhenExportingAnonymizedData_ResourceShouldBeAnonymized(string path)
         {
-            if (!_isUsingInProcTestServer)
-            {
-                return;
-            }
+            Skip.If(!_isUsingInProcTestServer, "Not using in-process fhir server.");
 
             _metricHandler.ResetCount();
 
@@ -94,13 +91,10 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenAValidConfigurationWithETag_WhenExportingGroupAnonymizedData_ResourceShouldBeAnonymized()
         {
-            if (!_isUsingInProcTestServer)
-            {
-                return;
-            }
+            Skip.If(!_isUsingInProcTestServer, "Not using in-process fhir server.");
 
             _metricHandler.ResetCount();
 
@@ -145,13 +139,10 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenAValidConfigurationWithETagNoQuotes_WhenExportingAnonymizedData_ResourceShouldBeAnonymized()
         {
-            if (!_isUsingInProcTestServer)
-            {
-                return;
-            }
+            Skip.If(!_isUsingInProcTestServer, "Not using in-process fhir server.");
 
             _metricHandler.ResetCount();
 
@@ -179,13 +170,10 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenAValidConfigurationWithoutETag_WhenExportingAnonymizedData_ResourceShouldBeAnonymized()
         {
-            if (!_isUsingInProcTestServer)
-            {
-                return;
-            }
+            Skip.If(!_isUsingInProcTestServer, "Not using in-process fhir server.");
 
             _metricHandler.ResetCount();
 
@@ -213,13 +201,10 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenInvalidConfiguration_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
         {
-            if (!_isUsingInProcTestServer)
-            {
-                return;
-            }
+            Skip.If(!_isUsingInProcTestServer, "Not using in-process fhir server.");
 
             _metricHandler.ResetCount();
 
@@ -236,13 +221,10 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenAGroupIdNotExisted_WhenExportingGroupAnonymizedData_ThenBadRequestShouldBeReturned()
         {
-            if (!_isUsingInProcTestServer)
-            {
-                return;
-            }
+            Skip.If(!_isUsingInProcTestServer, "Not using in-process fhir server.");
 
             _metricHandler.ResetCount();
 
@@ -260,13 +242,10 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenInvalidEtagProvided_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
         {
-            if (!_isUsingInProcTestServer)
-            {
-                return;
-            }
+            Skip.If(!_isUsingInProcTestServer, "Not using in-process fhir server.");
 
             _metricHandler.ResetCount();
 
@@ -283,13 +262,10 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenEtagInWrongFormatProvided_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
         {
-            if (!_isUsingInProcTestServer)
-            {
-                return;
-            }
+            Skip.If(!_isUsingInProcTestServer, "Not using in-process fhir server.");
 
             _metricHandler.ResetCount();
 
@@ -306,13 +282,10 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenAContainerNotExisted_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
         {
-            if (!_isUsingInProcTestServer)
-            {
-                return;
-            }
+            Skip.If(!_isUsingInProcTestServer, "Not using in-process fhir server.");
 
             _metricHandler.ResetCount();
 
@@ -327,13 +300,10 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenALargeConfigurationProvided_WhenExportingAnonymizedData_ThenBadRequestShouldBeReturned()
         {
-            if (!_isUsingInProcTestServer)
-            {
-                return;
-            }
+            Skip.If(!_isUsingInProcTestServer, "Not using in-process fhir server.");
 
             _metricHandler.ResetCount();
 
@@ -351,13 +321,10 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
             Assert.Single(_metricHandler.NotificationMapping[typeof(ExportTaskMetricsNotification)]);
         }
 
-        [Fact]
+        [SkippableFact]
         public async Task GivenAnAnonymizedExportRequestWithoutContainerName_WhenExportingAnonymizedData_ThenFhirExceptionShouldBeThrewFromFhirClient()
         {
-            if (!_isUsingInProcTestServer)
-            {
-                return;
-            }
+            Skip.If(!_isUsingInProcTestServer, "Not using in-process fhir server.");
 
             (string fileName, string _) = await UploadConfigurationAsync(RedactResourceIdAnonymizationConfiguration);
 
