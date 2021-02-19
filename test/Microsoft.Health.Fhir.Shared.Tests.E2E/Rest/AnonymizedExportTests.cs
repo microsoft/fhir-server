@@ -94,7 +94,7 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         [SkippableFact]
         public async Task GivenAValidConfigurationWithETag_WhenExportingGroupAnonymizedData_ResourceShouldBeAnonymized()
         {
-            Skip.If(!_isUsingInProcTestServer, "Not using in-process fhir server.");
+            Skip.IfNot(_isUsingInProcTestServer, "Not using in-process fhir server.");
 
             _metricHandler.ResetCount();
 
