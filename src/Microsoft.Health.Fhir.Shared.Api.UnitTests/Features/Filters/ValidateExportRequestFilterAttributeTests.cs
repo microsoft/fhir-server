@@ -83,8 +83,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
         [InlineData("since")]
         [InlineData("_SINCE")]
         [InlineData("queryParam")]
-        [InlineData(KnownQueryParameterNames.AnonymizationConfigurationFileEtag)]
-        [InlineData(KnownQueryParameterNames.AnonymizationConfigurationLocation)]
         [Theory]
         public void GivenARequestWithCorrectHeadersAndUnsupportedQueryParam_WhenGettingAnExportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown(string queryParamName)
         {
@@ -101,7 +99,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
 
-        [InlineData(KnownQueryParameterNames.AnonymizationConfigurationFileEtag)]
         [InlineData(KnownQueryParameterNames.AnonymizationConfigurationLocation)]
         [InlineData(KnownQueryParameterNames.AnonymizationConfigurationLocation, KnownQueryParameterNames.AnonymizationConfigurationFileEtag)]
         [Theory]
@@ -121,28 +118,6 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Features.Filters
             context.HttpContext.Request.Path = new PathString("/$export");
 
             _filter.OnActionExecuting(context);
-        }
-
-        [InlineData("/export")]
-        [InlineData("/Location/$export")]
-        [InlineData("/Group/$export")]
-        [InlineData("/Group/!@#/$export")]
-        [Theory]
-        public void GivenARequestWithUnsupportedAnonymizedExportRequestPath_WhenGettingAnExportOperationRequest_ThenARequestNotValidExceptionShouldBeThrown(string queryPath)
-        {
-            var context = CreateContext();
-            context.HttpContext.Request.Headers.Add(HeaderNames.Accept, CorrectAcceptHeaderValue);
-            context.HttpContext.Request.Headers.Add(PreferHeaderName, CorrectPreferHeaderValue);
-
-            var queryParams = new Dictionary<string, StringValues>()
-            {
-                { KnownQueryParameterNames.AnonymizationConfigurationLocation, "paramValue" },
-            };
-
-            context.HttpContext.Request.Query = new QueryCollection(queryParams);
-            context.HttpContext.Request.Path = new PathString(queryPath);
-
-            Assert.Throws<RequestNotValidException>(() => _filter.OnActionExecuting(context));
         }
 
         [InlineData(KnownQueryParameterNames.Since)]
