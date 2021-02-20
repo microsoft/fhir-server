@@ -44,7 +44,6 @@ namespace Microsoft.Health.Fhir.Shared.Tests.E2E.Rest
         private readonly MetricHandler _metricHandler;
         private const string RedactResourceIdAnonymizationConfiguration = @"
 {
-    ""fhirVersion"": ""R4"",
     ""fhirPathRules"": [
         {""path"": ""Resource.nodesByName('id')"", ""method"": ""redact""},
         {""path"": ""nodesByType('Human').name"", ""method"": ""redact""}
