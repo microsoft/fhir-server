@@ -46,7 +46,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 throw new UnauthorizedFhirActionException();
             }
 
-            var outcome = _profileValidator.TryValidate(request.Resource.Instance, request.Profile?.ToString());
+            var outcome = _profileValidator.TryValidate(request.Resource.Instance, request.Refresh, request.Profile?.ToString());
             if (outcome.Length == 0)
             {
                 return new ValidateOperationResponse(ValidationPassed);

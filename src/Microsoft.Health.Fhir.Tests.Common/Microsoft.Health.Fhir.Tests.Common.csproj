@@ -37,10 +37,22 @@
     <None Remove="TestFiles\DeviceComponent-For-Device-d1.json" />
     <None Remove="TestFiles\Encounter-For-Patient-f001.json" />
     <None Remove="TestFiles\Normative\MoneyWithWrongDecimal.json" />
-    <None Remove="TestFiles\Normative\Profile-CarePlan.json" />
-    <None Remove="TestFiles\Normative\Profile-Patient.json" />
+    <None Remove="TestFiles\Normative\Profile-Organization-uscore-endpoint.json" />
+    <None Remove="TestFiles\Normative\Profile-Organization-uscore.json" />
+    <None Remove="TestFiles\Normative\Profile-Patient-uscore.json" />
     <None Remove="TestFiles\Normative\ProvenanceHeader.json" />
     <None Remove="TestFiles\Normative\SearchParameter.json" />
+    <None Remove="TestFiles\Normative\StructureDefinition-us-core-birthsex.json" />
+    <None Remove="TestFiles\Normative\StructureDefinition-us-core-ethnicity.json" />
+    <None Remove="TestFiles\Normative\StructureDefinition-us-core-organization.json" />
+    <None Remove="TestFiles\Normative\StructureDefinition-us-core-patient.json" />
+    <None Remove="TestFiles\Normative\StructureDefinition-us-core-race.json" />
+    <None Remove="TestFiles\Normative\ValidCompartmentDefinition.json" />
+    <None Remove="TestFiles\Normative\ValueSet-detailed-ethnicity.json" />
+    <None Remove="TestFiles\Normative\ValueSet-detailed-race.json" />
+    <None Remove="TestFiles\Normative\ValueSet-omb-ethnicity-category.json" />
+    <None Remove="TestFiles\Normative\ValueSet-omb-race-category.json" />
+    <None Remove="TestFiles\Normative\ValueSet-us-core-birthsex.json" />
     <None Remove="TestFiles\Observation-For-Patient-f001.json" />
     <None Remove="TestFiles\ObservationWith1MinuteApgarScore.json" />
     <None Remove="TestFiles\ObservationWith20MinuteApgarScore.json" />
@@ -176,7 +188,19 @@
     <None Remove="TestFiles\Stu3\ObservationWithLongEyeColor.json" />
     <None Remove="TestFiles\Stu3\Parameter-Convert-Data.json" />
     <None Remove="TestFiles\Stu3\PatientWithMinimalData.json" />
+    <None Remove="TestFiles\Stu3\Profile-Organization-uscore-endpoint.json" />
+    <None Remove="TestFiles\Stu3\Profile-Organization-uscore.json" />
+    <None Remove="TestFiles\Stu3\Profile-Patient-uscore.json" />
     <None Remove="TestFiles\Stu3\ProvenanceHeader.json" />
+    <None Remove="TestFiles\Stu3\StructureDefinition-us-core-birthsex.json" />
+    <None Remove="TestFiles\Stu3\StructureDefinition-us-core-ethnicity.json" />
+    <None Remove="TestFiles\Stu3\StructureDefinition-us-core-patient.json" />
+    <None Remove="TestFiles\Stu3\StructureDefinition-us-core-race.json" />
+    <None Remove="TestFiles\Stu3\ValueSet-detailed-ethnicity.json" />
+    <None Remove="TestFiles\Stu3\ValueSet-detailed-race.json" />
+    <None Remove="TestFiles\Stu3\ValueSet-omb-ethnicity-category.json" />
+    <None Remove="TestFiles\Stu3\ValueSet-omb-race-category.json" />
+    <None Remove="TestFiles\Stu3\ValueSet-us-core-birthsex.json" />
     <None Remove="TestFiles\ValidCompartmentDefinition.json" />
     <None Remove="TestFiles\Weight.json" />
     <None Remove="TestFiles\WeightInGrams.json" />
@@ -239,10 +263,22 @@
     <EmbeddedResource Include="TestFiles\Normative\Patient.json" />
     <EmbeddedResource Include="TestFiles\Normative\MoneyWithWrongDecimal.json" />
     <EmbeddedResource Include="TestFiles\Normative\Patient.xml" />
-    <EmbeddedResource Include="TestFiles\Normative\Profile-CarePlan.json" />
-    <EmbeddedResource Include="TestFiles\Normative\Profile-Patient.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Profile-Organization-uscore-endpoint.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Profile-Organization-uscore.json" />
+    <EmbeddedResource Include="TestFiles\Normative\Profile-Patient-uscore.json" />
     <EmbeddedResource Include="TestFiles\Normative\ProvenanceHeader.json" />
     <EmbeddedResource Include="TestFiles\Normative\SearchParameter.json" />
+    <EmbeddedResource Include="TestFiles\Normative\StructureDefinition-us-core-birthsex.json" />
+    <EmbeddedResource Include="TestFiles\Normative\StructureDefinition-us-core-ethnicity.json" />
+    <EmbeddedResource Include="TestFiles\Normative\StructureDefinition-us-core-organization.json" />
+    <EmbeddedResource Include="TestFiles\Normative\StructureDefinition-us-core-patient.json" />
+    <EmbeddedResource Include="TestFiles\Normative\StructureDefinition-us-core-race.json" />
+    <EmbeddedResource Include="TestFiles\Normative\ValidCompartmentDefinition.json" />
+    <EmbeddedResource Include="TestFiles\Normative\ValueSet-detailed-ethnicity.json" />
+    <EmbeddedResource Include="TestFiles\Normative\ValueSet-detailed-race.json" />
+    <EmbeddedResource Include="TestFiles\Normative\ValueSet-omb-ethnicity-category.json" />
+    <EmbeddedResource Include="TestFiles\Normative\ValueSet-omb-race-category.json" />
+    <EmbeddedResource Include="TestFiles\Normative\ValueSet-us-core-birthsex.json" />
     <EmbeddedResource Include="TestFiles\Normative\Weight.json" />
     <EmbeddedResource Include="TestFiles\Normative\WeightInGrams.json" />
     <EmbeddedResource Include="TestFiles\R4\conversion_templates.tar.gz" />
@@ -338,8 +374,21 @@
     <EmbeddedResource Include="TestFiles\Stu3\Patient.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Patient.xml" />
     <EmbeddedResource Include="TestFiles\R4\ResourceWrapperNoVersion.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\Profile-Organization-uscore-endpoint.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\Profile-Organization-uscore.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\Profile-Patient-uscore.json" />
     <EmbeddedResource Include="TestFiles\Stu3\ProvenanceHeader.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\StructureDefinition-us-core-birthsex.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\StructureDefinition-us-core-ethnicity.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\StructureDefinition-us-core-patient.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\StructureDefinition-us-core-race.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\StructureDefinition-us-core-organization.json" />
     <EmbeddedResource Include="TestFiles\Stu3\ValidCompartmentDefinition.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\ValueSet-detailed-ethnicity.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\ValueSet-detailed-race.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\ValueSet-omb-ethnicity-category.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\ValueSet-omb-race-category.json" />
+    <EmbeddedResource Include="TestFiles\Stu3\ValueSet-us-core-birthsex.json" />
     <EmbeddedResource Include="TestFiles\Stu3\Weight.json" />
     <EmbeddedResource Include="TestFiles\Stu3\WeightInGrams.json" />
     <EmbeddedResource Include="TestFiles\Stu3\WeightInPounds.json" />
@@ -352,16 +401,5 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Health.Fhir.Core\Microsoft.Health.Fhir.Core.csproj" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Update="Profiles\R4\R4.zip">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Profiles\R5\R5.zip">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Profiles\Stu3\Stu3.zip">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
   </ItemGroup>
 </Project>

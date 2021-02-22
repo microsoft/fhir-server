@@ -19,18 +19,17 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
     public class ProfileValidator : IProfileValidator
     {
         private readonly IResourceResolver _resolver;
+        private readonly IProvideProfilesForValidation _profilesForValidation;
 
         public ProfileValidator(IProvideProfilesForValidation profilesResolver, IOptions<ValidateOperationConfiguration> options)
         {
             EnsureArg.IsNotNull(profilesResolver, nameof(profilesResolver));
             EnsureArg.IsNotNull(options?.Value, nameof(options));
+
+            _profilesForValidation = profilesResolver;
             try
             {
-                _resolver = new CachedResolver(
-                    new MultiResolver(
-                        profilesResolver,
-                        ZipSource.CreateValidationSource()),
-                    options.Value.CacheDurationInSeconds);
+                _resolver = new MultiResolver(new CachedResolver(ZipSource.CreateValidationSource(), options.Value.CacheDurationInSeconds), profilesResolver);
             }
             catch (Exception)
             {
@@ -54,9 +53,14 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             return validator;
         }
 
-        public OperationOutcomeIssue[] TryValidate(ITypedElement instance, string profile = null)
+        public OperationOutcomeIssue[] TryValidate(ITypedElement instance, bool refresh = false, string profile = null)
         {
             var validator = GetValidator();
+            if (refresh)
+            {
+                _profilesForValidation.Refresh();
+            }
+
             OperationOutcome result;
             if (!string.IsNullOrWhiteSpace(profile))
             {

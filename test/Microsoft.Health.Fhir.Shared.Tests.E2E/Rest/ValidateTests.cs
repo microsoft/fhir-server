@@ -11,7 +11,6 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Fhir.Client;
 using Microsoft.Health.Fhir.Core.Extensions;
-using Microsoft.Health.Fhir.Shared.Tests.E2E.Rest;
 using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Microsoft.Health.Fhir.Tests.E2E.Common;
@@ -22,29 +21,25 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
     [Trait(Traits.Category, Categories.Validate)]
     [HttpIntegrationFixtureArgumentSets(DataStore.All, Format.Json)]
-    public class ValidateTests : IClassFixture<ValidateTextFixture>
+    public class ValidateTests : IClassFixture<ValidateTestFixture>
     {
         private const string Success = "All OK";
         private readonly TestFhirClient _client;
-        private bool _isUsingInProcTestServer = false;
 
-        public ValidateTests(ValidateTextFixture fixture)
+        public ValidateTests(ValidateTestFixture fixture)
         {
             _client = fixture.TestFhirClient;
-            _isUsingInProcTestServer = fixture.IsUsingInProcTestServer;
         }
 
-        [SkippableTheory]
-        [InlineData("CarePlan/$validate", "Profile-CarePlan", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-careplan")]
-        [InlineData("Patient/$validate", "Profile-Patient", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient")]
-        [InlineData("CarePlan/$validate", "Profile-CarePlan", null)]
-        [InlineData("Patient/$validate", "Profile-Patient", null)]
+        [Theory]
+        [InlineData("Patient/$validate", "Profile-Patient-uscore", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient")]
+        [InlineData("Organization/$validate", "Profile-Organization-uscore", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-organization")]
+        [InlineData("Organization/$validate", "Profile-Organization-uscore-endpoint", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-organization")]
+        [InlineData("Patient/$validate", "Profile-Patient-uscore", null)]
+        [InlineData("Organization/$validate", "Profile-Organization-uscore", null)]
+        [InlineData("Organization/$validate", "Profile-Organization-uscore-endpoint", null)]
         public async void GivenAValidateRequest_WhenTheResourceIsValid_ThenAnOkMessageIsReturned(string path, string filename, string profile)
         {
-            // Here we skip local E2E test since we need to point to zip folder in current implementation
-            // Should be removed as soon as we move profiles to be stored on server.
-            Skip.If(!_isUsingInProcTestServer);
-
             OperationOutcome outcome = await _client.ValidateAsync(path, Samples.GetJson(filename), profile);
 
             Assert.Empty(outcome.Issue.Where(x => x.Severity == OperationOutcome.IssueSeverity.Error));
@@ -62,18 +57,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Empty(outcome.Issue.Where(x => x.Severity == OperationOutcome.IssueSeverity.Error));
         }
 
-        [SkippableTheory]
-        [InlineData("Observation/$validate", "Observation-For-Patient-f001", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-observation-lab")]
-        [InlineData("Observation/$validate", "Observation-For-Patient-f001", "http://hl7.org/fhir/us/core/StructureDefinition/pediatric-bmi-for-age")]
-        [InlineData("Observation/$validate", "Observation-For-Patient-f001", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-smokingstatus")]
-        [InlineData("Observation/$validate", "Observation-For-Patient-f001", "http://hl7.org/fhir/us/core/StructureDefinition/pediatric-weight-for-height")]
+        [Theory]
+        [InlineData("Organization/$validate", "Organization", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-organization")]
         [InlineData("Patient/$validate", "Patient", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient")]
         public async void GivenAValidateRequest_WhenTheResourceIsNonConformToProfile_ThenAnErrorShouldBeReturned(string path, string filename, string profile)
         {
-            // Here we skip local E2E test since we need to point to zip folder in current implementation
-            // Should be removed as soon as we move profiles  to be stored on server.
-            Skip.If(!_isUsingInProcTestServer);
-
             OperationOutcome outcome = await _client.ValidateAsync(path, Samples.GetJson(filename), profile);
 
             Assert.NotEmpty(outcome.Issue.Where(x => x.Severity == OperationOutcome.IssueSeverity.Error));
@@ -142,14 +130,10 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                     location);
         }
 
-        [SkippableFact]
+        [Fact]
         public async void GivenAValidateByIdRequest_WhenTheResourceIsValid_ThenAnOkMessageIsReturned()
         {
-            // Here we skip local E2E test since we need to point to zip folder in current implementation
-            // Should be removed as soon as we move profiles  to be stored on server.
-            Skip.If(!_isUsingInProcTestServer);
-
-            var fhirSource = Samples.GetJson("Profile-Patient");
+            var fhirSource = Samples.GetJson("Profile-Patient-uscore");
             var parser = new FhirJsonParser();
             var patient = parser.Parse<Resource>(fhirSource).ToTypedElement().ToResourceElement();
             Patient createdResource = await _client.CreateAsync(patient.ToPoco<Patient>());
@@ -167,13 +151,9 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             Assert.Equal(HttpStatusCode.NotFound, exception.Response.StatusCode);
         }
 
-        [SkippableFact]
+        [Fact]
         public async void GivenAValidateByIdRequestWithStricterProfile_WhenRunningValidate_ThenAnErrorShouldBeReturned()
         {
-            // Here we skip local E2E test since we need to point to zip folder in current implementation
-            // Should be removed as soon as we move profiles  to be stored on server.
-            Skip.If(!_isUsingInProcTestServer);
-
             Patient createdResource = await _client.CreateAsync(Samples.GetDefaultPatient().ToPoco<Patient>());
             OperationOutcome outcome = await _client.ValidateByIdAsync(ResourceType.Patient, createdResource.Id, "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient");
 

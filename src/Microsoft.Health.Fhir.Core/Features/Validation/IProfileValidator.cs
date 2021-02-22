@@ -14,7 +14,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         /// Validate resource to profile and return collection of issues.
         /// </summary>
         /// <param name="resource">Resource to validate.</param>
+        /// <param name="refresh">Should we refresh our profiles cache.</param>
         /// <param name="profile">Profile url to check. If <see langword="null"/>> we will validate according to meta profiles in resource.</param>
-        OperationOutcomeIssue[] TryValidate(ITypedElement resource, string profile = null);
+        OperationOutcomeIssue[] TryValidate(ITypedElement resource, bool refresh = false, string profile = null);
     }
 }
