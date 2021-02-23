@@ -61,7 +61,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
             searchOptions = searchOptions.Clone();
 
             // rewrite DateTime range expressions to be more efficient
-            searchOptions.Expression = searchOptions.Expression.AcceptVisitor(DateTimeEqualityRewriter.Instance);
+            searchOptions.Expression = searchOptions.Expression?.AcceptVisitor(DateTimeEqualityRewriter.Instance);
 
             // pull out the _include and _revinclude expressions.
             bool hasIncludeOrRevIncludeExpressions = ExtractIncludeExpressions(
