@@ -12,7 +12,7 @@ using Microsoft.Health.Fhir.Web;
 
 namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 {
-    public class ValidateTestFixture : HttpIntegrationTestFixture<Startup>
+    public sealed class ValidateTestFixture : HttpIntegrationTestFixture<Startup>
     {
         public ValidateTestFixture(DataStore dataStore, Format format, TestFhirServerFactory testFhirServerFactory)
          : base(dataStore, format, testFhirServerFactory)
@@ -21,7 +21,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
 
         protected override async System.Threading.Tasks.Task OnInitializedAsync()
         {
-            // Delete all patients before starting the test.
+            // Delete all profile related resources before starting the test suite.
             await TestFhirClient.DeleteAllResources(ResourceType.ValueSet);
             await TestFhirClient.DeleteAllResources(ResourceType.StructureDefinition);
             await TestFhirClient.DeleteAllResources(ResourceType.CodeSystem);

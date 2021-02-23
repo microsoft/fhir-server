@@ -398,7 +398,7 @@ namespace Microsoft.Health.Fhir.Client
         /// </summary>
         /// <param name="uri">The URL to call</param>
         /// <param name="resource">The resource to be validated. The resource parameter is a string instead of a Resource object because the validate endpoint is frequently sent invalid resources that couldn't be parsed.</param>
-        /// <param name="profile">Whether the resource is in JSON or XML formal</param>
+        /// <param name="profile">Profile uri to check resource against.</param>
         /// <param name="cancellationToken">The cancellation token</param>
         public async Task<OperationOutcome> ValidateAsync(string uri, string resource, string profile = null, CancellationToken cancellationToken = default)
         {

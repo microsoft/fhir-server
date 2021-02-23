@@ -55,14 +55,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             }
         }
 
-        public void Refresh()
-        {
-            lock (_lockSummaries)
-            {
-                _expirationTime = DateTime.UtcNow;
-            }
-        }
-
         private async Task<List<ArtifactSummary>> GetSummaries()
         {
             var result = new List<ArtifactSummary>();
