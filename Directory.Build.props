@@ -2,8 +2,7 @@
 
   <PropertyGroup>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <Product>Microsoft Health</Product>
-    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <Product>Microsoft FHIR Server for Azure</Product>
     <RepositoryUrl>https://github.com/microsoft/fhir-server/</RepositoryUrl>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <WarningsAsErrors />
@@ -12,20 +11,19 @@
     <DebugType>Portable</DebugType>
     <LangVersion>9.0</LangVersion>
     <HighEntropyVA>true</HighEntropyVA>
-    <EnableSourceLink Condition="$([MSBuild]::IsOSPlatform('osx'))">false</EnableSourceLink>
-    <EnableSourceControlManagerQueries>$(EnableSourceLink)</EnableSourceControlManagerQueries>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <Authors>Microsot Health Team</Authors>
+    <AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb</AllowedOutputExtensionsInPackageBuildOutputFolder>
+    <Company>Microsoft Corporation</Company>
+    <Copyright>Copyright © Microsoft Corporation. All rights reserved.</Copyright>
+    <Deterministic>true</Deterministic>
     <!--This will target the latest patch release of the runtime released with the current SDK.  -->
     <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
     <RuntimePackageVersion>5.0.0</RuntimePackageVersion>
     <AspNetPackageVersion>5.0.3</AspNetPackageVersion>
-    <HealthcareSharedPackageVersion>1.1.7</HealthcareSharedPackageVersion>
+    <HealthcareSharedPackageVersion>1.1.9</HealthcareSharedPackageVersion>
     <Hl7FhirVersion>1.9.0</Hl7FhirVersion>
-  </PropertyGroup>
-
-  <PropertyGroup Condition=" '$(EnableSourceLink)' == 'true' ">
-    <PublishRepositoryUrl>true</PublishRepositoryUrl>
-    <EmbedUntrackedSources>true</EmbedUntrackedSources>
-    <AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb</AllowedOutputExtensionsInPackageBuildOutputFolder>
   </PropertyGroup>
 
   <Choose>

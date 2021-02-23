@@ -1,0 +1,114 @@
+# DESCRIPTION: 	
+# Builds and runs e2e export tests for main branch.	
+
+name: $(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:-r)
+trigger: none
+pr: none
+
+schedules:
+- cron: "0 8 * * *"
+  displayName: Daily midnight Pacific time build
+  branches:
+    include:
+    - main
+
+variables:
+- template: export-variables.yml
+- template: build-variables.yml
+
+stages:
+- stage: Build
+  displayName: 'Build and publish packages'
+  dependsOn: []
+  jobs:
+  - job: Linux
+    pool:
+      name: '$(DefaultLinuxPool)'
+      vmImage: '$(LinuxVmImage)'
+    steps:
+    - task: UseDotNet@2
+      displayName: 'Use .NET Core sdk'
+      inputs:
+        useGlobalJson: true
+    - task: DotNetCoreCLI@2
+      displayName: 'dotnet build $(buildConfiguration)'
+      inputs:
+        command: build
+        arguments: '--configuration $(buildConfiguration) /warnaserror'
+    - template: ./jobs/package.yml
+
+- stage: redeployStu3
+  displayName: 'Redeploy STU3 Site'
+  dependsOn: []
+  jobs:
+  - template: ./jobs/redeploy-webapp.yml
+    parameters: 
+      version: Stu3
+      webAppName: $(DeploymentEnvironmentName)
+      subscription: $(ConnectedServiceName)
+      imageTag: $(ImageTag)
+
+- stage: redeployStu3Sql
+  displayName: 'Redeploy STU3 SQL Site'
+  dependsOn: []
+  jobs:
+  - template: ./jobs/redeploy-webapp.yml
+    parameters: 
+      version: Stu3
+      webAppName: $(DeploymentEnvironmentNameSql)
+      subscription: $(ConnectedServiceName)
+      imageTag: $(ImageTag)
+
+- stage: redeployR4
+  displayName: 'Redeploy R4 Site'
+  dependsOn: []
+  jobs:
+  - template: ./jobs/redeploy-webapp.yml
+    parameters: 
+      version: R4
+      webAppName: $(DeploymentEnvironmentNameR4)
+      subscription: $(ConnectedServiceName)
+      imageTag: $(ImageTag)
+
+- stage: redeployR4Sql
+  displayName: 'Redeploy R4 SQL Site'
+  dependsOn: []
+  jobs:
+  - template: ./jobs/redeploy-webapp.yml
+    parameters: 
+      version: R4
+      webAppName: $(DeploymentEnvironmentNameR4Sql)
+      subscription: $(ConnectedServiceName)
+      imageTag: $(ImageTag)
+
+- stage: testStu3
+  displayName: 'Run Stu3 Tests'
+  dependsOn:
+  - Build
+  - redeployStu3
+  - redeployStu3Sql
+  jobs:
+  - template: ./jobs/run-export-tests.yml
+    parameters:
+      version: Stu3
+      keyVaultName: $(DeploymentEnvironmentName)
+
+- stage: testR4
+  displayName: 'Run R4 Tests'
+  dependsOn:
+  - Build
+  - redeployR4
+  - redeployR4Sql
+  jobs:
+  - template: ./jobs/run-export-tests.yml
+    parameters:
+      version: R4
+      keyVaultName: $(DeploymentEnvironmentNameR4)
+
+- stage: cleanStorageAccounts
+  displayName: 'Clean Storage Accounts'
+  dependsOn: []
+  jobs:
+  - template: ./jobs/clean-storage-accounts.yml
+    parameters:
+      environmentName: $(DeploymentEnvironmentName)
