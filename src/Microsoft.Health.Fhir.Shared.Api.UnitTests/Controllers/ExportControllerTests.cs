@@ -108,6 +108,40 @@ namespace Microsoft.Health.Fhir.Api.UnitTests.Controllers
                 idParameter: "id"));
         }
 
+        [Fact]
+        public async Task GivenAnAnonymizedExportRequest_WhenNoContainerName_ThenRequestNotValidExceptionShouldBeThrown()
+        {
+            string anonymizationConfig = "anonymizationConfig";
+
+            await Assert.ThrowsAsync<RequestNotValidException>(() => _exportEnabledController.ExportResourceTypeById(
+                typeFilter: null,
+                since: null,
+                resourceType: null,
+                containerName: null,
+                formatName: null,
+                anonymizationConfigLocation: anonymizationConfig,
+                anonymizationConfigFileETag: null,
+                typeParameter: ResourceType.Patient.ToString(),
+                idParameter: "id"));
+        }
+
+        [Fact]
+        public async Task GivenAnExportRequestWithAnonymizationConfigEtag_WhenNoAnonymizationConfig_ThenRequestNotValidExceptionShouldBeThrown()
+        {
+            string anonymizationConfigEtag = "anonymizationConfigEtag";
+
+            await Assert.ThrowsAsync<RequestNotValidException>(() => _exportEnabledController.ExportResourceTypeById(
+                typeFilter: null,
+                since: null,
+                resourceType: null,
+                containerName: null,
+                formatName: null,
+                anonymizationConfigLocation: null,
+                anonymizationConfigFileETag: anonymizationConfigEtag,
+                typeParameter: ResourceType.Patient.ToString(),
+                idParameter: "id"));
+        }
+
         private ExportController GetController(ExportJobConfiguration exportConfig)
         {
             var operationConfig = new OperationsConfiguration()

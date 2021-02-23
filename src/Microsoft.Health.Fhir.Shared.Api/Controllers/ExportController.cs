@@ -251,16 +251,13 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         {
             if (!string.IsNullOrWhiteSpace(anonymizationConfigLocation) || !string.IsNullOrWhiteSpace(anonymizationConfigFileETag))
             {
-                CheckIfAnonymizedExportIsEnabled();
-                CheckContainerNameAndConfigLocationForAnonymizedExport(containerName, anonymizationConfigLocation);
-            }
-        }
+                // Check if anonymizedExport is enabled
+                if (!_features.SupportsAnonymizedExport)
+                {
+                    throw new RequestNotValidException(string.Format(Resources.OperationNotEnabled, OperationsConstants.AnonymizedExport));
+                }
 
-        private void CheckIfAnonymizedExportIsEnabled()
-        {
-            if (!_features.SupportsAnonymizedExport)
-            {
-                throw new RequestNotValidException(string.Format(Resources.OperationNotEnabled, OperationsConstants.AnonymizedExport));
+                CheckContainerNameAndConfigLocationForAnonymizedExport(containerName, anonymizationConfigLocation);
             }
         }
 
