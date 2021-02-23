@@ -115,8 +115,8 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             }
 
             using (var memoryStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(summary.Origin)))
+            using (var navStream = new JsonNavigatorStream(memoryStream))
             {
-                var navStream = new JsonNavigatorStream(memoryStream);
                 if (navStream.Seek(summary.Position))
                 {
                     if (navStream.Current != null)
@@ -127,7 +127,6 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                     }
                 }
             }
-
             return null;
         }
 
