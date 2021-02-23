@@ -252,6 +252,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 // The foo search parameter can be used to filter for the first test patient
                 ResourceWrapper patient = searchResults.Results.FirstOrDefault().Resource;
                 Assert.Contains(sampleName1, patient.RawResource.Data);
+
+                // Confirm that the reindexing operation did not create a new version of the resource
+                Assert.Equal("1", searchResults.Results.FirstOrDefault().Resource.Version);
             }
             finally
             {
@@ -309,6 +312,9 @@ namespace Microsoft.Health.Fhir.Tests.Integration.Features.Operations.Reindex
                 // The foo search parameter can be used to filter for the first test patient
                 ResourceWrapper patient = searchResults.Results.FirstOrDefault().Resource;
                 Assert.Contains(sampleName1, patient.RawResource.Data);
+
+                // Confirm that the reindexing operation did not create a new version of the resource
+                Assert.Equal("1", searchResults.Results.FirstOrDefault().Resource.Version);
             }
             finally
             {

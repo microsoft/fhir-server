@@ -27,12 +27,12 @@ GO
 --         * The ID of the resource type (See ResourceType table)
 --     @resourceId
 --         * The resource ID (must be the same as the in the resource itself)
+--     @etag
+--         * If specified, the version of the resource to update
 --     @allowCreate
 --         * If false, an error is thrown if the resource does not already exist
 --     @isDeleted
 --         * Whether this resource marks the resource as deleted
---     @updatedDateTime
---         * The last modified time in the resource
 --     @keepHistory
 --         * Whether the existing version of the resource should be preserved
 --     @requestMethod
@@ -691,4 +691,234 @@ AS
     SELECT Id
     FROM dbo.ReindexJob
     WHERE Status = 'Running' OR Status = 'Queued' OR Status = 'Paused'
+GO
+
+--
+-- STORED PROCEDURE
+--     ReindexResource
+--
+-- DESCRIPTION
+--     Updates the search indices of a given resource
+--
+-- PARAMETERS
+--     @resourceTypeId
+--         * The ID of the resource type (See ResourceType table)
+--     @resourceId
+--         * The resource ID (must be the same as the in the resource itself)
+--     @etag
+--         * If specified, the version of the resource to update
+--     @searchParamHash
+--          * A hash of the resource's latest indexed search parameters
+--     @resourceWriteClaims
+--         * Claims on the principal that performed the write
+--     @compartmentAssignments
+--         * Compartments that the resource is part of
+--     @referenceSearchParams
+--         * Extracted reference search params
+--     @tokenSearchParams
+--         * Extracted token search params
+--     @tokenTextSearchParams
+--         * The text representation of extracted token search params
+--     @stringSearchParams
+--         * Extracted string search params
+--     @numberSearchParams
+--         * Extracted number search params
+--     @quantitySearchParams
+--         * Extracted quantity search params
+--     @uriSearchParams
+--         * Extracted URI search params
+--     @dateTimeSearchParms
+--         * Extracted datetime search params
+--     @referenceTokenCompositeSearchParams
+--         * Extracted reference$token search params
+--     @tokenTokenCompositeSearchParams
+--         * Extracted token$token tokensearch params
+--     @tokenDateTimeCompositeSearchParams
+--         * Extracted token$datetime search params
+--     @tokenQuantityCompositeSearchParams
+--         * Extracted token$quantity search params
+--     @tokenStringCompositeSearchParams
+--         * Extracted token$string search params
+--     @tokenNumberNumberCompositeSearchParams
+--         * Extracted token$number$number search params
+--
+CREATE PROCEDURE dbo.ReindexResource
+    @resourceTypeId smallint,
+    @resourceId varchar(64),
+    @eTag int = NULL,
+    @searchParamHash varchar(64),
+    @resourceWriteClaims dbo.ResourceWriteClaimTableType_1 READONLY,
+    @compartmentAssignments dbo.CompartmentAssignmentTableType_1 READONLY,
+    @referenceSearchParams dbo.ReferenceSearchParamTableType_2 READONLY,
+    @tokenSearchParams dbo.TokenSearchParamTableType_1 READONLY,
+    @tokenTextSearchParams dbo.TokenTextTableType_1 READONLY,
+    @stringSearchParams dbo.StringSearchParamTableType_1 READONLY,
+    @numberSearchParams dbo.NumberSearchParamTableType_1 READONLY,
+    @quantitySearchParams dbo.QuantitySearchParamTableType_1 READONLY,
+    @uriSearchParams dbo.UriSearchParamTableType_1 READONLY,
+    @dateTimeSearchParms dbo.DateTimeSearchParamTableType_1 READONLY,
+    @referenceTokenCompositeSearchParams dbo.ReferenceTokenCompositeSearchParamTableType_2 READONLY,
+    @tokenTokenCompositeSearchParams dbo.TokenTokenCompositeSearchParamTableType_1 READONLY,
+    @tokenDateTimeCompositeSearchParams dbo.TokenDateTimeCompositeSearchParamTableType_1 READONLY,
+    @tokenQuantityCompositeSearchParams dbo.TokenQuantityCompositeSearchParamTableType_1 READONLY,
+    @tokenStringCompositeSearchParams dbo.TokenStringCompositeSearchParamTableType_1 READONLY,
+    @tokenNumberNumberCompositeSearchParams dbo.TokenNumberNumberCompositeSearchParamTableType_1 READONLY
+AS
+    SET NOCOUNT ON
+
+    SET XACT_ABORT ON
+    BEGIN TRANSACTION
+
+    DECLARE @resourceSurrogateId bigint
+    DECLARE @version bigint
+
+    -- This should place a range lock on a row in the IX_Resource_ResourceTypeId_ResourceId nonclustered filtered index
+    SELECT @resourceSurrogateId = ResourceSurrogateId, @version = Version
+    FROM dbo.Resource WITH (UPDLOCK, HOLDLOCK)
+    WHERE ResourceTypeId = @resourceTypeId AND ResourceId = @resourceId AND IsHistory = 0
+
+    IF (@etag IS NOT NULL AND @etag <> @version) BEGIN
+        THROW 50412, 'Precondition failed', 1;
+    END
+
+    IF (@resourceSurrogateId IS NULL) BEGIN
+        -- You can't reindex a resource if the resource does not exist
+        THROW 50404, 'Resource not found', 1;
+    END
+
+    UPDATE dbo.Resource
+    SET SearchParamHash = @searchParamHash
+    WHERE ResourceSurrogateId = @resourceSurrogateId
+
+    -- First, delete all the resource's indices.
+    DELETE FROM dbo.ResourceWriteClaim
+    WHERE ResourceSurrogateId = @resourceSurrogateId
+
+    DELETE FROM dbo.CompartmentAssignment
+    WHERE ResourceSurrogateId = @resourceSurrogateId
+
+    DELETE FROM dbo.ReferenceSearchParam
+    WHERE ResourceSurrogateId = @resourceSurrogateId
+
+    DELETE FROM dbo.TokenSearchParam
+    WHERE ResourceSurrogateId = @resourceSurrogateId
+
+    DELETE FROM dbo.TokenText
+    WHERE ResourceSurrogateId = @resourceSurrogateId
+
+    DELETE FROM dbo.StringSearchParam
+    WHERE ResourceSurrogateId = @resourceSurrogateId
+
+    DELETE FROM dbo.UriSearchParam
+    WHERE ResourceSurrogateId = @resourceSurrogateId
+
+    DELETE FROM dbo.NumberSearchParam
+    WHERE ResourceSurrogateId = @resourceSurrogateId
+
+    DELETE FROM dbo.QuantitySearchParam
+    WHERE ResourceSurrogateId = @resourceSurrogateId
+
+    DELETE FROM dbo.DateTimeSearchParam
+    WHERE ResourceSurrogateId = @resourceSurrogateId
+
+    DELETE FROM dbo.ReferenceTokenCompositeSearchParam
+    WHERE ResourceSurrogateId = @resourceSurrogateId
+
+    DELETE FROM dbo.TokenTokenCompositeSearchParam
+    WHERE ResourceSurrogateId = @resourceSurrogateId
+
+    DELETE FROM dbo.TokenDateTimeCompositeSearchParam
+    WHERE ResourceSurrogateId = @resourceSurrogateId
+
+    DELETE FROM dbo.TokenQuantityCompositeSearchParam
+    WHERE ResourceSurrogateId = @resourceSurrogateId
+
+    DELETE FROM dbo.TokenStringCompositeSearchParam
+    WHERE ResourceSurrogateId = @resourceSurrogateId
+
+    DELETE FROM dbo.TokenNumberNumberCompositeSearchParam
+    WHERE ResourceSurrogateId = @resourceSurrogateId
+
+    -- Next, insert all the new indices.
+    INSERT INTO dbo.ResourceWriteClaim
+        (ResourceSurrogateId, ClaimTypeId, ClaimValue)
+    SELECT @resourceSurrogateId, ClaimTypeId, ClaimValue
+    FROM @resourceWriteClaims
+
+    INSERT INTO dbo.CompartmentAssignment
+        (ResourceTypeId, ResourceSurrogateId, CompartmentTypeId, ReferenceResourceId, IsHistory)
+    SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, CompartmentTypeId, ReferenceResourceId, 0
+    FROM @compartmentAssignments
+
+    INSERT INTO dbo.ReferenceSearchParam
+        (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId, ReferenceResourceVersion, IsHistory)
+    SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, SearchParamId, BaseUri, ReferenceResourceTypeId, ReferenceResourceId, ReferenceResourceVersion, 0
+    FROM @referenceSearchParams
+
+    INSERT INTO dbo.TokenSearchParam
+        (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, Code, IsHistory)
+    SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, SearchParamId, SystemId, Code, 0
+    FROM @tokenSearchParams
+
+    INSERT INTO dbo.TokenText
+        (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, IsHistory)
+    SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, SearchParamId, Text, 0
+    FROM @tokenTextSearchParams
+
+    INSERT INTO dbo.StringSearchParam
+        (ResourceTypeId, ResourceSurrogateId, SearchParamId, Text, TextOverflow, IsHistory)
+    SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, SearchParamId, Text, TextOverflow, 0
+    FROM @stringSearchParams
+
+    INSERT INTO dbo.UriSearchParam
+        (ResourceTypeId, ResourceSurrogateId, SearchParamId, Uri, IsHistory)
+    SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, SearchParamId, Uri, 0
+    FROM @uriSearchParams
+
+    INSERT INTO dbo.NumberSearchParam
+        (ResourceTypeId, ResourceSurrogateId, SearchParamId, SingleValue, LowValue, HighValue, IsHistory)
+    SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, SearchParamId, SingleValue, LowValue, HighValue, 0
+    FROM @numberSearchParams
+
+    INSERT INTO dbo.QuantitySearchParam
+        (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId, QuantityCodeId, SingleValue, LowValue, HighValue, IsHistory)
+    SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, SearchParamId, SystemId, QuantityCodeId, SingleValue, LowValue, HighValue, 0
+    FROM @quantitySearchParams
+
+    INSERT INTO dbo.DateTimeSearchParam
+        (ResourceTypeId, ResourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, IsHistory)
+    SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, SearchParamId, StartDateTime, EndDateTime, IsLongerThanADay, 0
+    FROM @dateTimeSearchParms
+
+    INSERT INTO dbo.ReferenceTokenCompositeSearchParam
+        (ResourceTypeId, ResourceSurrogateId, SearchParamId, BaseUri1, ReferenceResourceTypeId1, ReferenceResourceId1, ReferenceResourceVersion1, SystemId2, Code2, IsHistory)
+    SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, SearchParamId, BaseUri1, ReferenceResourceTypeId1, ReferenceResourceId1, ReferenceResourceVersion1, SystemId2, Code2, 0
+    FROM @referenceTokenCompositeSearchParams
+
+    INSERT INTO dbo.TokenTokenCompositeSearchParam
+        (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, SystemId2, Code2, IsHistory)
+    SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, SearchParamId, SystemId1, Code1, SystemId2, Code2, 0
+    FROM @tokenTokenCompositeSearchParams
+
+    INSERT INTO dbo.TokenDateTimeCompositeSearchParam
+        (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, StartDateTime2, EndDateTime2, IsLongerThanADay2, IsHistory)
+    SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, SearchParamId, SystemId1, Code1, StartDateTime2, EndDateTime2, IsLongerThanADay2, 0
+    FROM @tokenDateTimeCompositeSearchParams
+
+    INSERT INTO dbo.TokenQuantityCompositeSearchParam
+        (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, SingleValue2, SystemId2, QuantityCodeId2, LowValue2, HighValue2, IsHistory)
+    SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, SearchParamId, SystemId1, Code1, SingleValue2, SystemId2, QuantityCodeId2, LowValue2, HighValue2, 0
+    FROM @tokenQuantityCompositeSearchParams
+
+    INSERT INTO dbo.TokenStringCompositeSearchParam
+        (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, Text2, TextOverflow2, IsHistory)
+    SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, SearchParamId, SystemId1, Code1, Text2, TextOverflow2, 0
+    FROM @tokenStringCompositeSearchParams
+
+    INSERT INTO dbo.TokenNumberNumberCompositeSearchParam
+        (ResourceTypeId, ResourceSurrogateId, SearchParamId, SystemId1, Code1, SingleValue2, LowValue2, HighValue2, SingleValue3, LowValue3, HighValue3, HasRange, IsHistory)
+    SELECT DISTINCT @resourceTypeId, @resourceSurrogateId, SearchParamId, SystemId1, Code1, SingleValue2, LowValue2, HighValue2, SingleValue3, LowValue3, HighValue3, HasRange, 0
+    FROM @tokenNumberNumberCompositeSearchParams
+
+    COMMIT TRANSACTION
 GO
