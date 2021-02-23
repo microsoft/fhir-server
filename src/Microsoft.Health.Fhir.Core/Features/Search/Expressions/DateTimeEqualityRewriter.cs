@@ -4,10 +4,10 @@
 // -------------------------------------------------------------------------------------------------
 
 using System.Collections.Generic;
-using Microsoft.Health.Fhir.Core.Features.Search.Expressions;
+using System.Linq;
 using Microsoft.Health.Fhir.ValueSets;
 
-namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
+namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
 {
     /// <summary>
     /// Rewrites (And (FieldGreaterThanOrEqual DateTimeStart x) (FieldLessThanOrEqual DateTimeEnd y)) to
@@ -17,14 +17,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
     /// </summary>
     internal class DateTimeEqualityRewriter : ExpressionRewriterWithInitialContext<object>
     {
-        internal static readonly DateTimeEqualityRewriter Instance = new DateTimeEqualityRewriter();
+        internal static readonly DateTimeEqualityRewriter Instance = new();
 
         public override Expression VisitSearchParameter(SearchParameterExpression expression, object context)
         {
-            // include composites because they may contain dates.
-
             if (expression.Parameter.Type == SearchParamType.Date ||
-                expression.Parameter.Type == SearchParamType.Composite)
+                (expression.Parameter.Type == SearchParamType.Composite && expression.Parameter.ResolvedComponents.Any(c => c.Type == SearchParamType.Date)))
             {
                 return base.VisitSearchParameter(expression, context);
             }
@@ -43,18 +41,14 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
             List<Expression> newExpressions = null;
             for (int i = 0; i < expression.Expressions.Count - 1; i++)
             {
-                if (expression.Expressions[i] is BinaryExpression left &&
-                    left.FieldName == FieldName.DateTimeStart &&
-                    left.BinaryOperator == BinaryOperator.GreaterThanOrEqual &&
-                    expression.Expressions[i + 1] is BinaryExpression right &&
-                    right.FieldName == FieldName.DateTimeEnd &&
-                    right.BinaryOperator == BinaryOperator.LessThanOrEqual &&
+                if (expression.Expressions[i] is BinaryExpression { FieldName: FieldName.DateTimeStart, BinaryOperator: BinaryOperator.GreaterThan or BinaryOperator.GreaterThanOrEqual } left &&
+                    expression.Expressions[i + 1] is BinaryExpression { FieldName: FieldName.DateTimeEnd, BinaryOperator: BinaryOperator.LessThan or BinaryOperator.LessThanOrEqual } right &&
                     left.ComponentIndex == right.ComponentIndex)
                 {
                     EnsureAllocatedAndPopulated(ref newExpressions, expression.Expressions, i);
 
                     newExpressions.Add(left);
-                    newExpressions.Add(Expression.LessThanOrEqual(left.FieldName, right.ComponentIndex, right.Value));
+                    newExpressions.Add(new BinaryExpression(right.BinaryOperator, left.FieldName, right.ComponentIndex, right.Value));
                     newExpressions.Add(right);
 
                     i++;
@@ -69,12 +63,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Search.Expressions.Visitors
                 }
             }
 
-            if (newExpressions == null)
-            {
-                return expression;
-            }
-
-            return Expression.And(newExpressions);
+            return newExpressions == null ? expression : Expression.And(newExpressions);
         }
     }
 }
