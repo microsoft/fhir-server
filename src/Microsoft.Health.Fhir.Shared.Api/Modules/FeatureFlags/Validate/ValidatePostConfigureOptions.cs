@@ -37,32 +37,29 @@ namespace Microsoft.Health.Fhir.Api.Modules.FeatureFlags.Validate
 
         public void PostConfigure(string name, MvcOptions options)
         {
-            if (_features.SupportsValidate)
-            {
-                _configuredConformanceProvider
-                    .ConfigureOptionalCapabilities(x =>
+            _configuredConformanceProvider
+                .ConfigureOptionalCapabilities(x =>
+                {
+                    if (_modelInfoProvider.Version.Equals(FhirSpecification.Stu3))
                     {
-                        if (_modelInfoProvider.Version.Equals(FhirSpecification.Stu3))
+                        x.Rest.Server().Operation.Add(new OperationComponent()
                         {
-                            x.Rest.Server().Operation.Add(new OperationComponent()
+                            Name = OperationTypes.Validate,
+                            Definition = new ReferenceComponent()
                             {
-                                Name = OperationTypes.Validate,
-                                Definition = new ReferenceComponent()
-                                {
-                                    Reference = OperationTypes.ValidateUri,
-                                },
-                            });
-                        }
-                        else
+                                Reference = OperationTypes.ValidateUri,
+                            },
+                        });
+                    }
+                    else
+                    {
+                        x.Rest.Server().Operation.Add(new OperationComponent()
                         {
-                            x.Rest.Server().Operation.Add(new OperationComponent()
-                            {
-                                Name = OperationTypes.Validate,
-                                Definition = OperationTypes.ValidateUri,
-                            });
-                        }
-                    });
-            }
+                            Name = OperationTypes.Validate,
+                            Definition = OperationTypes.ValidateUri,
+                        });
+                    }
+                });
         }
     }
 }

@@ -43,7 +43,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         [HttpPost]
         [Route(KnownRoutes.ValidateResourceType)]
         [AuditEventType(AuditEventSubType.Read)]
-        public async Task<IActionResult> Validate([FromBody] Resource resource, [FromQuery(Name = "profile")] string profile, [FromQuery] bool? refresh)
+        public async Task<IActionResult> Validate([FromBody] Resource resource, [FromQuery(Name = "profile")] string profile)
         {
             Uri profileUri = null;
             if (resource.ResourceType == ResourceType.Parameters)
@@ -63,20 +63,6 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                     }
                 }
 
-                var refreshFromParameters = parameterResource.Parameter.Find(param => param.Name.Equals("refresh", StringComparison.OrdinalIgnoreCase));
-                if (refreshFromParameters != null)
-                {
-                    if (refresh != null)
-                    {
-                        throw new BadRequestException(Api.Resources.MultipleProfilesProvided);
-                    }
-
-                    if (refreshFromParameters.Value != null)
-                    {
-                        refresh = bool.Parse(refreshFromParameters.Value.ToString());
-                    }
-                }
-
                 resource = parameterResource.Parameter.Find(param => param.Name.Equals("resource", StringComparison.OrdinalIgnoreCase)).Resource;
             }
 
@@ -92,25 +78,25 @@ namespace Microsoft.Health.Fhir.Api.Controllers
                 }
             }
 
-            return await RunValidationAsync(resource.ToResourceElement(), refresh, profileUri);
+            return await RunValidationAsync(resource.ToResourceElement(), profileUri);
         }
 
         [HttpGet]
         [Route(KnownRoutes.ValidateResourceTypeById)]
         [AuditEventType(AuditEventSubType.Read)]
-        public async Task<IActionResult> ValidateById([FromRoute] string typeParameter, [FromRoute] string idParameter, [FromQuery] Uri profile, [FromQuery] bool? refresh)
+        public async Task<IActionResult> ValidateById([FromRoute] string typeParameter, [FromRoute] string idParameter, [FromQuery] Uri profile)
         {
             // Read resource from storage.
             RawResourceElement response = await _mediator.GetResourceAsync(new ResourceKey(typeParameter, idParameter), HttpContext.RequestAborted);
 
             // Convert it to fhir object.
             var resource = _resourceDeserializer.Deserialize(response);
-            return await RunValidationAsync(resource, refresh, profile);
+            return await RunValidationAsync(resource, profile);
         }
 
-        private async Task<IActionResult> RunValidationAsync(ResourceElement resource, bool? refresh, Uri profile)
+        private async Task<IActionResult> RunValidationAsync(ResourceElement resource, Uri profile)
         {
-            var response = await _mediator.Send<ValidateOperationResponse>(new ValidateOperationRequest(resource, profile, refresh ?? false));
+            var response = await _mediator.Send<ValidateOperationResponse>(new ValidateOperationRequest(resource, profile));
 
             return FhirResult.Create(new OperationOutcome
             {
