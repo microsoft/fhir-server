@@ -26,7 +26,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [InlineData("eq30")]
         [InlineData("eq5", 4, 5)]
         [InlineData("eq5.000", 4, 5)]
-        [InlineData("ne5", 0, 1, 2, 3, 5, 7, 8)]
+        [InlineData("ne5", 0, 1, 2, 3, 6, 7, 8)]
         [InlineData("ne5.000", 0, 1, 2, 3, 6, 7, 8)]
         [InlineData("lt4.9", 0, 1, 2, 3)]
         [InlineData("lt5", 0, 1, 2, 3)]
