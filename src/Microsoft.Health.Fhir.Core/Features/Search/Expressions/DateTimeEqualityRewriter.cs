@@ -39,31 +39,55 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Expressions
             }
 
             List<Expression> newExpressions = null;
-            for (int i = 0; i < expression.Expressions.Count - 1; i++)
+            int i = 0;
+            for (; i < expression.Expressions.Count - 1; i++)
             {
-                if (expression.Expressions[i] is BinaryExpression { FieldName: FieldName.DateTimeStart, BinaryOperator: BinaryOperator.GreaterThan or BinaryOperator.GreaterThanOrEqual } left &&
-                    expression.Expressions[i + 1] is BinaryExpression { FieldName: FieldName.DateTimeEnd, BinaryOperator: BinaryOperator.LessThan or BinaryOperator.LessThanOrEqual } right &&
-                    left.ComponentIndex == right.ComponentIndex)
+                switch (MatchPattern(expression.Expressions[i], expression.Expressions[i + 1]))
                 {
-                    EnsureAllocatedAndPopulated(ref newExpressions, expression.Expressions, i);
+                    case ({ } low, { } high):
+                        EnsureAllocatedAndPopulated(ref newExpressions, expression.Expressions, i);
 
-                    newExpressions.Add(left);
-                    newExpressions.Add(new BinaryExpression(right.BinaryOperator, left.FieldName, right.ComponentIndex, right.Value));
-                    newExpressions.Add(right);
+                        newExpressions.Add(low);
+                        newExpressions.Add(new BinaryExpression(high.BinaryOperator, low.FieldName, high.ComponentIndex, high.Value));
+                        newExpressions.Add(high);
 
-                    i++;
-                }
-                else if (newExpressions != null)
-                {
-                    newExpressions.Add(expression.Expressions[i]);
-                    if (i == expression.Expressions.Count - 2)
-                    {
-                        newExpressions.Add(expression.Expressions[i + 1]);
-                    }
+                        i++;
+                        break;
+                    default:
+                        newExpressions?.Add(expression.Expressions[i]);
+                        break;
                 }
             }
 
+            if (newExpressions != null && i < expression.Expressions.Count)
+            {
+                // add the last entry unless it was matched as a pattern above
+                newExpressions.Add(expression.Expressions[^1]);
+            }
+
             return newExpressions == null ? expression : Expression.And(newExpressions);
+        }
+
+        private static (BinaryExpression low, BinaryExpression high) MatchPattern(Expression e1, Expression e2)
+        {
+            if (e1 is not BinaryExpression b1 || e2 is not BinaryExpression b2 || b1.ComponentIndex != b2.ComponentIndex)
+            {
+                return default;
+            }
+
+            if (b1 is { FieldName: FieldName.DateTimeStart, BinaryOperator: BinaryOperator.GreaterThan or BinaryOperator.GreaterThanOrEqual } &&
+                b2 is { FieldName: FieldName.DateTimeEnd, BinaryOperator: BinaryOperator.LessThan or BinaryOperator.LessThanOrEqual })
+            {
+                return (b1, b2);
+            }
+
+            if (b2 is { FieldName: FieldName.DateTimeStart, BinaryOperator: BinaryOperator.GreaterThan or BinaryOperator.GreaterThanOrEqual } &&
+                b1 is { FieldName: FieldName.DateTimeEnd, BinaryOperator: BinaryOperator.LessThan or BinaryOperator.LessThanOrEqual })
+            {
+                return (b2, b1);
+            }
+
+            return default;
         }
     }
 }
