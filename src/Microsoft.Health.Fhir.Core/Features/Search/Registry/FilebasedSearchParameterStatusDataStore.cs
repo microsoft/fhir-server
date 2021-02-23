@@ -3,9 +3,11 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using EnsureThat;
 using Microsoft.Health.Core;
@@ -74,6 +76,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.Registry
             }
 
             return Task.FromResult<IReadOnlyCollection<ResourceSearchParameterStatus>>(_statusResults);
+        }
+
+        public async Task<ResourceSearchParameterStatus> GetSearchParameterStatus(Uri searchParameterUri, CancellationToken cancellationToken)
+        {
+            return (await GetSearchParameterStatuses()).FirstOrDefault(x => x.Uri == searchParameterUri);
         }
 
         public Task UpsertStatuses(List<ResourceSearchParameterStatus> statuses)

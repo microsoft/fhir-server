@@ -9,6 +9,7 @@ using System.Linq;
 using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.Core.Features.Definition
@@ -74,7 +75,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Definition
 
         public IEnumerable<SearchParameterInfo> GetSupportedButNotSearchableParams()
         {
-            return _inner.AllSearchParameters.Where(p => p.IsSearchable == false && p.IsSupported == true);
+            return AllSearchParameters.Where(p => p.IsSearchable == false || p.SortStatus == SortParameterStatus.Supported);
         }
 
         public string GetSearchParameterHashForResourceType(string resourceType)

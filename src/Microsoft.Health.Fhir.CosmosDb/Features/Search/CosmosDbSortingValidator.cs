@@ -9,7 +9,9 @@ using System.Globalization;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.CosmosDb.Configs;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 {
@@ -26,7 +28,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                     errorMessages = Array.Empty<string>();
                     return true;
                 case { Count: 1 }:
-                    errorMessages = new[] { string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchSortParameterNotSupported, sorting[0].searchParameter.Code) };
+                    (SearchParameterInfo searchParameter, SortOrder sortOrder) parameter = sorting[0];
+
+                    if (parameter.searchParameter.SortStatus == SortParameterStatus.Enabled)
+                    {
+                        errorMessages = Array.Empty<string>();
+                        return true;
+                    }
+
+                    errorMessages = new[] { string.Format(CultureInfo.InvariantCulture, Core.Resources.SearchSortParameterNotSupported, parameter.searchParameter.Code) };
                     return false;
                 default:
                     errorMessages = new[] { Core.Resources.MultiSortParameterNotSupported };

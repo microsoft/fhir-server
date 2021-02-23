@@ -304,7 +304,7 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
         public void GivenASPDefinitionManager_WhenInitialed_ThenSearchParametersHashHasValues()
         {
             var searchParams = _searchParameterDefinitionManager.GetSearchParameters("Patient");
-            var patientHash = SearchHelperUtilities.CalculateSearchParameterHash(searchParams);
+            var patientHash = searchParams.CalculateSearchParameterHash();
 
             Assert.Equal(patientHash, _searchParameterDefinitionManager.GetSearchParameterHashForResourceType("Patient"));
         }

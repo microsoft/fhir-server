@@ -5,9 +5,11 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
+using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search;
 using Newtonsoft.Json;
 
@@ -48,6 +50,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             : base(resourceId, versionId, resourceTypeName, rawResource, request, lastModified, deleted, searchIndices, compartmentIndices, lastModifiedClaims, searchParameterHash)
         {
             IsHistory = history;
+
+            UpdateSortIndex(searchIndices);
         }
 
         [JsonConstructor]
@@ -94,6 +98,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         [JsonProperty(KnownDocumentProperties.ReferencesToInclude)]
         public IReadOnlyList<ResourceTypeAndId> ReferencesToInclude { get; set; }
 
+        [JsonProperty("sort")]
+        public IDictionary<string, SortValue> SortValues { get; set; }
+
         internal string GetETagOrVersion()
         {
             // An ETag is used as the Version when the Version property is not specified
@@ -104,6 +111,27 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
 
             return base.Version;
+        }
+
+        public override void UpdateSearchIndices(IReadOnlyCollection<SearchIndexEntry> searchIndices)
+        {
+            base.UpdateSearchIndices(searchIndices);
+
+            UpdateSortIndex(searchIndices);
+        }
+
+        private void UpdateSortIndex(IReadOnlyCollection<SearchIndexEntry> searchIndices)
+        {
+            SortValues = searchIndices?
+                .Select(x => (x.SearchParameter.Code, SearchValue: x.Value, SortValue: x.Value as ISupportSortSearchValue, Url: x.SearchParameter.Url))
+                .Where(x => x.SortValue != null)
+                .GroupBy(x => x.Code)
+                .ToDictionary(
+                    x => x.Key,
+                    x => new SortValue(
+                        x.FirstOrDefault(y => y.SortValue.IsMin).SearchValue,
+                        x.FirstOrDefault(y => y.SortValue.IsMax).SearchValue,
+                        x.FirstOrDefault().Url));
         }
     }
 }

@@ -9,6 +9,8 @@ using EnsureThat;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Search.Registry;
+using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Versioning;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
@@ -17,16 +19,19 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
     {
         private readonly ISearchParameterStatusDataStore _filebasedSearchParameterStatusDataStore;
         private readonly ICosmosQueryFactory _queryFactory;
+        private readonly CosmosDataStoreConfiguration _configuration;
 
         public CosmosDbSearchParameterStatusInitializer(
             FilebasedSearchParameterStatusDataStore.Resolver filebasedSearchParameterStatusDataStoreResolver,
-            ICosmosQueryFactory queryFactory)
+            ICosmosQueryFactory queryFactory,
+            CosmosDataStoreConfiguration configuration)
         {
             EnsureArg.IsNotNull(filebasedSearchParameterStatusDataStoreResolver, nameof(filebasedSearchParameterStatusDataStoreResolver));
             EnsureArg.IsNotNull(queryFactory, nameof(queryFactory));
 
             _filebasedSearchParameterStatusDataStore = filebasedSearchParameterStatusDataStoreResolver.Invoke();
             _queryFactory = queryFactory;
+            _configuration = configuration;
         }
 
         public async Task ExecuteAsync(Container collection)
@@ -46,6 +51,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
             if (!results.Any())
             {
                 var statuses = await _filebasedSearchParameterStatusDataStore.GetSearchParameterStatuses();
+
+                foreach (var status in statuses.Where(x => _configuration.SortSearchParameters.Contains(x.Uri.ToString())))
+                {
+                    status.SortStatus = SortParameterStatus.Enabled;
+                }
 
                 foreach (var batch in statuses.TakeBatch(100))
                 {

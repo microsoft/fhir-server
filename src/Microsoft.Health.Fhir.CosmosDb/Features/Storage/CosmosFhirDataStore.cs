@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Text;
 using System.Threading;
@@ -23,7 +24,9 @@ using Microsoft.Health.Fhir.Core.Configs;
 using Microsoft.Health.Fhir.Core.Exceptions;
 using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
+using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
+using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
@@ -44,6 +47,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private readonly ICosmosQueryFactory _cosmosQueryFactory;
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
         private readonly ILogger<CosmosFhirDataStore> _logger;
+        private readonly Lazy<ISupportedSearchParameterDefinitionManager> _supportedSearchParameters;
 
         private static readonly HardDelete _hardDelete = new HardDelete();
         private static readonly ReplaceSingleResource _replaceSingleResource = new ReplaceSingleResource();
@@ -63,6 +67,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         /// <param name="retryExceptionPolicyFactory">The retry exception policy factory.</param>
         /// <param name="logger">The logger instance.</param>
         /// <param name="coreFeatures">The core feature configuration</param>
+        /// <param name="supportedSearchParameters">The supported search parameters</param>
         public CosmosFhirDataStore(
             IScoped<Container> containerScope,
             CosmosDataStoreConfiguration cosmosDataStoreConfiguration,
@@ -70,7 +75,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             ICosmosQueryFactory cosmosQueryFactory,
             RetryExceptionPolicyFactory retryExceptionPolicyFactory,
             ILogger<CosmosFhirDataStore> logger,
-            IOptions<CoreFeatureConfiguration> coreFeatures)
+            IOptions<CoreFeatureConfiguration> coreFeatures,
+            Lazy<ISupportedSearchParameterDefinitionManager> supportedSearchParameters)
         {
             EnsureArg.IsNotNull(containerScope, nameof(containerScope));
             EnsureArg.IsNotNull(cosmosDataStoreConfiguration, nameof(cosmosDataStoreConfiguration));
@@ -79,12 +85,14 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(retryExceptionPolicyFactory, nameof(retryExceptionPolicyFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
             EnsureArg.IsNotNull(coreFeatures, nameof(coreFeatures));
+            EnsureArg.IsNotNull(supportedSearchParameters, nameof(supportedSearchParameters));
 
             _containerScope = containerScope;
             _cosmosDataStoreConfiguration = cosmosDataStoreConfiguration;
             _cosmosQueryFactory = cosmosQueryFactory;
             _retryExceptionPolicyFactory = retryExceptionPolicyFactory;
             _logger = logger;
+            _supportedSearchParameters = supportedSearchParameters;
             _coreFeatures = coreFeatures.Value;
         }
 
@@ -98,8 +106,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(resource, nameof(resource));
 
             var cosmosWrapper = new FhirCosmosResourceWrapper(resource);
+            UpdateSortIndex(cosmosWrapper);
+
             var partitionKey = new PartitionKey(cosmosWrapper.PartitionKey);
             AsyncPolicy retryPolicy = _retryExceptionPolicyFactory.GetRetryPolicy();
+           
 
             _logger.LogDebug($"Upserting {resource.ResourceTypeName}/{resource.ResourceId}, ETag: \"{weakETag?.VersionId}\", AllowCreate: {allowCreate}, KeepHistory: {keepHistory}");
 
@@ -323,6 +334,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             EnsureArg.IsNotNull(weakETag, nameof(weakETag));
 
             var cosmosWrapper = new FhirCosmosResourceWrapper(resourceWrapper);
+            UpdateSortIndex(cosmosWrapper);
 
             try
             {
@@ -454,6 +466,37 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             }
 
             return (results, page.ContinuationToken);
+        }
+
+        private void UpdateSortIndex(FhirCosmosResourceWrapper cosmosWrapper)
+        {
+            Dictionary<string, SearchParameterInfo> searchParameters = _supportedSearchParameters.Value.GetSearchParameters(cosmosWrapper.ResourceTypeName)
+                .Where(x => x.SortStatus != SortParameterStatus.Disabled)
+                .ToDictionary(x => x.Code);
+
+            if (searchParameters.Any())
+            {
+                foreach (KeyValuePair<string, SortValue> item in cosmosWrapper.SortValues.ToArray())
+                {
+                    if (!searchParameters.ContainsKey(item.Key))
+                    {
+                        cosmosWrapper.SortValues.Remove(item.Key);
+                    }
+                }
+
+                foreach (SearchParameterInfo field in searchParameters.Values)
+                {
+                    if (cosmosWrapper.SortValues.All(x => x.Value.SearchParameterUri != field.Url))
+                    {
+                        // Ensure sort property exists
+                        cosmosWrapper.SortValues.Add(field.Code, new SortValue(field.Url));
+                    }
+                }
+            }
+            else
+            {
+                cosmosWrapper.SortValues?.Clear();
+            }
         }
 
         public void Build(ICapabilityStatementBuilder builder)

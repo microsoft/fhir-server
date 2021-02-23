@@ -99,6 +99,12 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage.Registry
             }
         }
 
+        public async Task<ResourceSearchParameterStatus> GetSearchParameterStatus(Uri searchParameterUri, CancellationToken cancellationToken)
+        {
+            // TODO: Update stored proc to filter this
+            return (await GetSearchParameterStatuses()).FirstOrDefault(x => x.Uri == searchParameterUri);
+        }
+
         // TODO: Make cancellation token an input.
         public async Task UpsertStatuses(List<ResourceSearchParameterStatus> statuses)
         {
