@@ -2265,7 +2265,6 @@ AS
     DECLARE @version bigint
 
     -- This should place a range lock on a row in the IX_Resource_ResourceTypeId_ResourceId nonclustered filtered index
-    -- TODO: Should we be locking all index tables too?
     SELECT @resourceSurrogateId = ResourceSurrogateId, @version = Version
     FROM dbo.Resource WITH (UPDLOCK, HOLDLOCK)
     WHERE ResourceTypeId = @resourceTypeId AND ResourceId = @resourceId AND IsHistory = 0

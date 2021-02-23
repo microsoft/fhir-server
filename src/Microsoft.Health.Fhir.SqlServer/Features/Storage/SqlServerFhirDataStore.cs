@@ -345,6 +345,8 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
                 {
                     switch (e.Number)
                     {
+                        case SqlErrorCodes.PreconditionFailed:
+                            throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag?.VersionId));
                         case SqlErrorCodes.NotFound:
                             throw new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundById, resource.ResourceTypeName, resource.ResourceId));
                         default:
