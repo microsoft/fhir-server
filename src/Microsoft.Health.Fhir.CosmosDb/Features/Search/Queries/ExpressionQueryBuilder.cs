@@ -198,13 +198,11 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 
         public object VisitChained(ChainedExpression expression, Context context)
         {
-            // TODO: This will be removed once it's implemented.
             throw new SearchOperationNotSupportedException(Resources.ChainedExpressionNotSupported);
         }
 
         public object VisitSortParameter(SortExpression expression, Context context)
         {
-            // TODO: This will be removed once it's implemented.
             throw new SearchOperationNotSupportedException(Resources.ChainedExpressionNotSupported);
         }
 

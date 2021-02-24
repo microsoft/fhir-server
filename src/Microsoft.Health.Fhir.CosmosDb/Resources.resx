@@ -165,4 +165,7 @@
   <data name="IncludeIterateNotSupported" xml:space="preserve">
     <value>_include:iterate and _revinclude:iterate are not supported.</value>
   </data>
+  <data name="ChainedExpressionSubqueryLimit" xml:space="preserve">
+    <value>Sub-queries in a chained expression cannot return more than {0} results, please use a more selective criteria.</value>
+  </data>
 </root>

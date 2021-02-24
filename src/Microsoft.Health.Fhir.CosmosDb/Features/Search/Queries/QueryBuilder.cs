@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using EnsureThat;
 using Microsoft.Azure.Cosmos;
@@ -19,9 +20,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
 {
     public class QueryBuilder : IQueryBuilder
     {
-        public QueryDefinition BuildSqlQuerySpec(SearchOptions searchOptions, IReadOnlyList<IncludeExpression> includes)
+        public QueryDefinition BuildSqlQuerySpec(SearchOptions searchOptions, IReadOnlyList<IncludeExpression> includes, bool idsOnly)
         {
-            return new QueryBuilderHelper().BuildSqlQuerySpec(searchOptions, includes);
+            return new QueryBuilderHelper().BuildSqlQuerySpec(searchOptions, includes, idsOnly);
         }
 
         public QueryDefinition GenerateHistorySql(SearchOptions searchOptions)
@@ -47,13 +48,17 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search.Queries
                 _queryHelper = new QueryHelper(_queryBuilder, _queryParameterManager, SearchValueConstants.RootAliasName);
             }
 
-            public QueryDefinition BuildSqlQuerySpec(SearchOptions searchOptions, IReadOnlyList<IncludeExpression> includes)
+            public QueryDefinition BuildSqlQuerySpec(SearchOptions searchOptions, IReadOnlyList<IncludeExpression> includes, bool idOnly)
             {
                 EnsureArg.IsNotNull(searchOptions, nameof(searchOptions));
 
                 if (searchOptions.CountOnly)
                 {
                     AppendSelectFromRoot("VALUE COUNT(1)");
+                }
+                else if (idOnly)
+                {
+                    AppendSelectFromRoot($"r.{KnownResourceWrapperProperties.ResourceId}", includes);
                 }
                 else
                 {
