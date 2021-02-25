@@ -7,16 +7,24 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using EnsureThat;
+using Microsoft.Extensions.Primitives;
 using Microsoft.Health.Fhir.Core.Features;
+using Microsoft.Health.Fhir.Core.Features.Context;
 using Microsoft.Health.Fhir.Core.Features.Search;
-using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
-using Microsoft.Health.Fhir.CosmosDb.Configs;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
 {
     internal class CosmosDbSortingValidator : ISortingValidator
     {
+        private readonly IFhirRequestContextAccessor _contextAccessor;
+
+        public CosmosDbSortingValidator(IFhirRequestContextAccessor contextAccessor)
+        {
+            EnsureArg.IsNotNull(contextAccessor, nameof(contextAccessor));
+            _contextAccessor = contextAccessor;
+        }
+
         public bool ValidateSorting(IReadOnlyList<(SearchParameterInfo searchParameter, SortOrder sortOrder)> sorting, out IReadOnlyList<string> errorMessages)
         {
             EnsureArg.IsNotNull(sorting, nameof(sorting));
@@ -30,7 +38,8 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Search
                 case { Count: 1 }:
                     (SearchParameterInfo searchParameter, SortOrder sortOrder) parameter = sorting[0];
 
-                    if (parameter.searchParameter.SortStatus == SortParameterStatus.Enabled)
+                    if (parameter.searchParameter.SortStatus == SortParameterStatus.Enabled ||
+                        (parameter.searchParameter.SortStatus == SortParameterStatus.Supported && _contextAccessor.FhirRequestContext?.RequestHeaders.TryGetValue(KnownHeaders.PartiallyIndexedParamsHeaderName, out StringValues _) == true))
                     {
                         errorMessages = Array.Empty<string>();
                         return true;
