@@ -73,22 +73,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Registry
             return parameterStatus;
         }
 
-        public async Task<ResourceSearchParameterStatus> GetSearchParameterStatus(Uri searchParameterUri, CancellationToken cancellationToken)
-        {
-            using IScoped<Container> clientScope = _containerScopeFactory.Invoke();
-
-            var query = _queryFactory.Create<SearchParameterStatusWrapper>(
-                clientScope.Value,
-                new CosmosQueryContext(
-                    new QueryDefinition("select * from c where c.uri = @uri").WithParameter("@uri", searchParameterUri),
-                    new QueryRequestOptions
-                    {
-                        PartitionKey = new PartitionKey(SearchParameterStatusWrapper.SearchParameterStatusPartitionKey),
-                    }));
-
-            return (await query.ExecuteNextAsync(cancellationToken)).FirstOrDefault()?.ToSearchParameterStatus();
-        }
-
         public async Task UpsertStatuses(List<ResourceSearchParameterStatus> statuses)
         {
             EnsureArg.IsNotNull(statuses, nameof(statuses));

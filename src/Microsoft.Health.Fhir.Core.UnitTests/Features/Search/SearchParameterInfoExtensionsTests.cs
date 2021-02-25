@@ -12,7 +12,7 @@ using Xunit;
 
 namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Search
 {
-    public class SearchHelperUtilitiesTests
+    public class SearchParameterInfoExtensionsTests
     {
         private readonly Uri _paramUri1 = new("https://localhost/searchparam1");
         private readonly Uri _paramUri2 = new("https://localhost/searchParam2");
