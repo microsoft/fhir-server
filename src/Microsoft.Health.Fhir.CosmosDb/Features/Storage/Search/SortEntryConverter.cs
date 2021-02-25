@@ -4,13 +4,16 @@
 // -------------------------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
 {
     public class SortEntryConverter : JsonConverter
     {
-        private SortValueJObjectGenerator _generator = new SortValueJObjectGenerator();
+        private static readonly ConcurrentQueue<SortValueJObjectGenerator> _cachedGenerators = new();
 
         public override bool CanConvert(Type objectType)
         {
@@ -28,7 +31,21 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
         public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
         {
             var searchIndexEntry = (SortValue)value;
-            _generator.Generate(searchIndexEntry).WriteTo(writer);
+
+            // Cached the object generator for reuse.
+            if (!_cachedGenerators.TryDequeue(out SortValueJObjectGenerator generator))
+            {
+                generator = new SortValueJObjectGenerator();
+            }
+
+            try
+            {
+                generator.Generate(searchIndexEntry).WriteTo(writer);
+            }
+            finally
+            {
+                _cachedGenerators.Enqueue(generator);
+            }
         }
     }
 }
