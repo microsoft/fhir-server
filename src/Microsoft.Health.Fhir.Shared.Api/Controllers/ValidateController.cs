@@ -125,7 +125,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
             }.ToResourceElement());
         }
 
-        private Uri GetProfile(string profile)
+        private static Uri GetProfile(string profile)
         {
             if (!string.IsNullOrEmpty(profile))
             {
