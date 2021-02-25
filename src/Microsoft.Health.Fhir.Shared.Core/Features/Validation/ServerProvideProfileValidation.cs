@@ -21,12 +21,15 @@ using Microsoft.Health.Fhir.Core.Features.Search;
 
 namespace Microsoft.Health.Fhir.Core.Features.Validation
 {
+    /// <summary>
+    /// Provides profiles by fetching them from the server.
+    /// </summary>
     public sealed class ServerProvideProfileValidation : IProvideProfilesForValidation
     {
         private static IEnumerable<string> _supportedTypes = new List<string>() { "ValueSet", "StructureDefinition", "CodeSystem", "ConceptMap" };
 
         private readonly Func<IScoped<ISearchService>> _searchServiceFactory;
-        private readonly ValidateOperationConfiguration _options;
+        private readonly ValidateOperationConfiguration _validateOperationConfig;
         private List<ArtifactSummary> _summaries;
         private DateTime _expirationTime;
         private object _lockSummaries = new object();
@@ -37,7 +40,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
             EnsureArg.IsNotNull(options?.Value, nameof(options));
             _searchServiceFactory = searchServiceFactory;
             _expirationTime = DateTime.UtcNow;
-            _options = options.Value;
+            _validateOperationConfig = options.Value;
         }
 
         public IEnumerable<ArtifactSummary> ListSummaries()
@@ -48,7 +51,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 {
                     var result = System.Threading.Tasks.Task.Run(() => GetSummaries()).GetAwaiter().GetResult();
                     _summaries = result;
-                    _expirationTime = DateTime.UtcNow.AddSeconds(_options.CacheDurationInSeconds);
+                    _expirationTime = DateTime.UtcNow.AddSeconds(_validateOperationConfig.CacheDurationInSeconds);
                 }
 
                 return _summaries;

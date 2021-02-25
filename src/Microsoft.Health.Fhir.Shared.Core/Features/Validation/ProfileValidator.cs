@@ -9,6 +9,7 @@ using EnsureThat;
 using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Specification.Source;
+using Hl7.Fhir.Support;
 using Hl7.Fhir.Validation;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Fhir.Core.Configs;
@@ -64,18 +65,16 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
                 result = validator.Validate(instance);
             }
 
-            var outcomeIssues = new OperationOutcomeIssue[result.Issue.Count];
-            var index = 0;
-            foreach (var issue in result.Issue)
-            {
-                outcomeIssues[index++] = new OperationOutcomeIssue(
-                    issue.Severity?.ToString(),
-                    issue.Code.ToString(),
-                    diagnostics: issue.Diagnostics,
-                    detailsText: issue.Details.Text,
-                    detailsCodes: new CodableConceptInfo(issue.Details.Coding.Select(x => new Hl7.Fhir.Model.Primitives.Coding(x.System, x.Code, x.Display))),
-                    location: issue.Location.ToArray());
-            }
+            var outcomeIssues = result.Issue.OrderBy(x => x.Severity)
+                .Select(issue =>
+                    new OperationOutcomeIssue(
+                        issue.Severity?.ToString(),
+                        issue.Code.ToString(),
+                        diagnostics: issue.Diagnostics,
+                        detailsText: issue.Details?.Text,
+                        detailsCodes: issue.Details?.Coding != null ? new CodableConceptInfo(issue.Details.Coding.Select(x => new Hl7.Fhir.Model.Primitives.Coding(x.System, x.Code, x.Display))) : null,
+                        location: issue.Location.ToArray()))
+                .ToArray();
 
             return outcomeIssues;
         }

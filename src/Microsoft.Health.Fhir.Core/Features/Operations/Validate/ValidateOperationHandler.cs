@@ -35,7 +35,7 @@ namespace Microsoft.Health.Fhir.Core.Features.Validation
         }
 
         /// <summary>
-        /// Handles validation requests that produced no errors. All validation is preformed before this is called.
+        /// Handles validation requests.
         /// </summary>
         /// <param name="request">The request</param>
         /// <param name="cancellationToken">The CancellationToken</param>
