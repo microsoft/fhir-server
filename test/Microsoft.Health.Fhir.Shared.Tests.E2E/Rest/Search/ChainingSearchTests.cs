@@ -8,6 +8,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
+using Microsoft.Health.Fhir.Client;
+using Microsoft.Health.Fhir.Core.Extensions;
+using Microsoft.Health.Fhir.Tests.Common;
 using Microsoft.Health.Fhir.Tests.Common.FixtureParameters;
 using Xunit;
 using Task = System.Threading.Tasks.Task;
@@ -65,7 +68,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAChainedSearchExpressionOverASimpleParameter_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
-            string query = $"_tag={Fixture.Tag}&subject:Patient._type=Patient";
+            string query = $"_tag={Fixture.Tag}&subject:Patient._tag={Fixture.Tag}";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
 
@@ -75,7 +78,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
         [Fact]
         public async Task GivenAChainedSearchExpressionOverASimpleParameter_WhenSearchedWithPaging_ThenCorrectBundleShouldBeReturned()
         {
-            string query = $"_tag={Fixture.Tag}&subject:Patient._type=Patient&_count=2";
+            string query = $"_tag={Fixture.Tag}&subject:Patient._tag={Fixture.Tag}&_count=2";
 
             Bundle bundle = await Client.SearchAsync(ResourceType.DiagnosticReport, query);
 
@@ -162,6 +165,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             Assert.Empty(bundle.Entry);
         }
 
+        [HttpIntegrationFixtureArgumentSets(DataStore.SqlServer, Format.Json)]
         [Fact]
         public async Task GivenAChainedSearchExpressionWithAPredicateOnSurrogateId_WhenSearched_ThenCorrectBundleShouldBeReturned()
         {
@@ -248,6 +252,23 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest.Search
             bundle = await Client.SearchAsync(bundle.NextLink.ToString());
 
             ValidateBundle(bundle, Fixture.TrumanSnomedDiagnosticReport);
+        }
+
+        [HttpIntegrationFixtureArgumentSets(DataStore.CosmosDb, Format.Json)]
+        [Fact]
+        public async Task GivenANonSelectiveChainingQueryInCosmosDb_WhenSearched_ThenAnErrorShouldBeThrown()
+        {
+            string query = $"subject:Patient.gender=male";
+
+            Patient resource = Samples.GetJsonSample("Patient-f001").ToPoco<Patient>();
+
+            // Create 101 patients that exceed the sub-query limit
+            for (var i = 0; i < 101; i++)
+            {
+                await Client.CreateAsync(resource);
+            }
+
+            await Assert.ThrowsAsync<FhirException>(async () => await Client.SearchAsync(ResourceType.Observation, query));
         }
 
         public class ClassFixture : HttpIntegrationTestFixture
