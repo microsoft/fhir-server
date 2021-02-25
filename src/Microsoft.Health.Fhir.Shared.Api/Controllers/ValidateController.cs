@@ -118,11 +118,7 @@ namespace Microsoft.Health.Fhir.Api.Controllers
         private async Task<IActionResult> RunValidationAsync(ResourceElement resource, Uri profile)
         {
             var response = await _mediator.Send<ValidateOperationResponse>(new ValidateOperationRequest(resource, profile));
-
-            return FhirResult.Create(new OperationOutcome
-            {
-                Issue = response.Issues.Select(x => x.ToPoco()).ToList(),
-            }.ToResourceElement());
+            return FhirResult.Create(new OperationOutcome { Issue = response.Issues.Select(x => x.ToPoco()).ToList() }.ToResourceElement());
         }
 
         private static Uri GetProfile(string profile)
