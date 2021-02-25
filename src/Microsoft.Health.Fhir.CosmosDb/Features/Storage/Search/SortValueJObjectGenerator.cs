@@ -86,22 +86,10 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search
 
         public void Visit(QuantitySearchValue quantity)
         {
-            switch (_prefix)
-            {
-                case SearchValueConstants.SortLowValueFieldName:
-                    AddProperty(_prefix, quantity.Low ?? quantity.High);
-                    break;
-                case SearchValueConstants.SortHighValueFieldName:
-                    AddProperty(_prefix, quantity.High ?? quantity.Low);
-                    break;
-                default:
-                    throw new NotSupportedException();
-            }
         }
 
         public void Visit(ReferenceSearchValue reference)
         {
-            AddProperty(_prefix, reference.ToString().ToUpperInvariant());
         }
 
         public void Visit(StringSearchValue s)

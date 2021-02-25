@@ -47,11 +47,15 @@ namespace Microsoft.Health.Fhir.CosmosDb.Configs
         /// </summary>
         public int SearchEnumerationTimeoutInSeconds { get; set; } = 30;
 
-        public HashSet<string> SortSearchParameters { get; } = new HashSet<string>();
 
         /// <summary>
         /// Enables chained searches in CosmosDB
         /// </summary>
         public bool EnableChainedSearch { get; set; }
+
+        /// <summary>
+        /// A list of Search Parameter URIs that will be enabled on first initialization
+        /// </summary>
+        public HashSet<string> InitialSortParameterUris { get; } = new();
     }
 }
