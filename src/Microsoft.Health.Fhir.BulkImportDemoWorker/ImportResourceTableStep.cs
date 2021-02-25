@@ -7,68 +7,71 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
-using System.IO;
-using System.IO.Compression;
-using System.Text;
+using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Models;
 
 namespace Microsoft.Health.Fhir.BulkImportDemoWorker
 {
     public class ImportResourceTableStep : IStep
     {
-        private static readonly Encoding ResourceEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: true);
-        private const int BatchSize = 1000;
+        private const int MaxBatchSize = 1000;
+        private const int ConcurrentLimit = 20;
 
         private long copiedCount = 0;
         private Channel<BulkCopyResourceWrapper> _input;
         private Task _runningTask;
-        private IRawResourceFactory _rawResourceFactory;
         private ResourceIdProvider _resourceIdProvider;
         private IConfiguration _configuration;
         private Dictionary<string, short> _resourceTypeMappings;
+        private Queue<Task> _runningTasks = new Queue<Task>();
         private List<BulkCopyResourceWrapper> _buffer = new List<BulkCopyResourceWrapper>();
 
         public ImportResourceTableStep(
             Channel<BulkCopyResourceWrapper> input,
-            IRawResourceFactory rawResourceFactory,
             ResourceIdProvider resourceIdProvider,
-            Dictionary<string, short> resourceTypeMappings,
+            ModelProvider modelProvider,
             IConfiguration configuration)
         {
             _input = input;
-            _rawResourceFactory = rawResourceFactory;
             _resourceIdProvider = resourceIdProvider;
             _configuration = configuration;
-            _resourceTypeMappings = resourceTypeMappings;
+            _resourceTypeMappings = modelProvider.ResourceTypeMapping;
         }
 
         public void Start()
         {
             _runningTask = Task.Run(async () =>
             {
-                using (SqlConnection destinationConnection =
-                       new SqlConnection(_configuration["SqlConnectionString"]))
+                while (await _input.Reader.WaitToReadAsync())
                 {
-                    destinationConnection.Open();
-                    while (await _input.Reader.WaitToReadAsync())
+                    await foreach (BulkCopyResourceWrapper resource in _input.Reader.ReadAllAsync())
                     {
-                        await foreach (BulkCopyResourceWrapper resource in _input.Reader.ReadAllAsync())
+                        _buffer.Add(resource);
+
+                        if (_buffer.Count < MaxBatchSize)
                         {
-                            if (_buffer.Count < BatchSize)
-                            {
-                                _buffer.Add(resource);
-                                continue;
-                            }
-
-                            await ProcessResourceElementsInBufferAsync(destinationConnection);
+                            continue;
                         }
-                    }
 
-                    await ProcessResourceElementsInBufferAsync(destinationConnection);
+                        if (_runningTasks.Count >= ConcurrentLimit)
+                        {
+                            await _runningTasks.Dequeue();
+                        }
+
+                        var items = _buffer.ToArray();
+                        _buffer.Clear();
+                        _runningTasks.Enqueue(ProcessResourceElementsInBufferAsync(items));
+                    }
+                }
+
+                _runningTasks.Enqueue(ProcessResourceElementsInBufferAsync(_buffer.ToArray()));
+
+                while (_runningTasks.Count > 0)
+                {
+                    await _runningTasks.Dequeue();
                 }
             });
         }
@@ -78,15 +81,15 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker
             await _runningTask;
         }
 
-        private async Task ProcessResourceElementsInBufferAsync(SqlConnection destinationConnection)
+        private async Task ProcessResourceElementsInBufferAsync(BulkCopyResourceWrapper[] data)
         {
-            var data = _buffer.ToArray();
-            _buffer.Clear();
+            using SqlConnection destinationConnection =
+                       new SqlConnection(_configuration["SqlConnectionString"]);
+            destinationConnection.Open();
 
             DataTable importTable = CreateDataTable();
             foreach (var resourceElement in data)
             {
-                var rawDataString = GetRawDataString(resourceElement.Resource, true);
                 short resourceTypeId = _resourceTypeMappings[resourceElement.Resource.InstanceType];
                 string resourceId = _resourceIdProvider.Create();
                 long resourceSurrogateId = resourceElement.SurrogateId;
@@ -99,7 +102,7 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker
                 row["ResourceSurrogateId"] = resourceSurrogateId;
                 row["IsDeleted"] = false;
                 row["RequestMethod"] = "POST";
-                row["RawResource"] = WriteCompressedRawResource(rawDataString);
+                row["RawResource"] = resourceElement.RawData;
                 row["IsRawResourceMetaSet"] = true;
                 importTable.Rows.Add(row);
             }
@@ -113,12 +116,16 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker
                     bulkCopy.DestinationTableName = "dbo.Resource";
                     await bulkCopy.WriteToServerAsync(reader);
 
-                    copiedCount += importTable.Rows.Count;
-                    Console.WriteLine($"{copiedCount} resource to table.");
+                    Interlocked.Add(ref copiedCount, importTable.Rows.Count);
+                    Console.WriteLine($"{copiedCount} resource to db completed.");
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine(ex.Message);
+                }
+                finally
+                {
+                    destinationConnection.Close();
                 }
             }
         }
@@ -184,26 +191,6 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker
             table.Columns.Add(column);
 
             return table;
-        }
-
-        public string GetRawDataString(ResourceElement resource, bool keepMeta)
-        {
-            RawResource rawResource = _rawResourceFactory.Create(resource, keepMeta);
-            return rawResource.Data;
-        }
-
-        public static byte[] WriteCompressedRawResource(string rawResource)
-        {
-            using var stream = new MemoryStream();
-
-            using var gzipStream = new GZipStream(stream, CompressionMode.Compress, leaveOpen: true);
-            using var writer = new StreamWriter(gzipStream, ResourceEncoding);
-            writer.Write(rawResource);
-            writer.Flush();
-
-            stream.Seek(0, 0);
-
-            return stream.ToArray();
         }
     }
 }

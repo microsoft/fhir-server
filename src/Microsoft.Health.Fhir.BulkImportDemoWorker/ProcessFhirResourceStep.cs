@@ -5,7 +5,10 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.IO.Compression;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
@@ -13,37 +16,45 @@ using Hl7.Fhir.ElementModel;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Microsoft.Health.Core.Extensions;
+using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Models;
+using Microsoft.IO;
 using Task = System.Threading.Tasks.Task;
 
 namespace Microsoft.Health.Fhir.BulkImportDemoWorker
 {
     public class ProcessFhirResourceStep : IStep
     {
-        private const int BatchSize = 1000;
-        private const int MaxParallelCount = 8;
+        private static readonly Encoding ResourceEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: true);
+        private const int MaxBatchSize = 1000;
+        private const int ConcurrentLimit = 8;
 
         private Channel<string> _input;
         private Channel<BulkCopyResourceWrapper> _resourceOutput;
-        private Dictionary<ValueSets.SearchParamType, Channel<BulkCopySearchParamWrapper>> _searchParamOutputs;
+        private Channel<BulkCopySearchParamWrapper> _searchParamOutput;
         private Task _runningTask;
         private List<string> _buffer = new List<string>();
-        private Queue<Task<IReadOnlyCollection<(ResourceElement, IReadOnlyCollection<SearchIndexEntry>)>>> _processingTasks = new Queue<Task<IReadOnlyCollection<(ResourceElement, IReadOnlyCollection<SearchIndexEntry>)>>>();
+        private Queue<Task<IReadOnlyCollection<(ResourceElement, byte[], IReadOnlyCollection<SearchIndexEntry>)>>> _processingTasks = new Queue<Task<IReadOnlyCollection<(ResourceElement, byte[], IReadOnlyCollection<SearchIndexEntry>)>>>();
         private ISearchIndexer _searchIndexer;
+        private IRawResourceFactory _rawResourceFactory;
+        private RecyclableMemoryStreamManager _memoryStreamManager;
         private long _currentSurrogateId;
 
         public ProcessFhirResourceStep(
             Channel<string> input,
             Channel<BulkCopyResourceWrapper> resourceOutput,
-            Dictionary<ValueSets.SearchParamType, Channel<BulkCopySearchParamWrapper>> searchParamOutputs,
-            ISearchIndexer searchIndexer)
+            Channel<BulkCopySearchParamWrapper> searchParamOutput,
+            ISearchIndexer searchIndexer,
+            IRawResourceFactory rawResourceFactory)
         {
             _input = input;
             _resourceOutput = resourceOutput;
-            _searchParamOutputs = searchParamOutputs;
+            _searchParamOutput = searchParamOutput;
             _searchIndexer = searchIndexer;
+            _rawResourceFactory = rawResourceFactory;
             _currentSurrogateId = LastUpdatedToResourceSurrogateId(DateTime.UtcNow);
+            _memoryStreamManager = new RecyclableMemoryStreamManager();
         }
 
         public void Start()
@@ -56,19 +67,20 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker
                 {
                     await foreach (string content in _input.Reader.ReadAllAsync())
                     {
-                        if (_buffer.Count < BatchSize)
+                        _buffer.Add(content);
+                        if (_buffer.Count < MaxBatchSize)
                         {
-                            _buffer.Add(content);
                             continue;
                         }
 
-                        if (_processingTasks.Count >= MaxParallelCount)
+                        if (_processingTasks.Count >= ConcurrentLimit)
                         {
                             await WaitForOneTaskCompleteAsync();
                         }
 
-                        _processingTasks.Enqueue(ProcessRawDataAsync(_buffer.ToArray(), parser));
+                        string[] contents = _buffer.ToArray();
                         _buffer.Clear();
+                        _processingTasks.Enqueue(ProcessRawDataAsync(contents, parser));
                     }
                 }
 
@@ -82,19 +94,20 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker
             });
         }
 
-        private async Task<IReadOnlyCollection<(ResourceElement, IReadOnlyCollection<SearchIndexEntry>)>> ProcessRawDataAsync(string[] contents, FhirJsonParser parser)
+        private async Task<IReadOnlyCollection<(ResourceElement, byte[], IReadOnlyCollection<SearchIndexEntry>)>> ProcessRawDataAsync(string[] contents, FhirJsonParser parser)
         {
             return await Task.Run(() =>
             {
-                List<(ResourceElement, IReadOnlyCollection<SearchIndexEntry>)> result = new List<(ResourceElement, IReadOnlyCollection<SearchIndexEntry>)>();
+                List<(ResourceElement, byte[], IReadOnlyCollection<SearchIndexEntry>)> result = new List<(ResourceElement, byte[], IReadOnlyCollection<SearchIndexEntry>)>();
                 foreach (string content in contents)
                 {
                     Resource resource = parser.Parse<Resource>(content);
                     ITypedElement element = resource.ToTypedElement();
                     ResourceElement resourceElement = new ResourceElement(element);
                     IReadOnlyCollection<SearchIndexEntry> searchIndexEntry = _searchIndexer.Extract(resourceElement);
-
-                    result.Add((resourceElement, searchIndexEntry));
+                    string rawResourceString = GetRawDataString(resourceElement, true);
+                    byte[] rawData = WriteCompressedRawResource(rawResourceString);
+                    result.Add((resourceElement, rawData, searchIndexEntry));
                 }
 
                 return result;
@@ -105,21 +118,21 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker
         {
             if (_processingTasks.Count() > 0)
             {
-                IReadOnlyCollection<(ResourceElement, IReadOnlyCollection<SearchIndexEntry>)> processResult = await _processingTasks.Dequeue().ConfigureAwait(false);
+                IReadOnlyCollection<(ResourceElement, byte[], IReadOnlyCollection<SearchIndexEntry>)> processResult = await _processingTasks.Dequeue().ConfigureAwait(false);
                 foreach (var processedData in processResult)
                 {
                     Interlocked.Increment(ref _currentSurrogateId);
+                    var item = new BulkCopyResourceWrapper(processedData.Item1, processedData.Item2, _currentSurrogateId);
 
-                    await _resourceOutput.Writer.WriteAsync(new BulkCopyResourceWrapper(processedData.Item1, _currentSurrogateId));
+                    await _resourceOutput.Writer.WriteAsync(item);
 
-                    foreach (var searchParam in processedData.Item2)
+                    foreach (var searchParam in processedData.Item3)
                     {
-                        if (_searchParamOutputs.ContainsKey(searchParam.SearchParameter.Type))
-                        {
-                            await _searchParamOutputs[searchParam.SearchParameter.Type].Writer.WriteAsync(new BulkCopySearchParamWrapper(processedData.Item1, searchParam, _currentSurrogateId));
-                        }
+                        await _searchParamOutput.Writer.WriteAsync(new BulkCopySearchParamWrapper(processedData.Item1, searchParam, _currentSurrogateId));
                     }
                 }
+
+                Console.WriteLine($"{_currentSurrogateId} parsed.");
             }
         }
 
@@ -133,6 +146,25 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker
         public async Task WaitForStopAsync()
         {
             await _runningTask;
+        }
+
+        private string GetRawDataString(ResourceElement resource, bool keepMeta)
+        {
+            RawResource rawResource = _rawResourceFactory.Create(resource, keepMeta);
+            return rawResource.Data;
+        }
+
+        private byte[] WriteCompressedRawResource(string rawResource)
+        {
+            using var stream = new RecyclableMemoryStream(_memoryStreamManager);
+
+            using var gzipStream = new GZipStream(stream, CompressionMode.Compress, leaveOpen: true);
+            using var writer = new StreamWriter(gzipStream, ResourceEncoding);
+            writer.Write(rawResource);
+            writer.Flush();
+            stream.Seek(0, 0);
+
+            return stream.ToArray();
         }
     }
 }

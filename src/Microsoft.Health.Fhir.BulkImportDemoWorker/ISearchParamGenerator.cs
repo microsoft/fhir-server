@@ -3,16 +3,16 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System.Data;
+
 namespace Microsoft.Health.Fhir.BulkImportDemoWorker
 {
-    public static class BulkImportConstants
+    public interface ISearchParamGenerator
     {
-        public const int KB = 1024;
-        public const int MB = KB * 1024;
-        public const int DefaultConcurrentCount = 5;
-        public const int DefaultBlockDownloadTimeoutInSeconds = 30;
-        public const int RetryDelayInSecconds = 3;
-        public const int DefaultBlockDownloadTimeoutRetryCount = 3;
-        public const int BlockBufferSize = 8 * MB;
+        public string TableName { get; }
+
+        public DataTable CreateDataTable();
+
+        public DataRow GenerateDataRow(DataTable table, BulkCopySearchParamWrapper searchParam);
     }
 }
