@@ -32,7 +32,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
                 await TestFhirClient.CreateAsync<StructureDefinition>(Samples.GetJsonSample<StructureDefinition>(name));
             }
 
-            var valueSets = new List<string>() { "ValueSet-detailed-ethnicity", "ValueSet-detailed-race", "ValueSet-detailed-race", "ValueSet-omb-ethnicity-category", "ValueSet-omb-race-category", "ValueSet-us-core-birthsex" };
+            var valueSets = new List<string>() { "ValueSet-detailed-ethnicity", "ValueSet-detailed-race", "ValueSet-omb-ethnicity-category", "ValueSet-omb-race-category", "ValueSet-us-core-birthsex" };
             foreach (var name in valueSets)
             {
                 await TestFhirClient.CreateAsync<ValueSet>(Samples.GetJsonSample<ValueSet>(name));
