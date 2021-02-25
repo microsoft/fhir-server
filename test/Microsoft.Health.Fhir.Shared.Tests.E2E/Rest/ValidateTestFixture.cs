@@ -25,17 +25,31 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
             await TestFhirClient.DeleteAllResources(ResourceType.ValueSet);
             await TestFhirClient.DeleteAllResources(ResourceType.StructureDefinition);
             await TestFhirClient.DeleteAllResources(ResourceType.CodeSystem);
-            await TestFhirClient.DeleteAllResources(ResourceType.ConceptMap);
-            var sd = new List<string>() { "StructureDefinition-us-core-birthsex", "StructureDefinition-us-core-ethnicity", "StructureDefinition-us-core-patient", "StructureDefinition-us-core-race", "StructureDefinition-us-core-organization" };
+
+            var sd = new List<string>()
+            {
+                "StructureDefinition-us-core-birthsex", "StructureDefinition-us-core-ethnicity", "StructureDefinition-us-core-patient",
+                "StructureDefinition-us-core-race", "StructureDefinition-us-core-organization", "StructureDefinition-us-core-careplan",
+            };
             foreach (var name in sd)
             {
                 await TestFhirClient.CreateAsync<StructureDefinition>(Samples.GetJsonSample<StructureDefinition>(name));
             }
 
-            var valueSets = new List<string>() { "ValueSet-detailed-ethnicity", "ValueSet-detailed-race", "ValueSet-omb-ethnicity-category", "ValueSet-omb-race-category", "ValueSet-us-core-birthsex" };
+            var valueSets = new List<string>()
+            {
+                "ValueSet-detailed-ethnicity", "ValueSet-detailed-race", "ValueSet-omb-ethnicity-category",
+                "ValueSet-omb-race-category", "ValueSet-us-core-birthsex", "ValueSet-us-core-narrative-status",
+            };
             foreach (var name in valueSets)
             {
                 await TestFhirClient.CreateAsync<ValueSet>(Samples.GetJsonSample<ValueSet>(name));
+            }
+
+            var codeSystem = new List<string>() { "CodeSystem-careplan-category" };
+            foreach (var name in codeSystem)
+            {
+                await TestFhirClient.CreateAsync<CodeSystem>(Samples.GetJsonSample<CodeSystem>(name));
             }
         }
     }

@@ -35,9 +35,11 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [InlineData("Patient/$validate", "Profile-Patient-uscore", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient")]
         [InlineData("Organization/$validate", "Profile-Organization-uscore", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-organization")]
         [InlineData("Organization/$validate", "Profile-Organization-uscore-endpoint", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-organization")]
+        [InlineData("CarePlan/$validate", "Profile-CarePlan-uscore", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-careplan")]
         [InlineData("Patient/$validate", "Profile-Patient-uscore", null)]
         [InlineData("Organization/$validate", "Profile-Organization-uscore", null)]
         [InlineData("Organization/$validate", "Profile-Organization-uscore-endpoint", null)]
+        [InlineData("CarePlan/$validate", "Profile-CarePlan-uscore", null)]
         public async void GivenAValidateRequest_WhenTheResourceIsValid_ThenAnOkMessageIsReturned(string path, string filename, string profile)
         {
             OperationOutcome outcome = await _client.ValidateAsync(path, Samples.GetJson(filename), profile);
@@ -60,6 +62,7 @@ namespace Microsoft.Health.Fhir.Tests.E2E.Rest
         [Theory]
         [InlineData("Organization/$validate", "Organization", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-organization")]
         [InlineData("Patient/$validate", "Patient", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient")]
+        [InlineData("CarePlan/$validate", "CarePlan", "http://hl7.org/fhir/us/core/StructureDefinition/us-core-careplan")]
         public async void GivenAValidateRequest_WhenTheResourceIsNonConformToProfile_ThenAnErrorShouldBeReturned(string path, string filename, string profile)
         {
             OperationOutcome outcome = await _client.ValidateAsync(path, Samples.GetJson(filename), profile);
