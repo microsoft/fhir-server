@@ -68,12 +68,12 @@
       <Generated Include="Features\Schema\Model\ImmutableTypes.Generated.cs">
         <Generator>ImmutableSqlModelGenerator</Generator>
         <Namespace>Microsoft.Health.Fhir.SqlServer.Features.Schema.Model</Namespace>
-        <Args>@(ImmutableSqlGeneratorInputs->'&quot;%(FullPath)&quot;', ' ')</Args>
+        <Args>@(ImmutableSqlGeneratorInputs->'"%(FullPath)"', ' ')</Args>
       </Generated>
       <Generated Include="Features\Schema\Model\V%(MutableSqlGeneratorInputs.MutableClassVersion).Generated.cs">
         <Generator>MutableSqlModelGenerator</Generator>
         <Namespace>Microsoft.Health.Fhir.SqlServer.Features.Schema.Model</Namespace>
-        <Args>@(MutableSqlGeneratorInputs->'&quot;%(FullPath)&quot;', ' ')</Args>
+        <Args>@(MutableSqlGeneratorInputs->'"%(FullPath)"', ' ')</Args>
       </Generated>
     </ItemGroup>
   </Target>

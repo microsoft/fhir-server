@@ -43,6 +43,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
         private readonly V7.UpsertResourceTvpGenerator<ResourceMetadata> _upsertResourceTvpGeneratorV7;
         private readonly VLatest.UpsertResourceTvpGenerator<ResourceMetadata> _upsertResourceTvpGeneratorVLatest;
         private readonly VLatest.ReindexResourceTvpGenerator<ResourceMetadata> _reindexResourceTvpGeneratorVLatest;
+        private readonly VLatest.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>> _bulkReindexResourcesTvpGeneratorVLatest;
         private readonly RecyclableMemoryStreamManager _memoryStreamManager;
         private readonly CoreFeatureConfiguration _coreFeatures;
         private readonly SqlConnectionWrapperFactory _sqlConnectionWrapperFactory;
@@ -56,6 +57,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             V7.UpsertResourceTvpGenerator<ResourceMetadata> upsertResourceTvpGeneratorV7,
             VLatest.UpsertResourceTvpGenerator<ResourceMetadata> upsertResourceTvpGeneratorVLatest,
             VLatest.ReindexResourceTvpGenerator<ResourceMetadata> reindexResourceTvpGeneratorVLatest,
+            VLatest.BulkReindexResourcesTvpGenerator<IReadOnlyList<ResourceWrapper>> bulkReindexResourcesTvpGeneratorVLatest,
             IOptions<CoreFeatureConfiguration> coreFeatures,
             SqlConnectionWrapperFactory sqlConnectionWrapperFactory,
             ILogger<SqlServerFhirDataStore> logger,
@@ -67,6 +69,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             EnsureArg.IsNotNull(upsertResourceTvpGeneratorV7, nameof(upsertResourceTvpGeneratorV7));
             EnsureArg.IsNotNull(upsertResourceTvpGeneratorVLatest, nameof(upsertResourceTvpGeneratorVLatest));
             EnsureArg.IsNotNull(reindexResourceTvpGeneratorVLatest, nameof(reindexResourceTvpGeneratorVLatest));
+            EnsureArg.IsNotNull(bulkReindexResourcesTvpGeneratorVLatest, nameof(bulkReindexResourcesTvpGeneratorVLatest));
             EnsureArg.IsNotNull(coreFeatures, nameof(coreFeatures));
             EnsureArg.IsNotNull(sqlConnectionWrapperFactory, nameof(sqlConnectionWrapperFactory));
             EnsureArg.IsNotNull(logger, nameof(logger));
@@ -78,6 +81,7 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
             _upsertResourceTvpGeneratorV7 = upsertResourceTvpGeneratorV7;
             _upsertResourceTvpGeneratorVLatest = upsertResourceTvpGeneratorVLatest;
             _reindexResourceTvpGeneratorVLatest = reindexResourceTvpGeneratorVLatest;
+            _bulkReindexResourcesTvpGeneratorVLatest = bulkReindexResourcesTvpGeneratorVLatest;
             _coreFeatures = coreFeatures.Value;
             _sqlConnectionWrapperFactory = sqlConnectionWrapperFactory;
             _logger = logger;
@@ -283,12 +287,32 @@ namespace Microsoft.Health.Fhir.SqlServer.Features.Storage
 
         public async Task UpdateSearchParameterIndicesBatchAsync(IReadOnlyCollection<ResourceWrapper> resources, CancellationToken cancellationToken)
         {
-            // TODO: use batch command to update both hash values and search index values for list updateSearchIndices
-
-            // this is a place holder update until we batch update resources
-            foreach (var resource in resources)
+            using (SqlConnectionWrapper sqlConnectionWrapper = await _sqlConnectionWrapperFactory.ObtainSqlConnectionWrapperAsync(cancellationToken, true))
+            using (SqlCommandWrapper sqlCommandWrapper = sqlConnectionWrapper.CreateSqlCommand())
             {
-                await UpdateSearchIndexForResourceAsync(resource, WeakETag.FromVersionId(resource.Version), cancellationToken);
+                VLatest.BulkReindexResources.PopulateCommand(
+                    sqlCommandWrapper,
+                    _bulkReindexResourcesTvpGeneratorVLatest.Generate(resources.ToList()));
+
+                try
+                {
+                    await sqlCommandWrapper.ExecuteNonQueryAsync(cancellationToken);
+                }
+                catch (SqlException e)
+                {
+                    switch (e.Number)
+                    {
+                        case SqlErrorCodes.PreconditionFailed:
+                            // TODO: create new error message
+                            // throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag?.VersionId));
+                        case SqlErrorCodes.NotFound:
+                            // TODO: create new error message
+                            // throw new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFound, resource.ResourceTypeName, resource.ResourceId));
+                        default:
+                            _logger.LogError(e, "Error from SQL database on reindex");
+                            throw;
+                    }
+                }
             }
         }
 
