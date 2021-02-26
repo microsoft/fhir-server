@@ -3,21 +3,22 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using System;
 using System.Data;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
 
-namespace Microsoft.Health.Fhir.BulkImportDemoWorker
+namespace Microsoft.Health.Fhir.BulkImportDemoWorker.SearchParamGenerator
 {
-    public class StringSearchParamGenerator : ISearchParamGenerator
+    public class DateSearchParamGenerator : ISearchParamGenerator
     {
         private ModelProvider _modelProvider;
 
-        public StringSearchParamGenerator(ModelProvider modelProvider)
+        public DateSearchParamGenerator(ModelProvider modelProvider)
         {
             _modelProvider = modelProvider;
         }
 
-        public string TableName => "dbo.StringSearchParam";
+        public string TableName => "dbo.DateTimeSearchParam";
 
         public DataTable CreateDataTable()
         {
@@ -43,14 +44,20 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker
             table.Columns.Add(column);
 
             column = new DataColumn();
-            column.DataType = typeof(string);
-            column.ColumnName = "Text";
+            column.DataType = typeof(DateTime);
+            column.ColumnName = "StartDateTime";
             column.ReadOnly = true;
             table.Columns.Add(column);
 
             column = new DataColumn();
-            column.DataType = typeof(string);
-            column.ColumnName = "TextOverflow";
+            column.DataType = typeof(DateTime);
+            column.ColumnName = "EndDateTime";
+            column.ReadOnly = true;
+            table.Columns.Add(column);
+
+            column = new DataColumn();
+            column.DataType = typeof(bool);
+            column.ColumnName = "IsLongerThanADay";
             column.ReadOnly = true;
             table.Columns.Add(column);
 
@@ -65,26 +72,15 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker
 
         public DataRow GenerateDataRow(DataTable table, BulkCopySearchParamWrapper searchParam)
         {
-            string content = ((StringSearchValue)searchParam.SearchIndexEntry.Value).String;
-            string overflow;
-            string indexedPrefix;
-            if (content.Length > 256)
-            {
-                indexedPrefix = content.Substring(0, 256);
-                overflow = content;
-            }
-            else
-            {
-                indexedPrefix = content;
-                overflow = null;
-            }
+            DateTimeSearchValue searchValue = (DateTimeSearchValue)searchParam.SearchIndexEntry.Value;
 
             DataRow row = table.NewRow();
             row["ResourceTypeId"] = _modelProvider.ResourceTypeMapping[searchParam.Resource.InstanceType];
             row["ResourceSurrogateId"] = searchParam.SurrogateId;
             row["SearchParamId"] = _modelProvider.SearchParamTypeMapping.ContainsKey(searchParam.SearchIndexEntry.SearchParameter.Url) ? _modelProvider.SearchParamTypeMapping[searchParam.SearchIndexEntry.SearchParameter.Url] : 0;
-            row["Text"] = indexedPrefix;
-            row["TextOverflow"] = overflow;
+            row["StartDateTime"] = searchValue.Start;
+            row["EndDateTime"] = searchValue.End;
+            row["IsLongerThanADay"] = (searchValue.Start - searchValue.End).Ticks > TimeSpan.TicksPerDay;
             row["IsHistory"] = false;
 
             return row;

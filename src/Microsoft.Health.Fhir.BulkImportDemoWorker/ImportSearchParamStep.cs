@@ -10,6 +10,7 @@ using System.Data.SqlClient;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Health.Fhir.BulkImportDemoWorker.SearchParamGenerator;
 using Microsoft.Health.Fhir.ValueSets;
 
 namespace Microsoft.Health.Fhir.BulkImportDemoWorker
@@ -102,7 +103,11 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker
                 DataTable importTable = generator.CreateDataTable();
                 foreach (var searchItem in items)
                 {
-                    importTable.Rows.Add(generator.GenerateDataRow(importTable, searchItem));
+                    DataRow row = generator.GenerateDataRow(importTable, searchItem);
+                    if (row != null)
+                    {
+                        importTable.Rows.Add(row);
+                    }
                 }
 
                 using IDataReader reader = importTable.CreateDataReader();
@@ -115,7 +120,7 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker
                             generator.TableName;
                         await bulkCopy.WriteToServerAsync(reader);
 
-                        Console.WriteLine($"{items.Length} search params to db completed.");
+                        Console.WriteLine($"{items.Length} {parameterType.ToString()} search params to db completed.");
                     }
                     catch (Exception ex)
                     {
@@ -134,6 +139,13 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker
             _generators = new Dictionary<SearchParamType, ISearchParamGenerator>()
             {
                 { SearchParamType.String, new StringSearchParamGenerator(_provider) },
+                { SearchParamType.Number, new NumberSearchParamGenerator(_provider) },
+                { SearchParamType.Uri, new UriSearchParamGenerator(_provider) },
+                { SearchParamType.Date, new DateSearchParamGenerator(_provider) },
+                { SearchParamType.Token, new TokenSearchParamGenerator(_provider) },
+                { SearchParamType.Quantity, new QuantitySearchParamGenerator(_provider) },
+                { SearchParamType.Reference, new ReferenceSearchParamGenerator(_provider) },
+                { SearchParamType.Special, new StringSearchParamGenerator(_provider) },
             };
         }
     }

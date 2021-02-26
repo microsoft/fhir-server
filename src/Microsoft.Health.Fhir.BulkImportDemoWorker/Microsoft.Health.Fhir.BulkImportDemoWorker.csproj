@@ -2,6 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>netcoreapp3.1</TargetFramework>
+    <UserSecretsId>01202ee2-8b4b-4246-93e6-22989f84c305</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
@@ -35,6 +36,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="ParamMappings.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="ResourceTypes.csv">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

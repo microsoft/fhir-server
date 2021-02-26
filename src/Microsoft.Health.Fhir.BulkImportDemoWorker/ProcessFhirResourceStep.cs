@@ -91,6 +91,7 @@ namespace Microsoft.Health.Fhir.BulkImportDemoWorker
                 }
 
                 _resourceOutput.Writer.Complete();
+                _searchParamOutput.Writer.Complete();
             });
         }
 
