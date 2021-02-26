@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -26,7 +27,6 @@ using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
 using Microsoft.Health.Fhir.CosmosDb.Features.Search;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.HardDelete;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Replace;
-using Microsoft.Health.Fhir.CosmosDb.Features.Storage.StoredProcedures.Upsert;
 using Microsoft.Health.Fhir.ValueSets;
 using Task = System.Threading.Tasks.Task;
 
@@ -40,7 +40,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         private readonly RetryExceptionPolicyFactory _retryExceptionPolicyFactory;
         private readonly ILogger<CosmosFhirDataStore> _logger;
 
-        private static readonly UpsertWithHistory _upsertWithHistoryProc = new UpsertWithHistory();
         private static readonly HardDelete _hardDelete = new HardDelete();
         private static readonly ReplaceSingleResource _replaceSingleResource = new ReplaceSingleResource();
         private readonly CoreFeatureConfiguration _coreFeatures;
@@ -94,52 +93,106 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
             var cosmosWrapper = new FhirCosmosResourceWrapper(resource);
 
-            try
-            {
-                _logger.LogDebug($"Upserting {resource.ResourceTypeName}/{resource.ResourceId}, ETag: \"{weakETag?.VersionId}\", AllowCreate: {allowCreate}, KeepHistory: {keepHistory}");
+            _logger.LogDebug($"Upserting {resource.ResourceTypeName}/{resource.ResourceId}, ETag: \"{weakETag?.VersionId}\", AllowCreate: {allowCreate}, KeepHistory: {keepHistory}");
 
-                UpsertWithHistoryModel response = await _retryExceptionPolicyFactory.GetRetryPolicy().ExecuteAsync(
-                    async ct => await _upsertWithHistoryProc.Execute(
-                        _containerScope.Value.Scripts,
-                        cosmosWrapper,
-                        weakETag?.VersionId,
-                        allowCreate,
-                        keepHistory,
-                        ct),
-                    cancellationToken);
-
-                return new UpsertOutcome(response.Wrapper, response.OutcomeType);
-            }
-            catch (CosmosException exception)
+            if (weakETag == null && allowCreate && !cosmosWrapper.IsDeleted)
             {
-                switch (exception.GetSubStatusCode())
+                // Optimistically try to create this as a new resource
+                try
                 {
-                    case HttpStatusCode.PreconditionFailed:
-                        throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag?.VersionId));
-                    case HttpStatusCode.NotFound:
-                        if (cosmosWrapper.IsDeleted)
-                        {
-                            return null;
-                        }
+                    ItemResponse<FhirCosmosResourceWrapper> itemResponse = await _retryExceptionPolicyFactory.GetRetryPolicy().ExecuteAsync(
+                        async ct => await _containerScope.Value.CreateItemAsync(
+                            cosmosWrapper,
+                            new PartitionKey(cosmosWrapper.PartitionKey),
+                            cancellationToken: ct,
+                            requestOptions: new ItemRequestOptions { EnableContentResponseOnWrite = false }),
+                        cancellationToken);
 
-                        if (weakETag != null)
-                        {
-                            throw new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundByIdAndVersion, resource.ResourceTypeName, resource.ResourceId, weakETag.VersionId));
-                        }
-                        else if (!allowCreate)
-                        {
-                            throw new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed);
-                        }
+                    return new UpsertOutcome(cosmosWrapper, SaveOutcomeType.Created);
+                }
+                catch (CosmosException e) when (e.StatusCode == HttpStatusCode.Conflict)
+                {
+                    // this means there is already an existing version of this resource
+                }
+            }
 
-                        break;
+            resource.RawResource.IsMetaSet = false; // TODO update version number in rawresource
 
-                    case HttpStatusCode.ServiceUnavailable:
-                        throw new ServiceUnavailableException();
+            while (true)
+            {
+                FhirCosmosResourceWrapper existingItemResource;
+                try
+                {
+                    ItemResponse<FhirCosmosResourceWrapper> existingItem = await _containerScope.Value.ReadItemAsync<FhirCosmosResourceWrapper>(cosmosWrapper.Id, new PartitionKey(cosmosWrapper.PartitionKey), cancellationToken: cancellationToken);
+                    existingItemResource = existingItem.Resource;
+                }
+                catch (CosmosException e) when (e.StatusCode == HttpStatusCode.NotFound)
+                {
+                    if (cosmosWrapper.IsDeleted)
+                    {
+                        return null;
+                    }
+
+                    if (weakETag != null)
+                    {
+                        throw new ResourceNotFoundException(string.Format(Core.Resources.ResourceNotFoundByIdAndVersion, resource.ResourceTypeName, resource.ResourceId, weakETag.VersionId));
+                    }
+
+                    if (!allowCreate)
+                    {
+                        throw new MethodNotAllowedException(Core.Resources.ResourceCreationNotAllowed);
+                    }
+
+                    throw;
                 }
 
-                _logger.LogError(exception, "Unhandled Document Client Exception");
+                if (weakETag != null && weakETag.VersionId != existingItemResource.Version)
+                {
+                    throw new PreconditionFailedException(string.Format(Core.Resources.ResourceVersionConflict, weakETag.VersionId));
+                }
 
-                throw;
+                if (existingItemResource.IsDeleted && cosmosWrapper.IsDeleted)
+                {
+                    return null;
+                }
+
+                existingItemResource.IsHistory = true;
+                existingItemResource.ActivePeriodEndDateTime = cosmosWrapper.LastModified;
+
+                cosmosWrapper.Version = int.TryParse(existingItemResource.Version, out int existingVersion) ? (existingVersion + 1).ToString(CultureInfo.InvariantCulture) : Guid.NewGuid().ToString();
+
+                if (keepHistory)
+                {
+                    TransactionalBatchResponse transactionalBatchResponse = await _containerScope.Value.CreateTransactionalBatch(new PartitionKey(cosmosWrapper.PartitionKey))
+                        .ReplaceItem(cosmosWrapper.Id, cosmosWrapper, new TransactionalBatchItemRequestOptions { EnableContentResponseOnWrite = false, IfMatchEtag = existingItemResource.ETag })
+                        .CreateItem(existingItemResource, new TransactionalBatchItemRequestOptions { EnableContentResponseOnWrite = false })
+                        .ExecuteAsync(cancellationToken);
+
+                    if (!transactionalBatchResponse.IsSuccessStatusCode)
+                    {
+                        if (transactionalBatchResponse.StatusCode == HttpStatusCode.PreconditionFailed)
+                        {
+                            // someone else beat us to it
+                            continue;
+                        }
+
+                        throw new InvalidOperationException(transactionalBatchResponse.ErrorMessage);
+                    }
+                }
+                else
+                {
+                    try
+                    {
+                        await _containerScope.Value.ReplaceItemAsync(cosmosWrapper, cosmosWrapper.Id, new PartitionKey(cosmosWrapper.PartitionKey), new ItemRequestOptions { EnableContentResponseOnWrite = false, IfMatchEtag = existingItemResource.ETag }, cancellationToken);
+                    }
+                    catch (CosmosException e) when (e.StatusCode == HttpStatusCode.PreconditionFailed)
+                    {
+                        // someone else beat us to it
+                        continue;
+                    }
+                }
+
+                return new UpsertOutcome(cosmosWrapper, SaveOutcomeType.Updated);
             }
         }
 

@@ -70,7 +70,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         }
 
         [JsonProperty(KnownDocumentProperties.ActivePeriodEndDateTime)]
-        public DateTimeOffset? ActivePeriodEndDateTime { get; }
+        public DateTimeOffset? ActivePeriodEndDateTime { get; set; }
 
         [JsonProperty(KnownDocumentProperties.ETag)]
         public string ETag { get; protected set; }
