@@ -37,10 +37,10 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         public bool IsValidAsCompositeComponent => true;
 
         /// <inheritdoc />
-        public bool IsMin { get; set; }
+        public bool? IsMin { get; set; }
 
         /// <inheritdoc />
-        public bool IsMax { get; set; }
+        public bool? IsMax { get; set; }
 
         /// <summary>
         /// Parses the string value to an instance of <see cref="StringSearchValue"/>.

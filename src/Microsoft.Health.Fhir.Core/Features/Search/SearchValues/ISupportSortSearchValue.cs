@@ -17,12 +17,12 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         /// Determines whether this current value is the minimum when compared to
         /// a collection of search values for the same parameter.
         /// </summary>
-        bool IsMin { get; set; }
+        bool? IsMin { get; set; }
 
         /// <summary>
         /// Determines whether this current value is the maximum when compared to
         /// a collection of search values for the same parameter.
         /// </summary>
-        bool IsMax { get; set; }
+        bool? IsMax { get; set; }
     }
 }

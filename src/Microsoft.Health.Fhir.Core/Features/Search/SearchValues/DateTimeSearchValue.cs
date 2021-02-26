@@ -82,9 +82,9 @@ namespace Microsoft.Health.Fhir.Core.Features.Search.SearchValues
         /// <inheritdoc />
         public bool IsValidAsCompositeComponent => true;
 
-        public bool IsMin { get; set; }
+        public bool? IsMin { get; set; }
 
-        public bool IsMax { get; set; }
+        public bool? IsMax { get; set; }
 
         /// <summary>
         /// Parses the string value to an instance of <see cref="DateTimeSearchValue"/>.

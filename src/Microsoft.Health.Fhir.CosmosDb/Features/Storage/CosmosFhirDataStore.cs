@@ -26,7 +26,6 @@ using Microsoft.Health.Fhir.Core.Extensions;
 using Microsoft.Health.Fhir.Core.Features.Conformance;
 using Microsoft.Health.Fhir.Core.Features.Definition;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
-using Microsoft.Health.Fhir.Core.Features.Search.Registry;
 using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Configs;
 using Microsoft.Health.Fhir.CosmosDb.Features.Queries;
@@ -470,21 +469,13 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         private void UpdateSortIndex(FhirCosmosResourceWrapper cosmosWrapper)
         {
-            Dictionary<string, SearchParameterInfo> searchParameters = _supportedSearchParameters.Value.GetSearchParameters(cosmosWrapper.ResourceTypeName)
-                .Where(x => x.SortStatus != SortParameterStatus.Disabled)
-                .ToDictionary(x => x.Code);
+            IEnumerable<SearchParameterInfo> searchParameters = _supportedSearchParameters.Value
+                .GetSearchParameters(cosmosWrapper.ResourceTypeName)
+                .Where(x => x.SortStatus != SortParameterStatus.Disabled);
 
             if (searchParameters.Any())
             {
-                foreach (KeyValuePair<string, SortValue> item in cosmosWrapper.SortValues.ToArray())
-                {
-                    if (!searchParameters.ContainsKey(item.Key))
-                    {
-                        cosmosWrapper.SortValues.Remove(item.Key);
-                    }
-                }
-
-                foreach (SearchParameterInfo field in searchParameters.Values)
+                foreach (SearchParameterInfo field in searchParameters)
                 {
                     if (cosmosWrapper.SortValues.All(x => x.Value.SearchParameterUri != field.Url))
                     {

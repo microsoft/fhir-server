@@ -10,6 +10,7 @@ using EnsureThat;
 using Microsoft.Health.Fhir.Core.Features.Persistence;
 using Microsoft.Health.Fhir.Core.Features.Search;
 using Microsoft.Health.Fhir.Core.Features.Search.SearchValues;
+using Microsoft.Health.Fhir.Core.Models;
 using Microsoft.Health.Fhir.CosmosDb.Features.Storage.Search;
 using Newtonsoft.Json;
 
@@ -98,7 +99,7 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
         [JsonProperty(KnownDocumentProperties.ReferencesToInclude)]
         public IReadOnlyList<ResourceTypeAndId> ReferencesToInclude { get; set; }
 
-        [JsonProperty("sort")]
+        [JsonProperty("sort", ItemConverterType = typeof(SortEntryConverter))]
         public IDictionary<string, SortValue> SortValues { get; set; }
 
         internal string GetETagOrVersion()
@@ -122,16 +123,42 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
 
         private void UpdateSortIndex(IReadOnlyCollection<SearchIndexEntry> searchIndices)
         {
-            SortValues = searchIndices?
-                .Select(x => (x.SearchParameter.Code, SearchValue: x.Value, SortValue: x.Value as ISupportSortSearchValue, Url: x.SearchParameter.Url))
-                .Where(x => x.SortValue != null)
-                .GroupBy(x => x.Code)
-                .ToDictionary(
-                    x => x.Key,
-                    x => new SortValue(
-                        x.FirstOrDefault(y => y.SortValue.IsMin).SearchValue,
-                        x.FirstOrDefault(y => y.SortValue.IsMax).SearchValue,
-                        x.FirstOrDefault().Url));
+            SortValues = new Dictionary<string, SortValue>();
+
+            if (searchIndices == null)
+            {
+                return;
+            }
+
+            foreach (SearchIndexEntry entry in searchIndices)
+            {
+                if (entry.Value is ISupportSortSearchValue sortValue && (sortValue.IsMax.HasValue || sortValue.IsMin.HasValue))
+                {
+                    if (SortValues.TryGetValue(entry.SearchParameter.Code, out SortValue item))
+                    {
+                        SetSortValue(item, sortValue, entry);
+                    }
+                    else
+                    {
+                        var sortValueEntry = new SortValue(entry.SearchParameter.Url);
+                        SetSortValue(sortValueEntry, sortValue, entry);
+                        SortValues[entry.SearchParameter.Code] = sortValueEntry;
+                    }
+                }
+            }
+
+            void SetSortValue(SortValue item, ISupportSortSearchValue sortValue, SearchIndexEntry entry)
+            {
+                if (sortValue.IsMax.GetValueOrDefault())
+                {
+                    item.High = entry.Value;
+                }
+
+                if (sortValue.IsMin.GetValueOrDefault())
+                {
+                    item.Low = entry.Value;
+                }
+            }
         }
     }
 }

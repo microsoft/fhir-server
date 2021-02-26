@@ -113,6 +113,11 @@ namespace Microsoft.Health.Fhir.Core.Features.Persistence
                     continue;
                 }
 
+                if (currentEntry.SearchParameter.SortStatus == SortParameterStatus.Disabled)
+                {
+                    continue;
+                }
+
                 if (minValues.TryGetValue(currentEntry.SearchParameter.Url, out ISupportSortSearchValue existingMinValue))
                 {
                     if (currentValue.CompareTo(existingMinValue, ComparisonRange.Min) < 0)

@@ -66,9 +66,9 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
                 _searchParameterDefinitionManager,
                 Deserializers.ResourceDeserializer);
 
-            _nameSearchParameterInfo = new SearchParameterInfo("name", "name", ValueSets.SearchParamType.String, new Uri("https://localhost/searchParameter/name"));
-            _addressSearchParameterInfo = new SearchParameterInfo("address-city", "address-city", ValueSets.SearchParamType.String, new Uri("https://localhost/searchParameter/address-city"));
-            _ageSearchParameterInfo = new SearchParameterInfo("age", "age", ValueSets.SearchParamType.Number, new Uri("https://localhost/searchParameter/age"));
+            _nameSearchParameterInfo = new SearchParameterInfo("name", "name", ValueSets.SearchParamType.String, new Uri("https://localhost/searchParameter/name")) { SortStatus = SortParameterStatus.Enabled };
+            _addressSearchParameterInfo = new SearchParameterInfo("address-city", "address-city", ValueSets.SearchParamType.String, new Uri("https://localhost/searchParameter/address-city")) { SortStatus = SortParameterStatus.Enabled };
+            _ageSearchParameterInfo = new SearchParameterInfo("age", "age", ValueSets.SearchParamType.Number, new Uri("https://localhost/searchParameter/age")) { SortStatus = SortParameterStatus.Supported };
         }
 
         [Fact]
@@ -90,16 +90,16 @@ namespace Microsoft.Health.Fhir.Core.UnitTests.Features.Persistence
                 switch (searchEntry.Value.ToString())
                 {
                     case "alpha":
-                        Assert.True(searchEntryValue.IsMin);
-                        Assert.False(searchEntryValue.IsMax);
+                        Assert.True(searchEntryValue.IsMin.GetValueOrDefault());
+                        Assert.False(searchEntryValue.IsMax.GetValueOrDefault());
                         break;
                     case "beta":
-                        Assert.False(searchEntryValue.IsMin);
-                        Assert.False(searchEntryValue.IsMax);
+                        Assert.False(searchEntryValue.IsMin.GetValueOrDefault());
+                        Assert.False(searchEntryValue.IsMax.GetValueOrDefault());
                         break;
                     case "gamma":
-                        Assert.False(searchEntryValue.IsMin);
-                        Assert.True(searchEntryValue.IsMax);
+                        Assert.False(searchEntryValue.IsMin.GetValueOrDefault());
+                        Assert.True(searchEntryValue.IsMax.GetValueOrDefault());
                         break;
                     default:
                         throw new Exception("Unexpected value");

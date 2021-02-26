@@ -27,9 +27,9 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
             SearchParameterUri = searchParameterUri;
         }
 
-        public ISearchValue Low { get; }
+        public ISearchValue Low { get; set; }
 
-        public ISearchValue High { get; }
+        public ISearchValue High { get; set; }
 
         public Uri SearchParameterUri { get; }
     }

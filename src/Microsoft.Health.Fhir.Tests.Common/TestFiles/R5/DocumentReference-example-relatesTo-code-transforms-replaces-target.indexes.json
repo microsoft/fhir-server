@@ -58,8 +58,8 @@
       "start": "2005-12-23T22:35:00+00:00",
       "end": "2005-12-23T22:35:00.9999999+00:00",
       "isValidAsCompositeComponent": true,
-      "isMin": false,
-      "isMax": false
+      "isMin": null,
+      "isMax": null
     }
   },
   {
@@ -80,8 +80,8 @@
       "start": "2005-12-23T22:43:41+00:00",
       "end": "2005-12-23T22:43:41+00:00",
       "isValidAsCompositeComponent": true,
-      "isMin": false,
-      "isMax": false
+      "isMin": null,
+      "isMax": null
     }
   },
   {
@@ -90,8 +90,8 @@
     "value": {
       "string": "Physical",
       "isValidAsCompositeComponent": true,
-      "isMin": false,
-      "isMax": false
+      "isMin": null,
+      "isMax": null
     }
   },
   {
@@ -204,8 +204,8 @@
       "start": "2004-12-22T21:00:00+00:00",
       "end": "2004-12-22T21:01:00.9999999+00:00",
       "isValidAsCompositeComponent": true,
-      "isMin": false,
-      "isMax": false
+      "isMin": null,
+      "isMax": null
     }
   },
   {

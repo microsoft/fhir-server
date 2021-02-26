@@ -164,8 +164,6 @@ namespace Microsoft.Health.Fhir.CosmosDb.Features.Storage
                 // if the values don't always have complete 7 digits, the comparison might not work properly.
                 serializerSettings.Converters.Add(new IsoDateTimeConverter { DateTimeFormat = "o" });
 
-                serializerSettings.Converters.Add(new SortEntryConverter());
-
                 return JsonSerializer.Create(serializerSettings);
             }
 
