@@ -28,7 +28,7 @@ namespace Microsoft.Health.Fhir.Api.Features.Formatters
     /// Checks format parameters defined for all REST API in FHIR Server.
     /// </summary>
     /// <remarks>
-    /// General parameters defined here: http://hl7.org/fhir/http.html#parameters
+    /// Format parameters defined here: http://hl7.org/fhir/http.html#parameters
     /// </remarks>
     public sealed class FormatParametersValidator : IFormatParametersValidator
     {
